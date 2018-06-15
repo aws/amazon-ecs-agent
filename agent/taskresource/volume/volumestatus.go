@@ -17,11 +17,11 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 // VolumeStatus defines resource statuses for docker volume
-type VolumeStatus taskresource.ResourceStatus
+type VolumeStatus resourcestatus.ResourceStatus
 
 const (
 	// VolumeStatusNone is the zero state of a task resource

@@ -14,6 +14,7 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -31,7 +32,8 @@ import (
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	resourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -83,7 +85,7 @@ type Task struct {
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
 	// ResourcesMapUnsafe is the map of resource type to corresponding resources
-	ResourcesMapUnsafe resourcetypes.ResourcesMap `json:"resources"`
+	ResourcesMapUnsafe resourcetype.ResourcesMap `json:"resources"`
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 	// CPU is a task-level limit for compute resources. A value of 1 means that
@@ -193,7 +195,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
-	dockerClient dockerapi.DockerClient) error {
+	dockerClient dockerapi.DockerClient, ctx context.Context) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -204,13 +206,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
-	task.initializeDockerLocalVolumes(dockerClient)
+	task.initializeDockerLocalVolumes(dockerClient, ctx)
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
 
-func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient) {
+func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) {
 	requiredLocalVolumes := []string{}
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
@@ -221,7 +223,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 			if localVolume, ok := vol.(*taskresourcevolume.LocalVolume); ok {
 				localVolume.HostPath = task.taskScopedVolumeName(mountPoint.SourceVolume)
 				container.BuildResourceDependency(mountPoint.SourceVolume,
-					taskresource.ResourceStatus(taskresourcevolume.VolumeCreated),
+					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
 					apicontainer.ContainerPulled)
 				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
 			}
@@ -242,9 +244,9 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 		localVolume := taskresourcevolume.NewVolumeResource(volumeName,
 			vol.SourcePath(), scope, autoProvision,
 			taskresourcevolume.DockerLocalVolumeDriver,
-			make(map[string]string), make(map[string]string), dockerClient)
+			make(map[string]string), make(map[string]string), dockerClient, ctx)
 
-		task.AddResource(resourcetypes.DockerVolumeKey, localVolume)
+		task.AddResource(resourcetype.DockerVolumeKey, localVolume)
 	}
 }
 

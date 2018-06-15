@@ -23,7 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -114,8 +114,6 @@ func TestCleanupError(t *testing.T) {
 	autoprovision := false
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Return(errors.New("some error"))
-
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volume := NewVolumeResource(name, name, scope, autoprovision, driver, nil, nil, mockClient, ctx)
@@ -137,17 +135,17 @@ func TestApplyTransitionForTaskScopeVolume(t *testing.T) {
 	mountPoint := "some/mount/point"
 
 	gomock.InOrder(
-		mockClient.EXPECT().CreateVolume(name, driver, driverOptions, labels, dockerapi.CreateVolumeTimeout).Times(1).Return(
+		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, labels, dockerapi.CreateVolumeTimeout).Times(1).Return(
 			dockerapi.VolumeResponse{
 				DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
-		mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Times(1).Return(nil),
+		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Times(1).Return(nil),
 	)
 
-	volume := NewVolumeResource(name, name, scope, autoprovision, driver, driverOptions, labels, mockClient)
-	volume.ApplyTransition(taskresource.ResourceStatus(VolumeCreated))
-	volume.ApplyTransition(taskresource.ResourceStatus(VolumeRemoved))
+	volume := NewVolumeResource(name, name, scope, autoprovision, driver, driverOptions, labels, mockClient, nil)
+	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeCreated))
+	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeRemoved))
 }
 
 func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
@@ -162,17 +160,17 @@ func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
 	mountPoint := "some/mount/point"
 
 	gomock.InOrder(
-		mockClient.EXPECT().CreateVolume(name, driver, nil, nil, dockerapi.CreateVolumeTimeout).Times(1).Return(
+		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, nil, dockerapi.CreateVolumeTimeout).Times(1).Return(
 			dockerapi.VolumeResponse{
 				DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
-		mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Times(0),
+		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Times(0),
 	)
 
-	volume := NewVolumeResource(name, name, scope, autoprovision, driver, nil, nil, mockClient)
-	volume.ApplyTransition(taskresource.ResourceStatus(VolumeCreated))
-	volume.ApplyTransition(taskresource.ResourceStatus(VolumeRemoved))
+	volume := NewVolumeResource(name, name, scope, autoprovision, driver, nil, nil, mockClient, nil)
+	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeCreated))
+	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeRemoved))
 }
 
 func TestMarshall(t *testing.T) {
@@ -189,8 +187,8 @@ func TestMarshall(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volume := NewVolumeResource(name, name, scope, autoprovision, driver, driverOpts, labels, nil, ctx)
-	volume.SetDesiredStatus(taskresource.ResourceStatus(VolumeCreated))
-	volume.SetKnownStatus(taskresource.ResourceStatus(VolumeStatusNone))
+	volume.SetDesiredStatus(resourcestatus.ResourceStatus(VolumeCreated))
+	volume.SetKnownStatus(resourcestatus.ResourceStatus(VolumeStatusNone))
 
 	bytes, err := volume.MarshalJSON()
 	assert.NoError(t, err)
@@ -222,6 +220,6 @@ func TestUnmarshall(t *testing.T) {
 	assert.Equal(t, driver, unmarshalledVolume.VolumeConfig.Driver)
 	assert.Equal(t, labels, unmarshalledVolume.VolumeConfig.Labels)
 	assert.Equal(t, time.Time{}, unmarshalledVolume.GetCreatedAt())
-	assert.Equal(t, taskresource.ResourceStatus(VolumeCreated), unmarshalledVolume.GetDesiredStatus())
-	assert.Equal(t, taskresource.ResourceStatus(VolumeStatusNone), unmarshalledVolume.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(VolumeCreated), unmarshalledVolume.GetDesiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(VolumeStatusNone), unmarshalledVolume.GetKnownStatus())
 }

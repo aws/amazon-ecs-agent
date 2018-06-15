@@ -17,10 +17,10 @@ package types
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
 	"github.com/stretchr/testify/assert"
@@ -41,14 +41,12 @@ func TestMarshalUnmarshalVolumeResource(t *testing.T) {
 			},
 		},
 	}
-	volumes[0].SetDesiredStatus(taskresource.ResourceCreated)
-	volumes[0].SetKnownStatus(taskresource.ResourceStatusNone)
+	volumes[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	volumes[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
 
 	resources["dockerVolume"] = volumes
 	data, err := json.Marshal(resources)
 	require.NoError(t, err)
-
-	fmt.Println("***** marshalled\n", string(data))
 
 	var unMarshalledResource ResourcesMap
 	err = json.Unmarshal(data, &unMarshalledResource)
@@ -56,6 +54,6 @@ func TestMarshalUnmarshalVolumeResource(t *testing.T) {
 	unMarshalledVolumes, ok := unMarshalledResource["dockerVolume"]
 	assert.True(t, ok, "volume resource not found in the resource map")
 	assert.Equal(t, unMarshalledVolumes[0].GetName(), "test-volume")
-	assert.Equal(t, unMarshalledVolumes[0].GetDesiredStatus(), taskresource.ResourceCreated)
-	assert.Equal(t, unMarshalledVolumes[0].GetKnownStatus(), taskresource.ResourceStatusNone)
+	assert.Equal(t, unMarshalledVolumes[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledVolumes[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }

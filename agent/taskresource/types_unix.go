@@ -16,6 +16,9 @@
 package taskresource
 
 import (
+	"context"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )

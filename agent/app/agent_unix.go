@@ -192,8 +192,10 @@ func contains(capabilities []string, capability string) bool {
 // object
 func (agent *ecsAgent) initializeResourceFields() {
 	agent.resourceFields = &taskresource.ResourceFields{
-		Control: cgroup.New(),
-		IOUtil:  ioutilwrapper.NewIOUtil(),
+		Control:      cgroup.New(),
+		IOUtil:       ioutilwrapper.NewIOUtil(),
+		Ctx:          agent.ctx,
+		DockerClient: agent.dockerClient,
 	}
 }
 

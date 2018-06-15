@@ -35,6 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -64,7 +65,7 @@ func TestResourceContainerProgression(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
+	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainer.ContainerPulled)
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
@@ -174,7 +175,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
+	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainer.ContainerPulled)
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	taskID, err := sleepTask.GetID()
