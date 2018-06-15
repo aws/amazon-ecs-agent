@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -224,11 +224,11 @@ func TestBuildContainerDependency(t *testing.T) {
 func TestBuildResourceDependency(t *testing.T) {
 	container := Container{TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet)}
 	depResourceName := "cgroup"
-	container.BuildResourceDependency(depResourceName, taskresource.ResourceStatus(1), ContainerRunning)
+	container.BuildResourceDependency(depResourceName, resourcestatus.ResourceStatus(1), ContainerRunning)
 	assert.NotNil(t, container.TransitionDependenciesMap)
 	resourceDep := container.TransitionDependenciesMap[ContainerRunning].ResourceDependencies
 	assert.Len(t, container.TransitionDependenciesMap, 1)
 	assert.Len(t, resourceDep, 1)
 	assert.Equal(t, depResourceName, resourceDep[0].Name)
-	assert.Equal(t, taskresource.ResourceStatus(1), resourceDep[0].GetRequiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(1), resourceDep[0].GetRequiredStatus())
 }

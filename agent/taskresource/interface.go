@@ -16,30 +16,20 @@ package taskresource
 import (
 	"encoding/json"
 	"time"
-)
 
-// ResourceStatus is an enumeration of valid states of task resource lifecycle
-type ResourceStatus int32
-
-const (
-	// ResourceStatusNone is the zero state of a task resource
-	ResourceStatusNone ResourceStatus = iota
-	// ResourceCreated represents state where task resource has been created
-	ResourceCreated
-	// ResourceRemoved represents state where task resource has been cleaned up
-	ResourceRemoved
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 // TaskResource is a wrapper for task level resource methods we need
 type TaskResource interface {
 	// SetDesiredStatus sets the desired status of the resource
-	SetDesiredStatus(ResourceStatus)
+	SetDesiredStatus(status.ResourceStatus)
 	// GetDesiredStatus gets the desired status of the resource
-	GetDesiredStatus() ResourceStatus
+	GetDesiredStatus() status.ResourceStatus
 	// SetKnownStatus sets the desired status of the resource
-	SetKnownStatus(ResourceStatus)
+	SetKnownStatus(status.ResourceStatus)
 	// GetKnownStatus gets the desired status of the resource
-	GetKnownStatus() ResourceStatus
+	GetKnownStatus() status.ResourceStatus
 	// SetCreatedAt sets the timestamp for resource's creation time
 	SetCreatedAt(time.Time)
 	// GetCreatedAt sets the timestamp for resource's creation time
@@ -55,18 +45,18 @@ type TaskResource interface {
 	// KnownCreated returns true if resource state is CREATED
 	KnownCreated() bool
 	// TerminalStatus returns the last transition state of the resource
-	TerminalStatus() ResourceStatus
+	TerminalStatus() status.ResourceStatus
 	// NextKnownState returns resource's next state
-	NextKnownState() ResourceStatus
+	NextKnownState() status.ResourceStatus
 	// ApplyTransition calls the function required to move to the specified status
-	ApplyTransition(ResourceStatus) error
+	ApplyTransition(status.ResourceStatus) error
 	// SteadyState returns the transition state of the resource defined as "ready"
-	SteadyState() ResourceStatus
+	SteadyState() status.ResourceStatus
 	// SetAppliedStatus sets the applied status of resource and returns whether
 	// the resource is already in a transition
-	SetAppliedStatus(status ResourceStatus) bool
+	SetAppliedStatus(status status.ResourceStatus) bool
 	// StatusString returns the string of the resource status
-	StatusString(status ResourceStatus) string
+	StatusString(status status.ResourceStatus) string
 	// Initialize will initialze the resource fields of the resource
 	Initialize(*ResourceFields)
 

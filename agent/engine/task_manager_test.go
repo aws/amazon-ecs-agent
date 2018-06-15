@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -1577,27 +1578,27 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 	}
 	gomock.InOrder(
 		mockResource.EXPECT().GetName(),
-		mockResource.EXPECT().ApplyTransition(taskresource.ResourceCreated).Return(nil),
+		mockResource.EXPECT().ApplyTransition(resourcestatus.ResourceCreated).Return(nil),
 		mockResource.EXPECT().GetName().AnyTimes(),
-		mockResource.EXPECT().StatusString(taskresource.ResourceCreated).AnyTimes(),
+		mockResource.EXPECT().StatusString(resourcestatus.ResourceCreated).AnyTimes(),
 	)
-	assert.NoError(t, task.applyResourceState(mockResource, taskresource.ResourceCreated))
+	assert.NoError(t, task.applyResourceState(mockResource, resourcestatus.ResourceCreated))
 }
 
 func TestApplyResourceStateFailures(t *testing.T) {
 	testCases := []struct {
 		Name      string
-		ResStatus taskresource.ResourceStatus
+		ResStatus resourcestatus.ResourceStatus
 		Error     error
 	}{
 		{
 			Name:      "no valid state transition",
-			ResStatus: taskresource.ResourceRemoved,
+			ResStatus: resourcestatus.ResourceRemoved,
 			Error:     errors.New("transition impossible"),
 		},
 		{
 			Name:      "transition error",
-			ResStatus: taskresource.ResourceCreated,
+			ResStatus: resourcestatus.ResourceCreated,
 			Error:     errors.New("transition failed"),
 		},
 	}
@@ -1627,26 +1628,26 @@ func TestApplyResourceStateFailures(t *testing.T) {
 func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
 	testCases := []struct {
 		Name               string
-		KnownStatus        taskresource.ResourceStatus
-		DesiredKnownStatus taskresource.ResourceStatus
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
-		ChangedKnownStatus taskresource.ResourceStatus
+		ChangedKnownStatus resourcestatus.ResourceStatus
 		TaskDesiredStatus  apitask.TaskStatus
 	}{
 		{
 			Name:               "error while steady state transition",
-			KnownStatus:        taskresource.ResourceStatus(volume.VolumeStatusNone),
-			DesiredKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			Err:                errors.New("transition error"),
-			ChangedKnownStatus: taskresource.ResourceStatus(volume.VolumeStatusNone),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			TaskDesiredStatus:  apitask.TaskStopped,
 		},
 		{
 			Name:               "steady state transition",
-			KnownStatus:        taskresource.ResourceStatus(volume.VolumeStatusNone),
-			DesiredKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			Err:                nil,
-			ChangedKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 	}
@@ -1683,26 +1684,26 @@ func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
 func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
 	testCases := []struct {
 		Name               string
-		KnownStatus        taskresource.ResourceStatus
-		DesiredKnownStatus taskresource.ResourceStatus
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
-		ChangedKnownStatus taskresource.ResourceStatus
+		ChangedKnownStatus resourcestatus.ResourceStatus
 		TaskDesiredStatus  apitask.TaskStatus
 	}{
 		{
 			Name:               "steady state transition already done",
-			KnownStatus:        taskresource.ResourceStatus(volume.VolumeCreated),
-			DesiredKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			Err:                nil,
-			ChangedKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 		{
 			Name:               "transition state less than known status",
-			DesiredKnownStatus: taskresource.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
 			Err:                nil,
-			KnownStatus:        taskresource.ResourceStatus(volume.VolumeCreated),
-			ChangedKnownStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			TaskDesiredStatus:  apitask.TaskRunning,
 		},
 	}
@@ -1731,23 +1732,23 @@ func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
 func TestVolumeResourceNextState(t *testing.T) {
 	testCases := []struct {
 		Name             string
-		ResKnownStatus   taskresource.ResourceStatus
-		ResDesiredStatus taskresource.ResourceStatus
-		NextState        taskresource.ResourceStatus
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		NextState        resourcestatus.ResourceStatus
 		ActionRequired   bool
 	}{
 		{
 			Name:             "next state happy path",
-			ResKnownStatus:   taskresource.ResourceStatus(volume.VolumeStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(volume.VolumeCreated),
-			NextState:        taskresource.ResourceStatus(volume.VolumeCreated),
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeCreated),
 			ActionRequired:   true,
 		},
 		{
 			Name:             "desired terminal",
-			ResKnownStatus:   taskresource.ResourceStatus(volume.VolumeStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(volume.VolumeRemoved),
-			NextState:        taskresource.ResourceStatus(volume.VolumeRemoved),
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			ActionRequired:   false,
 		},
 	}
@@ -1769,18 +1770,18 @@ func TestVolumeResourceNextState(t *testing.T) {
 func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 	testCases := []struct {
 		Name             string
-		ResKnownStatus   taskresource.ResourceStatus
-		ResDesiredStatus taskresource.ResourceStatus
-		TransitionStatus taskresource.ResourceStatus
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		TransitionStatus resourcestatus.ResourceStatus
 		StatusString     string
 		CanTransition    bool
 		TransitionsLen   int
 	}{
 		{
 			Name:             "none to created",
-			ResKnownStatus:   taskresource.ResourceStatus(volume.VolumeStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(volume.VolumeCreated),
-			TransitionStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TransitionStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			StatusString:     "CREATED",
 			CanTransition:    true,
 			TransitionsLen:   1,
@@ -1803,7 +1804,7 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			canTransition, transitions := task.startResourceTransitions(
-				func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					assert.Equal(t, nextStatus, tc.TransitionStatus)
 					wg.Done()
 				})
@@ -1820,26 +1821,26 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 	testCases := []struct {
 		Name          string
-		KnownStatus   taskresource.ResourceStatus
-		DesiredStatus taskresource.ResourceStatus
+		KnownStatus   resourcestatus.ResourceStatus
+		DesiredStatus resourcestatus.ResourceStatus
 		CanTransition bool
 	}{
 		{
 			Name:          "known < desired",
-			KnownStatus:   taskresource.ResourceStatus(volume.VolumeCreated),
-			DesiredStatus: taskresource.ResourceStatus(volume.VolumeRemoved),
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
 			CanTransition: true,
 		},
 		{
 			Name:          "known equals desired",
-			KnownStatus:   taskresource.ResourceStatus(volume.VolumeCreated),
-			DesiredStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			CanTransition: false,
 		},
 		{
 			Name:          "known > desired",
-			KnownStatus:   taskresource.ResourceStatus(volume.VolumeRemoved),
-			DesiredStatus: taskresource.ResourceStatus(volume.VolumeCreated),
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
 			CanTransition: false,
 		},
 	}
@@ -1862,7 +1863,7 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 			}
 			mtask.Task.AddResource(volumeName, res)
 			canTransition, transitions := mtask.startResourceTransitions(
-				func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					t.Error("Transition function should not be called when no transitions are possible")
 				})
 			assert.Equal(t, tc.CanTransition, canTransition)

@@ -466,7 +466,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 	cfg := config.Config{
 		TaskCPUMemLimit: config.ExplicitlyEnabled,
 	}
-	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil, nil))
+	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil, nil, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }

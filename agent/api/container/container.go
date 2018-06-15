@@ -21,7 +21,7 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 )
 
@@ -589,7 +589,7 @@ func (c *Container) BuildContainerDependency(contName string,
 // example: if container's PULLED transition is dependent on volume resource's
 // CREATED status, then RequiredStatus=VolumeCreated and dependentStatus=ContainerPulled
 func (c *Container) BuildResourceDependency(resourceName string,
-	requiredStatus taskresource.ResourceStatus,
+	requiredStatus resourcestatus.ResourceStatus,
 	dependentStatus ContainerStatus) {
 	resourceDep := ResourceDependency{
 		Name:           resourceName,

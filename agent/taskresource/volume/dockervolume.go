@@ -15,15 +15,15 @@ package volume
 
 import (
 	"context"
-
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
-
 	"encoding/json"
 	"sync"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -45,16 +45,16 @@ type VolumeResource struct {
 	// VolumeConfig contains docker specific volume fields
 	VolumeConfig        DockerVolumeConfig
 	createdAtUnsafe     time.Time
-	desiredStatusUnsafe taskresource.ResourceStatus
-	knownStatusUnsafe   taskresource.ResourceStatus
+	desiredStatusUnsafe resourcestatus.ResourceStatus
+	knownStatusUnsafe   resourcestatus.ResourceStatus
 	// appliedStatus is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
-	appliedStatus                      taskresource.ResourceStatus
-	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
-	client                             dockerapi.DockerClient
-	ctx                                context.Context
+	appliedStatus       resourcestatus.ResourceStatus
+	statusToTransitions map[resourcestatus.ResourceStatus]func() error
+	client              dockerapi.DockerClient
+	ctx                 context.Context
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -102,18 +102,18 @@ func NewVolumeResource(name string,
 	return v
 }
 
-func (vol *VolumeResource) Initialize(resourceFields taskresource.ResourceFields) {
-	vol.ctx = resourceFields.Context
+func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields) {
+	vol.ctx = resourceFields.Ctx
 	vol.client = resourceFields.DockerClient
 	vol.initStatusToTransitions()
 }
 
 func (vol *VolumeResource) initStatusToTransitions() {
-	statusToTransitions := map[taskresource.ResourceStatus]func() error{
-		taskresource.ResourceStatus(VolumeCreated): vol.Create,
+	statusToTransitions := map[resourcestatus.ResourceStatus]func() error{
+		resourcestatus.ResourceStatus(VolumeCreated): vol.Create,
 	}
 
-	statusToTransitions[taskresource.ResourceStatus(VolumeRemoved)] = vol.Cleanup
+	statusToTransitions[resourcestatus.ResourceStatus(VolumeRemoved)] = vol.Cleanup
 	vol.statusToTransitions = statusToTransitions
 }
 
@@ -127,11 +127,11 @@ func (vol *VolumeResource) DesiredTerminal() bool {
 	vol.lock.RLock()
 	defer vol.lock.RUnlock()
 
-	return vol.desiredStatusUnsafe == taskresource.ResourceStatus(VolumeRemoved)
+	return vol.desiredStatusUnsafe == resourcestatus.ResourceStatus(VolumeRemoved)
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
-func (vol *VolumeResource) SetDesiredStatus(status taskresource.ResourceStatus) {
+func (vol *VolumeResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {
 	vol.lock.Lock()
 	defer vol.lock.Unlock()
 
@@ -139,7 +139,7 @@ func (vol *VolumeResource) SetDesiredStatus(status taskresource.ResourceStatus) 
 }
 
 // GetDesiredStatus safely returns the desired status of the task
-func (vol *VolumeResource) GetDesiredStatus() taskresource.ResourceStatus {
+func (vol *VolumeResource) GetDesiredStatus() resourcestatus.ResourceStatus {
 	vol.lock.RLock()
 	defer vol.lock.RUnlock()
 
@@ -147,7 +147,7 @@ func (vol *VolumeResource) GetDesiredStatus() taskresource.ResourceStatus {
 }
 
 // SetKnownStatus safely sets the currently known status of the resource
-func (vol *VolumeResource) SetKnownStatus(status taskresource.ResourceStatus) {
+func (vol *VolumeResource) SetKnownStatus(status resourcestatus.ResourceStatus) {
 	vol.lock.Lock()
 	defer vol.lock.Unlock()
 
@@ -155,7 +155,7 @@ func (vol *VolumeResource) SetKnownStatus(status taskresource.ResourceStatus) {
 }
 
 // GetKnownStatus safely returns the currently known status of the task
-func (vol *VolumeResource) GetKnownStatus() taskresource.ResourceStatus {
+func (vol *VolumeResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	vol.lock.RLock()
 	defer vol.lock.RUnlock()
 
@@ -167,27 +167,27 @@ func (vol *VolumeResource) KnownCreated() bool {
 	vol.lock.RLock()
 	defer vol.lock.RUnlock()
 
-	return vol.knownStatusUnsafe == taskresource.ResourceStatus(VolumeCreated)
+	return vol.knownStatusUnsafe == resourcestatus.ResourceStatus(VolumeCreated)
 }
 
 // TerminalStatus returns the last transition state of volume
-func (vol *VolumeResource) TerminalStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(VolumeRemoved)
+func (vol *VolumeResource) TerminalStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(VolumeRemoved)
 }
 
 // NextKnownState returns the state that the resource should
 // progress to based on its `KnownState`.
-func (vol *VolumeResource) NextKnownState() taskresource.ResourceStatus {
+func (vol *VolumeResource) NextKnownState() resourcestatus.ResourceStatus {
 	return vol.GetKnownStatus() + 1
 }
 
 // SteadyState returns the transition state of the resource defined as "ready"
-func (vol *VolumeResource) SteadyState() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(VolumeCreated)
+func (vol *VolumeResource) SteadyState() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(VolumeCreated)
 }
 
 // ApplyTransition calls the function required to move to the specified status
-func (vol *VolumeResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
+func (vol *VolumeResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	transitionFunc, ok := vol.statusToTransitions[nextState]
 	if !ok {
 		return errors.Errorf("resource [%s]: transition to %s impossible", vol.Name,
@@ -198,11 +198,11 @@ func (vol *VolumeResource) ApplyTransition(nextState taskresource.ResourceStatus
 
 // SetAppliedStatus sets the applied status of resource and returns whether
 // the resource is already in a transition
-func (vol *VolumeResource) SetAppliedStatus(status taskresource.ResourceStatus) bool {
+func (vol *VolumeResource) SetAppliedStatus(status resourcestatus.ResourceStatus) bool {
 	vol.lock.Lock()
 	defer vol.lock.Unlock()
 
-	if vol.appliedStatus != taskresource.ResourceStatus(VolumeStatusNone) {
+	if vol.appliedStatus != resourcestatus.ResourceStatus(VolumeStatusNone) {
 		// return false to indicate the set operation failed
 		return false
 	}
@@ -212,7 +212,7 @@ func (vol *VolumeResource) SetAppliedStatus(status taskresource.ResourceStatus) 
 }
 
 // StatusString returns the string of the cgroup resource status
-func (vol *VolumeResource) StatusString(status taskresource.ResourceStatus) string {
+func (vol *VolumeResource) StatusString(status resourcestatus.ResourceStatus) string {
 	return VolumeStatus(status).String()
 }
 
@@ -335,10 +335,10 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	}
 	vol.VolumeConfig = temp.VolumeConfig
 	if temp.DesiredStatus != nil {
-		vol.SetDesiredStatus(taskresource.ResourceStatus(*temp.DesiredStatus))
+		vol.SetDesiredStatus(resourcestatus.ResourceStatus(*temp.DesiredStatus))
 	}
 	if temp.KnownStatus != nil {
-		vol.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
+		vol.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
 	return nil
 }

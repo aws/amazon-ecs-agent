@@ -597,7 +597,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 
 // AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
-	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager, engine.resourceFields, engine.client)
+	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager, engine.resourceFields, engine.client, engine.ctx)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to add task to the engine: %v", task.Arn, err)
 		task.SetKnownStatus(apitask.TaskStopped)

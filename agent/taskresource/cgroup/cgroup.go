@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
@@ -51,14 +52,14 @@ type CgroupResource struct {
 	resourceSpec        specs.LinuxResources
 	ioutil              ioutilwrapper.IOUtil
 	createdAt           time.Time
-	desiredStatusUnsafe taskresource.ResourceStatus
-	knownStatusUnsafe   taskresource.ResourceStatus
+	desiredStatusUnsafe resourcestatus.ResourceStatus
+	knownStatusUnsafe   resourcestatus.ResourceStatus
 	// appliedStatus is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
-	appliedStatus       taskresource.ResourceStatus
-	statusToTransitions map[taskresource.ResourceStatus]func() error
+	appliedStatus       resourcestatus.ResourceStatus
+	statusToTransitions map[resourcestatus.ResourceStatus]func() error
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -83,8 +84,8 @@ func NewCgroupResource(taskARN string,
 }
 
 func (cgroup *CgroupResource) initStatusToTransitions() {
-	statusToTransitions := map[taskresource.ResourceStatus]func() error{
-		taskresource.ResourceStatus(CgroupCreated): cgroup.Create,
+	statusToTransitions := map[resourcestatus.ResourceStatus]func() error{
+		resourcestatus.ResourceStatus(CgroupCreated): cgroup.Create,
 	}
 	cgroup.statusToTransitions = statusToTransitions
 }
@@ -94,7 +95,7 @@ func (cgroup *CgroupResource) SetIOUtil(ioutil ioutilwrapper.IOUtil) {
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
-func (cgroup *CgroupResource) SetDesiredStatus(status taskresource.ResourceStatus) {
+func (cgroup *CgroupResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 
@@ -102,7 +103,7 @@ func (cgroup *CgroupResource) SetDesiredStatus(status taskresource.ResourceStatu
 }
 
 // GetDesiredStatus safely returns the desired status of the task
-func (cgroup *CgroupResource) GetDesiredStatus() taskresource.ResourceStatus {
+func (cgroup *CgroupResource) GetDesiredStatus() resourcestatus.ResourceStatus {
 	cgroup.lock.RLock()
 	defer cgroup.lock.RUnlock()
 
@@ -122,7 +123,7 @@ func (cgroup *CgroupResource) DesiredTerminal() bool {
 	cgroup.lock.RLock()
 	defer cgroup.lock.RUnlock()
 
-	return cgroup.desiredStatusUnsafe == taskresource.ResourceStatus(CgroupRemoved)
+	return cgroup.desiredStatusUnsafe == resourcestatus.ResourceStatus(CgroupRemoved)
 }
 
 // KnownCreated returns true if the cgroup's known status is CREATED
@@ -130,22 +131,22 @@ func (cgroup *CgroupResource) KnownCreated() bool {
 	cgroup.lock.RLock()
 	defer cgroup.lock.RUnlock()
 
-	return cgroup.knownStatusUnsafe == taskresource.ResourceStatus(CgroupCreated)
+	return cgroup.knownStatusUnsafe == resourcestatus.ResourceStatus(CgroupCreated)
 }
 
 // TerminalStatus returns the last transition state of cgroup
-func (cgroup *CgroupResource) TerminalStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(CgroupRemoved)
+func (cgroup *CgroupResource) TerminalStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(CgroupRemoved)
 }
 
 // NextKnownState returns the state that the resource should
 // progress to based on its `KnownState`.
-func (cgroup *CgroupResource) NextKnownState() taskresource.ResourceStatus {
+func (cgroup *CgroupResource) NextKnownState() resourcestatus.ResourceStatus {
 	return cgroup.GetKnownStatus() + 1
 }
 
 // ApplyTransition calls the function required to move to the specified status
-func (cgroup *CgroupResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
+func (cgroup *CgroupResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	transitionFunc, ok := cgroup.statusToTransitions[nextState]
 	if !ok {
 		seelog.Errorf("Cgroup Resource [%s]: unsupported desired state transition [%s]: %s",
@@ -157,12 +158,12 @@ func (cgroup *CgroupResource) ApplyTransition(nextState taskresource.ResourceSta
 }
 
 // SteadyState returns the transition state of the resource defined as "ready"
-func (cgroup *CgroupResource) SteadyState() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(CgroupCreated)
+func (cgroup *CgroupResource) SteadyState() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(CgroupCreated)
 }
 
 // SetKnownStatus safely sets the currently known status of the resource
-func (cgroup *CgroupResource) SetKnownStatus(status taskresource.ResourceStatus) {
+func (cgroup *CgroupResource) SetKnownStatus(status resourcestatus.ResourceStatus) {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 
@@ -171,24 +172,24 @@ func (cgroup *CgroupResource) SetKnownStatus(status taskresource.ResourceStatus)
 }
 
 // updateAppliedStatusUnsafe updates the resource transitioning status
-func (cgroup *CgroupResource) updateAppliedStatusUnsafe(knownStatus taskresource.ResourceStatus) {
-	if cgroup.appliedStatus == taskresource.ResourceStatus(CgroupStatusNone) {
+func (cgroup *CgroupResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
+	if cgroup.appliedStatus == resourcestatus.ResourceStatus(CgroupStatusNone) {
 		return
 	}
 
 	// Check if the resource transition has already finished
 	if cgroup.appliedStatus <= knownStatus {
-		cgroup.appliedStatus = taskresource.ResourceStatus(CgroupStatusNone)
+		cgroup.appliedStatus = resourcestatus.ResourceStatus(CgroupStatusNone)
 	}
 }
 
 // SetAppliedStatus sets the applied status of resource and returns whether
 // the resource is already in a transition
-func (cgroup *CgroupResource) SetAppliedStatus(status taskresource.ResourceStatus) bool {
+func (cgroup *CgroupResource) SetAppliedStatus(status resourcestatus.ResourceStatus) bool {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 
-	if cgroup.appliedStatus != taskresource.ResourceStatus(CgroupStatusNone) {
+	if cgroup.appliedStatus != resourcestatus.ResourceStatus(CgroupStatusNone) {
 		// return false to indicate the set operation failed
 		return false
 	}
@@ -198,7 +199,7 @@ func (cgroup *CgroupResource) SetAppliedStatus(status taskresource.ResourceStatu
 }
 
 // GetKnownStatus safely returns the currently known status of the task
-func (cgroup *CgroupResource) GetKnownStatus() taskresource.ResourceStatus {
+func (cgroup *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	cgroup.lock.RLock()
 	defer cgroup.lock.RUnlock()
 
@@ -206,7 +207,7 @@ func (cgroup *CgroupResource) GetKnownStatus() taskresource.ResourceStatus {
 }
 
 // StatusString returns the string of the cgroup resource status
-func (cgroup *CgroupResource) StatusString(status taskresource.ResourceStatus) string {
+func (cgroup *CgroupResource) StatusString(status resourcestatus.ResourceStatus) string {
 	return CgroupStatus(status).String()
 }
 
@@ -327,10 +328,10 @@ func (cgroup *CgroupResource) UnmarshalJSON(b []byte) error {
 	cgroup.cgroupMountPath = temp.CgroupMountPath
 	cgroup.resourceSpec = temp.LinuxSpec
 	if temp.DesiredStatus != nil {
-		cgroup.SetDesiredStatus(taskresource.ResourceStatus(*temp.DesiredStatus))
+		cgroup.SetDesiredStatus(resourcestatus.ResourceStatus(*temp.DesiredStatus))
 	}
 	if temp.KnownStatus != nil {
-		cgroup.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
+		cgroup.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
 	return nil
 }
@@ -354,7 +355,7 @@ func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFi
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 
-	cgroup.initializeResourceStatusToTransitionFunction()
+	cgroup.initStatusToTransitions()
 	cgroup.ioutil = resourceFields.IOUtil
 	cgroup.control = resourceFields.Control
 }
