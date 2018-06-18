@@ -26,7 +26,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
 		Volumes: []TaskVolume{
-			TaskVolume{Name: "1", Volume: &taskresourcevolume.LocalVolume{}},
+			TaskVolume{Name: "1", Volume: &taskresourcevolume.LocalDockerVolume{}},
 			TaskVolume{Name: "2", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
 		},
 	}
@@ -56,7 +56,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 		}
 	}
 
-	if _, ok := v1.Volume.(*taskresourcevolume.LocalVolume); !ok {
+	if _, ok := v1.Volume.(*taskresourcevolume.LocalDockerVolume); !ok {
 		t.Error("Expected v1 to be an empty volume")
 	}
 

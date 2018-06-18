@@ -30,14 +30,14 @@ func (fs *FSHostVolume) SourcePath() string {
 	return fs.FSSourcePath
 }
 
-// LocalVolume represents a volume without a specified host path
+// LocalDockerVolume represents a volume without a specified host path
 // This is essentially DockerVolume with only the name specified; however,
 // for backward compatibility we can't directly map to DockerVolume.
-type LocalVolume struct {
+type LocalDockerVolume struct {
 	HostPath string `json:"hostPath"`
 }
 
 // SourcePath returns the generated host path for the volume
-func (e *LocalVolume) SourcePath() string {
+func (e *LocalDockerVolume) SourcePath() string {
 	return e.HostPath
 }

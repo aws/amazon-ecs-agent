@@ -112,7 +112,7 @@ func TestLocalHostVolumeMount(t *testing.T) {
 
 func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask := createTestTask("testLocalHostVolumeMount")
-	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalVolume{}}}
+	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalDockerVolume{}}}
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)

@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/cihub/seelog"
 	"golang.org/x/sys/windows/svc"
 )
@@ -247,7 +248,12 @@ func (t *termHandlerIndicator) wait() uint32 {
 	return t.exitCode
 }
 
-func (agent *ecsAgent) initializeResourceFields() {}
+func (agent *ecsAgent) initializeResourceFields() {
+	agent.resourceFields = &taskresource.ResourceFields{
+		Ctx:          agent.ctx,
+		DockerClient: agent.dockerClient,
+	}
+}
 
 func (agent *ecsAgent) cgroupInit() error {
 	return errors.New("unsupported platform")
