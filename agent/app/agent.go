@@ -201,9 +201,7 @@ func (agent *ecsAgent) start() int {
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
-	if agent.cfg.TaskCPUMemLimit.Enabled() {
-		agent.initializeResourceFields()
-	}
+	agent.initializeResourceFields()
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
 }
 

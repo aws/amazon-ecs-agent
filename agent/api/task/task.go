@@ -206,22 +206,25 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
-	task.initializeDockerLocalVolumes(dockerClient, ctx)
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
 
-func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) {
-	requiredLocalVolumes := []string{}
+func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	var requiredLocalVolumes []string
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
 			vol, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 			if !ok {
 				continue
 			}
-			if localVolume, ok := vol.(*taskresourcevolume.LocalVolume); ok {
-				localVolume.HostPath = task.taskScopedVolumeName(mountPoint.SourceVolume)
+			if localVolume, ok := vol.(*taskresourcevolume.LocalDockerVolume); ok {
+				localVolume.HostPath = task.volumeName(mountPoint.SourceVolume)
 				container.BuildResourceDependency(mountPoint.SourceVolume,
 					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
 					apicontainer.ContainerPulled)
@@ -232,7 +235,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 
 	if len(requiredLocalVolumes) == 0 {
 		// No need to create the auxiliary local driver volumes
-		return
+		return nil
 	}
 
 	// if we have required local volumes, create one with default local drive
@@ -240,17 +243,21 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 		vol, _ := task.HostVolumeByName(volumeName)
 		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
 		scope := taskresourcevolume.TaskScope
-		autoProvision := false // must be false if scope = task
-		localVolume := taskresourcevolume.NewVolumeResource(volumeName,
-			vol.SourcePath(), scope, autoProvision,
+		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName,
+			vol.SourcePath(), scope, false,
 			taskresourcevolume.DockerLocalVolumeDriver,
-			make(map[string]string), make(map[string]string), dockerClient, ctx)
+			make(map[string]string), make(map[string]string), dockerClient)
+
+		if err != nil {
+			return err
+		}
 
 		task.AddResource(resourcetype.DockerVolumeKey, localVolume)
 	}
+	return nil
 }
 
-func (task *Task) taskScopedVolumeName(name string) string {
+func (task *Task) volumeName(name string) string {
 	return "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
 }
 

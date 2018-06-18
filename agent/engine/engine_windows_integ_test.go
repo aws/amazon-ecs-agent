@@ -77,7 +77,7 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].Command = []string{`Write-Output "empty-data-volume" | Out-File -FilePath C:\host\tmp\hello-from-container -Encoding ascii`}
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "C:\\host\\tmp", SourceVolume: "test-tmp"}}
-	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalVolume{}}}
+	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalDockerVolume{}}}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
 	return testTask

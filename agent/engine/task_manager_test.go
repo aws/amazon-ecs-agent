@@ -1624,7 +1624,6 @@ func TestApplyResourceStateFailures(t *testing.T) {
 	}
 }
 
-///////
 func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
 	testCases := []struct {
 		Name               string

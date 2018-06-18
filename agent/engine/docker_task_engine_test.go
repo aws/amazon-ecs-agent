@@ -1928,7 +1928,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 				task.Volumes = []apitask.TaskVolume{
 					{
 						Name:   "empty",
-						Volume: &taskresourcevolume.LocalVolume{},
+						Volume: &taskresourcevolume.LocalDockerVolume{},
 					},
 				}
 				client.EXPECT().InspectContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(&docker.Container{
@@ -2142,7 +2142,7 @@ func TestSynchronizeResource(t *testing.T) {
 	state.AddTask(testTask)
 	cgroupResource.EXPECT().Initialize(gomock.Any())
 	cgroupResource.EXPECT().SetDesiredStatus(gomock.Any()).MaxTimes(1)
-	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(1)
+	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(2)
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)

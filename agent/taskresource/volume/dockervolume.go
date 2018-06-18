@@ -35,11 +35,11 @@ const (
 	DockerLocalVolumeDriver = "local"
 )
 
-// VolumeResources represents volume resource
+// VolumeResource represents volume resource
 type VolumeResource struct {
 	// Name is the name of the docker volume
 	Name string
-	// dockerVolumeName is internal docker name for this volume.
+	// DockerVolumeName is internal docker name for this volume.
 	// Only the LocalVolume type will have dockerVolumeName different from the name above.
 	DockerVolumeName string
 	// VolumeConfig contains docker specific volume fields
@@ -47,11 +47,11 @@ type VolumeResource struct {
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe resourcestatus.ResourceStatus
 	knownStatusUnsafe   resourcestatus.ResourceStatus
-	// appliedStatus is the status that has been "applied" (e.g., we've called some
+	// appliedStatusUnsafe is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
-	appliedStatus       resourcestatus.ResourceStatus
+	appliedStatusUnsafe resourcestatus.ResourceStatus
 	statusToTransitions map[resourcestatus.ResourceStatus]func() error
 	client              dockerapi.DockerClient
 	ctx                 context.Context
@@ -75,15 +75,19 @@ type DockerVolumeConfig struct {
 }
 
 // NewVolumeResource returns a docker volume wrapper object
-func NewVolumeResource(name string,
+func NewVolumeResource(ctx context.Context,
+	name string,
 	dockerVolumeName string,
 	scope string,
 	autoprovision bool,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
-	client dockerapi.DockerClient,
-	ctx context.Context) *VolumeResource {
+	client dockerapi.DockerClient) (*VolumeResource, error) {
+
+	if scope == TaskScope && autoprovision {
+		return nil, errors.Errorf("volume [%s] : task scoped volume could not be autoprovisioned", name)
+	}
 
 	v := &VolumeResource{
 		Name:             name,
@@ -99,7 +103,7 @@ func NewVolumeResource(name string,
 		ctx:    ctx,
 	}
 	v.initStatusToTransitions()
-	return v
+	return v, nil
 }
 
 func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields) {
@@ -113,7 +117,6 @@ func (vol *VolumeResource) initStatusToTransitions() {
 		resourcestatus.ResourceStatus(VolumeCreated): vol.Create,
 	}
 
-	statusToTransitions[resourcestatus.ResourceStatus(VolumeRemoved)] = vol.Cleanup
 	vol.statusToTransitions = statusToTransitions
 }
 
@@ -190,7 +193,7 @@ func (vol *VolumeResource) SteadyState() resourcestatus.ResourceStatus {
 func (vol *VolumeResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	transitionFunc, ok := vol.statusToTransitions[nextState]
 	if !ok {
-		return errors.Errorf("resource [%s]: transition to %s impossible", vol.Name,
+		return errors.Errorf("volume [%s]: transition to %s impossible", vol.Name,
 			vol.StatusString(nextState))
 	}
 	return transitionFunc()
@@ -202,12 +205,12 @@ func (vol *VolumeResource) SetAppliedStatus(status resourcestatus.ResourceStatus
 	vol.lock.Lock()
 	defer vol.lock.Unlock()
 
-	if vol.appliedStatus != resourcestatus.ResourceStatus(VolumeStatusNone) {
+	if vol.appliedStatusUnsafe != resourcestatus.ResourceStatus(VolumeStatusNone) {
 		// return false to indicate the set operation failed
 		return false
 	}
 
-	vol.appliedStatus = status
+	vol.appliedStatusUnsafe = status
 	return true
 }
 
@@ -281,7 +284,7 @@ func (vol *VolumeResource) Create() error {
 func (vol *VolumeResource) Cleanup() error {
 	// Enable volume clean up if it's task scoped
 	if vol.VolumeConfig.Scope != TaskScope {
-		seelog.Debugf("Volume is shared, not removing", vol.Name)
+		seelog.Debugf("Volume [%s] is shared, not removing", vol.Name)
 		return nil
 	}
 

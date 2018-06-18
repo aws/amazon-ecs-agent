@@ -46,7 +46,7 @@ func TestEmptyHostVolumeUnmarshal(t *testing.T) {
 	if task.Volumes[0].Name != "test" {
 		t.Error("Wrong name")
 	}
-	if fs, ok := task.Volumes[0].Volume.(*taskresourcevolume.LocalVolume); !ok {
+	if fs, ok := task.Volumes[0].Volume.(*taskresourcevolume.LocalDockerVolume); !ok {
 		t.Error("Wrong type")
 		if fs.SourcePath() != "" {
 			t.Error("Should default to empty string")

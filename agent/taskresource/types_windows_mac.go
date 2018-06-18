@@ -1,6 +1,6 @@
 // +build !linux
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,6 +15,14 @@
 
 package taskresource
 
+import (
+	"context"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+)
+
 // ResourceFields is the list of fields required for creation of task resources
-// obtained from engine
-type ResourceFields struct{}
+type ResourceFields struct {
+	Ctx          context.Context
+	DockerClient dockerapi.DockerClient
+}

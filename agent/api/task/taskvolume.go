@@ -55,7 +55,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 			// If the FSSourcePath is empty, that must mean it was not an
 			// FSHostVolume (empty path is invalid for that type).
 			// Unmarshal it as local docker volume.
-			localVolume := &taskresourcevolume.LocalVolume{}
+			localVolume := &taskresourcevolume.LocalDockerVolume{}
 			json.Unmarshal(rawhostdata, localVolume)
 			tv.Volume = localVolume
 		} else {
@@ -78,7 +78,7 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	switch v := tv.Volume.(type) {
 	case *taskresourcevolume.FSHostVolume:
 		result["host"] = v
-	case *taskresourcevolume.LocalVolume:
+	case *taskresourcevolume.LocalDockerVolume:
 		result["host"] = v
 	default:
 		seelog.Critical("Unknown task volume type in marshal")
