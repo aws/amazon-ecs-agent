@@ -183,10 +183,12 @@ func metadataResponseOnce(client *http.Client, endpoint string, respType string)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to get response: %v", respType, err)
 	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: incorrect status code  %d", respType, resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("task metadata: unable to read response body: %v", err)
