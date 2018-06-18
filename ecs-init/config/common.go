@@ -45,10 +45,6 @@ const (
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
 	DefaultRegionName = endpoints.UsEast1RegionID
-
-	// cgroupMountpointEnv is the Environment Variable used to provide
-	// an alternative path to the cgroup mount on the host.
-	cgroupMountpointEnv = "CGROUP_MOUNTPOINT"
 )
 
 var partitionBucketMap = map[string]string{
@@ -149,10 +145,5 @@ func DockerUnixSocket() (string, bool) {
 
 // CgroupMountpoint returns the cgroup mountpoint for the system
 func CgroupMountpoint() string {
-	// Check environment provided path
-	fromEnv := os.Getenv(cgroupMountpointEnv)
-	if fromEnv != "" {
-		return fromEnv
-	}
 	return cgroupMountpoint
 }

@@ -1,6 +1,6 @@
-// +build !suse,!ubuntu,!al2
+// +build al2
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,4 +15,4 @@
 
 package config
 
-const cgroupMountpoint = "/cgroup"
+const cgroupMountpoint = "/sys/fs/cgroup"

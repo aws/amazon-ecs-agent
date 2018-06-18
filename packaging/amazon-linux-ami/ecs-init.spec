@@ -14,16 +14,18 @@
 
 %if 0%{?amzn} >= 2
 %bcond_without systemd # with
+%global gobuild_tag al2
 %else
 %bcond_with systemd # without
 %global running_semaphore %{_localstatedir}/run/ecs-init.was-running
+%global gobuild_tag %{nil}
 %endif
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
 
 Name:           ecs-init
 Version:        1.18.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64
@@ -144,7 +146,7 @@ required routes among its preparation steps.
 %setup -c
 
 %build
-./scripts/gobuild.sh
+./scripts/gobuild.sh %{gobuild_tag}
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
