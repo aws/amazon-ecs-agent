@@ -70,6 +70,8 @@ type TaskResource interface {
 	// GetTerminalReason returns string describing why the resource failed to
 	// provision
 	GetTerminalReason() string
+	// Initialize will initialze the resource fields of the resource
+	Initialize(*ResourceFields)
 
 	json.Marshaler
 	json.Unmarshaler

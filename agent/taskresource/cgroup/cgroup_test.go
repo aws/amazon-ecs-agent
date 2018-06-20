@@ -136,8 +136,8 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
-	cgroupStr := "{\"CgroupRoot\":\"/ecs/taskid\",\"CgroupMountPath\":\"/sys/fs/cgroup\"," +
-		"\"CreatedAt\":\"0001-01-01T00:00:00Z\",\"DesiredStatus\":\"CREATED\",\"KnownStatus\":\"NONE\"}"
+	cgroupStr := "{\"cgroupRoot\":\"/ecs/taskid\",\"cgroupMountPath\":\"/sys/fs/cgroup\"," +
+		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\",\"resourceSpec\":{}}"
 
 	cgroupRoot := "/ecs/taskid"
 	cgroupMountPath := "/sys/fs/cgroup"

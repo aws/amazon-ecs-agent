@@ -16,6 +16,7 @@
 package volume
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -42,13 +43,15 @@ func TestCreateSuccess(t *testing.T) {
 		"opt2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(name, driver, driverOptions, nil, dockerapi.CreateVolumeTimeout).Return(
+	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, nil, dockerapi.CreateVolumeTimeout).Return(
 		dockerapi.VolumeResponse{
 			DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 			Error:        nil,
 		})
 
-	volume := NewVolumeResource(name, scope, autoprovision, driver, driverOptions, nil, mockClient)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volume := NewVolumeResource(name, scope, autoprovision, driver, driverOptions, nil, mockClient, ctx)
 	err := volume.Create()
 	assert.NoError(t, err)
 	assert.Equal(t, mountPoint, volume.VolumeConfig.Mountpoint)
@@ -68,13 +71,15 @@ func TestCreateError(t *testing.T) {
 		"label2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(name, driver, nil, labels, dockerapi.CreateVolumeTimeout).Return(
+	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, labels, dockerapi.CreateVolumeTimeout).Return(
 		dockerapi.VolumeResponse{
 			DockerVolume: nil,
 			Error:        errors.New("some error"),
 		})
 
-	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, labels, mockClient)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, labels, mockClient, ctx)
 	err := volume.Create()
 	assert.NotNil(t, err)
 }
@@ -89,9 +94,11 @@ func TestCleanupSuccess(t *testing.T) {
 	autoprovision := false
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Return(nil)
+	mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Return(nil)
 
-	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, nil, mockClient)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, nil, mockClient, ctx)
 	err := volume.Cleanup()
 	assert.NoError(t, err)
 }
@@ -106,9 +113,11 @@ func TestCleanupError(t *testing.T) {
 	autoprovision := false
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(name, dockerapi.RemoveVolumeTimeout).Return(errors.New("some error"))
+	mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Return(errors.New("some error"))
 
-	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, nil, mockClient)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volume := NewVolumeResource(name, scope, autoprovision, driver, nil, nil, mockClient, ctx)
 	err := volume.Cleanup()
 	assert.NotNil(t, err)
 }
@@ -123,7 +132,9 @@ func TestMarshall(t *testing.T) {
 	driverOpts := make(map[string]string)
 	labels := make(map[string]string)
 
-	volume := NewVolumeResource(name, scope, autoprovision, driver, driverOpts, labels, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	volume := NewVolumeResource(name, scope, autoprovision, driver, driverOpts, labels, nil, ctx)
 	volume.SetDesiredStatus(VolumeCreated)
 	volume.SetKnownStatus(VolumeStatusNone)
 
