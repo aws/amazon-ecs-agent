@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -1244,24 +1245,55 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 		return nil, err
 	}
 
-	stats := make(chan *docker.Stats)
-	options := docker.StatsOptions{
-		ID:                id,
-		Stats:             stats,
-		Stream:            true,
-		Context:           ctx,
-		InactivityTimeout: StatsInactivityTimeout,
+	returnStats := make(chan *docker.Stats)
+
+	if !dg.config.PollMetrics {
+		seelog.Infof("DockerGoClient: Starting to Stream for metrics")
+		options := docker.StatsOptions{
+			ID:                id,
+			Stats:             returnStats,
+			Stream:            true,
+			Context:           ctx,
+			InactivityTimeout: StatsInactivityTimeout,
+		}
+	
+		go func() {
+			statsErr := client.Stats(options)
+			if statsErr != nil {
+				seelog.Infof("DockerGoClient: Unable to retrieve stats for container %s: %v",
+					id, statsErr)
+			}
+		}()
+	} else {
+		seelog.Infof("DockerGoClient: Starting to Poll for metrics")
+		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
+		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
+
+		statPollTimer := time.NewTimer(dg.config.PollingMetricsWaitDuration)
+		go func() {
+			for {
+				<- statPollTimer.C
+				stats := make(chan *docker.Stats, 1)
+				options := docker.StatsOptions{
+					ID:                id,
+					Stats:             stats,
+					Stream:            false,
+					Context:           ctx,
+					InactivityTimeout: StatsInactivityTimeout,
+				}
+				client.Stats(options)
+
+				dockerStats, ok := <-stats
+				if ok {
+					returnStats <- dockerStats
+				}
+
+				time.Sleep(dg.config.PollingMetricsWaitDuration)
+			}
+		}()
 	}
 
-	go func() {
-		statsErr := client.Stats(options)
-		if statsErr != nil {
-			seelog.Infof("DockerGoClient: Unable to retrieve stats for container %s: %v",
-				id, statsErr)
-		}
-	}()
-
-	return stats, nil
+	return returnStats, nil
 }
 
 // RemoveImage invokes github.com/fsouza/go-dockerclient.Client's

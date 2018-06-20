@@ -87,6 +87,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
 	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
+	defer setTestEnv("ECS_POLL_METRICS", "true")()
+	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -110,6 +112,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
+	assert.True(t, conf.PollMetrics, "Wrong value for PollMetrics")
+	expectedDurationPollingMetricsWaitDuration, _ := time.ParseDuration("10s")
+	assert.Equal(t, expectedDurationPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration)
 
 	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
@@ -177,6 +182,12 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	conf.AWSRegion = "us-west-2"
 	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"invalid-logging-driver"}
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
+}
+
+func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
+	conf, err := environmentConfig()
+	assert.NoError(t, err)
+	assert.False(t, conf.PollMetrics)
 }
 
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
@@ -257,6 +268,26 @@ func TestInvalidValueContainerStartTimeout(t *testing.T) {
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, minimumContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestInvalidValueMaxPollingMetricsWaitDuration(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "21s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.PollingMetricsWaitDuration, maximumPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+}
+
+func TestInvalidValueMinPollingMetricsWaitDuration(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "0s")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	conf, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, conf.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
