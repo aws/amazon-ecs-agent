@@ -1,6 +1,4 @@
-// +build linux
-
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,12 +14,11 @@
 package taskresource
 
 import (
-	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 
-// ResourceFields is the list of fields required for creation of task resources
-// obtained from engine
-type ResourceFields struct {
-	Control cgroup.Control
-	*ResourceFieldsCommon
+type ResourceFieldsCommon struct {
+	IOUtil           ioutilwrapper.IOUtil
+	ASMClientCreator asm.ClientCreator
 }

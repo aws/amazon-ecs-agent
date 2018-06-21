@@ -17,4 +17,6 @@ package taskresource
 
 // ResourceFields is the list of fields required for creation of task resources
 // obtained from engine
-type ResourceFields struct{}
+type ResourceFields struct {
+	*ResourceFieldsCommon
+}

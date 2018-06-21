@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -193,7 +194,10 @@ func contains(capabilities []string, capability string) bool {
 func (agent *ecsAgent) initializeResourceFields() {
 	agent.resourceFields = &taskresource.ResourceFields{
 		Control: cgroup.New(),
-		IOUtil:  ioutilwrapper.NewIOUtil(),
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			IOUtil:           ioutilwrapper.NewIOUtil(),
+			ASMClientCreator: asm.NewClientCreator(),
+		},
 	}
 }
 

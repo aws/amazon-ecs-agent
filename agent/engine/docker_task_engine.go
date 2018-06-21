@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	docker "github.com/fsouza/go-dockerclient"
 
 	"context"
 
@@ -283,9 +284,31 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	}
 
 	tasks := engine.state.AllTasks()
-	var tasksToStart []*apitask.Task
+	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
 		task.InitializeResources(engine.resourceFields)
+	}
+
+	// WIP reset asm resource state if task state not pulled
+	for _, task := range tasksToStart {
+
+		if task.GetKnownStatus() < apitask.TaskPulled && task.RequiresASMDockerAuthData() {
+			// move this to Initialize()
+			// task.ResetASMAuthResource()
+		}
+
+		engine.startTask(task)
+	}
+
+	engine.saver.Save()
+}
+
+// filterTasksToStartUnsafe filters only the tasks that need to be started after
+// the agent has been restarted. It also synchronizes states of all of the containers
+// in tasks that need to be started.
+func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) []*apitask.Task {
+	var tasksToStart []*apitask.Task
+	for _, task := range tasks {
 		conts, ok := engine.state.ContainerMapByArn(task.Arn)
 		if !ok {
 			// task hasn't started processing, no need to check container status
@@ -305,17 +328,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		}
 	}
 
-	// WIP reset asm resource state if task state not pulled
-	for _, task := range tasksToStart {
-
-		if task.GetKnownStatus() < apitask.TaskPulled && task.RequiresASMDockerAuthData() {
-			task.ResetASMAuthResource()
-		}
-
-		engine.startTask(task)
-	}
-
-	engine.saver.Save()
+	return tasksToStart
 }
 
 // updateContainerMetadata sets the container metadata from the docker inspect

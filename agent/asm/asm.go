@@ -17,15 +17,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
-
-	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 // asmAuthDataValue is the schema for
@@ -33,13 +29,6 @@ import (
 type asmAuthDataValue struct {
 	Username *string
 	Password *string
-}
-
-func NewRegionalisedASMClient(region string, credential credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI {
-	creds := awscreds.NewStaticCredentials(credential.AccessKeyID, credential.SecretAccessKey, credential.SessionToken)
-	cfg := aws.NewConfig().WithRegion(region).WithCredentials(creds)
-	sess := session.Must(session.NewSession(cfg))
-	return secretsmanager.New(sess)
 }
 
 func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (docker.AuthConfiguration, error) {

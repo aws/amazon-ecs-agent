@@ -213,7 +213,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	// WIP initialize asm auth resource here?
 	if task.RequiresASMDockerAuthData() {
-		err := task.initializeASMAuthResource(credentialsManager)
+		err := task.initializeASMAuthResource(credentialsManager, resourceFields)
 		if err != nil {
 			seelog.Errorf("Task [%s]: could not intialize asm auth resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
@@ -1277,9 +1277,8 @@ func (task *Task) ResetASMAuthResource() {
 	res[0].SetKnownStatus(taskresource.ResourceStatusNone)
 }
 
-func (task *Task) getListOfASMDockerAuthData() []apicontainer.ASMAuthData {
-	list := make([]*apicontainer.ASMAuthData, 0)
-
+func (task *Task) getListOfASMDockerAuthData() []*apicontainer.ASMAuthData {
+	var list []*apicontainer.ASMAuthData
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			list = append(list, container.RegistryAuthentication.ASMAuthData)
@@ -1292,15 +1291,18 @@ func (task *Task) getListOfASMDockerAuthData() []apicontainer.ASMAuthData {
 func (task *Task) BindASMAuthData(container *apicontainer.Container) {
 	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
 	resource, _ := task.getASMAuthResource()
-	asmResource, _ := resource[0].(asmauth.ASMAuthResource)
-	dac := asmResource.GetASMDockerAuthConfig(secretID)
+	asmResource, _ := resource[0].(*asmauth.ASMAuthResource)
+	// need !ok here, or panic
+	dac, _ := asmResource.GetASMDockerAuthConfig(secretID)
+	// need ok check here
 	container.SetASMDockerAuthConfig(dac)
 
 }
 
-func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager) error {
+func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields) error {
 	asmRequirements := task.getListOfASMDockerAuthData()
-	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, asmRequirements, task.ExecutionCredentialsID, credentialsManager)
+	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, asmRequirements,
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource("asm-auth", asmAuthResource)
 	for _, container := range task.Containers {
 		container.BuildResourceDependency(asmAuthResource.GetName(),

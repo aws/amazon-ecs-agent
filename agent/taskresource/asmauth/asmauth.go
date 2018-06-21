@@ -1,5 +1,5 @@
 // +build linux
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,7 +16,6 @@ package asmauth
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 	"time"
 
@@ -36,6 +35,8 @@ const (
 	resourceProvisioningError = "TaskResourceError: Agent could not create task's platform resources"
 )
 
+// ASMAuthResource represents private registry credentials as a task resource.
+// These credentials are stored in AWS Secrets Manager
 type ASMAuthResource struct {
 	taskARN             string
 	createdAt           time.Time
@@ -47,71 +48,48 @@ type ASMAuthResource struct {
 	// used while progressing resource states in progressTask() of task manager
 	appliedStatus                      taskresource.ResourceStatus
 	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
-	// lock is used for fields that are accessed and updated concurrently
-	lock sync.RWMutex
-
-	credentialsManager     credentials.Manager
-	executionCredentialsID string
+	credentialsManager                 credentials.Manager
+	executionCredentialsID             string
 
 	// required for asm private registry auth
-	requiredASMResources []apicontainer.ASMAuthData
+	requiredASMResources []*apicontainer.ASMAuthData
 	dockerAuthData       map[string]docker.AuthConfiguration
-	// asmRegionalizedClient
+	// asmClientCreator is a factory interface that creates new ASM clients. This is
+	// needed mostly for testing as we're creating an asm client per every item in
+	// the requiredASMResources list. Each of these items could be from different
+	// regions.
+	// TODO: Refactor this struct so that each ASMAuthData gets associated with
+	// exactly one ASMAuthResource object
+	asmClientCreator asm.ClientCreator
+
+	// lock is used for fields that are accessed and updated concurrently
+	lock sync.RWMutex
 }
 
-// WIP: should take a regionalized client builder
+// NewASMAuthResource creates a new ASMAuthResource object
 func NewASMAuthResource(taskARN string,
-	asmRequirements []apicontainer.ASMAuthData,
+	asmRequirements []*apicontainer.ASMAuthData,
 	executionCredentialsID string,
-	credentialsManager credentials.Manager) *ASMAuthResource {
+	credentialsManager credentials.Manager,
+	asmClientCreator asm.ClientCreator) *ASMAuthResource {
 
 	c := &ASMAuthResource{
 		taskARN:                taskARN,
 		requiredASMResources:   asmRequirements,
 		credentialsManager:     credentialsManager,
 		executionCredentialsID: executionCredentialsID,
+		asmClientCreator:       asmClientCreator,
 	}
 
 	c.initStatusToTransition()
 	return c
 }
 
-func (auth *ASMAuthResource) retrieveASMResources() error {
-	for _, a := range auth.requiredASMResources {
-		err := auth.retrieveASMDockerAuthData(a)
-		if err != nil {
-			return err
-		}
+func (auth *ASMAuthResource) initStatusToTransition() {
+	resourceStatusToTransitionFunction := map[taskresource.ResourceStatus]func() error{
+		taskresource.ResourceStatus(ASMAuthStatusCreated): auth.Create,
 	}
-
-	return nil
-}
-
-func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData apicontainer.ASMAuthData) error {
-	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.executionCredentialsID)
-	// if !ok return error
-	if !ok {
-		fmt.Errorf("WIP: could not find execution credentials")
-	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
-
-	region := asmAuthData.Region
-	regionalisedClient := asm.NewRegionalisedASMClient(region, iamCredentials)
-
-	secretID := asmAuthData.CredentialsParameter
-	dac, err := asm.GetDockerAuthFromASM(secretID, regionalisedClient)
-	if err != nil {
-		return err
-	}
-
-	// put retrieved dac in dockerAuthMap
-	auth.dockerAuthData[secretID] = dac
-
-	return nil
-}
-
-func (auth *ASMAuthResource) IsDurable() bool {
-	return false
+	auth.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
 }
 
 // GetTerminalReason returns an error string to propagate up through to task
@@ -120,13 +98,6 @@ func (auth *ASMAuthResource) GetTerminalReason() string {
 	// for cgroups we can send up a static string because this is an
 	// implementation detail and unrelated to customer resources
 	return resourceProvisioningError
-}
-
-func (auth *ASMAuthResource) initStatusToTransition() {
-	resourceStatusToTransitionFunction := map[taskresource.ResourceStatus]func() error{
-		taskresource.ResourceStatus(ASMAuthStatusCreated): auth.Create,
-	}
-	auth.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
@@ -184,8 +155,6 @@ func (auth *ASMAuthResource) NextKnownState() taskresource.ResourceStatus {
 func (auth *ASMAuthResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
 	transitionFunc, ok := auth.resourceStatusToTransitionFunction[nextState]
 	if !ok {
-		seelog.Errorf("ASM Resource [%s]: unsupported desired state transition [%s]: %s",
-			auth.taskARN, auth.GetName(), auth.StatusString(nextState))
 		return errors.Errorf("resource [%s]: transition to %s impossible", auth.GetName(),
 			auth.StatusString(nextState))
 	}
@@ -265,14 +234,42 @@ func (auth *ASMAuthResource) GetCreatedAt() time.Time {
 	return auth.createdAt
 }
 
-// Create creates cgroup root for the task
+// Create fetches credentials from ASM
 func (auth *ASMAuthResource) Create() error {
-	seelog.Info("WIP: calling asmAuthResource.Create()")
-	err := auth.retrieveASMResources()
+	seelog.Infof("ASM Auth: Retrieving credentials for containers in task: [%s]", auth.taskARN)
+	return auth.retrieveASMResources()
+}
+
+func (auth *ASMAuthResource) retrieveASMResources() error {
+	for _, a := range auth.requiredASMResources {
+		err := auth.retrieveASMDockerAuthData(a)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer.ASMAuthData) error {
+	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.executionCredentialsID)
+	if !ok {
+		// No need to log here. managedTask.applyResourceState already does that
+		return errors.Errorf("asm unable find execution role credentials")
+	}
+	iamCredentials := executionCredentials.GetIAMRoleCredentials()
+	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
+	secretID := asmAuthData.CredentialsParameter
+	dac, err := asm.GetDockerAuthFromASM(secretID, asmClient)
 	if err != nil {
-		seelog.Criticalf("asm resources [%s]: unable to setup cgroup root: %v", auth.taskARN, err)
 		return err
 	}
+
+	auth.lock.Lock()
+	defer auth.lock.Unlock()
+
+	// put retrieved dac in dockerAuthMap
+	auth.dockerAuthData[secretID] = dac
 
 	return nil
 }
@@ -282,6 +279,17 @@ func (auth *ASMAuthResource) Cleanup() error {
 	seelog.Info("WIP: calling asmAuthResource.Cleanup()")
 	auth.clearASMDockerAuthConfig()
 	return nil
+}
+
+// clearASMDockerAuthConfig cycles through the collection of docker private
+// registry auth data and removes them from the task
+func (auth *ASMAuthResource) clearASMDockerAuthConfig() {
+	auth.lock.Lock()
+	defer auth.lock.Unlock()
+
+	for k := range auth.dockerAuthData {
+		delete(auth.dockerAuthData, k)
+	}
 }
 
 // GetASMDockerAuthConfig retrieves the docker private registry auth data from
@@ -294,32 +302,30 @@ func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (docker.Aut
 	return d, ok
 }
 
-// ClearASMDockerAuthConfig cycles through the collection of docker private
-// registry auth data and removes them from the task
-func (auth *ASMAuthResource) clearASMDockerAuthConfig() {
-	for k := range auth.dockerAuthData {
-		delete(auth.dockerAuthData, k)
-	}
+func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFields) {
+	// WIP
 }
 
 type asmAuthResourceJSON struct {
-	CreatedAt     time.Time      `json:",omitempty"`
-	DesiredStatus *ASMAuthStatus `json:"DesiredStatus"`
-	KnownStatus   *ASMAuthStatus `json:"KnownStatus"`
+	CreatedAt     *time.Time     `json:"createdAt,omitempty"`
+	DesiredStatus *ASMAuthStatus `json:"desiredStatus"`
+	// TODO: No need to persist this
+	KnownStatus *ASMAuthStatus `json:"knownStatus"`
 }
 
 func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
 	if auth == nil {
 		return nil, errors.New("asm-auth resource is nil")
 	}
+	createdAt := auth.GetCreatedAt()
 	return json.Marshal(asmAuthResourceJSON{
-		auth.GetCreatedAt(),
-		func() *ASMAuthStatus {
+		CreatedAt: &createdAt,
+		DesiredStatus: func() *ASMAuthStatus {
 			desiredState := auth.GetDesiredStatus()
 			status := ASMAuthStatus(desiredState)
 			return &status
 		}(),
-		func() *ASMAuthStatus {
+		KnownStatus: func() *ASMAuthStatus {
 			knownState := auth.GetKnownStatus()
 			status := ASMAuthStatus(knownState)
 			return &status
@@ -339,6 +345,9 @@ func (auth *ASMAuthResource) UnmarshalJSON(b []byte) error {
 	}
 	if temp.KnownStatus != nil {
 		auth.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
+	}
+	if temp.CreatedAt != nil && !temp.CreatedAt.IsZero() {
+		auth.SetCreatedAt(*temp.CreatedAt)
 	}
 	return nil
 }
