@@ -20,10 +20,11 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,7 +44,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 	testTask := createTestTask(taskArn)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	for _, container := range testTask.Containers {
-		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 	control := cgroup.New()
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{

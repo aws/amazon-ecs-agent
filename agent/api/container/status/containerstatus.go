@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package container
+package status
 
 import (
 	"errors"
@@ -117,7 +117,7 @@ func (cs ContainerStatus) Terminal() bool {
 	return cs == ContainerStopped
 }
 
-// UnmarshalJSON overrides the logic for parsing the JSON-encoded TaskStatus data
+// UnmarshalJSON overrides the logic for parsing the JSON-encoded ContainerStatus data
 func (cs *ContainerStatus) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
 		*cs = ContainerStatusNone

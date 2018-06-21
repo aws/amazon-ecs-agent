@@ -27,8 +27,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -212,7 +214,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).AnyTimes()
 			// Simulate a container stop event from docker
 			eventStream <- dockerapi.DockerContainerChangeEvent{
-				Status: apicontainer.ContainerStopped,
+				Status: apicontainerstatus.ContainerStopped,
 				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 					DockerID: containerID,
 					ExitCode: aws.Int(exitCode),
@@ -225,14 +227,14 @@ func TestBatchContainerHappyPath(t *testing.T) {
 				dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 			// This ensures that managedTask.waitForStopReported makes progress
-			sleepTask.SetSentStatus(apitask.TaskStopped)
+			sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
 
 			sleepTaskStop := testdata.LoadTask("sleep5")
 			sleepTaskStop.SetCredentialsID(credentialsID)
-			sleepTaskStop.SetDesiredStatus(apitask.TaskStopped)
+			sleepTaskStop.SetDesiredStatus(apitaskstatus.TaskStopped)
 			taskEngine.AddTask(sleepTaskStop)
 			// As above, duplicate events should not be a problem
 			taskEngine.AddTask(sleepTaskStop)
@@ -248,7 +250,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			metadataManager.EXPECT().Clean(gomock.Any()).Return(tc.metadataCleanError)
 			// trigger cleanup
 			cleanup <- time.Now()
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
 			// Wait for the task to actually be dead; if we just fallthrough immediately,
 			// the remove might not have happened (expectation failure)
 			for {
@@ -276,11 +278,11 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildContainerDependency("pause", apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled)
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.BuildContainerDependency("pause", apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
 	// steadyState == RESOURCES_PROVISIONED
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.Name = "pause"
 	pauseContainer.Image = "pause"
 	pauseContainer.CPU = 10
@@ -329,7 +331,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				assert.True(t, strings.Contains(containerName, pauseContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerCreated)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
@@ -338,7 +340,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
@@ -357,7 +359,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 				assert.Equal(t, "container:"+containerID+":"+pauseContainer.Name, hostConfig.NetworkMode)
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerCreated)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -366,7 +368,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -388,7 +390,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID + ":" + sleepContainer.Name,
 			ExitCode: aws.Int(exitCode),
@@ -437,7 +439,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 			ExitCode: aws.Int(exitCode),
@@ -446,7 +448,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 	sleepTaskStop := testdata.LoadTask("sleep5")
-	sleepTaskStop.SetDesiredStatus(apitask.TaskStopped)
+	sleepTaskStop.SetDesiredStatus(apitaskstatus.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
 
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(
@@ -457,14 +459,14 @@ func TestRemoveEvents(t *testing.T) {
 			// Emit a couple of events for the task before cleanup finishes. This forces
 			// discardEventsUntil to be invoked and should test the code path that
 			// caused the deadlock, which was fixed with #320
-			eventStream <- createDockerEvent(apicontainer.ContainerStopped)
-			eventStream <- createDockerEvent(apicontainer.ContainerStopped)
+			eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped)
+			eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped)
 		}).Return(nil)
 
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any())
 
 	// This ensures that managedTask.waitForStopReported makes progress
-	sleepTask.SetSentStatus(apitask.TaskStopped)
+	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	// trigger cleanup
 	cleanup <- time.Now()
 	// Wait for the task to actually be dead; if we just fallthrough immediately,
@@ -501,7 +503,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, x, y, z, timeout interface{}) {
-				go func() { eventStream <- createDockerEvent(apicontainer.ContainerCreated) }()
+				go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated) }()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 
 		client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Return(dockerapi.DockerContainerMetadata{
@@ -522,10 +524,10 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
 
 	// Now surprise surprise, it actually did start!
-	eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 	// However, if it starts again, we should not see it be killed; no additional expect
-	eventStream <- createDockerEvent(apicontainer.ContainerRunning)
-	eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
+	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 
 	select {
 	case <-stateChangeEvents:
@@ -568,14 +570,14 @@ func TestSteadyStatePoll(t *testing.T) {
 	wg.Add(1)
 
 	client.EXPECT().DescribeContainer(gomock.Any(), containerID).Return(
-		apicontainer.ContainerStopped,
+		apicontainerstatus.ContainerStopped,
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).Do(func(ctx interface{}, x interface{}) {
 		wg.Done()
 	})
 	client.EXPECT().DescribeContainer(gomock.Any(), containerID).Return(
-		apicontainer.ContainerStopped,
+		apicontainerstatus.ContainerStopped,
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).AnyTimes()
@@ -602,7 +604,7 @@ func TestSteadyStatePoll(t *testing.T) {
 
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
 	// trigger cleanup, this ensures all the goroutines were finished
-	sleepTask.SetSentStatus(apitask.TaskStopped)
+	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
@@ -651,13 +653,13 @@ func TestStopWithPendingStops(t *testing.T) {
 	<-pullInvoked
 	stopSleep2 := testdata.LoadTask("sleep5")
 	stopSleep2.Arn = "arn2"
-	stopSleep2.SetDesiredStatus(apitask.TaskStopped)
+	stopSleep2.SetDesiredStatus(apitaskstatus.TaskStopped)
 	stopSleep2.StopSequenceNumber = 4
 	taskEngine.AddTask(stopSleep2)
 
 	taskEngine.AddTask(sleepTask1)
 	stopSleep1 := testdata.LoadTask("sleep5")
-	stopSleep1.SetDesiredStatus(apitask.TaskStopped)
+	stopSleep1.SetDesiredStatus(apitaskstatus.TaskStopped)
 	stopSleep1.StopSequenceNumber = 5
 	taskEngine.AddTask(stopSleep1)
 	pullDone <- true
@@ -764,14 +766,14 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, x, y, z, timeout interface{}) {
-				go func() { eventStream <- createDockerEvent(apicontainer.ContainerCreated) }()
+				go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated) }()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 
 		gomock.InOrder(
 			client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Do(
 				func(ctx interface{}, id string, timeout time.Duration) {
 					go func() {
-						eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
 
@@ -787,7 +789,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 						// Emit 'ContainerStopped' event to the container event stream
 						// This should cause the container and the task to transition
 						// to 'STOPPED'
-						eventStream <- createDockerEvent(apicontainer.ContainerStopped)
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped)
 					}()
 				}).Return(containerStopTimeoutError).MinTimes(1),
 		)
@@ -802,7 +804,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := testdata.LoadTask("sleep5")
-	updateSleepTask.SetDesiredStatus(apitask.TaskStopped)
+	updateSleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(updateSleepTask)
 
 	// StopContainer timeout error shouldn't cause cantainer/task status change
@@ -859,7 +861,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 				func(ctx interface{}, x, y, z, timeout interface{}) {
 					containerEventsWG.Add(1)
 					go func() {
-						eventStream <- createDockerEvent(apicontainer.ContainerCreated)
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
 						containerEventsWG.Done()
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
@@ -868,7 +870,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 				func(ctx interface{}, id string, timeout time.Duration) {
 					containerEventsWG.Add(1)
 					go func() {
-						eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+						eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 						containerEventsWG.Done()
 					}()
 				}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID}),
@@ -895,7 +897,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	containerEventsWG.Wait()
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := testdata.LoadTask("sleep5")
-	updateSleepTask.SetDesiredStatus(apitask.TaskStopped)
+	updateSleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(updateSleepTask)
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
@@ -953,7 +955,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	waitForRunningEvents(t, taskEngine.StateChangeEvents())
 	// Set the task desired status to be stopped and StopContainer will be called
 	updateSleepTask := testdata.LoadTask("sleep5")
-	updateSleepTask.SetDesiredStatus(apitask.TaskStopped)
+	updateSleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(updateSleepTask)
 	// StopContainer invocation should have caused it to stop eventually.
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
@@ -981,9 +983,9 @@ func TestGetTaskByArn(t *testing.T) {
 	assert.NoError(t, err)
 	defer taskEngine.Disable()
 	sleepTask := testdata.LoadTask("sleep5")
-	sleepTask.SetDesiredStatus(apitask.TaskStopped)
+	sleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	sleepTaskArn := sleepTask.Arn
-	sleepTask.SetDesiredStatus(apitask.TaskStopped)
+	sleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	taskEngine.AddTask(sleepTask)
 
 	_, found := taskEngine.GetTaskByArn(sleepTaskArn)
@@ -1024,7 +1026,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
 	sleepTask.SetTaskENI(&apieni.ENI{
@@ -1106,7 +1108,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 			ExitCode: aws.Int(exitCode),
@@ -1114,7 +1116,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	}
 
 	verifyTaskIsStopped(stateChangeEvents, sleepTask)
-	sleepTask.SetSentStatus(apitask.TaskStopped)
+	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
@@ -1276,7 +1278,7 @@ func TestTaskWithCircularDependency(t *testing.T) {
 	events := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(task)
 	event := <-events
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to move to stopped directly")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to move to stopped directly")
 	_, ok := taskEngine.(*DockerTaskEngine).state.TaskByArn(task.Arn)
 	assert.True(t, ok, "Task state should be added to the agent state")
 
@@ -1517,7 +1519,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	task := testdata.LoadTask("sleep5")
 	container, _ := task.ContainerByName("sleep5")
 	assert.False(t, container.MetadataFileUpdated)
-	container.SetKnownStatus(apicontainer.ContainerRunning)
+	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	dockerContainer := &apicontainer.DockerContainer{DockerID: containerID, Container: container}
 	expectedTaskARN := task.Arn
 	expectedDockerID := dockerContainer.DockerID
@@ -1617,7 +1619,7 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	// add the task to the state to simulate the agent restored the state on restart
 	state.AddTask(testTask)
 	// Set the task to be stopped so that the process can done quickly
-	testTask.SetDesiredStatus(apitask.TaskStopped)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()
 	_, ok := dockerTaskEngine.managedTasks[testTask.Arn]
 	assert.True(t, ok, "task wasnot started")
@@ -1628,14 +1630,14 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	// Task 1 stopped by backend
 	taskStoppedByACS := testdata.LoadTask("sleep5")
-	taskStoppedByACS.SetDesiredStatus(apitask.TaskStopped)
+	taskStoppedByACS.SetDesiredStatus(apitaskstatus.TaskStopped)
 	taskStoppedByACS.SetStopSequenceNumber(1)
-	taskStoppedByACS.SetKnownStatus(apitask.TaskRunning)
+	taskStoppedByACS.SetKnownStatus(apitaskstatus.TaskRunning)
 	// Task 2 has essential container stopped
 	taskEssentialContainerStopped := testdata.LoadTask("sleep5")
 	taskEssentialContainerStopped.Arn = "task_Essential_Container_Stopped"
-	taskEssentialContainerStopped.SetDesiredStatus(apitask.TaskStopped)
-	taskEssentialContainerStopped.SetKnownStatus(apitask.TaskRunning)
+	taskEssentialContainerStopped.SetDesiredStatus(apitaskstatus.TaskStopped)
+	taskEssentialContainerStopped.SetKnownStatus(apitaskstatus.TaskRunning)
 	// Normal task 3 needs to be started
 	taskNotStarted := testdata.LoadTask("sleep5")
 	taskNotStarted.Arn = "task_Not_started"
@@ -1677,7 +1679,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	}, taskEssentialContainerStopped)
 
 	// these are performed in synchronizeState on restart
-	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).Return(apicontainer.ContainerRunning, dockerapi.DockerContainerMetadata{
+	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).Return(apicontainerstatus.ContainerRunning, dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}).Times(3)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
@@ -1817,7 +1819,7 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	}
 	created := time.Now()
 	gomock.InOrder(
-		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainer.ContainerRunning,
+		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainerstatus.ContainerRunning,
 			dockerapi.DockerContainerMetadata{
 				Labels:    labels,
 				DockerID:  dockerID,
@@ -1850,16 +1852,16 @@ func TestHandleDockerHealthEvent(t *testing.T) {
 	}, testTask)
 
 	taskEngine.(*DockerTaskEngine).handleDockerEvent(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		Type:   apicontainer.ContainerHealthEvent,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: "id",
 			Health: apicontainer.HealthStatus{
-				Status: apicontainer.ContainerHealthy,
+				Status: apicontainerstatus.ContainerHealthy,
 			},
 		},
 	})
-	assert.Equal(t, testContainer.Health.Status, apicontainer.ContainerHealthy)
+	assert.Equal(t, testContainer.Health.Status, apicontainerstatus.ContainerHealthy)
 }
 
 func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
@@ -1869,7 +1871,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 	}
 	testCases := []struct {
 		stage        string
-		status       apicontainer.ContainerStatus
+		status       apicontainerstatus.ContainerStatus
 		created      time.Time
 		started      time.Time
 		finished     time.Time
@@ -1879,12 +1881,12 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 	}{
 		{
 			stage:   "created",
-			status:  apicontainer.ContainerCreated,
+			status:  apicontainerstatus.ContainerCreated,
 			created: time.Now(),
 		},
 		{
 			stage:   "started",
-			status:  apicontainer.ContainerRunning,
+			status:  apicontainerstatus.ContainerRunning,
 			started: time.Now(),
 			portBindings: []apicontainer.PortBinding{
 				{
@@ -1902,7 +1904,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 		},
 		{
 			stage:    "failed",
-			status:   apicontainer.ContainerStopped,
+			status:   apicontainerstatus.ContainerStopped,
 			err:      dockerapi.NewDockerStateError("error"),
 			exitCode: aws.Int(1),
 		},
@@ -2039,7 +2041,7 @@ func TestContainerProgressParallize(t *testing.T) {
 					Container:  testTask.Containers[0],
 				}, testTask)
 				go func() {
-					event := createDockerEvent(apicontainer.ContainerCreated)
+					event := createDockerEvent(apicontainerstatus.ContainerCreated)
 					event.DockerID = slowContainerDockerID
 					eventStream <- event
 				}()
@@ -2052,7 +2054,7 @@ func TestContainerProgressParallize(t *testing.T) {
 					Container:  testTask.Containers[1],
 				}, testTask)
 				go func() {
-					event := createDockerEvent(apicontainer.ContainerCreated)
+					event := createDockerEvent(apicontainerstatus.ContainerCreated)
 					event.DockerID = fastContainerDockerID
 					eventStream <- event
 				}()
@@ -2063,7 +2065,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().StartContainer(gomock.Any(), fastContainerDockerID, gomock.Any()).Do(
 		func(ctx interface{}, id string, duration interface{}) {
 			go func() {
-				event := createDockerEvent(apicontainer.ContainerRunning)
+				event := createDockerEvent(apicontainerstatus.ContainerRunning)
 				event.DockerID = fastContainerDockerID
 				eventStream <- event
 			}()
@@ -2071,7 +2073,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().StartContainer(gomock.Any(), slowContainerDockerID, gomock.Any()).Do(
 		func(ctx interface{}, id string, duration interface{}) {
 			go func() {
-				event := createDockerEvent(apicontainer.ContainerRunning)
+				event := createDockerEvent(apicontainerstatus.ContainerRunning)
 				event.DockerID = slowContainerDockerID
 				eventStream <- event
 			}()
@@ -2084,7 +2086,7 @@ func TestContainerProgressParallize(t *testing.T) {
 	fastPullContainerRunning := false
 	for event := range stateChangeEvents {
 		containerEvent, ok := event.(api.ContainerStateChange)
-		if ok && containerEvent.Status == apicontainer.ContainerRunning {
+		if ok && containerEvent.Status == apicontainerstatus.ContainerRunning {
 			if containerEvent.ContainerName == fastPullImage {
 				fastPullContainerRunning = true
 				// The second container should start processing now
@@ -2096,7 +2098,7 @@ func TestContainerProgressParallize(t *testing.T) {
 		}
 
 		taskEvent, ok := event.(api.TaskStateChange)
-		if ok && taskEvent.Status == apitask.TaskRunning {
+		if ok && taskEvent.Status == apitaskstatus.TaskRunning {
 			break
 		}
 		t.Errorf("Got unexpected task event: %v", taskEvent.String())
@@ -2112,11 +2114,11 @@ func TestContainerProgressParallize(t *testing.T) {
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil).Times(2)
 
-	containerStoppedEvent := createDockerEvent(apicontainer.ContainerStopped)
+	containerStoppedEvent := createDockerEvent(apicontainerstatus.ContainerStopped)
 	containerStoppedEvent.DockerID = slowContainerDockerID
 	eventStream <- containerStoppedEvent
 
-	testTask.SetSentStatus(apitask.TaskStopped)
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
 	for {
 		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
@@ -2158,6 +2160,6 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)
 	// Set the task to be stopped so that the process can done quickly
-	testTask.SetDesiredStatus(apitask.TaskStopped)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()
 }

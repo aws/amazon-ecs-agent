@@ -11,10 +11,10 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package task
+package status
 
 import (
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 )
 
 // MapContainerToTaskStatus maps the container status to the corresponding task status. The
@@ -23,19 +23,19 @@ import (
 // Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
 //
 // Task     : None ->     Created       ->         Running        -> Stopped
-func MapContainerToTaskStatus(knownState apicontainer.ContainerStatus, steadyState apicontainer.ContainerStatus) TaskStatus {
+func MapContainerToTaskStatus(knownState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) TaskStatus {
 	switch knownState {
-	case apicontainer.ContainerStatusNone:
+	case apicontainerstatus.ContainerStatusNone:
 		return TaskStatusNone
 	case steadyState:
 		return TaskRunning
-	case apicontainer.ContainerCreated:
+	case apicontainerstatus.ContainerCreated:
 		return TaskCreated
-	case apicontainer.ContainerStopped:
+	case apicontainerstatus.ContainerStopped:
 		return TaskStopped
 	}
 
-	if knownState == apicontainer.ContainerRunning && steadyState == apicontainer.ContainerResourcesProvisioned {
+	if knownState == apicontainerstatus.ContainerRunning && steadyState == apicontainerstatus.ContainerResourcesProvisioned {
 		return TaskCreated
 	}
 
@@ -43,16 +43,16 @@ func MapContainerToTaskStatus(knownState apicontainer.ContainerStatus, steadySta
 }
 
 // MapTaskToContainerStatus maps the task status to the corresponding container status
-func MapTaskToContainerStatus(desiredState TaskStatus, steadyState apicontainer.ContainerStatus) apicontainer.ContainerStatus {
+func MapTaskToContainerStatus(desiredState TaskStatus, steadyState apicontainerstatus.ContainerStatus) apicontainerstatus.ContainerStatus {
 	switch desiredState {
 	case TaskStatusNone:
-		return apicontainer.ContainerStatusNone
+		return apicontainerstatus.ContainerStatusNone
 	case TaskCreated:
-		return apicontainer.ContainerCreated
+		return apicontainerstatus.ContainerCreated
 	case TaskRunning:
 		return steadyState
 	case TaskStopped:
-		return apicontainer.ContainerStopped
+		return apicontainerstatus.ContainerStopped
 	}
-	return apicontainer.ContainerStatusNone
+	return apicontainerstatus.ContainerStatusNone
 }

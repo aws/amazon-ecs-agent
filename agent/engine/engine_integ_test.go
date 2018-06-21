@@ -26,7 +26,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -63,14 +65,14 @@ func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine
 func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
 }
 
 func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped,
 		"Expected task to be STOPPED")
 }
 
@@ -111,17 +113,17 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ := client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainer.ContainerCreated, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainer.ContainerRunning, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainer.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -136,7 +138,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainer.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -175,7 +177,7 @@ func TestEmptyHostVolumeMount(t *testing.T) {
 	// creates a task with two containers
 	testTask := createTestEmptyHostVolumeMountTask()
 	for _, container := range testTask.Containers {
-		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 
 	go taskEngine.AddTask(testTask)
@@ -210,12 +212,12 @@ func TestSweepContainer(t *testing.T) {
 
 	tasks, _ := taskEngine.ListTasks()
 	assert.Equal(t, len(tasks), 1)
-	assert.Equal(t, tasks[0].GetKnownStatus(), apitask.TaskStopped)
+	assert.Equal(t, tasks[0].GetKnownStatus(), apitaskstatus.TaskStopped)
 
 	// Should be stopped, let's verify it's still listed...
 	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
 	assert.True(t, ok, "Expected task to be present still, but wasn't")
-	task.SetSentStatus(apitask.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
+	task.SetSentStatus(apitaskstatus.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
@@ -292,7 +294,7 @@ func TestContainerHealthCheck(t *testing.T) {
 	assert.Equal(t, "HEALTHY", healthStatus.Status.BackendStatus(), "container health status is not HEALTHY")
 
 	taskUpdate := createTestTask(taskArn)
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -327,17 +329,17 @@ func TestEngineSynchronize(t *testing.T) {
 	// Task and Container restored from state file
 	containerSaved := &apicontainer.Container{
 		Name:                containerBeforeSync.Container.Name,
-		SentStatusUnsafe:    apicontainer.ContainerRunning,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		SentStatusUnsafe:    apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 	}
 	task := &apitask.Task{
 		Arn: taskArn,
 		Containers: []*apicontainer.Container{
 			containerSaved,
 		},
-		KnownStatusUnsafe:   apitask.TaskRunning,
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		SentStatusUnsafe:    apitask.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		SentStatusUnsafe:    apitaskstatus.TaskRunning,
 	}
 
 	state = dockerstate.NewTaskEngineState()
@@ -369,7 +371,7 @@ func TestEngineSynchronize(t *testing.T) {
 	assert.Len(t, imageStateAfterSync, 1)
 	assert.Equal(t, *imageStateAfterSync[0], *imageStates[0])
 
-	testTask.SetDesiredStatus(apitask.TaskStopped)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(testTask)
 
 	verifyContainerStoppedStateChange(t, taskEngine)

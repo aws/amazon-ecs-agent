@@ -28,9 +28,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -158,7 +159,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainer.ContainerRunning,
+		Status:        apicontainerstatus.ContainerRunning,
 		PortBindings: []apicontainer.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
@@ -206,7 +207,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainer.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 		PortBindings: []apicontainer.PortBinding{
@@ -239,7 +240,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainer.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -270,7 +271,7 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        apicontainer.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -696,7 +697,7 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Status:  apitask.TaskRunning,
+		Status:  apitaskstatus.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }
@@ -708,27 +709,27 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	testCases := []struct {
-		taskStatus apitask.TaskStatus
+		taskStatus apitaskstatus.TaskStatus
 	}{
 		{
-			apitask.TaskStatusNone,
+			apitaskstatus.TaskStatusNone,
 		},
 		{
-			apitask.TaskPulled,
+			apitaskstatus.TaskPulled,
 		},
 		{
-			apitask.TaskCreated,
+			apitaskstatus.TaskCreated,
 		},
 	}
 
 	taskStateChangePending := api.TaskStateChange{
-		Status:  apitask.TaskCreated,
+		Status:  apitaskstatus.TaskCreated,
 		TaskARN: "arn",
 		Containers: []api.ContainerStateChange{
 			{
 				TaskArn:       "arn",
 				ContainerName: "container",
-				Status:        apicontainer.ContainerRunning,
+				Status:        apicontainerstatus.ContainerRunning,
 			},
 		},
 	}

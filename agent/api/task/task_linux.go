@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
@@ -82,7 +82,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields
 	for _, container := range task.Containers {
 		container.BuildResourceDependency(cgroupResource.GetName(),
 			taskresource.ResourceStatus(cgroup.CgroupCreated),
-			apicontainer.ContainerPulled)
+			apicontainerstatus.ContainerPulled)
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,8 +24,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -95,13 +97,13 @@ type Task struct {
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler.
-	// The DesiredStatusUnsafe is almost always either TaskRunning or TaskStopped.
+	// The DesiredStatusUnsafe is almost always either apitaskstatus.TaskRunning or apitaskstatus.TaskStopped.
 	// NOTE: Do not access DesiredStatusUnsafe directly.  Instead, use `UpdateStatus`,
 	// `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
 	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatusUnsafe TaskStatus `json:"DesiredStatus"`
+	DesiredStatusUnsafe apitaskstatus.TaskStatus `json:"DesiredStatus"`
 
 	// KnownStatusUnsafe represents the state where the task is.  This is generally
 	// the minimum of equivalent status types for the containers in the task;
@@ -112,7 +114,7 @@ type Task struct {
 	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatusUnsafe TaskStatus `json:"KnownStatus"`
+	KnownStatusUnsafe apitaskstatus.TaskStatus `json:"KnownStatus"`
 	// KnownStatusTimeUnsafe captures the time when the KnownStatusUnsafe was last updated.
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
@@ -132,7 +134,7 @@ type Task struct {
 	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	SentStatusUnsafe TaskStatus `json:"SentStatus"`
+	SentStatusUnsafe apitaskstatus.TaskStatus `json:"SentStatus"`
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
@@ -177,9 +179,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
-	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
+	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
+	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
 		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
@@ -188,7 +190,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
-		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 	// initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -239,7 +241,7 @@ func (task *Task) initializeEmptyVolumes() {
 				continue
 			}
 			if _, ok := vol.(*EmptyHostVolume); ok {
-				container.BuildContainerDependency(emptyHostVolumeName, apicontainer.ContainerRunning, apicontainer.ContainerCreated)
+				container.BuildContainerDependency(emptyHostVolumeName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated)
 				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
 			}
 		}
@@ -267,7 +269,7 @@ func (task *Task) initializeEmptyVolumes() {
 			MountPoints:         mountPoints,
 			Essential:           false,
 			Type:                apicontainer.ContainerEmptyHostVolume,
-			DesiredStatusUnsafe: apicontainer.ContainerRunning,
+			DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		}
 		task.Containers = append(task.Containers, sourceContainer)
 	}
@@ -347,9 +349,9 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(PauseContainerName, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled)
+		container.BuildContainerDependency(PauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 	}
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
@@ -404,15 +406,15 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[strin
 // It returns a TaskStatus indicating what change occurred or TaskStatusNone if
 // there was no change
 // Invariant: task known status is the minimum of container known status
-func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
+func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	seelog.Debugf("Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
-	containerEarliestKnownStatus := apicontainer.ContainerZombie
+	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
 	essentialContainerStopped := false
 	for _, container := range task.Containers {
 		containerKnownStatus := container.GetKnownStatus()
-		if containerKnownStatus == apicontainer.ContainerStopped && container.Essential {
+		if containerKnownStatus == apicontainerstatus.ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
 		if containerKnownStatus < containerEarliestKnownStatus {
@@ -424,7 +426,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		seelog.Criticalf(
 			"Impossible state found while updating tasks's known status, earliest state recorded as %s for task [%v]",
 			containerEarliestKnownStatus.String(), task)
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	seelog.Debugf("Container with earliest known container is [%s] for task: %s",
 		earliestKnownStatusContainer.String(), task.String())
@@ -434,7 +436,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		seelog.Debugf(
 			"Essential container is stopped while other containers are running, not updating task status for task: %s",
 			task.String())
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	// We can't rely on earliest container known status alone for determining if the
 	// task state needs to be updated as containers can have different steady states
@@ -447,20 +449,20 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
 	}
-	return TaskStatusNone
+	return apitaskstatus.TaskStatusNone
 }
 
 // getEarliestKnownTaskStatusForContainers gets the lowest (earliest) task status
 // based on the known statuses of all containers in the task
-func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
+func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskStatus {
 	if len(task.Containers) == 0 {
 		seelog.Criticalf("No containers in the task: %s", task.String())
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	// Set earliest container status to an impossible to reach 'high' task status
-	earliest := TaskZombie
+	earliest := apitaskstatus.TaskZombie
 	for _, container := range task.Containers {
-		containerTaskStatus := MapContainerToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
+		containerTaskStatus := apitaskstatus.MapContainerToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
 		if containerTaskStatus < earliest {
 			earliest = containerTaskStatus
 		}
@@ -895,7 +897,7 @@ func (task *Task) UpdateStatus() bool {
 	change := task.updateTaskKnownStatus()
 	// DesiredStatus can change based on a new known status
 	task.UpdateDesiredStatus()
-	return change != TaskStatusNone
+	return change != apitaskstatus.TaskStatusNone
 }
 
 // UpdateDesiredStatus sets the known status of the task
@@ -918,7 +920,7 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			seelog.Debugf("Updating task desired status to stopped because of container: [%s]; task: [%s]",
 				cont.Name, task.stringUnsafe())
-			task.DesiredStatusUnsafe = TaskStopped
+			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		}
 	}
 }
@@ -927,9 +929,9 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 // task's desired status
 // Invariant: container desired status is <= task desired status converted to container status
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
-func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
+func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus apitaskstatus.TaskStatus) {
 	for _, container := range task.Containers {
-		taskDesiredStatusToContainerStatus := MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
+		taskDesiredStatusToContainerStatus := apitaskstatus.MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
 		if container.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
 			container.SetDesiredStatus(taskDesiredStatusToContainerStatus)
 		}
@@ -939,10 +941,10 @@ func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatu
 // updateResourceDesiredStatusUnsafe sets all resources' desired status depending on the
 // task's desired status
 // TODO: Create a mapping of resource status to the corresponding task status and use it here
-func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
+func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus apitaskstatus.TaskStatus) {
 	resources := task.getResourcesUnsafe()
 	for _, r := range resources {
-		if taskDesiredStatus == TaskRunning {
+		if taskDesiredStatus == apitaskstatus.TaskRunning {
 			if r.GetDesiredStatus() < r.SteadyState() {
 				r.SetDesiredStatus(r.SteadyState())
 			}
@@ -955,12 +957,12 @@ func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus
 }
 
 // SetKnownStatus sets the known status of the task
-func (task *Task) SetKnownStatus(status TaskStatus) {
+func (task *Task) SetKnownStatus(status apitaskstatus.TaskStatus) {
 	task.setKnownStatus(status)
 	task.updateKnownStatusTime()
 }
 
-func (task *Task) setKnownStatus(status TaskStatus) {
+func (task *Task) setKnownStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -975,7 +977,7 @@ func (task *Task) updateKnownStatusTime() {
 }
 
 // GetKnownStatus gets the KnownStatus of the task
-func (task *Task) GetKnownStatus() TaskStatus {
+func (task *Task) GetKnownStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1023,7 +1025,7 @@ func (task *Task) GetExecutionCredentialsID() string {
 }
 
 // GetDesiredStatus gets the desired status of the task
-func (task *Task) GetDesiredStatus() TaskStatus {
+func (task *Task) GetDesiredStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1031,7 +1033,7 @@ func (task *Task) GetDesiredStatus() TaskStatus {
 }
 
 // SetDesiredStatus sets the desired status of the task
-func (task *Task) SetDesiredStatus(status TaskStatus) {
+func (task *Task) SetDesiredStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -1039,7 +1041,7 @@ func (task *Task) SetDesiredStatus(status TaskStatus) {
 }
 
 // GetSentStatus safely returns the SentStatus of the task
-func (task *Task) GetSentStatus() TaskStatus {
+func (task *Task) GetSentStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1047,7 +1049,7 @@ func (task *Task) GetSentStatus() TaskStatus {
 }
 
 // SetSentStatus safely sets the SentStatus of the task
-func (task *Task) SetSentStatus(status TaskStatus) {
+func (task *Task) SetSentStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -1199,7 +1201,7 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	if !container.Essential {
 		return
 	}
-	if container.GetKnownStatus() != apicontainer.ContainerStopped {
+	if container.GetKnownStatus() != apicontainerstatus.ContainerStopped {
 		return
 	}
 	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
@@ -1307,7 +1309,7 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 	for _, container := range task.Containers {
 		container.BuildResourceDependency(asmAuthResource.GetName(),
 			taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
-			apicontainer.ContainerPulled)
+			apicontainerstatus.ContainerPulled)
 	}
 	return nil
 }

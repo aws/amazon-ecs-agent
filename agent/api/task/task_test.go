@@ -25,7 +25,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -664,7 +666,7 @@ func TestTaskFromACS(t *testing.T) {
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
-		DesiredStatusUnsafe: TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -706,7 +708,7 @@ func TestTaskFromACS(t *testing.T) {
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
@@ -732,94 +734,94 @@ func TestTaskFromACS(t *testing.T) {
 
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "task status should depend on the earlist container status")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should depend on the earlist container status")
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "task status should depend on the earlist container status")
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus(), "task status should depend on the earlist container status")
 }
 
 // TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped tests when there is one essential
 // container is stopped while the other containers are running, the task status shouldn't be changed to running
 func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskCreated,
+		KnownStatusUnsafe: apitaskstatus.TaskCreated,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should not move to running if essential container is stopped")
+	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus(), "task status should not move to running if essential container is stopped")
 }
 
 // TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped tests when there is one essential container
 // is stopped while other container status are prior to Running, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus)
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 }
 
 // TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned
 // tests when there is one essential container is stopped while other container status are prior to
 // ResourcesProvisioned, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerCreated,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerCreated,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -827,8 +829,8 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus)
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 }
 
 // TestGetEarliestTaskStatusForContainersEmptyTask verifies that
@@ -836,7 +838,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 // a task with no containers
 func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 	testTask := &Task{}
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
 // TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
@@ -844,115 +846,115 @@ func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 // a task with containers that do not have the `KnownStatusUnsafe` field set
 func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{},
 			&apicontainer.Container{},
 		},
 	}
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	// Since a container is still in CREATED state, the earliest known status
-	// for the task based on its container statuses must be `TaskCreated`
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
 	// Ensure that both containers are RUNNING, which means that the earliest known status
-	// for the task based on its container statuses must be `TaskRunning`
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+	// for the task based on its container statuses must be `apitaskstatus.TaskRunning`
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerRunning,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
 	}
 
 	// Since a container is still in CREATED state, the earliest known status
-	// for the task based on its container statuses must be `TaskCreated`
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	// Even if all containers transition to RUNNING, the earliest known status
-	// for the task based on its container statuses would still be `TaskCreated`
+	// for the task based on its container statuses would still be `apitaskstatus.TaskCreated`
 	// as one of the containers has RESOURCES_PROVISIONED as its steady state
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
 	// All of the containers in the task have reached their steady state. Ensure
 	// that the earliest known status for the task based on its container states
-	// is now `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+	// is now `apitaskstatus.TaskRunning`
+	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	// One of the containers is in CREATED state, expect task to be updated
-	// to TaskCreated
+	// to apitaskstatus.TaskCreated
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers are in RUNNING state, expect task to be updated
-	// to TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// to apitaskstatus.TaskRunning
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerRunning,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -960,25 +962,25 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 	}
 
 	// One of the containers is in CREATED state, expect task to be updated
-	// to TaskCreated
+	// to apitaskstatus.TaskCreated
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers are in RUNNING state, but one of the containers
 	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
-	// updated to TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// updated to apitaskstatus.TaskRunning
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers have reached their steady states, expect the task
-	// to be updated to `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
+	// to be updated to `apitaskstatus.TaskRunning`
+	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
 }
 
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
@@ -1316,25 +1318,25 @@ func TestContainerHealthConfig(t *testing.T) {
 func TestRecordExecutionStoppedAt(t *testing.T) {
 	testCases := []struct {
 		essential             bool
-		status                apicontainer.ContainerStatus
+		status                apicontainerstatus.ContainerStatus
 		executionStoppedAtSet bool
 		msg                   string
 	}{
 		{
 			essential:             true,
-			status:                apicontainer.ContainerStopped,
+			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
 			msg: "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
-			status:                apicontainer.ContainerStopped,
+			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
 			msg: "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
-			status:                apicontainer.ContainerRunning,
+			status:                apicontainerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
 			msg: "essential non-stop status change should not cause executionStoppedAt set",
 		},

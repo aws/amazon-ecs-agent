@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -200,7 +200,7 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 			// transitions to STOPPED, since ECS does not allow updates to
 			// container states once the task has moved to STOPPED.
 			knownStatus := task.GetKnownStatus()
-			if knownStatus >= apitask.TaskStopped {
+			if knownStatus >= apitaskstatus.TaskStopped {
 				continue
 			}
 			event := api.TaskStateChange{

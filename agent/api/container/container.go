@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -31,7 +32,7 @@ const (
 	// defaultContainerSteadyStateStatus defines the container status at
 	// which the container is assumed to be in steady state. It is set
 	// to 'ContainerRunning' unless overridden
-	defaultContainerSteadyStateStatus = ContainerRunning
+	defaultContainerSteadyStateStatus = apicontainerstatus.ContainerRunning
 
 	// awslogsAuthExecutionRole is the string value passed in the task payload
 	// that specifies that the log driver should be authenticated using the
@@ -57,7 +58,7 @@ type DockerConfig struct {
 // HealthStatus contains the health check result returned by docker
 type HealthStatus struct {
 	// Status is the container health status
-	Status ContainerHealthStatus `json:"status,omitempty"`
+	Status apicontainerstatus.ContainerHealthStatus `json:"status,omitempty"`
 	// Since is the timestamp when container health status changed
 	Since *time.Time `json:"statusSince,omitempty"`
 	// ExitCode is the exitcode of health check if failed
@@ -122,7 +123,7 @@ type Container struct {
 	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatusUnsafe ContainerStatus `json:"desiredStatus"`
+	DesiredStatusUnsafe apicontainerstatus.ContainerStatus `json:"desiredStatus"`
 
 	// KnownStatusUnsafe represents the state where the container is.
 	// NOTE: Do not access `KnownStatusUnsafe` directly.  Instead, use `GetKnownStatus`
@@ -130,7 +131,7 @@ type Container struct {
 	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatusUnsafe ContainerStatus `json:"KnownStatus"`
+	KnownStatusUnsafe apicontainerstatus.ContainerStatus `json:"KnownStatus"`
 
 	// TransitionDependenciesMap is a map of the dependent container status to other
 	// dependencies that must be satisfied in order for this container to transition.
@@ -156,7 +157,7 @@ type Container struct {
 	// Create, Start, or Stop) but we don't yet know that the application was successful.
 	// No need to save it in the state file, as agent will synchronize the container status
 	// on restart and for some operation eg: pull, it has to be recalled again.
-	AppliedStatus ContainerStatus `json:"-"`
+	AppliedStatus apicontainerstatus.ContainerStatus `json:"-"`
 	// ApplyingError is an error that occurred trying to transition the container
 	// to its desired state. It is propagated to the backend in the form
 	// 'Name: ErrorString' as the 'reason' field.
@@ -167,7 +168,7 @@ type Container struct {
 	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON is
 	// handled properly so that the state storage continues to work.
-	SentStatusUnsafe ContainerStatus `json:"SentStatus"`
+	SentStatusUnsafe apicontainerstatus.ContainerStatus `json:"SentStatus"`
 
 	// MetadataFileUpdated is set to true when we have completed updating the
 	// metadata file
@@ -188,7 +189,7 @@ type Container struct {
 	// it's not only supposed to be set when the container is being created, it's
 	// exposed outside of the package so that it's marshalled/unmarshalled in the
 	// the JSON body while saving the state
-	SteadyStateStatusUnsafe *ContainerStatus `json:"SteadyStateStatus,omitempty"`
+	SteadyStateStatusUnsafe *apicontainerstatus.ContainerStatus `json:"SteadyStateStatus,omitempty"`
 
 	createdAt  time.Time
 	startedAt  time.Time
@@ -233,7 +234,7 @@ func (dc *DockerContainer) String() string {
 // NewContainerWithSteadyState creates a new Container object with the specified
 // steady state. Containers that need the non default steady state set will
 // use this method instead of setting it directly
-func NewContainerWithSteadyState(steadyState ContainerStatus) *Container {
+func NewContainerWithSteadyState(steadyState apicontainerstatus.ContainerStatus) *Container {
 	steadyStateStatus := steadyState
 	return &Container{
 		SteadyStateStatusUnsafe: &steadyStateStatus,
@@ -251,7 +252,7 @@ func (c *Container) DesiredTerminal() bool {
 }
 
 // GetKnownStatus returns the known status of the container
-func (c *Container) GetKnownStatus() ContainerStatus {
+func (c *Container) GetKnownStatus() apicontainerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -260,7 +261,7 @@ func (c *Container) GetKnownStatus() ContainerStatus {
 
 // SetKnownStatus sets the known status of the container and update the container
 // applied status
-func (c *Container) SetKnownStatus(status ContainerStatus) {
+func (c *Container) SetKnownStatus(status apicontainerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -269,7 +270,7 @@ func (c *Container) SetKnownStatus(status ContainerStatus) {
 }
 
 // GetDesiredStatus gets the desired status of the container
-func (c *Container) GetDesiredStatus() ContainerStatus {
+func (c *Container) GetDesiredStatus() apicontainerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -277,7 +278,7 @@ func (c *Container) GetDesiredStatus() ContainerStatus {
 }
 
 // SetDesiredStatus sets the desired status of the container
-func (c *Container) SetDesiredStatus(status ContainerStatus) {
+func (c *Container) SetDesiredStatus(status apicontainerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -285,7 +286,7 @@ func (c *Container) SetDesiredStatus(status ContainerStatus) {
 }
 
 // GetSentStatus safely returns the SentStatusUnsafe of the container
-func (c *Container) GetSentStatus() ContainerStatus {
+func (c *Container) GetSentStatus() apicontainerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -293,7 +294,7 @@ func (c *Container) GetSentStatus() ContainerStatus {
 }
 
 // SetSentStatus safely sets the SentStatusUnsafe of the container
-func (c *Container) SetSentStatus(status ContainerStatus) {
+func (c *Container) SetSentStatus(status apicontainerstatus.ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -352,7 +353,7 @@ func (c *Container) String() string {
 // 'pause' container can reach its teady state once networking resources
 // have been provisioned for it, which is done in the `ContainerResourcesProvisioned`
 // state
-func (c *Container) GetSteadyStateStatus() ContainerStatus {
+func (c *Container) GetSteadyStateStatus() apicontainerstatus.ContainerStatus {
 	if c.SteadyStateStatusUnsafe == nil {
 		return defaultContainerSteadyStateStatus
 	}
@@ -383,9 +384,9 @@ func (c *Container) IsKnownSteadyState() bool {
 // c. if the steady state of the container is defined as `ContainerCreated`,
 // the progression is:
 // Container: None -> Pulled -> Created* -> Stopped -> Zombie
-func (c *Container) GetNextKnownStateProgression() ContainerStatus {
+func (c *Container) GetNextKnownStateProgression() apicontainerstatus.ContainerStatus {
 	if c.IsKnownSteadyState() {
-		return ContainerStopped
+		return apicontainerstatus.ContainerStopped
 	}
 
 	return c.GetKnownStatus() + 1
@@ -548,7 +549,7 @@ func (c *Container) SetHealthStatus(health HealthStatus) {
 	c.Health.Output = health.Output
 
 	// Set the health exit code if the health check failed
-	if c.Health.Status == ContainerUnhealthy {
+	if c.Health.Status == apicontainerstatus.ContainerUnhealthy {
 		c.Health.ExitCode = health.ExitCode
 	}
 }
@@ -571,8 +572,8 @@ func (c *Container) GetHealthStatus() HealthStatus {
 // BuildContainerDependency adds a new dependency container and satisfied status
 // to the dependent container
 func (c *Container) BuildContainerDependency(contName string,
-	satisfiedStatus ContainerStatus,
-	dependentStatus ContainerStatus) {
+	satisfiedStatus apicontainerstatus.ContainerStatus,
+	dependentStatus apicontainerstatus.ContainerStatus) {
 	contDep := ContainerDependency{
 		ContainerName:   contName,
 		SatisfiedStatus: satisfiedStatus,
@@ -592,7 +593,7 @@ func (c *Container) BuildContainerDependency(contName string,
 // CREATED status, then RequiredStatus=VolumeCreated and dependentStatus=ContainerPulled
 func (c *Container) BuildResourceDependency(resourceName string,
 	requiredStatus taskresource.ResourceStatus,
-	dependentStatus ContainerStatus) {
+	dependentStatus apicontainerstatus.ContainerStatus) {
 	resourceDep := ResourceDependency{
 		Name:           resourceName,
 		RequiredStatus: requiredStatus,
@@ -606,24 +607,24 @@ func (c *Container) BuildResourceDependency(resourceName string,
 }
 
 // updateAppliedStatusUnsafe updates the container transitioning status
-func (c *Container) updateAppliedStatusUnsafe(knownStatus ContainerStatus) {
-	if c.AppliedStatus == ContainerStatusNone {
+func (c *Container) updateAppliedStatusUnsafe(knownStatus apicontainerstatus.ContainerStatus) {
+	if c.AppliedStatus == apicontainerstatus.ContainerStatusNone {
 		return
 	}
 
 	// Check if the container transition has already finished
 	if c.AppliedStatus <= knownStatus {
-		c.AppliedStatus = ContainerStatusNone
+		c.AppliedStatus = apicontainerstatus.ContainerStatusNone
 	}
 }
 
 // SetAppliedStatus sets the applied status of container and returns whether
 // the container is already in a transition
-func (c *Container) SetAppliedStatus(status ContainerStatus) bool {
+func (c *Container) SetAppliedStatus(status apicontainerstatus.ContainerStatus) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if c.AppliedStatus != ContainerStatusNone {
+	if c.AppliedStatus != apicontainerstatus.ContainerStatusNone {
 		// return false to indicate the set operation failed
 		return false
 	}
@@ -633,7 +634,7 @@ func (c *Container) SetAppliedStatus(status ContainerStatus) bool {
 }
 
 // GetAppliedStatus returns the transitioning status of container
-func (c *Container) GetAppliedStatus() ContainerStatus {
+func (c *Container) GetAppliedStatus() apicontainerstatus.ContainerStatus {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
