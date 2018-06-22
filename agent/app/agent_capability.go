@@ -14,6 +14,8 @@
 package app
 
 import (
+	"strings"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -227,6 +229,11 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	}
 
 	for _, pluginName := range standardizedPlugins {
+		names := strings.Split(pluginName, config.DockerTagSeparator)
+		if len(names) > 1 && names[len(names)-1] == config.DefaultDockerTag {
+			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+strings.Join(names[:len(names)-1], config.DockerTagSeparator))
+		}
+
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
 	}
 	return capabilities

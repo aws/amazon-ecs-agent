@@ -76,7 +76,7 @@ func TestCapabilities(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{"fancyvolumedriver"}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return(
-			[]string{"coolvolumedriver"}, nil),
+			[]string{"coolvolumedriver", "volumedriver:latest"}, nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -113,6 +113,12 @@ func TestCapabilities(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + "docker-volume-driver.coolvolumedriver"),
+			},
+			{
+				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver"),
+			},
+			{
+				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver:latest"),
 			},
 		}...)
 
