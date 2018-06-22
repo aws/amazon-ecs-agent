@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,78 +20,67 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
-	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/pkg/errors"
 )
 
-// asmAuthDataValue is the schema for
+// AuthDataValue is the schema for
 // the SecretStringValue returned by ASM
-type asmAuthDataValue struct {
+type AuthDataValue struct {
 	Username *string
 	Password *string
 }
 
 func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (docker.AuthConfiguration, error) {
-
 	in := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
 	}
 
-	log.Debugf("Calling ASM.GetSecretValue for %s", secretID)
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return docker.AuthConfiguration{}, err
+		return docker.AuthConfiguration{}, errors.Wrapf(err,
+			"asm fetching secret from the service for %s", secretID)
 	}
 
-	dac, err := extractASMValue(out)
-	if err != nil {
-		return docker.AuthConfiguration{}, err
-	}
-
-	return dac, nil
+	return extractASMValue(out)
 }
 
 func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfiguration, error) {
-
 	if out == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("missing AuthorizationData in ASM response")
+		return docker.AuthConfiguration{}, fmt.Errorf(
+			"asm fetching authorization data: empty response")
 	}
 
-	if out.SecretString == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("AWS Secrets Manager response missing SecretString")
+	secretValue := aws.StringValue(out.SecretString)
+	if secretValue == "" {
+		return docker.AuthConfiguration{}, fmt.Errorf(
+			"asm fetching authorization data: empty secrets value")
 	}
 
-	authDataValue := &asmAuthDataValue{}
-
-	secretstring := aws.StringValue(out.SecretString)
-	err := json.Unmarshal([]byte(secretstring), authDataValue)
+	authDataValue := AuthDataValue{}
+	err := json.Unmarshal([]byte(secretValue), &authDataValue)
 	if err != nil {
 		// could  not unmarshal, incorrect secret value schema
-		return docker.AuthConfiguration{}, fmt.Errorf("AuthorizationData is malformed")
+		return docker.AuthConfiguration{}, errors.Wrapf(err,
+			"asm fetching authorization data: unable to unmarshal secret value")
 	}
 
-	if authDataValue.Username == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("AuthorizationData is malformed, username field missing")
+	username := aws.StringValue(authDataValue.Username)
+	password := aws.StringValue(authDataValue.Password)
+
+	if username == "" {
+		return docker.AuthConfiguration{}, fmt.Errorf(
+			"asm fetching username: AuthorizationData is malformed, emmpty field")
 	}
 
-	if authDataValue.Password == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("AuthorizationData is malformed, password field missing")
-	}
-
-	usernameValue := aws.StringValue(authDataValue.Username)
-	passwordValue := aws.StringValue(authDataValue.Password)
-
-	if usernameValue == "" {
-		return docker.AuthConfiguration{}, fmt.Errorf("AuthorizationData is malformed, username field cannot be empty")
-	}
-
-	if passwordValue == "" {
-		return docker.AuthConfiguration{}, fmt.Errorf("AuthorizationData is malformed, password field cannot be empty")
+	if password == "" {
+		return docker.AuthConfiguration{}, fmt.Errorf(
+			"asm fetching password: AuthorizationData is malformed, emmpty field")
 	}
 
 	dac := docker.AuthConfiguration{
-		Username: usernameValue,
-		Password: passwordValue,
+		Username: username,
+		Password: password,
 	}
 
 	return dac, nil

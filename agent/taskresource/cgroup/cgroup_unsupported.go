@@ -18,6 +18,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 )
 
@@ -120,5 +121,7 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 }
 
 // Initialize fills the resource fileds
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 }

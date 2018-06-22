@@ -16,6 +16,7 @@
 package engine
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -31,6 +32,9 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -47,14 +51,17 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/containernetworking/cni/pkg/types/current"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"context"
 )
@@ -70,6 +77,10 @@ const (
 	exitCode                    = 1
 	labelsTaskARN               = "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe"
 	taskSteadyStatePollInterval = time.Millisecond
+	secretID                    = "meaning-of-life"
+	region                      = "us-west-2"
+	username                    = "irene"
+	password                    = "sher"
 )
 
 var (
@@ -1598,7 +1609,80 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
 }
 
-// TestNewTasktionRoleOnRestart tests the agent will process the task recorded in
+// TestTaskUseExecutionRolePullPrivateRegistryImage tests the agent will use the
+// execution role credentials to pull from a private repository
+func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, _ := mocks(
+		t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	credentialsID := "execution role"
+	accessKeyID := "akid"
+	secretAccessKey := "sakid"
+	sessionToken := "token"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID:   credentialsID,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
+	testTask := testdata.LoadTask("sleep5")
+	// Configure the task and container to use execution role
+	testTask.SetExecutionRoleCredentialsID(credentialsID)
+	asmAuthData := &apicontainer.ASMAuthData{
+		CredentialsParameter: secretID,
+		Region:               region,
+	}
+	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
+		Type:        "asm",
+		ASMAuthData: asmAuthData,
+	}
+	requiredASMResources := []*apicontainer.ASMAuthData{asmAuthData}
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
+		credentialsID, credentialsManager, asmClientCreator)
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+		asmauth.ResourceName: []taskresource.TaskResource{asmAuthRes},
+	}
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+	asmAuthDataBytes, _ := json.Marshal(&asm.AuthDataValue{
+		Username: aws.String(username),
+		Password: aws.String(password),
+	})
+	asmAuthDataVal := string(asmAuthDataBytes)
+	asmSecretValue := &secretsmanager.GetSecretValueOutput{
+		SecretString: aws.String(asmAuthDataVal),
+	}
+
+	gomock.InOrder(
+		credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(
+			credentials.TaskIAMRoleCredentials{
+				ARN:                "",
+				IAMRoleCredentials: executionRoleCredentials,
+			}, true),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+	)
+	require.NoError(t, asmAuthRes.Create())
+	container := testTask.Containers[0]
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
+		func(image string, auth *apicontainer.RegistryAuthenticationData) {
+			assert.Equal(t, container.Image, image)
+			dac := auth.ASMAuthData.GetDockerAuthConfig()
+			assert.Equal(t, username, dac.Username)
+			assert.Equal(t, password, dac.Password)
+		}).Return(dockerapi.DockerContainerMetadata{})
+	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
+	imageManager.EXPECT().GetImageStateFromImageName(container.Image)
+
+	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+}
+
+// TestNewTaskTransitionOnRestart tests the agent will process the task recorded in
 // the state file on restart
 func TestNewTaskTransitionOnRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -2153,7 +2237,7 @@ func TestSynchronizeResource(t *testing.T) {
 	}
 	// add the task to the state to simulate the agent restored the state on restart
 	state.AddTask(testTask)
-	cgroupResource.EXPECT().Initialize(gomock.Any())
+	cgroupResource.EXPECT().Initialize(gomock.Any(), gomock.Any(), gomock.Any())
 	cgroupResource.EXPECT().SetDesiredStatus(gomock.Any()).MaxTimes(1)
 	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(1)
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)

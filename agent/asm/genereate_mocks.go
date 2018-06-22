@@ -11,16 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskresource
+package asm
 
-import (
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-)
-
-type ResourceFieldsCommon struct {
-	IOUtil             ioutilwrapper.IOUtil
-	ASMClientCreator   factory.ClientCreator
-	CredentialsManager credentials.Manager
-}
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface SecretsManagerAPI mocks/secretsmanagerapi_mocks.go

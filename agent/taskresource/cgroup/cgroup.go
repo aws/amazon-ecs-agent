@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
@@ -359,7 +360,9 @@ func (cgroup *CgroupResource) GetCgroupMountPath() string {
 }
 
 // Initialize initializes the resource fileds in cgroup
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 

@@ -19,8 +19,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -191,12 +192,13 @@ func contains(capabilities []string, capability string) bool {
 
 // initializeResourceFields exists mainly for testing doStart() to use mock Control
 // object
-func (agent *ecsAgent) initializeResourceFields() {
+func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.Manager) {
 	agent.resourceFields = &taskresource.ResourceFields{
 		Control: cgroup.New(),
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			IOUtil:           ioutilwrapper.NewIOUtil(),
-			ASMClientCreator: asm.NewClientCreator(),
+			IOUtil:             ioutilwrapper.NewIOUtil(),
+			ASMClientCreator:   factory.NewClientCreator(),
+			CredentialsManager: credentialsManager,
 		},
 	}
 }

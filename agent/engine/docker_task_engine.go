@@ -291,14 +291,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		task.InitializeResources(engine.resourceFields)
 	}
 
-	// WIP reset asm resource state if task state not pulled
 	for _, task := range tasksToStart {
-
-		if task.GetKnownStatus() < apitaskstatus.TaskPulled && task.RequiresASMDockerAuthData() {
-			// move this to Initialize()
-			// task.ResetASMAuthResource()
-		}
-
 		engine.startTask(task)
 	}
 
@@ -797,7 +790,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	if container.ShouldPullWithExecutionRole() {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
-			seelog.Infof("Task engine [%s]: unable to acquire ECR credentials for container [%s]",
+			seelog.Errorf("Task engine [%s]: unable to acquire ECR credentials for container [%s]",
 				task.Arn, container.Name)
 			return dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullECRContainerError{
@@ -815,7 +808,16 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	// WIP if container requires asm auth, grab from resource and attach to
 	// container registry auth
 	if container.ShouldPullWithASMAuth() {
-		task.BindASMAuthData(container)
+		if err := task.PopulateASMAuthData(container); err != nil {
+			seelog.Errorf("Task engine [%s]: unable to acquire Docker registry credentials for container [%s]",
+				task.Arn, container.Name)
+			return dockerapi.DockerContainerMetadata{
+				Error: dockerapi.CannotPullECRContainerError{
+					FromError: errors.New("engine docker private registry credentials: not found"),
+				},
+			}
+		}
+
 		defer container.SetASMDockerAuthConfig(docker.AuthConfiguration{})
 	}
 

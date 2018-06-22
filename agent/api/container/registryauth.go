@@ -39,11 +39,18 @@ type ECRAuthData struct {
 	lock             sync.RWMutex
 }
 
+// ASMAuthData is the authentication data required for Docker private registry auth
 type ASMAuthData struct {
+	// CredentialsParameter is set by ACS and specifies the name of the
+	// parameter to retrieve from ASM
 	CredentialsParameter string `json:"credentialsParameter"`
-	Region               string `json:"region"`
-	dockerAuthConfig     docker.AuthConfiguration
-	lock                 sync.RWMutex
+	// Region is set by ACS and specifies the region to fetch the
+	// secret from
+	Region string `json:"region"`
+	// dockerAuthConfig gets populated during the ASM resource creation
+	// by the task engine
+	dockerAuthConfig docker.AuthConfiguration
+	lock             sync.RWMutex
 }
 
 // GetPullCredentials returns the pull credentials in the auth
@@ -62,7 +69,7 @@ func (auth *ECRAuthData) SetPullCredentials(creds credentials.IAMRoleCredentials
 	auth.pullCredentials = creds
 }
 
-// GetPullCredentials returns the pull credentials in the auth
+// GetDockerAuthConfig returns the pull credentials in the auth
 func (auth *ASMAuthData) GetDockerAuthConfig() docker.AuthConfiguration {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
@@ -70,7 +77,7 @@ func (auth *ASMAuthData) GetDockerAuthConfig() docker.AuthConfiguration {
 	return auth.dockerAuthConfig
 }
 
-// SetPullCredentials sets the credentials to pull from ECR in the
+// SetDockerAuthConfig sets the credentials to pull from ECR in the
 // auth
 func (auth *ASMAuthData) SetDockerAuthConfig(dac docker.AuthConfiguration) {
 	auth.lock.Lock()

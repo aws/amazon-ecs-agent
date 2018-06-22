@@ -1,4 +1,3 @@
-// +build linux
 // Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -20,7 +19,9 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 
@@ -30,8 +31,8 @@ import (
 )
 
 const (
-	// asmauth is the private registry authentication data
-	resourceName              = "asm-auth"
+	// ResourceName is the name of the ASM auth resource
+	ResourceName              = "asm-auth"
 	resourceProvisioningError = "TaskResourceError: Agent could not create task's platform resources"
 )
 
@@ -60,7 +61,7 @@ type ASMAuthResource struct {
 	// regions.
 	// TODO: Refactor this struct so that each ASMAuthData gets associated with
 	// exactly one ASMAuthResource object
-	asmClientCreator asm.ClientCreator
+	asmClientCreator factory.ClientCreator
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
@@ -71,7 +72,7 @@ func NewASMAuthResource(taskARN string,
 	asmRequirements []*apicontainer.ASMAuthData,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
-	asmClientCreator asm.ClientCreator) *ASMAuthResource {
+	asmClientCreator factory.ClientCreator) *ASMAuthResource {
 
 	c := &ASMAuthResource{
 		taskARN:                taskARN,
@@ -121,7 +122,7 @@ func (auth *ASMAuthResource) GetName() string {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
-	return resourceName
+	return ResourceName
 }
 
 // DesiredTerminal returns true if the cgroup's desired status is REMOVED
@@ -237,10 +238,9 @@ func (auth *ASMAuthResource) GetCreatedAt() time.Time {
 // Create fetches credentials from ASM
 func (auth *ASMAuthResource) Create() error {
 	seelog.Infof("ASM Auth: Retrieving credentials for containers in task: [%s]", auth.taskARN)
-	return auth.retrieveASMResources()
-}
-
-func (auth *ASMAuthResource) retrieveASMResources() error {
+	if auth.dockerAuthData == nil {
+		auth.dockerAuthData = make(map[string]docker.AuthConfiguration)
+	}
 	for _, a := range auth.requiredASMResources {
 		err := auth.retrieveASMDockerAuthData(a)
 		if err != nil {
@@ -255,7 +255,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.executionCredentialsID)
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		return errors.Errorf("asm unable find execution role credentials")
+		return errors.Errorf("asm resource: unable find execution role credentials")
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
@@ -302,15 +302,27 @@ func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (docker.Aut
 	return d, ok
 }
 
-func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFields) {
-	// WIP
+func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
+	auth.initStatusToTransition()
+	auth.credentialsManager = resourceFields.CredentialsManager
+	auth.asmClientCreator = resourceFields.ASMClientCreator
+	if taskKnownStatus < status.TaskPulled && // Containers in the task need to be pulled
+		taskDesiredStatus <= status.TaskRunning { // and the task is not terminal.
+		// Reset the ASM resource's known status as None so that the NONE -> CREATED
+		// transition gets triggered
+		auth.SetKnownStatus(taskresource.ResourceStatusNone)
+	}
 }
 
 type asmAuthResourceJSON struct {
-	CreatedAt     *time.Time     `json:"createdAt,omitempty"`
-	DesiredStatus *ASMAuthStatus `json:"desiredStatus"`
-	// TODO: No need to persist this
-	KnownStatus *ASMAuthStatus `json:"knownStatus"`
+	TaskARN                string                      `json:"taskARN"`
+	CreatedAt              *time.Time                  `json:"createdAt,omitempty"`
+	DesiredStatus          *ASMAuthStatus              `json:"desiredStatus"`
+	KnownStatus            *ASMAuthStatus              `json:"knownStatus"`
+	RequiredASMResources   []*apicontainer.ASMAuthData `json:"asmResources"`
+	ExecutionCredentialsID string                      `json:"executionCredentialsID"`
 }
 
 func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
@@ -319,6 +331,7 @@ func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
 	}
 	createdAt := auth.GetCreatedAt()
 	return json.Marshal(asmAuthResourceJSON{
+		TaskARN:   auth.taskARN,
 		CreatedAt: &createdAt,
 		DesiredStatus: func() *ASMAuthStatus {
 			desiredState := auth.GetDesiredStatus()
@@ -330,6 +343,8 @@ func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
 			status := ASMAuthStatus(knownState)
 			return &status
 		}(),
+		RequiredASMResources:   auth.requiredASMResources,
+		ExecutionCredentialsID: auth.executionCredentialsID,
 	})
 }
 
@@ -349,5 +364,11 @@ func (auth *ASMAuthResource) UnmarshalJSON(b []byte) error {
 	if temp.CreatedAt != nil && !temp.CreatedAt.IsZero() {
 		auth.SetCreatedAt(*temp.CreatedAt)
 	}
+	if temp.RequiredASMResources != nil {
+		auth.requiredASMResources = temp.RequiredASMResources
+	}
+	auth.taskARN = temp.TaskARN
+	auth.executionCredentialsID = temp.ExecutionCredentialsID
+
 	return nil
 }

@@ -21,6 +21,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	status "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -157,13 +158,13 @@ func (mr *MockTaskResourceMockRecorder) GetTerminalReason() *gomock.Call {
 }
 
 // Initialize mocks base method
-func (m *MockTaskResource) Initialize(arg0 *taskresource.ResourceFields) {
-	m.ctrl.Call(m, "Initialize", arg0)
+func (m *MockTaskResource) Initialize(arg0 *taskresource.ResourceFields, arg1, arg2 status.TaskStatus) {
+	m.ctrl.Call(m, "Initialize", arg0, arg1, arg2)
 }
 
 // Initialize indicates an expected call of Initialize
-func (mr *MockTaskResourceMockRecorder) Initialize(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockTaskResource)(nil).Initialize), arg0)
+func (mr *MockTaskResourceMockRecorder) Initialize(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockTaskResource)(nil).Initialize), arg0, arg1, arg2)
 }
 
 // KnownCreated mocks base method

@@ -213,18 +213,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
-	// WIP initialize asm auth resource here?
-	if task.RequiresASMDockerAuthData() {
-		err := task.initializeASMAuthResource(credentialsManager, resourceFields)
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not intialize asm auth resource: %v", task.Arn, err)
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
+	if task.requiresASMDockerAuthData() {
+		task.initializeASMAuthResource(credentialsManager, resourceFields)
 	}
-	/**
-		does that mean load the resource with execution creds id
-		also pass the credentials manager to the resource
-	**/
 
 	task.initializeEmptyVolumes()
 	task.initializeCredentialsEndpoint(credentialsManager)
@@ -303,6 +294,41 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
 	}
 
+}
+
+// requiresASMDockerAuthData returns true if atleast one container in the task
+// needs to retrieve private registry authentication data from ASM
+func (task *Task) requiresASMDockerAuthData() bool {
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeASMAuthResource builds the resource dependency map for the ASM auth resource
+func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getASMAuthDataRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+	task.AddResource(asmauth.ResourceName, asmAuthResource)
+	for _, container := range task.Containers {
+		container.BuildResourceDependency(asmAuthResource.GetName(),
+			taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
+			apicontainerstatus.ContainerPulled)
+	}
+}
+
+func (task *Task) getASMAuthDataRequirements() []*apicontainer.ASMAuthData {
+	var reqs []*apicontainer.ASMAuthData
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+
+		}
+	}
+	return reqs
 }
 
 // BuildCNIConfig constructs the cni configuration from eni
@@ -1255,63 +1281,31 @@ func (task *Task) GetTerminalReason() string {
 	return task.terminalReason
 }
 
-// RequiresASMDockerAuthData returns true if atleast one container in the task
-// needs to retrieve private registry authentication data from ASM
-func (task *Task) RequiresASMDockerAuthData() bool {
-	for _, container := range task.Containers {
-		if container.ShouldPullWithASMAuth() {
-			return true
-		}
+// PopulateASMAuthData sets docker auth credentials for a container
+func (task *Task) PopulateASMAuthData(container *apicontainer.Container) error {
+	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
+	resource, ok := task.getASMAuthResource()
+	if !ok {
+		return errors.New("task auth data: unable to fetch ASM resource")
 	}
-	return false
+	// This will cause a panic if the resource is not of ASMAuthResource type.
+	// But, it's better to panic as we should have never reached condition
+	// unless we released an agent without any testing around that code path
+	asmResource := resource[0].(*asmauth.ASMAuthResource)
+	dac, ok := asmResource.GetASMDockerAuthConfig(secretID)
+	if !ok {
+		return errors.Errorf("task auth data: unable to fetch docker auth config [%s]", secretID)
+	}
+	container.SetASMDockerAuthConfig(dac)
+	return nil
 }
 
 func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	res, ok := task.ResourcesMapUnsafe["asm-auth"]
+	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
 	return res, ok
-}
-
-func (task *Task) ResetASMAuthResource() {
-	res, _ := task.ResourcesMapUnsafe["asm-auth"]
-	res[0].SetKnownStatus(taskresource.ResourceStatusNone)
-}
-
-func (task *Task) getListOfASMDockerAuthData() []*apicontainer.ASMAuthData {
-	var list []*apicontainer.ASMAuthData
-	for _, container := range task.Containers {
-		if container.ShouldPullWithASMAuth() {
-			list = append(list, container.RegistryAuthentication.ASMAuthData)
-
-		}
-	}
-	return list
-}
-
-func (task *Task) BindASMAuthData(container *apicontainer.Container) {
-	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
-	resource, _ := task.getASMAuthResource()
-	asmResource, _ := resource[0].(*asmauth.ASMAuthResource)
-	// need !ok here, or panic
-	dac, _ := asmResource.GetASMDockerAuthConfig(secretID)
-	// need ok check here
-	container.SetASMDockerAuthConfig(dac)
-
-}
-
-func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields) error {
-	asmRequirements := task.getListOfASMDockerAuthData()
-	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, asmRequirements,
-		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
-	task.AddResource("asm-auth", asmAuthResource)
-	for _, container := range task.Containers {
-		container.BuildResourceDependency(asmAuthResource.GetName(),
-			taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
-			apicontainerstatus.ContainerPulled)
-	}
-	return nil
 }
 
 // InitializeResources initializes the required field in the task on agent restart
@@ -1323,7 +1317,8 @@ func (task *Task) InitializeResources(resourceFields *taskresource.ResourceField
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
-			resource.Initialize(resourceFields)
+			resource.Initialize(resourceFields,
+				task.GetKnownStatus(), task.GetDesiredStatus())
 		}
 	}
 }
