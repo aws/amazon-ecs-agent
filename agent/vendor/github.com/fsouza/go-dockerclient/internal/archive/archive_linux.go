@@ -1,4 +1,8 @@
-package archive // import "github.com/docker/docker/pkg/archive"
+// Copyright 2014 Docker authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the DOCKER-LICENSE file.
+
+package archive
 
 import (
 	"archive/tar"
@@ -8,6 +12,14 @@ import (
 
 	"github.com/docker/docker/pkg/system"
 	"golang.org/x/sys/unix"
+)
+
+const (
+	// AUFSWhiteoutFormat is the default format for whiteouts
+	AUFSWhiteoutFormat WhiteoutFormat = iota
+	// OverlayWhiteoutFormat formats whiteout according to the overlay
+	// standard.
+	OverlayWhiteoutFormat
 )
 
 func getWhiteoutConverter(format WhiteoutFormat) tarWhiteoutConverter {
