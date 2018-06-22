@@ -1,4 +1,8 @@
-package archive // import "github.com/docker/docker/pkg/archive"
+// Copyright 2014 Docker authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the DOCKER-LICENSE file.
+
+package archive
 
 // Whiteouts are files with a special meaning for the layered filesystem.
 // Docker uses AUFS whiteout files inside exported archives. In other
