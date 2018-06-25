@@ -109,7 +109,7 @@ func (d *s3Downloader) downloadFile(fileName string) (string, error) {
 				fileName, bucketDownloader.bucket, bucketDownloader.region)
 			return fileName, nil
 		} else {
-			log.Debugf("Download file %s from bucket %s in region %s failed with error: %v",
+			log.Errorf("Download file %s from bucket %s in region %s failed with error: %v",
 				fileName, bucketDownloader.bucket, bucketDownloader.region, err)
 		}
 	}
