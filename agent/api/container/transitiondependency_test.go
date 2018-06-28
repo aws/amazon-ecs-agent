@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,12 +37,12 @@ func TestUnmarshalOldTransitionDependencySet(t *testing.T) {
 	err := json.Unmarshal(bytes, &unmarshalledTdMap)
 	assert.NoError(t, err)
 	assert.Len(t, unmarshalledTdMap, 1)
-	assert.NotNil(t, unmarshalledTdMap[ContainerRunning])
-	dep := unmarshalledTdMap[ContainerRunning].ContainerDependencies
+	assert.NotNil(t, unmarshalledTdMap[apicontainerstatus.ContainerRunning])
+	dep := unmarshalledTdMap[apicontainerstatus.ContainerRunning].ContainerDependencies
 	assert.Len(t, dep, 1)
 	assert.Equal(t, "container", dep[0].ContainerName)
-	assert.Equal(t, ContainerRunning, dep[0].SatisfiedStatus)
-	assert.Equal(t, ContainerStatusNone, dep[0].DependentStatus)
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dep[0].SatisfiedStatus)
+	assert.Equal(t, apicontainerstatus.ContainerStatusNone, dep[0].DependentStatus)
 }
 
 func TestUnmarshalNewTransitionDependencySet(t *testing.T) {
@@ -50,10 +51,10 @@ func TestUnmarshalNewTransitionDependencySet(t *testing.T) {
 	err := json.Unmarshal(bytes, &unmarshalledTdMap)
 	assert.NoError(t, err)
 	assert.Len(t, unmarshalledTdMap, 1)
-	assert.NotNil(t, unmarshalledTdMap[ContainerPulled])
-	dep := unmarshalledTdMap[ContainerPulled].ContainerDependencies
+	assert.NotNil(t, unmarshalledTdMap[apicontainerstatus.ContainerPulled])
+	dep := unmarshalledTdMap[apicontainerstatus.ContainerPulled].ContainerDependencies
 	assert.Len(t, dep, 1)
 	assert.Equal(t, "container", dep[0].ContainerName)
-	assert.Equal(t, ContainerRunning, dep[0].SatisfiedStatus)
-	assert.Equal(t, ContainerStatusNone, dep[0].DependentStatus)
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dep[0].SatisfiedStatus)
+	assert.Equal(t, apicontainerstatus.ContainerStatusNone, dep[0].DependentStatus)
 }

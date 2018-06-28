@@ -16,6 +16,8 @@ package taskresource
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 )
 
 // ResourceStatus is an enumeration of valid states of task resource lifecycle
@@ -67,8 +69,12 @@ type TaskResource interface {
 	SetAppliedStatus(status ResourceStatus) bool
 	// StatusString returns the string of the resource status
 	StatusString(status ResourceStatus) string
+	// GetTerminalReason returns string describing why the resource failed to
+	// provision
+	GetTerminalReason() string
 	// Initialize will initialze the resource fields of the resource
-	Initialize(*ResourceFields)
+	Initialize(res *ResourceFields,
+		taskKnownStatus status.TaskStatus, taskDesiredStatus status.TaskStatus)
 
 	json.Marshaler
 	json.Unmarshaler

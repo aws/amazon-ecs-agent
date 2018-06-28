@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -506,9 +507,9 @@ func (engine *DockerStatsEngine) handleDockerEvents(events ...interface{}) error
 		}
 
 		switch dockerContainerChangeEvent.Status {
-		case apicontainer.ContainerRunning:
+		case apicontainerstatus.ContainerRunning:
 			engine.addAndStartStatsContainer(dockerContainerChangeEvent.DockerID)
-		case apicontainer.ContainerStopped:
+		case apicontainerstatus.ContainerStopped:
 			engine.removeContainer(dockerContainerChangeEvent.DockerID)
 		default:
 			seelog.Debugf("Ignoring event for container, id: %s, status: %d", dockerContainerChangeEvent.DockerID, dockerContainerChangeEvent.Status)
