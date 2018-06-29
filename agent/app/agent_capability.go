@@ -39,6 +39,7 @@ const (
 	cniPluginVersionSuffix                      = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
 	capabilityDockerVolumeDriverInfix           = "docker-volume-driver."
+	attributeSeparator                          = "."
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -216,7 +217,9 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+volume.DockerLocalVolumeDriver)
 
 	for _, pluginName := range nonStandardizedPlugins {
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
+		// Replace the ':' to '-' in the plugin name for attributes
+		capabilities = appendNameOnlyAttribute(capabilities,
+			attributePrefix+capabilityDockerVolumeDriverInfix+strings.Replace(pluginName, config.DockerTagSeparator, attributeSeparator, -1))
 	}
 
 	// for standardized plugins, call docker's plugin ls API
@@ -228,13 +231,16 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 		return capabilities
 	}
 
+	// For plugin with default tag latest, register two attributes with and without the latest tag
+	// as the tag is optional and can be added by docker or customer
 	for _, pluginName := range standardizedPlugins {
 		names := strings.Split(pluginName, config.DockerTagSeparator)
 		if len(names) > 1 && names[len(names)-1] == config.DefaultDockerTag {
-			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+strings.Join(names[:len(names)-1], config.DockerTagSeparator))
+			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+strings.Join(names[:len(names)-1], attributeSeparator))
 		}
 
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+string(pluginName))
+		capabilities = appendNameOnlyAttribute(capabilities,
+			attributePrefix+capabilityDockerVolumeDriverInfix+strings.Replace(pluginName, config.DockerTagSeparator, attributeSeparator, -1))
 	}
 	return capabilities
 }

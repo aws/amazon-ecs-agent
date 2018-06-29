@@ -118,7 +118,7 @@ func TestCapabilities(t *testing.T) {
 				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver"),
 			},
 			{
-				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver:latest"),
+				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver.latest"),
 			},
 		}...)
 

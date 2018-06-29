@@ -75,7 +75,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	assert.Equal(t, "local", dockerVolume.Driver)
 }
 
-func TestInitializeDockerLocalDockerVolume(t *testing.T) {
+func TestInitializeLocalDockerVolume(t *testing.T) {
 	testTask := &Task{
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers: []*apicontainer.Container{
