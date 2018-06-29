@@ -266,7 +266,7 @@ func (vol *VolumeResource) SourcePath() string {
 
 // Create performs resource creation
 func (vol *VolumeResource) Create() error {
-	seelog.Debugf("Creating volume with name %s using driver %s", vol.Name, vol.VolumeConfig.Driver)
+	seelog.Debugf("Creating volume with name %s using driver %s", vol.VolumeConfig.DockerVolumeName, vol.VolumeConfig.Driver)
 	volumeResponse := vol.client.CreateVolume(
 		vol.ctx,
 		vol.VolumeConfig.DockerVolumeName,

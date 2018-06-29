@@ -63,7 +63,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 	case DockerVolumeType:
 		return tv.unmarshalDockerVolume(intermediate["dockerVolumeConfiguration"])
 	default:
-		return errors.Errorf("invalid Volume: type must be docker or hsot, got %q", tv.Type)
+		return errors.Errorf("invalid Volume: type must be docker or host, got %q", tv.Type)
 	}
 
 	return errors.New("unrecognized volume type; try updating me")

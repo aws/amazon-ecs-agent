@@ -326,7 +326,7 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
 	volumeConfig.DockerVolumeName = vol.Name
 	if volumeConfig.Autoprovision {
-		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectContainerTimeout)
+		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectVolumeTimeout)
 		if volumeMetadata.Error != nil {
 			return errors.Wrap(volumeMetadata.Error, "initialize volume: auto provisioned volume detection failed")
 		}
@@ -353,6 +353,8 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 		task.updateContainerVolumeDependency(vol.Name)
 		return nil
 	}
+
+	seelog.Infof("initialize volue: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
 	// validate all the volume metadata fields match to the configuration
 	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
 		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: %s",
