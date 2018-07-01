@@ -106,7 +106,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -178,7 +178,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -249,7 +249,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -326,7 +326,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -413,7 +413,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -441,7 +441,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	testTask := createRunningTask()
 	// enable container health check of this container
 	testTask.Containers[0].HealthCheckType = "docker"
-	testTask.Containers[0].KnownStatusUnsafe = apicontainer.ContainerStopped
+	testTask.Containers[0].KnownStatusUnsafe = apicontainerstatus.ContainerStopped
 
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)

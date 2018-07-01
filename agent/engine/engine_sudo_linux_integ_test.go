@@ -21,7 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -47,9 +47,14 @@ func TestStartStopWithCgroup(t *testing.T) {
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 	control := cgroup.New()
+
+	commonResources := &taskresource.ResourceFieldsCommon{
+		IOUtil: ioutilwrapper.NewIOUtil(),
+	}
+
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
-		Control: control,
-		IOUtil:  ioutilwrapper.NewIOUtil(),
+		Control:              control,
+		ResourceFieldsCommon: commonResources,
 	}
 	go taskEngine.AddTask(testTask)
 
@@ -67,7 +72,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, control.Exists(cgroupRoot))
 
-	task.SetSentStatus(apitask.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
+	task.SetSentStatus(apitaskstatus.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(cfg.TaskCleanupWaitDuration)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)

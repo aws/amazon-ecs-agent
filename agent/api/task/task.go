@@ -310,7 +310,7 @@ func (task *Task) requiresASMDockerAuthData() bool {
 // initializeASMAuthResource builds the resource dependency map for the ASM auth resource
 func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
-	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getASMAuthDataRequirements(),
+	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getAllASMAuthDataRequirements(),
 		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource(asmauth.ResourceName, asmAuthResource)
 	for _, container := range task.Containers {
@@ -320,12 +320,11 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 	}
 }
 
-func (task *Task) getASMAuthDataRequirements() []*apicontainer.ASMAuthData {
+func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
 	var reqs []*apicontainer.ASMAuthData
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
-
 		}
 	}
 	return reqs
@@ -1317,8 +1316,7 @@ func (task *Task) InitializeResources(resourceFields *taskresource.ResourceField
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
-			resource.Initialize(resourceFields,
-				task.GetKnownStatus(), task.GetDesiredStatus())
+			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}
 }

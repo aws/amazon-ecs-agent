@@ -805,8 +805,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
 	}
 
-	// WIP if container requires asm auth, grab from resource and attach to
-	// container registry auth
+	// Apply registry auth data from ASM if required
 	if container.ShouldPullWithASMAuth() {
 		if err := task.PopulateASMAuthData(container); err != nil {
 			seelog.Errorf("Task engine [%s]: unable to acquire Docker registry credentials for container [%s]",

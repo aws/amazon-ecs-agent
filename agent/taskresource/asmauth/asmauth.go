@@ -276,7 +276,6 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 
 // Cleanup removes the cgroup root created for the task
 func (auth *ASMAuthResource) Cleanup() error {
-	seelog.Info("WIP: calling asmAuthResource.Cleanup()")
 	auth.clearASMDockerAuthConfig()
 	return nil
 }

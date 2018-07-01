@@ -1679,7 +1679,40 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(container.Image)
 
-	taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+	ret := taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+	assert.Nil(t, ret.Error)
+}
+
+// TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource tests the
+// docker task engine code path for returning error for missing ASM resource
+func TestTaskUseExecutionRolePullPrivateRegistryImageNoASMResource(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, mockTime, taskEngine, _, _, _ := mocks(
+		t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	// Configure the task and container to use execution role
+	testTask.SetExecutionRoleCredentialsID(credentialsID)
+	asmAuthData := &apicontainer.ASMAuthData{
+		CredentialsParameter: secretID,
+		Region:               region,
+	}
+	testTask.Containers[0].RegistryAuthentication = &apicontainer.RegistryAuthenticationData{
+		Type:        "asm",
+		ASMAuthData: asmAuthData,
+	}
+
+	// no asm auth resource in task
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{}
+
+	container := testTask.Containers[0]
+	mockTime.EXPECT().Now().AnyTimes()
+
+	// ensure pullContainer returns error
+	ret := taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
+	assert.NotNil(t, ret.Error)
 }
 
 // TestNewTaskTransitionOnRestart tests the agent will process the task recorded in
@@ -2243,6 +2276,7 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)
+
 	// Set the task to be stopped so that the process can done quickly
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()

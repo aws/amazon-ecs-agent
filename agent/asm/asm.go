@@ -15,7 +15,6 @@ package asm
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -31,6 +30,8 @@ type AuthDataValue struct {
 	Password *string
 }
 
+// GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
+// retrieve the docker auth data
 func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (docker.AuthConfiguration, error) {
 	in := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
@@ -47,13 +48,13 @@ func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsMan
 
 func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfiguration, error) {
 	if out == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf(
+		return docker.AuthConfiguration{}, errors.Errorf(
 			"asm fetching authorization data: empty response")
 	}
 
 	secretValue := aws.StringValue(out.SecretString)
 	if secretValue == "" {
-		return docker.AuthConfiguration{}, fmt.Errorf(
+		return docker.AuthConfiguration{}, errors.Errorf(
 			"asm fetching authorization data: empty secrets value")
 	}
 
@@ -69,12 +70,12 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 	password := aws.StringValue(authDataValue.Password)
 
 	if username == "" {
-		return docker.AuthConfiguration{}, fmt.Errorf(
+		return docker.AuthConfiguration{}, errors.Errorf(
 			"asm fetching username: AuthorizationData is malformed, emmpty field")
 	}
 
 	if password == "" {
-		return docker.AuthConfiguration{}, fmt.Errorf(
+		return docker.AuthConfiguration{}, errors.Errorf(
 			"asm fetching password: AuthorizationData is malformed, emmpty field")
 	}
 
