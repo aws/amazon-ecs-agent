@@ -63,6 +63,11 @@ type ASMAuthResource struct {
 	// exactly one ASMAuthResource object
 	asmClientCreator factory.ClientCreator
 
+	// terminalReason should be set for resource creation failures. This ensures
+	// the resource object carries some context for why provisoning failed.
+	terminalReason     string
+	terminalReasonOnce sync.Once
+
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -91,6 +96,13 @@ func (auth *ASMAuthResource) initStatusToTransition() {
 		taskresource.ResourceStatus(ASMAuthStatusCreated): auth.Create,
 	}
 	auth.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
+}
+
+func (auth *ASMAuthResource) setTerminalReason(reason string) {
+	auth.terminalReasonOnce.Do(func() {
+		seelog.Infof("ASM Auth: setting terminal reason for asm auth resource in task: [%s]", auth.taskARN)
+		auth.terminalReason = reason
+	})
 }
 
 // GetTerminalReason returns an error string to propagate up through to task
@@ -244,6 +256,7 @@ func (auth *ASMAuthResource) Create() error {
 	for _, a := range auth.requiredASMResources {
 		err := auth.retrieveASMDockerAuthData(a)
 		if err != nil {
+			auth.setTerminalReason(err.Error())
 			return err
 		}
 	}
@@ -274,7 +287,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 	return nil
 }
 
-// Cleanup removes the cgroup root created for the task
+// Cleanup removes the asm auth resource created for the task
 func (auth *ASMAuthResource) Cleanup() error {
 	auth.clearASMDockerAuthConfig()
 	return nil

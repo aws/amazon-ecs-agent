@@ -71,12 +71,12 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 
 	if username == "" {
 		return docker.AuthConfiguration{}, errors.Errorf(
-			"asm fetching username: AuthorizationData is malformed, emmpty field")
+			"asm fetching username: AuthorizationData is malformed, empty field")
 	}
 
 	if password == "" {
 		return docker.AuthConfiguration{}, errors.Errorf(
-			"asm fetching password: AuthorizationData is malformed, emmpty field")
+			"asm fetching password: AuthorizationData is malformed, empty field")
 	}
 
 	dac := docker.AuthConfiguration{

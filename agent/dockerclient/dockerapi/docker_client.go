@@ -494,15 +494,26 @@ func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
 }
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
-	if authData == nil || authData.Type != "ecr" {
+
+	if authData == nil {
 		return dg.auth.GetAuthconfig(image, nil)
 	}
-	provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
-	authConfig, err := provider.GetAuthconfig(image, authData)
-	if err != nil {
-		return authConfig, CannotPullECRContainerError{err}
+
+	switch authData.Type {
+	case "ecr":
+		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
+		authConfig, err := provider.GetAuthconfig(image, authData)
+		if err != nil {
+			return authConfig, CannotPullECRContainerError{err}
+		}
+		return authConfig, nil
+
+	case "asm":
+		return authData.ASMAuthData.GetDockerAuthConfig(), nil
+
+	default:
+		return dg.auth.GetAuthconfig(image, nil)
 	}
-	return authConfig, nil
 }
 
 func (dg *dockerGoClient) CreateContainer(ctx context.Context,

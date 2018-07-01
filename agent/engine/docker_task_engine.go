@@ -816,7 +816,6 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 				},
 			}
 		}
-
 		defer container.SetASMDockerAuthConfig(docker.AuthConfiguration{})
 	}
 
