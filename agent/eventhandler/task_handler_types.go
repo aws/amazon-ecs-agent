@@ -161,7 +161,7 @@ func (event *sendableEvent) send(
 	setChangeSent(event)
 	// Update the state file
 	stateSaver.Save()
-	seelog.Debugf("TaskHandler: Submitted container state change: %s", event.toString())
+	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
 	return nil

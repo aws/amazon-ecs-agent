@@ -1266,6 +1266,7 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 // SetTerminalReason sets the terminalReason string and this can only be set
 // once per the task's lifecycle. This field does not accept updates.
 func (task *Task) SetTerminalReason(reason string) {
+	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
 	task.terminalReasonOnce.Do(func() {
 		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
 		task.terminalReason = reason

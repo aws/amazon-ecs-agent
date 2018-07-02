@@ -432,7 +432,11 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 			mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
 		// If knownStatus changed, let it be known
-		mtask.emitTaskEvent(mtask.Task, "")
+		var taskStateChangeReason string
+		if mtask.GetKnownStatus().Terminal() {
+			taskStateChangeReason = mtask.Task.GetTerminalReason()
+		}
+		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
 	}
 	seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 		mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
@@ -490,7 +494,6 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 			task.Arn, reason, err)
 		return
 	}
-
 	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
 	mtask.stateChangeEvents <- event
 	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())

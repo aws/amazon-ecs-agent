@@ -108,9 +108,7 @@ func (auth *ASMAuthResource) setTerminalReason(reason string) {
 // GetTerminalReason returns an error string to propagate up through to task
 // state change messages
 func (auth *ASMAuthResource) GetTerminalReason() string {
-	// for cgroups we can send up a static string because this is an
-	// implementation detail and unrelated to customer resources
-	return resourceProvisioningError
+	return auth.terminalReason
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
@@ -265,6 +263,12 @@ func (auth *ASMAuthResource) Create() error {
 }
 
 func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer.ASMAuthData) error {
+	secretID := asmAuthData.CredentialsParameter
+	if _, ok := auth.GetASMDockerAuthConfig(secretID); ok {
+		// resource for this secretID already retrieved
+		return nil
+	}
+
 	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.executionCredentialsID)
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
@@ -272,7 +276,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
-	secretID := asmAuthData.CredentialsParameter
+	seelog.Debugf("ASM Auth: Retrieving resource with ID [%s] in task: [%s]", secretID, auth.taskARN)
 	dac, err := asm.GetDockerAuthFromASM(secretID, asmClient)
 	if err != nil {
 		return err
