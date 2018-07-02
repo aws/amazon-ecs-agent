@@ -566,7 +566,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 		return
 	}
 
-	// Container health status change doesnot affect the container status
+	// Container health status change does not affect the container status
 	// no need to process this in task manager
 	if event.Type == apicontainer.ContainerHealthEvent {
 		if cont.Container.HealthStatusShouldBeReported() {
