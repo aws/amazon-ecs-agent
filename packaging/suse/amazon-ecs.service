@@ -1,5 +1,6 @@
 [Unit]
-Description=Amazon Elastic Container Service Initialization
+Description=Amazon Elastic Container Service - container agent
+Documentation=https://aws.amazon.com/documentation/ecs/
 After=docker.service
 After=network.target
 Requires=docker.service
