@@ -257,7 +257,7 @@ func TestNewVolumeResource(t *testing.T) {
 	}
 
 	for _, testcase := range testCases {
-		t.Run(fmt.Sprintf("%s,scope %s, autoprovision: %s", testcase.description,
+		t.Run(fmt.Sprintf("%s,scope %s, autoprovision: %v", testcase.description,
 			testcase.scope, testcase.autoprovision), func(t *testing.T) {
 			_, err := NewVolumeResource(nil, "volume", "dockerVolume",
 				testcase.scope, testcase.autoprovision, "", nil, nil, nil)
