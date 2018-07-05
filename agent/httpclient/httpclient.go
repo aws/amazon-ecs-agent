@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/version"
+	"github.com/aws/amazon-ecs-agent/agent/utils/agent_tls"
 )
 
 const defaultTimeout = 10 * time.Minute
@@ -67,8 +68,11 @@ func New(timeout time.Duration, insecureSkipVerify bool) *http.Client {
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
+
+	transport.TLSClientConfig = &tls.Config{}
+	agent_tls.SetCipherCuites(transport.TLSClientConfig)
 	if insecureSkipVerify {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		transport.TLSClientConfig.InsecureSkipVerify = true
 	}
 	client := &http.Client{
 		Transport: &ecsRoundTripper{insecureSkipVerify, transport},

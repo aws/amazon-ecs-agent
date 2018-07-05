@@ -42,6 +42,7 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/utils/agent_tls"
 )
 
 const (
@@ -159,6 +160,7 @@ func (cs *ClientServerImpl) Connect() error {
 
 	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
 	tlsConfig := &tls.Config{ServerName: parsedURL.Host, InsecureSkipVerify: cs.AgentConfig.AcceptInsecureCert}
+	agent_tls.SetCipherCuites(tlsConfig)
 
 	// Ensure that NO_PROXY gets set
 	noProxy := os.Getenv("NO_PROXY")
