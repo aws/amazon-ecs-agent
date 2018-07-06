@@ -28,12 +28,17 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -1352,4 +1357,295 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 			assert.Equal(t, !tc.executionStoppedAtSet, task.GetExecutionStoppedAt().IsZero(), tc.msg)
 		})
 	}
+}
+
+func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
+
+	expectedCredentialsParameter := "secret-id"
+	expectedRegion := "us-west-2"
+	expectedExecutionCredentialsID := "credsid"
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				Name:  "myName",
+				Image: "image:tag",
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "asm",
+					ASMAuthData: &apicontainer.ASMAuthData{
+						CredentialsParameter: expectedCredentialsParameter,
+						Region:               expectedRegion,
+					},
+				},
+			},
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	// create asm auth resource
+	res := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		expectedExecutionCredentialsID,
+		credentialsManager,
+		asmClientCreator)
+	res.SetKnownStatus(taskresource.ResourceRemoved)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, res)
+
+	// validate asm auth resource
+	resource, ok := task.getASMAuthResource()
+	assert.True(t, ok)
+	asmResource := resource[0].(*asmauth.ASMAuthResource)
+	req := asmResource.GetRequiredASMResources()
+
+	assert.Equal(t, taskresource.ResourceRemoved, asmResource.GetKnownStatus())
+	assert.Equal(t, expectedExecutionCredentialsID, asmResource.GetExecutionCredentialsID())
+	assert.Equal(t, expectedCredentialsParameter, req[0].CredentialsParameter)
+	assert.Equal(t, expectedRegion, req[0].Region)
+
+	// marshal and unmarshal task
+	marshal, err := json.Marshal(task)
+	assert.NoError(t, err)
+
+	var otask Task
+	err = json.Unmarshal(marshal, &otask)
+	assert.NoError(t, err)
+
+	// validate asm auth resource
+	oresource, ok := otask.getASMAuthResource()
+	assert.True(t, ok)
+	oasmResource := oresource[0].(*asmauth.ASMAuthResource)
+	oreq := oasmResource.GetRequiredASMResources()
+
+	assert.Equal(t, taskresource.ResourceRemoved, oasmResource.GetKnownStatus())
+	assert.Equal(t, expectedExecutionCredentialsID, oasmResource.GetExecutionCredentialsID())
+	assert.Equal(t, expectedCredentialsParameter, oreq[0].CredentialsParameter)
+	assert.Equal(t, expectedRegion, oreq[0].Region)
+}
+
+func TestSetTerminalReason(t *testing.T) {
+
+	expectedTerminalReason := "failed to provison resource"
+	overrideTerminalReason := "should not override terminal reason"
+
+	task := &Task{}
+
+	// set terminal reason string
+	task.SetTerminalReason(expectedTerminalReason)
+	assert.Equal(t, expectedTerminalReason, task.GetTerminalReason())
+
+	// try to override terminal reason string, should not overwrite
+	task.SetTerminalReason(overrideTerminalReason)
+	assert.Equal(t, expectedTerminalReason, task.GetTerminalReason())
+}
+
+func TestPopulateASMAuthData(t *testing.T) {
+	expectedUsername := "username"
+	expectedPassword := "password"
+
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	credentialsID := "execution role"
+	accessKeyID := "akid"
+	secretAccessKey := "sakid"
+	sessionToken := "token"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID:   credentialsID,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	// returned asm data
+	asmAuthDataBytes, _ := json.Marshal(&asm.AuthDataValue{
+		Username: aws.String(expectedUsername),
+		Password: aws.String(expectedPassword),
+	})
+	asmAuthDataVal := string(asmAuthDataBytes)
+	asmSecretValue := &secretsmanager.GetSecretValueOutput{
+		SecretString: aws.String(asmAuthDataVal),
+	}
+
+	// create asm auth resource
+	asmRes := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		credentialsID,
+		credentialsManager,
+		asmClientCreator)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, asmRes)
+
+	gomock.InOrder(
+		credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(
+			credentials.TaskIAMRoleCredentials{
+				ARN:                "",
+				IAMRoleCredentials: executionRoleCredentials,
+			}, true),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+	)
+
+	// create resource
+	err := asmRes.Create()
+	require.NoError(t, err)
+
+	err = task.PopulateASMAuthData(container)
+	assert.NoError(t, err)
+
+	dac := container.RegistryAuthentication.ASMAuthData.GetDockerAuthConfig()
+	assert.Equal(t, expectedUsername, dac.Username)
+	assert.Equal(t, expectedPassword, dac.Password)
+}
+
+func TestPopulateASMAuthDataNoASMResource(t *testing.T) {
+
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	// asm resource not added to task, call returns error
+	err := task.PopulateASMAuthData(container)
+	assert.Error(t, err)
+
+}
+
+func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+	credentialsID := "execution role"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	//mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	// create asm auth resource
+	asmRes := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		credentialsID,
+		credentialsManager,
+		asmClientCreator)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, asmRes)
+
+	// asm resource does not return docker auth config, call returns error
+	err := task.PopulateASMAuthData(container)
+	assert.Error(t, err)
+}
+
+func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{}
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			ASMClientCreator:   asmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields)
+	assert.NoError(t, err)
 }

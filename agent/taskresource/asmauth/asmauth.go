@@ -251,7 +251,7 @@ func (auth *ASMAuthResource) Create() error {
 	if auth.dockerAuthData == nil {
 		auth.dockerAuthData = make(map[string]docker.AuthConfiguration)
 	}
-	for _, a := range auth.requiredASMResources {
+	for _, a := range auth.GetRequiredASMResources() {
 		err := auth.retrieveASMDockerAuthData(a)
 		if err != nil {
 			auth.setTerminalReason(err.Error())
@@ -269,7 +269,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 		return nil
 	}
 
-	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.executionCredentialsID)
+	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.GetExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
 		return errors.Errorf("asm resource: unable find execution role credentials")
@@ -289,6 +289,23 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 	auth.dockerAuthData[secretID] = dac
 
 	return nil
+}
+
+// GetRequiredASMResources returns the list of ASMAuthData that has to be
+// retrieved from AWS Secrets Manager
+func (auth *ASMAuthResource) GetRequiredASMResources() []*apicontainer.ASMAuthData {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	return auth.requiredASMResources
+}
+
+// GetExecutionCredentialsID returns the execution role's credential ID
+func (auth *ASMAuthResource) GetExecutionCredentialsID() string {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	return auth.executionCredentialsID
 }
 
 // Cleanup removes the asm auth resource created for the task
@@ -341,6 +358,7 @@ type asmAuthResourceJSON struct {
 	ExecutionCredentialsID string                      `json:"executionCredentialsID"`
 }
 
+// MarshalJSON serialises the ASMAuthResource struct to JSON
 func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
 	if auth == nil {
 		return nil, errors.New("asm-auth resource is nil")
@@ -359,11 +377,12 @@ func (auth *ASMAuthResource) MarshalJSON() ([]byte, error) {
 			status := ASMAuthStatus(knownState)
 			return &status
 		}(),
-		RequiredASMResources:   auth.requiredASMResources,
-		ExecutionCredentialsID: auth.executionCredentialsID,
+		RequiredASMResources:   auth.GetRequiredASMResources(),
+		ExecutionCredentialsID: auth.GetExecutionCredentialsID(),
 	})
 }
 
+// UnmarshalJSON deserialises the raw JSON to a ASMAuthResource struct
 func (auth *ASMAuthResource) UnmarshalJSON(b []byte) error {
 	temp := asmAuthResourceJSON{}
 

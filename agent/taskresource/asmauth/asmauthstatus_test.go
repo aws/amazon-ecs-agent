@@ -23,22 +23,33 @@ import (
 )
 
 func TestStatusString(t *testing.T) {
-	var resourceStatus ASMAuthStatus
+	cases := []struct {
+		Name             string
+		InASMAuthStatus  ASMAuthStatus
+		OutASMAuthStatus string
+	}{
+		{
+			Name:             "SuccessToStringASMAuthStatusNone",
+			InASMAuthStatus:  ASMAuthStatusNone,
+			OutASMAuthStatus: "NONE",
+		},
+		{
+			Name:             "SuccessToStringASMAuthStatusCreated",
+			InASMAuthStatus:  ASMAuthStatusCreated,
+			OutASMAuthStatus: "CREATED",
+		},
+		{
+			Name:             "SuccessToStringASMAuthStatusRemoved",
+			InASMAuthStatus:  ASMAuthStatusRemoved,
+			OutASMAuthStatus: "REMOVED",
+		},
+	}
 
-	resourceStatus = ASMAuthStatusNone
-	assert.Equal(t, resourceStatus.String(), "NONE")
-	resourceStatus = ASMAuthStatusCreated
-	assert.Equal(t, resourceStatus.String(), "CREATED")
-	resourceStatus = ASMAuthStatusRemoved
-	assert.Equal(t, resourceStatus.String(), "REMOVED")
-}
-
-func TestMarshalASMAuthStatus(t *testing.T) {
-	status := ASMAuthStatusNone
-	bytes, err := status.MarshalJSON()
-
-	assert.NoError(t, err)
-	assert.Equal(t, `"NONE"`, string(bytes[:]))
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			assert.Equal(t, c.OutASMAuthStatus, c.InASMAuthStatus.String())
+		})
+	}
 }
 
 func TestMarshalNilASMAuthStatus(t *testing.T) {
@@ -49,42 +60,98 @@ func TestMarshalNilASMAuthStatus(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-type testASMAuthStatus struct {
-	SomeStatus ASMAuthStatus `json:"status"`
+func TestMarshalASMAuthStatus(t *testing.T) {
+	cases := []struct {
+		Name             string
+		InASMAuthStatus  ASMAuthStatus
+		OutASMAuthStatus string
+	}{
+		{
+			Name:             "SuccessMarshallASMAuthStatusNone",
+			InASMAuthStatus:  ASMAuthStatusNone,
+			OutASMAuthStatus: "\"NONE\"",
+		},
+		{
+			Name:             "SuccessMarshallASMAuthStatusCreated",
+			InASMAuthStatus:  ASMAuthStatusCreated,
+			OutASMAuthStatus: "\"CREATED\"",
+		},
+		{
+			Name:             "SuccessMarshallASMAuthStatusRemoved",
+			InASMAuthStatus:  ASMAuthStatusRemoved,
+			OutASMAuthStatus: "\"REMOVED\"",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			bytes, err := c.InASMAuthStatus.MarshalJSON()
+
+			assert.NoError(t, err)
+			assert.Equal(t, c.OutASMAuthStatus, string(bytes[:]))
+		})
+	}
+
 }
 
 func TestUnmarshalASMAuthStatus(t *testing.T) {
-	status := ASMAuthStatusNone
+	cases := []struct {
+		Name             string
+		InASMAuthStatus  string
+		OutASMAuthStatus ASMAuthStatus
+		ShouldError      bool
+	}{
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusNone",
+			InASMAuthStatus:  "\"NONE\"",
+			OutASMAuthStatus: ASMAuthStatusNone,
+			ShouldError:      false,
+		},
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusCreated",
+			InASMAuthStatus:  "\"CREATED\"",
+			OutASMAuthStatus: ASMAuthStatusCreated,
+			ShouldError:      false,
+		},
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusRemoved",
+			InASMAuthStatus:  "\"REMOVED\"",
+			OutASMAuthStatus: ASMAuthStatusRemoved,
+			ShouldError:      false,
+		},
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusNull",
+			InASMAuthStatus:  "null",
+			OutASMAuthStatus: ASMAuthStatusNone,
+			ShouldError:      false,
+		},
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusNonString",
+			InASMAuthStatus:  "1",
+			OutASMAuthStatus: ASMAuthStatusNone,
+			ShouldError:      true,
+		},
+		{
+			Name:             "SuccessUnmarshallASMAuthStatusUnmappedStatus",
+			InASMAuthStatus:  "\"LOL\"",
+			OutASMAuthStatus: ASMAuthStatusNone,
+			ShouldError:      true,
+		},
+	}
 
-	err := json.Unmarshal([]byte(`"CREATED"`), &status)
-	assert.NoError(t, err)
-	assert.Equal(t, ASMAuthStatusCreated, status, "CREATED should unmarshal to CREATED, not "+status.String())
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
 
-	var testStatus testASMAuthStatus
-	err = json.Unmarshal([]byte(`{"status":"REMOVED"}`), &testStatus)
-	assert.NoError(t, err)
-	assert.Equal(t, ASMAuthStatusRemoved, testStatus.SomeStatus, "REMOVED should unmarshal to REMOVED, not "+testStatus.SomeStatus.String())
-}
+			var status ASMAuthStatus
+			err := json.Unmarshal([]byte(c.InASMAuthStatus), &status)
 
-func TestUnmarshalNullASMAuthStatus(t *testing.T) {
-	status := ASMAuthStatusCreated
-	err := json.Unmarshal([]byte("null"), &status)
-	assert.NoError(t, err)
-	assert.Equal(t, ASMAuthStatusNone, status, "null should unmarshal to None, not "+status.String())
+			if c.ShouldError {
+				assert.Error(t, err)
+			} else {
 
-}
-
-func TestUnmarshalNonStringASMAuthStatusDefaultNone(t *testing.T) {
-	status := ASMAuthStatusCreated
-	err := json.Unmarshal([]byte(`1`), &status)
-	assert.NotNil(t, err)
-	assert.Equal(t, ASMAuthStatusNone, status, "non-string status should unmarshal to None, not "+status.String())
-
-}
-
-func TestUnmarshalUnmappedASMAuthStatusDefaultNone(t *testing.T) {
-	status := ASMAuthStatusCreated
-	err := json.Unmarshal([]byte(`"SOMEOTHER"`), &status)
-	assert.NotNil(t, err)
-	assert.Equal(t, ASMAuthStatusNone, status, "Unmapped status should unmarshal to None, not "+status.String())
+				assert.NoError(t, err)
+				assert.Equal(t, c.OutASMAuthStatus, status)
+			}
+		})
+	}
 }

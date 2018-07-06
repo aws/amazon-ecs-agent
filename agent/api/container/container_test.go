@@ -233,3 +233,19 @@ func TestBuildResourceDependency(t *testing.T) {
 	assert.Equal(t, depResourceName, resourceDep[0].Name)
 	assert.Equal(t, taskresource.ResourceStatus(1), resourceDep[0].GetRequiredStatus())
 }
+
+func TestShouldPullWithASMAuth(t *testing.T) {
+	container := Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &ASMAuthData{
+				CredentialsParameter: "secret-id",
+				Region:               "region",
+			},
+		},
+	}
+
+	assert.True(t, container.ShouldPullWithASMAuth())
+}
