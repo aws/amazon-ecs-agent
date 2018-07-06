@@ -21,19 +21,19 @@ $credentialAddress = "169.254.170.2"
 $credentialPort = "51679"
 $loopbackAddress = "127.0.0.1"
 
-$adapter = (Get-NetAdapter -Name "*APIPA*")
-if(!($adapter)) {
+$adapter = ( Get-NetAdapter -Name "*APIPA*" )
+if( -not $adapter ) {
 	# APIPA nat adapter controls IP range 169.254.x.x on windows.
 	Add-VMNetworkAdapter -VMNetworkAdapterName "APIPA" -SwitchName nat -ManagementOS
 }
 
-$ifIndex = (Get-NetAdapter -Name "*APIPA*" | Sort-Object | Select ifIndex).ifIndex
+$ifIndex = $adapter.ifIndex
 
-$dockerSubnet = (docker network inspect nat | ConvertFrom-Json).IPAM.Config.Subnet
+$dockerSubnet = ( docker network inspect nat | ConvertFrom-Json ).IPAM.Config.Subnet
 
 # This address will only exist on systems that have already set up the routes.
-$ip = (Get-NetRoute -InterfaceIndex $ifIndex -DestinationPrefix $dockerSubnet)
-if(!($ip)) {
+$ip = Get-NetRoute -InterfaceIndex $ifIndex -DestinationPrefix $dockerSubnet
+if( -not $ip ) {
 
 	# This command tells the APIPA interface that this IP exists.
 	New-NetIPAddress -InterfaceIndex $ifIndex -IPAddress $credentialAddress -PrefixLength 32
@@ -49,4 +49,4 @@ if(!($ip)) {
 	netsh interface portproxy add v4tov4 listenaddress=$credentialAddress listenport=80 connectaddress=$loopbackAddress connectport=$credentialPort
 }
 
-$ErrorActionPreference=$oldActionPref
+$ErrorActionPreference=$oldActionPref1
