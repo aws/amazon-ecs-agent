@@ -314,9 +314,11 @@ func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manag
 		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource(asmauth.ResourceName, asmAuthResource)
 	for _, container := range task.Containers {
-		container.BuildResourceDependency(asmAuthResource.GetName(),
-			taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
-			apicontainerstatus.ContainerPulled)
+		if container.ShouldPullWithASMAuth() {
+			container.BuildResourceDependency(asmAuthResource.GetName(),
+				taskresource.ResourceStatus(asmauth.ASMAuthStatusCreated),
+				apicontainerstatus.ContainerPulled)
+		}
 	}
 }
 

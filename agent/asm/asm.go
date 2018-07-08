@@ -48,13 +48,13 @@ func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsMan
 
 func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfiguration, error) {
 	if out == nil {
-		return docker.AuthConfiguration{}, errors.Errorf(
+		return docker.AuthConfiguration{}, errors.New(
 			"asm fetching authorization data: empty response")
 	}
 
 	secretValue := aws.StringValue(out.SecretString)
 	if secretValue == "" {
-		return docker.AuthConfiguration{}, errors.Errorf(
+		return docker.AuthConfiguration{}, errors.New(
 			"asm fetching authorization data: empty secrets value")
 	}
 
@@ -62,20 +62,20 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 	err := json.Unmarshal([]byte(secretValue), &authDataValue)
 	if err != nil {
 		// could  not unmarshal, incorrect secret value schema
-		return docker.AuthConfiguration{}, errors.Wrapf(err,
-			"asm fetching authorization data: unable to unmarshal secret value")
+		return docker.AuthConfiguration{}, errors.New(
+			"asm fetching authorization data: unable to unmarshal secret value, invalid schema")
 	}
 
 	username := aws.StringValue(authDataValue.Username)
 	password := aws.StringValue(authDataValue.Password)
 
 	if username == "" {
-		return docker.AuthConfiguration{}, errors.Errorf(
+		return docker.AuthConfiguration{}, errors.New(
 			"asm fetching username: AuthorizationData is malformed, empty field")
 	}
 
 	if password == "" {
-		return docker.AuthConfiguration{}, errors.Errorf(
+		return docker.AuthConfiguration{}, errors.New(
 			"asm fetching password: AuthorizationData is malformed, empty field")
 	}
 

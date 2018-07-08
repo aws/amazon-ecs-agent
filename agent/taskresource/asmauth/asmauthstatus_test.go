@@ -29,17 +29,17 @@ func TestStatusString(t *testing.T) {
 		OutASMAuthStatus string
 	}{
 		{
-			Name:             "SuccessToStringASMAuthStatusNone",
+			Name:             "ToStringASMAuthStatusNone",
 			InASMAuthStatus:  ASMAuthStatusNone,
 			OutASMAuthStatus: "NONE",
 		},
 		{
-			Name:             "SuccessToStringASMAuthStatusCreated",
+			Name:             "ToStringASMAuthStatusCreated",
 			InASMAuthStatus:  ASMAuthStatusCreated,
 			OutASMAuthStatus: "CREATED",
 		},
 		{
-			Name:             "SuccessToStringASMAuthStatusRemoved",
+			Name:             "ToStringASMAuthStatusRemoved",
 			InASMAuthStatus:  ASMAuthStatusRemoved,
 			OutASMAuthStatus: "REMOVED",
 		},
@@ -57,7 +57,7 @@ func TestMarshalNilASMAuthStatus(t *testing.T) {
 	bytes, err := status.MarshalJSON()
 
 	assert.Nil(t, bytes)
-	assert.Nil(t, err)
+	assert.Error(t, err)
 }
 
 func TestMarshalASMAuthStatus(t *testing.T) {
@@ -67,17 +67,17 @@ func TestMarshalASMAuthStatus(t *testing.T) {
 		OutASMAuthStatus string
 	}{
 		{
-			Name:             "SuccessMarshallASMAuthStatusNone",
+			Name:             "MarshallASMAuthStatusNone",
 			InASMAuthStatus:  ASMAuthStatusNone,
 			OutASMAuthStatus: "\"NONE\"",
 		},
 		{
-			Name:             "SuccessMarshallASMAuthStatusCreated",
+			Name:             "MarshallASMAuthStatusCreated",
 			InASMAuthStatus:  ASMAuthStatusCreated,
 			OutASMAuthStatus: "\"CREATED\"",
 		},
 		{
-			Name:             "SuccessMarshallASMAuthStatusRemoved",
+			Name:             "MarshallASMAuthStatusRemoved",
 			InASMAuthStatus:  ASMAuthStatusRemoved,
 			OutASMAuthStatus: "\"REMOVED\"",
 		},
@@ -102,37 +102,37 @@ func TestUnmarshalASMAuthStatus(t *testing.T) {
 		ShouldError      bool
 	}{
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusNone",
+			Name:             "UnmarshallASMAuthStatusNone",
 			InASMAuthStatus:  "\"NONE\"",
 			OutASMAuthStatus: ASMAuthStatusNone,
 			ShouldError:      false,
 		},
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusCreated",
+			Name:             "UnmarshallASMAuthStatusCreated",
 			InASMAuthStatus:  "\"CREATED\"",
 			OutASMAuthStatus: ASMAuthStatusCreated,
 			ShouldError:      false,
 		},
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusRemoved",
+			Name:             "UnmarshallASMAuthStatusRemoved",
 			InASMAuthStatus:  "\"REMOVED\"",
 			OutASMAuthStatus: ASMAuthStatusRemoved,
 			ShouldError:      false,
 		},
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusNull",
+			Name:             "UnmarshallASMAuthStatusNull",
 			InASMAuthStatus:  "null",
 			OutASMAuthStatus: ASMAuthStatusNone,
 			ShouldError:      false,
 		},
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusNonString",
+			Name:             "UnmarshallASMAuthStatusNonString",
 			InASMAuthStatus:  "1",
 			OutASMAuthStatus: ASMAuthStatusNone,
 			ShouldError:      true,
 		},
 		{
-			Name:             "SuccessUnmarshallASMAuthStatusUnmappedStatus",
+			Name:             "UnmarshallASMAuthStatusUnmappedStatus",
 			InASMAuthStatus:  "\"LOL\"",
 			OutASMAuthStatus: ASMAuthStatusNone,
 			ShouldError:      true,

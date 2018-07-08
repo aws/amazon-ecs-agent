@@ -500,7 +500,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 	}
 
 	switch authData.Type {
-	case "ecr":
+	case apicontainer.AuthTypeECR:
 		provider := dockerauth.NewECRAuthProvider(dg.ecrClientFactory, dg.ecrTokenCache)
 		authConfig, err := provider.GetAuthconfig(image, authData)
 		if err != nil {
@@ -508,7 +508,7 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 		}
 		return authConfig, nil
 
-	case "asm":
+	case apicontainer.AuthTypeASM:
 		return authData.ASMAuthData.GetDockerAuthConfig(), nil
 
 	default:

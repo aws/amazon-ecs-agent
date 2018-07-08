@@ -50,7 +50,7 @@ func (as ASMAuthStatus) String() string {
 // MarshalJSON overrides the logic for JSON-encoding the ResourceStatus type
 func (as *ASMAuthStatus) MarshalJSON() ([]byte, error) {
 	if as == nil {
-		return nil, nil
+		return nil, errors.New("asm-auth resource status is nil")
 	}
 	return []byte(`"` + as.String() + `"`), nil
 }

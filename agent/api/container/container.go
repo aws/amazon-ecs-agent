@@ -42,11 +42,11 @@ const (
 	// DockerHealthCheckType is the type of container health check provided by docker
 	DockerHealthCheckType = "docker"
 
-	// authTypeECR is to use image pull auth over ECR
-	authTypeECR = "ecr"
+	// AuthTypeECR is to use image pull auth over ECR
+	AuthTypeECR = "ecr"
 
-	// authTypeASM is to use image pull auth over AWS Secrets Manager
-	authTypeASM = "asm"
+	// AuthTypeASM is to use image pull auth over AWS Secrets Manager
+	AuthTypeASM = "asm"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -337,7 +337,7 @@ func (c *Container) ShouldPullWithExecutionRole() bool {
 	defer c.lock.RUnlock()
 
 	return c.RegistryAuthentication != nil &&
-		c.RegistryAuthentication.Type == authTypeECR &&
+		c.RegistryAuthentication.Type == AuthTypeECR &&
 		c.RegistryAuthentication.ECRAuthData != nil &&
 		c.RegistryAuthentication.ECRAuthData.UseExecutionRole
 }
@@ -654,7 +654,7 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 	defer c.lock.RUnlock()
 
 	return c.RegistryAuthentication != nil &&
-		c.RegistryAuthentication.Type == authTypeASM &&
+		c.RegistryAuthentication.Type == AuthTypeASM &&
 		c.RegistryAuthentication.ASMAuthData != nil
 }
 

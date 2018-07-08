@@ -811,7 +811,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 			seelog.Errorf("Task engine [%s]: unable to acquire Docker registry credentials for container [%s]",
 				task.Arn, container.Name)
 			return dockerapi.DockerContainerMetadata{
-				Error: dockerapi.CannotPullECRContainerError{
+				Error: dockerapi.CannotPullContainerAuthError{
 					FromError: errors.New("engine docker private registry credentials: not found"),
 				},
 			}

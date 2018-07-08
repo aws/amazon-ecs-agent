@@ -272,7 +272,7 @@ func (auth *ASMAuthResource) retrieveASMDockerAuthData(asmAuthData *apicontainer
 	executionCredentials, ok := auth.credentialsManager.GetTaskCredentials(auth.GetExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		return errors.Errorf("asm resource: unable find execution role credentials")
+		return errors.New("asm resource: unable to find execution role credentials")
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 	asmClient := auth.asmClientCreator.NewASMClient(asmAuthData.Region, iamCredentials)
