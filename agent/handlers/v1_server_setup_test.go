@@ -17,7 +17,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -30,21 +29,21 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks/http"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-const testContainerInstanceArn = "test_container_instance_arn"
-const testClusterArn = "test_cluster_arn"
-const eniIPV4Address = "10.0.0.2"
+const (
+	testContainerInstanceArn = "test_container_instance_arn"
+	testClusterArn           = "test_cluster_arn"
+	eniIPV4Address           = "10.0.0.2"
+)
 
 func TestMetadataHandler(t *testing.T) {
-	metadataHandler := metadataV1RequestHandlerMaker(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
+	metadataHandler := v1.AgentMetadataHandler(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AgentIntrospectionPort), nil)
@@ -221,7 +220,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	stateSetupHelper(state, []*apitask.Task{testTask})
 
 	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := tasksV1RequestHandlerMaker(mockStateResolver)
+	requestHandler := v1.TaskContainerMetadataHandler(mockStateResolver)
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/v1/tasks", nil)
@@ -238,37 +237,6 @@ func TestBackendMismatchMapping(t *testing.T) {
 	if tasksResponse.Tasks[0].KnownStatus != "STOPPED" {
 		t.Error("Expected STOPPED, was ", tasksResponse.Tasks[0].KnownStatus)
 	}
-}
-
-func TestLicenseHandler(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockResponseWriter := mock_http.NewMockResponseWriter(mockCtrl)
-	mockLicenseProvider := mock_utils.NewMockLicenseProvider(mockCtrl)
-
-	licenseProvider = mockLicenseProvider
-
-	text := "text here"
-	mockLicenseProvider.EXPECT().GetText().Return(text, nil)
-	mockResponseWriter.EXPECT().Write([]byte(text))
-
-	licenseHandler(mockResponseWriter, nil)
-}
-
-func TestLicenseHandlerError(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockResponseWriter := mock_http.NewMockResponseWriter(mockCtrl)
-	mockLicenseProvider := mock_utils.NewMockLicenseProvider(mockCtrl)
-
-	licenseProvider = mockLicenseProvider
-
-	mockLicenseProvider.EXPECT().GetText().Return("", errors.New("test error"))
-	mockResponseWriter.EXPECT().WriteHeader(http.StatusInternalServerError)
-
-	licenseHandler(mockResponseWriter, nil)
 }
 
 func taskDiffHelper(t *testing.T, expected []*apitask.Task, actual v1.TasksResponse) {
@@ -311,7 +279,7 @@ func taskDiffHelper(t *testing.T, expected []*apitask.Task, actual v1.TasksRespo
 			if !ok {
 				t.Errorf("Could not find container %v", respCont.Name)
 			}
-			if respCont.DockerId == "" {
+			if respCont.DockerID == "" {
 				t.Error("blank dockerid")
 			}
 		}
@@ -440,7 +408,7 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 	stateSetupHelper(state, testTasks)
 
 	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := setupServer(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
+	requestHandler := v1SetupServer(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)

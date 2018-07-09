@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package taskmetadata
+package handlers
 
 import (
 	"net/http"
@@ -21,12 +21,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	log "github.com/cihub/seelog"
+	"github.com/cihub/seelog"
 	"github.com/didip/tollbooth"
 )
 
@@ -37,46 +38,11 @@ const (
 	// writeTimeout specifies the maximum duration before timing out write of the response.
 	// The value is set to 5 seconds as per AWS SDK defaults.
 	writeTimeout = 5 * time.Second
-
-	// Credentials API versions
-	apiVersion1 = 1
-	apiVersion2 = 2
 )
 
-// ServeHTTP serves IAM Role Credentials for Tasks being managed by the agent.
-func ServeHTTP(credentialsManager credentials.Manager,
-	state dockerstate.TaskEngineState,
-	containerInstanceArn string,
-	cfg *config.Config,
-	statsEngine stats.Engine) {
-	// Create and initialize the audit log
-	// TODO Use seelog's programmatic configuration instead of xml.
-	logger, err := log.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
-	if err != nil {
-		log.Errorf("Error initializing the audit log: %v", err)
-		// If the logger cannot be initialized, use the provided dummy seelog.LoggerInterface, seelog.Disabled.
-		logger = log.Disabled
-	}
-
-	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
-
-	server := setupServer(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine,
-		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate)
-
-	for {
-		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
-			// TODO, make this cancellable and use the passed in context;
-			err := server.ListenAndServe()
-			if err != nil {
-				log.Errorf("Error running http api: %v", err)
-			}
-			return err
-		})
-	}
-}
-
-// setupServer starts the HTTP server for serving IAM Role Credentials for Tasks.
-func setupServer(credentialsManager credentials.Manager,
+// v2SetupServer creates the HTTP server for serving task/container metadata,
+// task/container stats and IAM Role credentials for tasks,
+func v2SetupServer(credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
 	state dockerstate.TaskEngineState,
 	cluster string,
@@ -86,17 +52,15 @@ func setupServer(credentialsManager credentials.Manager,
 	serverMux := http.NewServeMux()
 	// Credentials handlers
 	serverMux.HandleFunc(credentials.V1CredentialsPath,
-		credentialsV1V2RequestHandler(
-			credentialsManager, auditLogger, getV1CredentialsID, apiVersion1))
+		v1.CredentialsHandler(credentialsManager, auditLogger))
 	serverMux.HandleFunc(credentials.V2CredentialsPath+"/",
-		credentialsV1V2RequestHandler(
-			credentialsManager, auditLogger, getV2CredentialsID, apiVersion2))
+		v2.CredentialsHandler(credentialsManager, auditLogger))
 	// Metadata handlers
-	serverMux.HandleFunc(metadataPath+"/", metadataV2Handler(state, cluster))
-	serverMux.HandleFunc(metadataPath, metadataV2Handler(state, cluster))
+	serverMux.HandleFunc(v2.TaskContainerMetadataPath+"/", v2.TaskContainerMetadataHandler(state, cluster))
+	serverMux.HandleFunc(v2.TaskContainerMetadataPath, v2.TaskContainerMetadataHandler(state, cluster))
 	// Stats handlers
-	serverMux.HandleFunc(statsPath+"/", statsV2Handler(state, statsEngine))
-	serverMux.HandleFunc(statsPath, statsV2Handler(state, statsEngine))
+	serverMux.HandleFunc(v2.StatsPath+"/", v2.StatsHandler(state, statsEngine))
+	serverMux.HandleFunc(v2.StatsPath, v2.StatsHandler(state, statsEngine))
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(limitReachedHandler(auditLogger))
@@ -105,7 +69,7 @@ func setupServer(credentialsManager credentials.Manager,
 	loggingServeMux := http.NewServeMux()
 
 	loggingServeMux.Handle("/", tollbooth.LimitHandler(
-		limiter, handlers.NewLoggingHandler(serverMux)))
+		limiter, NewLoggingHandler(serverMux)))
 
 	server := http.Server{
 		Addr:         ":" + strconv.Itoa(config.AgentCredentialsPort),
@@ -124,5 +88,38 @@ func limitReachedHandler(auditLogger audit.AuditLogger) func(http.ResponseWriter
 			Request: r,
 		}
 		auditLogger.Log(logRequest, http.StatusTooManyRequests, "")
+	}
+}
+
+// V2ServeHTTP serves task/container metadata, task/container stats, and IAM Role Credentials
+// for Tasks being managed by the agent.
+func V2ServeHTTP(credentialsManager credentials.Manager,
+	state dockerstate.TaskEngineState,
+	containerInstanceArn string,
+	cfg *config.Config,
+	statsEngine stats.Engine) {
+	// Create and initialize the audit log
+	// TODO Use seelog's programmatic configuration instead of xml.
+	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
+	if err != nil {
+		seelog.Errorf("Error initializing the audit log: %v", err)
+		// If the logger cannot be initialized, use the provided dummy seelog.LoggerInterface, seelog.Disabled.
+		logger = seelog.Disabled
+	}
+
+	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
+
+	server := v2SetupServer(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine,
+		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate)
+
+	for {
+		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
+			// TODO, make this cancellable and use the passed in context;
+			err := server.ListenAndServe()
+			if err != nil {
+				seelog.Errorf("Error running http api: %v", err)
+			}
+			return err
+		})
 	}
 }

@@ -20,6 +20,8 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -48,7 +50,7 @@ type ContainerResponse struct {
 	DockerName    string
 	Image         string
 	ImageID       string
-	Ports         []PortResponse    `json:",omitempty"`
+	Ports         []v1.PortResponse `json:",omitempty"`
 	Labels        map[string]string `json:",omitempty"`
 	DesiredStatus string
 	KnownStatus   string
@@ -67,14 +69,6 @@ type ContainerResponse struct {
 type LimitsResponse struct {
 	CPU    *float64 `json:",omitempty"`
 	Memory *int64   `json:",omitempty"`
-}
-
-// PortResponse defines the schema for portmapping response JSON
-// object
-type PortResponse struct {
-	ContainerPort uint16
-	Protocol      string
-	HostPort      uint16 `json:",omitempty"`
 }
 
 // NewTaskResponse creates a new response object for the task
@@ -192,7 +186,7 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 	}
 
 	for _, binding := range container.Ports {
-		port := PortResponse{
+		port := v1.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
 		}
@@ -207,7 +201,7 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
 			{
-				NetworkMode:   "awsvpc",
+				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: eni.GetIPV4Addresses(),
 				IPv6Addresses: eni.GetIPV6Addresses(),
 			},
