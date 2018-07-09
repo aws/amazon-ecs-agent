@@ -13,8 +13,13 @@
 
 package handlers
 
-import "net/http"
+import (
+	"net/http"
 
+	"github.com/cihub/seelog"
+)
+
+// LoggingHandler is used to log all requests for an endpoint.
 type LoggingHandler struct{ h http.Handler }
 
 // NewLoggingHandler creates a new LoggingHandler object.
@@ -22,7 +27,8 @@ func NewLoggingHandler(handler http.Handler) LoggingHandler {
 	return LoggingHandler{h: handler}
 }
 
+// ServeHTTP logs the method and remote address of the request.
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr)
+	seelog.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr)
 	lh.h.ServeHTTP(w, r)
 }
