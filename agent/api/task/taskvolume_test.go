@@ -294,6 +294,42 @@ func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
 	assert.Error(t, err, "volume resource details not match should cause task fail")
 }
 
+func TestInitializeSharedNonProvisionedVolumeTimeout(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: false,
+				},
+			},
+		},
+	}
+
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+		Error: &dockerapi.DockerTimeoutError{},
+	})
+	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	assert.Error(t, err, "volume resource details not match should cause task fail")
+}
+
 func TestInitializeTaskVolume(t *testing.T) {
 	testTask := &Task{
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),

@@ -217,7 +217,7 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerVolumeDriverInfix+volume.DockerLocalVolumeDriver)
 
 	for _, pluginName := range nonStandardizedPlugins {
-		// Replace the ':' to '-' in the plugin name for attributes
+		// Replace the ':' to '.' in the plugin name for attributes
 		capabilities = appendNameOnlyAttribute(capabilities,
 			attributePrefix+capabilityDockerVolumeDriverInfix+strings.Replace(pluginName, config.DockerTagSeparator, attributeSeparator, -1))
 	}
