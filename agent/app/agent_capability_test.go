@@ -106,19 +106,19 @@ func TestCapabilities(t *testing.T) {
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			},
 			{
-				Name: aws.String("ecs.capability.docker-volume-driver.local"),
+				Name: aws.String("ecs.capability.docker-plugin.local"),
 			},
 			{
-				Name: aws.String(attributePrefix + "docker-volume-driver.fancyvolumedriver"),
+				Name: aws.String(attributePrefix + "docker-plugin.fancyvolumedriver"),
 			},
 			{
-				Name: aws.String(attributePrefix + "docker-volume-driver.coolvolumedriver"),
+				Name: aws.String(attributePrefix + "docker-plugin.coolvolumedriver"),
 			},
 			{
-				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver"),
+				Name: aws.String(attributePrefix + "docker-plugin.volumedriver"),
 			},
 			{
-				Name: aws.String(attributePrefix + "docker-volume-driver.volumedriver.latest"),
+				Name: aws.String(attributePrefix + "docker-plugin.volumedriver.latest"),
 			},
 		}...)
 
