@@ -3,15 +3,15 @@
     "containerDefinitions": [
         {
             "name": "task-shared-vol-read",
-            "image": "127.0.0.1:51670/busybox:latest",
-            "cpu": 10,
-            "command": ["sh", "-c", "while true; do sleep 1; [ -f /ecs/success ] && if grep -q 'can you read me' /ecs/success; then exit 42; fi done"],
+            "image": "microsoft/windowsservercore:latest",
+            "cpu": 512,
             "memory": 256,
-            "memoryReservation": 128,
+            "essential": true,
+            "command": ["powershell", "-c", "while (1) { sleep 1; if (test-path C:/ecs/success) { $content = Get-Content C:/ecs/success | Out-String; if (Compare-Object $content \"can you read me\") { exit 42} }}; done"],
             "mountPoints": [
                 {
                   "sourceVolume": "task-shared",
-                  "containerPath": "/ecs/"
+                  "containerPath": "C:/ecs/"
                 }
             ]
         }
@@ -23,10 +23,6 @@
                 "scope": "shared",
                 "autoprovision": true,
                 "driver": "local",
-                "driverOpts": {
-                    "type": "tmpfs",
-                    "device": "tmpfs"
-                },
                 "labels": {
                     "mylables": "test"
                 }
