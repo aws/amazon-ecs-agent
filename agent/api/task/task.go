@@ -336,6 +336,11 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	// check if the volume configuration matches the one exists on the instance
 	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerapi.InspectVolumeTimeout)
 	if volumeMetadata.Error != nil {
+		// Inspect the volume timed out, fail the task
+		if _, ok := volumeMetadata.Error.(*dockerapi.DockerTimeoutError); ok {
+			return volumeMetadata.Error
+		}
+
 		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, vol.Name)
 		// this resource should be created by agent
 		volumeResource, err := taskresourcevolume.NewVolumeResource(
