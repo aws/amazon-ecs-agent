@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,7 +19,7 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
@@ -107,7 +107,7 @@ func (event *sendableEvent) taskAttachmentShouldBeSent() bool {
 		return false
 	}
 	tevent := event.taskChange
-	return tevent.Status == apitask.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
+	return tevent.Status == apitaskstatus.TaskStatusNone && // Task Status is not set for attachments as task record has yet to be streamed down
 		tevent.Attachment != nil && // Task has attachment records
 		!tevent.Attachment.HasExpired() && // ENI attachment ack timestamp hasn't expired
 		!tevent.Attachment.IsSent() // Task status hasn't already been sent
@@ -161,7 +161,7 @@ func (event *sendableEvent) send(
 	setChangeSent(event)
 	// Update the state file
 	stateSaver.Save()
-	seelog.Debugf("TaskHandler: Submitted container state change: %s", event.toString())
+	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
 	return nil

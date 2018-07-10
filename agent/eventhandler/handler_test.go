@@ -25,10 +25,12 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -190,9 +192,9 @@ func TestSendsEventsContainerDifferences(t *testing.T) {
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
 		assert.Equal(t, 2, len(change.Containers))
 		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
-		assert.Equal(t, apicontainer.ContainerRunning, change.Containers[0].Status)
+		assert.Equal(t, apicontainerstatus.ContainerRunning, change.Containers[0].Status)
 		assert.Equal(t, taskARN, change.Containers[1].TaskArn)
-		assert.Equal(t, apicontainer.ContainerStopped, change.Containers[1].Status)
+		assert.Equal(t, apicontainerstatus.ContainerStopped, change.Containers[1].Status)
 		wg.Done()
 	})
 
@@ -271,17 +273,17 @@ func TestSendsEventsDedupe(t *testing.T) {
 
 	// Verify that a task doesn't get sent if we already have 'sent' it
 	task1 := taskEvent(taskARNA)
-	task1.(api.TaskStateChange).Task.SetSentStatus(apitask.TaskRunning)
+	task1.(api.TaskStateChange).Task.SetSentStatus(apitaskstatus.TaskRunning)
 	cont1 := containerEvent(taskARNA)
-	cont1.(api.ContainerStateChange).Container.SetSentStatus(apicontainer.ContainerRunning)
+	cont1.(api.ContainerStateChange).Container.SetSentStatus(apicontainerstatus.ContainerRunning)
 
 	handler.AddStateChangeEvent(cont1, client)
 	handler.AddStateChangeEvent(task1, client)
 
 	task2 := taskEvent(taskARNB)
-	task2.(api.TaskStateChange).Task.SetSentStatus(apitask.TaskStatusNone)
+	task2.(api.TaskStateChange).Task.SetSentStatus(apitaskstatus.TaskStatusNone)
 	cont2 := containerEvent(taskARNB)
-	cont2.(api.ContainerStateChange).Container.SetSentStatus(apicontainer.ContainerRunning)
+	cont2.(api.ContainerStateChange).Container.SetSentStatus(apicontainerstatus.ContainerRunning)
 
 	// Expect to send a task status but not a container status
 	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
@@ -340,19 +342,19 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 }
 
 func containerEvent(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainer.ContainerRunning, Container: &apicontainer.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerRunning, Container: &apicontainer.Container{}}
 }
 
 func containerEventStopped(arn string) statechange.Event {
-	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainer.ContainerStopped, Container: &apicontainer.Container{}}
+	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerStopped, Container: &apicontainer.Container{}}
 }
 
 func taskEvent(arn string) statechange.Event {
-	return api.TaskStateChange{TaskARN: arn, Status: apitask.TaskRunning, Task: &apitask.Task{}}
+	return api.TaskStateChange{TaskARN: arn, Status: apitaskstatus.TaskRunning, Task: &apitask.Task{}}
 }
 
 func taskEventStopped(arn string) statechange.Event {
-	return api.TaskStateChange{TaskARN: arn, Status: apitask.TaskStopped, Task: &apitask.Task{}}
+	return api.TaskStateChange{TaskARN: arn, Status: apitaskstatus.TaskStopped, Task: &apitask.Task{}}
 }
 
 func TestENISentStatusChange(t *testing.T) {
@@ -377,7 +379,7 @@ func TestENISentStatusChange(t *testing.T) {
 	sendableTaskEvent := newSendableTaskEvent(api.TaskStateChange{
 		Attachment: eniAttachment,
 		TaskARN:    taskARN,
-		Status:     apitask.TaskStatusNone,
+		Status:     apitaskstatus.TaskStatusNone,
 		Task:       task,
 	})
 
@@ -409,7 +411,7 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 		state: state,
 	}
 
-	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitask.TaskRunning}, true)
+	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitaskstatus.TaskRunning}, true)
 	state.EXPECT().TaskByArn("t2").Return(nil, false)
 
 	events := handler.taskStateChangesToSend()
@@ -430,7 +432,7 @@ func TestGetBatchedContainerEventsStoppedTask(t *testing.T) {
 		state: state,
 	}
 
-	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitask.TaskStopped}, true)
+	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitaskstatus.TaskStopped}, true)
 
 	events := handler.taskStateChangesToSend()
 	assert.Len(t, events, 0)
@@ -467,12 +469,12 @@ func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 	task := &apitask.Task{}
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
-		Status:  apitask.TaskStopped,
+		Status:  apitaskstatus.TaskStopped,
 		Task:    task,
 	}))
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
-		Status:  apitask.TaskRunning,
+		Status:  apitaskstatus.TaskRunning,
 		Task:    task,
 	}))
 	handler.tasksToEvents[taskARN] = taskEvents
@@ -481,7 +483,7 @@ func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 	wg.Add(1)
 	gomock.InOrder(
 		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-			assert.Equal(t, apitask.TaskStopped, change.Status)
+			assert.Equal(t, apitaskstatus.TaskStopped, change.Status)
 		}),
 		backoff.EXPECT().Reset().Do(func() {
 			wg.Done()
@@ -531,12 +533,12 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	task := &apitask.Task{}
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
-		Status:  apitask.TaskRunning,
+		Status:  apitaskstatus.TaskRunning,
 		Task:    task,
 	}))
 	taskEvents.events.PushBack(newSendableTaskEvent(api.TaskStateChange{
 		TaskARN: taskARN,
-		Status:  apitask.TaskStopped,
+		Status:  apitaskstatus.TaskStopped,
 		Task:    task,
 	}))
 	handler.tasksToEvents[taskARN] = taskEvents
@@ -545,7 +547,7 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	wg.Add(1)
 	gomock.InOrder(
 		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-			assert.Equal(t, apitask.TaskRunning, change.Status)
+			assert.Equal(t, apitaskstatus.TaskRunning, change.Status)
 		}),
 		backoff.EXPECT().Reset().Do(func() {
 			wg.Done()
@@ -560,7 +562,7 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	wg.Add(1)
 	gomock.InOrder(
 		client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
-			assert.Equal(t, apitask.TaskStopped, change.Status)
+			assert.Equal(t, apitaskstatus.TaskStopped, change.Status)
 		}),
 		backoff.EXPECT().Reset().Do(func() {
 			wg.Done()

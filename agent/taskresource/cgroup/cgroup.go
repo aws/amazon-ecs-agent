@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
@@ -32,10 +33,11 @@ import (
 )
 
 const (
-	memorySubsystem         = "/memory"
-	memoryUseHierarchy      = "memory.use_hierarchy"
-	rootReadOnlyPermissions = os.FileMode(400)
-	resourceName            = "cgroup"
+	memorySubsystem           = "/memory"
+	memoryUseHierarchy        = "memory.use_hierarchy"
+	rootReadOnlyPermissions   = os.FileMode(400)
+	resourceName              = "cgroup"
+	resourceProvisioningError = "CgroupError: Agent could not create task's platform resources"
 )
 
 var (
@@ -80,6 +82,14 @@ func NewCgroupResource(taskARN string,
 	}
 	c.initializeResourceStatusToTransitionFunction()
 	return c
+}
+
+// GetTerminalReason returns an error string to propagate up through to task
+// state change messages
+func (cgroup *CgroupResource) GetTerminalReason() string {
+	// for cgroups we can send up a static string because this is an
+	// implementation detail and unrelated to customer resources
+	return resourceProvisioningError
 }
 
 func (cgroup *CgroupResource) initializeResourceStatusToTransitionFunction() {
@@ -350,7 +360,9 @@ func (cgroup *CgroupResource) GetCgroupMountPath() string {
 }
 
 // Initialize initializes the resource fileds in cgroup
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 

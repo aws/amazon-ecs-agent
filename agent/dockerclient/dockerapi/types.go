@@ -18,6 +18,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -40,7 +41,7 @@ func (cnferror ContainerNotFound) Error() string {
 // DockerContainerChangeEvent is a type for container change events
 type DockerContainerChangeEvent struct {
 	// Status represents the container's status in the event
-	Status apicontainer.ContainerStatus
+	Status apicontainerstatus.ContainerStatus
 	// DockerContainerMetadata is the metadata of the container in the event
 	DockerContainerMetadata
 	// Type is the event type received from docker events

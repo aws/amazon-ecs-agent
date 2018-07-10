@@ -22,8 +22,10 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -54,8 +56,8 @@ func TestTaskResponse(t *testing.T) {
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		ENI: &apieni.ENI{
 			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
@@ -73,8 +75,8 @@ func TestTaskResponse(t *testing.T) {
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
-		KnownStatusUnsafe:   apicontainer.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
@@ -136,14 +138,14 @@ func TestContainerResponse(t *testing.T) {
 				Name:                containerName,
 				Image:               imageName,
 				ImageID:             imageID,
-				DesiredStatusUnsafe: apicontainer.ContainerRunning,
-				KnownStatusUnsafe:   apicontainer.ContainerRunning,
+				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+				KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
 				CPU:                 cpu,
 				Memory:              memory,
 				Type:                apicontainer.ContainerNormal,
 				HealthCheckType:     tc.healthCheckType,
 				Health: apicontainer.HealthStatus{
-					Status: apicontainer.ContainerHealthy,
+					Status: apicontainerstatus.ContainerHealthy,
 					Since:  aws.Time(time.Now()),
 				},
 				Ports: []apicontainer.PortBinding{

@@ -23,6 +23,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 
@@ -77,7 +79,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
-		DesiredStatusUnsafe: TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -89,7 +91,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 						SourceVolume:  "sourceVolume",
 					},
 				},
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{

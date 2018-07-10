@@ -16,6 +16,7 @@ package container
 import (
 	"encoding/json"
 
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 
 	"github.com/cihub/seelog"
@@ -39,10 +40,10 @@ type ContainerDependency struct {
 	// ContainerName defines the container on which a transition depends
 	ContainerName string `json:"ContainerName"`
 	// SatisfiedStatus defines the status that satisfies the dependency
-	SatisfiedStatus ContainerStatus `json:"SatisfiedStatus"`
+	SatisfiedStatus apicontainerstatus.ContainerStatus `json:"SatisfiedStatus"`
 	// DependentStatus defines the status that cannot be reached until the
 	// resource satisfies the dependency
-	DependentStatus ContainerStatus `json:"DependentStatus,omitempty"`
+	DependentStatus apicontainerstatus.ContainerStatus `json:"DependentStatus,omitempty"`
 }
 
 // ResourceDependency defines the relationship between a dependent container
@@ -61,12 +62,12 @@ func (rd *ResourceDependency) GetRequiredStatus() taskresource.ResourceStatus {
 
 // TransitionDependenciesMap is a map of the dependent container status to other
 // dependencies that must be satisfied.
-type TransitionDependenciesMap map[ContainerStatus]TransitionDependencySet
+type TransitionDependenciesMap map[apicontainerstatus.ContainerStatus]TransitionDependencySet
 
 // UnmarshalJSON decodes the TransitionDependencySet tag in the JSON encoded string
 // into the TransitionDependenciesMap object
 func (td *TransitionDependenciesMap) UnmarshalJSON(b []byte) error {
-	depMap := make(map[ContainerStatus]TransitionDependencySet)
+	depMap := make(map[apicontainerstatus.ContainerStatus]TransitionDependencySet)
 	err := json.Unmarshal(b, &depMap)
 	if err == nil {
 		*td = depMap

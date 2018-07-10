@@ -24,7 +24,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -85,10 +87,10 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apita
 		if taskEvent.TaskARN != task.Arn {
 			continue
 		}
-		if taskEvent.Status == apitask.TaskRunning {
+		if taskEvent.Status == apitaskstatus.TaskRunning {
 			return nil
 		}
-		if taskEvent.Status > apitask.TaskRunning {
+		if taskEvent.Status > apitaskstatus.TaskRunning {
 			return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
 		}
 	}
@@ -101,7 +103,7 @@ func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apita
 			continue
 		}
 		taskEvent := event.(api.TaskStateChange)
-		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= apitask.TaskStopped {
+		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= apitaskstatus.TaskStopped {
 			return
 		}
 	}
@@ -110,7 +112,7 @@ func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apita
 // waitForTaskStoppedByCheckStatus verify the task is in stopped status by checking the KnownStatusUnsafe field of the task
 func waitForTaskStoppedByCheckStatus(task *apitask.Task) {
 	for {
-		if task.GetKnownStatus() == apitask.TaskStopped {
+		if task.GetKnownStatus() == apitaskstatus.TaskStopped {
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -164,7 +166,7 @@ func validateContainerRunWorkflow(t *testing.T,
 			createdContainerName <- containerName
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(apicontainer.ContainerCreated)
+				eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -173,7 +175,7 @@ func validateContainerRunWorkflow(t *testing.T,
 		func(ctx interface{}, id string, timeout time.Duration) {
 			containerEventsWG.Add(1)
 			go func() {
-				eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+				eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 				containerEventsWG.Done()
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
@@ -207,7 +209,7 @@ func addTaskToEngine(t *testing.T,
 	createStartEventsReported.Wait()
 }
 
-func createDockerEvent(status apicontainer.ContainerStatus) dockerapi.DockerContainerChangeEvent {
+func createDockerEvent(status apicontainerstatus.ContainerStatus) dockerapi.DockerContainerChangeEvent {
 	meta := dockerapi.DockerContainerMetadata{
 		DockerID: containerID,
 	}
@@ -218,11 +220,11 @@ func createDockerEvent(status apicontainer.ContainerStatus) dockerapi.DockerCont
 // and the task
 func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Event) {
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
 
 	select {
@@ -236,14 +238,14 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 // and the task
 func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool) {
 	event := <-stateChangeEvents
-	if cont := event.(api.ContainerStateChange); cont.Status != apicontainer.ContainerStopped {
+	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
 		t.Fatal("Expected container to stop first")
 		if verifyExitCode {
 			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
 		}
 	}
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
 
 	select {
 	case <-stateChangeEvents:

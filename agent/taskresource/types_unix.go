@@ -17,12 +17,11 @@ package taskresource
 
 import (
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 
 // ResourceFields is the list of fields required for creation of task resources
 // obtained from engine
 type ResourceFields struct {
 	Control cgroup.Control
-	IOUtil  ioutilwrapper.IOUtil
+	*ResourceFieldsCommon
 }

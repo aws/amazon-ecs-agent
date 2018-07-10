@@ -18,12 +18,14 @@ import (
 	"errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 )
 
 const (
 	// CgroupKey is the string used in resources map to represent cgroup resource
-	CgroupKey = "cgroup"
+	CgroupKey  = "cgroup"
+	ASMAuthKey = asmauthres.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -54,8 +56,25 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 				}
 				result[key] = append(result[key], cgroup)
 			}
-		// TODO: add a case for volume resource. Currently it is not added since it does
-		// not fully implement TaskResource
+			// TODO: add a case for volume resource. Currently it is not added since it does
+			// not fully implement TaskResource
+
+		case ASMAuthKey:
+			var asmauths []json.RawMessage
+			err = json.Unmarshal(value, &asmauths)
+			if err != nil {
+				return err
+			}
+
+			for _, a := range asmauths {
+				auth := &asmauthres.ASMAuthResource{}
+				err := auth.UnmarshalJSON(a)
+				if err != nil {
+					return err
+				}
+				result[key] = append(result[key], auth)
+			}
+
 		default:
 			return errors.New("Unsupported resource type")
 		}

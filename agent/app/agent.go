@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -201,9 +201,7 @@ func (agent *ecsAgent) start() int {
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
-	if agent.cfg.TaskCPUMemLimit.Enabled() {
-		agent.initializeResourceFields()
-	}
+	agent.initializeResourceFields(credentialsManager)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
 }
 

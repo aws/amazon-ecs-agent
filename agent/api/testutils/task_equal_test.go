@@ -21,6 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,16 +37,16 @@ func TestTaskEqual(t *testing.T) {
 		{apitask.Task{Family: "a"}, apitask.Task{Family: "a"}, true},
 		{apitask.Task{Version: "a"}, apitask.Task{Version: "a"}, true},
 		{apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, true},
-		{apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, true},
-		{apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, true},
+		{apitask.Task{DesiredStatusUnsafe: apitaskstatus.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitaskstatus.TaskRunning}, true},
+		{apitask.Task{KnownStatusUnsafe: apitaskstatus.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitaskstatus.TaskRunning}, true},
 
 		// Unequal Pairs
 		{apitask.Task{Arn: "a"}, apitask.Task{Arn: "あ"}, false},
 		{apitask.Task{Family: "a"}, apitask.Task{Family: "あ"}, false},
 		{apitask.Task{Version: "a"}, apitask.Task{Version: "あ"}, false},
 		{apitask.Task{Containers: []*apicontainer.Container{{Name: "a"}}}, apitask.Task{Containers: []*apicontainer.Container{{Name: "あ"}}}, false},
-		{apitask.Task{DesiredStatusUnsafe: apitask.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitask.TaskStopped}, false},
-		{apitask.Task{KnownStatusUnsafe: apitask.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitask.TaskStopped}, false},
+		{apitask.Task{DesiredStatusUnsafe: apitaskstatus.TaskRunning}, apitask.Task{DesiredStatusUnsafe: apitaskstatus.TaskStopped}, false},
+		{apitask.Task{KnownStatusUnsafe: apitaskstatus.TaskRunning}, apitask.Task{KnownStatusUnsafe: apitaskstatus.TaskStopped}, false},
 	}
 
 	for index, tc := range testCases {

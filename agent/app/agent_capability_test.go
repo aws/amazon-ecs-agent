@@ -111,6 +111,9 @@ func TestCapabilities(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + "docker-volume-driver.coolvolumedriver"),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())

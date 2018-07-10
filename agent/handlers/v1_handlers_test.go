@@ -26,6 +26,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
@@ -209,8 +210,8 @@ func TestBackendMismatchMapping(t *testing.T) {
 	}
 	testTask := &apitask.Task{
 		Arn:                 "task1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskStopped,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskStopped,
 		Family:              "test",
 		Version:             "1",
 		Containers:          containers,
@@ -320,8 +321,8 @@ func taskDiffHelper(t *testing.T, expected []*apitask.Task, actual v1.TasksRespo
 var testTasks = []*apitask.Task{
 	{
 		Arn:                 "task1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -335,8 +336,8 @@ var testTasks = []*apitask.Task{
 	},
 	{
 		Arn:                 "task2",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "2",
 		Containers: []*apicontainer.Container{
@@ -347,8 +348,8 @@ var testTasks = []*apitask.Task{
 	},
 	{
 		Arn:                 "byShortId",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "2",
 		Containers: []*apicontainer.Container{
@@ -359,8 +360,8 @@ var testTasks = []*apitask.Task{
 	},
 	{
 		Arn:                 "awsvpcTask",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -378,8 +379,8 @@ var testTasks = []*apitask.Task{
 	},
 	{
 		Arn:                 "hostModeNetworkingTask",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -397,8 +398,8 @@ var testTasks = []*apitask.Task{
 	},
 	{
 		Arn:                 "bridgeModeNetworkingTask",
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              "test",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
