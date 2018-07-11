@@ -100,7 +100,7 @@ const (
 	// ErrCodePlatformTaskDefinitionIncompatibilityException for service response error code
 	// "PlatformTaskDefinitionIncompatibilityException".
 	//
-	// The specified platform version does not satisfy the task definition’s required
+	// The specified platform version does not satisfy the task definition's required
 	// capabilities.
 	ErrCodePlatformTaskDefinitionIncompatibilityException = "PlatformTaskDefinitionIncompatibilityException"
 
