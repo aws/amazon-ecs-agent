@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package mobyclient
+package sdkclient
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/dockerclient/mobyclient Client mocks/mobyclient_mocks.go
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient Client mocks/sdkclient_mocks.go

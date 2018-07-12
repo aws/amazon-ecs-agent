@@ -44,6 +44,10 @@
   name = "github.com/deniswernert/udev"
   revision ="82fe5be8ca5f7d8255cc838723687f61bb175120"
 
+[[override]]
+  name = "github.com/docker/distribution"
+  branch = "master"
+
 [[constraint]]
   name = "github.com/docker/docker"
   branch = "master"

@@ -11,9 +11,9 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-// Package mobyclient contains an interface for moby matching the
+// Package sdkclient contains an interface for moby matching the
 // subset used by the agent
-package mobyclient
+package sdkclient
 
 import (
 	"context"
@@ -50,7 +50,7 @@ type Client interface {
 		error)
 	Ping(ctx context.Context) (types.Ping, error)
 	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
-	VolumeCreate(ctx context.Context, options volume.VolumeCreateBody) (types.Volume, error)
+	VolumeCreate(ctx context.Context, options volume.VolumesCreateBody) (types.Volume, error)
 	VolumeInspect(ctx context.Context, volumeID string) (types.Volume, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	ServerVersion(ctx context.Context) (types.Version, error)

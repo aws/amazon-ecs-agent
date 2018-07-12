@@ -122,21 +122,34 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/docker/distribution"
+  packages = [
+    "digestset",
+    "reference"
+  ]
+  revision = "749f6afb4572201e3c37325d0ffedb6f32be8950"
+
+[[projects]]
+  branch = "master"
   name = "github.com/docker/docker"
   packages = [
+    "api",
     "api/types",
     "api/types/blkiodev",
     "api/types/container",
     "api/types/events",
     "api/types/filters",
+    "api/types/image",
     "api/types/mount",
     "api/types/network",
     "api/types/registry",
     "api/types/strslice",
     "api/types/swarm",
     "api/types/swarm/runtime",
+    "api/types/time",
     "api/types/versions",
     "api/types/volume",
+    "client",
     "opts",
     "pkg/archive",
     "pkg/fileutils",
@@ -302,6 +315,7 @@
   name = "golang.org/x/net"
   packages = [
     "context",
+    "context/ctxhttp",
     "html",
     "html/atom",
     "proxy"
@@ -337,6 +351,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "397fe925184fb3da634d1e861505c3d9725a0606c425106ab7718879a577c4e1"
+  inputs-digest = "06590b36091729df5b81cf3bde9e75391db7b45ce4a7a377cc90def2ad9c2650"
   solver-name = "gps-cdcl"
   solver-version = 1
