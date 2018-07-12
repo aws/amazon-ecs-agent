@@ -9,7 +9,7 @@ package volume // import "github.com/docker/docker/api/types/volume"
 
 // VolumesCreateBody volumes create body
 // swagger:model VolumesCreateBody
-type VolumeCreateBody struct {
+type VolumesCreateBody struct {
 
 	// Name of the volume driver to use.
 	// Required: true
