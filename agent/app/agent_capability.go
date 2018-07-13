@@ -14,14 +14,10 @@
 package app
 
 import (
-	"strings"
-
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -203,44 +199,6 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
 			})
 		}
-	}
-	return capabilities
-}
-
-func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	// for non-standardized plugins, call docker pkg's plugins.Scan()
-	nonStandardizedPlugins, err := agent.mobyPlugins.Scan()
-	if err != nil {
-		seelog.Warnf("Scanning plugins failed: %v", err)
-		// do not return yet, we need the list of plugins below. range handles nil slice.
-	}
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+volume.DockerLocalVolumeDriver)
-
-	for _, pluginName := range nonStandardizedPlugins {
-		// Replace the ':' to '.' in the plugin name for attributes
-		capabilities = appendNameOnlyAttribute(capabilities,
-			attributePrefix+capabilityDockerPluginInfix+strings.Replace(pluginName, config.DockerTagSeparator, attributeSeparator, -1))
-	}
-
-	// for standardized plugins, call docker's plugin ls API
-	pluginEnabled := true
-	volumeDriverType := []string{dockerapi.VolumeDriverType}
-	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(agent.ctx, pluginEnabled, volumeDriverType, dockerapi.ListPluginsTimeout)
-	if err != nil {
-		seelog.Warnf("Listing plugins with filters enabled=%t, capabilities=%v failed: %v", pluginEnabled, volumeDriverType, err)
-		return capabilities
-	}
-
-	// For plugin with default tag latest, register two attributes with and without the latest tag
-	// as the tag is optional and can be added by docker or customer
-	for _, pluginName := range standardizedPlugins {
-		names := strings.Split(pluginName, config.DockerTagSeparator)
-		if len(names) > 1 && names[len(names)-1] == config.DefaultDockerTag {
-			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+strings.Join(names[:len(names)-1], attributeSeparator))
-		}
-
-		capabilities = appendNameOnlyAttribute(capabilities,
-			attributePrefix+capabilityDockerPluginInfix+strings.Replace(pluginName, config.DockerTagSeparator, attributeSeparator, -1))
 	}
 	return capabilities
 }
