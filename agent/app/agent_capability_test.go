@@ -61,7 +61,8 @@ func TestCapabilities(t *testing.T) {
 		AWSVPCBlockInstanceMetdata: true,
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
-
+	// Scan() and ListPluginsWithFilters() are tested with
+	// AnyTimes() because they are not called in windows.
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
 			dockerclient.Version_1_17,
@@ -73,10 +74,9 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.Version_1_19,
 		}),
 		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{"fancyvolumedriver"}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return(
-			[]string{"coolvolumedriver", "volumedriver:latest"}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -107,18 +107,6 @@ func TestCapabilities(t *testing.T) {
 			},
 			{
 				Name: aws.String("ecs.capability.docker-plugin.local"),
-			},
-			{
-				Name: aws.String(attributePrefix + "docker-plugin.fancyvolumedriver"),
-			},
-			{
-				Name: aws.String(attributePrefix + "docker-plugin.coolvolumedriver"),
-			},
-			{
-				Name: aws.String(attributePrefix + "docker-plugin.volumedriver"),
-			},
-			{
-				Name: aws.String(attributePrefix + "docker-plugin.volumedriver.latest"),
 			},
 		}...)
 
@@ -153,9 +141,9 @@ func TestCapabilitiesECR(t *testing.T) {
 		dockerclient.Version_1_19,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -195,9 +183,9 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 		dockerclient.Version_1_19,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -234,9 +222,9 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 		dockerclient.Version_1_18,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -274,9 +262,9 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 		dockerclient.Version_1_19,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -314,9 +302,9 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 		dockerclient.Version_1_18,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -366,9 +354,9 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -427,9 +415,9 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	})
 	client.EXPECT().KnownVersions().Return(nil)
 	cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", errors.New("some error happened"))
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -465,9 +453,9 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -505,9 +493,9 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -570,9 +558,9 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 		dockerclient.Version_1_24,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil)
+	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any()).Return([]string{}, nil)
+		gomock.Any()).AnyTimes().Return([]string{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -606,9 +594,9 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return(nil, errors.New("listPlugins error happened")),
+			gomock.Any()).AnyTimes().Return(nil, errors.New("listPlugins error happened")),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -640,9 +628,9 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return(versionList),
 		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().Return(nil, errors.New("Scan plugins error happened")),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines

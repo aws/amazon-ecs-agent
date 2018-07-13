@@ -168,9 +168,9 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
@@ -204,9 +204,9 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)
@@ -541,9 +541,9 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(containerInstanceARN, nil),
 	)
 	cfg := getTestConfig()
@@ -578,9 +578,9 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{""}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", awserr.New("", apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
@@ -618,9 +618,9 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
@@ -658,9 +658,9 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
 			"", errors.New("error")),
 	)
@@ -698,9 +698,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(containerInstanceARN, nil),
 		stateManager.EXPECT().Save(),
 	)
@@ -738,9 +738,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", retriableError),
 	)
 
@@ -777,9 +777,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", cannotRetryError),
 	)
 
@@ -815,9 +815,9 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		mockDockerClient.EXPECT().SupportedVersions().Return(nil),
 		mockDockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return([]string{}, nil),
+			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
@@ -852,9 +852,9 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
 			"", awserr.New("InvalidParameterException", "", nil)),
 	)
