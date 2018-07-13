@@ -200,7 +200,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
+	mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
 
 	containers := []*apicontainer.Container{
 		{
@@ -402,7 +402,7 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockStateResolver := mock_handlers.NewMockDockerStateResolver(ctrl)
+	mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
 
 	state := dockerstate.NewTaskEngineState()
 	stateSetupHelper(state, testTasks)
