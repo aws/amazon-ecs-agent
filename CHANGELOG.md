@@ -4,6 +4,7 @@
 * Feature - Add support for Docker volume plugins
 * Enhancement - Replace the empty container with Docker local volume
 * Enhancement - Deprecate support for Docker version older than 1.9.0 [#1477](https://github.com/aws/amazon-ecs-agent/pull/1477)
+* Bug - Fixed a bug where container marked as stopped comes back with a running status [#1446](https://github.com/aws/amazon-ecs-agent/pull/1446)
 
 ## 1.19.1
 * Bug - Fixed a bug where responses of introspection API break backward compatibility [#1473](https://github.com/aws/amazon-ecs-agent/pull/1473)
