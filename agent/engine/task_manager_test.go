@@ -567,9 +567,34 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			transition := task.containerNextState(container)
 			assert.Equal(t, tc.expectedContainerStatus, transition.nextState, "Mismatch container status")
 			assert.Equal(t, tc.expectedTransitionReason, transition.reason, "Mismatch transition possible")
-			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "Mismatch transition actionalbe")
+			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "Mismatch transition actionable")
 		})
 	}
+}
+
+func TestContainerNextStateWithAvoidingDanglingContainers(t *testing.T) {
+	container := &apicontainer.Container{
+		DesiredStatusUnsafe:       apicontainerstatus.ContainerStopped,
+		KnownStatusUnsafe:         apicontainerstatus.ContainerCreated,
+		AppliedStatus:             apicontainerstatus.ContainerRunning,
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &managedTask{
+		Task: &apitask.Task{
+			Containers: []*apicontainer.Container{
+				container,
+			},
+			DesiredStatusUnsafe: apitaskstatus.TaskStopped,
+		},
+		engine: &DockerTaskEngine{},
+	}
+	transition := task.containerNextState(container)
+	assert.Equal(t, apicontainerstatus.ContainerStatusNone, transition.nextState,
+		"Expected next state [%s] != Retrieved next state [%s]",
+		apicontainerstatus.ContainerStatusNone.String(), transition.nextState.String())
+	assert.Equal(t, false, transition.actionRequired, "Mismatch transition actionable")
+	assert.Equal(t, nil, transition.reason, "Mismatch transition possible")
 }
 
 func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
