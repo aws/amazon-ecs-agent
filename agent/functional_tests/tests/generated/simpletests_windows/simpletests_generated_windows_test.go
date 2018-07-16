@@ -157,7 +157,7 @@ func TestTaskLocalVolume(t *testing.T) {
 	}
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.19.0")
+	agent.RequireVersion(">=1.20.0")
 
 	td, err := GetTaskDefinition("task-local-vol-windows")
 	if err != nil {

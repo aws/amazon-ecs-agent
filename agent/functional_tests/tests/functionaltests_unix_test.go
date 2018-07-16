@@ -858,7 +858,7 @@ func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
 func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.19.0")
+	agent.RequireVersion(">=1.20.0")
 
 	// start writer task first
 	wTask, err := agent.StartTask(t, "task-shared-vol-write")

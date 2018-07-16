@@ -358,7 +358,7 @@ func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
 func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.19.0")
+	agent.RequireVersion(">=1.20.0")
 
 	wTask, wTaskErr := agent.StartTask(t, "task-shared-vol-write-windows")
 	require.NoError(t, wTaskErr, "Register task definition failed")
