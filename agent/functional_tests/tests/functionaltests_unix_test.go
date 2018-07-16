@@ -893,6 +893,7 @@ func TestPrivateRegistryAuthOverASM(t *testing.T) {
 func TestContainerHealthMetrics(t *testing.T) {
 	// TODO remove this after backend changes deployed
 	t.Skip("Not supported")
+	containerHealthWithoutStartPeriodTest(t, "container-health")
 }
 
 // TestContainerHealthMetricsWithStartPeriod tests the container health metrics
@@ -900,4 +901,5 @@ func TestContainerHealthMetrics(t *testing.T) {
 func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
 	// TODO remove this after backend changes deployed
 	t.Skip("Not supported")
+	containerHealthWithStartPeriodTest(t, "container-health")
 }
