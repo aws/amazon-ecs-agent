@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -72,8 +73,12 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	clientFactory := clientfactory.NewFactory(ctx, dockerEndpoint)
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
+	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, sdkClientFactory, cfg, ctx)
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}

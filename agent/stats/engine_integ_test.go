@@ -35,7 +35,7 @@ import (
 var dockerClient dockerapi.DockerClient
 
 func init() {
-	dockerClient, _ = dockerapi.NewDockerGoClient(clientFactory, &cfg)
+	dockerClient, _ = dockerapi.NewDockerGoClient(clientFactory, sdkClientFactory, &cfg, ctx)
 }
 
 func createRunningTask() *apitask.Task {

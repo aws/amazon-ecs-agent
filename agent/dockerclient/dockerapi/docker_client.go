@@ -32,6 +32,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -198,8 +200,8 @@ type DockerClient interface {
 	LoadImage(context.Context, io.Reader, time.Duration) error
 }
 
-// DockerGoClient wraps the underlying go-dockerclient library.
-// It exists primarily for the following three purposes:
+// DockerGoClient wraps the underlying go-dockerclient and docker/docker library.
+// It exists primarily for the following four purposes:
 // 1) Provide an abstraction over inputs and outputs,
 //    a) Inputs: Trims them down to what we actually need (largely unchanged tbh)
 //    b) Outputs: Unifies error handling and the common 'start->inspect'
@@ -212,9 +214,13 @@ type DockerClient interface {
 //    pull-related issues in the Docker daemon.
 // 3) Versioning: It abstracts over multiple client versions to allow juggling
 //    appropriately there.
+// 4) Allows for both the go-dockerclient client and Docker SDK client to live
+//    side-by-side until migration to the Docker SDK is complete.
 // Implements DockerClient
+// TODO Remove clientfactory field once all API calls are migrated to sdkclientFactory
 type dockerGoClient struct {
 	clientFactory    clientfactory.Factory
+	sdkClientFactory sdkclientfactory.Factory
 	version          dockerclient.DockerVersion
 	ecrClientFactory ecr.ECRFactory
 	auth             dockerauth.DockerAuthProvider
@@ -230,10 +236,11 @@ type dockerGoClient struct {
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
 	return &dockerGoClient{
-		clientFactory: dg.clientFactory,
-		version:       version,
-		auth:          dg.auth,
-		config:        dg.config,
+		clientFactory:    dg.clientFactory,
+		sdkClientFactory: dg.sdkClientFactory,
+		version:          version,
+		auth:             dg.auth,
+		config:           dg.config,
 	}
 }
 
@@ -241,19 +248,37 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
-func NewDockerGoClient(clientFactory clientfactory.Factory, cfg *config.Config) (DockerClient, error) {
+// TODO Remove clientfactory parameter once migration to Docker SDK is complete.
+func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdkclientfactory.Factory,
+	cfg *config.Config, ctx context.Context) (DockerClient, error) {
+	// Ensure both clients can connect to the Docker daemon.
 	client, err := clientFactory.GetDefaultClient()
 
 	if err != nil {
-		seelog.Errorf("DockerGoClient: unable to connect to Docker daemon. Ensure Docker is running: %v", err)
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. " +
+			"Ensure Docker is running: %v", err)
+		return nil, err
+	}
+	sdkclient, err := sdkclientFactory.GetDefaultClient()
+
+	if err != nil {
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to connect to Docker daemon. " +
+			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 
-	// Even if we have a dockerclient, the daemon might not be running. Ping it
+	// Even if we have a DockerClient, the daemon might not be running. Ping from both clients
 	// to ensure it's up.
 	err = client.Ping()
 	if err != nil {
-		seelog.Errorf("DockerGoClient: unable to ping Docker daemon. Ensure Docker is running: %v", err)
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. " +
+			"Ensure Docker is running: %v", err)
+		return nil, err
+	}
+	_, err = sdkclient.Ping(ctx)
+	if err != nil {
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. " +
+			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 
@@ -263,6 +288,7 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, cfg *config.Config) 
 	}
 	return &dockerGoClient{
 		clientFactory:    clientFactory,
+		sdkClientFactory: sdkclientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
@@ -270,6 +296,16 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, cfg *config.Config) 
 	}, nil
 }
 
+// Returns the Docker SDK Client
+func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error){
+	if dg.version == "" {
+		return dg.sdkClientFactory.GetDefaultClient()
+	}
+	return dg.sdkClientFactory.GetClient(dg.version)
+}
+
+// Returns the go-dockerclient Client
+// TODO Remove method once migration is complete.
 func (dg *dockerGoClient) dockerClient() (dockeriface.Client, error) {
 	if dg.version == "" {
 		return dg.clientFactory.GetDefaultClient()
