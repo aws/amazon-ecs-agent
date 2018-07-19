@@ -24,8 +24,8 @@
 %global bundled_agent_version %{version}
 
 Name:           ecs-init
-Version:        1.18.0
-Release:        3%{?dist}
+Version:        1.19.0
+Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64
@@ -245,6 +245,9 @@ fi
 %endif
 
 %changelog
+* Thu Jul 19 2018 Feng Xiong <fenxiong@amazon.com> - 1.19.0-1
+- Cache Agent version 1.19.0
+
 * Wed May 23 2018 iliana weller <iweller@amazon.com> - 1.18.0-2
 - Spec file cleanups
 - Enable builds for both AL1 and AL2
