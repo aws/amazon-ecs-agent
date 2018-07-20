@@ -132,7 +132,7 @@ type ClientServerImpl struct {
 }
 
 // Connect opens a connection to the backend and upgrades it to a websocket. Calls to
-// 'MakeRequest' can be made after calling this, but responss will not be
+// 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
 	seelog.Debugf("Establishing a Websocket connection to %s", cs.URL)

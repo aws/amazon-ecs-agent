@@ -21,32 +21,33 @@ import (
 	"time"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldBeReported(t *testing.T) {
 	cases := []struct {
-		status          apitask.TaskStatus
+		status          apitaskstatus.TaskStatus
 		containerChange []ContainerStateChange
 		result          bool
 	}{
 		{ // Normal task state change to running
-			status: apitask.TaskRunning,
+			status: apitaskstatus.TaskRunning,
 			result: true,
 		},
 		{ // Normal task state change to stopped
-			status: apitask.TaskStopped,
+			status: apitaskstatus.TaskStopped,
 			result: true,
 		},
 		{ // Container changed while task is not in steady state
-			status: apitask.TaskCreated,
+			status: apitaskstatus.TaskCreated,
 			containerChange: []ContainerStateChange{
 				{TaskArn: "taskarn"},
 			},
 			result: true,
 		},
 		{ // No container change and task status not recognized
-			status: apitask.TaskCreated,
+			status: apitaskstatus.TaskCreated,
 			result: false,
 		},
 	}

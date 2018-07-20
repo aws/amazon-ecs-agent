@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -33,10 +34,11 @@ import (
 )
 
 const (
-	memorySubsystem         = "/memory"
-	memoryUseHierarchy      = "memory.use_hierarchy"
-	rootReadOnlyPermissions = os.FileMode(400)
-	resourceName            = "cgroup"
+	memorySubsystem           = "/memory"
+	memoryUseHierarchy        = "memory.use_hierarchy"
+	rootReadOnlyPermissions   = os.FileMode(400)
+	resourceName              = "cgroup"
+	resourceProvisioningError = "CgroupError: Agent could not create task's platform resources"
 )
 
 var (
@@ -79,15 +81,23 @@ func NewCgroupResource(taskARN string,
 		cgroupMountPath: cgroupMountPath,
 		resourceSpec:    resourceSpec,
 	}
-	c.initStatusToTransitions()
+	c.initializeResourceStatusToTransitionFunction()
 	return c
 }
 
-func (cgroup *CgroupResource) initStatusToTransitions() {
-	statusToTransitions := map[resourcestatus.ResourceStatus]func() error{
+// GetTerminalReason returns an error string to propagate up through to task
+// state change messages
+func (cgroup *CgroupResource) GetTerminalReason() string {
+	// for cgroups we can send up a static string because this is an
+	// implementation detail and unrelated to customer resources
+	return resourceProvisioningError
+}
+
+func (cgroup *CgroupResource) initializeResourceStatusToTransitionFunction() {
+	resourceStatusToTransitionFunction := map[resourcestatus.ResourceStatus]func() error{
 		resourcestatus.ResourceStatus(CgroupCreated): cgroup.Create,
 	}
-	cgroup.statusToTransitions = statusToTransitions
+	cgroup.statusToTransitions = resourceStatusToTransitionFunction
 }
 
 func (cgroup *CgroupResource) SetIOUtil(ioutil ioutilwrapper.IOUtil) {
@@ -351,11 +361,13 @@ func (cgroup *CgroupResource) GetCgroupMountPath() string {
 }
 
 // Initialize initializes the resource fileds in cgroup
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 	cgroup.lock.Lock()
 	defer cgroup.lock.Unlock()
 
-	cgroup.initStatusToTransitions()
+	cgroup.initializeResourceStatusToTransitionFunction()
 	cgroup.ioutil = resourceFields.IOUtil
 	cgroup.control = resourceFields.Control
 }

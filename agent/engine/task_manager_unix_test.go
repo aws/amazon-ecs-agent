@@ -28,6 +28,7 @@ import (
 	"github.com/golang/mock/gomock"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,7 +41,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
 		ChangedKnownStatus resourcestatus.ResourceStatus
-		TaskDesiredStatus  apitask.TaskStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
 	}{
 		{
 			Name:               "error while steady state transition",
@@ -48,7 +49,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                errors.New("transition error"),
 			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
-			TaskDesiredStatus:  apitask.TaskStopped,
+			TaskDesiredStatus:  apitaskstatus.TaskStopped,
 		},
 		{
 			Name:               "steady state transition",
@@ -56,7 +57,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
 			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  apitask.TaskRunning,
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 	}
 	for _, tc := range testCases {
@@ -70,7 +71,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 				Task: &apitask.Task{
 					Arn:                 "task1",
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -95,7 +96,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
 		ChangedKnownStatus resourcestatus.ResourceStatus
-		TaskDesiredStatus  apitask.TaskStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
 	}{
 		{
 			Name:               "steady state transition already done",
@@ -103,7 +104,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
 			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  apitask.TaskRunning,
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 		{
 			Name:               "transition state less than known status",
@@ -111,7 +112,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 			Err:                nil,
 			KnownStatus:        resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
-			TaskDesiredStatus:  apitask.TaskRunning,
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 	}
 	for _, tc := range testCases {
@@ -122,7 +123,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 				Task: &apitask.Task{
 					Arn:                 "task1",
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 			}
 			mtask.AddResource("cgroup", res)
@@ -202,7 +203,7 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 			task := &managedTask{
 				Task: &apitask.Task{
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 			}
 			task.AddResource("cgroup", res)
@@ -260,7 +261,7 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 			mtask := &managedTask{
 				Task: &apitask.Task{
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				ctx: ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),

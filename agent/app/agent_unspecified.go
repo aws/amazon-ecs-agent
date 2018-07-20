@@ -18,6 +18,7 @@ package app
 import (
 	"errors"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/cihub/seelog"
@@ -33,7 +34,7 @@ func (agent *ecsAgent) startWindowsService() int {
 	return 1
 }
 
-func (agent *ecsAgent) initializeResourceFields() {
+func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.Manager) {
 }
 
 func (agent *ecsAgent) cgroupInit() error {

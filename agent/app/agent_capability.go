@@ -36,6 +36,7 @@ const (
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
 	capabilityDockerPluginInfix                 = "docker-plugin."
 	attributeSeparator                          = "."
+	capabilityPrivateRegistryAuthASM            = "private-registry-authentication.secretsmanager"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -63,6 +64,7 @@ const (
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
 //    ecs.capability.container-health-check
+//    ecs.capability.private-registry-authentication.secretsmanager
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -104,6 +106,10 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	capabilities = agent.appendVolumeDriverCapabilities(capabilities)
+
+	// ecs agent version 1.19.0 supports private registry authentication using
+	// aws secrets manager
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityPrivateRegistryAuthASM)
 
 	return capabilities, nil
 }

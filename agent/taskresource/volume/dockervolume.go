@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -34,6 +35,8 @@ const (
 	// DockerLocalVolumeDriver is the name of the docker default volume driver
 	DockerLocalVolumeDriver = "local"
 )
+
+const resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 
 // VolumeResource represents volume resource
 type VolumeResource struct {
@@ -105,7 +108,10 @@ func NewVolumeResource(ctx context.Context,
 	return v, nil
 }
 
-func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
+
 	vol.ctx = resourceFields.Ctx
 	vol.client = resourceFields.DockerClient
 	vol.initStatusToTransitions()
@@ -135,6 +141,12 @@ func (vol *VolumeResource) DesiredTerminal() bool {
 	defer vol.lock.RUnlock()
 
 	return vol.desiredStatusUnsafe == resourcestatus.ResourceStatus(VolumeRemoved)
+}
+
+// GetTerminalReason returns an error string to propagate up through to task
+// state change messages
+func (vol *VolumeResource) GetTerminalReason() string {
+	return resourceProvisioningError
 }
 
 // SetDesiredStatus safely sets the desired status of the resource

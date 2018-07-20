@@ -28,7 +28,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -56,7 +58,7 @@ func createTestContainer() *apicontainer.Container {
 		Name:                "windows",
 		Image:               "microsoft/windowsservercore:latest",
 		Essential:           true,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 512,
 		Memory:              256,
 	}
@@ -80,7 +82,7 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "C:\\host\\tmp", SourceVolume: "test-tmp"}}
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.LocalDockerVolume{}}}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	return testTask
 }
 
@@ -89,7 +91,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		Arn:                 arn,
 		Family:              "family",
 		Version:             "1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 	testTask.Containers[0].Image = "microsoft/nanoserver:latest"
@@ -135,7 +137,7 @@ func createVolumeTask(scope, arn, volume string, provisioned bool) (*apitask.Tas
 	}
 
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{
 		{
 			SourceVolume:  volume,
@@ -205,16 +207,16 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning, "Expected task to be RUNNING")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
 }
 
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
@@ -234,16 +236,16 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning, "Expected task to be RUNNING")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
 }
 
 // TestPortForward runs a container serving data on the randomly chosen port
@@ -320,7 +322,7 @@ func TestPortForward(t *testing.T) {
 
 	// Stop the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -377,7 +379,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	t.Log("Read second container")
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -400,12 +402,12 @@ func TestDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning, "Expected task to be RUNNING")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
 
 	assert.Len(t, portBindings, 1, "portBindings was not set; should have been len 1")
 
@@ -432,14 +434,14 @@ func TestDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
 }
 
 func TestMultipleDynamicPortForward(t *testing.T) {
@@ -458,12 +460,12 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskRunning, "Expected task to be RUNNING")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning, "Expected task to be RUNNING")
 
 	assert.Len(t, portBindings, 2, "could not bind to two ports from one container port", portBindings)
 	var bindingFor24751_1 uint16
@@ -495,14 +497,14 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitask.TaskStopped, "Expected task to be STOPPED")
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
 }
 
 func TestVolumesFrom(t *testing.T) {

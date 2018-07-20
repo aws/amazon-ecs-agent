@@ -30,7 +30,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -63,7 +65,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		Arn:                 arn,
 		Family:              "family",
 		Version:             "1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 	testTask.Containers[0].Image = testBusyboxImage
@@ -111,7 +113,7 @@ func createVolumeTask(scope, arn, volume string, provisioned bool) (*apitask.Tas
 	}
 
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{
 		{
 			SourceVolume:  volume,
@@ -235,7 +237,7 @@ func TestPortForward(t *testing.T) {
 
 	// Stop the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -289,7 +291,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	t.Log("Read second container")
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -311,7 +313,7 @@ func TestDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -343,7 +345,7 @@ func TestDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -365,7 +367,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -415,7 +417,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -473,7 +475,7 @@ func TestLinking(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -503,7 +505,7 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	taskUpdate := createTestTask("testDockerCfgAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -533,7 +535,7 @@ func TestDockerAuth(t *testing.T) {
 
 	taskUpdate := createTestTask("testDockerAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -577,7 +579,7 @@ func TestVolumesFrom(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -666,7 +668,7 @@ func TestInitOOMEvent(t *testing.T) {
 	verifyTaskRunningStateChange(t, taskEngine)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
@@ -747,7 +749,7 @@ check_events:
 
 	// Stop the container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -808,7 +810,7 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(apitask.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)

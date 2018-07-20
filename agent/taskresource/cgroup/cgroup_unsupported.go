@@ -18,6 +18,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
@@ -106,6 +107,10 @@ func (c *CgroupResource) StatusString(status resourcestatus.ResourceStatus) stri
 	return "undefined"
 }
 
+func (c *CgroupResource) GetTerminalReason() string {
+	return "undefined"
+}
+
 // MarshalJSON marshals CgroupResource object
 func (c *CgroupResource) MarshalJSON() ([]byte, error) {
 	return nil, errors.New("unsupported platform")
@@ -117,5 +122,7 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 }
 
 // Initialize fills the resource fileds
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 }

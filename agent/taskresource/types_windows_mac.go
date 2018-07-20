@@ -23,6 +23,7 @@ import (
 
 // ResourceFields is the list of fields required for creation of task resources
 type ResourceFields struct {
+	*ResourceFieldsCommon
 	Ctx          context.Context
 	DockerClient dockerapi.DockerClient
 }
