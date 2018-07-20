@@ -134,12 +134,8 @@ func TestPullImageOutputTimeout(t *testing.T) {
 		}).Times(maximumPullRetries) // expected number of retries
 
 	metadata := client.PullImage("image", nil)
-	if metadata.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, metadata.Error, "Expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 
 	// cleanup
 	wait.Done()
@@ -157,9 +153,7 @@ func TestPullImageGlobalTimeout(t *testing.T) {
 	wait.Add(1)
 	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
 		opts, ok := x.(docker.PullImageOptions)
-		if !ok {
-			t.Error("Cannot cast argument to PullImageOptions")
-		}
+		assert.True(t, ok, "Cannot cast argument to PullImageOptions")
 		io.WriteString(opts.OutputStream, "string\n")
 		pullBeginTimeout <- time.Now()
 		pullTimeout <- time.Now()
@@ -168,12 +162,8 @@ func TestPullImageGlobalTimeout(t *testing.T) {
 	})
 
 	metadata := client.PullImage("image", nil)
-	if metadata.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, metadata.Error, "Expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 
 	testTime.EXPECT().After(dockerPullBeginTimeout)
 	testTime.EXPECT().After(pullImageTimeout)
@@ -420,12 +410,8 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	gomock.InOrder(
 		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
-			if !reflect.DeepEqual(opts.Config, config.Config) {
-				t.Errorf("Mismatch in create container config, %v != %v", opts.Config, config.Config)
-			}
-			if opts.Name != config.Name {
-				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
-			}
+			assert.True(t, reflect.DeepEqual(opts.Config, config.Config))
+			assert.Equal(t, config.Name, opts.Name)
 		}).Return(&docker.Container{ID: "id"}, nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, &DockerTimeoutError{}),
 	)
@@ -433,12 +419,9 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 	defer cancel()
 
 	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, 1*time.Second)
-	if metadata.DockerID != "id" {
-		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerID)
-	}
-	if metadata.Error == nil {
-		t.Error("Expected error for inspect timeout")
-	}
+	assert.Equal(t, "id", metadata.DockerID,
+		"Expected ID to be set even if inspect failed; was " + metadata.DockerID)
+	assert.Error(t, metadata.Error, "Expected error for inspect timeout")
 }
 
 func TestCreateContainer(t *testing.T) {
@@ -448,27 +431,19 @@ func TestCreateContainer(t *testing.T) {
 	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
 	gomock.InOrder(
 		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
-			if !reflect.DeepEqual(opts.Config, config.Config) {
-				t.Errorf("Mismatch in create container config, %v != %v", opts.Config, config.Config)
-			}
-			if opts.Name != config.Name {
-				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
-			}
+			assert.True(t, reflect.DeepEqual(opts.Config, config.Config),
+				"Mismatch in create container config, %v != %v", opts.Config, config.Config)
+			assert.Equal(t, config.Name, opts.Name,
+				"Mismatch in create container options, %s != %s", opts.Name, config.Name)
 		}).Return(&docker.Container{ID: "id"}, nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, 1*time.Second)
-	if metadata.Error != nil {
-		t.Error("Did not expect error")
-	}
-	if metadata.DockerID != "id" {
-		t.Error("Wrong id")
-	}
-	if metadata.ExitCode != nil {
-		t.Error("Expected a created container to not have an exit code")
-	}
+	assert.NoError(t, metadata.Error)
+	assert.Equal(t, "id", metadata.DockerID)
+	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
 }
 
 func TestStartContainerTimeout(t *testing.T) {
@@ -500,12 +475,8 @@ func TestStartContainer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StartContainer(ctx, "id", defaultTestConfig().ContainerStartTimeout)
-	if metadata.Error != nil {
-		t.Error("Did not expect error")
-	}
-	if metadata.DockerID != "id" {
-		t.Error("Wrong id")
-	}
+	assert.NoError(t, metadata.Error)
+	assert.Equal(t, "id", metadata.DockerID)
 }
 
 func TestStopContainerTimeout(t *testing.T) {
@@ -524,12 +495,8 @@ func TestStopContainerTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StopContainer(ctx, "id", xContainerShortTimeout)
-	if metadata.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if metadata.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, metadata.Error, "Expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
@@ -544,12 +511,8 @@ func TestStopContainer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StopContainer(ctx, "id", dockerclient.StopContainerTimeout)
-	if metadata.Error != nil {
-		t.Error("Did not expect error")
-	}
-	if metadata.DockerID != "id" {
-		t.Error("Wrong id")
-	}
+	assert.NoError(t, metadata.Error)
+	assert.Equal(t, "id", metadata.DockerID)
 }
 
 func TestInspectContainerTimeout(t *testing.T) {
@@ -565,12 +528,8 @@ func TestInspectContainerTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := client.InspectContainer(ctx, "id", xContainerShortTimeout)
-	if err == nil {
-		t.Error("Expected error for inspect timeout")
-	}
-	if err.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, err, "Expected error for inspect timeout")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
@@ -596,12 +555,8 @@ func TestInspectContainer(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	container, err := client.InspectContainer(ctx, "id", dockerclient.InspectContainerTimeout)
-	if err != nil {
-		t.Error("Did not expect error")
-	}
-	if !reflect.DeepEqual(&containerOutput, container) {
-		t.Fatal("Did not match expected output")
-	}
+	assert.NoError(t, err)
+	assert.True(t, reflect.DeepEqual(&containerOutput, container))
 }
 
 func TestContainerEvents(t *testing.T) {
@@ -765,12 +720,8 @@ func TestDockerVersion(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	str, err := client.Version(ctx, dockerclient.VersionTimeout)
-	if err != nil {
-		t.Error(err)
-	}
-	if str != "1.6.0" {
-		t.Error("Got unexpected version string: " + str)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "1.6.0", str, "Got unexpected version string: " + str)
 }
 
 func TestDockerVersionCached(t *testing.T) {
@@ -783,12 +734,8 @@ func TestDockerVersionCached(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	str, err := client.Version(ctx, dockerclient.VersionTimeout)
-	if err != nil {
-		t.Error(err)
-	}
-	if str != "1.6.0" {
-		t.Error("Got unexpected version string: " + str)
-	}
+	assert.NoError(t, err)
+	assert.Equal(t, "1.6.0", str, "Got unexpected version string: " + str)
 }
 
 func TestListContainers(t *testing.T) {
@@ -800,18 +747,11 @@ func TestListContainers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
-	if response.Error != nil {
-		t.Error("Did not expect error")
-	}
+	assert.NoError(t, response.Error)
 
 	containerIds := response.DockerIDs
-	if len(containerIds) != 1 {
-		t.Error("Unexpected number of containers in list: ", len(containerIds))
-	}
-
-	if containerIds[0] != "id" {
-		t.Error("Unexpected container id in the list: ", containerIds[0])
-	}
+	assert.Equal(t, 1, len(containerIds), "Unexpected number of containers in list: ", len(containerIds))
+	assert.Equal(t, "id", containerIds[0], "Unexpected container id in the list: ", containerIds[0])
 }
 
 func TestListContainersTimeout(t *testing.T) {
@@ -827,12 +767,8 @@ func TestListContainersTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, xContainerShortTimeout)
-	if response.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if response.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, response.Error, "Expected error for pull timeout")
+	assert.Equal(t, "DockerTimeoutError", response.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
@@ -901,9 +837,7 @@ func TestUsesVersionedClient(t *testing.T) {
 	defer cancel()
 
 	client, err := NewDockerGoClient(factory, sdkFactory, defaultTestConfig(), ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	vclient := client.WithVersion(dockerclient.DockerVersion("1.20"))
 
@@ -932,18 +866,14 @@ func TestUnavailableVersionError(t *testing.T) {
 	defer cancel()
 
 	client, err := NewDockerGoClient(factory, sdkFactory, defaultTestConfig(), ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	vclient := client.WithVersion(dockerclient.DockerVersion("1.21"))
 
 	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 	metadata := vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
 
-	if metadata.Error == nil {
-		t.Fatal("Expected error, didn't get one")
-	}
+	assert.NotNil(t, metadata.Error, "Expected error, didn't get one")
 	if namederr, ok := metadata.Error.(apierrors.NamedError); ok {
 		if namederr.ErrorName() != "CannotGetDockerclientError" {
 			t.Fatal("Wrong error name, expected CannotGetDockerclientError but got " + namederr.ErrorName())
@@ -961,12 +891,8 @@ func TestStatsNormalExit(t *testing.T) {
 	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
 		opts := x.(docker.StatsOptions)
 		defer close(opts.Stats)
-		if opts.ID != "foo" {
-			t.Fatalf("Expected ID foo, got %s", opts.ID)
-		}
-		if opts.Stream != true {
-			t.Fatal("Expected stream to be true")
-		}
+		assert.Equal(t, "foo", opts.ID, "Expected ID foo, got %s", opts.ID)
+		assert.True(t, opts.Stream, "Expected stream to be true")
 		opts.Stats <- &docker.Stats{
 			Read: time1,
 		}
@@ -977,23 +903,17 @@ func TestStatsNormalExit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats("foo", ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	stat := <-stats
 	checkStatRead(t, stat, time1)
 	stat = <-stats
 	checkStatRead(t, stat, time2)
 	stat = <-stats
-	if stat != nil {
-		t.Fatal("Expected stat to be nil")
-	}
+	assert.Nil(t, stat, "Expected stat to be nil")
 }
 
 func checkStatRead(t *testing.T, stat *docker.Stats, read time.Time) {
-	if stat.Read != read {
-		t.Fatalf("Expected %v, but was %v", read, stat.Read)
-	}
+	assert.Equal(t, read, stat.Read, "Expected %v, but was %v", read, stat.Read )
 }
 
 func TestStatsClosed(t *testing.T) {
@@ -1003,12 +923,8 @@ func TestStatsClosed(t *testing.T) {
 	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
 		opts := x.(docker.StatsOptions)
 		defer close(opts.Stats)
-		if opts.ID != "foo" {
-			t.Fatalf("Expected ID foo, got %s", opts.ID)
-		}
-		if opts.Stream != true {
-			t.Fatal("Expected stream to be true")
-		}
+		assert.Equal(t, "foo", opts.ID, "Expected ID foo, got %s", opts.ID)
+		assert.True(t, opts.Stream, "Expected stream to be true")
 		for i := 0; true; i++ {
 			select {
 			case <-opts.Context.Done():
@@ -1023,9 +939,7 @@ func TestStatsClosed(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(context.TODO())
 	stats, err := client.Stats("foo", ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	stat := <-stats
 	checkStatRead(t, stat, time1)
 	stat = <-stats
@@ -1051,13 +965,9 @@ func TestStatsErrorReading(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats("foo", ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 	stat := <-stats
-	if stat != nil {
-		t.Fatal("Expected stat to be nil")
-	}
+	assert.Nil(t, stat, "Expected stat to be nil")
 }
 
 func TestStatsClientError(t *testing.T) {
@@ -1071,9 +981,7 @@ func TestStatsClientError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := client.Stats("foo", ctx)
-	if err == nil {
-		t.Fatal("Expected error with nil docker client")
-	}
+	assert.Error(t, err, "Expected error with nil docker client")
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
@@ -1088,9 +996,7 @@ func TestRemoveImageTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveImage(ctx, "image", 2*time.Millisecond)
-	if err == nil {
-		t.Errorf("Expected error for remove image timeout")
-	}
+	assert.Error(t, err, "Expected error for remove image timeout")
 	wait.Done()
 }
 
@@ -1103,9 +1009,7 @@ func TestRemoveImage(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveImage(ctx, "image", 2*time.Millisecond)
-	if err != nil {
-		t.Errorf("Did not expect error, err: %v", err)
-	}
+	assert.NoError(t, err, "Did not expect error, err: %v", err)
 }
 
 // TestContainerMetadataWorkaroundIssue27601 tests the workaround for
