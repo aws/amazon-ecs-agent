@@ -108,6 +108,9 @@ func TestCapabilities(t *testing.T) {
 			{
 				Name: aws.String("ecs.capability.docker-plugin.local"),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())

@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,7 +38,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/taskmetadata"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -201,7 +200,7 @@ func (agent *ecsAgent) start() int {
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
-	agent.initializeResourceFields()
+	agent.initializeResourceFields(credentialsManager)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
 }
 
@@ -522,12 +521,12 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.ServeHttp(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.V1ServeHTTP(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
-	go taskmetadata.ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
+	go handlers.V2ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)

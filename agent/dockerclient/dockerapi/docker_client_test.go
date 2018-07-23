@@ -27,6 +27,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -589,7 +590,7 @@ func TestContainerEvents(t *testing.T) {
 
 	event := <-dockerEvents
 	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainer.ContainerCreated, "Wrong status")
+	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
 
 	container := &docker.Container{
 		ID: "cid2",
@@ -606,7 +607,7 @@ func TestContainerEvents(t *testing.T) {
 	}()
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainer.ContainerRunning, "Wrong status")
+	assert.Equal(t, event.Status, apicontainerstatus.ContainerRunning, "Wrong status")
 	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
 	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
 	assert.Equal(t, event.Volumes["/host/path"], "/container/path", "Incorrect volume mapping")
@@ -629,7 +630,7 @@ func TestContainerEvents(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		anEvent := <-dockerEvents
 		assert.True(t, anEvent.DockerID == "cid30" || anEvent.DockerID == "cid31", "Wrong container id: "+anEvent.DockerID)
-		assert.Equal(t, anEvent.Status, apicontainer.ContainerStopped, "Should be stopped")
+		assert.Equal(t, anEvent.Status, apicontainerstatus.ContainerStopped, "Should be stopped")
 		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
@@ -662,7 +663,7 @@ func TestContainerEvents(t *testing.T) {
 
 	anEvent := <-dockerEvents
 	assert.Equal(t, anEvent.Type, apicontainer.ContainerHealthEvent, "unexpected docker events type received")
-	assert.Equal(t, anEvent.Health.Status, apicontainer.ContainerHealthy)
+	assert.Equal(t, anEvent.Health.Status, apicontainerstatus.ContainerHealthy)
 	assert.Equal(t, anEvent.Health.Output, "health output")
 
 	// Verify the following events do not translate into our event stream
@@ -1336,7 +1337,7 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 		}}
 
 	metadata := MetadataFromContainer(dockerContainer)
-	assert.Equal(t, apicontainer.ContainerUnhealthy, metadata.Health.Status)
+	assert.Equal(t, apicontainerstatus.ContainerUnhealthy, metadata.Health.Status)
 }
 
 func TestCreateVolumeTimeout(t *testing.T) {

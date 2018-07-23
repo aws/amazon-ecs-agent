@@ -23,11 +23,14 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,12 +54,17 @@ func TestStartStopWithCgroup(t *testing.T) {
 	testTask := createTestTask(taskArn)
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	for _, container := range testTask.Containers {
-		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 	control := cgroup.New()
+
+	commonResources := &taskresource.ResourceFieldsCommon{
+		IOUtil: ioutilwrapper.NewIOUtil(),
+	}
+
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
-		Control: control,
-		IOUtil:  ioutilwrapper.NewIOUtil(),
+		Control:              control,
+		ResourceFieldsCommon: commonResources,
 	}
 	go taskEngine.AddTask(testTask)
 
@@ -74,7 +82,7 @@ func TestStartStopWithCgroup(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, control.Exists(cgroupRoot))
 
-	task.SetSentStatus(apitask.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
+	task.SetSentStatus(apitaskstatus.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(cfg.TaskCleanupWaitDuration)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
@@ -115,7 +123,7 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	testTask.Containers[0].Image = testVolumeImage
 	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	testTask.Containers[0].Command = []string{`echo -n "empty-data-volume" > /host/tmp/hello-from-container;`}
 	return testTask
 }

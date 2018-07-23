@@ -100,6 +100,8 @@ func taskMetadata(client *http.Client) (*TaskResponse, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Received task metadata: %s \n", string(body))
+
 	var taskMetadata TaskResponse
 	err = json.Unmarshal(body, &taskMetadata)
 	if err != nil {
@@ -115,7 +117,7 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 		return nil, err
 	}
 
-	fmt.Println("Received data: %s ", string(body))
+	fmt.Printf("Received container metadata: %s \n", string(body))
 
 	var containerMetadata ContainerResponse
 	err = json.Unmarshal(body, &containerMetadata)
@@ -132,6 +134,8 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Received task stats: %s \n", string(body))
+
 	var taskStats map[string]*docker.Stats
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
@@ -146,6 +150,8 @@ func containerStats(client *http.Client, id string) (*docker.Stats, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Received container stats: %s \n", string(body))
 
 	var containerStats docker.Stats
 	err = json.Unmarshal(body, &containerStats)
@@ -177,10 +183,12 @@ func metadataResponseOnce(client *http.Client, endpoint string, respType string)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to get response: %v", respType, err)
 	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: incorrect status code  %d", respType, resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("task metadata: unable to read response body: %v", err)
@@ -228,10 +236,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if containerMetadata.Health.Status != "HEALTHY" || containerMetadata.Health.Output != "hello\n" {
-		fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
-		// TODO uncomment this when the container health check is deployed in backend
-		//		os.Exit(1)
+	if containerMetadata.Health.Status != "" { // if the health status is available
+		if containerMetadata.Health.Status != "HEALTHY" || containerMetadata.Health.Output != "hello\n" {
+			fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
+			os.Exit(1)
+		}
 	}
 
 	_, err = taskStats(client)
