@@ -21,6 +21,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/docker/docker/api/types"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -83,8 +84,15 @@ type ListContainersResponse struct {
 }
 
 // VolumeResponse wrapper for CreateVolume and InspectVolume
+// TODO Remove type when migration is complete
 type VolumeResponse struct {
 	DockerVolume *docker.Volume
+	Error        error
+}
+
+// VolumeResponse wrapper for CreateVolume for SDK Clients
+type SDKVolumeResponse struct {
+	DockerVolume *types.Volume
 	Error        error
 }
 

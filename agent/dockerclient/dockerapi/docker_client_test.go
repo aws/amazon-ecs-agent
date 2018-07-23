@@ -44,6 +44,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -1332,14 +1333,14 @@ func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 }
 
 func TestCreateVolumeTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface {}) {
 		wait.Wait()
-	}).MaxTimes(1)
+	}).MaxTimes(1).Return(types.Volume{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, xContainerShortTimeout)
@@ -1349,10 +1350,10 @@ func TestCreateVolumeTimeout(t *testing.T) {
 }
 
 func TestCreateVolumeError(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().CreateVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, CreateVolumeTimeout)
@@ -1360,7 +1361,7 @@ func TestCreateVolumeError(t *testing.T) {
 }
 
 func TestCreateVolume(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	volumeName := "volumeName"
@@ -1371,14 +1372,15 @@ func TestCreateVolume(t *testing.T) {
 		"opt2": "val2",
 	}
 	gomock.InOrder(
-		mockDocker.EXPECT().CreateVolume(gomock.Any()).Do(func(opts docker.CreateVolumeOptions) {
+		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context,opts volume.VolumesCreateBody) {
 			assert.Equal(t, opts.Name, volumeName)
 			assert.Equal(t, opts.Driver, driver)
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
-		}).Return(&docker.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
+		}).Return(types.Volume{Name: volumeName, Driver: driver, Mountpoint: mountPoint, Labels: nil}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+	// This function eventually makes an API call, is that not possible in testing
 	volumeResponse := client.CreateVolume(ctx, volumeName, driver, driverOptions, nil, CreateVolumeTimeout)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeResponse.DockerVolume.Name, volumeName)
@@ -1388,14 +1390,14 @@ func TestCreateVolume(t *testing.T) {
 }
 
 func TestInspectVolumeTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().InspectVolume(gomock.Any()).Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
 		wait.Wait()
-	}).MaxTimes(1)
+	}).MaxTimes(1).Return(types.Volume{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", xContainerShortTimeout)
@@ -1405,10 +1407,10 @@ func TestInspectVolumeTimeout(t *testing.T) {
 }
 
 func TestInspectVolumeError(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().InspectVolume(gomock.Any()).Return(nil, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volumeResponse := client.InspectVolume(ctx, "name", InspectVolumeTimeout)
@@ -1416,12 +1418,12 @@ func TestInspectVolumeError(t *testing.T) {
 }
 
 func TestInspectVolume(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	volumeName := "volumeName"
 
-	volumeOutput := docker.Volume{
+	volumeOutput := types.Volume{
 		Name:       volumeName,
 		Driver:     "driver",
 		Mountpoint: "local/mount/point",
@@ -1431,7 +1433,7 @@ func TestInspectVolume(t *testing.T) {
 		},
 	}
 
-	mockDocker.EXPECT().InspectVolume(volumeName).Return(&volumeOutput, nil)
+	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), volumeName).Return(volumeOutput, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

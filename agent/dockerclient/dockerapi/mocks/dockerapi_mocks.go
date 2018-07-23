@@ -93,9 +93,9 @@ func (mr *MockDockerClientMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, 
 }
 
 // CreateVolume mocks base method
-func (m *MockDockerClient) CreateVolume(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 time.Duration) dockerapi.VolumeResponse {
+func (m *MockDockerClient) CreateVolume(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 time.Duration) dockerapi.SDKVolumeResponse {
 	ret := m.ctrl.Call(m, "CreateVolume", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(dockerapi.VolumeResponse)
+	ret0, _ := ret[0].(dockerapi.SDKVolumeResponse)
 	return ret0
 }
 
@@ -156,9 +156,9 @@ func (mr *MockDockerClientMockRecorder) InspectImage(arg0 interface{}) *gomock.C
 }
 
 // InspectVolume mocks base method
-func (m *MockDockerClient) InspectVolume(arg0 context.Context, arg1 string, arg2 time.Duration) dockerapi.VolumeResponse {
+func (m *MockDockerClient) InspectVolume(arg0 context.Context, arg1 string, arg2 time.Duration) dockerapi.SDKVolumeResponse {
 	ret := m.ctrl.Call(m, "InspectVolume", arg0, arg1, arg2)
-	ret0, _ := ret[0].(dockerapi.VolumeResponse)
+	ret0, _ := ret[0].(dockerapi.SDKVolumeResponse)
 	return ret0
 }
 
