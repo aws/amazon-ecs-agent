@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"context"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -26,8 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-
-	"context"
 
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
