@@ -25,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -324,11 +325,11 @@ func TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks(t *testing.T) {
 	// Verify if stopped task is added before running task
 	firstTaskAdded := tasksAddedToEngine[0]
 	assert.Equal(t, firstTaskAdded.Arn, stoppedTaskArn)
-	assert.Equal(t, firstTaskAdded.GetDesiredStatus(), apitask.TaskStopped)
+	assert.Equal(t, firstTaskAdded.GetDesiredStatus(), apitaskstatus.TaskStopped)
 
 	secondTaskAdded := tasksAddedToEngine[1]
 	assert.Equal(t, secondTaskAdded.Arn, runningTaskArn)
-	assert.Equal(t, secondTaskAdded.GetDesiredStatus(), apitask.TaskRunning)
+	assert.Equal(t, secondTaskAdded.GetDesiredStatus(), apitaskstatus.TaskRunning)
 }
 
 // TestPayloadBufferHandler tests if the async payloadBufferHandler routine

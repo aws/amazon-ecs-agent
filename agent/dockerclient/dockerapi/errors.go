@@ -160,6 +160,26 @@ func (err CannotPullECRContainerError) Retry() bool {
 	return false
 }
 
+// CannotPullContainerAuthError indicates any error when trying to pull
+// a container image
+type CannotPullContainerAuthError struct {
+	FromError error
+}
+
+func (err CannotPullContainerAuthError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns name of the CannotPullContainerAuthError.
+func (err CannotPullContainerAuthError) ErrorName() string {
+	return "CannotPullContainerAuthError"
+}
+
+// Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
+func (err CannotPullContainerAuthError) Retry() bool {
+	return false
+}
+
 // CreateEmptyVolumeError indicates any error when trying create empty volume
 type CreateEmptyVolumeError struct {
 	FromError error

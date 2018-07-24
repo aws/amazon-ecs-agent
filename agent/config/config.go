@@ -35,6 +35,10 @@ const (
 	// http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=docker
 	DockerReservedPort    = 2375
 	DockerReservedSSLPort = 2376
+	// DockerTagSeparator is the charactor used to separate names and tag in docker
+	DockerTagSeparator = ":"
+	// DockerDefaultTag is the default tag used by docker
+	DefaultDockerTag = "latest"
 
 	SSHPort = 22
 

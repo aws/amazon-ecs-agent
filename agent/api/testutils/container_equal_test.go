@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,9 +52,9 @@ func TestContainerEqual(t *testing.T) {
 		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, true},
 		{apicontainer.Container{Environment: map[string]string{}}, apicontainer.Container{Environment: map[string]string{}}, true},
 		{apicontainer.Container{Environment: map[string]string{"a": "b", "c": "d"}}, apicontainer.Container{Environment: map[string]string{"c": "d", "a": "b"}}, true},
-		{apicontainer.Container{DesiredStatusUnsafe: apicontainer.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainer.ContainerRunning}, true},
-		{apicontainer.Container{AppliedStatus: apicontainer.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainer.ContainerRunning}, true},
-		{apicontainer.Container{KnownStatusUnsafe: apicontainer.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainer.ContainerRunning}, true},
+		{apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, true},
+		{apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, true},
+		{apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, true},
 		{exitCodeContainer(aws.Int(1)), exitCodeContainer(aws.Int(1)), true},
 		{exitCodeContainer(nil), exitCodeContainer(nil), true},
 		// Unequal Pairs
@@ -72,9 +73,9 @@ func TestContainerEqual(t *testing.T) {
 		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"2", "1"}}, false},
 		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"1", "二"}}, false},
 		{apicontainer.Container{Environment: map[string]string{"a": "b", "c": "d"}}, apicontainer.Container{Environment: map[string]string{"し": "d", "a": "b"}}, false},
-		{apicontainer.Container{DesiredStatusUnsafe: apicontainer.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainer.ContainerStopped}, false},
-		{apicontainer.Container{AppliedStatus: apicontainer.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainer.ContainerStopped}, false},
-		{apicontainer.Container{KnownStatusUnsafe: apicontainer.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainer.ContainerStopped}, false},
+		{apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerStopped}, false},
+		{apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerStopped}, false},
+		{apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerStopped}, false},
 		{exitCodeContainer(aws.Int(0)), exitCodeContainer(aws.Int(42)), false},
 		{exitCodeContainer(nil), exitCodeContainer(aws.Int(12)), false},
 	}

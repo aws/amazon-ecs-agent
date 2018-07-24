@@ -21,7 +21,9 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
@@ -41,8 +43,8 @@ func init() {
 func createRunningTask() *apitask.Task {
 	return &apitask.Task{
 		Arn:                 taskArn,
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		Family:              taskDefinitionFamily,
 		Version:             taskDefinitionVersion,
 		Containers: []*apicontainer.Container{
@@ -104,7 +106,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -160,7 +162,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -176,7 +178,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -247,7 +249,7 @@ func TestStatsEngineWithExistingContainers(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -306,7 +308,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -324,7 +326,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 	// Write the container change event to event stream
 	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -387,7 +389,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	defer client.StopContainer(unmappedContainer.ID, defaultDockerTimeoutSeconds)
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -395,7 +397,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	assert.NoError(t, err, "failed to write to container change event stream")
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: unmappedContainer.ID,
 		},
@@ -411,7 +413,7 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	require.NoError(t, err, "stopping container failed")
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},
@@ -439,7 +441,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	testTask := createRunningTask()
 	// enable container health check of this container
 	testTask.Containers[0].HealthCheckType = "docker"
-	testTask.Containers[0].KnownStatusUnsafe = apicontainer.ContainerStopped
+	testTask.Containers[0].KnownStatusUnsafe = apicontainerstatus.ContainerStopped
 
 	// Populate Tasks and Container map in the engine.
 	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
@@ -465,7 +467,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	require.NoError(t, err, "starting container failed")
 
 	err = containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerRunning,
+		Status: apicontainerstatus.ContainerRunning,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: container.ID,
 		},

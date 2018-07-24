@@ -197,6 +197,30 @@ func (s DockerConfig) GoString() string {
 	return s.String()
 }
 
+type DockerVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Autoprovision *bool `locationName:"autoprovision" type:"boolean"`
+
+	Driver *string `locationName:"driver" type:"string"`
+
+	DriverOpts map[string]*string `locationName:"driverOpts" type:"map"`
+
+	Labels map[string]*string `locationName:"labels" type:"map"`
+
+	Scope *string `locationName:"scope" type:"string" enum:"Scope"`
+}
+
+// String returns the string representation
+func (s DockerVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DockerVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type ECRAuthData struct {
 	_ struct{} `type:"structure"`
 
@@ -764,17 +788,13 @@ func (s VersionInfo) GoString() string {
 type Volume struct {
 	_ struct{} `type:"structure"`
 
-	Driver *string `locationName:"driver" type:"string"`
-
-	DriverOpts map[string]*string `locationName:"driverOpts" type:"map"`
-
-	DriverType *string `locationName:"driverType" type:"string" enum:"DriverType"`
+	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
 
 	Host *HostVolumeProperties `locationName:"host" type:"structure"`
 
-	Labels map[string]*string `locationName:"labels" type:"map"`
-
 	Name *string `locationName:"name" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"VolumeType"`
 }
 
 // String returns the string representation

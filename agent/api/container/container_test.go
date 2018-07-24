@@ -20,7 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -60,7 +62,7 @@ func (pair configPair) Equal() bool {
 
 func TestGetSteadyStateStatusReturnsRunningByDefault(t *testing.T) {
 	container := &Container{}
-	assert.Equal(t, container.GetSteadyStateStatus(), ContainerRunning)
+	assert.Equal(t, container.GetSteadyStateStatus(), apicontainerstatus.ContainerRunning)
 }
 
 func TestIsKnownSteadyState(t *testing.T) {
@@ -68,22 +70,22 @@ func TestIsKnownSteadyState(t *testing.T) {
 	container := &Container{}
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to PULLED, still not in steady state
-	container.SetKnownStatus(ContainerPulled)
+	container.SetKnownStatus(apicontainerstatus.ContainerPulled)
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to CREATED, still not in steady state
-	container.SetKnownStatus(ContainerCreated)
+	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RUNNING, now we're in steady state
-	container.SetKnownStatus(ContainerRunning)
+	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	assert.True(t, container.IsKnownSteadyState())
 	// Now, set steady state to RESOURCES_PROVISIONED
-	resourcesProvisioned := ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Container is not in steady state anymore
 	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RESOURCES_PROVISIONED, we're in
 	// steady state again
-	container.SetKnownStatus(ContainerResourcesProvisioned)
+	container.SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
 	assert.True(t, container.IsKnownSteadyState())
 }
 
@@ -91,24 +93,24 @@ func TestGetNextStateProgression(t *testing.T) {
 	// This creates a container with `iota` ContainerStatus (NONE)
 	container := &Container{}
 	// NONE should transition to PULLED
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerPulled)
-	container.SetKnownStatus(ContainerPulled)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerPulled)
+	container.SetKnownStatus(apicontainerstatus.ContainerPulled)
 	// PULLED should transition to CREATED
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerCreated)
-	container.SetKnownStatus(ContainerCreated)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerCreated)
+	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	// CREATED should transition to RUNNING
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerRunning)
-	container.SetKnownStatus(ContainerRunning)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerRunning)
+	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	// RUNNING should transition to STOPPED
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerStopped)
 
-	resourcesProvisioned := ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	container.SteadyStateStatusUnsafe = &resourcesProvisioned
 	// Set steady state to RESOURCES_PROVISIONED
 	// RUNNING should transition to RESOURCES_PROVISIONED based on steady state
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerResourcesProvisioned)
-	container.SetKnownStatus(ContainerResourcesProvisioned)
-	assert.Equal(t, container.GetNextKnownStateProgression(), ContainerStopped)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerResourcesProvisioned)
+	container.SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerStopped)
 }
 
 func TestIsInternal(t *testing.T) {
@@ -177,25 +179,25 @@ func TestSetHealtStatus(t *testing.T) {
 	container := Container{}
 
 	// set the container status to be healthy
-	container.SetHealthStatus(HealthStatus{Status: ContainerHealthy, Output: "test"})
+	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerHealthy, Output: "test"})
 	health := container.GetHealthStatus()
-	assert.Equal(t, health.Status, ContainerHealthy)
+	assert.Equal(t, health.Status, apicontainerstatus.ContainerHealthy)
 	assert.Equal(t, health.Output, "test")
 	assert.NotEmpty(t, health.Since)
 
 	// set the health status again shouldn't update the timestamp
-	container.SetHealthStatus(HealthStatus{Status: ContainerHealthy})
+	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerHealthy})
 	health2 := container.GetHealthStatus()
-	assert.Equal(t, health2.Status, ContainerHealthy)
+	assert.Equal(t, health2.Status, apicontainerstatus.ContainerHealthy)
 	assert.Equal(t, health2.Since, health.Since)
 
 	// the sleep is to ensure the different of the two timestamp returned by time.Now()
 	// is big enough to pass asser.NotEqual
 	time.Sleep(10 * time.Millisecond)
 	// change the container health status
-	container.SetHealthStatus(HealthStatus{Status: ContainerUnhealthy, ExitCode: 1})
+	container.SetHealthStatus(HealthStatus{Status: apicontainerstatus.ContainerUnhealthy, ExitCode: 1})
 	health3 := container.GetHealthStatus()
-	assert.Equal(t, health3.Status, ContainerUnhealthy)
+	assert.Equal(t, health3.Status, apicontainerstatus.ContainerUnhealthy)
 	assert.Equal(t, health3.ExitCode, 1)
 	assert.NotEqual(t, health3.Since, health2.Since)
 }
@@ -210,25 +212,43 @@ func TestHealthStatusShouldBeReported(t *testing.T) {
 }
 
 func TestBuildContainerDependency(t *testing.T) {
-	container := Container{TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet)}
+	container := Container{TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]TransitionDependencySet)}
 	depContName := "dep"
-	container.BuildContainerDependency(depContName, ContainerRunning, ContainerRunning)
+	container.BuildContainerDependency(depContName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	assert.NotNil(t, container.TransitionDependenciesMap)
-	contDep := container.TransitionDependenciesMap[ContainerRunning].ContainerDependencies
+	contDep := container.TransitionDependenciesMap[apicontainerstatus.ContainerRunning].ContainerDependencies
 	assert.Len(t, container.TransitionDependenciesMap, 1)
 	assert.Len(t, contDep, 1)
 	assert.Equal(t, contDep[0].ContainerName, depContName)
-	assert.Equal(t, contDep[0].SatisfiedStatus, ContainerRunning)
+	assert.Equal(t, contDep[0].SatisfiedStatus, apicontainerstatus.ContainerRunning)
 }
 
 func TestBuildResourceDependency(t *testing.T) {
-	container := Container{TransitionDependenciesMap: make(map[ContainerStatus]TransitionDependencySet)}
+	container := Container{TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]TransitionDependencySet)}
 	depResourceName := "cgroup"
-	container.BuildResourceDependency(depResourceName, taskresource.ResourceStatus(1), ContainerRunning)
+
+	container.BuildResourceDependency(depResourceName, resourcestatus.ResourceStatus(1), apicontainerstatus.ContainerRunning)
+
 	assert.NotNil(t, container.TransitionDependenciesMap)
-	resourceDep := container.TransitionDependenciesMap[ContainerRunning].ResourceDependencies
+	resourceDep := container.TransitionDependenciesMap[apicontainerstatus.ContainerRunning].ResourceDependencies
 	assert.Len(t, container.TransitionDependenciesMap, 1)
 	assert.Len(t, resourceDep, 1)
 	assert.Equal(t, depResourceName, resourceDep[0].Name)
-	assert.Equal(t, taskresource.ResourceStatus(1), resourceDep[0].GetRequiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(1), resourceDep[0].GetRequiredStatus())
+}
+
+func TestShouldPullWithASMAuth(t *testing.T) {
+	container := Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &ASMAuthData{
+				CredentialsParameter: "secret-id",
+				Region:               "region",
+			},
+		},
+	}
+
+	assert.True(t, container.ShouldPullWithASMAuth())
 }

@@ -24,8 +24,10 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -65,8 +67,8 @@ var (
 		Arn:                 taskARN,
 		Family:              family,
 		Version:             version,
-		DesiredStatusUnsafe: apitask.TaskRunning,
-		KnownStatusUnsafe:   apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
 		ENI: &apieni.ENI{
 			IPV4Addresses: []*apieni.ENIIPV4Address{
 				{
@@ -84,8 +86,8 @@ var (
 		Name:                containerName,
 		Image:               imageName,
 		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
-		KnownStatusUnsafe:   apicontainer.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,

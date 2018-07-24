@@ -22,7 +22,9 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +34,7 @@ func createTestContainer(num int) *apicontainer.Container {
 		Name:                "busybox-" + strconv.Itoa(num),
 		Image:               "busybox:latest",
 		Essential:           true,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 	}
 }
 
@@ -41,7 +43,7 @@ func createTestTask(arn string, numContainers int) *apitask.Task {
 		Arn:                 arn,
 		Family:              arn,
 		Version:             "1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{},
 	}
 

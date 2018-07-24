@@ -18,12 +18,17 @@ import (
 	"errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
 const (
 	// CgroupKey is the string used in resources map to represent cgroup resource
 	CgroupKey = "cgroup"
+	// DockerVolumeKey is the string used in resources map to represent docker volume
+	DockerVolumeKey = "dockerVolume"
+	ASMAuthKey      = asmauthres.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -41,25 +46,73 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 	for key, value := range resources {
 		switch key {
 		case CgroupKey:
-			var cgroups []json.RawMessage
-			err = json.Unmarshal(value, &cgroups)
-			if err != nil {
+			if unmarshlCgroup(key, value, result) != nil {
 				return err
 			}
-			for _, c := range cgroups {
-				cgroup := &cgroupres.CgroupResource{}
-				err := cgroup.UnmarshalJSON(c)
-				if err != nil {
-					return err
-				}
-				result[key] = append(result[key], cgroup)
+		case DockerVolumeKey:
+			if unmarshalDockerVolume(key, value, result) != nil {
+				return err
 			}
-		// TODO: add a case for volume resource. Currently it is not added since it does
-		// not fully implement TaskResource
+		case ASMAuthKey:
+			if unmarshalASMAuthKey(key, value, result) != nil {
+				return err
+			}
 		default:
 			return errors.New("Unsupported resource type")
 		}
 	}
 	*rm = result
+	return nil
+}
+
+func unmarshlCgroup(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var cgroups []json.RawMessage
+	err := json.Unmarshal(value, &cgroups)
+	if err != nil {
+		return err
+	}
+	for _, c := range cgroups {
+		cgroup := &cgroupres.CgroupResource{}
+		err := cgroup.UnmarshalJSON(c)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], cgroup)
+	}
+	return nil
+}
+
+func unmarshalDockerVolume(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var volumes []json.RawMessage
+	err := json.Unmarshal(value, &volumes)
+	if err != nil {
+		return err
+	}
+	for _, vol := range volumes {
+		dockerVolume := &volume.VolumeResource{}
+		err := dockerVolume.UnmarshalJSON(vol)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], dockerVolume)
+	}
+	return nil
+}
+
+func unmarshalASMAuthKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var asmauths []json.RawMessage
+	err := json.Unmarshal(value, &asmauths)
+	if err != nil {
+		return err
+	}
+
+	for _, a := range asmauths {
+		auth := &asmauthres.ASMAuthResource{}
+		err := auth.UnmarshalJSON(a)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], auth)
+	}
 	return nil
 }

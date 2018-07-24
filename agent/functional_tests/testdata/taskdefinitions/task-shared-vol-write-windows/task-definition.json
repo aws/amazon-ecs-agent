@@ -1,0 +1,32 @@
+{
+    "family": "ecsftest-task-local-volume",
+    "containerDefinitions": [
+        {
+            "image": "microsoft/windowsservercore:latest",
+            "name": "task-shared-vol-write-windows",
+            "cpu": 512,
+            "memory": 256,
+            "essential": true,
+            "command": ["powershell", "-c", "$contents = \"can you read me\"; $contents | Out-File C:/ecs/success; if (test-path C:/ecs/success) { exit 42 }; exit 1"],
+            "mountPoints": [
+                {
+                  "sourceVolume": "task-shared",
+                  "containerPath": "C:/ecs/"
+                }
+            ]
+        }
+    ],
+    "volumes":[
+        {
+            "name": "task-shared",
+            "dockerVolumeConfiguration" : {
+                "scope": "shared",
+                "autoprovision": true,
+                "driver": "local",
+                "labels": {
+                    "mylables": "test"
+                }
+            }
+        }
+    ]
+}

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -64,7 +65,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 	}
@@ -392,7 +393,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -404,7 +405,9 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	assert.NoError(t, task.initializeCgroupResourceSpec("cgroupPath", &taskresource.ResourceFields{
 		Control: mockControl,
-		IOUtil:  mockIO,
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			IOUtil: mockIO,
+		},
 	}))
 	assert.Equal(t, 1, len(task.GetResources()))
 	assert.Equal(t, 1, len(task.Containers[0].TransitionDependenciesMap))
@@ -418,7 +421,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -439,7 +442,7 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 			{
 				Name:   "C1",
 				Memory: uint(2048), // container memory > task memory
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		MemoryCPULimitsEnabled: true,
@@ -458,7 +461,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
@@ -466,7 +469,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 	cfg := config.Config{
 		TaskCPUMemLimit: config.ExplicitlyEnabled,
 	}
-	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil))
+	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil, nil, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }

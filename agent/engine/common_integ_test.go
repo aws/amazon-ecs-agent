@@ -19,10 +19,13 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -47,7 +50,7 @@ func createTestTask(arn string) *apitask.Task {
 		Arn:                 arn,
 		Family:              "family",
 		Version:             "1",
-		DesiredStatusUnsafe: apitask.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 }
@@ -55,14 +58,14 @@ func createTestTask(arn string) *apitask.Task {
 func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerRunning,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
 }
 
 func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainer.ContainerStopped,
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
 		"Expected container to be STOPPED")
 }
 
@@ -104,8 +107,19 @@ func createTestContainerWithImageAndName(image string, name string) *apicontaine
 		Image:               image,
 		Command:             []string{},
 		Essential:           true,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 100,
 		Memory:              80,
 	}
+}
+
+func waitForTaskCleanup(t *testing.T, taskEngine TaskEngine, taskArn string, seconds int) {
+	for i := 0; i < seconds; i++ {
+		_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
+		if !ok {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatalf("timed out waiting for task to be clean up, task: %s", taskArn)
 }

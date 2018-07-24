@@ -18,11 +18,11 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 // CgroupStatus defines resource statuses for cgroups
-type CgroupStatus taskresource.ResourceStatus
+type CgroupStatus resourcestatus.ResourceStatus
 
 const (
 	// CgroupStatusNone is the zero state of a task resource

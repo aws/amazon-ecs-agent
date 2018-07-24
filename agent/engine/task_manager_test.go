@@ -26,13 +26,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -44,6 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -54,45 +58,45 @@ import (
 func TestHandleEventError(t *testing.T) {
 	testCases := []struct {
 		Name                                  string
-		EventStatus                           apicontainer.ContainerStatus
-		CurrentContainerKnownStatus           apicontainer.ContainerStatus
+		EventStatus                           apicontainerstatus.ContainerStatus
+		CurrentContainerKnownStatus           apicontainerstatus.ContainerStatus
 		ImagePullBehavior                     config.ImagePullBehaviorType
 		Error                                 apierrors.NamedError
 		ExpectedContainerKnownStatusSet       bool
-		ExpectedContainerKnownStatus          apicontainer.ContainerStatus
+		ExpectedContainerKnownStatus          apicontainerstatus.ContainerStatus
 		ExpectedContainerDesiredStatusStopped bool
 		ExpectedTaskDesiredStatusStopped      bool
 		ExpectedOK                            bool
 	}{
 		{
 			Name:                        "Stop timed out",
-			EventStatus:                 apicontainer.ContainerStopped,
-			CurrentContainerKnownStatus: apicontainer.ContainerRunning,
+			EventStatus:                 apicontainerstatus.ContainerStopped,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerRunning,
 			Error: &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet: true,
-			ExpectedContainerKnownStatus:    apicontainer.ContainerRunning,
+			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerRunning,
 			ExpectedOK:                      false,
 		},
 		{
 			Name:                        "Retriable error with stop",
-			EventStatus:                 apicontainer.ContainerStopped,
-			CurrentContainerKnownStatus: apicontainer.ContainerRunning,
+			EventStatus:                 apicontainerstatus.ContainerStopped,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerRunning,
 			Error: &dockerapi.CannotStopContainerError{
 				FromError: errors.New(""),
 			},
 			ExpectedContainerKnownStatusSet: true,
-			ExpectedContainerKnownStatus:    apicontainer.ContainerRunning,
+			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerRunning,
 			ExpectedOK:                      false,
 		},
 		{
 			Name:                        "Unretriable error with Stop",
-			EventStatus:                 apicontainer.ContainerStopped,
-			CurrentContainerKnownStatus: apicontainer.ContainerRunning,
+			EventStatus:                 apicontainerstatus.ContainerStopped,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerRunning,
 			Error: &dockerapi.CannotStopContainerError{
 				FromError: &docker.ContainerNotRunning{},
 			},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerStopped,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerStopped,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            true,
 		},
@@ -100,66 +104,66 @@ func TestHandleEventError(t *testing.T) {
 			Name:  "Pull failed",
 			Error: &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet: true,
-			EventStatus:                     apicontainer.ContainerPulled,
+			EventStatus:                     apicontainerstatus.ContainerPulled,
 			ExpectedOK:                      true,
 		},
 		{
 			Name:                        "Container vanished betweeen pull and running",
-			EventStatus:                 apicontainer.ContainerRunning,
-			CurrentContainerKnownStatus: apicontainer.ContainerPulled,
+			EventStatus:                 apicontainerstatus.ContainerRunning,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerPulled,
 			Error: &ContainerVanishedError{},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerPulled,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerPulled,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            false,
 		},
 		{
 			Name:                        "Inspect failed during start",
-			EventStatus:                 apicontainer.ContainerRunning,
-			CurrentContainerKnownStatus: apicontainer.ContainerCreated,
+			EventStatus:                 apicontainerstatus.ContainerRunning,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerCreated,
 			Error: &dockerapi.CannotInspectContainerError{
 				FromError: errors.New("error"),
 			},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerCreated,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerCreated,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            false,
 		},
 		{
 			Name:                        "Start timed out",
-			EventStatus:                 apicontainer.ContainerRunning,
-			CurrentContainerKnownStatus: apicontainer.ContainerCreated,
+			EventStatus:                 apicontainerstatus.ContainerRunning,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerCreated,
 			Error: &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerCreated,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerCreated,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            false,
 		},
 		{
 			Name:                        "Inspect failed during create",
-			EventStatus:                 apicontainer.ContainerCreated,
-			CurrentContainerKnownStatus: apicontainer.ContainerPulled,
+			EventStatus:                 apicontainerstatus.ContainerCreated,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerPulled,
 			Error: &dockerapi.CannotInspectContainerError{
 				FromError: errors.New("error"),
 			},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerPulled,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerPulled,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            false,
 		},
 		{
 			Name:                        "Create timed out",
-			EventStatus:                 apicontainer.ContainerCreated,
-			CurrentContainerKnownStatus: apicontainer.ContainerPulled,
+			EventStatus:                 apicontainerstatus.ContainerCreated,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerPulled,
 			Error: &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet:       true,
-			ExpectedContainerKnownStatus:          apicontainer.ContainerPulled,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerPulled,
 			ExpectedContainerDesiredStatusStopped: true,
 			ExpectedOK:                            false,
 		},
 		{
 			Name:        "Pull image fails and task fails",
-			EventStatus: apicontainer.ContainerPulled,
+			EventStatus: apicontainerstatus.ContainerPulled,
 			Error: &dockerapi.CannotPullContainerError{
 				FromError: errors.New("error"),
 			},
@@ -200,8 +204,8 @@ func TestHandleEventError(t *testing.T) {
 			}
 			if tc.ExpectedContainerDesiredStatusStopped {
 				containerDesiredStatus := containerChange.container.GetDesiredStatus()
-				assert.Equal(t, apicontainer.ContainerStopped, containerDesiredStatus,
-					"desired status %s != %s", apicontainer.ContainerStopped.String(), containerDesiredStatus.String())
+				assert.Equal(t, apicontainerstatus.ContainerStopped, containerDesiredStatus,
+					"desired status %s != %s", apicontainerstatus.ContainerStopped.String(), containerDesiredStatus.String())
 			}
 			assert.Equal(t, tc.Error.ErrorName(), containerChange.container.ApplyingError.ErrorName())
 		})
@@ -210,103 +214,103 @@ func TestHandleEventError(t *testing.T) {
 
 func TestContainerNextState(t *testing.T) {
 	testCases := []struct {
-		containerCurrentStatus       apicontainer.ContainerStatus
-		containerDesiredStatus       apicontainer.ContainerStatus
-		expectedContainerStatus      apicontainer.ContainerStatus
+		containerCurrentStatus       apicontainerstatus.ContainerStatus
+		containerDesiredStatus       apicontainerstatus.ContainerStatus
+		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		expectedTransitionActionable bool
 		reason                       error
 	}{
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running
 		// The expected next status is Pulled
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerPulled, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, true, nil},
 		// NONE -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is Pulled
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled, true, nil},
 		// NONE -> NONE transition is not be allowed and is not actionable,
 		// when desired is Running
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// NONE -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerStopped, apicontainer.ContainerStopped, false, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
 		// PULLED -> RUNNING transition is allowed and actionable, when desired is Running
 		// The exptected next status is Created
-		{apicontainer.ContainerPulled, apicontainer.ContainerRunning, apicontainer.ContainerCreated, true, nil},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, true, nil},
 		// PULLED -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is Created
-		{apicontainer.ContainerPulled, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerCreated, true, nil},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerCreated, true, nil},
 		// PULLED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerPulled, apicontainer.ContainerPulled, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// PULLED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerPulled, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// PULLED -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
-		{apicontainer.ContainerPulled, apicontainer.ContainerStopped, apicontainer.ContainerStopped, false, nil},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
 		// CREATED -> RUNNING transition is allowed and actionable, when desired is Running
 		// The expected next status is Running
-		{apicontainer.ContainerCreated, apicontainer.ContainerRunning, apicontainer.ContainerRunning, true, nil},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, true, nil},
 		// CREATED -> RESOURCES_PROVISIONED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is Running
-		{apicontainer.ContainerCreated, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerRunning, true, nil},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerRunning, true, nil},
 		// CREATED -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerCreated, apicontainer.ContainerCreated, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerCreated, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerCreated, apicontainer.ContainerPulled, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// CREATED -> STOPPED transition will result in STOPPED and is allowed, but not
 		// actionable, when desired is STOPPED
-		{apicontainer.ContainerCreated, apicontainer.ContainerStopped, apicontainer.ContainerStopped, false, nil},
+		{apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, false, nil},
 		// RUNNING -> STOPPED transition is allowed and actionable, when desired is Running
 		// The expected next status is STOPPED
-		{apicontainer.ContainerRunning, apicontainer.ContainerStopped, apicontainer.ContainerStopped, true, nil},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, true, nil},
 		// RUNNING -> RUNNING transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerRunning, apicontainer.ContainerRunning, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> RESOURCES_PROVISIONED is allowed when steady state status is
 		// RESOURCES_PROVISIONED and desired is RESOURCES_PROVISIONED
-		{apicontainer.ContainerRunning, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerResourcesProvisioned, true, nil},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerResourcesProvisioned, true, nil},
 		// RUNNING -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerRunning, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerRunning, apicontainer.ContainerPulled, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RUNNING -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerRunning, apicontainer.ContainerCreated, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 
 		// RESOURCES_PROVISIONED -> RESOURCES_PROVISIONED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> RUNNING transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerRunning, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> STOPPED transition is allowed and actionable, when desired
 		// is Running. The exptected next status is STOPPED
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerStopped, apicontainer.ContainerStopped, true, nil},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, true, nil},
 		// RESOURCES_PROVISIONED -> NONE transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> PULLED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 		// RESOURCES_PROVISIONED -> CREATED transition is not allowed and not actionable,
 		// when desired is Running
-		{apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerCreated, apicontainer.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
+		{apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, false, dependencygraph.ContainerPastDesiredStatusErr},
 	}
 
-	steadyStates := []apicontainer.ContainerStatus{apicontainer.ContainerRunning, apicontainer.ContainerResourcesProvisioned}
+	steadyStates := []apicontainerstatus.ContainerStatus{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerResourcesProvisioned}
 
 	for _, tc := range testCases {
 		for _, steadyState := range steadyStates {
 			t.Run(fmt.Sprintf("%s to %s Transition with Steady State %s",
 				tc.containerCurrentStatus.String(), tc.containerDesiredStatus.String(), steadyState.String()), func(t *testing.T) {
-				if tc.containerDesiredStatus == apicontainer.ContainerResourcesProvisioned &&
+				if tc.containerDesiredStatus == apicontainerstatus.ContainerResourcesProvisioned &&
 					steadyState < tc.containerDesiredStatus {
 					t.Skipf("Skipping because of unassumable steady state [%s] and desired state [%s]",
 						steadyState.String(), tc.containerDesiredStatus.String())
@@ -319,7 +323,7 @@ func TestContainerNextState(t *testing.T) {
 						Containers: []*apicontainer.Container{
 							container,
 						},
-						DesiredStatusUnsafe: apitask.TaskRunning,
+						DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 					},
 					engine: &DockerTaskEngine{},
 				}
@@ -336,36 +340,36 @@ func TestContainerNextState(t *testing.T) {
 func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 	testCases := []struct {
 		name                         string
-		containerCurrentStatus       apicontainer.ContainerStatus
-		containerDesiredStatus       apicontainer.ContainerStatus
-		containerDependentStatus     apicontainer.ContainerStatus
-		dependencyCurrentStatus      apicontainer.ContainerStatus
-		dependencySatisfiedStatus    apicontainer.ContainerStatus
-		expectedContainerStatus      apicontainer.ContainerStatus
+		containerCurrentStatus       apicontainerstatus.ContainerStatus
+		containerDesiredStatus       apicontainerstatus.ContainerStatus
+		containerDependentStatus     apicontainerstatus.ContainerStatus
+		dependencyCurrentStatus      apicontainerstatus.ContainerStatus
+		dependencySatisfiedStatus    apicontainerstatus.ContainerStatus
+		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		expectedTransitionActionable bool
 		reason                       error
 	}{
 		// NONE -> RUNNING transition is not allowed and not actionable, when pull depends on create and dependency is None
 		{
 			name: "pull depends on created, dependency is none",
-			containerCurrentStatus:       apicontainer.ContainerStatusNone,
-			containerDesiredStatus:       apicontainer.ContainerRunning,
-			containerDependentStatus:     apicontainer.ContainerPulled,
-			dependencyCurrentStatus:      apicontainer.ContainerStatusNone,
-			dependencySatisfiedStatus:    apicontainer.ContainerCreated,
-			expectedContainerStatus:      apicontainer.ContainerStatusNone,
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			expectedContainerStatus:      apicontainerstatus.ContainerStatusNone,
 			expectedTransitionActionable: false,
 			reason: dependencygraph.ErrContainerDependencyNotResolved,
 		},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
 		{
 			name: "pull depends on running, dependency is created",
-			containerCurrentStatus:       apicontainer.ContainerStatusNone,
-			containerDesiredStatus:       apicontainer.ContainerRunning,
-			containerDependentStatus:     apicontainer.ContainerPulled,
-			dependencyCurrentStatus:      apicontainer.ContainerCreated,
-			dependencySatisfiedStatus:    apicontainer.ContainerRunning,
-			expectedContainerStatus:      apicontainer.ContainerStatusNone,
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerCreated,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
+			expectedContainerStatus:      apicontainerstatus.ContainerStatusNone,
 			expectedTransitionActionable: false,
 			reason: dependencygraph.ErrContainerDependencyNotResolved,
 		},
@@ -373,36 +377,36 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 		// The expected next status is Pulled
 		{
 			name: "pull depends on running, dependency is running, next status is pulled",
-			containerCurrentStatus:       apicontainer.ContainerStatusNone,
-			containerDesiredStatus:       apicontainer.ContainerRunning,
-			containerDependentStatus:     apicontainer.ContainerPulled,
-			dependencyCurrentStatus:      apicontainer.ContainerRunning,
-			dependencySatisfiedStatus:    apicontainer.ContainerRunning,
-			expectedContainerStatus:      apicontainer.ContainerPulled,
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerRunning,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
+			expectedContainerStatus:      apicontainerstatus.ContainerPulled,
 			expectedTransitionActionable: true,
 		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Stopped
 		// The expected next status is Pulled
 		{
 			name: "pull depends on running, dependency is stopped, next status is pulled",
-			containerCurrentStatus:       apicontainer.ContainerStatusNone,
-			containerDesiredStatus:       apicontainer.ContainerRunning,
-			containerDependentStatus:     apicontainer.ContainerPulled,
-			dependencyCurrentStatus:      apicontainer.ContainerStopped,
-			dependencySatisfiedStatus:    apicontainer.ContainerRunning,
-			expectedContainerStatus:      apicontainer.ContainerPulled,
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerPulled,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStopped,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
+			expectedContainerStatus:      apicontainerstatus.ContainerPulled,
 			expectedTransitionActionable: true,
 		},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is None and
 		// dependent status is Running
 		{
 			name: "create depends on running, dependency is none, next status is pulled",
-			containerCurrentStatus:       apicontainer.ContainerStatusNone,
-			containerDesiredStatus:       apicontainer.ContainerRunning,
-			containerDependentStatus:     apicontainer.ContainerCreated,
-			dependencyCurrentStatus:      apicontainer.ContainerStatusNone,
-			dependencySatisfiedStatus:    apicontainer.ContainerRunning,
-			expectedContainerStatus:      apicontainer.ContainerPulled,
+			containerCurrentStatus:       apicontainerstatus.ContainerStatusNone,
+			containerDesiredStatus:       apicontainerstatus.ContainerRunning,
+			containerDependentStatus:     apicontainerstatus.ContainerCreated,
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerRunning,
+			expectedContainerStatus:      apicontainerstatus.ContainerPulled,
 			expectedTransitionActionable: true,
 		},
 	}
@@ -413,7 +417,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 			container := &apicontainer.Container{
 				DesiredStatusUnsafe:       tc.containerDesiredStatus,
 				KnownStatusUnsafe:         tc.containerCurrentStatus,
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			}
 			container.BuildContainerDependency(dependencyName, tc.dependencySatisfiedStatus, tc.containerDependentStatus)
 			dependency := &apicontainer.Container{
@@ -426,7 +430,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 						container,
 						dependency,
 					},
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -442,23 +446,23 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 
 func TestContainerNextStateWithDependencies(t *testing.T) {
 	testCases := []struct {
-		containerCurrentStatus       apicontainer.ContainerStatus
-		containerDesiredStatus       apicontainer.ContainerStatus
-		dependencyCurrentStatus      apicontainer.ContainerStatus
-		expectedContainerStatus      apicontainer.ContainerStatus
+		containerCurrentStatus       apicontainerstatus.ContainerStatus
+		containerDesiredStatus       apicontainerstatus.ContainerStatus
+		dependencyCurrentStatus      apicontainerstatus.ContainerStatus
+		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		expectedTransitionActionable bool
 		reason                       error
 	}{
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is None
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerStatusNone, apicontainer.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
 		// NONE -> RUNNING transition is not allowed and not actionable, when desired is Running and dependency is Created
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerCreated, apicontainer.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, apicontainerstatus.ContainerStatusNone, false, dependencygraph.DependentContainerNotResolvedErr},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Running
 		// The expected next status is Pulled
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerRunning, apicontainer.ContainerPulled, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, true, nil},
 		// NONE -> RUNNING transition is allowed and actionable, when desired is Running and dependency is Stopped
 		// The expected next status is Pulled
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerStopped, apicontainer.ContainerPulled, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerPulled, true, nil},
 	}
 
 	for _, tc := range testCases {
@@ -480,7 +484,7 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 						container,
 						dependency,
 					},
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
@@ -496,24 +500,24 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 
 func TestContainerNextStateWithPullCredentials(t *testing.T) {
 	testCases := []struct {
-		containerCurrentStatus       apicontainer.ContainerStatus
-		containerDesiredStatus       apicontainer.ContainerStatus
-		expectedContainerStatus      apicontainer.ContainerStatus
+		containerCurrentStatus       apicontainerstatus.ContainerStatus
+		containerDesiredStatus       apicontainerstatus.ContainerStatus
+		expectedContainerStatus      apicontainerstatus.ContainerStatus
 		credentialsID                string
 		useExecutionRole             bool
 		expectedTransitionActionable bool
 		expectedTransitionReason     error
 	}{
 		// NONE -> RUNNING transition is not allowed when container is waiting for credentials
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerStatusNone, "not_existed", true, false, dependencygraph.CredentialsNotResolvedErr},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerStatusNone, "not_existed", true, false, dependencygraph.CredentialsNotResolvedErr},
 		// NONE -> RUNNING transition is allowed when the required execution credentials existed
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerPulled, "existed", true, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, "existed", true, true, nil},
 		// PULLED -> RUNNING transition is allowed even the credentials is required
-		{apicontainer.ContainerPulled, apicontainer.ContainerRunning, apicontainer.ContainerCreated, "not_existed", true, true, nil},
+		{apicontainerstatus.ContainerPulled, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated, "not_existed", true, true, nil},
 		// NONE -> STOPPED transition is allowed even the credentials is required
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerStopped, apicontainer.ContainerStopped, "not_existed", true, false, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped, "not_existed", true, false, nil},
 		// NONE -> RUNNING transition is allowed when the container doesn't use execution credentials
-		{apicontainer.ContainerStatusNone, apicontainer.ContainerRunning, apicontainer.ContainerPulled, "not_existed", false, true, nil},
+		{apicontainerstatus.ContainerStatusNone, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled, "not_existed", false, true, nil},
 	}
 
 	taskEngine := &DockerTaskEngine{
@@ -554,7 +558,7 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 						container,
 					},
 					ExecutionCredentialsID: tc.credentialsID,
-					DesiredStatusUnsafe:    apitask.TaskRunning,
+					DesiredStatusUnsafe:    apitaskstatus.TaskRunning,
 				},
 				engine:             taskEngine,
 				credentialsManager: taskEngine.credentialsManager,
@@ -569,19 +573,19 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 }
 
 func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
-	steadyStates := []apicontainer.ContainerStatus{apicontainer.ContainerRunning, apicontainer.ContainerResourcesProvisioned}
+	steadyStates := []apicontainerstatus.ContainerStatus{apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerResourcesProvisioned}
 	for _, steadyState := range steadyStates {
 		t.Run(fmt.Sprintf("Steady State is %s", steadyState.String()), func(t *testing.T) {
 			firstContainerName := "container1"
 			firstContainer := apicontainer.NewContainerWithSteadyState(steadyState)
-			firstContainer.KnownStatusUnsafe = apicontainer.ContainerCreated
-			firstContainer.DesiredStatusUnsafe = apicontainer.ContainerRunning
+			firstContainer.KnownStatusUnsafe = apicontainerstatus.ContainerCreated
+			firstContainer.DesiredStatusUnsafe = apicontainerstatus.ContainerRunning
 			firstContainer.Name = firstContainerName
 
 			secondContainerName := "container2"
 			secondContainer := apicontainer.NewContainerWithSteadyState(steadyState)
-			secondContainer.KnownStatusUnsafe = apicontainer.ContainerPulled
-			secondContainer.DesiredStatusUnsafe = apicontainer.ContainerRunning
+			secondContainer.KnownStatusUnsafe = apicontainerstatus.ContainerPulled
+			secondContainer.DesiredStatusUnsafe = apicontainerstatus.ContainerRunning
 			secondContainer.Name = secondContainerName
 
 			task := &managedTask{
@@ -590,17 +594,17 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 						firstContainer,
 						secondContainer,
 					},
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
 			}
 
 			pauseContainerName := "pause"
 			waitForAssertions := sync.WaitGroup{}
-			if steadyState == apicontainer.ContainerResourcesProvisioned {
+			if steadyState == apicontainerstatus.ContainerResourcesProvisioned {
 				pauseContainer := apicontainer.NewContainerWithSteadyState(steadyState)
-				pauseContainer.KnownStatusUnsafe = apicontainer.ContainerRunning
-				pauseContainer.DesiredStatusUnsafe = apicontainer.ContainerResourcesProvisioned
+				pauseContainer.KnownStatusUnsafe = apicontainerstatus.ContainerRunning
+				pauseContainer.DesiredStatusUnsafe = apicontainerstatus.ContainerResourcesProvisioned
 				pauseContainer.Name = pauseContainerName
 				task.Containers = append(task.Containers, pauseContainer)
 				waitForAssertions.Add(1)
@@ -608,33 +612,33 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 
 			waitForAssertions.Add(2)
 			canTransition, transitions, _ := task.startContainerTransitions(
-				func(cont *apicontainer.Container, nextStatus apicontainer.ContainerStatus) {
+				func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 					if cont.Name == firstContainerName {
-						assert.Equal(t, nextStatus, apicontainer.ContainerRunning, "Mismatch for first container next status")
+						assert.Equal(t, nextStatus, apicontainerstatus.ContainerRunning, "Mismatch for first container next status")
 					} else if cont.Name == secondContainerName {
-						assert.Equal(t, nextStatus, apicontainer.ContainerCreated, "Mismatch for second container next status")
+						assert.Equal(t, nextStatus, apicontainerstatus.ContainerCreated, "Mismatch for second container next status")
 					} else if cont.Name == pauseContainerName {
-						assert.Equal(t, nextStatus, apicontainer.ContainerResourcesProvisioned, "Mismatch for pause container next status")
+						assert.Equal(t, nextStatus, apicontainerstatus.ContainerResourcesProvisioned, "Mismatch for pause container next status")
 					}
 					waitForAssertions.Done()
 				})
 			waitForAssertions.Wait()
 			assert.True(t, canTransition, "Mismatch for canTransition")
 			assert.NotEmpty(t, transitions)
-			if steadyState == apicontainer.ContainerResourcesProvisioned {
+			if steadyState == apicontainerstatus.ContainerResourcesProvisioned {
 				assert.Len(t, transitions, 3)
 				pauseContainerTransition, ok := transitions[pauseContainerName]
 				assert.True(t, ok, "Expected pause container transition to be in the transitions map")
-				assert.Equal(t, pauseContainerTransition, apicontainer.ContainerResourcesProvisioned, "Mismatch for pause container transition state")
+				assert.Equal(t, pauseContainerTransition, apicontainerstatus.ContainerResourcesProvisioned, "Mismatch for pause container transition state")
 			} else {
 				assert.Len(t, transitions, 2)
 			}
 			firstContainerTransition, ok := transitions[firstContainerName]
 			assert.True(t, ok, "Expected first container transition to be in the transitions map")
-			assert.Equal(t, firstContainerTransition, apicontainer.ContainerRunning, "Mismatch for first container transition state")
+			assert.Equal(t, firstContainerTransition, apicontainerstatus.ContainerRunning, "Mismatch for first container transition state")
 			secondContainerTransition, ok := transitions[secondContainerName]
 			assert.True(t, ok, "Expected second container transition to be in the transitions map")
-			assert.Equal(t, secondContainerTransition, apicontainer.ContainerCreated, "Mismatch for second container transition state")
+			assert.Equal(t, secondContainerTransition, apicontainerstatus.ContainerCreated, "Mismatch for second container transition state")
 		})
 	}
 }
@@ -642,20 +646,20 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.T) {
 	firstContainerName := "container1"
 	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainer.ContainerRunning,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		Name:                firstContainerName,
 	}
 	secondContainerName := "container2"
 	secondContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainer.ContainerRunning,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		Name:                secondContainerName,
 	}
 	pauseContainerName := "pause"
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
-	pauseContainer.KnownStatusUnsafe = apicontainer.ContainerResourcesProvisioned
-	pauseContainer.DesiredStatusUnsafe = apicontainer.ContainerResourcesProvisioned
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
+	pauseContainer.KnownStatusUnsafe = apicontainerstatus.ContainerResourcesProvisioned
+	pauseContainer.DesiredStatusUnsafe = apicontainerstatus.ContainerResourcesProvisioned
 	pauseContainer.Name = pauseContainerName
 	task := &managedTask{
 		Task: &apitask.Task{
@@ -664,13 +668,13 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 				secondContainer,
 				pauseContainer,
 			},
-			DesiredStatusUnsafe: apitask.TaskRunning,
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
 		engine: &DockerTaskEngine{},
 	}
 
 	canTransition, transitions, _ := task.startContainerTransitions(
-		func(cont *apicontainer.Container, nextStatus apicontainer.ContainerStatus) {
+		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			t.Error("Transition function should not be called when no transitions are possible")
 		})
 	assert.False(t, canTransition)
@@ -689,8 +693,8 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	// 3. container state change event for the internal event stream
 	firstContainerName := "container1"
 	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainer.ContainerCreated,
-		DesiredStatusUnsafe: apicontainer.ContainerStopped,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
 		Name:                firstContainerName,
 	}
 
@@ -704,7 +708,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 			Containers: []*apicontainer.Container{
 				firstContainer,
 			},
-			DesiredStatusUnsafe: apitask.TaskRunning,
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
 		engine: &DockerTaskEngine{
 			containerChangeEventStream: containerChangeEventStream,
@@ -723,7 +727,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		event := events[0]
 		containerChangeEvent, ok := event.(dockerapi.DockerContainerChangeEvent)
 		assert.True(t, ok)
-		assert.Equal(t, containerChangeEvent.Status, apicontainer.ContainerStopped)
+		assert.Equal(t, containerChangeEvent.Status, apicontainerstatus.ContainerStopped)
 		eventsGenerated.Done()
 		return nil
 	})
@@ -738,7 +742,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 
 	go task.waitEvent(nil)
 	canTransition, transitions, _ := task.startContainerTransitions(
-		func(cont *apicontainer.Container, nextStatus apicontainer.ContainerStatus) {
+		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			t.Error("Invalid code path. The transition function should not be invoked when transitioning container from CREATED -> STOPPED")
 		})
 	assert.True(t, canTransition)
@@ -770,8 +774,8 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 	// containers. We expect two sets of events to be consumed
 	// by `waitForContainerTransition`
 	transitions := make(map[string]string)
-	transitions[firstContainerName] = apicontainer.ContainerRunning.String()
-	transitions[secondContainerName] = apicontainer.ContainerRunning.String()
+	transitions[firstContainerName] = apicontainerstatus.ContainerRunning.String()
+	transitions[secondContainerName] = apicontainerstatus.ContainerRunning.String()
 
 	go func() {
 		// Send "transitions completed" messages. These are being
@@ -802,7 +806,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 		dockerMessages: dockerMessages,
 		Task: &apitask.Task{
 			Containers:        []*apicontainer.Container{},
-			KnownStatusUnsafe: apitask.TaskStopped,
+			KnownStatusUnsafe: apitaskstatus.TaskStopped,
 		},
 		ctx: ctx,
 	}
@@ -813,8 +817,8 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 	firstContainerName := "container1"
 	secondContainerName := "container2"
 	transitions := make(map[string]string)
-	transitions[firstContainerName] = apicontainer.ContainerPulled.String()
-	transitions[secondContainerName] = apicontainer.ContainerPulled.String()
+	transitions[firstContainerName] = apicontainerstatus.ContainerPulled.String()
+	transitions[secondContainerName] = apicontainerstatus.ContainerPulled.String()
 
 	// Event though there are two keys in the transitions map, send
 	// only one event. This tests that `waitForContainerTransition` doesn't
@@ -831,7 +835,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 	task := &managedTask{
 		Task: &apitask.Task{
 			Containers:          []*apicontainer.Container{},
-			DesiredStatusUnsafe: apitask.TaskStopped,
+			DesiredStatusUnsafe: apitaskstatus.TaskStopped,
 		},
 		engine: &DockerTaskEngine{
 			stateChangeEvents: stateChangeEvents,
@@ -850,14 +854,14 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 	task.onContainersUnableToTransitionState()
 	eventsGenerated.Wait()
 
-	assert.Equal(t, task.GetDesiredStatus(), apitask.TaskStopped)
+	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
 }
 
 func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) {
 	firstContainerName := "container1"
 	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainer.ContainerCreated,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerCreated,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		Name:                firstContainerName,
 	}
 	task := &managedTask{
@@ -865,13 +869,13 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 			Containers: []*apicontainer.Container{
 				firstContainer,
 			},
-			DesiredStatusUnsafe: apitask.TaskRunning,
+			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
 	}
 
 	task.onContainersUnableToTransitionState()
-	assert.Equal(t, task.GetDesiredStatus(), apitask.TaskStopped)
-	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainer.ContainerStopped)
+	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
+	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainerstatus.ContainerStopped)
 }
 
 // TODO: Test progressContainers workflow
@@ -886,13 +890,13 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	}
 	firstContainerName := "container1"
 	firstContainer := &apicontainer.Container{
-		KnownStatusUnsafe: apicontainer.ContainerStopped,
+		KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 		Name:              firstContainerName,
 	}
 	secondContainerName := "container2"
 	secondContainer := &apicontainer.Container{
-		KnownStatusUnsafe:   apicontainer.ContainerRunning,
-		DesiredStatusUnsafe: apicontainer.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		Name:                secondContainerName,
 	}
 
@@ -925,14 +929,14 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		return dockerapi.DockerContainerMetadata{}
 	}
 
-	taskEngine.containerStatusToTransitionFunction = map[apicontainer.ContainerStatus]transitionApplyFunc{
-		apicontainer.ContainerStopped: transitionFunction,
+	taskEngine.containerStatusToTransitionFunction = map[apicontainerstatus.ContainerStatus]transitionApplyFunc{
+		apicontainerstatus.ContainerStopped: transitionFunction,
 	}
 
 	// Received RUNNING event, known status is not STOPPED, expect this to
 	// be a noop. Assertions in transitionFunction asserts that as well
 	mTask.handleStoppedToRunningContainerTransition(
-		apicontainer.ContainerRunning, secondContainer)
+		apicontainerstatus.ContainerRunning, secondContainer)
 
 	// Start building preconditions and assertions for STOPPED -> RUNNING
 	// transition that will be triggered by next invocation of
@@ -947,7 +951,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	waitForDockerMessageAssertions.Add(1)
 	go func() {
 		dockerMessage := <-mTask.dockerMessages
-		assert.Equal(t, apicontainer.ContainerStopped, dockerMessage.event.Status,
+		assert.Equal(t, apicontainerstatus.ContainerStopped, dockerMessage.event.Status,
 			"Mismatch in event status")
 		assert.Equal(t, firstContainerName, dockerMessage.container.Name,
 			"Mismatch in container reference in event")
@@ -956,7 +960,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 	// Received RUNNING, known status is STOPPED, expect this to invoke
 	// transition function once
 	mTask.handleStoppedToRunningContainerTransition(
-		apicontainer.ContainerRunning, firstContainer)
+		apicontainerstatus.ContainerRunning, firstContainer)
 
 	// Wait for wait groups to be done
 	waitForTransitionFunctionInvocation.Wait()
@@ -964,13 +968,13 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 
 	// We now have an empty transition function map. Any further transitions
 	// should be noops
-	delete(taskEngine.containerStatusToTransitionFunction, apicontainer.ContainerStopped)
+	delete(taskEngine.containerStatusToTransitionFunction, apicontainerstatus.ContainerStopped)
 	// Simulate getting RUNNING event for a STOPPED container 10 times.
 	// All of these should be noops. 10 is chosen arbitrarily. Any number > 0
 	// should be fine here
 	for i := 0; i < 10; i++ {
 		mTask.handleStoppedToRunningContainerTransition(
-			apicontainer.ContainerRunning, firstContainer)
+			apicontainerstatus.ContainerRunning, firstContainer)
 	}
 }
 
@@ -1009,8 +1013,8 @@ func TestCleanupTask(t *testing.T) {
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskStopped)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1068,8 +1072,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		cfg:   taskEngine.cfg,
 		saver: taskEngine.saver,
 	}
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskRunning)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1089,12 +1093,12 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockTime.EXPECT().Sleep(gomock.Any()).AnyTimes().Do(func(_ interface{}) {
 		timesCalled++
 		if timesCalled == callsExpected {
-			mTask.SetSentStatus(apitask.TaskStopped)
+			mTask.SetSentStatus(apitaskstatus.TaskStopped)
 		} else if timesCalled > callsExpected {
 			t.Errorf("Sleep called too many times, called %d but expected %d", timesCalled, callsExpected)
 		}
 	})
-	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, mTask.GetSentStatus())
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(
@@ -1103,7 +1107,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mTask.cleanupTask(taskStoppedDuration)
-	assert.Equal(t, apitask.TaskStopped, mTask.GetSentStatus())
+	assert.Equal(t, apitaskstatus.TaskStopped, mTask.GetSentStatus())
 }
 
 func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
@@ -1136,8 +1140,8 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		cfg:            taskEngine.cfg,
 		saver:          taskEngine.saver,
 	}
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskRunning)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
 
 	// Expectations for triggering cleanup
 	now := mTask.GetKnownStatusTime()
@@ -1154,11 +1158,11 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		_maxStoppedWaitTimes = int(maxStoppedWaitTimes)
 	}()
 	mockTime.EXPECT().Sleep(gomock.Any()).Times(_maxStoppedWaitTimes)
-	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, mTask.GetSentStatus())
 
 	// No cleanup expected
 	mTask.cleanupTask(taskStoppedDuration)
-	assert.Equal(t, apitask.TaskRunning, mTask.GetSentStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, mTask.GetSentStatus())
 }
 
 func TestCleanupTaskENIs(t *testing.T) {
@@ -1208,8 +1212,8 @@ func TestCleanupTaskENIs(t *testing.T) {
 		},
 	})
 
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskStopped)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1274,8 +1278,8 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			task := &managedTask{
 				ctx: ctx,
 				Task: &apitask.Task{
-					KnownStatusUnsafe:   apitask.TaskRunning,
-					DesiredStatusUnsafe: apitask.TaskRunning,
+					KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				_time:       mockTime,
 				acsMessages: make(chan acsTransition),
@@ -1283,7 +1287,7 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			if tc.result {
 				mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).Return(mockTimer)
 				mockTimer.EXPECT().Stop()
-				go func() { task.acsMessages <- acsTransition{desiredStatus: apitask.TaskRunning} }()
+				go func() { task.acsMessages <- acsTransition{desiredStatus: apitaskstatus.TaskRunning} }()
 			}
 
 			assert.Equal(t, tc.result, task.waitForExecutionCredentialsFromACS(tc.errs), tc.msg)
@@ -1323,8 +1327,8 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		saver: taskEngine.saver,
 	}
 
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskStopped)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1383,8 +1387,8 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskStopped)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1445,8 +1449,8 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
-	mTask.SetKnownStatus(apitask.TaskStopped)
-	mTask.SetSentStatus(apitask.TaskStopped)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1487,19 +1491,19 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 	// Disgard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
 
-	mTask.SetKnownStatus(apitask.TaskRunning)
-	mTask.SetSentStatus(apitask.TaskRunning)
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
 	container := mTask.Containers[0]
 	container.HealthCheckType = "docker"
 
 	containerChange := dockerContainerChange{
 		container: container,
 		event: dockerapi.DockerContainerChangeEvent{
-			Status: apicontainer.ContainerRunning,
+			Status: apicontainerstatus.ContainerRunning,
 			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 				DockerID: "dockerID",
 				Health: apicontainer.HealthStatus{
-					Status: apicontainer.ContainerHealthy,
+					Status: apicontainerstatus.ContainerHealthy,
 					Output: "health check succeed",
 				},
 			},
@@ -1509,7 +1513,7 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 	mTask.handleContainerChange(containerChange)
 
 	containerHealth := container.GetHealthStatus()
-	assert.Equal(t, containerHealth.Status, apicontainer.ContainerHealthy)
+	assert.Equal(t, containerHealth.Status, apicontainerstatus.ContainerHealthy)
 	assert.Equal(t, containerHealth.Output, "health check succeed")
 }
 
@@ -1576,27 +1580,27 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 	}
 	gomock.InOrder(
 		mockResource.EXPECT().GetName(),
-		mockResource.EXPECT().ApplyTransition(taskresource.ResourceCreated).Return(nil),
+		mockResource.EXPECT().ApplyTransition(resourcestatus.ResourceCreated).Return(nil),
 		mockResource.EXPECT().GetName().AnyTimes(),
-		mockResource.EXPECT().StatusString(taskresource.ResourceCreated).AnyTimes(),
+		mockResource.EXPECT().StatusString(resourcestatus.ResourceCreated).AnyTimes(),
 	)
-	assert.NoError(t, task.applyResourceState(mockResource, taskresource.ResourceCreated))
+	assert.NoError(t, task.applyResourceState(mockResource, resourcestatus.ResourceCreated))
 }
 
 func TestApplyResourceStateFailures(t *testing.T) {
 	testCases := []struct {
 		Name      string
-		ResStatus taskresource.ResourceStatus
+		ResStatus resourcestatus.ResourceStatus
 		Error     error
 	}{
 		{
 			Name:      "no valid state transition",
-			ResStatus: taskresource.ResourceRemoved,
+			ResStatus: resourcestatus.ResourceRemoved,
 			Error:     errors.New("transition impossible"),
 		},
 		{
 			Name:      "transition error",
-			ResStatus: taskresource.ResourceCreated,
+			ResStatus: resourcestatus.ResourceCreated,
 			Error:     errors.New("transition failed"),
 		},
 	}
@@ -1618,6 +1622,253 @@ func TestApplyResourceStateFailures(t *testing.T) {
 				mockResource.EXPECT().StatusString(tc.ResStatus).AnyTimes(),
 			)
 			assert.Error(t, task.applyResourceState(mockResource, tc.ResStatus))
+		})
+	}
+}
+
+func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
+	testCases := []struct {
+		Name               string
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
+		Err                error
+		ChangedKnownStatus resourcestatus.ResourceStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
+	}{
+		{
+			Name:               "error while steady state transition",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                errors.New("transition error"),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			TaskDesiredStatus:  apitaskstatus.TaskStopped,
+		},
+		{
+			Name:               "steady state transition",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                nil,
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{
+					Arn:                 "task1",
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				engine: &DockerTaskEngine{},
+			}
+			mtask.AddResource(volumeName, res)
+			mtask.engine.SetSaver(mockSaver)
+			gomock.InOrder(
+				mockSaver.EXPECT().Save(),
+			)
+			mtask.handleResourceStateChange(resourceStateChange{
+				res, tc.DesiredKnownStatus, tc.Err,
+			})
+			assert.Equal(t, tc.ChangedKnownStatus, res.GetKnownStatus())
+			assert.Equal(t, tc.TaskDesiredStatus, mtask.GetDesiredStatus())
+		})
+	}
+}
+
+func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
+	testCases := []struct {
+		Name               string
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
+		Err                error
+		ChangedKnownStatus resourcestatus.ResourceStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
+	}{
+		{
+			Name:               "steady state transition already done",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                nil,
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+		{
+			Name:               "transition state less than known status",
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			Err:                nil,
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{
+					Arn:                 "task1",
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+			}
+			mtask.AddResource(volumeName, res)
+			mtask.handleResourceStateChange(resourceStateChange{
+				res, tc.DesiredKnownStatus, tc.Err,
+			})
+			assert.Equal(t, tc.ChangedKnownStatus, res.GetKnownStatus())
+			assert.Equal(t, tc.TaskDesiredStatus, mtask.GetDesiredStatus())
+		})
+	}
+}
+
+func TestVolumeResourceNextState(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		NextState        resourcestatus.ResourceStatus
+		ActionRequired   bool
+	}{
+		{
+			Name:             "next state happy path",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			ActionRequired:   true,
+		},
+		{
+			Name:             "desired terminal",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			ActionRequired:   false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := volume.VolumeResource{}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{},
+			}
+			transition := mtask.resourceNextState(&res)
+			assert.Equal(t, tc.NextState, transition.nextState)
+			assert.Equal(t, tc.ActionRequired, transition.actionRequired)
+		})
+	}
+}
+
+func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		TransitionStatus resourcestatus.ResourceStatus
+		StatusString     string
+		CanTransition    bool
+		TransitionsLen   int
+	}{
+		{
+			Name:             "none to created",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TransitionStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			StatusString:     "CREATED",
+			CanTransition:    true,
+			TransitionsLen:   1,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+
+			task := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+			}
+			task.AddResource(volumeName, res)
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			canTransition, transitions := task.startResourceTransitions(
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
+					assert.Equal(t, nextStatus, tc.TransitionStatus)
+					wg.Done()
+				})
+			wg.Wait()
+			assert.Equal(t, tc.CanTransition, canTransition)
+			assert.Len(t, transitions, tc.TransitionsLen)
+			resTransition, ok := transitions[volumeName]
+			assert.True(t, ok)
+			assert.Equal(t, resTransition, tc.StatusString)
+		})
+	}
+}
+
+func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
+	testCases := []struct {
+		Name          string
+		KnownStatus   resourcestatus.ResourceStatus
+		DesiredStatus resourcestatus.ResourceStatus
+		CanTransition bool
+	}{
+		{
+			Name:          "known < desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			CanTransition: true,
+		},
+		{
+			Name:          "known equals desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			CanTransition: false,
+		},
+		{
+			Name:          "known > desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			CanTransition: false,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			res.SetDesiredStatus(tc.DesiredStatus)
+
+			mtask := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				ctx: ctx,
+				resourceStateChangeEvent: make(chan resourceStateChange),
+			}
+			mtask.Task.AddResource(volumeName, res)
+			canTransition, transitions := mtask.startResourceTransitions(
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
+					t.Error("Transition function should not be called when no transitions are possible")
+				})
+			assert.Equal(t, tc.CanTransition, canTransition)
+			assert.Empty(t, transitions)
 		})
 	}
 }

@@ -21,10 +21,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -143,8 +143,8 @@ func TestMarshal(t *testing.T) {
 	cgroupMountPath := "/sys/fs/cgroup"
 
 	cgroup := NewCgroupResource("", cgroup.New(), nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
-	cgroup.SetDesiredStatus(taskresource.ResourceStatus(CgroupCreated))
-	cgroup.SetKnownStatus(taskresource.ResourceStatus(CgroupStatusNone))
+	cgroup.SetDesiredStatus(resourcestatus.ResourceStatus(CgroupCreated))
+	cgroup.SetKnownStatus(resourcestatus.ResourceStatus(CgroupStatusNone))
 
 	bytes, err := cgroup.MarshalJSON()
 	assert.NoError(t, err)
@@ -163,6 +163,6 @@ func TestUnmarshal(t *testing.T) {
 	assert.Equal(t, cgroupRoot, unmarshalledCgroup.GetCgroupRoot())
 	assert.Equal(t, cgroupMountPath, unmarshalledCgroup.GetCgroupMountPath())
 	assert.Equal(t, time.Time{}, unmarshalledCgroup.GetCreatedAt())
-	assert.Equal(t, taskresource.ResourceStatus(CgroupCreated), unmarshalledCgroup.GetDesiredStatus())
-	assert.Equal(t, taskresource.ResourceStatus(CgroupStatusNone), unmarshalledCgroup.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(CgroupCreated), unmarshalledCgroup.GetDesiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(CgroupStatusNone), unmarshalledCgroup.GetKnownStatus())
 }
