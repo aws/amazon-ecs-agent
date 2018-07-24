@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -108,6 +109,7 @@ func (cfg *Config) platformOverrides() {
 	cfg.TaskCPUMemLimit = ExplicitlyDisabled
 
 	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	seelog.Infof("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND: %t", cpuUnbounded)
 	platformVariables := PlatformVariables{
 		CPUUnbounded: cpuUnbounded,
 	}
