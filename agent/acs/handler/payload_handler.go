@@ -337,6 +337,10 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 		TaskARN: *task.Arn,
 		Status:  apitaskstatus.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
+		// The real task cannot be extracted from payload message, so we send an empty task.
+		// This is necessary because the task handler will not send an event whose
+		// Task is nil.
+		Task: &apitask.Task{},
 	}
 
 	payloadHandler.taskHandler.AddStateChangeEvent(taskEvent, payloadHandler.ecsClient)
