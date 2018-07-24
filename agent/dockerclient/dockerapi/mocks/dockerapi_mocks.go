@@ -27,6 +27,7 @@ import (
 	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	types "github.com/docker/docker/api/types"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -143,9 +144,9 @@ func (mr *MockDockerClientMockRecorder) InspectContainer(arg0, arg1, arg2 interf
 }
 
 // InspectImage mocks base method
-func (m *MockDockerClient) InspectImage(arg0 string) (*go_dockerclient.Image, error) {
+func (m *MockDockerClient) InspectImage(arg0 string) (*types.ImageInspect, error) {
 	ret := m.ctrl.Call(m, "InspectImage", arg0)
-	ret0, _ := ret[0].(*go_dockerclient.Image)
+	ret0, _ := ret[0].(*types.ImageInspect)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

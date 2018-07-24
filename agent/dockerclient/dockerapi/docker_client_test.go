@@ -45,7 +45,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -355,13 +355,14 @@ func TestGetRepositoryWithUntaggedImage(t *testing.T) {
 }
 
 func TestImportLocalEmptyVolumeImage(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create, not pull
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(nil, errors.New("Does not exist")),
+		mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), emptyvolume.Image+":"+emptyvolume.Tag).
+			Return(types.ImageInspect{}, make([]byte, 0, 0), errors.New("Does not exist")).AnyTimes(),
 		mockDocker.EXPECT().ImportImage(gomock.Any()).Do(func(x interface{}) {
 			req := x.(docker.ImportImageOptions)
 			require.Equal(t, emptyvolume.Image, req.Repository, "expected empty volume repository")
@@ -374,13 +375,14 @@ func TestImportLocalEmptyVolumeImage(t *testing.T) {
 }
 
 func TestImportLocalEmptyVolumeImageExisting(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create only if it doesn't exist
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(&docker.Image{}, nil),
+		mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), emptyvolume.Image+":"+emptyvolume.Tag).
+			Return(types.ImageInspect{}, make([]byte, 0, 0), nil),
 	)
 
 	metadata := client.ImportLocalEmptyVolumeImage()
@@ -987,13 +989,14 @@ func TestStatsClientError(t *testing.T) {
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().RemoveImage("image").Do(func(x interface{}) {
-		wait.Wait()
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(),"image", gomock.Any()).
+		Do(func(ctx context.Context, x, y interface{}) {
+			wait.Wait()
 	})
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1003,11 +1006,11 @@ func TestRemoveImageTimeout(t *testing.T) {
 }
 
 func TestRemoveImage(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().RemoveImage("image").Return(nil)
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", gomock.Any()).Return([]types.ImageDeleteResponseItem{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveImage(ctx, "image", 2*time.Millisecond)
@@ -1036,10 +1039,10 @@ func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
 }
 
 func TestLoadImageHappyPath(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), gomock.Any()).Return(types.ImageLoadResponse{}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1048,12 +1051,12 @@ func TestLoadImageHappyPath(t *testing.T) {
 }
 
 func TestLoadImageTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().LoadImage(gomock.Any()).Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(x, y, z interface{}) {
 		wait.Wait()
 	}).MaxTimes(1)
 
