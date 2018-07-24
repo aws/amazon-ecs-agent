@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.19.0-dev
+## 1.19.0
 * Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
 
 ## 1.18.0
