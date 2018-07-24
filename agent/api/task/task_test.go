@@ -25,13 +25,23 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/asm"
+	"github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -521,8 +531,6 @@ func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
 	}
 }
 
-// TODO: UT for PostUnmarshalTask, etc
-
 func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{
@@ -553,10 +561,12 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr(emptyVolumeName1),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 			{
 				Name: strptr(emptyVolumeName2),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 		},
@@ -566,23 +576,21 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
-	task.PostUnmarshalTask(&cfg, nil, nil)
+	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 
-	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
-	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
-	assert.True(t, ok, "Should find empty volume container")
-	assert.Equal(t, 2, len(emptyContainer.MountPoints), "Should have two mount points")
-	assert.Equal(t, []apicontainer.MountPoint{
-		{
-			SourceVolume:  emptyVolumeName1,
-			ContainerPath: expectedEmptyVolumeGeneratedPath1,
-		}, {
-			SourceVolume:  emptyVolumeName2,
-			ContainerPath: expectedEmptyVolumeGeneratedPath2,
-		},
-	}, emptyContainer.MountPoints)
-	assert.Equal(t, expectedEmptyVolumeContainerImage+":"+expectedEmptyVolumeContainerTag, emptyContainer.Image, "Should have expected image")
-	assert.Equal(t, []string{expectedEmptyVolumeContainerCmd}, emptyContainer.Command, "Should have expected command")
+	assert.Equal(t, 2, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	taskResources := task.getResourcesUnsafe()
+	assert.Equal(t, 2, len(taskResources), "Should have created 2 volume resources")
+
+	for _, r := range taskResources {
+		vol := r.(*taskresourcevolume.VolumeResource)
+		assert.Equal(t, "task", vol.VolumeConfig.Scope)
+		assert.Equal(t, false, vol.VolumeConfig.Autoprovision)
+		assert.Equal(t, "local", vol.VolumeConfig.Driver)
+		assert.Equal(t, 0, len(vol.VolumeConfig.DriverOpts))
+		assert.Equal(t, 0, len(vol.VolumeConfig.Labels))
+	}
+
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -646,6 +654,7 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("volName"),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr("/host/path"),
 				},
@@ -664,7 +673,7 @@ func TestTaskFromACS(t *testing.T) {
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",
-		DesiredStatusUnsafe: TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Family:              "myFamily",
 		Version:             "1",
 		Containers: []*apicontainer.Container{
@@ -706,13 +715,14 @@ func TestTaskFromACS(t *testing.T) {
 					HostConfig: strptr("hostconfig json"),
 					Version:    strptr("version string"),
 				},
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
 		Volumes: []TaskVolume{
 			{
 				Name: "volName",
-				Volume: &FSHostVolume{
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
 					FSSourcePath: "/host/path",
 				},
 			},
@@ -732,94 +742,94 @@ func TestTaskFromACS(t *testing.T) {
 
 func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "task status should depend on the earlist container status")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should depend on the earlist container status")
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "task status should depend on the earlist container status")
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus(), "task status should depend on the earlist container status")
 }
 
 // TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped tests when there is one essential
 // container is stopped while the other containers are running, the task status shouldn't be changed to running
 func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskCreated,
+		KnownStatusUnsafe: apitaskstatus.TaskCreated,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus(), "task status should not move to running if essential container is stopped")
+	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus(), "task status should not move to running if essential container is stopped")
 }
 
 // TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped tests when there is one essential container
 // is stopped while other container status are prior to Running, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 		},
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus)
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 }
 
 // TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned
 // tests when there is one essential container is stopped while other container status are prior to
 // ResourcesProvisioned, the task status should be updated.
 func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadyStateIsResourcesProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerStopped,
+				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerCreated,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerCreated,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -827,8 +837,8 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 	}
 
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus)
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 }
 
 // TestGetEarliestTaskStatusForContainersEmptyTask verifies that
@@ -836,7 +846,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 // a task with no containers
 func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 	testTask := &Task{}
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
 // TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers verifies that
@@ -844,115 +854,115 @@ func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 // a task with containers that do not have the `KnownStatusUnsafe` field set
 func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{},
 			&apicontainer.Container{},
 		},
 	}
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskStatusNone)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	// Since a container is still in CREATED state, the earliest known status
-	// for the task based on its container statuses must be `TaskCreated`
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
 	// Ensure that both containers are RUNNING, which means that the earliest known status
-	// for the task based on its container statuses must be `TaskRunning`
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+	// for the task based on its container statuses must be `apitaskstatus.TaskRunning`
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
 func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerRunning,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
 		},
 	}
 
 	// Since a container is still in CREATED state, the earliest known status
-	// for the task based on its container statuses must be `TaskCreated`
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	// Even if all containers transition to RUNNING, the earliest known status
-	// for the task based on its container statuses would still be `TaskCreated`
+	// for the task based on its container statuses would still be `apitaskstatus.TaskCreated`
 	// as one of the containers has RESOURCES_PROVISIONED as its steady state
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskCreated)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskCreated)
 	// All of the containers in the task have reached their steady state. Ensure
 	// that the earliest known status for the task based on its container states
-	// is now `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
-	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), TaskRunning)
+	// is now `apitaskstatus.TaskRunning`
+	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
+	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskRunning)
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
 	}
 
 	// One of the containers is in CREATED state, expect task to be updated
-	// to TaskCreated
+	// to apitaskstatus.TaskCreated
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers are in RUNNING state, expect task to be updated
-	// to TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// to apitaskstatus.TaskRunning
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
 }
 
 func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *testing.T) {
-	resourcesProvisioned := apicontainer.ContainerResourcesProvisioned
+	resourcesProvisioned := apicontainerstatus.ContainerResourcesProvisioned
 	testTask := &Task{
-		KnownStatusUnsafe: TaskStatusNone,
+		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerCreated,
+				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe: apicontainer.ContainerRunning,
+				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				Essential:         true,
 			},
 			&apicontainer.Container{
-				KnownStatusUnsafe:       apicontainer.ContainerRunning,
+				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -960,25 +970,25 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 	}
 
 	// One of the containers is in CREATED state, expect task to be updated
-	// to TaskCreated
+	// to apitaskstatus.TaskCreated
 	newStatus := testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers are in RUNNING state, but one of the containers
 	// has its steady state set to RESOURCES_PROVISIONED, doexpect task to be
-	// updated to TaskRunning
-	testTask.Containers[0].SetKnownStatus(apicontainer.ContainerRunning)
+	// updated to apitaskstatus.TaskRunning
+	testTask.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskCreated, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskCreated, testTask.GetKnownStatus())
 
 	// All of the containers have reached their steady states, expect the task
-	// to be updated to `TaskRunning`
-	testTask.Containers[2].SetKnownStatus(apicontainer.ContainerResourcesProvisioned)
+	// to be updated to `apitaskstatus.TaskRunning`
+	testTask.Containers[2].SetKnownStatus(apicontainerstatus.ContainerResourcesProvisioned)
 	newStatus = testTask.updateTaskKnownStatus()
-	assert.Equal(t, TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
-	assert.Equal(t, TaskRunning, testTask.GetKnownStatus())
+	assert.Equal(t, apitaskstatus.TaskRunning, newStatus, "Incorrect status returned: %s", newStatus.String())
+	assert.Equal(t, apitaskstatus.TaskRunning, testTask.GetKnownStatus())
 }
 
 func assertSetStructFieldsEqual(t *testing.T, expected, actual interface{}) {
@@ -1316,25 +1326,25 @@ func TestContainerHealthConfig(t *testing.T) {
 func TestRecordExecutionStoppedAt(t *testing.T) {
 	testCases := []struct {
 		essential             bool
-		status                apicontainer.ContainerStatus
+		status                apicontainerstatus.ContainerStatus
 		executionStoppedAtSet bool
 		msg                   string
 	}{
 		{
 			essential:             true,
-			status:                apicontainer.ContainerStopped,
+			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
 			msg: "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
-			status:                apicontainer.ContainerStopped,
+			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
 			msg: "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
-			status:                apicontainer.ContainerRunning,
+			status:                apicontainerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
 			msg: "essential non-stop status change should not cause executionStoppedAt set",
 		},
@@ -1350,4 +1360,295 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 			assert.Equal(t, !tc.executionStoppedAtSet, task.GetExecutionStoppedAt().IsZero(), tc.msg)
 		})
 	}
+}
+
+func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
+
+	expectedCredentialsParameter := "secret-id"
+	expectedRegion := "us-west-2"
+	expectedExecutionCredentialsID := "credsid"
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				Name:  "myName",
+				Image: "image:tag",
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "asm",
+					ASMAuthData: &apicontainer.ASMAuthData{
+						CredentialsParameter: expectedCredentialsParameter,
+						Region:               expectedRegion,
+					},
+				},
+			},
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	// create asm auth resource
+	res := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		expectedExecutionCredentialsID,
+		credentialsManager,
+		asmClientCreator)
+	res.SetKnownStatus(resourcestatus.ResourceRemoved)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, res)
+
+	// validate asm auth resource
+	resource, ok := task.getASMAuthResource()
+	assert.True(t, ok)
+	asmResource := resource[0].(*asmauth.ASMAuthResource)
+	req := asmResource.GetRequiredASMResources()
+
+	assert.Equal(t, resourcestatus.ResourceRemoved, asmResource.GetKnownStatus())
+	assert.Equal(t, expectedExecutionCredentialsID, asmResource.GetExecutionCredentialsID())
+	assert.Equal(t, expectedCredentialsParameter, req[0].CredentialsParameter)
+	assert.Equal(t, expectedRegion, req[0].Region)
+
+	// marshal and unmarshal task
+	marshal, err := json.Marshal(task)
+	assert.NoError(t, err)
+
+	var otask Task
+	err = json.Unmarshal(marshal, &otask)
+	assert.NoError(t, err)
+
+	// validate asm auth resource
+	oresource, ok := otask.getASMAuthResource()
+	assert.True(t, ok)
+	oasmResource := oresource[0].(*asmauth.ASMAuthResource)
+	oreq := oasmResource.GetRequiredASMResources()
+
+	assert.Equal(t, resourcestatus.ResourceRemoved, oasmResource.GetKnownStatus())
+	assert.Equal(t, expectedExecutionCredentialsID, oasmResource.GetExecutionCredentialsID())
+	assert.Equal(t, expectedCredentialsParameter, oreq[0].CredentialsParameter)
+	assert.Equal(t, expectedRegion, oreq[0].Region)
+}
+
+func TestSetTerminalReason(t *testing.T) {
+
+	expectedTerminalReason := "failed to provison resource"
+	overrideTerminalReason := "should not override terminal reason"
+
+	task := &Task{}
+
+	// set terminal reason string
+	task.SetTerminalReason(expectedTerminalReason)
+	assert.Equal(t, expectedTerminalReason, task.GetTerminalReason())
+
+	// try to override terminal reason string, should not overwrite
+	task.SetTerminalReason(overrideTerminalReason)
+	assert.Equal(t, expectedTerminalReason, task.GetTerminalReason())
+}
+
+func TestPopulateASMAuthData(t *testing.T) {
+	expectedUsername := "username"
+	expectedPassword := "password"
+
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	credentialsID := "execution role"
+	accessKeyID := "akid"
+	secretAccessKey := "sakid"
+	sessionToken := "token"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID:   credentialsID,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+		SessionToken:    sessionToken,
+	}
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	// returned asm data
+	asmAuthDataBytes, _ := json.Marshal(&asm.AuthDataValue{
+		Username: aws.String(expectedUsername),
+		Password: aws.String(expectedPassword),
+	})
+	asmAuthDataVal := string(asmAuthDataBytes)
+	asmSecretValue := &secretsmanager.GetSecretValueOutput{
+		SecretString: aws.String(asmAuthDataVal),
+	}
+
+	// create asm auth resource
+	asmRes := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		credentialsID,
+		credentialsManager,
+		asmClientCreator)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, asmRes)
+
+	gomock.InOrder(
+		credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(
+			credentials.TaskIAMRoleCredentials{
+				ARN:                "",
+				IAMRoleCredentials: executionRoleCredentials,
+			}, true),
+		asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient),
+		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Return(asmSecretValue, nil),
+	)
+
+	// create resource
+	err := asmRes.Create()
+	require.NoError(t, err)
+
+	err = task.PopulateASMAuthData(container)
+	assert.NoError(t, err)
+
+	dac := container.RegistryAuthentication.ASMAuthData.GetDockerAuthConfig()
+	assert.Equal(t, expectedUsername, dac.Username)
+	assert.Equal(t, expectedPassword, dac.Password)
+}
+
+func TestPopulateASMAuthDataNoASMResource(t *testing.T) {
+
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	// asm resource not added to task, call returns error
+	err := task.PopulateASMAuthData(container)
+	assert.Error(t, err)
+
+}
+
+func TestPopulateASMAuthDataNoDockerAuthConfig(t *testing.T) {
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+	credentialsID := "execution role"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	//mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	// create asm auth resource
+	asmRes := asmauth.NewASMAuthResource(
+		task.Arn,
+		task.getAllASMAuthDataRequirements(),
+		credentialsID,
+		credentialsManager,
+		asmClientCreator)
+
+	// add asm auth resource to task
+	task.AddResource(asmauth.ResourceName, asmRes)
+
+	// asm resource does not return docker auth config, call returns error
+	err := task.PopulateASMAuthData(container)
+	assert.Error(t, err)
+}
+
+func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
+	credentialsParameter := "secret-id"
+	region := "us-west-2"
+
+	container := &apicontainer.Container{
+		Name:  "myName",
+		Image: "image:tag",
+		RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+			Type: "asm",
+			ASMAuthData: &apicontainer.ASMAuthData{
+				CredentialsParameter: credentialsParameter,
+				Region:               region,
+			},
+		},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{}
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			ASMClientCreator:   asmClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields, nil, nil)
+	assert.NoError(t, err)
 }

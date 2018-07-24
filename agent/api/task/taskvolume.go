@@ -15,22 +15,28 @@ package task
 
 import (
 	"encoding/json"
-	"errors"
 
-	"github.com/cihub/seelog"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/pkg/errors"
+)
+
+const (
+	HostVolumeType   = "host"
+	DockerVolumeType = "docker"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to
 // reference within a task. It must be named.
 type TaskVolume struct {
+	Type   string `json:"type"`
 	Name   string `json:"name"`
-	Volume HostVolume
+	Volume taskresourcevolume.Volume
 }
 
 // UnmarshalJSON for TaskVolume determines the name and volume type, and
 // unmarshals it into the appropriate HostVolume fulfilling interfaces
 func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
-	// Format: {name: volumeName, host: emptyVolumeOrHostVolume}
+	// Format: {name: volumeName, host: emptyVolumeOrHostVolume, dockerVolumeConfiguration {}}
 	intermediate := make(map[string]json.RawMessage)
 	if err := json.Unmarshal(b, &intermediate); err != nil {
 		return err
@@ -43,24 +49,21 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	if rawhostdata, ok := intermediate["host"]; ok {
-		// Default to trying to unmarshal it as a FSHostVolume
-		var hostvolume FSHostVolume
-		err := json.Unmarshal(rawhostdata, &hostvolume)
-		if err != nil {
-			return err
-		}
-		if hostvolume.FSSourcePath == "" {
-			// If the FSSourcePath is empty, that must mean it was not an
-			// FSHostVolume (empty path is invalid for that type). The only other
-			// type is an empty volume, so unmarshal it as such.
-			emptyVolume := &EmptyHostVolume{}
-			json.Unmarshal(rawhostdata, emptyVolume)
-			tv.Volume = emptyVolume
-		} else {
-			tv.Volume = &hostvolume
-		}
-		return nil
+	volumeType, ok := intermediate["type"]
+	if !ok {
+		return errors.New("invalid Volume: must include a type")
+	}
+	if err := json.Unmarshal(volumeType, &tv.Type); err != nil {
+		return err
+	}
+
+	switch tv.Type {
+	case HostVolumeType:
+		return tv.unmarshalHostVolume(intermediate["host"])
+	case DockerVolumeType:
+		return tv.unmarshalDockerVolume(intermediate["dockerVolumeConfiguration"])
+	default:
+		return errors.Errorf("invalid Volume: type must be docker or host, got %q", tv.Type)
 	}
 
 	return errors.New("unrecognized volume type; try updating me")
@@ -71,14 +74,53 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	result := make(map[string]interface{})
 
 	result["name"] = tv.Name
+	result["type"] = tv.Type
 
-	switch v := tv.Volume.(type) {
-	case *FSHostVolume:
-		result["host"] = v
-	case *EmptyHostVolume:
-		result["host"] = v
+	switch tv.Type {
+	case DockerVolumeType:
+		result["dockerVolumeConfiguration"] = tv.Volume
+	case HostVolumeType:
+		result["host"] = tv.Volume
 	default:
-		seelog.Critical("Unknown task volume type in marshal")
+		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
+
 	return json.Marshal(result)
+}
+
+func (tv *TaskVolume) unmarshalDockerVolume(data json.RawMessage) error {
+	if data == nil {
+		return errors.New("invalid volume: empty volume configuration")
+	}
+	var dockerVolumeConfig taskresourcevolume.DockerVolumeConfig
+	err := json.Unmarshal(data, &dockerVolumeConfig)
+	if err != nil {
+		return err
+	}
+
+	tv.Volume = &dockerVolumeConfig
+	return nil
+}
+
+func (tv *TaskVolume) unmarshalHostVolume(data json.RawMessage) error {
+	if data == nil {
+		return errors.New("invalid volume: empty volume configuration")
+	}
+	// Default to trying to unmarshal it as a FSHostVolume
+	var hostvolume taskresourcevolume.FSHostVolume
+	err := json.Unmarshal(data, &hostvolume)
+	if err != nil {
+		return err
+	}
+	if hostvolume.FSSourcePath == "" {
+		// If the FSSourcePath is empty, that must mean it was not an
+		// FSHostVolume (empty path is invalid for that type).
+		// Unmarshal it as local docker volume.
+		localVolume := &taskresourcevolume.LocalDockerVolume{}
+		json.Unmarshal(data, localVolume)
+		tv.Volume = localVolume
+	} else {
+		tv.Volume = &hostvolume
+	}
+	return nil
 }

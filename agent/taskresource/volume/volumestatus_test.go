@@ -29,8 +29,8 @@ func TestStatusString(t *testing.T) {
 	assert.Equal(t, resourceStatus.String(), "NONE")
 	resourceStatus = VolumeCreated
 	assert.Equal(t, resourceStatus.String(), "CREATED")
-	resourceStatus = VolumeCleaned
-	assert.Equal(t, resourceStatus.String(), "CLEANED")
+	resourceStatus = VolumeRemoved
+	assert.Equal(t, resourceStatus.String(), "REMOVED")
 }
 
 func TestMarshalVolumeStatus(t *testing.T) {
@@ -61,9 +61,9 @@ func TestUnmarshalVolumeStatus(t *testing.T) {
 	assert.Equal(t, VolumeCreated, status, "CREATED should unmarshal to CREATED, not "+status.String())
 
 	var testStatus testVolumeStatus
-	err = json.Unmarshal([]byte(`{"status":"CLEANED"}`), &testStatus)
+	err = json.Unmarshal([]byte(`{"status":"REMOVED"}`), &testStatus)
 	assert.NoError(t, err)
-	assert.Equal(t, VolumeCleaned, testStatus.SomeStatus, "CLEANED should unmarshal to CLEANED, not "+testStatus.SomeStatus.String())
+	assert.Equal(t, VolumeRemoved, testStatus.SomeStatus, "REMOVED should unmarshal to REMOVED, not "+testStatus.SomeStatus.String())
 }
 
 func TestUnmarshalNullVolumeStatus(t *testing.T) {
@@ -81,7 +81,7 @@ func TestUnmarshalNonStringVolumeStatusDefaultNone(t *testing.T) {
 }
 
 func TestUnmarshalUnmappedVolumeStatusDefaultNone(t *testing.T) {
-	status := VolumeCleaned
+	status := VolumeRemoved
 	err := json.Unmarshal([]byte(`"SOMEOTHER"`), &status)
 	assert.NotNil(t, err)
 	assert.Equal(t, VolumeStatusNone, status, "Unmapped status should unmarshal to None, not "+status.String())

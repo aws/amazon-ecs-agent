@@ -17,25 +17,25 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 // VolumeStatus defines resource statuses for docker volume
-type VolumeStatus taskresource.ResourceStatus
+type VolumeStatus resourcestatus.ResourceStatus
 
 const (
 	// VolumeStatusNone is the zero state of a task resource
 	VolumeStatusNone VolumeStatus = iota
 	// VolumeCreated represents a task resource which has been created
 	VolumeCreated
-	// VolumeCleaned represents a task resource which has been cleaned up
-	VolumeCleaned
+	// VolumeRemoved represents a task resource which has been Removed
+	VolumeRemoved
 )
 
 var resourceStatusMap = map[string]VolumeStatus{
 	"NONE":    VolumeStatusNone,
 	"CREATED": VolumeCreated,
-	"CLEANED": VolumeCleaned,
+	"REMOVED": VolumeRemoved,
 }
 
 // StatusString returns a human readable string representation of this object

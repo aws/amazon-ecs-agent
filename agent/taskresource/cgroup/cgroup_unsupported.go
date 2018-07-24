@@ -18,18 +18,20 @@ import (
 	"errors"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 // CgroupResource represents Cgroup resource
 type CgroupResource struct{}
 
 // SetDesiredStatus safely sets the desired status of the resource
-func (c *CgroupResource) SetDesiredStatus(status taskresource.ResourceStatus) {}
+func (c *CgroupResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {}
 
 // GetDesiredStatus safely returns the desired status of the task
-func (c *CgroupResource) GetDesiredStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatusNone
+func (c *CgroupResource) GetDesiredStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
 }
 
 // GetName safely returns the name of the resource
@@ -48,38 +50,38 @@ func (c *CgroupResource) KnownCreated() bool {
 }
 
 // TerminalStatus returns the last transition state of cgroup
-func (c *CgroupResource) TerminalStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatusNone
+func (c *CgroupResource) TerminalStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
 }
 
 // NextKnownState returns the state that the resource should progress to based
 // on its `KnownState`.
-func (c *CgroupResource) NextKnownState() taskresource.ResourceStatus {
-	return taskresource.ResourceStatusNone
+func (c *CgroupResource) NextKnownState() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
 }
 
 // ApplyTransition calls the function required to move to the specified status
-func (c *CgroupResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
+func (c *CgroupResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	return errors.New("unsupported platform")
 }
 
 // SteadyState returns the transition state of the resource defined as "ready"
-func (c *CgroupResource) SteadyState() taskresource.ResourceStatus {
-	return taskresource.ResourceStatusNone
+func (c *CgroupResource) SteadyState() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
 }
 
 // SetKnownStatus safely sets the currently known status of the resource
-func (c *CgroupResource) SetKnownStatus(status taskresource.ResourceStatus) {}
+func (c *CgroupResource) SetKnownStatus(status resourcestatus.ResourceStatus) {}
 
 // SetAppliedStatus sets the applied status of resource and returns whether
 // the resource is already in a transition
-func (c *CgroupResource) SetAppliedStatus(status taskresource.ResourceStatus) bool {
+func (c *CgroupResource) SetAppliedStatus(status resourcestatus.ResourceStatus) bool {
 	return false
 }
 
 // GetKnownStatus safely returns the currently known status of the task
-func (c *CgroupResource) GetKnownStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatusNone
+func (c *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
 }
 
 // SetCreatedAt sets the timestamp for resource's creation time
@@ -101,7 +103,11 @@ func (c *CgroupResource) Cleanup() error {
 }
 
 // StatusString returns the string of the cgroup resource status
-func (c *CgroupResource) StatusString(status taskresource.ResourceStatus) string {
+func (c *CgroupResource) StatusString(status resourcestatus.ResourceStatus) string {
+	return "undefined"
+}
+
+func (c *CgroupResource) GetTerminalReason() string {
 	return "undefined"
 }
 
@@ -116,5 +122,7 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 }
 
 // Initialize fills the resource fileds
-func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields) {
+func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
+	taskKnownStatus status.TaskStatus,
+	taskDesiredStatus status.TaskStatus) {
 }

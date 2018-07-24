@@ -1,0 +1,14 @@
+
+{
+  "family": "ecsftest-private-registry-auth-asm-validator-unix",
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51671/busybox:latest",
+    "repositoryCredentials": {"credentialsParameter": "$$$REPOSITORY_CREDENTIALS$$$"},
+    "name": "private-registry-auth-asm-validator",
+    "cpu": 10,
+    "memory": 10,
+    "essential": true,
+    "command": ["sh", "-c", "exit 42"]
+  }]
+}

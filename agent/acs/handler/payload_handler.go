@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -308,16 +309,16 @@ func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, c
 
 // skipAddTaskComparatorFunc defines the function pointer that accepts task status
 // and returns the boolean comparison result
-type skipAddTaskComparatorFunc func(apitask.TaskStatus) bool
+type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 
 // isTaskStatusStopped returns true if the task status == STOPPTED
-func isTaskStatusStopped(status apitask.TaskStatus) bool {
-	return status == apitask.TaskStopped
+func isTaskStatusStopped(status apitaskstatus.TaskStatus) bool {
+	return status == apitaskstatus.TaskStopped
 }
 
 // isTaskStatusNotStopped returns true if the task status != STOPPTED
-func isTaskStatusNotStopped(status apitask.TaskStatus) bool {
-	return status != apitask.TaskStopped
+func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
+	return status != apitaskstatus.TaskStopped
 }
 
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
@@ -334,7 +335,7 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 	// Only need to stop the task; it brings down the containers too.
 	taskEvent := api.TaskStateChange{
 		TaskARN: *task.Arn,
-		Status:  apitask.TaskStopped,
+		Status:  apitaskstatus.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
 	}
 

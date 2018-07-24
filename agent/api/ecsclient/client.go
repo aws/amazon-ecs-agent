@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -357,7 +357,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	}
 	status := change.Status
 
-	if status != apicontainer.ContainerStopped && status != apicontainer.ContainerRunning {
+	if status != apicontainerstatus.ContainerStopped && status != apicontainerstatus.ContainerRunning {
 		seelog.Warnf("Not submitting unsupported upstream container state %s for container %s in task %s",
 			status.String(), change.ContainerName, change.TaskArn)
 		return nil

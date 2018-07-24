@@ -316,7 +316,8 @@ func TestMetricsDisabled(t *testing.T) {
 	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
 	cs.SetConnection(conn)
 
-	metricsPublished := make(chan struct{})
+	published := make(chan struct{})
+	readed := make(chan struct{})
 
 	// stats engine should only be called for getting health metrics
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
@@ -326,14 +327,17 @@ func TestMetricsDisabled(t *testing.T) {
 		MessageId:         aws.String("message_id"),
 	}, []*ecstcs.TaskHealth{{}}, nil).MinTimes(1)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
-	conn.EXPECT().ReadMessage().Return(1, nil, nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Do(func() {
+		readed <- struct{}{}
+	}).Return(1, nil, nil).MinTimes(1)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Do(func(messageType int, data []byte) {
-		metricsPublished <- struct{}{}
+		published <- struct{}{}
 	}).Return(nil).MinTimes(1)
 
 	go cs.Serve()
-	<-metricsPublished
+	<-published
+	<-readed
 }
 
 func TestCreatePublishHealthRequestsEmpty(t *testing.T) {

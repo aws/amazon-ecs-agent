@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,9 +14,10 @@
 package task
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,15 +25,21 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	resourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -82,7 +89,7 @@ type Task struct {
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
 	// ResourcesMapUnsafe is the map of resource type to corresponding resources
-	ResourcesMapUnsafe resourcetypes.ResourcesMap `json:"resources"`
+	ResourcesMapUnsafe resourcetype.ResourcesMap `json:"resources"`
 	// Volumes are the volumes for the task
 	Volumes []TaskVolume `json:"volumes"`
 	// CPU is a task-level limit for compute resources. A value of 1 means that
@@ -93,13 +100,13 @@ type Task struct {
 	// DesiredStatusUnsafe represents the state where the task should go. Generally,
 	// the desired status is informed by the ECS backend as a result of either
 	// API calls made to ECS or decisions made by the ECS service scheduler.
-	// The DesiredStatusUnsafe is almost always either TaskRunning or TaskStopped.
+	// The DesiredStatusUnsafe is almost always either apitaskstatus.TaskRunning or apitaskstatus.TaskStopped.
 	// NOTE: Do not access DesiredStatusUnsafe directly.  Instead, use `UpdateStatus`,
 	// `UpdateDesiredStatus`, `SetDesiredStatus`, and `SetDesiredStatus`.
 	// TODO DesiredStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	DesiredStatusUnsafe TaskStatus `json:"DesiredStatus"`
+	DesiredStatusUnsafe apitaskstatus.TaskStatus `json:"DesiredStatus"`
 
 	// KnownStatusUnsafe represents the state where the task is.  This is generally
 	// the minimum of equivalent status types for the containers in the task;
@@ -110,7 +117,7 @@ type Task struct {
 	// TODO KnownStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	KnownStatusUnsafe TaskStatus `json:"KnownStatus"`
+	KnownStatusUnsafe apitaskstatus.TaskStatus `json:"KnownStatus"`
 	// KnownStatusTimeUnsafe captures the time when the KnownStatusUnsafe was last updated.
 	// NOTE: Do not access KnownStatusTime directly, instead use `GetKnownStatusTime`.
 	KnownStatusTimeUnsafe time.Time `json:"KnownTime"`
@@ -130,7 +137,7 @@ type Task struct {
 	// TODO SentStatusUnsafe should probably be private with appropriately written
 	// setter/getter.  When this is done, we need to ensure that the UnmarshalJSON
 	// is handled properly so that the state storage continues to work.
-	SentStatusUnsafe TaskStatus `json:"SentStatus"`
+	SentStatusUnsafe apitaskstatus.TaskStatus `json:"SentStatus"`
 
 	StartSequenceNumber int64
 	StopSequenceNumber  int64
@@ -153,6 +160,12 @@ type Task struct {
 	// platformFields consists of fields specific to linux/windows for a task
 	platformFields platformFields
 
+	// terminalReason should be used when we explicitly move a task to stopped.
+	// This ensures the task object carries some context for why it was explicitly
+	// stoppped.
+	terminalReason     string
+	terminalReasonOnce sync.Once
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -169,9 +182,9 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
-	if task.GetDesiredStatus() == TaskRunning && envelope.SeqNum != nil {
+	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
-	} else if task.GetDesiredStatus() == TaskStopped && envelope.SeqNum != nil {
+	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
 		task.StopSequenceNumber = *envelope.SeqNum
 	}
 
@@ -180,7 +193,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
-		container.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 	// initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -191,7 +204,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
-	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields) error {
+	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
+	dockerClient dockerapi.DockerClient, ctx context.Context) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -202,52 +216,188 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
-	task.initializeEmptyVolumes()
+
+	if task.requiresASMDockerAuthData() {
+		task.initializeASMAuthResource(credentialsManager, resourceFields)
+	}
+
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeDockerVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
 
-func (task *Task) initializeEmptyVolumes() {
-	requiredEmptyVolumes := []string{}
+func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	var requiredLocalVolumes []string
 	for _, container := range task.Containers {
 		for _, mountPoint := range container.MountPoints {
 			vol, ok := task.HostVolumeByName(mountPoint.SourceVolume)
 			if !ok {
 				continue
 			}
-			if _, ok := vol.(*EmptyHostVolume); ok {
-				container.BuildContainerDependency(emptyHostVolumeName, apicontainer.ContainerRunning, apicontainer.ContainerCreated)
-				requiredEmptyVolumes = append(requiredEmptyVolumes, mountPoint.SourceVolume)
+			if localVolume, ok := vol.(*taskresourcevolume.LocalDockerVolume); ok {
+				localVolume.HostPath = task.volumeName(mountPoint.SourceVolume)
+				container.BuildResourceDependency(mountPoint.SourceVolume,
+					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
+					apicontainerstatus.ContainerPulled)
+				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
+
 			}
 		}
 	}
 
-	if len(requiredEmptyVolumes) == 0 {
-		// No need to create the auxiliary 'empty-volumes' container
-		return
+	if len(requiredLocalVolumes) == 0 {
+		// No need to create the auxiliary local driver volumes
+		return nil
 	}
 
-	// If we have required empty volumes, add an 'internal' container that handles all
-	// of them
-	_, ok := task.ContainerByName(emptyHostVolumeName)
-	if !ok {
-		mountPoints := make([]apicontainer.MountPoint, len(requiredEmptyVolumes))
-		for i, volume := range requiredEmptyVolumes {
-			// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
-			containerPath := getCanonicalPath(emptyvolume.ContainerPathPrefix + volume)
-			mountPoints[i] = apicontainer.MountPoint{SourceVolume: volume, ContainerPath: containerPath}
+	// if we have required local volumes, create one with default local drive
+	for _, volumeName := range requiredLocalVolumes {
+		vol, _ := task.HostVolumeByName(volumeName)
+		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
+		scope := taskresourcevolume.TaskScope
+		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName,
+			vol.Source(), scope, false,
+			taskresourcevolume.DockerLocalVolumeDriver,
+			make(map[string]string), make(map[string]string), dockerClient)
+
+		if err != nil {
+			return err
 		}
-		sourceContainer := &apicontainer.Container{
-			Name:                emptyHostVolumeName,
-			Image:               emptyvolume.Image + ":" + emptyvolume.Tag,
-			Command:             []string{emptyvolume.Command}, // Command required, but this only gets created so N/A
-			MountPoints:         mountPoints,
-			Essential:           false,
-			Type:                apicontainer.ContainerEmptyHostVolume,
-			DesiredStatusUnsafe: apicontainer.ContainerRunning,
+
+		task.AddResource(resourcetype.DockerVolumeKey, localVolume)
+	}
+	return nil
+}
+
+func (task *Task) volumeName(name string) string {
+	return "ecs-" + task.Family + "-" + task.Version + "-" + name + "-" + utils.RandHex()
+}
+
+// initializeDockerVolumes checks the volume resource in the task to determine if the agent
+// should create the volume before creating the container
+func (task *Task) initializeDockerVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	for i, vol := range task.Volumes {
+		// No need to do this for non-docker volume, eg: host bind/empty volume
+		if vol.Type != DockerVolumeType {
+			continue
 		}
-		task.Containers = append(task.Containers, sourceContainer)
+
+		dockerVolume, ok := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 'docker'")
+		}
+		// Agent needs to create task-scoped volume
+		if dockerVolume.Scope == taskresourcevolume.TaskScope {
+			err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i])
+			if err != nil {
+				return err
+			}
+		} else {
+			// Agent needs to create shared volume if that's auto provisioned
+			err := task.addSharedVolumes(ctx, dockerClient, &task.Volumes[i])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// addTaskScopedVolumes adds the task scoped volume into task resources and updates container dependency
+func (task *Task) addTaskScopedVolumes(ctx context.Context, dockerClient dockerapi.DockerClient,
+	vol *TaskVolume) error {
+
+	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
+	volumeResource, err := taskresourcevolume.NewVolumeResource(
+		ctx,
+		vol.Name,
+		task.volumeName(vol.Name),
+		volumeConfig.Scope, volumeConfig.Autoprovision,
+		volumeConfig.Driver, volumeConfig.DriverOpts,
+		volumeConfig.Labels, dockerClient)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &volumeResource.VolumeConfig
+	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+	task.updateContainerVolumeDependency(vol.Name)
+	return nil
+}
+
+// addSharedVolumes adds shared volume into task resources and updates container dependency
+func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.DockerClient,
+	vol *TaskVolume) error {
+
+	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
+	volumeConfig.DockerVolumeName = vol.Name
+	if volumeConfig.Autoprovision {
+		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectVolumeTimeout)
+		if volumeMetadata.Error != nil {
+			return errors.Wrap(volumeMetadata.Error, "initialize volume: auto provisioned volume detection failed")
+		}
+		return nil
+	}
+
+	// check if the volume configuration matches the one exists on the instance
+	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerapi.InspectVolumeTimeout)
+	if volumeMetadata.Error != nil {
+		// Inspect the volume timed out, fail the task
+		if _, ok := volumeMetadata.Error.(*dockerapi.DockerTimeoutError); ok {
+			return volumeMetadata.Error
+		}
+
+		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, vol.Name)
+		// this resource should be created by agent
+		volumeResource, err := taskresourcevolume.NewVolumeResource(
+			ctx,
+			vol.Name,
+			vol.Name,
+			volumeConfig.Scope, volumeConfig.Autoprovision,
+			volumeConfig.Driver, volumeConfig.DriverOpts,
+			volumeConfig.Labels, dockerClient)
+		if err != nil {
+			return err
+		}
+
+		task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+		task.updateContainerVolumeDependency(vol.Name)
+		return nil
+	}
+
+	seelog.Infof("initialize volue: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
+	// validate all the volume metadata fields match to the configuration
+	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
+		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: %s",
+			volumeMetadata.DockerVolume.Labels)
+	}
+	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
+		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: %s",
+			volumeMetadata.DockerVolume.Options)
+	}
+	return nil
+}
+
+// updateContainerVolumeDependency adds the volume resource to container dependency
+func (task *Task) updateContainerVolumeDependency(name string) {
+	// Find all the container that depends on the volume
+	for _, container := range task.Containers {
+		for _, mountpoint := range container.MountPoints {
+			if mountpoint.SourceVolume == name {
+				container.BuildResourceDependency(name,
+					resourcestatus.ResourceCreated,
+					apicontainerstatus.ContainerPulled)
+			}
+		}
 	}
 }
 
@@ -279,6 +429,42 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
 	}
 
+}
+
+// requiresASMDockerAuthData returns true if atleast one container in the task
+// needs to retrieve private registry authentication data from ASM
+func (task *Task) requiresASMDockerAuthData() bool {
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeASMAuthResource builds the resource dependency map for the ASM auth resource
+func (task *Task) initializeASMAuthResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	asmAuthResource := asmauth.NewASMAuthResource(task.Arn, task.getAllASMAuthDataRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+	task.AddResource(asmauth.ResourceName, asmAuthResource)
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			container.BuildResourceDependency(asmAuthResource.GetName(),
+				resourcestatus.ResourceStatus(asmauth.ASMAuthStatusCreated),
+				apicontainerstatus.ContainerPulled)
+		}
+	}
+}
+
+func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
+	var reqs []*apicontainer.ASMAuthData
+	for _, container := range task.Containers {
+		if container.ShouldPullWithASMAuth() {
+			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+		}
+	}
+	return reqs
 }
 
 // BuildCNIConfig constructs the cni configuration from eni
@@ -325,9 +511,9 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(PauseContainerName, apicontainer.ContainerResourcesProvisioned, apicontainer.ContainerPulled)
+		container.BuildContainerDependency(PauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 	}
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainer.ContainerResourcesProvisioned)
+	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.Name = PauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
@@ -347,7 +533,7 @@ func (task *Task) ContainerByName(name string) (*apicontainer.Container, bool) {
 
 // HostVolumeByName returns the task Volume for the given a volume name in that
 // task. The second return value indicates the presence of that volume
-func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
+func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool) {
 	for _, v := range task.Volumes {
 		if v.Name == name {
 			return v.Volume, true
@@ -356,41 +542,20 @@ func (task *Task) HostVolumeByName(name string) (HostVolume, bool) {
 	return nil, false
 }
 
-// UpdateMountPoints updates the mount points of volumes that were created
-// without specifying a host path.  This is used as part of the empty host
-// volume feature.
-func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
-	for _, mountPoint := range cont.MountPoints {
-		containerPath := getCanonicalPath(mountPoint.ContainerPath)
-		hostPath, ok := vols[containerPath]
-		if !ok {
-			// /path/ -> /path or \path\ -> \path
-			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
-		}
-		if ok {
-			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
-				if empty, ok := hostVolume.(*EmptyHostVolume); ok {
-					empty.HostPath = hostPath
-				}
-			}
-		}
-	}
-}
-
 // updateTaskKnownStatus updates the given task's status based on its container's status.
 // It updates to the minimum of all containers no matter what
 // It returns a TaskStatus indicating what change occurred or TaskStatusNone if
 // there was no change
 // Invariant: task known status is the minimum of container known status
-func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
+func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	seelog.Debugf("Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
-	containerEarliestKnownStatus := apicontainer.ContainerZombie
+	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
 	essentialContainerStopped := false
 	for _, container := range task.Containers {
 		containerKnownStatus := container.GetKnownStatus()
-		if containerKnownStatus == apicontainer.ContainerStopped && container.Essential {
+		if containerKnownStatus == apicontainerstatus.ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
 		if containerKnownStatus < containerEarliestKnownStatus {
@@ -402,7 +567,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		seelog.Criticalf(
 			"Impossible state found while updating tasks's known status, earliest state recorded as %s for task [%v]",
 			containerEarliestKnownStatus.String(), task)
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	seelog.Debugf("Container with earliest known container is [%s] for task: %s",
 		earliestKnownStatusContainer.String(), task.String())
@@ -412,7 +577,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		seelog.Debugf(
 			"Essential container is stopped while other containers are running, not updating task status for task: %s",
 			task.String())
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	// We can't rely on earliest container known status alone for determining if the
 	// task state needs to be updated as containers can have different steady states
@@ -425,20 +590,20 @@ func (task *Task) updateTaskKnownStatus() (newStatus TaskStatus) {
 		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
 	}
-	return TaskStatusNone
+	return apitaskstatus.TaskStatusNone
 }
 
 // getEarliestKnownTaskStatusForContainers gets the lowest (earliest) task status
 // based on the known statuses of all containers in the task
-func (task *Task) getEarliestKnownTaskStatusForContainers() TaskStatus {
+func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskStatus {
 	if len(task.Containers) == 0 {
 		seelog.Criticalf("No containers in the task: %s", task.String())
-		return TaskStatusNone
+		return apitaskstatus.TaskStatusNone
 	}
 	// Set earliest container status to an impossible to reach 'high' task status
-	earliest := TaskZombie
+	earliest := apitaskstatus.TaskZombie
 	for _, container := range task.Containers {
-		containerTaskStatus := MapContainerToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
+		containerTaskStatus := apitaskstatus.MapContainerToTaskStatus(container.GetKnownStatus(), container.GetSteadyStateStatus())
 		if containerTaskStatus < earliest {
 			earliest = containerTaskStatus
 		}
@@ -454,11 +619,6 @@ func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion doc
 }
 
 func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
-	dockerVolumes, err := task.dockerConfigVolumes(container)
-	if err != nil {
-		return nil, &apierrors.DockerClientConfigError{err.Error()}
-	}
-
 	dockerEnv := make([]string, 0, len(container.Environment))
 	for envKey, envVal := range container.Environment {
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
@@ -480,11 +640,10 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
 		ExposedPorts: task.dockerExposedPorts(container),
-		Volumes:      dockerVolumes,
 		Env:          dockerEnv,
 	}
 
-	err = task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
+	err := task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
 	if err != nil {
 		return nil, &apierrors.DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
 	}
@@ -558,29 +717,6 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) map[dock
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 	return dockerExposedPorts
-}
-
-func (task *Task) dockerConfigVolumes(container *apicontainer.Container) (map[string]struct{}, error) {
-	volumeMap := make(map[string]struct{})
-	for _, m := range container.MountPoints {
-		vol, exists := task.HostVolumeByName(m.SourceVolume)
-		if !exists {
-			return nil, &apierrors.BadVolumeError{"Container " + container.Name + " in task " + task.Arn + " references invalid volume " + m.SourceVolume}
-		}
-		// you can handle most volume mount types in the HostConfig at run-time;
-		// empty mounts are created by docker at create-time (Config) so set
-		// them here.
-		if container.Type == apicontainer.ContainerEmptyHostVolume {
-			// if container.Name == emptyHostVolumeName && container.Type {
-			_, ok := vol.(*EmptyHostVolume)
-			if !ok {
-				return nil, &apierrors.BadVolumeError{"Empty volume container in task " + task.Arn + " was the wrong type"}
-			}
-
-			volumeMap[m.ContainerPath] = struct{}{}
-		}
-	}
-	return volumeMap, nil
 }
 
 // DockerHostConfig construct the configuration recognized by docker
@@ -849,14 +985,15 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 			return []string{}, errors.New("Invalid volume referenced: " + mountPoint.SourceVolume)
 		}
 
-		if hv.SourcePath() == "" || mountPoint.ContainerPath == "" {
+		if hv.Source() == "" || mountPoint.ContainerPath == "" {
 			seelog.Errorf(
 				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s] in task: [%s]",
-				container.Name, mountPoint.SourceVolume, hv.SourcePath(), mountPoint.ContainerPath, task.String())
-			return []string{}, errors.New("Unable to resolve volume mounts; invalid path: " + container.Name + " " + mountPoint.SourceVolume + "; " + hv.SourcePath() + " -> " + mountPoint.ContainerPath)
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath, task.String())
+			return []string{}, errors.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s",
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 		}
 
-		bind := hv.SourcePath() + ":" + mountPoint.ContainerPath
+		bind := hv.Source() + ":" + mountPoint.ContainerPath
 		if mountPoint.ReadOnly {
 			bind += ":ro"
 		}
@@ -873,7 +1010,7 @@ func (task *Task) UpdateStatus() bool {
 	change := task.updateTaskKnownStatus()
 	// DesiredStatus can change based on a new known status
 	task.UpdateDesiredStatus()
-	return change != TaskStatusNone
+	return change != apitaskstatus.TaskStatusNone
 }
 
 // UpdateDesiredStatus sets the known status of the task
@@ -896,7 +1033,7 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			seelog.Debugf("Updating task desired status to stopped because of container: [%s]; task: [%s]",
 				cont.Name, task.stringUnsafe())
-			task.DesiredStatusUnsafe = TaskStopped
+			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		}
 	}
 }
@@ -905,9 +1042,9 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 // task's desired status
 // Invariant: container desired status is <= task desired status converted to container status
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
-func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
+func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus apitaskstatus.TaskStatus) {
 	for _, container := range task.Containers {
-		taskDesiredStatusToContainerStatus := MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
+		taskDesiredStatusToContainerStatus := apitaskstatus.MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
 		if container.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
 			container.SetDesiredStatus(taskDesiredStatusToContainerStatus)
 		}
@@ -917,10 +1054,10 @@ func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus TaskStatu
 // updateResourceDesiredStatusUnsafe sets all resources' desired status depending on the
 // task's desired status
 // TODO: Create a mapping of resource status to the corresponding task status and use it here
-func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus) {
+func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus apitaskstatus.TaskStatus) {
 	resources := task.getResourcesUnsafe()
 	for _, r := range resources {
-		if taskDesiredStatus == TaskRunning {
+		if taskDesiredStatus == apitaskstatus.TaskRunning {
 			if r.GetDesiredStatus() < r.SteadyState() {
 				r.SetDesiredStatus(r.SteadyState())
 			}
@@ -933,12 +1070,12 @@ func (task *Task) updateResourceDesiredStatusUnsafe(taskDesiredStatus TaskStatus
 }
 
 // SetKnownStatus sets the known status of the task
-func (task *Task) SetKnownStatus(status TaskStatus) {
+func (task *Task) SetKnownStatus(status apitaskstatus.TaskStatus) {
 	task.setKnownStatus(status)
 	task.updateKnownStatusTime()
 }
 
-func (task *Task) setKnownStatus(status TaskStatus) {
+func (task *Task) setKnownStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -953,7 +1090,7 @@ func (task *Task) updateKnownStatusTime() {
 }
 
 // GetKnownStatus gets the KnownStatus of the task
-func (task *Task) GetKnownStatus() TaskStatus {
+func (task *Task) GetKnownStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1001,7 +1138,7 @@ func (task *Task) GetExecutionCredentialsID() string {
 }
 
 // GetDesiredStatus gets the desired status of the task
-func (task *Task) GetDesiredStatus() TaskStatus {
+func (task *Task) GetDesiredStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1009,7 +1146,7 @@ func (task *Task) GetDesiredStatus() TaskStatus {
 }
 
 // SetDesiredStatus sets the desired status of the task
-func (task *Task) SetDesiredStatus(status TaskStatus) {
+func (task *Task) SetDesiredStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -1017,7 +1154,7 @@ func (task *Task) SetDesiredStatus(status TaskStatus) {
 }
 
 // GetSentStatus safely returns the SentStatus of the task
-func (task *Task) GetSentStatus() TaskStatus {
+func (task *Task) GetSentStatus() apitaskstatus.TaskStatus {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
@@ -1025,7 +1162,7 @@ func (task *Task) GetSentStatus() TaskStatus {
 }
 
 // SetSentStatus safely sets the SentStatus of the task
-func (task *Task) SetSentStatus(status TaskStatus) {
+func (task *Task) SetSentStatus(status apitaskstatus.TaskStatus) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -1177,7 +1314,7 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 	if !container.Essential {
 		return
 	}
-	if container.GetKnownStatus() != apicontainer.ContainerStopped {
+	if container.GetKnownStatus() != apicontainerstatus.ContainerStopped {
 		return
 	}
 	// If the essential container is stopped, set the ExecutionStoppedAt timestamp
@@ -1214,6 +1351,51 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 	task.ResourcesMapUnsafe[resourceType] = append(task.ResourcesMapUnsafe[resourceType], resource)
 }
 
+// SetTerminalReason sets the terminalReason string and this can only be set
+// once per the task's lifecycle. This field does not accept updates.
+func (task *Task) SetTerminalReason(reason string) {
+	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
+	task.terminalReasonOnce.Do(func() {
+		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
+		task.terminalReason = reason
+	})
+}
+
+// GetTerminalReason retrieves the terminalReason string
+func (task *Task) GetTerminalReason() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.terminalReason
+}
+
+// PopulateASMAuthData sets docker auth credentials for a container
+func (task *Task) PopulateASMAuthData(container *apicontainer.Container) error {
+	secretID := container.RegistryAuthentication.ASMAuthData.CredentialsParameter
+	resource, ok := task.getASMAuthResource()
+	if !ok {
+		return errors.New("task auth data: unable to fetch ASM resource")
+	}
+	// This will cause a panic if the resource is not of ASMAuthResource type.
+	// But, it's better to panic as we should have never reached condition
+	// unless we released an agent without any testing around that code path
+	asmResource := resource[0].(*asmauth.ASMAuthResource)
+	dac, ok := asmResource.GetASMDockerAuthConfig(secretID)
+	if !ok {
+		return errors.Errorf("task auth data: unable to fetch docker auth config [%s]", secretID)
+	}
+	container.SetASMDockerAuthConfig(dac)
+	return nil
+}
+
+func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
+	return res, ok
+}
+
 // InitializeResources initializes the required field in the task on agent restart
 // Some of the fields in task isn't saved in the agent state file, agent needs
 // to initialize these fields before processing the task, eg: docker client in resource
@@ -1223,7 +1405,7 @@ func (task *Task) InitializeResources(resourceFields *taskresource.ResourceField
 
 	for _, resources := range task.ResourcesMapUnsafe {
 		for _, resource := range resources {
-			resource.Initialize(resourceFields)
+			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}
 }

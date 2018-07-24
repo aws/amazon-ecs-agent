@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.19.0
+* Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
+
 ## 1.18.0
 * Feature - Configurable container image pull behavior [#1348](https://github.com/aws/amazon-ecs-agent/pull/1348)
 * Bug - Fixed a bug where Docker Version() API never returns by adding a timeout [#1363](https://github.com/aws/amazon-ecs-agent/pull/1363)

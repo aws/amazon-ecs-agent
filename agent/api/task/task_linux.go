@@ -19,11 +19,12 @@ import (
 	"path/filepath"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
-	restype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -78,11 +79,11 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields
 	}
 	cgroupResource := cgroup.NewCgroupResource(task.Arn, resourceFields.Control,
 		resourceFields.IOUtil, cgroupRoot, cgroupPath, resSpec)
-	task.AddResource(restype.CgroupKey, cgroupResource)
+	task.AddResource(resourcetype.CgroupKey, cgroupResource)
 	for _, container := range task.Containers {
 		container.BuildResourceDependency(cgroupResource.GetName(),
-			taskresource.ResourceStatus(cgroup.CgroupCreated),
-			apicontainer.ContainerPulled)
+			resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			apicontainerstatus.ContainerPulled)
 	}
 	return nil
 }

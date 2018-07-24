@@ -19,42 +19,46 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestVerifyCgroupDependenciesResolved(t *testing.T) {
 	testcases := []struct {
-		Name             string
-		TargetKnown      apicontainer.ContainerStatus
-		TargetDep        apicontainer.ContainerStatus
-		DependencyKnown  taskresource.ResourceStatus
-		RequiredStatus   taskresource.ResourceStatus
+		Name            string
+		TargetKnown     apicontainerstatus.ContainerStatus
+		TargetDep       apicontainerstatus.ContainerStatus
+		DependencyKnown resourcestatus.ResourceStatus
+		RequiredStatus  resourcestatus.ResourceStatus
+
 		ExpectedResolved bool
 	}{
 		{
-			Name:             "resource none,container pull depends on resource created",
-			TargetKnown:      apicontainer.ContainerStatusNone,
-			TargetDep:        apicontainer.ContainerPulled,
-			DependencyKnown:  taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			RequiredStatus:   taskresource.ResourceStatus(cgroup.CgroupCreated),
+			Name:            "resource none,container pull depends on resource created",
+			TargetKnown:     apicontainerstatus.ContainerStatusNone,
+			TargetDep:       apicontainerstatus.ContainerPulled,
+			DependencyKnown: resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			RequiredStatus:  resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+
 			ExpectedResolved: false,
 		},
 		{
 			Name:             "resource created,container pull depends on resource created",
-			TargetKnown:      apicontainer.ContainerStatusNone,
-			TargetDep:        apicontainer.ContainerPulled,
-			DependencyKnown:  taskresource.ResourceStatus(cgroup.CgroupCreated),
-			RequiredStatus:   taskresource.ResourceStatus(cgroup.CgroupCreated),
+			TargetKnown:      apicontainerstatus.ContainerStatusNone,
+			TargetDep:        apicontainerstatus.ContainerPulled,
+			DependencyKnown:  resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			RequiredStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			ExpectedResolved: true,
 		},
 		{
 			Name:             "resource none,container create depends on resource created",
-			TargetKnown:      apicontainer.ContainerStatusNone,
-			TargetDep:        apicontainer.ContainerCreated,
-			DependencyKnown:  taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			RequiredStatus:   taskresource.ResourceStatus(cgroup.CgroupCreated),
+			TargetKnown:      apicontainerstatus.ContainerStatusNone,
+			TargetDep:        apicontainerstatus.ContainerCreated,
+			DependencyKnown:  resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			RequiredStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			ExpectedResolved: true,
 		},
 	}
@@ -64,7 +68,7 @@ func TestVerifyCgroupDependenciesResolved(t *testing.T) {
 			cgroupResource.SetKnownStatus(tc.DependencyKnown)
 			target := &apicontainer.Container{
 				KnownStatusUnsafe:         tc.TargetKnown,
-				TransitionDependenciesMap: make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet),
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			}
 			target.BuildResourceDependency("cgroup", tc.RequiredStatus, tc.TargetDep)
 			resources := make(map[string]taskresource.TaskResource)

@@ -24,8 +24,10 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -35,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	docker "github.com/fsouza/go-dockerclient"
@@ -63,8 +66,9 @@ func TestResourceContainerProgression(t *testing.T) {
 
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
+
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainerstatus.ContainerPulled)
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
@@ -99,7 +103,7 @@ func TestResourceContainerProgression(t *testing.T) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerCreated)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -108,7 +112,7 @@ func TestResourceContainerProgression(t *testing.T) {
 			func(ctx interface{}, id string, timeout time.Duration) {
 				containerEventsWG.Add(1)
 				go func() {
-					eventStream <- createDockerEvent(apicontainer.ContainerRunning)
+					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
 					containerEventsWG.Done()
 				}()
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
@@ -121,7 +125,7 @@ func TestResourceContainerProgression(t *testing.T) {
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainer.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 			DockerID: containerID + ":" + sleepContainer.Name,
 			ExitCode: aws.Int(exitCode),
@@ -173,8 +177,9 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	defer ctrl.Finish()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildResourceDependency("cgroup", taskresource.ResourceCreated, apicontainer.ContainerPulled)
+
+	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	sleepContainer.BuildResourceDependency("cgroup", resourcestatus.ResourceCreated, apicontainerstatus.ContainerPulled)
 
 	mockControl := mock_control.NewMockControl(ctrl)
 	taskID, err := sleepTask.GetID()
@@ -242,7 +247,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			sleepTask := testdata.LoadTask("sleep5")
 			sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 			sleepContainer := sleepTask.Containers[0]
-			sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+			sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 			sleepTask.SetCredentialsID(credentialsID)
 			eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 			// containerEventsWG is used to force the test to wait until the container created and started
@@ -273,7 +278,9 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				// task life-cycle and performing the setup only in this stage
 				taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
 					Control: mockControl,
-					IOUtil:  mockIO,
+					ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+						IOUtil: mockIO,
+					},
 				}
 				mockControl.EXPECT().Exists(gomock.Any()).Return(false)
 				mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil)
@@ -298,7 +305,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any()).AnyTimes()
 			// Simulate a container stop event from docker
 			eventStream <- dockerapi.DockerContainerChangeEvent{
-				Status: apicontainer.ContainerStopped,
+				Status: apicontainerstatus.ContainerStopped,
 				DockerContainerMetadata: dockerapi.DockerContainerMetadata{
 					DockerID: containerID,
 					ExitCode: aws.Int(exitCode),
@@ -311,17 +318,17 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 			// This ensures that managedTask.waitForStopReported makes progress
-			sleepTask.SetSentStatus(apitask.TaskStopped)
+			sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
 
 			sleepTaskStop := testdata.LoadTask("sleep5")
 			sleepTaskStop.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 			sleepContainer = sleepTaskStop.Containers[0]
-			sleepContainer.TransitionDependenciesMap = make(map[apicontainer.ContainerStatus]apicontainer.TransitionDependencySet)
+			sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 			sleepTaskStop.SetCredentialsID(credentialsID)
-			sleepTaskStop.SetDesiredStatus(apitask.TaskStopped)
+			sleepTaskStop.SetDesiredStatus(apitaskstatus.TaskStopped)
 			taskEngine.AddTask(sleepTaskStop)
 			// As above, duplicate events should not be a problem
 			taskEngine.AddTask(sleepTaskStop)
@@ -341,7 +348,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			metadataManager.EXPECT().Clean(gomock.Any()).Return(tc.metadataCleanError)
 			// trigger cleanup
 			cleanup <- time.Now()
-			go func() { eventStream <- createDockerEvent(apicontainer.ContainerStopped) }()
+			go func() { eventStream <- createDockerEvent(apicontainerstatus.ContainerStopped) }()
 			// Wait for the task to actually be dead; if we just fallthrough immediately,
 			// the remove might not have happened (expectation failure)
 			for {
