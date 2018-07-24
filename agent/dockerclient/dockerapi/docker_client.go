@@ -1181,12 +1181,12 @@ func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout
 }
 
 func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return &CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
-	ok := client.RemoveVolume(name)
+	ok := client.VolumeRemove(ctx, name, false)
 	if ok != nil {
 		return &CannotRemoveVolumeError{err}
 	}
@@ -1266,11 +1266,11 @@ func (dg *dockerGoClient) listPlugins(ctx context.Context) ListPluginsResponse {
 
 // APIVersion returns the client api version
 func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return "", err
 	}
-	return dg.clientFactory.FindClientAPIVersion(client), nil
+	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
 // Stats returns a channel of *docker.Stats entries for the container.

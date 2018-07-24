@@ -1445,12 +1445,13 @@ func TestInspectVolume(t *testing.T) {
 }
 
 func TestRemoveVolumeTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(),"name", false).Do(func(ctx context.Context,
+		x interface{}, y bool) {
 		wait.Wait()
 	}).MaxTimes(1)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1462,10 +1463,10 @@ func TestRemoveVolumeTimeout(t *testing.T) {
 }
 
 func TestRemoveVolumeError(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().RemoveVolume(gomock.Any()).Return(errors.New("some docker error"))
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", false).Return(errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveVolume(ctx, "name", RemoveVolumeTimeout)
@@ -1473,12 +1474,12 @@ func TestRemoveVolumeError(t *testing.T) {
 }
 
 func TestRemoveVolume(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	volumeName := "volumeName"
 
-	mockDocker.EXPECT().RemoveVolume(volumeName).Return(nil)
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), volumeName, false).Return(nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveVolume(ctx, volumeName, RemoveVolumeTimeout)
