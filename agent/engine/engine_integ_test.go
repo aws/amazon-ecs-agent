@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,29 +169,6 @@ func TestHostVolumeMount(t *testing.T) {
 	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
-}
-
-func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	// creates a task with two containers
-	testTask := createTestEmptyHostVolumeMountTask()
-	for _, container := range testTask.Containers {
-		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	}
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-
-	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
-	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code, file probably wasn't present")
 }
 
 func TestSweepContainer(t *testing.T) {
@@ -376,4 +354,59 @@ func TestEngineSynchronize(t *testing.T) {
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+func TestSharedProvisionedVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedProvisionedVolume", "TestSharedProvisionedVolume", false)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedProvisionedVolume", "task volume name is not the same as specified in task definition")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	client := taskEngine.(*DockerTaskEngine).client
+	response := client.InspectVolume(context.TODO(), "TestSharedProvisionedVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
+}
+
+func TestSharedNonProvisionedVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	client := taskEngine.(*DockerTaskEngine).client
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedNonProvisionedVolume", "TestSharedNonProvisionedVolume", true)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	volumeConfig := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
+	volumeMetadata := client.CreateVolume(context.TODO(), "TestSharedNonProvisionedVolume",
+		volumeConfig.Driver, volumeConfig.DriverOpts, volumeConfig.Labels, 1*time.Minute)
+	require.NoError(t, volumeMetadata.Error)
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Len(t, testTask.ResourcesMapUnsafe["dockerVolume"], 0, "volume that has been provisioned does not require the agent to create it again")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	response := client.InspectVolume(context.TODO(), "TestSharedNonProvisionedVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
 }

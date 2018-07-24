@@ -138,21 +138,17 @@
     "api/types/swarm/runtime",
     "api/types/versions",
     "opts",
-    "pkg/archive",
     "pkg/fileutils",
     "pkg/homedir",
     "pkg/idtools",
     "pkg/ioutils",
-    "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
     "pkg/plugins",
     "pkg/plugins/transport",
     "pkg/pools",
     "pkg/stdcopy",
-    "pkg/system",
-    "pkg/term",
-    "pkg/term/windows"
+    "pkg/system"
   ]
   revision = "7270b01e5dd1fca3fd7fed0d6fb9d2769ec5f4ba"
 
@@ -174,8 +170,13 @@
 
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"
-  packages = ["."]
-  revision = "8a48995398824064442c99cb45f453fb10c0154e"
+  packages = [
+    ".",
+    "internal/archive",
+    "internal/jsonmessage",
+    "internal/term"
+  ]
+  revision = "be08a2e7eafecb4d8c6bc61be94233a06904a121"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -240,10 +241,7 @@
 
 [[projects]]
   name = "github.com/opencontainers/runc"
-  packages = [
-    "libcontainer/system",
-    "libcontainer/user"
-  ]
+  packages = ["libcontainer/user"]
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"
 
@@ -349,6 +347,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f4f297a53fd373b8a7020e6770341364175896388193424979564197721a57d3"
+  inputs-digest = "522051f7afcb564ad3ea9764fdf9e235dc02c8e17cc2f0690dc9aecade72dada"
   solver-name = "gps-cdcl"
   solver-version = 1

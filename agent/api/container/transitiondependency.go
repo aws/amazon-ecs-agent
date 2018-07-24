@@ -17,7 +17,7 @@ import (
 	"encoding/json"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -52,11 +52,11 @@ type ResourceDependency struct {
 	// Name defines the Resource on which a transition depends
 	Name string `json:"Name"`
 	// RequiredStatus defines the status that satisfies the dependency
-	RequiredStatus taskresource.ResourceStatus `json:"RequiredStatus"`
+	RequiredStatus resourcestatus.ResourceStatus `json:"RequiredStatus"`
 }
 
 // GetRequiredStatus returns the required status for the dependency
-func (rd *ResourceDependency) GetRequiredStatus() taskresource.ResourceStatus {
+func (rd *ResourceDependency) GetRequiredStatus() resourcestatus.ResourceStatus {
 	return rd.RequiredStatus
 }
 

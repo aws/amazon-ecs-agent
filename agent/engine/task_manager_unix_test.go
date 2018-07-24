@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/golang/mock/gomock"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -36,26 +37,26 @@ import (
 func TestHandleResourceStateChangeAndSave(t *testing.T) {
 	testCases := []struct {
 		Name               string
-		KnownStatus        taskresource.ResourceStatus
-		DesiredKnownStatus taskresource.ResourceStatus
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
-		ChangedKnownStatus taskresource.ResourceStatus
+		ChangedKnownStatus resourcestatus.ResourceStatus
 		TaskDesiredStatus  apitaskstatus.TaskStatus
 	}{
 		{
 			Name:               "error while steady state transition",
-			KnownStatus:        taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                errors.New("transition error"),
-			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupStatusNone),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
 			TaskDesiredStatus:  apitaskstatus.TaskStopped,
 		},
 		{
 			Name:               "steady state transition",
-			KnownStatus:        taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
-			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 	}
@@ -91,26 +92,26 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 func TestHandleResourceStateChangeNoSave(t *testing.T) {
 	testCases := []struct {
 		Name               string
-		KnownStatus        taskresource.ResourceStatus
-		DesiredKnownStatus taskresource.ResourceStatus
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
 		Err                error
-		ChangedKnownStatus taskresource.ResourceStatus
+		ChangedKnownStatus resourcestatus.ResourceStatus
 		TaskDesiredStatus  apitaskstatus.TaskStatus
 	}{
 		{
 			Name:               "steady state transition already done",
-			KnownStatus:        taskresource.ResourceStatus(cgroup.CgroupCreated),
-			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			Err:                nil,
-			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 		{
 			Name:               "transition state less than known status",
-			DesiredKnownStatus: taskresource.ResourceStatus(cgroup.CgroupStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
 			Err:                nil,
-			KnownStatus:        taskresource.ResourceStatus(cgroup.CgroupCreated),
-			ChangedKnownStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:        resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			TaskDesiredStatus:  apitaskstatus.TaskRunning,
 		},
 	}
@@ -138,23 +139,23 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 func TestResourceNextState(t *testing.T) {
 	testCases := []struct {
 		Name             string
-		ResKnownStatus   taskresource.ResourceStatus
-		ResDesiredStatus taskresource.ResourceStatus
-		NextState        taskresource.ResourceStatus
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		NextState        resourcestatus.ResourceStatus
 		ActionRequired   bool
 	}{
 		{
 			Name:             "next state happy path",
-			ResKnownStatus:   taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
-			NextState:        taskresource.ResourceStatus(cgroup.CgroupCreated),
+			ResKnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			NextState:        resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			ActionRequired:   true,
 		},
 		{
 			Name:             "desired terminal",
-			ResKnownStatus:   taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(cgroup.CgroupRemoved),
-			NextState:        taskresource.ResourceStatus(cgroup.CgroupRemoved),
+			ResKnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupRemoved),
+			NextState:        resourcestatus.ResourceStatus(cgroup.CgroupRemoved),
 			ActionRequired:   false,
 		},
 	}
@@ -176,18 +177,18 @@ func TestResourceNextState(t *testing.T) {
 func TestStartResourceTransitionsHappyPath(t *testing.T) {
 	testCases := []struct {
 		Name             string
-		ResKnownStatus   taskresource.ResourceStatus
-		ResDesiredStatus taskresource.ResourceStatus
-		TransitionStatus taskresource.ResourceStatus
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		TransitionStatus resourcestatus.ResourceStatus
 		StatusString     string
 		CanTransition    bool
 		TransitionsLen   int
 	}{
 		{
 			Name:             "none to created",
-			ResKnownStatus:   taskresource.ResourceStatus(cgroup.CgroupStatusNone),
-			ResDesiredStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
-			TransitionStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			ResKnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			TransitionStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			StatusString:     "CREATED",
 			CanTransition:    true,
 			TransitionsLen:   1,
@@ -209,7 +210,7 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 			wg := sync.WaitGroup{}
 			wg.Add(1)
 			canTransition, transitions := task.startResourceTransitions(
-				func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					assert.Equal(t, nextStatus, tc.TransitionStatus)
 					wg.Done()
 				})
@@ -226,26 +227,26 @@ func TestStartResourceTransitionsHappyPath(t *testing.T) {
 func TestStartResourceTransitionsEmpty(t *testing.T) {
 	testCases := []struct {
 		Name          string
-		KnownStatus   taskresource.ResourceStatus
-		DesiredStatus taskresource.ResourceStatus
+		KnownStatus   resourcestatus.ResourceStatus
+		DesiredStatus resourcestatus.ResourceStatus
 		CanTransition bool
 	}{
 		{
 			Name:          "known < desired",
-			KnownStatus:   taskresource.ResourceStatus(cgroup.CgroupCreated),
-			DesiredStatus: taskresource.ResourceStatus(cgroup.CgroupRemoved),
+			KnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupRemoved),
 			CanTransition: true,
 		},
 		{
 			Name:          "known equals desired",
-			KnownStatus:   taskresource.ResourceStatus(cgroup.CgroupCreated),
-			DesiredStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			CanTransition: false,
 		},
 		{
 			Name:          "known > desired",
-			KnownStatus:   taskresource.ResourceStatus(cgroup.CgroupRemoved),
-			DesiredStatus: taskresource.ResourceStatus(cgroup.CgroupCreated),
+			KnownStatus:   resourcestatus.ResourceStatus(cgroup.CgroupRemoved),
+			DesiredStatus: resourcestatus.ResourceStatus(cgroup.CgroupCreated),
 			CanTransition: false,
 		},
 	}
@@ -267,7 +268,7 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 			}
 			mtask.Task.AddResource("cgroup", res)
 			canTransition, transitions := mtask.startResourceTransitions(
-				func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 					t.Error("Transition function should not be called when no transitions are possible")
 				})
 			assert.Equal(t, tc.CanTransition, canTransition)

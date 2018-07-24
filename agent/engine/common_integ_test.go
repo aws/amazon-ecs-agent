@@ -19,6 +19,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -105,4 +106,15 @@ func createTestContainerWithImageAndName(image string, name string) *apicontaine
 		CPU:                 100,
 		Memory:              80,
 	}
+}
+
+func waitForTaskCleanup(t *testing.T, taskEngine TaskEngine, taskArn string, seconds int) {
+	for i := 0; i < seconds; i++ {
+		_, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
+		if !ok {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatalf("timed out waiting for task to be clean up, task: %s", taskArn)
 }

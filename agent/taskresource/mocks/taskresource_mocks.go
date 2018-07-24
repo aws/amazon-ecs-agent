@@ -23,6 +23,7 @@ import (
 
 	status "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource"
+	status0 "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -50,7 +51,7 @@ func (m *MockTaskResource) EXPECT() *MockTaskResourceMockRecorder {
 }
 
 // ApplyTransition mocks base method
-func (m *MockTaskResource) ApplyTransition(arg0 taskresource.ResourceStatus) error {
+func (m *MockTaskResource) ApplyTransition(arg0 status0.ResourceStatus) error {
 	ret := m.ctrl.Call(m, "ApplyTransition", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -110,9 +111,9 @@ func (mr *MockTaskResourceMockRecorder) GetCreatedAt() *gomock.Call {
 }
 
 // GetDesiredStatus mocks base method
-func (m *MockTaskResource) GetDesiredStatus() taskresource.ResourceStatus {
+func (m *MockTaskResource) GetDesiredStatus() status0.ResourceStatus {
 	ret := m.ctrl.Call(m, "GetDesiredStatus")
-	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	ret0, _ := ret[0].(status0.ResourceStatus)
 	return ret0
 }
 
@@ -122,9 +123,9 @@ func (mr *MockTaskResourceMockRecorder) GetDesiredStatus() *gomock.Call {
 }
 
 // GetKnownStatus mocks base method
-func (m *MockTaskResource) GetKnownStatus() taskresource.ResourceStatus {
+func (m *MockTaskResource) GetKnownStatus() status0.ResourceStatus {
 	ret := m.ctrl.Call(m, "GetKnownStatus")
-	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	ret0, _ := ret[0].(status0.ResourceStatus)
 	return ret0
 }
 
@@ -193,9 +194,9 @@ func (mr *MockTaskResourceMockRecorder) MarshalJSON() *gomock.Call {
 }
 
 // NextKnownState mocks base method
-func (m *MockTaskResource) NextKnownState() taskresource.ResourceStatus {
+func (m *MockTaskResource) NextKnownState() status0.ResourceStatus {
 	ret := m.ctrl.Call(m, "NextKnownState")
-	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	ret0, _ := ret[0].(status0.ResourceStatus)
 	return ret0
 }
 
@@ -205,7 +206,7 @@ func (mr *MockTaskResourceMockRecorder) NextKnownState() *gomock.Call {
 }
 
 // SetAppliedStatus mocks base method
-func (m *MockTaskResource) SetAppliedStatus(arg0 taskresource.ResourceStatus) bool {
+func (m *MockTaskResource) SetAppliedStatus(arg0 status0.ResourceStatus) bool {
 	ret := m.ctrl.Call(m, "SetAppliedStatus", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -227,7 +228,7 @@ func (mr *MockTaskResourceMockRecorder) SetCreatedAt(arg0 interface{}) *gomock.C
 }
 
 // SetDesiredStatus mocks base method
-func (m *MockTaskResource) SetDesiredStatus(arg0 taskresource.ResourceStatus) {
+func (m *MockTaskResource) SetDesiredStatus(arg0 status0.ResourceStatus) {
 	m.ctrl.Call(m, "SetDesiredStatus", arg0)
 }
 
@@ -237,7 +238,7 @@ func (mr *MockTaskResourceMockRecorder) SetDesiredStatus(arg0 interface{}) *gomo
 }
 
 // SetKnownStatus mocks base method
-func (m *MockTaskResource) SetKnownStatus(arg0 taskresource.ResourceStatus) {
+func (m *MockTaskResource) SetKnownStatus(arg0 status0.ResourceStatus) {
 	m.ctrl.Call(m, "SetKnownStatus", arg0)
 }
 
@@ -247,7 +248,7 @@ func (mr *MockTaskResourceMockRecorder) SetKnownStatus(arg0 interface{}) *gomock
 }
 
 // StatusString mocks base method
-func (m *MockTaskResource) StatusString(arg0 taskresource.ResourceStatus) string {
+func (m *MockTaskResource) StatusString(arg0 status0.ResourceStatus) string {
 	ret := m.ctrl.Call(m, "StatusString", arg0)
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -259,9 +260,9 @@ func (mr *MockTaskResourceMockRecorder) StatusString(arg0 interface{}) *gomock.C
 }
 
 // SteadyState mocks base method
-func (m *MockTaskResource) SteadyState() taskresource.ResourceStatus {
+func (m *MockTaskResource) SteadyState() status0.ResourceStatus {
 	ret := m.ctrl.Call(m, "SteadyState")
-	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	ret0, _ := ret[0].(status0.ResourceStatus)
 	return ret0
 }
 
@@ -271,9 +272,9 @@ func (mr *MockTaskResourceMockRecorder) SteadyState() *gomock.Call {
 }
 
 // TerminalStatus mocks base method
-func (m *MockTaskResource) TerminalStatus() taskresource.ResourceStatus {
+func (m *MockTaskResource) TerminalStatus() status0.ResourceStatus {
 	ret := m.ctrl.Call(m, "TerminalStatus")
-	ret0, _ := ret[0].(taskresource.ResourceStatus)
+	ret0, _ := ret[0].(status0.ResourceStatus)
 	return ret0
 }
 

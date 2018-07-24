@@ -24,6 +24,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -593,35 +594,36 @@ func TestVerifyTransitionDependenciesResolved(t *testing.T) {
 
 func TestVerifyResourceDependenciesResolved(t *testing.T) {
 	testcases := []struct {
-		Name             string
-		TargetKnown      apicontainerstatus.ContainerStatus
-		TargetDep        apicontainerstatus.ContainerStatus
-		DependencyKnown  taskresource.ResourceStatus
-		RequiredStatus   taskresource.ResourceStatus
+		Name            string
+		TargetKnown     apicontainerstatus.ContainerStatus
+		TargetDep       apicontainerstatus.ContainerStatus
+		DependencyKnown resourcestatus.ResourceStatus
+		RequiredStatus  resourcestatus.ResourceStatus
+
 		ExpectedResolved bool
 	}{
 		{
 			Name:             "resource none,container pull depends on resource created",
 			TargetKnown:      apicontainerstatus.ContainerStatusNone,
 			TargetDep:        apicontainerstatus.ContainerPulled,
-			DependencyKnown:  taskresource.ResourceStatus(0),
-			RequiredStatus:   taskresource.ResourceStatus(1),
+			DependencyKnown:  resourcestatus.ResourceStatus(0),
+			RequiredStatus:   resourcestatus.ResourceStatus(1),
 			ExpectedResolved: false,
 		},
 		{
 			Name:             "resource created,container pull depends on resource created",
 			TargetKnown:      apicontainerstatus.ContainerStatusNone,
 			TargetDep:        apicontainerstatus.ContainerPulled,
-			DependencyKnown:  taskresource.ResourceStatus(1),
-			RequiredStatus:   taskresource.ResourceStatus(1),
+			DependencyKnown:  resourcestatus.ResourceStatus(1),
+			RequiredStatus:   resourcestatus.ResourceStatus(1),
 			ExpectedResolved: true,
 		},
 		{
 			Name:             "resource none,container create depends on resource created",
 			TargetKnown:      apicontainerstatus.ContainerStatusNone,
 			TargetDep:        apicontainerstatus.ContainerCreated,
-			DependencyKnown:  taskresource.ResourceStatus(0),
-			RequiredStatus:   taskresource.ResourceStatus(1),
+			DependencyKnown:  resourcestatus.ResourceStatus(0),
+			RequiredStatus:   resourcestatus.ResourceStatus(1),
 			ExpectedResolved: true,
 		},
 	}
@@ -654,31 +656,31 @@ func TestVerifyTransitionResourceDependenciesResolved(t *testing.T) {
 		Name            string
 		TargetKnown     apicontainerstatus.ContainerStatus
 		TargetDep       apicontainerstatus.ContainerStatus
-		DependencyKnown taskresource.ResourceStatus
-		RequiredStatus  taskresource.ResourceStatus
+		DependencyKnown resourcestatus.ResourceStatus
+		RequiredStatus  resourcestatus.ResourceStatus
 		ResolvedErr     error
 	}{
 		{
 			Name:            "resource none,container pull depends on resource created",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDep:       apicontainerstatus.ContainerPulled,
-			DependencyKnown: taskresource.ResourceStatus(0),
-			RequiredStatus:  taskresource.ResourceStatus(1),
+			DependencyKnown: resourcestatus.ResourceStatus(0),
+			RequiredStatus:  resourcestatus.ResourceStatus(1),
 			ResolvedErr:     ErrResourceDependencyNotResolved,
 		},
 		{
 			Name:            "resource created,container pull depends on resource created",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDep:       apicontainerstatus.ContainerPulled,
-			DependencyKnown: taskresource.ResourceStatus(1),
-			RequiredStatus:  taskresource.ResourceStatus(1),
+			DependencyKnown: resourcestatus.ResourceStatus(1),
+			RequiredStatus:  resourcestatus.ResourceStatus(1),
 		},
 		{
 			Name:            "resource none,container create depends on resource created",
 			TargetKnown:     apicontainerstatus.ContainerStatusNone,
 			TargetDep:       apicontainerstatus.ContainerCreated,
-			DependencyKnown: taskresource.ResourceStatus(0),
-			RequiredStatus:  taskresource.ResourceStatus(1),
+			DependencyKnown: resourcestatus.ResourceStatus(0),
+			RequiredStatus:  resourcestatus.ResourceStatus(1),
 		},
 	}
 	for _, tc := range testcases {
@@ -712,14 +714,15 @@ func TestTransitionDependencyResourceNotFound(t *testing.T) {
 	defer ctrl.Finish()
 	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
 	gomock.InOrder(
-		mockResource.EXPECT().SetKnownStatus(taskresource.ResourceStatus(1)),
+		mockResource.EXPECT().SetKnownStatus(resourcestatus.ResourceStatus(1)),
 	)
-	mockResource.SetKnownStatus(taskresource.ResourceStatus(1))
+	mockResource.SetKnownStatus(resourcestatus.ResourceStatus(1))
 	target := &apicontainer.Container{
 		KnownStatusUnsafe:         apicontainerstatus.ContainerStatusNone,
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 	}
-	target.BuildResourceDependency("resource", taskresource.ResourceStatus(1), apicontainerstatus.ContainerPulled)
+	target.BuildResourceDependency("resource", resourcestatus.ResourceStatus(1), apicontainerstatus.ContainerPulled)
+
 	resources := make(map[string]taskresource.TaskResource)
 	resources["resource1"] = mockResource // different resource name
 	resolved := verifyTransitionDependenciesResolved(target, nil, resources)

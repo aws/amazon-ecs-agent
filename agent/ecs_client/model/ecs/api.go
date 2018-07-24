@@ -6298,6 +6298,60 @@ func (s *DiscoverPollEndpointOutput) SetTelemetryEndpoint(v string) *DiscoverPol
 	return s
 }
 
+type DockerVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Autoprovision *bool `locationName:"autoprovision" type:"boolean"`
+
+	Driver *string `locationName:"driver" type:"string"`
+
+	DriverOpts map[string]*string `locationName:"driverOpts" type:"map"`
+
+	Labels map[string]*string `locationName:"labels" type:"map"`
+
+	Scope *string `locationName:"scope" type:"string" enum:"Scope"`
+}
+
+// String returns the string representation
+func (s DockerVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s DockerVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
+// SetAutoprovision sets the Autoprovision field's value.
+func (s *DockerVolumeConfiguration) SetAutoprovision(v bool) *DockerVolumeConfiguration {
+	s.Autoprovision = &v
+	return s
+}
+
+// SetDriver sets the Driver field's value.
+func (s *DockerVolumeConfiguration) SetDriver(v string) *DockerVolumeConfiguration {
+	s.Driver = &v
+	return s
+}
+
+// SetDriverOpts sets the DriverOpts field's value.
+func (s *DockerVolumeConfiguration) SetDriverOpts(v map[string]*string) *DockerVolumeConfiguration {
+	s.DriverOpts = v
+	return s
+}
+
+// SetLabels sets the Labels field's value.
+func (s *DockerVolumeConfiguration) SetLabels(v map[string]*string) *DockerVolumeConfiguration {
+	s.Labels = v
+	return s
+}
+
+// SetScope sets the Scope field's value.
+func (s *DockerVolumeConfiguration) SetScope(v string) *DockerVolumeConfiguration {
+	s.Scope = &v
+	return s
+}
+
 // A failed resource.
 type Failure struct {
 	_ struct{} `type:"structure"`
@@ -10852,6 +10906,8 @@ func (s *VersionInfo) SetDockerVersion(v string) *VersionInfo {
 type Volume struct {
 	_ struct{} `type:"structure"`
 
+	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
+
 	// The contents of the host parameter determine whether your data volume persists
 	// on the host container instance and where it is stored. If the host parameter
 	// is empty, then the Docker daemon assigns a host path for your data volume,
@@ -10878,6 +10934,12 @@ func (s Volume) String() string {
 // GoString returns the string representation
 func (s Volume) GoString() string {
 	return s.String()
+}
+
+// SetDockerVolumeConfiguration sets the DockerVolumeConfiguration field's value.
+func (s *Volume) SetDockerVolumeConfiguration(v *DockerVolumeConfiguration) *Volume {
+	s.DockerVolumeConfiguration = v
+	return s
 }
 
 // SetHost sets the Host field's value.
@@ -11080,6 +11142,14 @@ const (
 
 	// PlacementStrategyTypeBinpack is a PlacementStrategyType enum value
 	PlacementStrategyTypeBinpack = "binpack"
+)
+
+const (
+	// ScopeTask is a Scope enum value
+	ScopeTask = "task"
+
+	// ScopeShared is a Scope enum value
+	ScopeShared = "shared"
 )
 
 const (

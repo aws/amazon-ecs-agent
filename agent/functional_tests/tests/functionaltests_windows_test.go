@@ -354,3 +354,25 @@ func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
 	t.Skip("Not supported")
 	containerHealthWithStartPeriodTest(t, "container-health-windows")
 }
+
+func TestTwoTasksSharedLocalVolume(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.20.0")
+
+	wTask, wTaskErr := agent.StartTask(t, "task-shared-vol-write-windows")
+	require.NoError(t, wTaskErr, "Register task definition failed")
+
+	rTask, rTaskErr := agent.StartTask(t, "task-shared-vol-read-windows")
+	require.NoError(t, rTaskErr, "Register task definition failed")
+
+	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, wErr, "Expect task to be stopped")
+	wExitCode := wTask.Containers[0].ExitCode
+	assert.NotEqual(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, rErr, "Expect task to be stopped")
+	rExitCode := rTask.Containers[0].ExitCode
+	assert.NotEqual(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
+}

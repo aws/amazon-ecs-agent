@@ -19,8 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,6 +37,6 @@ func TestUnmarshalResourcesMap(t *testing.T) {
 	assert.Equal(t, cgroupRoot, cgroupResource.GetCgroupRoot())
 	assert.Equal(t, cgroupMountPath, cgroupResource.GetCgroupMountPath())
 	assert.Equal(t, time.Time{}, cgroupResource.GetCreatedAt())
-	assert.Equal(t, taskresource.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetDesiredStatus())
-	assert.Equal(t, taskresource.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetDesiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetKnownStatus())
 }

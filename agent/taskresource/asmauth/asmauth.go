@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
@@ -41,14 +42,14 @@ const (
 type ASMAuthResource struct {
 	taskARN             string
 	createdAt           time.Time
-	desiredStatusUnsafe taskresource.ResourceStatus
-	knownStatusUnsafe   taskresource.ResourceStatus
+	desiredStatusUnsafe resourcestatus.ResourceStatus
+	knownStatusUnsafe   resourcestatus.ResourceStatus
 	// appliedStatus is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
-	appliedStatus                      taskresource.ResourceStatus
-	resourceStatusToTransitionFunction map[taskresource.ResourceStatus]func() error
+	appliedStatus                      resourcestatus.ResourceStatus
+	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
 	credentialsManager                 credentials.Manager
 	executionCredentialsID             string
 
@@ -92,8 +93,8 @@ func NewASMAuthResource(taskARN string,
 }
 
 func (auth *ASMAuthResource) initStatusToTransition() {
-	resourceStatusToTransitionFunction := map[taskresource.ResourceStatus]func() error{
-		taskresource.ResourceStatus(ASMAuthStatusCreated): auth.Create,
+	resourceStatusToTransitionFunction := map[resourcestatus.ResourceStatus]func() error{
+		resourcestatus.ResourceStatus(ASMAuthStatusCreated): auth.Create,
 	}
 	auth.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
 }
@@ -112,7 +113,7 @@ func (auth *ASMAuthResource) GetTerminalReason() string {
 }
 
 // SetDesiredStatus safely sets the desired status of the resource
-func (auth *ASMAuthResource) SetDesiredStatus(status taskresource.ResourceStatus) {
+func (auth *ASMAuthResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 
@@ -120,7 +121,7 @@ func (auth *ASMAuthResource) SetDesiredStatus(status taskresource.ResourceStatus
 }
 
 // GetDesiredStatus safely returns the desired status of the task
-func (auth *ASMAuthResource) GetDesiredStatus() taskresource.ResourceStatus {
+func (auth *ASMAuthResource) GetDesiredStatus() resourcestatus.ResourceStatus {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -140,7 +141,7 @@ func (auth *ASMAuthResource) DesiredTerminal() bool {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
-	return auth.desiredStatusUnsafe == taskresource.ResourceStatus(ASMAuthStatusRemoved)
+	return auth.desiredStatusUnsafe == resourcestatus.ResourceStatus(ASMAuthStatusRemoved)
 }
 
 // KnownCreated returns true if the cgroup's known status is CREATED
@@ -148,22 +149,22 @@ func (auth *ASMAuthResource) KnownCreated() bool {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
-	return auth.knownStatusUnsafe == taskresource.ResourceStatus(ASMAuthStatusCreated)
+	return auth.knownStatusUnsafe == resourcestatus.ResourceStatus(ASMAuthStatusCreated)
 }
 
 // TerminalStatus returns the last transition state of cgroup
-func (auth *ASMAuthResource) TerminalStatus() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(ASMAuthStatusRemoved)
+func (auth *ASMAuthResource) TerminalStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(ASMAuthStatusRemoved)
 }
 
 // NextKnownState returns the state that the resource should
 // progress to based on its `KnownState`.
-func (auth *ASMAuthResource) NextKnownState() taskresource.ResourceStatus {
+func (auth *ASMAuthResource) NextKnownState() resourcestatus.ResourceStatus {
 	return auth.GetKnownStatus() + 1
 }
 
 // ApplyTransition calls the function required to move to the specified status
-func (auth *ASMAuthResource) ApplyTransition(nextState taskresource.ResourceStatus) error {
+func (auth *ASMAuthResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	transitionFunc, ok := auth.resourceStatusToTransitionFunction[nextState]
 	if !ok {
 		return errors.Errorf("resource [%s]: transition to %s impossible", auth.GetName(),
@@ -173,12 +174,12 @@ func (auth *ASMAuthResource) ApplyTransition(nextState taskresource.ResourceStat
 }
 
 // SteadyState returns the transition state of the resource defined as "ready"
-func (auth *ASMAuthResource) SteadyState() taskresource.ResourceStatus {
-	return taskresource.ResourceStatus(ASMAuthStatusCreated)
+func (auth *ASMAuthResource) SteadyState() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatus(ASMAuthStatusCreated)
 }
 
 // SetKnownStatus safely sets the currently known status of the resource
-func (auth *ASMAuthResource) SetKnownStatus(status taskresource.ResourceStatus) {
+func (auth *ASMAuthResource) SetKnownStatus(status resourcestatus.ResourceStatus) {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 
@@ -187,24 +188,24 @@ func (auth *ASMAuthResource) SetKnownStatus(status taskresource.ResourceStatus) 
 }
 
 // updateAppliedStatusUnsafe updates the resource transitioning status
-func (auth *ASMAuthResource) updateAppliedStatusUnsafe(knownStatus taskresource.ResourceStatus) {
-	if auth.appliedStatus == taskresource.ResourceStatus(ASMAuthStatusNone) {
+func (auth *ASMAuthResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
+	if auth.appliedStatus == resourcestatus.ResourceStatus(ASMAuthStatusNone) {
 		return
 	}
 
 	// Check if the resource transition has already finished
 	if auth.appliedStatus <= knownStatus {
-		auth.appliedStatus = taskresource.ResourceStatus(ASMAuthStatusNone)
+		auth.appliedStatus = resourcestatus.ResourceStatus(ASMAuthStatusNone)
 	}
 }
 
 // SetAppliedStatus sets the applied status of resource and returns whether
 // the resource is already in a transition
-func (auth *ASMAuthResource) SetAppliedStatus(status taskresource.ResourceStatus) bool {
+func (auth *ASMAuthResource) SetAppliedStatus(status resourcestatus.ResourceStatus) bool {
 	auth.lock.Lock()
 	defer auth.lock.Unlock()
 
-	if auth.appliedStatus != taskresource.ResourceStatus(ASMAuthStatusNone) {
+	if auth.appliedStatus != resourcestatus.ResourceStatus(ASMAuthStatusNone) {
 		// return false to indicate the set operation failed
 		return false
 	}
@@ -214,7 +215,7 @@ func (auth *ASMAuthResource) SetAppliedStatus(status taskresource.ResourceStatus
 }
 
 // GetKnownStatus safely returns the currently known status of the task
-func (auth *ASMAuthResource) GetKnownStatus() taskresource.ResourceStatus {
+func (auth *ASMAuthResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 
@@ -222,7 +223,7 @@ func (auth *ASMAuthResource) GetKnownStatus() taskresource.ResourceStatus {
 }
 
 // StatusString returns the string of the cgroup resource status
-func (auth *ASMAuthResource) StatusString(status taskresource.ResourceStatus) string {
+func (auth *ASMAuthResource) StatusString(status resourcestatus.ResourceStatus) string {
 	return ASMAuthStatus(status).String()
 }
 
@@ -345,7 +346,7 @@ func (auth *ASMAuthResource) Initialize(resourceFields *taskresource.ResourceFie
 		taskDesiredStatus <= status.TaskRunning { // and the task is not terminal.
 		// Reset the ASM resource's known status as None so that the NONE -> CREATED
 		// transition gets triggered
-		auth.SetKnownStatus(taskresource.ResourceStatusNone)
+		auth.SetKnownStatus(resourcestatus.ResourceStatusNone)
 	}
 }
 
@@ -391,10 +392,10 @@ func (auth *ASMAuthResource) UnmarshalJSON(b []byte) error {
 	}
 
 	if temp.DesiredStatus != nil {
-		auth.SetDesiredStatus(taskresource.ResourceStatus(*temp.DesiredStatus))
+		auth.SetDesiredStatus(resourcestatus.ResourceStatus(*temp.DesiredStatus))
 	}
 	if temp.KnownStatus != nil {
-		auth.SetKnownStatus(taskresource.ResourceStatus(*temp.KnownStatus))
+		auth.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
 	if temp.CreatedAt != nil && !temp.CreatedAt.IsZero() {
 		auth.SetCreatedAt(*temp.CreatedAt)

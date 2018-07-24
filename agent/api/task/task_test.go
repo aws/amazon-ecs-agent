@@ -37,6 +37,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
@@ -528,8 +531,6 @@ func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
 	}
 }
 
-// TODO: UT for PostUnmarshalTask, etc
-
 func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{
@@ -560,10 +561,12 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr(emptyVolumeName1),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 			{
 				Name: strptr(emptyVolumeName2),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{},
 			},
 		},
@@ -573,23 +576,21 @@ func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
 	assert.Nil(t, err, "Should be able to handle acs task")
 	assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
 	cfg := config.Config{}
-	task.PostUnmarshalTask(&cfg, nil, nil)
+	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 
-	assert.Equal(t, 3, len(task.Containers), "Should include new container for volumes")
-	emptyContainer, ok := task.ContainerByName(emptyHostVolumeName)
-	assert.True(t, ok, "Should find empty volume container")
-	assert.Equal(t, 2, len(emptyContainer.MountPoints), "Should have two mount points")
-	assert.Equal(t, []apicontainer.MountPoint{
-		{
-			SourceVolume:  emptyVolumeName1,
-			ContainerPath: expectedEmptyVolumeGeneratedPath1,
-		}, {
-			SourceVolume:  emptyVolumeName2,
-			ContainerPath: expectedEmptyVolumeGeneratedPath2,
-		},
-	}, emptyContainer.MountPoints)
-	assert.Equal(t, expectedEmptyVolumeContainerImage+":"+expectedEmptyVolumeContainerTag, emptyContainer.Image, "Should have expected image")
-	assert.Equal(t, []string{expectedEmptyVolumeContainerCmd}, emptyContainer.Command, "Should have expected command")
+	assert.Equal(t, 2, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	taskResources := task.getResourcesUnsafe()
+	assert.Equal(t, 2, len(taskResources), "Should have created 2 volume resources")
+
+	for _, r := range taskResources {
+		vol := r.(*taskresourcevolume.VolumeResource)
+		assert.Equal(t, "task", vol.VolumeConfig.Scope)
+		assert.Equal(t, false, vol.VolumeConfig.Autoprovision)
+		assert.Equal(t, "local", vol.VolumeConfig.Driver)
+		assert.Equal(t, 0, len(vol.VolumeConfig.DriverOpts))
+		assert.Equal(t, 0, len(vol.VolumeConfig.Labels))
+	}
+
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -653,6 +654,7 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []*ecsacs.Volume{
 			{
 				Name: strptr("volName"),
+				Type: strptr("host"),
 				Host: &ecsacs.HostVolumeProperties{
 					SourcePath: strptr("/host/path"),
 				},
@@ -719,7 +721,8 @@ func TestTaskFromACS(t *testing.T) {
 		Volumes: []TaskVolume{
 			{
 				Name: "volName",
-				Volume: &FSHostVolume{
+				Type: "host",
+				Volume: &taskresourcevolume.FSHostVolume{
 					FSSourcePath: "/host/path",
 				},
 			},
@@ -1396,7 +1399,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 		expectedExecutionCredentialsID,
 		credentialsManager,
 		asmClientCreator)
-	res.SetKnownStatus(taskresource.ResourceRemoved)
+	res.SetKnownStatus(resourcestatus.ResourceRemoved)
 
 	// add asm auth resource to task
 	task.AddResource(asmauth.ResourceName, res)
@@ -1407,7 +1410,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 	asmResource := resource[0].(*asmauth.ASMAuthResource)
 	req := asmResource.GetRequiredASMResources()
 
-	assert.Equal(t, taskresource.ResourceRemoved, asmResource.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceRemoved, asmResource.GetKnownStatus())
 	assert.Equal(t, expectedExecutionCredentialsID, asmResource.GetExecutionCredentialsID())
 	assert.Equal(t, expectedCredentialsParameter, req[0].CredentialsParameter)
 	assert.Equal(t, expectedRegion, req[0].Region)
@@ -1426,7 +1429,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 	oasmResource := oresource[0].(*asmauth.ASMAuthResource)
 	oreq := oasmResource.GetRequiredASMResources()
 
-	assert.Equal(t, taskresource.ResourceRemoved, oasmResource.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceRemoved, oasmResource.GetKnownStatus())
 	assert.Equal(t, expectedExecutionCredentialsID, oasmResource.GetExecutionCredentialsID())
 	assert.Equal(t, expectedCredentialsParameter, oreq[0].CredentialsParameter)
 	assert.Equal(t, expectedRegion, oreq[0].Region)
@@ -1646,6 +1649,6 @@ func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
 		},
 	}
 
-	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields)
+	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields, nil, nil)
 	assert.NoError(t, err)
 }

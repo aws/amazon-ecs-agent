@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -69,7 +70,7 @@ type dockerContainerChange struct {
 // resourceStateChange represents the required status change after resource transition
 type resourceStateChange struct {
 	resource  taskresource.TaskResource
-	nextState taskresource.ResourceStatus
+	nextState resourcestatus.ResourceStatus
 	err       error
 }
 
@@ -88,7 +89,7 @@ type containerTransition struct {
 // resourceTransition defines the struct for a resource to transition.
 type resourceTransition struct {
 	// nextState represents the next known status that the resource can move to
-	nextState taskresource.ResourceStatus
+	nextState resourcestatus.ResourceStatus
 	// status is the string value of nextState
 	status string
 	// actionRequired indicates if the transition function needs to be called for
@@ -733,7 +734,7 @@ func (mtask *managedTask) progressTask() {
 	// anyResourceTransition is set to true when transition function needs to be called or
 	// known status can be changed
 	anyResourceTransition, resTransitions := mtask.startResourceTransitions(
-		func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus) {
+		func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
 			mtask.transitionResource(resource, nextStatus)
 			transitionChange <- struct{}{}
 			transitionChangeEntity <- resource.GetName()
@@ -886,7 +887,7 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 // transitionResource calls applyResourceState, and then notifies the managed
 // task of the change. transitionResource is called by progressTask
 func (mtask *managedTask) transitionResource(resource taskresource.TaskResource,
-	to taskresource.ResourceStatus) {
+	to resourcestatus.ResourceStatus) {
 	err := mtask.applyResourceState(resource, to)
 
 	if mtask.engine.isTaskManaged(mtask.Arn) {
@@ -901,7 +902,7 @@ func (mtask *managedTask) transitionResource(resource taskresource.TaskResource,
 // applyResourceState moves the resource to the given state by calling the
 // function defined in the transitionFunctionMap for the state
 func (mtask *managedTask) applyResourceState(resource taskresource.TaskResource,
-	nextState taskresource.ResourceStatus) error {
+	nextState resourcestatus.ResourceStatus) error {
 	resName := resource.GetName()
 	resStatus := resource.StatusString(nextState)
 	err := resource.ApplyTransition(nextState)
@@ -917,7 +918,7 @@ func (mtask *managedTask) applyResourceState(resource taskresource.TaskResource,
 
 type containerTransitionFunc func(container *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus)
 
-type resourceTransitionFunc func(resource taskresource.TaskResource, nextStatus taskresource.ResourceStatus)
+type resourceTransitionFunc func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus)
 
 // containerNextState determines the next state a container should go to.
 // It returns a transition struct including the information:

@@ -53,6 +53,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -2042,17 +2043,11 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			task := &apitask.Task{}
 
 			if tc.stage == "created" {
-				dockerContainer.Container.MountPoints = []apicontainer.MountPoint{
-					{
-						SourceVolume:  "empty",
-						ContainerPath: "container",
-					},
-				}
 				dockerContainer.DockerID = ""
 				task.Volumes = []apitask.TaskVolume{
 					{
 						Name:   "empty",
-						Volume: &apitask.EmptyHostVolume{},
+						Volume: &taskresourcevolume.LocalDockerVolume{},
 					},
 				}
 				client.EXPECT().InspectContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(&docker.Container{
@@ -2061,9 +2056,6 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 						Labels: labels,
 					},
 					Created: tc.created,
-					Volumes: map[string]string{
-						"container": "tmp",
-					},
 				}, nil)
 				imageManager.EXPECT().RecordContainerReference(dockerContainer.Container).AnyTimes()
 			} else {
@@ -2085,9 +2077,6 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 			assert.Equal(t, tc.created, dockerContainer.Container.GetCreatedAt())
 			assert.Equal(t, tc.started, dockerContainer.Container.GetStartedAt())
 			assert.Equal(t, tc.finished, dockerContainer.Container.GetFinishedAt())
-			if tc.stage == "created" {
-				assert.Equal(t, "tmp", task.Volumes[0].Volume.SourcePath())
-			}
 			if tc.stage == "started" {
 				assert.Equal(t, uint16(80), dockerContainer.Container.KnownPortBindingsUnsafe[0].ContainerPort)
 			}
@@ -2272,7 +2261,7 @@ func TestSynchronizeResource(t *testing.T) {
 	state.AddTask(testTask)
 	cgroupResource.EXPECT().Initialize(gomock.Any(), gomock.Any(), gomock.Any())
 	cgroupResource.EXPECT().SetDesiredStatus(gomock.Any()).MaxTimes(1)
-	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(1)
+	cgroupResource.EXPECT().GetDesiredStatus().MaxTimes(2)
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)

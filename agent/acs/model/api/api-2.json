@@ -197,11 +197,17 @@
         "hostConfig":{"shape":"String"}
       }
     },
-    "Double":{"type":"double"},
-    "DriverType":{
-      "type":"string",
-      "enum":["Docker"]
+    "DockerVolumeConfiguration":{
+      "type":"structure",
+      "members":{
+        "scope":{"shape":"Scope"},
+        "autoprovision":{"shape":"Boolean"},
+        "driver":{"shape":"String"},
+        "driverOpts":{"shape":"StringMap"},
+        "labels":{"shape":"StringMap"}
+      }
     },
+    "Double":{"type":"double"},
     "ECRAuthData":{
       "type":"structure",
       "members":{
@@ -406,6 +412,13 @@
         "TaskExecution"
       ]
     },
+    "Scope":{
+      "type":"string",
+      "enum":[
+        "task",
+        "shared"
+      ]
+    },
     "SensitiveString":{
       "type":"string",
       "sensitive":true
@@ -484,11 +497,9 @@
       "type":"structure",
       "members":{
         "name":{"shape":"String"},
+        "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
-        "driver":{"shape":"String"},
-        "driverOpts":{"shape":"StringMap"},
-        "labels":{"shape":"StringMap"},
-        "driverType":{"shape":"DriverType"}
+        "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -505,6 +516,13 @@
     "VolumeList":{
       "type":"list",
       "member":{"shape":"Volume"}
+    },
+    "VolumeType":{
+      "type":"string",
+      "enum":[
+        "host",
+        "docker"
+      ]
     }
   }
 }

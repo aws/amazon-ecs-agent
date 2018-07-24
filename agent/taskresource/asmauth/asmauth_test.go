@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/golang/mock/gomock"
@@ -103,8 +104,8 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		taskARN:                taskARN,
 		executionCredentialsID: executionCredentialsID,
 		createdAt:              time.Now(),
-		knownStatusUnsafe:      taskresource.ResourceCreated,
-		desiredStatusUnsafe:    taskresource.ResourceCreated,
+		knownStatusUnsafe:      resourcestatus.ResourceCreated,
+		desiredStatusUnsafe:    resourcestatus.ResourceCreated,
 		requiredASMResources:   requiredASMResources,
 	}
 
@@ -130,8 +131,8 @@ func TestInitialize(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
 	asmRes := &ASMAuthResource{
-		knownStatusUnsafe:   taskresource.ResourceCreated,
-		desiredStatusUnsafe: taskresource.ResourceCreated,
+		knownStatusUnsafe:   resourcestatus.ResourceCreated,
+		desiredStatusUnsafe: resourcestatus.ResourceCreated,
 	}
 	asmRes.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -139,7 +140,7 @@ func TestInitialize(t *testing.T) {
 			CredentialsManager: credentialsManager,
 		},
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
-	assert.Equal(t, taskresource.ResourceStatusNone, asmRes.GetKnownStatus())
-	assert.Equal(t, taskresource.ResourceCreated, asmRes.GetDesiredStatus())
+	assert.Equal(t, resourcestatus.ResourceStatusNone, asmRes.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetDesiredStatus())
 
 }

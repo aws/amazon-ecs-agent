@@ -17,10 +17,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
-type ASMAuthStatus taskresource.ResourceStatus
+type ASMAuthStatus resourcestatus.ResourceStatus
 
 const (
 	// is the zero state of a task resource

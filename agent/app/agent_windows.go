@@ -256,6 +256,8 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			ASMClientCreator:   factory.NewClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
+		Ctx:          agent.ctx,
+		DockerClient: agent.dockerClient,
 	}
 }
 

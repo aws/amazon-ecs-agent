@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -46,6 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -1578,27 +1580,27 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 	}
 	gomock.InOrder(
 		mockResource.EXPECT().GetName(),
-		mockResource.EXPECT().ApplyTransition(taskresource.ResourceCreated).Return(nil),
+		mockResource.EXPECT().ApplyTransition(resourcestatus.ResourceCreated).Return(nil),
 		mockResource.EXPECT().GetName().AnyTimes(),
-		mockResource.EXPECT().StatusString(taskresource.ResourceCreated).AnyTimes(),
+		mockResource.EXPECT().StatusString(resourcestatus.ResourceCreated).AnyTimes(),
 	)
-	assert.NoError(t, task.applyResourceState(mockResource, taskresource.ResourceCreated))
+	assert.NoError(t, task.applyResourceState(mockResource, resourcestatus.ResourceCreated))
 }
 
 func TestApplyResourceStateFailures(t *testing.T) {
 	testCases := []struct {
 		Name      string
-		ResStatus taskresource.ResourceStatus
+		ResStatus resourcestatus.ResourceStatus
 		Error     error
 	}{
 		{
 			Name:      "no valid state transition",
-			ResStatus: taskresource.ResourceRemoved,
+			ResStatus: resourcestatus.ResourceRemoved,
 			Error:     errors.New("transition impossible"),
 		},
 		{
 			Name:      "transition error",
-			ResStatus: taskresource.ResourceCreated,
+			ResStatus: resourcestatus.ResourceCreated,
 			Error:     errors.New("transition failed"),
 		},
 	}
@@ -1620,6 +1622,253 @@ func TestApplyResourceStateFailures(t *testing.T) {
 				mockResource.EXPECT().StatusString(tc.ResStatus).AnyTimes(),
 			)
 			assert.Error(t, task.applyResourceState(mockResource, tc.ResStatus))
+		})
+	}
+}
+
+func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
+	testCases := []struct {
+		Name               string
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
+		Err                error
+		ChangedKnownStatus resourcestatus.ResourceStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
+	}{
+		{
+			Name:               "error while steady state transition",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                errors.New("transition error"),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			TaskDesiredStatus:  apitaskstatus.TaskStopped,
+		},
+		{
+			Name:               "steady state transition",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                nil,
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{
+					Arn:                 "task1",
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				engine: &DockerTaskEngine{},
+			}
+			mtask.AddResource(volumeName, res)
+			mtask.engine.SetSaver(mockSaver)
+			gomock.InOrder(
+				mockSaver.EXPECT().Save(),
+			)
+			mtask.handleResourceStateChange(resourceStateChange{
+				res, tc.DesiredKnownStatus, tc.Err,
+			})
+			assert.Equal(t, tc.ChangedKnownStatus, res.GetKnownStatus())
+			assert.Equal(t, tc.TaskDesiredStatus, mtask.GetDesiredStatus())
+		})
+	}
+}
+
+func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
+	testCases := []struct {
+		Name               string
+		KnownStatus        resourcestatus.ResourceStatus
+		DesiredKnownStatus resourcestatus.ResourceStatus
+		Err                error
+		ChangedKnownStatus resourcestatus.ResourceStatus
+		TaskDesiredStatus  apitaskstatus.TaskStatus
+	}{
+		{
+			Name:               "steady state transition already done",
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			Err:                nil,
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+		{
+			Name:               "transition state less than known status",
+			DesiredKnownStatus: resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			Err:                nil,
+			KnownStatus:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			ChangedKnownStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TaskDesiredStatus:  apitaskstatus.TaskRunning,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{
+					Arn:                 "task1",
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+			}
+			mtask.AddResource(volumeName, res)
+			mtask.handleResourceStateChange(resourceStateChange{
+				res, tc.DesiredKnownStatus, tc.Err,
+			})
+			assert.Equal(t, tc.ChangedKnownStatus, res.GetKnownStatus())
+			assert.Equal(t, tc.TaskDesiredStatus, mtask.GetDesiredStatus())
+		})
+	}
+}
+
+func TestVolumeResourceNextState(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		NextState        resourcestatus.ResourceStatus
+		ActionRequired   bool
+	}{
+		{
+			Name:             "next state happy path",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeCreated),
+			ActionRequired:   true,
+		},
+		{
+			Name:             "desired terminal",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			NextState:        resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			ActionRequired:   false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := volume.VolumeResource{}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{},
+			}
+			transition := mtask.resourceNextState(&res)
+			assert.Equal(t, tc.NextState, transition.nextState)
+			assert.Equal(t, tc.ActionRequired, transition.actionRequired)
+		})
+	}
+}
+
+func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		TransitionStatus resourcestatus.ResourceStatus
+		StatusString     string
+		CanTransition    bool
+		TransitionsLen   int
+	}{
+		{
+			Name:             "none to created",
+			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
+			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			TransitionStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			StatusString:     "CREATED",
+			CanTransition:    true,
+			TransitionsLen:   1,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+
+			task := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+			}
+			task.AddResource(volumeName, res)
+			wg := sync.WaitGroup{}
+			wg.Add(1)
+			canTransition, transitions := task.startResourceTransitions(
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
+					assert.Equal(t, nextStatus, tc.TransitionStatus)
+					wg.Done()
+				})
+			wg.Wait()
+			assert.Equal(t, tc.CanTransition, canTransition)
+			assert.Len(t, transitions, tc.TransitionsLen)
+			resTransition, ok := transitions[volumeName]
+			assert.True(t, ok)
+			assert.Equal(t, resTransition, tc.StatusString)
+		})
+	}
+}
+
+func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
+	testCases := []struct {
+		Name          string
+		KnownStatus   resourcestatus.ResourceStatus
+		DesiredStatus resourcestatus.ResourceStatus
+		CanTransition bool
+	}{
+		{
+			Name:          "known < desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			CanTransition: true,
+		},
+		{
+			Name:          "known equals desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeCreated),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			CanTransition: false,
+		},
+		{
+			Name:          "known > desired",
+			KnownStatus:   resourcestatus.ResourceStatus(volume.VolumeRemoved),
+			DesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
+			CanTransition: false,
+		},
+	}
+	volumeName := "vol"
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			res := &volume.VolumeResource{Name: volumeName}
+			res.SetKnownStatus(tc.KnownStatus)
+			res.SetDesiredStatus(tc.DesiredStatus)
+
+			mtask := &managedTask{
+				Task: &apitask.Task{
+					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
+					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+				},
+				ctx: ctx,
+				resourceStateChangeEvent: make(chan resourceStateChange),
+			}
+			mtask.Task.AddResource(volumeName, res)
+			canTransition, transitions := mtask.startResourceTransitions(
+				func(resource taskresource.TaskResource, nextStatus resourcestatus.ResourceStatus) {
+					t.Error("Transition function should not be called when no transitions are possible")
+				})
+			assert.Equal(t, tc.CanTransition, canTransition)
+			assert.Empty(t, transitions)
 		})
 	}
 }
