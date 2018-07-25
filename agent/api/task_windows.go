@@ -80,12 +80,15 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
 	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
+	seelog.Warnf("hostConfig.CPUPercent is set to %s and hostConfig.CPUShares is %s", hostConfig.CPUPercent, hostConfig.CPUShares)
 	if hostConfig.CPUPercent == 0 && hostConfig.CPUShares != 0 {
 		// if CPU percent is too low, we set it to the minimum(linux and some windows tasks).
 		// if the CPU is explicitly set to zero or not set at all, and CPU unbounded
 		// tasks are allowed for windows, let CPU percent be zero.
 		// this is a workaround to allow CPU unbounded tasks(https://github.com/aws/amazon-ecs-agent/issues/1127)
 		hostConfig.CPUPercent = minimumCPUPercent
+		seelog.Warnf("CPUPercent has been limited to 1 percent since hostConfig.CPUPercent is %s and hostConfig.CPUShares is %s",
+			hostConfig.CPUPercent, hostConfig.CPUShares)
 	}
 	hostConfig.CPUShares = 0
 
@@ -111,7 +114,7 @@ func (task *Task) overrideDefaultMemorySwappiness(hostConfig *docker.HostConfig)
 // reason for 2 over 1 is that 1 is an invalid value (Linux's choice, not Docker's).
 func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 	if containerCPU <= 1 && !task.platformFields.cpuUnbounded {
-		seelog.Debugf(
+		seelog.Warnf(
 			"Converting CPU shares to allowed minimum of 2 for task arn: [%s] and cpu shares: %d",
 			task.Arn, containerCPU)
 		return 2
