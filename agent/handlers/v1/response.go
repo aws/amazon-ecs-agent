@@ -46,7 +46,7 @@ type TasksResponse struct {
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string
+	DockerID   string `json:"DockerId"`
 	DockerName string
 	Name       string
 	Ports      []PortResponse              `json:",omitempty"`
