@@ -31,11 +31,11 @@ type MetadataResponse struct {
 
 // TaskResponse is the schema for the task response JSON object
 type TaskResponse struct {
-	Arn           string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Family        string
-	Version       string
+	Arn           string `json:"Arn,omitempty"`
+	DesiredStatus string `json:"omitempty"`
+	KnownStatus   string `json:"KnownStatus,omitempty"`
+	Family        string `json:"Family,omitempty"`
+	Version       string `json:"Version,omitempty"`
 	Containers    []ContainerResponse
 }
 
@@ -46,19 +46,19 @@ type TasksResponse struct {
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string
-	DockerName string
-	Name       string
-	Ports      []PortResponse              `json:",omitempty"`
-	Networks   []containermetadata.Network `json:",omitempty"`
+	DockerID   string                      `json:"DockerId,omitempty"`
+	DockerName string                      `json:"DockerName,omitempty"`
+	Name       string                      `json:"Name,omitempty"`
+	Ports      []PortResponse              `json:"omitempty"`
+	Networks   []containermetadata.Network `json:"omitempty"`
 }
 
 // PortResponse defines the schema for portmapping response JSON
 // object.
 type PortResponse struct {
-	ContainerPort uint16
-	Protocol      string
-	HostPort      uint16 `json:",omitempty"`
+	ContainerPort uint16 `json:"ContainerPort,omitempty"`
+	Protocol      string `json:"Protocol,omitempty"`
+	HostPort      uint16 `json:"omitempty"`
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
