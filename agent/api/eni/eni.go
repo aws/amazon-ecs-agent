@@ -71,7 +71,8 @@ func (eni *ENI) GetHostname() string {
 	return eni.PrivateDNSName
 }
 
-// GetSubnetGatewayIPV4Address returns the hostname assigned to the ENI
+// GetSubnetGatewayIPV4Address returns the subnet IPv4 gateway address assigned
+// to the ENI
 func (eni *ENI) GetSubnetGatewayIPV4Address() string {
 	return eni.SubnetGatewayIPV4Address
 }

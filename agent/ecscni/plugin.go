@@ -104,7 +104,7 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 	}
 
-	seelog.Debugf("[ECSCNI] Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
+	seelog.Debugf("[ECSCNI] Starting ENI (%s) setup in the the container namespace: %s", cfg.ENIID, cfg.ContainerID)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
@@ -113,7 +113,7 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke eni plugin failed")
 	}
-	seelog.Debugf("[ECSCNI] Set up eni done: %s", result.String())
+	seelog.Debugf("[ECSCNI] ENI setup done: %s", result.String())
 
 	// Invoke bridge plugin ADD command
 	result, err = client.add(runtimeConfig, cfg, client.createBridgeNetworkConfigWithIPAM)
@@ -294,8 +294,8 @@ func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.Ne
 		CNIVersion:               client.cniVersion,
 		ENIID:                    cfg.ENIID,
 		IPV4Address:              cfg.ENIIPV4Address,
-		MACAddress:               cfg.ENIMACAddress,
 		IPV6Address:              cfg.ENIIPV6Address,
+		MACAddress:               cfg.ENIMACAddress,
 		BlockInstanceMetdata:     cfg.BlockInstanceMetdata,
 		SubnetGatewayIPV4Address: cfg.SubnetGatewayIPV4Address,
 	}
