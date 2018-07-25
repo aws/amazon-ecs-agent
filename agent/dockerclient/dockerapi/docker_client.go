@@ -228,6 +228,7 @@ type dockerGoClient struct {
 	auth             dockerauth.DockerAuthProvider
 	ecrTokenCache    async.Cache
 	config           *config.Config
+	context          context.Context
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -243,6 +244,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		version:          version,
 		auth:             dg.auth,
 		config:           dg.config,
+		context:          dg.context,
 	}
 }
 
@@ -295,6 +297,7 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 		config:           cfg,
+		context:          ctx,
 	}, nil
 }
 
