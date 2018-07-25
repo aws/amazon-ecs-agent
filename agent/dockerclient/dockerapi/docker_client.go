@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
 
@@ -165,10 +166,10 @@ type DockerClient interface {
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
 
 	// CreateVolume creates a docker volume. A timeout value should be provided for the request
-	CreateVolume(context.Context, string, string, map[string]string, map[string]string, time.Duration) VolumeResponse
+	CreateVolume(context.Context, string, string, map[string]string, map[string]string, time.Duration) SDKVolumeResponse
 
 	// InspectVolume returns a volume by its name. A timeout value should be provided for the request
-	InspectVolume(context.Context, string, time.Duration) VolumeResponse
+	InspectVolume(context.Context, string, time.Duration) SDKVolumeResponse
 
 	// RemoveVolume removes a volume by its name. A timeout value should be provided for the request
 	RemoveVolume(context.Context, string, time.Duration) error
@@ -1061,13 +1062,13 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 	driver string,
 	driverOptions map[string]string,
 	labels map[string]string,
-	timeout time.Duration) VolumeResponse {
+	timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
-	response := make(chan VolumeResponse, 1)
+	response := make(chan SDKVolumeResponse, 1)
 	go func() { response <- dg.createVolume(ctx, name, driver, driverOptions, labels) }()
 
 	// Wait until we get a response or for the 'done' context channel
@@ -1079,11 +1080,11 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return VolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "creating volume"}}
+			return SDKVolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "creating volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
-		return VolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
+		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 }
 
@@ -1091,34 +1092,33 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 	name string,
 	driver string,
 	driverOptions map[string]string,
-	labels map[string]string) VolumeResponse {
-	client, err := dg.dockerClient()
+	labels map[string]string) SDKVolumeResponse {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
-		return VolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
+		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	volumeOptions := docker.CreateVolumeOptions{
-		Name:       name,
+	volumeOptions := volume.VolumesCreateBody{
 		Driver:     driver,
 		DriverOpts: driverOptions,
-		Context:    ctx,
 		Labels:     labels,
+		Name:       name,
 	}
-	dockerVolume, err := client.CreateVolume(volumeOptions)
+	dockerVolume, err := client.VolumeCreate(ctx, volumeOptions)
 	if err != nil {
-		return VolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
+		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 
-	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
+	return SDKVolumeResponse{DockerVolume: &dockerVolume, Error: nil}
 }
 
-func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) VolumeResponse {
+func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
-	response := make(chan VolumeResponse, 1)
+	response := make(chan SDKVolumeResponse, 1)
 	go func() { response <- dg.inspectVolume(ctx, name) }()
 
 	// Wait until we get a response or for the 'done' context channel
@@ -1130,28 +1130,28 @@ func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeou
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return VolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "inspecting volume"}}
+			return SDKVolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "inspecting volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
-		return VolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
+		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 }
 
-func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) VolumeResponse {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) SDKVolumeResponse {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
-		return VolumeResponse{
+		return SDKVolumeResponse{
 			DockerVolume: nil,
 			Error:        &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	dockerVolume, err := client.InspectVolume(name)
+	dockerVolume, err := client.VolumeInspect(ctx, name)
 	if err != nil {
-		return VolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
+		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 
-	return VolumeResponse{DockerVolume: dockerVolume, Error: nil}
+	return SDKVolumeResponse{DockerVolume: &dockerVolume, Error: nil}
 }
 
 func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout time.Duration) error {
