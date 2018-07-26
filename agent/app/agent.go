@@ -27,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -212,6 +213,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
 	client api.ECSClient) int {
+
+	// check docker version >= 1.9.0, exit agent if older
+	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
+		return exitcode
+	}
 
 	// Conditionally create '/ecs' cgroup root
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
@@ -578,4 +584,27 @@ func (agent *ecsAgent) startACSSession(
 	}
 	seelog.Critical("ACS Session handler should never exit")
 	return exitcodes.ExitError
+}
+
+// validateRequiredVersion validates docker version.
+// Minimum docker version supported is 1.9.0, maps to api version 1.21
+// see https://docs.docker.com/develop/sdk/#api-version-matrix
+func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
+	supportedVersions := agent.dockerClient.SupportedVersions()
+	if len(supportedVersions) == 0 {
+		seelog.Critical("Could not get supported docker versions.")
+		return exitcodes.ExitError, false
+	}
+
+	// if api version 1.21 is supported, it means docker version is at least 1.9.0
+	for _, version := range supportedVersions {
+		if version == dockerclient.Version_1_21 {
+			return -1, true
+		}
+	}
+
+	// api 1.21 is not supported, docker version is older than 1.9.0
+	seelog.Criticalf("Required minimum docker API verion %s is not supported",
+		dockerclient.Version_1_21)
+	return exitcodes.ExitTerminal, false
 }
