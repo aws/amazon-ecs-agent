@@ -24,41 +24,41 @@ import (
 
 // MetadataResponse is the schema for the metadata response JSON object
 type MetadataResponse struct {
-	Cluster              string
-	ContainerInstanceArn *string
-	Version              string
+	Cluster              string  `json:"Cluster"`
+	ContainerInstanceArn *string `json:"ContainerInstanceArn"`
+	Version              string  `json:"Version"`
 }
 
 // TaskResponse is the schema for the task response JSON object
 type TaskResponse struct {
-	Arn           string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Family        string
-	Version       string
-	Containers    []ContainerResponse
+	Arn           string              `json:"Arn"`
+	DesiredStatus string              `json:"DesiredStatus,omitempty"`
+	KnownStatus   string              `json:"KnownStatus"`
+	Family        string              `json:"Family"`
+	Version       string              `json:"Version"`
+	Containers    []ContainerResponse `json:"Containers"`
 }
 
 // TasksResponse is the schema for the tasks response JSON object
 type TasksResponse struct {
-	Tasks []*TaskResponse
+	Tasks []*TaskResponse `json:"Tasks"`
 }
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string `json:"DockerId"`
-	DockerName string
-	Name       string
-	Ports      []PortResponse              `json:",omitempty"`
-	Networks   []containermetadata.Network `json:",omitempty"`
+	DockerID   string                      `json:"DockerId"`
+	DockerName string                      `json:"DockerName"`
+	Name       string                      `json:"Name"`
+	Ports      []PortResponse              `json:"Ports,omitempty"`
+	Networks   []containermetadata.Network `json:"Networks,omitempty"`
 }
 
 // PortResponse defines the schema for portmapping response JSON
 // object.
 type PortResponse struct {
-	ContainerPort uint16
-	Protocol      string
-	HostPort      uint16 `json:",omitempty"`
+	ContainerPort uint16 `json:"ContainerPort,omitempty"`
+	Protocol      string `json:"Protocol,omitempty"`
+	HostPort      uint16 `json:"HostPort,omitempty"`
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
