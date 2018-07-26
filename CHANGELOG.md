@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.19.1
+* Bug - Fixed a bug where responses of introspection API break backward compatibility [#1473](https://github.com/aws/amazon-ecs-agent/pull/1473)
+
 ## 1.19.0
 * Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
 
