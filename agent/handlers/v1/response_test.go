@@ -34,28 +34,36 @@ const (
 )
 
 func TestTaskResponse(t *testing.T) {
-	expectedTaskResponseJSONString :=
-		`{` +
-			`"Arn":"t1",` +
-			`"DesiredStatus":"RUNNING",` +
-			`"KnownStatus":"RUNNING",` +
-			`"Family":"sleep",` +
-			`"Version":"1",` +
-			`"Containers":[{` +
-				`"DockerId":"cid",` +
-				`"DockerName":"sleepy",` +
-				`"Name":"sleepy",` +
-				`"Ports":[{` +
-					`"ContainerPort":80,` +
-					`"Protocol":"tcp",` +
-					`"HostPort":80` +
-				`}],` +
-				`"Networks":[{` +
-					`"NetworkMode":"awsvpc",` +
-					`"IPv4Addresses":["10.0.0.2"]` +
-				`}]` +
-			`}]` +
-		`}`
+	expectedTaskResponseMap := map[string]interface{}{
+		"Arn": "t1",
+		"DesiredStatus": "RUNNING",
+		"KnownStatus": "RUNNING",
+		"Family": "sleep",
+		"Version": "1",
+		"Containers": []interface{}{
+			map[string]interface{}{
+				"DockerId": "cid",
+				"DockerName": "sleepy",
+				"Name": "sleepy",
+				"Ports": []interface{}{
+					map[string]interface{}{
+						// The number should be float here, because when we unmarshal
+						// something and we don't specify the number type, it will be
+						// set to float.
+						"ContainerPort": float64(80),
+						"Protocol": "tcp",
+						"HostPort": float64(80),
+					},
+				},
+				"Networks": []interface{}{
+					map[string]interface{}{
+						"NetworkMode": "awsvpc",
+						"IPv4Addresses": []interface{}{"10.0.0.2"},
+					},
+				},
+			},
+		},
+	}
 
 	task := &apitask.Task{
 	   Arn:                 taskARN,
@@ -93,28 +101,34 @@ func TestTaskResponse(t *testing.T) {
 	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)
-
 	assert.NoError(t, err)
-	assert.Equal(t, expectedTaskResponseJSONString, string(taskResponseJSON))
+
+	taskResponseMap := make(map[string]interface{})
+
+	json.Unmarshal(taskResponseJSON, &taskResponseMap)
+
+	assert.Equal(t, expectedTaskResponseMap, taskResponseMap)
 }
 
-
 func TestContainerResponse(t *testing.T) {
-	expectedContainerResponseJSONString :=
-		`{` +
-			`"DockerId":"cid",` +
-			`"DockerName":"sleepy",` +
-			`"Name":"sleepy",` +
-			`"Ports":[{` +
-				`"ContainerPort":80,` +
-				`"Protocol":"tcp",` +
-				`"HostPort":80` +
-			`}],` +
-			`"Networks":[{` +
-				`"NetworkMode":"awsvpc",` +
-				`"IPv4Addresses":["10.0.0.2"]` +
-			`}]` +
-		`}`
+	expectedContainerResponseMap := map[string]interface{}{
+		"DockerId": "cid",
+		"DockerName": "sleepy",
+		"Name": "sleepy",
+		"Ports": []interface{}{
+			map[string]interface{}{
+				"ContainerPort": float64(80),
+				"Protocol": "tcp",
+				"HostPort": float64(80),
+			},
+		},
+		"Networks": []interface{}{
+			map[string]interface{}{
+				"NetworkMode": "awsvpc",
+				"IPv4Addresses": []interface{}{"10.0.0.2"},
+			},
+		},
+	}
 
 	container := &apicontainer.Container{
 	   Name: containerName,
@@ -141,10 +155,15 @@ func TestContainerResponse(t *testing.T) {
 	}
 
 	containerResponse := NewContainerResponse(dockerContainer, eni)
-	containerResponseJSON, err := json.Marshal(containerResponse)
 
+	containerResponseJSON, err := json.Marshal(containerResponse)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedContainerResponseJSONString, string(containerResponseJSON))
+
+	containerResponseMap := make(map[string]interface{})
+
+	json.Unmarshal(containerResponseJSON, &containerResponseMap)
+
+	assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
 }
 
 func TestPortBindingsResponse(t *testing.T) {
