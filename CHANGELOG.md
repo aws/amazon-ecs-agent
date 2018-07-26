@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.20.0-dev
+* Feature - Add support for Docker volume plugins
+* Enhancement - Replace the empty container with Docker local volume
+* Enhancement - Deprecate support for Docker version older than 1.9.0 [#1477](https://github.com/aws/amazon-ecs-agent/pull/1477)
+
 ## 1.19.0
 * Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
 
