@@ -1,3 +1,9 @@
+amazon-ecs-init (1.19.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.19.1
+ 
+ -- Haikuo Liu <haikuo@amazon.com>  Thu, 26 Jul 2018 13:31:24 -0800
+
 amazon-ecs-init (1.19.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.19.0
