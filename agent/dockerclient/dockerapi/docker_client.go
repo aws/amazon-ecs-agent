@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -629,12 +630,12 @@ func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout
 }
 
 func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerContainerMetadata {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.StartContainerWithContext(id, nil, ctx)
+	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{} )
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
 		metadata.Error = CannotStartContainerError{err}

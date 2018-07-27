@@ -449,12 +449,12 @@ func TestCreateContainer(t *testing.T) {
 }
 
 func TestStartContainerTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
 	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
@@ -467,11 +467,11 @@ func TestStartContainerTimeout(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
-		mockDocker.EXPECT().StartContainerWithContext("id", nil, gomock.Any()).Return(nil),
+		mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -843,8 +843,9 @@ func TestUsesVersionedClient(t *testing.T) {
 
 	vclient := client.WithVersion(dockerclient.DockerVersion("1.20"))
 
-	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDocker, nil)
-	mockDocker.EXPECT().StartContainerWithContext(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Return(mockDocker, nil)
+	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Return(mockDockerSDK, nil)
+	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), gomock.Any(), types.ContainerStartOptions{}).Return(nil)
 	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("test error"))
 	vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
 }
@@ -872,7 +873,7 @@ func TestUnavailableVersionError(t *testing.T) {
 
 	vclient := client.WithVersion(dockerclient.DockerVersion("1.21"))
 
-	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
+	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.21")).Times(1).Return(nil, errors.New("Cannot get client"))
 	metadata := vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
 
 	assert.NotNil(t, metadata.Error, "Expected error, didn't get one")
