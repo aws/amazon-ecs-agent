@@ -157,8 +157,8 @@ type Task struct {
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
 
-	// platformFields consists of fields specific to linux/windows for a task
-	platformFields platformFields
+	// PlatformFields consists of fields specific to linux/windows for a task
+	PlatformFields PlatformFields `json:"PlatformFields,omitempty"`
 
 	// terminalReason should be used when we explicitly move a task to stopped.
 	// This ensures the task object carries some context for why it was explicitly
