@@ -741,11 +741,11 @@ func TestDockerVersionCached(t *testing.T) {
 }
 
 func TestListContainers(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	containers := []docker.APIContainers{{ID: "id"}}
-	mockDocker.EXPECT().ListContainers(gomock.Any()).Return(containers, nil)
+	containers := []types.Container{{ID: "id"}}
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true,}).Return(containers, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
@@ -757,13 +757,14 @@ func TestListContainers(t *testing.T) {
 }
 
 func TestListContainersTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().ListContainers(gomock.Any()).Do(func(x interface{}) {
-		wait.Wait()
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true,}).
+		Do(func(x, y interface{}) {
+			wait.Wait()
 		// Don't return, verify timeout happens
 	}).MaxTimes(1).Return(nil, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
