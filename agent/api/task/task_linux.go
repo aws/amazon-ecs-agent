@@ -46,8 +46,8 @@ const (
 	bytesPerMegabyte  = 1024 * 1024
 )
 
-// platformFields consists of fields specific to Linux for a task
-type platformFields struct{}
+// PlatformFields consists of fields specific to Linux for a task
+type PlatformFields struct{}
 
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.lock.Lock()
