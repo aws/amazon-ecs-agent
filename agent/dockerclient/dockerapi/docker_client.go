@@ -771,15 +771,15 @@ func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, 
 }
 
 func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) error {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
-	return client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:            dockerID,
-		RemoveVolumes: true,
-		Force:         false,
-		Context:       ctx,
+	return client.ContainerRemove(ctx, dockerID,
+		types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			RemoveLinks:   false,
+			Force:         false,
 	})
 }
 

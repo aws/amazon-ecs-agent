@@ -517,6 +517,46 @@ func TestStopContainer(t *testing.T) {
 	assert.Equal(t, "id", metadata.DockerID)
 }
 
+func TestRemoveContainerTimeout(t *testing.T) {
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
+		types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			RemoveLinks: false,
+			Force: false,
+	}).Do(func(x, y, z interface{}) {
+		wait.Wait() // wait until timeout happens
+	}).MaxTimes(1)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	err := client.RemoveContainer(ctx, "id", xContainerShortTimeout)
+	assert.Error(t, err, "Expected error for remove timeout")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
+	wait.Done()
+}
+
+func TestRemoveContainer(t *testing.T) {
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
+			types.ContainerRemoveOptions{
+				RemoveVolumes: true,
+				RemoveLinks: false,
+				Force: false,
+	}).Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.RemoveContainer(ctx, "id", dockerclient.RemoveContainerTimeout)
+	assert.NoError(t, err)
+}
+
 func TestInspectContainerTimeout(t *testing.T) {
 	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
