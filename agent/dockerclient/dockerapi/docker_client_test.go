@@ -484,12 +484,12 @@ func TestStartContainer(t *testing.T) {
 func TestStopContainerTimeout(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.DockerStopTimeout = xContainerShortTimeout
-	mockDocker, _, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
+	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().StopContainerWithContext("id", uint(client.config.DockerStopTimeout/time.Second), gomock.Any()).Do(func(x, y, z interface{}) {
+	mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", &client.config.DockerStopTimeout).Do(func(x, y, z interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	}).MaxTimes(1).Return(errors.New("test error"))
@@ -503,11 +503,11 @@ func TestStopContainerTimeout(t *testing.T) {
 }
 
 func TestStopContainer(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
-		mockDocker.EXPECT().StopContainerWithContext("id", uint(client.config.DockerStopTimeout/time.Second), gomock.Any()).Return(nil),
+		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", &client.config.DockerStopTimeout).Return(nil),
 		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
