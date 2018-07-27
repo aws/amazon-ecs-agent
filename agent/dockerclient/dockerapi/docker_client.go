@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -990,14 +991,13 @@ func (dg *dockerGoClient) ListContainers(ctx context.Context, all bool, timeout 
 }
 
 func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListContainersResponse {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return ListContainersResponse{Error: err}
 	}
 
-	containers, err := client.ListContainers(docker.ListContainersOptions{
-		All:     all,
-		Context: ctx,
+	containers, err := client.ContainerList(ctx, types.ContainerListOptions{
+		All: all,
 	})
 	if err != nil {
 		return ListContainersResponse{Error: err}
