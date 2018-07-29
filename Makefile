@@ -172,7 +172,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator
+test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -242,7 +242,7 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -260,6 +260,9 @@ testnnp:
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
+
+agent-introspection-validator:
+	$(MAKE) -C misc/agent-introspection-validator $(MFLAGS)
 
 taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
@@ -321,6 +324,7 @@ clean:
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
+	-$(MAKE) -C misc/agent-introspection-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean

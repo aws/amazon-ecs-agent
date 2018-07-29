@@ -584,7 +584,7 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
-// TestMetadataServiceValidator Tests that the metadata file can be accessed from the
+// TestMetadataServiceValidator tests that the metadata file can be accessed from the
 // container using the ECS_CONTAINER_METADATA_FILE environment variables
 func TestMetadataServiceValidator(t *testing.T) {
 	agentOptions := &AgentOptions{
@@ -605,6 +605,45 @@ func TestMetadataServiceValidator(t *testing.T) {
 	err = task.WaitStopped(2 * time.Minute)
 	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
 	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestAgentIntrospectionValidator tests that the agent introspection endpoint can
+// be accessed from within the container.
+func TestAgentIntrospectionValidator(t *testing.T) {
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+	defer agent.Cleanup()
+	// The Agent version was 1.14.2 when we added changes to agent introspection
+	// endpoint feature for the last time.
+	agent.RequireVersion(">1.14.1")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "agent-introspection-validator", tdOverrides)
+	require.NoError(t, err, "Unable to start task")
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(waitTaskStateChangeDuration)
+	}()
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("agent-introspection-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
