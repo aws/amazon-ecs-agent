@@ -1,0 +1,17 @@
+{
+  "family": "ecsftest-agent-introspection-validator",
+  "networkMode": "host",
+  "containerDefinitions": [{
+    "image": "amazon/amazon-ecs-agent-introspection-validator:make",
+    "name": "agent-introspection-validator",
+    "memory": 50,
+    "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+            "awslogs-group":"ecs-functional-tests",
+            "awslogs-region":"$$$TEST_REGION$$$",
+            "awslogs-stream-prefix":"ecs-functional-tests-agent-introspection-validator"
+        }
+    }
+  }]
+}
