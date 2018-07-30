@@ -23,14 +23,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	docker "github.com/fsouza/go-dockerclient"
 
 	log "github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
 // LoadImage helps load the pause container image for the agent
-func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
+func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
 	if err := loadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.Docke
 
 }
 
-func getPauseContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*docker.Image, error) {
+func getPauseContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	imageName := fmt.Sprintf("%s:%s", name, tag)
 	log.Debugf("Inspecting pause container image: %s", imageName)
 

@@ -70,18 +70,19 @@ func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
 
 	clientFactory := clientfactory.NewFactory(ctx, dockerEndpoint)
 	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, sdkClientFactory, cfg, ctx)
+	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, sdkClientFactory, cfg, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}

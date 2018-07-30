@@ -194,7 +194,7 @@ type DockerClient interface {
 	APIVersion() (dockerclient.DockerVersion, error)
 
 	// InspectImage returns information about the specified image.
-	InspectImage(string) (*docker.Image, error)
+	InspectImage(string) (*types.ImageInspect, error)
 
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value and a context should be provided for the request.
@@ -499,8 +499,7 @@ func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata 
 }
 
 func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) error {
-	client, err := dg.dockerClient()
-	sdkclient, err := dg.sdkDockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
@@ -508,7 +507,7 @@ func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) err
 	scratchCreateLock.Lock()
 	defer scratchCreateLock.Unlock()
 
-	_, err = client.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
+	_, _, err = client.ImageInspectWithRaw(ctx, emptyvolume.Image + ":" + emptyvolume.Tag)
 	if err == nil {
 		seelog.Debug("DockerGoClient: empty volume image is already present, skipping import")
 		// Already exists; assume that it's okay to use it
@@ -532,16 +531,17 @@ func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) err
 	}
 	seelog.Debug("DockerGoClient: importing empty volume image")
 	// Create it from an empty tarball
-	_, err = sdkclient.ImageImport(ctx, importSrc, emptyvolume.Image + ":" + emptyvolume.Tag, importOpts)
+	_, err = client.ImageImport(ctx, importSrc, emptyvolume.Image + ":" + emptyvolume.Tag, importOpts)
 	return err
 }
 
-func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.InspectImage(image)
+	imageData, _, err := client.ImageInspectWithRaw(dg.context, image)
+	return &imageData, err
 }
 
 func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
@@ -1345,10 +1345,7 @@ func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, 
 
 	response := make(chan error, 1)
 	go func() {
-		response <- dg.loadImage(docker.LoadImageOptions{
-			InputStream: inputStream,
-			Context:     ctx,
-		})
+		response <- dg.loadImage(ctx, inputStream)
 	}()
 	select {
 	case resp := <-response:
@@ -1358,10 +1355,11 @@ func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, 
 	}
 }
 
-func (dg *dockerGoClient) loadImage(opts docker.LoadImageOptions) error {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
-	return client.LoadImage(opts)
+	_, err = client.ImageLoad(ctx, reader, false)
+	return err
 }
