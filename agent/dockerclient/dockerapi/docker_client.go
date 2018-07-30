@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -1307,7 +1308,7 @@ func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, tim
 	defer cancel()
 
 	response := make(chan error, 1)
-	go func() { response <- dg.removeImage(imageName) }()
+	go func() { response <- dg.removeImage(ctx, imageName) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -1316,12 +1317,13 @@ func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, tim
 	}
 }
 
-func (dg *dockerGoClient) removeImage(imageName string) error {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) error {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
-	return client.RemoveImage(imageName)
+	_, err = client.ImageRemove(ctx, imageName,types.ImageRemoveOptions{})
+	return err
 }
 
 // LoadImage invokes loads an image from an input stream, with a specified timeout
