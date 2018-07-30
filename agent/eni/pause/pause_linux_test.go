@@ -90,7 +90,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{}, nil)
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(pauseTarballPath).Return(nil, nil)
 
@@ -120,7 +120,7 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDocker.EXPECT().LoadImage(gomock.Any()).Return(
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return( types.ImageLoadResponse{},
 		errors.New("Dummy Load Image Error"))
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 
@@ -149,8 +149,8 @@ func TestGetPauseContainerImageInspectImageError(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(
-		nil, errors.New("error"))
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), pauseName+":"+pauseTag).Return(
+		types.ImageInspect{}, nil, errors.New("error"))
 
 	_, err = getPauseContainerImage(pauseName, pauseTag, client)
 	assert.Error(t, err)
@@ -176,7 +176,7 @@ func TestGetPauseContainerHappyPath(t *testing.T) {
 
 	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDocker.EXPECT().InspectImage(pauseName+":"+pauseTag).Return(nil, nil)
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), pauseName+":"+pauseTag).Return(types.ImageInspect{}, nil, nil)
 
 	_, err = getPauseContainerImage(pauseName, pauseTag, client)
 	assert.NoError(t, err)

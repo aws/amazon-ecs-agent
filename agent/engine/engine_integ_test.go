@@ -37,6 +37,8 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	sdk "github.com/docker/docker/client"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -91,9 +93,9 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 }
 
 func removeImage(t *testing.T, img string) {
-	client, err := docker.NewClient(endpoint)
+	client, err := sdk.NewClientWithOpts(sdk.WithHost(endpoint))
 	require.NoError(t, err, "create docker client failed")
-	client.RemoveImage(img)
+	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
 }
 
 // TestDockerStateToContainerState tests convert the container status from
