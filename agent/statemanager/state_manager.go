@@ -60,11 +60,12 @@ const (
 	// 9) Add 'ipToTask' map to state file
 	// 10) Add 'healthCheckType' field in 'apicontainer.Container'
 	// 11)
-	//  a) Add 'PrivateDNSName' field to 'api.ENI'
-	//  b)Remove `AppliedStatus` field form 'apicontainer.Container'
+	//   a) Add 'PrivateDNSName' field to 'api.ENI'
+	//   b)Remove `AppliedStatus` field form 'apicontainer.Container'
 	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'apicontainer.Container'
 	// 13) Add 'resources' field to 'api.task.task'
-	ECSDataVersion = 13
+	// 14) Add 'V3EndpointID' field to 'Container' struct
+	ECSDataVersion = 14
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

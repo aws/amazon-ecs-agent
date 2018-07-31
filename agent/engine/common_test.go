@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -151,6 +152,16 @@ func validateContainerRunWorkflow(t *testing.T,
 		credentialsEndpointEnvValue := roleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 		dockerConfig.Env = append(dockerConfig.Env, "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI="+credentialsEndpointEnvValue)
 	}
+
+	v3EndpointID := container.GetV3EndpointID()
+	if v3EndpointID == "" {
+		// if container's v3 endpoint id is not specified, set it here so it's not randomly generated
+		// in execution; and then we can check whether the endpoint's value is expected
+		v3EndpointID = uuid.New()
+		container.SetV3EndpointID(v3EndpointID)
+		metadataEndpointEnvValue := fmt.Sprintf(apicontainer.MetadataURIFormat, v3EndpointID)
+		dockerConfig.Env = append(dockerConfig.Env, "ECS_CONTAINER_METADATA_URI="+metadataEndpointEnvValue)
+	}
 	// Container config should get updated with this during CreateContainer
 	dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = task.Arn
 	dockerConfig.Labels["com.amazonaws.ecs.container-name"] = container.Name
@@ -159,8 +170,8 @@ func validateContainerRunWorkflow(t *testing.T,
 	dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(ctx interface{}, config *docker.Config, y interface{}, containerName string, z time.Duration) {
-			assert.True(t, reflect.DeepEqual(dockerConfig, config),
-				"Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
+			checkDockerConfigsExceptEnv(t, dockerConfig, config)
+			checkDockerConfigsEnv(t, dockerConfig, config)
 			// sleep5 task contains only one container. Just assign
 			// the containerName to createdContainerName
 			createdContainerName <- containerName
@@ -180,6 +191,34 @@ func validateContainerRunWorkflow(t *testing.T,
 			}()
 		}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
 	assertions()
+}
+
+// checkDockerConfigsExceptEnv checks whether the contents in the docker config are expected
+// except for the Env field. Checking for Env field is seperated because when agent converts
+// its container config to docker config, it iterates over the container's env map and
+// append them into docker config's env slice. So the sequence for the env slice is undetermined,
+// and it needs other logic to check equality.
+func checkDockerConfigsExceptEnv(t *testing.T, expectedConfig *docker.Config, config *docker.Config) {
+	expectedConfigEnvList := expectedConfig.Env
+	configEnvList := config.Env
+	expectedConfig.Env = nil
+	config.Env = nil
+
+	assert.True(t, reflect.DeepEqual(expectedConfig, config),
+		"Mismatch in container config; expected: %v, got: %v", expectedConfig, config)
+
+	expectedConfig.Env = expectedConfigEnvList
+	config.Env = configEnvList
+}
+
+// checkDockerConfigsEnv checks whether two docker configs have same list of environment
+// variables and each has same value, ignoring the order.
+func checkDockerConfigsEnv(t *testing.T, expectedConfig *docker.Config, config *docker.Config) {
+	expectedConfigEnvList := expectedConfig.Env
+	configEnvList := config.Env
+
+	assert.ElementsMatchf(t, expectedConfigEnvList, configEnvList,
+		"Mismatch in container config env; expected: %v, got: %v", expectedConfigEnvList, configEnvList)
 }
 
 // addTaskToEngine adds a test task to the engine. It waits for a task to reach the
