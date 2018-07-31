@@ -355,18 +355,19 @@ func TestGetRepositoryWithUntaggedImage(t *testing.T) {
 }
 
 func TestImportLocalEmptyVolumeImage(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	// The special emptyvolume image leads to a create, not pull
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
 		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(nil, errors.New("Does not exist")),
-		mockDocker.EXPECT().ImportImage(gomock.Any()).Do(func(x interface{}) {
-			req := x.(docker.ImportImageOptions)
-			require.Equal(t, emptyvolume.Image, req.Repository, "expected empty volume repository")
-			require.Equal(t, emptyvolume.Tag, req.Tag, "expected empty volume tag")
-		}),
+		mockDockerSDK.EXPECT().ImageImport(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Do(func(ctx context.Context, x, y, z interface{}) {
+				req := z.(types.ImageImportOptions)
+				require.Equal(t, emptyvolume.Image+":"+emptyvolume.Tag, y, "expected empty volume repository")
+				require.Equal(t, emptyvolume.Tag, req.Tag, "expected empty volume tag")
+			}),
 	)
 
 	metadata := client.ImportLocalEmptyVolumeImage()
