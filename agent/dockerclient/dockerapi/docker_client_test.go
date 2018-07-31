@@ -1029,12 +1029,12 @@ func TestStatsClientError(t *testing.T) {
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().RemoveImage("image").Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", types.ImageRemoveOptions{}).Do(func(x, y, z interface{}) {
 		wait.Wait()
 	})
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1045,11 +1045,11 @@ func TestRemoveImageTimeout(t *testing.T) {
 }
 
 func TestRemoveImage(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().RemoveImage("image").Return(nil)
+	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", types.ImageRemoveOptions{}).Return([]types.ImageDeleteResponseItem{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := client.RemoveImage(ctx, "image", 2*time.Millisecond)
