@@ -229,6 +229,7 @@ type dockerGoClient struct {
 	auth             dockerauth.DockerAuthProvider
 	ecrTokenCache    async.Cache
 	config           *config.Config
+	context          context.Context
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -244,6 +245,7 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		version:          version,
 		auth:             dg.auth,
 		config:           dg.config,
+		context:          dg.context,
 	}
 }
 
@@ -296,6 +298,7 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 		config:           cfg,
+		context:          ctx,
 	}, nil
 }
 
@@ -473,7 +476,7 @@ func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata 
 
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
-		err := dg.createScratchImageIfNotExists()
+		err := dg.createScratchImageIfNotExists(dg.context)
 		var wrapped apierrors.NamedError
 		if err != nil {
 			wrapped = CreateEmptyVolumeError{err}
@@ -488,8 +491,9 @@ func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata 
 	}
 }
 
-func (dg *dockerGoClient) createScratchImageIfNotExists() error {
+func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) error {
 	client, err := dg.dockerClient()
+	sdkclient, err := dg.sdkDockerClient()
 	if err != nil {
 		return err
 	}
@@ -512,14 +516,16 @@ func (dg *dockerGoClient) createScratchImageIfNotExists() error {
 		writer.Close()
 	}()
 
+	importSrc := types.ImageImportSource{
+		Source:     reader,
+		SourceName: "-",
+	}
+	importOpts := types.ImageImportOptions{
+		Tag:     emptyvolume.Tag,
+	}
 	seelog.Debug("DockerGoClient: importing empty volume image")
 	// Create it from an empty tarball
-	err = client.ImportImage(docker.ImportImageOptions{
-		Repository:  emptyvolume.Image,
-		Tag:         emptyvolume.Tag,
-		Source:      "-",
-		InputStream: reader,
-	})
+	_, err = sdkclient.ImageImport(ctx, importSrc, emptyvolume.Image + ":" + emptyvolume.Tag, importOpts)
 	return err
 }
 
