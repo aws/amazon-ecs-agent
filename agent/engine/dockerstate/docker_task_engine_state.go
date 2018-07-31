@@ -69,6 +69,10 @@ type TaskEngineState interface {
 	AddTaskIPAddress(addr string, taskARN string)
 	// GetTaskByIPAddress gets the task arn for an IP address
 	GetTaskByIPAddress(addr string) (string, bool)
+	// ContainerByV3EndpointID returns an apicontainer.DockerContainer for a given v3 endpoint ID
+	ContainerByV3EndpointID(v3EndpointID string) (*apicontainer.DockerContainer, bool)
+	// TaskByV3EndpointID returns an apitask.Task for a given v3 endpoint ID
+	TaskByV3EndpointID(v3EndpointID string) (*apitask.Task, bool)
 	json.Marshaler
 	json.Unmarshaler
 }
@@ -89,13 +93,15 @@ type TaskEngineState interface {
 type DockerTaskEngineState struct {
 	lock sync.RWMutex
 
-	tasks          map[string]*apitask.Task                            // taskarn -> apitask.Task
-	idToTask       map[string]string                                   // DockerId -> taskarn
-	taskToID       map[string]map[string]*apicontainer.DockerContainer // taskarn -> (containername -> c.DockerContainer)
-	idToContainer  map[string]*apicontainer.DockerContainer            // DockerId -> c.DockerContainer
-	eniAttachments map[string]*apieni.ENIAttachment                    // ENIMac -> apieni.ENIAttachment
-	imageStates    map[string]*image.ImageState
-	ipToTask       map[string]string // ip address -> task arn
+	tasks                  map[string]*apitask.Task                            // taskarn -> apitask.Task
+	idToTask               map[string]string                                   // DockerId -> taskarn
+	taskToID               map[string]map[string]*apicontainer.DockerContainer // taskarn -> (containername -> c.DockerContainer)
+	idToContainer          map[string]*apicontainer.DockerContainer            // DockerId -> c.DockerContainer
+	eniAttachments         map[string]*apieni.ENIAttachment                    // ENIMac -> apieni.ENIAttachment
+	imageStates            map[string]*image.ImageState
+	ipToTask               map[string]string // ip address -> task arn
+	v3EndpointIDToTask     map[string]string // container's v3 endpoint id -> taskarn
+	v3EndpointIDToDockerID map[string]string // container's v3 endpoint id -> DockerId
 }
 
 // NewTaskEngineState returns a new TaskEngineState
@@ -120,6 +126,8 @@ func (state *DockerTaskEngineState) initializeDockerTaskEngineState() {
 	state.imageStates = make(map[string]*image.ImageState)
 	state.eniAttachments = make(map[string]*apieni.ENIAttachment)
 	state.ipToTask = make(map[string]string)
+	state.v3EndpointIDToTask = make(map[string]string)
+	state.v3EndpointIDToDockerID = make(map[string]string)
 }
 
 // Reset resets all the states
@@ -328,6 +336,14 @@ func (state *DockerTaskEngineState) AddContainer(container *apicontainer.DockerC
 
 	state.storeIDToContainerTaskUnsafe(container, task)
 
+	dockerID := container.DockerID
+	v3EndpointID := container.Container.V3EndpointID
+	// stores the v3EndpointID mappings only if container's dockerID exists and container's v3EndpointID has been generated
+	if dockerID != "" && v3EndpointID != "" {
+		state.storeV3EndpointIDToTaskUnsafe(v3EndpointID, task.Arn)
+		state.storeV3EndpointIDToDockerIDUnsafe(v3EndpointID, dockerID)
+	}
+
 	existingMap, exists := state.taskToID[task.Arn]
 	if !exists {
 		existingMap = make(map[string]*apicontainer.DockerContainer, len(task.Containers))
@@ -377,6 +393,8 @@ func (state *DockerTaskEngineState) RemoveTask(task *apitask.Task) {
 
 	for _, dockerContainer := range containerMap {
 		state.removeIDToContainerTaskUnsafe(dockerContainer)
+		// remove v3 endpoint mappings
+		state.removeV3EndpointIDToTaskContainerUnsafe(dockerContainer.Container.V3EndpointID)
 	}
 }
 
@@ -424,6 +442,14 @@ func (state *DockerTaskEngineState) removeIDToContainerTaskUnsafe(container *api
 	delete(state.idToContainer, key)
 }
 
+// removeV3EndpointIDToTaskContainerUnsafe removes the container from v3EndpointIDToTask and v3EndpointIDToDockerID maps
+func (state *DockerTaskEngineState) removeV3EndpointIDToTaskContainerUnsafe(v3EndpointID string) {
+	if v3EndpointID != "" {
+		delete(state.v3EndpointIDToTask, v3EndpointID)
+		delete(state.v3EndpointIDToDockerID, v3EndpointID)
+	}
+}
+
 // RemoveImageState removes an image.ImageState
 func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageState) {
 	if imageState == nil {
@@ -456,4 +482,46 @@ func (state *DockerTaskEngineState) GetTaskByIPAddress(addr string) (string, boo
 
 	taskARN, ok := state.ipToTask[addr]
 	return taskARN, ok
+}
+
+// storeV3EndpointIDToTaskUnsafe adds v3EndpointID -> taskARN mapping to state
+func (state *DockerTaskEngineState) storeV3EndpointIDToTaskUnsafe(v3EndpointID, taskARN string) {
+	state.v3EndpointIDToTask[v3EndpointID] = taskARN
+}
+
+// storeV3EndpointIDToContainerNameUnsafe adds v3EndpointID -> dockerID mapping to state
+func (state *DockerTaskEngineState) storeV3EndpointIDToDockerIDUnsafe(v3EndpointID, dockerID string) {
+	state.v3EndpointIDToDockerID[v3EndpointID] = dockerID
+}
+
+// ContainerByV3EndpointID returns an apicontainer.DockerContainer for a given v3 endpoint ID
+func (state *DockerTaskEngineState) ContainerByV3EndpointID(v3EndpointID string) (*apicontainer.DockerContainer, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	dockerID, ok := state.v3EndpointIDToDockerID[v3EndpointID]
+	if !ok {
+		return nil, false
+	}
+
+	container, ok := state.idToContainer[dockerID]
+	if !ok {
+		return nil, false
+	}
+
+	return container, ok
+}
+
+// TaskByV3EndpointID returns an apitask.Task for a given v3 endpoint ID
+func (state *DockerTaskEngineState) TaskByV3EndpointID(v3EndpointID string) (*apitask.Task, bool) {
+	state.lock.RLock()
+	defer state.lock.RUnlock()
+
+	taskArn, ok := state.v3EndpointIDToTask[v3EndpointID]
+	if !ok {
+		return nil, false
+	}
+
+	task, ok := state.tasks[taskArn]
+	return task, ok
 }

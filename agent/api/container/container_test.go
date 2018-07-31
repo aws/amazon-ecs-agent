@@ -252,3 +252,15 @@ func TestShouldPullWithASMAuth(t *testing.T) {
 
 	assert.True(t, container.ShouldPullWithASMAuth())
 }
+
+func TestInjectV3MetadataEndpoint(t *testing.T) {
+	container := Container{
+		V3EndpointID: "myV3EndpointID",
+	}
+
+	container.InjectV3MetadataEndpoint()
+
+	assert.NotNil(t, container.Environment)
+	assert.Equal(t, container.Environment[MetadataURIEnvironmentVariableName],
+		fmt.Sprintf(MetadataURIFormat, "myV3EndpointID"))
+}
