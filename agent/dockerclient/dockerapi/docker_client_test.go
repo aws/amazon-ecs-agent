@@ -343,33 +343,6 @@ func TestCreateContainerTimeout(t *testing.T) {
 	wait.Done()
 }
 
-func TestCreateContainerInspectTimeout(t *testing.T) {
-	mockDocker, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
-	gomock.InOrder(
-		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
-			if !reflect.DeepEqual(opts.Config, config.Config) {
-				t.Errorf("Mismatch in create container config, %v != %v", opts.Config, config.Config)
-			}
-			if opts.Name != config.Name {
-				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
-			}
-		}).Return(&docker.Container{ID: "id"}, nil),
-		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, &DockerTimeoutError{}),
-	)
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, 1*time.Second)
-	if metadata.DockerID != "id" {
-		t.Error("Expected ID to be set even if inspect failed; was " + metadata.DockerID)
-	}
-	if metadata.Error == nil {
-		t.Error("Expected error for inspect timeout")
-	}
-}
-
 func TestCreateContainer(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
@@ -384,7 +357,6 @@ func TestCreateContainer(t *testing.T) {
 				t.Errorf("Mismatch in create container options, %s != %s", opts.Name, config.Name)
 			}
 		}).Return(&docker.Container{ID: "id"}, nil),
-		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -544,12 +516,6 @@ func TestContainerEvents(t *testing.T) {
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
 	require.NoError(t, err, "Could not get container events")
-
-	mockDocker.EXPECT().InspectContainerWithContext("containerId", gomock.Any()).Return(
-		&docker.Container{
-			ID: "containerId",
-		},
-		nil)
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "containerId", Status: "create"}
 	}()

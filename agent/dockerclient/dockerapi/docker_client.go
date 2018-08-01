@@ -505,7 +505,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
 
-	return dg.containerMetadata(ctx, dockerContainer.ID)
+	return MetadataFromContainer(dockerContainer)
 }
 
 func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
@@ -823,12 +823,14 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		switch event.Status {
 		case "create":
 			status = apicontainerstatus.ContainerCreated
-			// TODO no need to inspect containers here.
-			// There's no need to inspect containers after they are created when we
-			// adopt Docker's volume APIs. Today, that's the only information we need
-			// from the `inspect` API. Once we start injecting that ourselves,
-			// there's no need to `inspect` containers on `Create` anymore. This will
-			// save us a lot of `inspect` calls in the future.
+			changedContainers <- DockerContainerChangeEvent{
+				Status: status,
+				Type:   eventType,
+				DockerContainerMetadata: DockerContainerMetadata{
+					DockerID: containerID,
+				},
+			}
+			continue
 		case "start":
 			status = apicontainerstatus.ContainerRunning
 		case "stop":
