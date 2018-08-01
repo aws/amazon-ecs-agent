@@ -1,7 +1,7 @@
 # Changelog
 
-## 1.20.0-dev
-* Feature - Add support for Docker volume plugins
+## 1.20.0
+* Feature - Add support for Docker volume drivers, third party drivers are only supported on linux
 * Enhancement - Replace the empty container with Docker local volume
 * Enhancement - Deprecate support for Docker version older than 1.9.0 [#1477](https://github.com/aws/amazon-ecs-agent/pull/1477)
 * Bug - Fixed a bug where container marked as stopped comes back with a running status [#1446](https://github.com/aws/amazon-ecs-agent/pull/1446)
