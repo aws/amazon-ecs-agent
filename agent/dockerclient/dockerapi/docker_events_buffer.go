@@ -14,9 +14,10 @@
 package dockerapi
 
 import (
+	"context"
 	"sync"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types/events"
 )
 
 const (
@@ -38,7 +39,7 @@ var containerEvents = []string{
 // InfiniteBuffer defines an unlimited buffer, where it reads from
 // input channel and write to output channel.
 type InfiniteBuffer struct {
-	events       []*docker.APIEvents
+	events       []*events.Message
 	empty        bool
 	waitForEvent sync.WaitGroup
 	count        int
@@ -51,15 +52,25 @@ func NewInfiniteBuffer() *InfiniteBuffer {
 }
 
 // StartListening starts reading from the input channel and writes to the buffer
-// TODO: wire in ctx to stop listening
-func (buffer *InfiniteBuffer) StartListening(events chan *docker.APIEvents) {
-	for event := range events {
-		go buffer.CopyEvents(event)
+// When context is cancelled, stop listening
+func (buffer *InfiniteBuffer) StartListening(ctx context.Context, eventChan <-chan events.Message) {
+	for {
+		select {
+		// If context is cancelled, return
+		case <-ctx.Done():
+			return
+		default:
+			for event := range eventChan {
+				go func(j events.Message) {
+					go buffer.CopyEvents(&j)
+				}(event)
+			}
+		}
 	}
 }
 
 // CopyEvents copies the event into the buffer
-func (buffer *InfiniteBuffer) CopyEvents(event *docker.APIEvents) {
+func (buffer *InfiniteBuffer) CopyEvents(event *events.Message) {
 	if event.ID == "" || event.Type != containerTypeEvent {
 		return
 	}
@@ -84,7 +95,7 @@ func (buffer *InfiniteBuffer) CopyEvents(event *docker.APIEvents) {
 }
 
 // Consume reads the buffer and write to a listener channel
-func (buffer *InfiniteBuffer) Consume(in chan<- *docker.APIEvents) {
+func (buffer *InfiniteBuffer) Consume(in chan<- *events.Message) {
 	for {
 		buffer.lock.Lock()
 

@@ -42,6 +42,7 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -258,14 +259,14 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 	client, err := clientFactory.GetDefaultClient()
 
 	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. " +
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 	sdkclient, err := sdkclientFactory.GetDefaultClient()
 
 	if err != nil {
-		seelog.Errorf("DockerGoClient: Docker SDK client unable to connect to Docker daemon. " +
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to connect to Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
@@ -274,13 +275,13 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 	// to ensure it's up.
 	err = client.Ping()
 	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. " +
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 	_, err = sdkclient.Ping(ctx)
 	if err != nil {
-		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. " +
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
@@ -300,7 +301,7 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 }
 
 // Returns the Docker SDK Client
-func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error){
+func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error) {
 	if dg.version == "" {
 		return dg.sdkClientFactory.GetDefaultClient()
 	}
@@ -635,7 +636,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{} )
+	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{})
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
 		metadata.Error = CannotStartContainerError{err}
@@ -780,7 +781,7 @@ func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) 
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
-	})
+		})
 }
 
 func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) DockerContainerMetadata {
@@ -882,38 +883,56 @@ func getMetadataHealthCheck(dockerContainer *docker.Container) apicontainer.Heal
 
 // Listen to the docker event stream for container changes and pass them up
 func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error) {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	dockerEvents := make(chan *docker.APIEvents, dockerEventBufferSize)
-	events := make(chan *docker.APIEvents)
+
+	event := make(chan *events.Message)
 	buffer := NewInfiniteBuffer()
 
-	err = client.AddEventListener(dockerEvents)
-	if err != nil {
-		seelog.Errorf("DockerGoClient: unable to add a docker event listener: %v", err)
-		return nil, err
-	}
+	derivedCtx, cancel := context.WithCancel(ctx)
+	dockerEvents, eventErr := client.Events(derivedCtx, types.EventsOptions{})
+
+	// Cache the event from docker client. Channel closes when an error is passed to eventErr.
+	go buffer.StartListening(derivedCtx, dockerEvents)
+
+	// Receive errors from channels. If error thrown is not EOF, log and reopen channel.
 	go func() {
-		<-ctx.Done()
-		client.RemoveEventListener(dockerEvents)
+		for {
+			err := <-eventErr
+			if err == io.EOF {
+				// If error processed is EOF; return
+				seelog.Info("DockerGoClient: All events have been received.")
+				cancel()
+				return
+			} else {
+				// If error processed is not EOF, need to reopen channel
+				seelog.Errorf("DockerGoClient: error while listening to Docker Events : %v", err)
+				nextCtx, nextCancel := context.WithCancel(ctx)
+				dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
+				// Cache the event from docker client.
+				go buffer.StartListening(nextCtx, dockerEvents)
+				// Close previous stream after starting to listen on new one
+				cancel()
+				// Reassign cancel variable next Cancel function to setup next iteration of loop.
+				cancel = nextCancel
+			}
+		}
 	}()
 
-	// Cache the event from go docker client
-	go buffer.StartListening(dockerEvents)
 	// Read the buffered events and send to task engine
-	go buffer.Consume(events)
-
+	go buffer.Consume(event)
 	changedContainers := make(chan DockerContainerChangeEvent)
-	go dg.handleContainerEvents(ctx, events, changedContainers)
+	go dg.handleContainerEvents(ctx, event, changedContainers)
+
 	return changedContainers, nil
 }
 
 func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
-	events <-chan *docker.APIEvents,
+	eventsChan <-chan *events.Message,
 	changedContainers chan<- DockerContainerChangeEvent) {
-	for event := range events {
+	for event := range eventsChan {
 		containerID := event.ID
 		seelog.Debugf("DockerGoClient: got event from docker daemon: %v", event)
 
@@ -1321,7 +1340,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageRemove(ctx, imageName,types.ImageRemoveOptions{})
+	_, err = client.ImageRemove(ctx, imageName, types.ImageRemoveOptions{})
 	return err
 }
 
