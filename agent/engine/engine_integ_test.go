@@ -356,14 +356,14 @@ func TestEngineSynchronize(t *testing.T) {
 	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
-func TestSharedProvisionedVolume(t *testing.T) {
+func TestSharedAutoprovisionVolume(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	// Set the task clean up duration to speed up the test
 	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
 
-	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedProvisionedVolume", "TestSharedProvisionedVolume", false)
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
 	defer os.Remove(tmpDirectory)
 	require.NoError(t, err, "creating test task failed")
 
@@ -372,16 +372,16 @@ func TestSharedProvisionedVolume(t *testing.T) {
 	verifyTaskIsRunning(stateChangeEvents, testTask)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
-	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedProvisionedVolume", "task volume name is not the same as specified in task definition")
+	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
 	// Wait for task to be cleaned up
 	testTask.SetSentStatus(apitaskstatus.TaskStopped)
 	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
 	client := taskEngine.(*DockerTaskEngine).client
-	response := client.InspectVolume(context.TODO(), "TestSharedProvisionedVolume", 1*time.Second)
+	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 }
 
-func TestSharedNonProvisionedVolume(t *testing.T) {
+func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -389,12 +389,13 @@ func TestSharedNonProvisionedVolume(t *testing.T) {
 	// Set the task clean up duration to speed up the test
 	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
 
-	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedNonProvisionedVolume", "TestSharedNonProvisionedVolume", true)
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedDoNotAutoprovisionVolume", "TestSharedDoNotAutoprovisionVolume", false)
 	defer os.Remove(tmpDirectory)
 	require.NoError(t, err, "creating test task failed")
 
+	// creating volume to simulate previously provisioned volume
 	volumeConfig := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
-	volumeMetadata := client.CreateVolume(context.TODO(), "TestSharedNonProvisionedVolume",
+	volumeMetadata := client.CreateVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume",
 		volumeConfig.Driver, volumeConfig.DriverOpts, volumeConfig.Labels, 1*time.Minute)
 	require.NoError(t, volumeMetadata.Error)
 
@@ -407,6 +408,6 @@ func TestSharedNonProvisionedVolume(t *testing.T) {
 	// Wait for task to be cleaned up
 	testTask.SetSentStatus(apitaskstatus.TaskStopped)
 	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
-	response := client.InspectVolume(context.TODO(), "TestSharedNonProvisionedVolume", 1*time.Second)
+	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 }

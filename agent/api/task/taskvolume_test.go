@@ -128,7 +128,7 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
-					Autoprovision: true,
+					Autoprovision: false,
 				},
 			},
 		},
@@ -166,7 +166,7 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
-					Autoprovision: true,
+					Autoprovision: false,
 				},
 			},
 		},
@@ -221,7 +221,7 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
 }
 
-func TestInitializeSharedNonProvisionedVolumeNotFoundError(t *testing.T) {
+func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
@@ -244,7 +244,7 @@ func TestInitializeSharedNonProvisionedVolumeNotFoundError(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
-					Autoprovision: false,
+					Autoprovision: true,
 				},
 			},
 		},
@@ -257,7 +257,7 @@ func TestInitializeSharedNonProvisionedVolumeNotFoundError(t *testing.T) {
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "volume resource should be in the container dependency map")
 }
 
-func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
+func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
@@ -280,7 +280,7 @@ func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
-					Autoprovision: false,
+					Autoprovision: true,
 				},
 			},
 		},
@@ -295,7 +295,7 @@ func TestInitializeSharedNonProvisionedVolumeNotMatchError(t *testing.T) {
 	assert.Error(t, err, "volume resource details not match should cause task fail")
 }
 
-func TestInitializeSharedNonProvisionedVolumeTimeout(t *testing.T) {
+func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
@@ -318,7 +318,7 @@ func TestInitializeSharedNonProvisionedVolumeTimeout(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.DockerVolumeConfig{
 					Scope:         "shared",
-					Autoprovision: false,
+					Autoprovision: true,
 				},
 			},
 		},

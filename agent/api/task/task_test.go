@@ -35,6 +35,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -529,6 +531,54 @@ func TestGetCredentialsEndpointWhenCredentialsAreNotSet(t *testing.T) {
 			t.Errorf("'%s' environment variable should not be set for container '%s'", awsSDKCredentialsRelativeURIPathEnvironmentVariableName, container.Name)
 		}
 	}
+}
+
+func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
+	autoprovision := true
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{DockerVolume: &docker.Volume{}})
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: strptr("myName1"),
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr("/some/path"),
+						SourceVolume:  strptr("dockervolume"),
+					},
+				},
+			},
+		},
+		Volumes: []*ecsacs.Volume{
+			{
+				Name: strptr("dockervolume"),
+				Type: strptr("docker"),
+				DockerVolumeConfiguration: &ecsacs.DockerVolumeConfiguration{
+					Autoprovision: &autoprovision,
+					Scope:         strptr("shared"),
+					Driver:        strptr("local"),
+					DriverOpts:    make(map[string]*string),
+					Labels:        nil,
+				},
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
+	cfg := config.Config{}
+	task.PostUnmarshalTask(&cfg, nil, nil, dockerClient, nil)
+	assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
+	taskVol := task.Volumes[0]
+	assert.Equal(t, "dockervolume", taskVol.Name)
+	assert.Equal(t, DockerVolumeType, taskVol.Type)
 }
 
 func TestPostUnmarshalTaskWithEmptyVolumes(t *testing.T) {
