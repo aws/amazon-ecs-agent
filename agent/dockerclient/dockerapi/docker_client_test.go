@@ -754,10 +754,10 @@ func TestContainerEvents(t *testing.T) {
 }
 
 func TestDockerVersion(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().VersionWithContext(gomock.Any()).Return(&docker.Env{"Version=1.6.0"}, nil)
+	mockDockerSDK.EXPECT().ServerVersion(gomock.Any()).Return(types.Version{Version:"1.6.0"}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

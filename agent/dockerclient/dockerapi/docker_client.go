@@ -1014,11 +1014,11 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
-	return dg.clientFactory.FindSupportedAPIVersions()
+	return dg.sdkClientFactory.FindSupportedAPIVersions()
 }
 
 func (dg *dockerGoClient) KnownVersions() []dockerclient.DockerVersion {
-	return dg.clientFactory.FindKnownAPIVersions()
+	return dg.sdkClientFactory.FindKnownAPIVersions()
 }
 
 func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (string, error) {
@@ -1030,16 +1030,16 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return "", err
 	}
-	info, err := client.VersionWithContext(derivedCtx)
+	info, err := client.ServerVersion(derivedCtx)
 	if err != nil {
 		return "", err
 	}
 
-	version = info.Get("Version")
+	version = info.Version
 	dg.setDaemonVersion(version)
 	return version, nil
 }
