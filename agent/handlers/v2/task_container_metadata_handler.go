@@ -16,64 +16,51 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 )
 
-// TaskContainerMetadataPath specifies the relative URI path for serving task metadata.
-const TaskContainerMetadataPath = "/v2/metadata"
+const (
+	// metadataContainerIDMuxName is the key that's used in gorilla/mux to get the container ID
+	// for container metadata.
+	metadataContainerIDMuxName = "metadataContainerIDMuxName"
 
-// TaskContainerMetadataHandler returns the handler method for handling task metadata requests.
+	// TaskMetadataPath specifies the relative URI path for serving task metadata.
+	TaskMetadataPath = "/v2/metadata"
+
+	// TaskMetadataPathWithSlash specifies the relative URI path for serving task metadata.
+	TaskMetadataPathWithSlash = "/v2/metadata/"
+)
+
+// ContainerMetadataPath specifies the relative URI path for serving container metadata.
+var ContainerMetadataPath = TaskMetadataPathWithSlash + utils.ConstructMuxVar(metadataContainerIDMuxName, utils.AnythingButEmptyRegEx)
+
+// TaskContainerMetadataHandler returns the handler method for handling task and container metadata requests.
 func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARN(r, state)
+		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
 			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("Unable to get task arn from request: %s", err.Error()))
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
-		if containerID := getContainerID(r.URL, TaskContainerMetadataPath); containerID != "" {
-			writeContainerResponse(w, containerID, state)
+		if containerID, ok := utils.GetMuxValueFromRequest(r, metadataContainerIDMuxName); ok {
+			seelog.Infof("V2 task/container metadata handler: writing response for container '%s'", containerID)
+			WriteContainerMetadataResponse(w, containerID, state)
 			return
 		}
 
-		writeTaskResponse(w, taskARN, cluster, state)
+		seelog.Infof("V2 task/container metadata handler: writing response for task '%s'", taskARN)
+		WriteTaskMetadataResponse(w, taskARN, cluster, state)
 	}
 }
 
-func getContainerID(reqURL *url.URL, prefix string) string {
-	if strings.HasPrefix(reqURL.Path, prefix+"/") {
-		return reqURL.String()[len(prefix+"/"):]
-	}
-
-	return ""
-}
-
-func getTaskARN(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return "", fmt.Errorf("Unable to parse request's ip address: %v", err)
-	}
-
-	// Get task arn for the request by looking up the ip address
-	taskARN, ok := state.GetTaskByIPAddress(ip)
-	if !ok {
-		return "", errors.Errorf("Unable to associate '%s' with task", ip)
-	}
-
-	return taskARN, nil
-}
-
-func writeContainerResponse(w http.ResponseWriter, containerID string, state dockerstate.TaskEngineState) {
-	seelog.Infof("V2 metadata: handling request for container '%s'", containerID)
+// WriteContainerMetadataResponse writes the container metadata to response writer.
+func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, state dockerstate.TaskEngineState) {
 	containerResponse, err := NewContainerResponse(containerID, state)
 	if err != nil {
 		errResponseJSON, _ := json.Marshal("Unable to generate metadata for container '" + containerID + "'")
@@ -85,8 +72,8 @@ func writeContainerResponse(w http.ResponseWriter, containerID string, state doc
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerMetadata)
 }
 
-func writeTaskResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState) {
-	seelog.Infof("V2 metadata: handling request for task '%s'", taskARN)
+// WriteTaskMetadataResponse writes the task metadata to response writer.
+func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState) {
 	// Generate a response for the task
 	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
 	if err != nil {

@@ -69,10 +69,10 @@ type TaskEngineState interface {
 	AddTaskIPAddress(addr string, taskARN string)
 	// GetTaskByIPAddress gets the task arn for an IP address
 	GetTaskByIPAddress(addr string) (string, bool)
-	// ContainerByV3EndpointID returns an apicontainer.DockerContainer for a given v3 endpoint ID
-	ContainerByV3EndpointID(v3EndpointID string) (*apicontainer.DockerContainer, bool)
-	// TaskByV3EndpointID returns an apitask.Task for a given v3 endpoint ID
-	TaskByV3EndpointID(v3EndpointID string) (*apitask.Task, bool)
+	// DockerIDByV3EndpointID returns a docker ID for a given v3 endpoint ID
+	DockerIDByV3EndpointID(v3EndpointID string) (string, bool)
+	// TaskARNByV3EndpointID returns a taskARN for a given v3 endpoint ID
+	TaskARNByV3EndpointID(v3EndpointID string) (string, bool)
 	json.Marshaler
 	json.Unmarshaler
 }
@@ -494,34 +494,20 @@ func (state *DockerTaskEngineState) storeV3EndpointIDToDockerIDUnsafe(v3Endpoint
 	state.v3EndpointIDToDockerID[v3EndpointID] = dockerID
 }
 
-// ContainerByV3EndpointID returns an apicontainer.DockerContainer for a given v3 endpoint ID
-func (state *DockerTaskEngineState) ContainerByV3EndpointID(v3EndpointID string) (*apicontainer.DockerContainer, bool) {
+// DockerIDByV3EndpointID returns a docker ID for a given v3 endpoint ID
+func (state *DockerTaskEngineState) DockerIDByV3EndpointID(v3EndpointID string) (string, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
 	dockerID, ok := state.v3EndpointIDToDockerID[v3EndpointID]
-	if !ok {
-		return nil, false
-	}
-
-	container, ok := state.idToContainer[dockerID]
-	if !ok {
-		return nil, false
-	}
-
-	return container, ok
+	return dockerID, ok
 }
 
-// TaskByV3EndpointID returns an apitask.Task for a given v3 endpoint ID
-func (state *DockerTaskEngineState) TaskByV3EndpointID(v3EndpointID string) (*apitask.Task, bool) {
+// TaskARNByV3EndpointID returns a taskARN for a given v3 endpoint ID
+func (state *DockerTaskEngineState) TaskARNByV3EndpointID(v3EndpointID string) (string, bool) {
 	state.lock.RLock()
 	defer state.lock.RUnlock()
 
 	taskArn, ok := state.v3EndpointIDToTask[v3EndpointID]
-	if !ok {
-		return nil, false
-	}
-
-	task, ok := state.tasks[taskArn]
-	return task, ok
+	return taskArn, ok
 }

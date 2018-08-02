@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handlers
+package v1
 
 import (
 	"net/http"
@@ -19,12 +19,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
-const licensePath = "/license"
+const LicensePath = "/license"
 
 var licenseProvider = utils.NewLicenseProvider()
 
-// licenseHandler creates response for '/license' API.
-func licenseHandler(w http.ResponseWriter, h *http.Request) {
+// LicenseHandler creates response for '/license' API.
+func LicenseHandler(w http.ResponseWriter, h *http.Request) {
 	text, err := licenseProvider.GetText()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)

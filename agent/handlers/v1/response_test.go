@@ -16,7 +16,7 @@ package v1
 import (
 	"encoding/json"
 	"testing"
-	
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -35,29 +35,29 @@ const (
 
 func TestTaskResponse(t *testing.T) {
 	expectedTaskResponseMap := map[string]interface{}{
-		"Arn": "t1",
+		"Arn":           "t1",
 		"DesiredStatus": "RUNNING",
-		"KnownStatus": "RUNNING",
-		"Family": "sleep",
-		"Version": "1",
+		"KnownStatus":   "RUNNING",
+		"Family":        "sleep",
+		"Version":       "1",
 		"Containers": []interface{}{
 			map[string]interface{}{
-				"DockerId": "cid",
+				"DockerId":   "cid",
 				"DockerName": "sleepy",
-				"Name": "sleepy",
+				"Name":       "sleepy",
 				"Ports": []interface{}{
 					map[string]interface{}{
 						// The number should be float here, because when we unmarshal
 						// something and we don't specify the number type, it will be
 						// set to float.
 						"ContainerPort": float64(80),
-						"Protocol": "tcp",
-						"HostPort": float64(80),
+						"Protocol":      "tcp",
+						"HostPort":      float64(80),
 					},
 				},
 				"Networks": []interface{}{
 					map[string]interface{}{
-						"NetworkMode": "awsvpc",
+						"NetworkMode":   "awsvpc",
 						"IPv4Addresses": []interface{}{"10.0.0.2"},
 					},
 				},
@@ -66,36 +66,36 @@ func TestTaskResponse(t *testing.T) {
 	}
 
 	task := &apitask.Task{
-	   Arn:                 taskARN,
-	   Family:              family,
-	   Version:             version,
-	   DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-	   KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-	   ENI: &apieni.ENI{
-	      IPV4Addresses: []*apieni.ENIIPV4Address{
-	         {
-	            Address: eniIPv4Address,
-	         },
-	      },
-	   },
+		Arn:                 taskARN,
+		Family:              family,
+		Version:             version,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		ENI: &apieni.ENI{
+			IPV4Addresses: []*apieni.ENIIPV4Address{
+				{
+					Address: eniIPv4Address,
+				},
+			},
+		},
 	}
 
 	container := &apicontainer.Container{
-	   Name: containerName,
-	   Ports: []apicontainer.PortBinding{
-	      {
-	         ContainerPort: 80,
-	         Protocol:      apicontainer.TransportProtocolTCP,
-	      },
-	   },
+		Name: containerName,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
 	}
 
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
-	   taskARN: &apicontainer.DockerContainer{
-	      DockerID:   containerID,
-	      DockerName: containerName,
-	      Container:  container,
-	   },
+		taskARN: {
+			DockerID:   containerID,
+			DockerName: containerName,
+			Container:  container,
+		},
 	}
 
 	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
@@ -112,38 +112,38 @@ func TestTaskResponse(t *testing.T) {
 
 func TestContainerResponse(t *testing.T) {
 	expectedContainerResponseMap := map[string]interface{}{
-		"DockerId": "cid",
+		"DockerId":   "cid",
 		"DockerName": "sleepy",
-		"Name": "sleepy",
+		"Name":       "sleepy",
 		"Ports": []interface{}{
 			map[string]interface{}{
 				"ContainerPort": float64(80),
-				"Protocol": "tcp",
-				"HostPort": float64(80),
+				"Protocol":      "tcp",
+				"HostPort":      float64(80),
 			},
 		},
 		"Networks": []interface{}{
 			map[string]interface{}{
-				"NetworkMode": "awsvpc",
+				"NetworkMode":   "awsvpc",
 				"IPv4Addresses": []interface{}{"10.0.0.2"},
 			},
 		},
 	}
 
 	container := &apicontainer.Container{
-	   Name: containerName,
-	   Ports: []apicontainer.PortBinding{
-	      {
-	         ContainerPort: 80,
-	         Protocol:      apicontainer.TransportProtocolTCP,
-	      },
-	   },
+		Name: containerName,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
 	}
 
 	dockerContainer := &apicontainer.DockerContainer{
-	   DockerID:   containerID,
-	   DockerName: containerName,
-	   Container:  container,
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  container,
 	}
 
 	eni := &apieni.ENI{
@@ -179,7 +179,7 @@ func TestPortBindingsResponse(t *testing.T) {
 	}
 
 	dockerContainer := &apicontainer.DockerContainer{
-		Container:  container,
+		Container: container,
 	}
 
 	PortBindingsResponse := NewPortBindingsResponse(dockerContainer, nil)
