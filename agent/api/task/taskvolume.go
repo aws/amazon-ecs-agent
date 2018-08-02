@@ -36,7 +36,7 @@ type TaskVolume struct {
 // UnmarshalJSON for TaskVolume determines the name and volume type, and
 // unmarshals it into the appropriate HostVolume fulfilling interfaces
 func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
-	// Format: {name: volumeName, host: emptyVolumeOrHostVolume, dockerVolumeConfiguration {}}
+	// Format: {name: volumeName, host: HostVolume, dockerVolumeConfiguration {}}
 	intermediate := make(map[string]json.RawMessage)
 	if err := json.Unmarshal(b, &intermediate); err != nil {
 		return err

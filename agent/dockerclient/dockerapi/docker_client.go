@@ -14,7 +14,6 @@
 package dockerapi
 
 import (
-	"archive/tar"
 	"bufio"
 	"context"
 	"encoding/json"
@@ -34,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -130,9 +128,6 @@ type DockerClient interface {
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata
-
-	// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
-	ImportLocalEmptyVolumeImage() DockerContainerMetadata
 
 	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
@@ -427,62 +422,6 @@ func getRepository(image string) string {
 		repository = image
 	}
 	return repository
-}
-
-// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
-func (dg *dockerGoClient) ImportLocalEmptyVolumeImage() DockerContainerMetadata {
-	timeout := dg.time().After(pullImageTimeout)
-
-	response := make(chan DockerContainerMetadata, 1)
-	go func() {
-		err := dg.createScratchImageIfNotExists()
-		var wrapped apierrors.NamedError
-		if err != nil {
-			wrapped = CreateEmptyVolumeError{err}
-		}
-		response <- DockerContainerMetadata{Error: wrapped}
-	}()
-	select {
-	case resp := <-response:
-		return resp
-	case <-timeout:
-		return DockerContainerMetadata{Error: &DockerTimeoutError{pullImageTimeout, "pulled"}}
-	}
-}
-
-func (dg *dockerGoClient) createScratchImageIfNotExists() error {
-	client, err := dg.dockerClient()
-	if err != nil {
-		return err
-	}
-
-	scratchCreateLock.Lock()
-	defer scratchCreateLock.Unlock()
-
-	_, err = client.InspectImage(emptyvolume.Image + ":" + emptyvolume.Tag)
-	if err == nil {
-		seelog.Debug("DockerGoClient: empty volume image is already present, skipping import")
-		// Already exists; assume that it's okay to use it
-		return nil
-	}
-
-	reader, writer := io.Pipe()
-
-	emptytarball := tar.NewWriter(writer)
-	go func() {
-		emptytarball.Close()
-		writer.Close()
-	}()
-
-	seelog.Debug("DockerGoClient: importing empty volume image")
-	// Create it from an empty tarball
-	err = client.ImportImage(docker.ImportImageOptions{
-		Repository:  emptyvolume.Image,
-		Tag:         emptyvolume.Tag,
-		Source:      "-",
-		InputStream: reader,
-	})
-	return err
 }
 
 func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
