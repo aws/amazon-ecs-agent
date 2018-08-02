@@ -779,13 +779,13 @@ func TestCreateContainerAddV3EndpointIDToState(t *testing.T) {
 	// check that we have added v3 endpoint mappings to state
 	state := taskEngine.state
 
-	addedTask, ok := state.TaskByV3EndpointID("v3EndpointID")
+	addedTaskARN, ok := state.TaskARNByV3EndpointID("v3EndpointID")
 	assert.True(t, ok)
-	assert.Equal(t, addedTask, testTask)
+	assert.Equal(t, testTask.Arn, addedTaskARN)
 
-	addedDockerContainer, ok := state.ContainerByV3EndpointID("v3EndpointID")
+	addedDockerID, ok := state.DockerIDByV3EndpointID("v3EndpointID")
 	assert.True(t, ok)
-	assert.Equal(t, addedDockerContainer.Container, testContainer)
+	assert.Equal(t, "dockerID", addedDockerID)
 }
 
 // TestTaskTransitionWhenStopContainerTimesout tests that task transitions to stopped

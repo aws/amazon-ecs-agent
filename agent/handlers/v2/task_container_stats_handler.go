@@ -24,29 +24,44 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// StatsPath specifies the relative URI path for serving task and container stats.
-const StatsPath = "/v2/stats"
+const (
+	// statsContainerIDMuxName is the key that's used in mux to get the container ID
+	// for container stats.
+	statsContainerIDMuxName = "statsContainerIDMuxName"
 
-// StatsHandler creates response for 'v2/stats' API.
-func StatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
+	// TaskStatsPath specifies the relative URI path for serving task stats.
+	TaskStatsPath = "/v2/stats"
+
+	// TaskStatsPathWithSlash specifies the relative URI path for serving task stats.
+	TaskStatsPathWithSlash = "/v2/stats/"
+)
+
+// ContainerStatsPath specifies the relative URI path for serving container stats.
+var ContainerStatsPath = TaskStatsPathWithSlash + utils.ConstructMuxVar(statsContainerIDMuxName, utils.AnythingButEmptyRegEx)
+
+// TaskContainerStatsHandler returns the handler method for handling task and container stats requests.
+func TaskContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARN(r, state)
+		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
 			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("Unable to get task arn from request: %s", err.Error()))
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
-		if containerID := getContainerID(r.URL, StatsPath); containerID != "" {
-			writeContainerStatsResponse(w, taskARN, containerID, statsEngine)
+		if containerID, ok := utils.GetMuxValueFromRequest(r, statsContainerIDMuxName); ok {
+			seelog.Infof("V2 task/container stats handler: writing response for container '%s'", containerID)
+			WriteContainerStatsResponse(w, taskARN, containerID, statsEngine)
 			return
 		}
 
-		writeTaskStatsResponse(w, taskARN, state, statsEngine)
+		seelog.Infof("V2 task/container stats handler: writing response for task '%s'", taskARN)
+		WriteTaskStatsResponse(w, taskARN, state, statsEngine)
 	}
 }
 
-func writeTaskStatsResponse(w http.ResponseWriter,
+// WriteTaskStatsResponse writes the task stats to response writer.
+func WriteTaskStatsResponse(w http.ResponseWriter,
 	taskARN string,
 	state dockerstate.TaskEngineState,
 	statsEngine stats.Engine) {
@@ -63,7 +78,8 @@ func writeTaskStatsResponse(w http.ResponseWriter,
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskStats)
 }
 
-func writeContainerStatsResponse(w http.ResponseWriter,
+// WriteContainerStatsResponse writes the container stats to response writer.
+func WriteContainerStatsResponse(w http.ResponseWriter,
 	taskARN string,
 	containerID string,
 	statsEngine stats.Engine) {
