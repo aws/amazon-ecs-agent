@@ -117,18 +117,6 @@ func (mr *MockDockerClientMockRecorder) DescribeContainer(arg0, arg1 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeContainer", reflect.TypeOf((*MockDockerClient)(nil).DescribeContainer), arg0, arg1)
 }
 
-// ImportLocalEmptyVolumeImage mocks base method
-func (m *MockDockerClient) ImportLocalEmptyVolumeImage() dockerapi.DockerContainerMetadata {
-	ret := m.ctrl.Call(m, "ImportLocalEmptyVolumeImage")
-	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
-	return ret0
-}
-
-// ImportLocalEmptyVolumeImage indicates an expected call of ImportLocalEmptyVolumeImage
-func (mr *MockDockerClientMockRecorder) ImportLocalEmptyVolumeImage() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImportLocalEmptyVolumeImage", reflect.TypeOf((*MockDockerClient)(nil).ImportLocalEmptyVolumeImage))
-}
-
 // InspectContainer mocks base method
 func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*go_dockerclient.Container, error) {
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)

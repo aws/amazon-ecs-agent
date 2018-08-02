@@ -37,7 +37,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -324,39 +323,6 @@ func TestGetRepositoryWithUntaggedImage(t *testing.T) {
 	repository := getRepository(image)
 
 	assert.Equal(t, image+":"+dockerDefaultTag, repository)
-}
-
-func TestImportLocalEmptyVolumeImage(t *testing.T) {
-	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	// The special emptyvolume image leads to a create, not pull
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(nil, errors.New("Does not exist")),
-		mockDocker.EXPECT().ImportImage(gomock.Any()).Do(func(x interface{}) {
-			req := x.(docker.ImportImageOptions)
-			require.Equal(t, emptyvolume.Image, req.Repository, "expected empty volume repository")
-			require.Equal(t, emptyvolume.Tag, req.Tag, "expected empty volume tag")
-		}),
-	)
-
-	metadata := client.ImportLocalEmptyVolumeImage()
-	assert.NoError(t, metadata.Error, "Expected import to succeed")
-}
-
-func TestImportLocalEmptyVolumeImageExisting(t *testing.T) {
-	mockDocker, client, testTime, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	// The special emptyvolume image leads to a create only if it doesn't exist
-	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	gomock.InOrder(
-		mockDocker.EXPECT().InspectImage(emptyvolume.Image+":"+emptyvolume.Tag).Return(&docker.Image{}, nil),
-	)
-
-	metadata := client.ImportLocalEmptyVolumeImage()
-	assert.NoError(t, metadata.Error, "Expected import to succeed")
 }
 
 func TestCreateContainerTimeout(t *testing.T) {

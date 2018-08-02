@@ -180,25 +180,6 @@ func (err CannotPullContainerAuthError) Retry() bool {
 	return false
 }
 
-// CreateEmptyVolumeError indicates any error when trying create empty volume
-type CreateEmptyVolumeError struct {
-	FromError error
-}
-
-func (err CreateEmptyVolumeError) Error() string {
-	return err.FromError.Error()
-}
-
-// ErrorName returns name of the CreateEmptyVolumeError.
-func (err CreateEmptyVolumeError) ErrorName() string {
-	return "CreateEmptyVolumeError"
-}
-
-// Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
-func (err CreateEmptyVolumeError) Retry() bool {
-	return false
-}
-
 // CannotCreateContainerError indicates any error when trying to create a container
 type CannotCreateContainerError struct {
 	FromError error
