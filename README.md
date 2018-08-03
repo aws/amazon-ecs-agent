@@ -49,6 +49,42 @@ $ docker run --name ecs-agent \
     amazon/amazon-ecs-agent:latest
 ```
 
+### On Other Linux AMIs when awsvpc networking mode is enabled
+
+For the AWS VPC networking mode, ECS agent requires CNI plugin and dhclient to be available. ECS also needs the ecs-init to run as part of its startup.
+The following is an example of docker run configuration for running ecs-agent with Task ENI enabled
+```
+$ # Run the agent
+$ /usr/bin/docker run --name ecs-agent \
+--init \
+--restart=on-failure:10 \
+--volume=/var/run:/var/run \
+--volume=/var/log/ecs/:/log:Z \
+--volume=/var/lib/ecs/data:/data:Z \
+--volume=/etc/ecs:/etc/ecs \
+--volume=/lib:/lib \
+--volume=/sbin:/sbin \
+--volume=/lib64:/lib64 \
+--volume=/usr/lib:/usr/lib \
+--volume=/proc:/host/proc \
+--volume=/sys/fs/cgroup:/sys/fs/cgroup \
+--net=host \
+--env-file=/etc/ecs/ecs.config \
+--cap-add=sys_admin \
+--cap-add=net_admin \
+--env ECS_ENABLE_TASK_ENI=true \
+--env ECS_UPDATES_ENABLED=true \
+--env ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION=1h \
+--env ECS_DATADIR=/data \
+--env ECS_ENABLE_TASK_IAM_ROLE=true \
+--env ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
+--env ECS_LOGFILE=/log/ecs-agent.log \
+--env ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs","syslog","none"] \
+--env ECS_LOGLEVEL=info \
+--detach \
+amazon/amazon-ecs-agent:latest
+```
+
 See also the Advanced Usage section below.
 
 ### On Windows Server 2016
