@@ -30,12 +30,18 @@ supported_os() {
 }
 
 dryval() {
-	if ${DRYRUN} ; then
+	case ${DRYRUN} in
+	true)
 		echo "DRYRUN: ${@}" 1>&2
-	else
+		;;
+	false)
 		echo "RUNNING: ${@}" 1>&2
 		"${@}"
-	fi
+		;;
+	*)
+		echo "invalid DRYRUN flag"
+		;;
+	esac
 }
 
 check_md5() {

@@ -130,6 +130,8 @@ while getopts ":d:p:b:i:a:o:sh" opt; do
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
 				DRYRUN=false
+			else
+				DRYRUN=true
 			fi
 			;;
 		p)
