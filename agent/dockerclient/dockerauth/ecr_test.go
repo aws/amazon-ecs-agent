@@ -29,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -121,7 +121,7 @@ func TestGetAuthConfigNoMatchAuthorizationToken(t *testing.T) {
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error if the proxy does not match")
-	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
+	assert.Equal(t, types.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
 func TestGetAuthConfigBadBase64(t *testing.T) {
@@ -156,7 +156,7 @@ func TestGetAuthConfigBadBase64(t *testing.T) {
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error to be present, but was nil", err)
-	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
+	assert.Equal(t, types.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
 func TestGetAuthConfigMissingResponse(t *testing.T) {
@@ -189,7 +189,7 @@ func TestGetAuthConfigMissingResponse(t *testing.T) {
 		t.Fatal("Expected error to be present, but was nil", err)
 	}
 	require.Error(t, err, "Expected error to be present, but was nil", err)
-	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
+	assert.Equal(t, types.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
 func TestGetAuthConfigECRError(t *testing.T) {
@@ -219,7 +219,7 @@ func TestGetAuthConfigECRError(t *testing.T) {
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", registryAuthData)
 	require.Error(t, err, "Expected error to be present, but was nil", err)
-	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
+	assert.Equal(t, types.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
 func TestGetAuthConfigNoAuthData(t *testing.T) {
@@ -234,7 +234,7 @@ func TestGetAuthConfigNoAuthData(t *testing.T) {
 
 	authconfig, err := provider.GetAuthconfig(proxyEndpoint+"/myimage", nil)
 	require.Error(t, err, "Expected error to be present, but was nil", err)
-	assert.Equal(t, docker.AuthConfiguration{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
+	assert.Equal(t, types.AuthConfig{}, authconfig, "Expected Authconfig to be empty, but was %v", authconfig)
 }
 
 func TestIsTokenValid(t *testing.T) {

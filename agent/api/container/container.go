@@ -25,7 +25,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -662,6 +662,6 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 // SetASMDockerAuthConfig add the docker auth config data to the
 // RegistryAuthentication struct held by the container, this is then passed down
 // to the docker client to pull the image
-func (c *Container) SetASMDockerAuthConfig(dac docker.AuthConfiguration) {
+func (c *Container) SetASMDockerAuthConfig(dac types.AuthConfig) {
 	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
 }

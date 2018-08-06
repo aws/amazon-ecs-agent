@@ -15,6 +15,7 @@
 package engine
 
 import (
+	"context"
 	"regexp"
 	"strconv"
 	"sync"
@@ -42,11 +43,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	docker "github.com/fsouza/go-dockerclient"
-
-	"context"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -812,7 +811,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 				},
 			}
 		}
-		defer container.SetASMDockerAuthConfig(docker.AuthConfiguration{})
+		defer container.SetASMDockerAuthConfig(types.AuthConfig{})
 	}
 
 	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
