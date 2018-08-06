@@ -376,7 +376,13 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 		return CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
-	authConfig, err := dg.getAuthdata(image, authData)
+	sdkAuthConfig, err := dg.getAuthdata(image, authData)
+	authConfig := docker.AuthConfiguration{
+		Username:      sdkAuthConfig.Username,
+		Password:      sdkAuthConfig.Password,
+		Email:         sdkAuthConfig.Email,
+		ServerAddress: sdkAuthConfig.ServerAddress,
+	}
 	if err != nil {
 		return wrapPullErrorAsNamedError(err)
 	}
@@ -399,6 +405,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 	go dg.filterPullDebugOutput(pullDebugOut, pullBegan, image)
 
 	pullFinished := make(chan error, 1)
+	// TODO Migrate Pull Image once Inactivity Timeout is sorted out
 	go func() {
 		pullFinished <- client.PullImage(opts, authConfig)
 		seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
@@ -537,7 +544,7 @@ func (dg *dockerGoClient) InspectImage(image string) (*docker.Image, error) {
 	return client.InspectImage(image)
 }
 
-func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
 
 	if authData == nil {
 		return dg.auth.GetAuthconfig(image, nil)
