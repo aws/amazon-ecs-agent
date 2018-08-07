@@ -909,19 +909,15 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 					// If error processed is not EOF, need to reopen channel
 					seelog.Errorf("DockerGoClient: error while listening to Docker Events : %v", err)
 					nextCtx, nextCancel := context.WithCancel(ctx)
-					seelog.Info("******* Reopen event stream")
 					dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
 					// Cache the event from docker client.
-					seelog.Info("******* Start Listening to event stream")
 					go buffer.StartListening(nextCtx, dockerEvents)
 					// Close previous stream after starting to listen on new one
-					seelog.Info("******* Cancel previous event stream")
 					cancel()
 					// Reassign cancel variable next Cancel function to setup next iteration of loop.
 					cancel = nextCancel
 				}
 			case <-ctx.Done():
-				seelog.Info("******* Engine context cancelled event stream")
 				return
 			}
 		}
