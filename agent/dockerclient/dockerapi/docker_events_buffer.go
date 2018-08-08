@@ -58,13 +58,20 @@ func (buffer *InfiniteBuffer) StartListening(ctx context.Context, eventChan <-ch
 		select {
 		// If context is cancelled, return
 		case <-ctx.Done():
-			return
-		default:
-			for event := range eventChan {
+			select {
+			// Ensure all events are read in the channel before we return
+			case event := <-eventChan:
 				go func(j events.Message) {
 					go buffer.CopyEvents(&j)
 				}(event)
+			default:
+				return
 			}
+			return
+		case event := <-eventChan:
+			go func(j events.Message) {
+				go buffer.CopyEvents(&j)
+			}(event)
 		}
 	}
 }
