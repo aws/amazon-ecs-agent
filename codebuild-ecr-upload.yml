@@ -1,0 +1,113 @@
+Description: >
+    The template is used to create CodeBuild project which builds all linux images for agent integration tests and
+    functional tests and upload images to ECR
+
+Parameters:
+   ProjectName:
+       Description: The name you want to give to the CodeBuild project
+       Type: String
+   BuildSpecName:
+       Description: The build spec file name
+       Type: String
+   CodeS3Bucket:
+       Description: The s3 bucket name stores agent code
+       Type: String
+   CodeS3Key:
+       Description: The s3 key of agent code. The code must be a zip file.
+       Type: String
+   StandardRepositoryURI:
+       Description: The ECR repository URI in standard regions
+       Type: String
+   ReplicateRepositoryURI:
+       Description: The ECR repository URI of the region to replicate images to
+       Type: String
+   AccessKey:
+       Description: The parameter name which stores AWS access key ID in SSM parameter store
+       Type: String
+   SecretKey:
+       Description: The parameter name which stores AWS secret access key in SSM parameter store
+       Type: String
+   ReplicateRegion:
+       Description: The AWS region to replicate images to
+       Type: String
+
+Resources:
+    CodeBuildRole:
+        Type: AWS::IAM::Role
+        Properties:
+            AssumeRolePolicyDocument:
+                Version: "2012-10-17"
+                Statement:
+                  - Effect: "Allow"
+                    Principal:
+                      Service:
+                        - "codebuild.amazonaws.com"
+                    Action:
+                      - "sts:AssumeRole"
+            Path: /service-role/
+            Policies:
+              - PolicyName: "CodeBuildAccessPolicy"
+                PolicyDocument:
+                    Version: "2012-10-17"
+                    Statement:
+                      - Effect: "Allow"
+                        Action:
+                          - "logs:CreateLogGroup"
+                          - "logs:CreateLogStream"
+                          - "logs:PutLogEvents"
+                        Resource:
+                          - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+                      - Effect: "Allow"
+                        Action:
+                          - "s3:PutObject"
+                          - "s3:GetObject"
+                          - "s3:GetObjectVersion"
+                        Resource:
+                          - arn:aws:s3:::*
+                      - Effect: "Allow"
+                        Action:
+                          - "ssm:GetParameters"
+                        Resource:
+                          - !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
+                      - Effect: "Allow"
+                        Action:
+                          - "ecr:*"
+                          - "kms:Encrypt"
+                          - "kms:Decrypt"
+                        Resource:
+                          - "*"
+
+    CodeBuildProject:
+        Type: AWS::CodeBuild::Project
+        Properties:
+            Name: !Ref ProjectName
+            ServiceRole: !GetAtt CodeBuildRole.Arn
+            Source:
+                Type: S3
+                BuildSpec: !Ref BuildSpecName
+                Location: !Sub ${CodeS3Bucket}/${CodeS3Key}
+            Artifacts:
+                Type: NO_ARTIFACTS
+            Cache:
+                Type: NO_CACHE
+            Environment:
+                Type: LINUX_CONTAINER
+                ComputeType: BUILD_GENERAL1_SMALL
+                Image: aws/codebuild/docker:17.09.0
+                PrivilegedMode: true
+                EnvironmentVariables:
+                  - Name: STANDARD_REPOSITORY
+                    Value: !Ref StandardRepositoryURI
+                    Type: PLAINTEXT
+                  - Name: REPLICATE_REPOSITORY
+                    Value: !Ref ReplicateRepositoryURI
+                    Type: PLAINTEXT
+                  - Name: REPLICATE_REGION
+                    Value: !Ref ReplicateRegion
+                    Type: PLAINTEXT
+                  - Name: ACCESS_KEY
+                    Value: !Ref AccessKey
+                    Type: PARAMETER_STORE
+                  - Name: SECRET_KEY
+                    Value: !Ref SecretKey
+                    Type: PARAMETER_STORE
