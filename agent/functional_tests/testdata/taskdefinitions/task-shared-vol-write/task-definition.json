@@ -23,10 +23,6 @@
                 "scope": "shared",
                 "autoprovision": true,
                 "driver": "local",
-                "driverOpts": {
-                    "type": "tmpfs",
-                    "device": "tmpfs"
-                },
                 "labels": {
                     "mylables": "test"
                 }
