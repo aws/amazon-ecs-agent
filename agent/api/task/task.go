@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -550,6 +551,27 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 		}
 	}
 	return nil, false
+}
+
+// UpdateMountPoints updates the mount points of volumes that were created
+// without specifying a host path.  This is used as part of the empty host
+// volume feature.
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
+	for _, mountPoint := range cont.MountPoints {
+		containerPath := getCanonicalPath(mountPoint.ContainerPath)
+		hostPath, ok := vols[containerPath]
+		if !ok {
+			// /path/ -> /path or \path\ -> \path
+			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
+		}
+		if ok {
+			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
+				if empty, ok := hostVolume.(*taskresourcevolume.LocalDockerVolume); ok {
+					empty.HostPath = hostPath
+				}
+			}
+		}
+	}
 }
 
 // updateTaskKnownStatus updates the given task's status based on its container's status.

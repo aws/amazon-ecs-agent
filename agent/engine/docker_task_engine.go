@@ -337,6 +337,11 @@ func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, contai
 		container.SetLabels(metadata.Labels)
 	}
 
+	// Update volume for empty volume container
+	if metadata.Volumes != nil && container.IsInternal() {
+		task.UpdateMountPoints(container, metadata.Volumes)
+	}
+
 	// Set Exitcode if it's not set
 	if metadata.ExitCode != nil {
 		container.SetKnownExitCode(metadata.ExitCode)

@@ -33,7 +33,7 @@ import (
 )
 
 func TestMarshalUnmarshalOldTaskVolumes(t *testing.T) {
-	taskData := `{"volumes":[{"host":{"sourcePath":"/path"},"name":"1"},{"host":{"sourcePath":""}, "name":"2"}]}`
+	taskData := `{"volumes":[{"host":{"sourcePath":"/path"},"name":"1"},{"host":{"hostpath":""}, "name":"2"}]}`
 
 	var out Task
 	err := json.Unmarshal([]byte(taskData), &out)
