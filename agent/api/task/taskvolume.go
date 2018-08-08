@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -51,7 +52,8 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 
 	volumeType, ok := intermediate["type"]
 	if !ok {
-		return errors.New("invalid Volume: must include a type")
+		volumeType = []byte(`"host"`)
+		seelog.Infof("Unmarshal task volume: volume type not specified, default to host")
 	}
 	if err := json.Unmarshal(volumeType, &tv.Type); err != nil {
 		return err
@@ -72,6 +74,10 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 // MarshalJSON overrides the logic for JSON-encoding a  TaskVolume object
 func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	result := make(map[string]interface{})
+
+	if len(tv.Type) == 0 {
+		tv.Type = HostVolumeType
+	}
 
 	result["name"] = tv.Name
 	result["type"] = tv.Type
@@ -106,6 +112,7 @@ func (tv *TaskVolume) unmarshalHostVolume(data json.RawMessage) error {
 	if data == nil {
 		return errors.New("invalid volume: empty volume configuration")
 	}
+
 	// Default to trying to unmarshal it as a FSHostVolume
 	var hostvolume taskresourcevolume.FSHostVolume
 	err := json.Unmarshal(data, &hostvolume)
