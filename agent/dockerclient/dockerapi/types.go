@@ -98,7 +98,7 @@ type SDKVolumeResponse struct {
 
 // ListPluginsResponse is a wrapper for ListPlugins api
 type ListPluginsResponse struct {
-	Plugins []docker.PluginDetail
+	Plugins []*types.Plugin
 	Error   error
 }
 

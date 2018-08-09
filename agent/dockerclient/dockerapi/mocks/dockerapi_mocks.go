@@ -28,6 +28,7 @@ import (
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	types "github.com/docker/docker/api/types"
+	filters "github.com/docker/docker/api/types/filters"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -193,15 +194,15 @@ func (mr *MockDockerClientMockRecorder) ListContainers(arg0, arg1, arg2 interfac
 }
 
 // ListPlugins mocks base method
-func (m *MockDockerClient) ListPlugins(arg0 context.Context, arg1 time.Duration) dockerapi.ListPluginsResponse {
-	ret := m.ctrl.Call(m, "ListPlugins", arg0, arg1)
+func (m *MockDockerClient) ListPlugins(arg0 context.Context, arg1 time.Duration, arg2 filters.Args) dockerapi.ListPluginsResponse {
+	ret := m.ctrl.Call(m, "ListPlugins", arg0, arg1, arg2)
 	ret0, _ := ret[0].(dockerapi.ListPluginsResponse)
 	return ret0
 }
 
 // ListPlugins indicates an expected call of ListPlugins
-func (mr *MockDockerClientMockRecorder) ListPlugins(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockDockerClient)(nil).ListPlugins), arg0, arg1)
+func (mr *MockDockerClientMockRecorder) ListPlugins(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockDockerClient)(nil).ListPlugins), arg0, arg1, arg2)
 }
 
 // ListPluginsWithFilters mocks base method
