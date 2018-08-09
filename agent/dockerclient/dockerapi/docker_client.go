@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +43,7 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -177,11 +179,12 @@ type DockerClient interface {
 
 	// ListPluginsWithFilters returns the set of docker plugins installed on the host, filtered by options provided.
 	// A timeout value should be provided for the request.
+	// TODO ListPluginsWithFilters can be removed since ListPlugins takes in filters
 	ListPluginsWithFilters(context.Context, bool, []string, time.Duration) ([]string, error)
 
 	// ListPlugins returns the set of docker plugins installed on the host. A timeout value should be provided for
 	// the request.
-	ListPlugins(context.Context, time.Duration) ListPluginsResponse
+	ListPlugins(context.Context, time.Duration, filters.Args) ListPluginsResponse
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
@@ -260,14 +263,14 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 	client, err := clientFactory.GetDefaultClient()
 
 	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. " +
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 	sdkclient, err := sdkclientFactory.GetDefaultClient()
 
 	if err != nil {
-		seelog.Errorf("DockerGoClient: Docker SDK client unable to connect to Docker daemon. " +
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to connect to Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
@@ -276,13 +279,13 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 	// to ensure it's up.
 	err = client.Ping()
 	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. " +
+		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
 	_, err = sdkclient.Ping(ctx)
 	if err != nil {
-		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. " +
+		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. "+
 			"Ensure Docker is running: %v", err)
 		return nil, err
 	}
@@ -303,7 +306,7 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 }
 
 // Returns the Docker SDK Client
-func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error){
+func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error) {
 	if dg.version == "" {
 		return dg.sdkClientFactory.GetDefaultClient()
 	}
@@ -507,7 +510,7 @@ func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) err
 	scratchCreateLock.Lock()
 	defer scratchCreateLock.Unlock()
 
-	_, _, err = client.ImageInspectWithRaw(ctx, emptyvolume.Image + ":" + emptyvolume.Tag)
+	_, _, err = client.ImageInspectWithRaw(ctx, emptyvolume.Image+":"+emptyvolume.Tag)
 	if err == nil {
 		seelog.Debug("DockerGoClient: empty volume image is already present, skipping import")
 		// Already exists; assume that it's okay to use it
@@ -527,11 +530,11 @@ func (dg *dockerGoClient) createScratchImageIfNotExists(ctx context.Context) err
 		SourceName: "-",
 	}
 	importOpts := types.ImageImportOptions{
-		Tag:     emptyvolume.Tag,
+		Tag: emptyvolume.Tag,
 	}
 	seelog.Debug("DockerGoClient: importing empty volume image")
 	// Create it from an empty tarball
-	_, err = client.ImageImport(ctx, importSrc, emptyvolume.Image + ":" + emptyvolume.Tag, importOpts)
+	_, err = client.ImageImport(ctx, importSrc, emptyvolume.Image+":"+emptyvolume.Tag, importOpts)
 	return err
 }
 
@@ -648,7 +651,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{} )
+	err = client.ContainerStart(ctx, id, types.ContainerStartOptions{})
 	metadata := dg.containerMetadata(ctx, id)
 	if err != nil {
 		metadata.Error = CannotStartContainerError{err}
@@ -793,7 +796,7 @@ func (dg *dockerGoClient) removeContainer(ctx context.Context, dockerID string) 
 			RemoveVolumes: true,
 			RemoveLinks:   false,
 			Force:         false,
-	})
+		})
 }
 
 func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) DockerContainerMetadata {
@@ -1207,44 +1210,35 @@ func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
 	return nil
 }
 
-// ListPluginsWithFilters currently is a convenience method as go-dockerclient doesn't implement fitered list. When we or someone else submits
-// PR for the fix we will refactor this to pass in the fiters. See https://docs.docker.com/engine/reference/commandline/plugin_ls/#filtering.
+// ListPluginsWithFilters takes in filter arguments and returns the string of filtered Plugin names
 func (dg *dockerGoClient) ListPluginsWithFilters(ctx context.Context, enabled bool, capabilities []string, timeout time.Duration) ([]string, error) {
+	// Create filter list
+	filterList := filters.NewArgs(filters.Arg("enabled", strconv.FormatBool(enabled)))
+	for _, capability := range capabilities {
+		filterList.Add("capability", capability)
+	}
 
 	var filteredPluginNames []string
-	response := dg.ListPlugins(ctx, timeout)
+	response := dg.ListPlugins(ctx, timeout, filterList)
 
 	if response.Error != nil {
 		return nil, response.Error
 	}
-
-	for _, pluginDetail := range response.Plugins {
-		if pluginDetail.Active != enabled {
-			continue
-		}
-
-		// One plugin might have multiple capabilities, see https://docs.docker.com/engine/reference/commandline/plugin_ls/#filtering
-		for _, pluginType := range pluginDetail.Config.Interface.Types {
-			for _, capability := range capabilities {
-				// capability looks like volumedriver, pluginType looks like docker.volumedriver/1.0 (prefix.capability/version)
-				if strings.Contains(pluginType, capability) {
-					filteredPluginNames = append(filteredPluginNames, pluginDetail.Name)
-					break
-				}
-			}
-		}
+	// Create a list of the filtered plugin names
+	for _, plugin := range response.Plugins {
+		filteredPluginNames = append(filteredPluginNames, plugin.Name)
 	}
 	return filteredPluginNames, nil
 }
 
-func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration) ListPluginsResponse {
+func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration, filters filters.Args) ListPluginsResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan ListPluginsResponse, 1)
-	go func() { response <- dg.listPlugins(ctx) }()
+	go func() { response <- dg.listPlugins(ctx, filters) }()
 
 	// Wait until we get a response or for the 'done' context channel
 	select {
@@ -1263,13 +1257,13 @@ func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration
 	}
 }
 
-func (dg *dockerGoClient) listPlugins(ctx context.Context) ListPluginsResponse {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) listPlugins(ctx context.Context, filters filters.Args) ListPluginsResponse {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return ListPluginsResponse{Plugins: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	plugins, err := client.ListPlugins(ctx)
+	plugins, err := client.PluginList(ctx, filters)
 	if err != nil {
 		return ListPluginsResponse{Plugins: nil, Error: &CannotListPluginsError{err}}
 	}
@@ -1334,7 +1328,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageRemove(ctx, imageName,types.ImageRemoveOptions{})
+	_, err = client.ImageRemove(ctx, imageName, types.ImageRemoveOptions{})
 	return err
 }
 

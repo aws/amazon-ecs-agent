@@ -44,6 +44,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -361,7 +362,7 @@ func TestImportLocalEmptyVolumeImage(t *testing.T) {
 	// The special emptyvolume image leads to a create, not pull
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), emptyvolume.Image+":"+emptyvolume.Tag).Return(types.ImageInspect{},nil, errors.New("Does not exist")),
+		mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), emptyvolume.Image+":"+emptyvolume.Tag).Return(types.ImageInspect{}, nil, errors.New("Does not exist")),
 		mockDockerSDK.EXPECT().ImageImport(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Do(func(ctx context.Context, x, y, z interface{}) {
 				req := z.(types.ImageImportOptions)
@@ -423,7 +424,7 @@ func TestCreateContainerInspectTimeout(t *testing.T) {
 
 	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, 1*time.Second)
 	assert.Equal(t, "id", metadata.DockerID,
-		"Expected ID to be set even if inspect failed; was " + metadata.DockerID)
+		"Expected ID to be set even if inspect failed; was "+metadata.DockerID)
 	assert.Error(t, metadata.Error, "Expected error for inspect timeout")
 }
 
@@ -527,9 +528,9 @@ func TestRemoveContainerTimeout(t *testing.T) {
 	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
 		types.ContainerRemoveOptions{
 			RemoveVolumes: true,
-			RemoveLinks: false,
-			Force: false,
-	}).Do(func(x, y, z interface{}) {
+			RemoveLinks:   false,
+			Force:         false,
+		}).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -546,11 +547,11 @@ func TestRemoveContainer(t *testing.T) {
 	defer done()
 
 	mockDockerSDK.EXPECT().ContainerRemove(gomock.Any(), "id",
-			types.ContainerRemoveOptions{
-				RemoveVolumes: true,
-				RemoveLinks: false,
-				Force: false,
-	}).Return(nil)
+		types.ContainerRemoveOptions{
+			RemoveVolumes: true,
+			RemoveLinks:   false,
+			Force:         false,
+		}).Return(nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -758,13 +759,13 @@ func TestDockerVersion(t *testing.T) {
 	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().ServerVersion(gomock.Any()).Return(types.Version{Version:"1.6.0"}, nil)
+	mockDockerSDK.EXPECT().ServerVersion(gomock.Any()).Return(types.Version{Version: "1.6.0"}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	str, err := client.Version(ctx, dockerclient.VersionTimeout)
 	assert.NoError(t, err)
-	assert.Equal(t, "1.6.0", str, "Got unexpected version string: " + str)
+	assert.Equal(t, "1.6.0", str, "Got unexpected version string: "+str)
 }
 
 func TestDockerVersionCached(t *testing.T) {
@@ -778,7 +779,7 @@ func TestDockerVersionCached(t *testing.T) {
 	defer cancel()
 	str, err := client.Version(ctx, dockerclient.VersionTimeout)
 	assert.NoError(t, err)
-	assert.Equal(t, "1.6.0", str, "Got unexpected version string: " + str)
+	assert.Equal(t, "1.6.0", str, "Got unexpected version string: "+str)
 }
 
 func TestListContainers(t *testing.T) {
@@ -786,7 +787,7 @@ func TestListContainers(t *testing.T) {
 	defer done()
 
 	containers := []types.Container{{ID: "id"}}
-	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true,}).Return(containers, nil)
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true}).Return(containers, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
@@ -803,11 +804,11 @@ func TestListContainersTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true,}).
+	mockDockerSDK.EXPECT().ContainerList(gomock.Any(), types.ContainerListOptions{All: true}).
 		Do(func(x, y interface{}) {
 			wait.Wait()
-		// Don't return, verify timeout happens
-	}).MaxTimes(1).Return(nil, errors.New("test error"))
+			// Don't return, verify timeout happens
+		}).MaxTimes(1).Return(nil, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, xContainerShortTimeout)
@@ -958,7 +959,7 @@ func TestStatsNormalExit(t *testing.T) {
 }
 
 func checkStatRead(t *testing.T, stat *docker.Stats, read time.Time) {
-	assert.Equal(t, read, stat.Read, "Expected %v, but was %v", read, stat.Read )
+	assert.Equal(t, read, stat.Read, "Expected %v, but was %v", read, stat.Read)
 }
 
 func TestStatsClosed(t *testing.T) {
@@ -1381,7 +1382,7 @@ func TestCreateVolumeTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface {}) {
+	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, x interface{}) {
 		wait.Wait()
 	}).MaxTimes(1).Return(types.Volume{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1415,7 +1416,7 @@ func TestCreateVolume(t *testing.T) {
 		"opt2": "val2",
 	}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context,opts volume.VolumesCreateBody) {
+		mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, opts volume.VolumesCreateBody) {
 			assert.Equal(t, opts.Name, volumeName)
 			assert.Equal(t, opts.Driver, driver)
 			assert.EqualValues(t, opts.DriverOpts, driverOptions)
@@ -1493,7 +1494,7 @@ func TestRemoveVolumeTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(),"name", false).Do(func(ctx context.Context,
+	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", false).Do(func(ctx context.Context,
 		x interface{}, y bool) {
 		wait.Wait()
 	}).MaxTimes(1)
@@ -1530,95 +1531,96 @@ func TestRemoveVolume(t *testing.T) {
 }
 
 func TestListPluginsTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().ListPlugins(gomock.Any()).Do(func(x interface{}) {
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Do(func(x, y interface{}) {
 		wait.Wait()
 	}).MaxTimes(1)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, xContainerShortTimeout)
+	response := client.ListPlugins(ctx, xContainerShortTimeout, filters.Args{})
 	assert.Error(t, response.Error, "expected error for timeout")
 	assert.Equal(t, "DockerTimeoutError", response.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
 func TestListPluginsError(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(nil, errors.New("some docker error"))
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return(nil, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, ListPluginsTimeout)
+	response := client.ListPlugins(ctx, ListPluginsTimeout, filters.Args{})
 	assert.Equal(t, "CannotListPluginsError", response.Error.(apierrors.NamedError).ErrorName())
 }
 
 func TestListPlugins(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	pluginID := "id"
 	pluginName := "name"
-	pluginTag := "tag"
-	pluginDetail := docker.PluginDetail{
-		ID:     pluginID,
-		Name:   pluginName,
-		Tag:    pluginTag,
-		Active: true,
+	plugin := &types.Plugin{
+		ID:      pluginID,
+		Name:    pluginName,
+		Enabled: true,
 	}
 
-	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return([]docker.PluginDetail{pluginDetail}, nil)
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return([]*types.Plugin{plugin}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, ListPluginsTimeout)
+	response := client.ListPlugins(ctx, ListPluginsTimeout, filters.Args{})
 	assert.NoError(t, response.Error)
-	assert.Equal(t, pluginDetail, response.Plugins[0])
+	assert.Equal(t, plugin, response.Plugins[0])
 }
 
 func TestListPluginsWithFilter(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	plugins := []docker.PluginDetail{
-		docker.PluginDetail{
-			ID:     "id1",
-			Name:   "name1",
-			Tag:    "tag1",
-			Active: false,
+	plugins := []*types.Plugin{
+		&types.Plugin{
+			ID:      "id1",
+			Name:    "name1",
+			Enabled: false,
 		},
-		docker.PluginDetail{
-			ID:     "id2",
-			Name:   "name2",
-			Tag:    "tag2",
-			Active: true,
-			Config: docker.PluginConfig{
+		&types.Plugin{
+			ID:      "id2",
+			Name:    "name2",
+			Enabled: true,
+			Config: types.PluginConfig{
 				Description: "A sample volume plugin for Docker",
-				Interface: docker.PluginInterface{
-					Types:  []string{"docker.volumedriver/1.0"},
+				Interface: types.PluginConfigInterface{
+					Types: []types.PluginInterfaceType{
+						{Capability: "docker.volumedriver/1.0"},
+					},
 					Socket: "plugins.sock",
 				},
 			},
 		},
-		docker.PluginDetail{
-			ID:     "id3",
-			Name:   "name3",
-			Tag:    "tag3",
-			Active: true,
-			Config: docker.PluginConfig{
+		&types.Plugin{
+			ID:      "id3",
+			Name:    "name3",
+			Enabled: true,
+			Config: types.PluginConfig{
 				Description: "A sample network plugin for Docker",
-				Interface: docker.PluginInterface{
-					Types:  []string{"docker.networkdriver/1.0"},
+				Interface: types.PluginConfigInterface{
+					Types: []types.PluginInterfaceType{
+						{Capability: "docker.networkdriver/1.0"},
+					},
 					Socket: "plugins.sock",
 				},
 			},
 		},
 	}
 
-	mockDocker.EXPECT().ListPlugins(gomock.Any()).Return(plugins, nil)
+	filterList := filters.NewArgs(filters.Arg("enabled", "true"))
+	filterList.Add("capability", VolumeDriverType)
+	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filterList).Return([]*types.Plugin{plugins[1]}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	pluginNames, error := client.ListPluginsWithFilters(ctx, true, []string{VolumeDriverType}, ListPluginsTimeout)
