@@ -56,7 +56,7 @@ func TestCreateSuccess(t *testing.T) {
 	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, driverOptions, nil, mockClient)
 	err := volume.Create()
 	assert.NoError(t, err)
-	assert.Equal(t, mountPoint, volume.VolumeConfig.Mountpoint)
+	assert.Equal(t, name, volume.VolumeConfig.Mountpoint)
 }
 
 func TestCreateError(t *testing.T) {
