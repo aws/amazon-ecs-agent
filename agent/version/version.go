@@ -22,7 +22,7 @@ package version
 // repository. Only the 'Version' const should change in checked-in source code
 
 // Version is the version of the Agent
-const Version = "1.20.0"
+const Version = "1.20.1"
 
 // GitDirty indicates the cleanliness of the git repo when this agent was built
 const GitDirty = true

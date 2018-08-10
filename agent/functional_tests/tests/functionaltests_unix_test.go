@@ -910,15 +910,15 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	wTask, err := agent.StartTask(t, "task-shared-vol-write")
 	require.NoError(t, err, "Register task definition failed")
 
-	// then reader task
-	rTask, err := agent.StartTask(t, "task-shared-vol-read")
-	require.NoError(t, err, "Register task definition failed")
-
-	// clean up
+	// Wait for the first task to create the volume
 	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, wErr, "Error waiting for task to transition to STOPPED")
 	wExitCode, _ := wTask.ContainerExitcode("task-shared-vol-write")
 	assert.Equal(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+
+	// then reader task try to read from the volume
+	rTask, err := agent.StartTask(t, "task-shared-vol-read")
+	require.NoError(t, err, "Register task definition failed")
 
 	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")

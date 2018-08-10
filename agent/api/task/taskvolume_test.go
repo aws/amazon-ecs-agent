@@ -32,6 +32,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMarshalUnmarshalOldTaskVolumes(t *testing.T) {
+	taskData := `{"volumes":[{"host":{"sourcePath":"/path"},"name":"1"},{"host":{"hostpath":""}, "name":"2"}]}`
+
+	var out Task
+	err := json.Unmarshal([]byte(taskData), &out)
+	require.NoError(t, err, "Could not unmarshal task")
+	require.Len(t, out.Volumes, 2, "Incorrect number of volumes")
+
+	var v1, v2 TaskVolume
+
+	for _, v := range out.Volumes {
+		switch v.Name {
+		case "1":
+			v1 = v
+		case "2":
+			v2 = v
+		}
+	}
+
+	_, ok := v1.Volume.(*taskresourcevolume.FSHostVolume)
+	assert.True(t, ok, "Expected v1 to be host volume")
+	assert.Equal(t, "/path", v1.Volume.(*taskresourcevolume.FSHostVolume).FSSourcePath, "Unmarshaled v2 didn't match marshalled v2")
+	_, ok = v2.Volume.(*taskresourcevolume.LocalDockerVolume)
+	assert.True(t, ok, "Expected v2 to be local empty volume")
+	assert.Equal(t, "", v2.Volume.Source(), "Expected v2 to have 'sourcepath' work correctly")
+}
+
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
@@ -65,7 +92,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 
 	_, ok := v1.Volume.(*taskresourcevolume.LocalDockerVolume)
 	assert.True(t, ok, "Expected v1 to be local empty volume")
-	assert.Equal(t, "/path", v2.Volume.Source(), "Expected v2 to have 'sourcepath' work correctly")
+	assert.Equal(t, "", v1.Volume.Source(), "Expected v2 to have 'sourcepath' work correctly")
 	_, ok = v2.Volume.(*taskresourcevolume.FSHostVolume)
 	assert.True(t, ok, "Expected v2 to be host volume")
 	assert.Equal(t, "/path", v2.Volume.(*taskresourcevolume.FSHostVolume).FSSourcePath, "Unmarshaled v2 didn't match marshalled v2")
