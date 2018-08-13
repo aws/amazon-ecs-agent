@@ -33,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
@@ -47,7 +47,7 @@ import (
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	containerSDK "github.com/docker/docker/api/types/container"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
 
@@ -649,7 +649,7 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskSt
 }
 
 // DockerConfig converts the given container in this task to the format of
-// GoDockerClient's 'Config' struct
+// the Docker SDK 'Config' struct
 func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*containerSDK.Config, *apierrors.DockerClientConfigError) {
 	return task.dockerConfig(container, apiVersion)
 }
@@ -660,18 +660,12 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
 	}
 
-	// Convert MB to B
-	dockerMem := int64(container.Memory * 1024 * 1024)
-	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
-		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
-	}
-
 	var entryPoint []string
 	if container.EntryPoint != nil {
 		entryPoint = *container.EntryPoint
 	}
 
-	config := &containerSDK.Config{
+	Config := &containerSDK.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
@@ -679,77 +673,34 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		Env:          dockerEnv,
 	}
 
-	err := task.SetConfigHostconfigBasedOnVersion(container, config, nil, apiVersion)
-	if err != nil {
-		return nil, &apierrors.DockerClientConfigError{"setting docker config failed, err: " + err.Error()}
-	}
-
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &config)
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &Config)
 		if err != nil {
 			return nil, &apierrors.DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
-	if container.HealthCheckType == apicontainer.DockerHealthCheckType && config.Healthcheck == nil {
+	if container.HealthCheckType == apicontainer.DockerHealthCheckType && Config.Healthcheck == nil {
 		return nil, &apierrors.DockerClientConfigError{
 			"docker health check is nil while container health check type is DOCKER"}
 	}
 
-	if config.Labels == nil {
-		config.Labels = make(map[string]string)
+	if Config.Labels == nil {
+		Config.Labels = make(map[string]string)
 	}
 
 	if container.Type == apicontainer.ContainerCNIPause {
 		// apply hostname to pause container's docker config
-		return task.applyENIHostname(config), nil
+		return task.applyENIHostname(Config), nil
 	}
 
-	return config, nil
+	return Config, nil
 }
 
-// SetConfigHostconfigBasedOnVersion sets the fields in both Config and HostConfig based on api version for backward compatibility
-func (task *Task) SetConfigHostconfigBasedOnVersion(container *apicontainer.Container, config *containerSDK.Config, hc *containerSDK.HostConfig, apiVersion dockerclient.DockerVersion) error {
-	// Convert MB to B
-	dockerMem := int64(container.Memory * 1024 * 1024)
-	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
-		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
-			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
-		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
-	}
-	cpuShare := task.dockerCPUShares(container.CPU)
-
-	// Docker copied Memory and cpu field into hostconfig in 1.6 with api version(1.18)
-	// https://github.com/moby/moby/commit/837eec064d2d40a4d86acbc6f47fada8263e0d4c
-	dockerAPIVersion, err := docker.NewAPIVersion(string(apiVersion))
-	if err != nil {
-		seelog.Errorf("Creating docker api version failed, err: %v", err)
-		return err
-	}
-
-	dockerAPIVersion_1_18 := docker.APIVersion([]int{1, 18})
-	if dockerAPIVersion.GreaterThanOrEqualTo(dockerAPIVersion_1_18) {
-		// Set the memory and cpu in host config
-		if hc != nil {
-			hc.Memory = dockerMem
-			hc.CPUShares = cpuShare
-		}
-		return nil
-	}
-
-	// Set the memory and cpu in config
-	if config != nil {
-		config.Memory = dockerMem
-		config.CPUShares = cpuShare
-	}
-
-	return nil
-}
-
-func (task *Task) dockerExposedPorts(container *apicontainer.Container) map[docker.Port]struct{} {
-	dockerExposedPorts := make(map[docker.Port]struct{})
+func (task *Task) dockerExposedPorts(container *apicontainer.Container) nat.PortSet {
+	dockerExposedPorts := make(map[nat.Port]struct{})
 
 	for _, portBinding := range container.Ports {
-		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
+		dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
 		dockerExposedPorts[dockerPort] = struct{}{}
 	}
 	return dockerExposedPorts
@@ -800,17 +751,15 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		return nil, &apierrors.HostConfigError{err.Error()}
 	}
 
+	resources := task.dockerResources(container)
+
 	// Populate hostConfig
 	hostConfig := &containerSDK.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
-	}
-
-	err = task.SetConfigHostconfigBasedOnVersion(container, nil, hostConfig, apiVersion)
-	if err != nil {
-		return nil, &apierrors.HostConfigError{err.Error()}
+		Resources:    resources,
 	}
 
 	if container.DockerConfig.HostConfig != nil {
@@ -830,7 +779,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	if !ok {
 		return hostConfig, nil
 	}
-	hostConfig.NetworkMode = networkMode
+	hostConfig.NetworkMode = containerSDK.NetworkMode(networkMode)
 	// Override 'awsvpc' parameters if needed
 	if container.Type == apicontainer.ContainerCNIPause {
 
@@ -845,6 +794,24 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	}
 
 	return hostConfig, nil
+}
+
+// Requires an *apicontainer.Container and returns the Resources for the HostConfig struct
+func (task *Task) dockerResources(container *apicontainer.Container) containerSDK.Resources {
+	// Convert MB to B and set Memory
+	dockerMem := int64(container.Memory * 1024 * 1024)
+	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
+		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
+			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
+		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
+	}
+	// Set CPUShares
+	cpuShare := task.dockerCPUShares(container.CPU)
+	resources := containerSDK.Resources{
+		Memory:    dockerMem,
+		CPUShares: cpuShare,
+	}
+	return resources
 }
 
 // shouldOverrideNetworkMode returns true if the network mode of the container needs
@@ -976,16 +943,16 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 	return dockerLinkArr, nil
 }
 
-func (task *Task) dockerPortMap(container *apicontainer.Container) map[docker.Port][]docker.PortBinding {
-	dockerPortMap := make(map[docker.Port][]docker.PortBinding)
+func (task *Task) dockerPortMap(container *apicontainer.Container) nat.PortMap {
+	dockerPortMap := nat.PortMap{}
 
 	for _, portBinding := range container.Ports {
-		dockerPort := docker.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
+		dockerPort := nat.Port(strconv.Itoa(int(portBinding.ContainerPort)) + "/" + portBinding.Protocol.String())
 		currentMappings, existing := dockerPortMap[dockerPort]
 		if existing {
-			dockerPortMap[dockerPort] = append(currentMappings, docker.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
+			dockerPortMap[dockerPort] = append(currentMappings, nat.PortBinding{HostPort: strconv.Itoa(int(portBinding.HostPort))})
 		} else {
-			dockerPortMap[dockerPort] = []docker.PortBinding{{HostPort: strconv.Itoa(int(portBinding.HostPort))}}
+			dockerPortMap[dockerPort] = []nat.PortBinding{{HostPort: strconv.Itoa(int(portBinding.HostPort))}}
 		}
 	}
 	return dockerPortMap

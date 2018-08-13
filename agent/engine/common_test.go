@@ -35,7 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
-	docker "github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )

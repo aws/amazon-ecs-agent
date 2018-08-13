@@ -21,10 +21,11 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
+	"github.com/docker/docker/api/types"
 	containerSDK "github.com/docker/docker/api/types/container"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/docker/docker/api/types/network"
 )
 
 // TestCreate is the mainline case for metadata create
@@ -65,19 +66,21 @@ func TestUpdate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := docker.State{
+	mockState := types.ContainerState{
 		Running: true,
 	}
 
 	mockConfig := &containerSDK.Config{Image: "image"}
 
-	mockNetworks := make(map[string]docker.ContainerNetwork)
-	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
+	mockNetworks := map[string]*network.EndpointSettings{}
+	mockNetworkSettings := types.NetworkSettings{Networks: mockNetworks}
 
-	mockContainer := &docker.Container{
-		State:           mockState,
+	mockContainer := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State:           &mockState,
+		},
 		Config:          mockConfig,
-		NetworkSettings: mockNetworkSettings,
+		NetworkSettings: &mockNetworkSettings,
 	}
 
 	newManager := &metadataManager{
@@ -86,7 +89,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil),
+		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(&mockContainer, nil),
 		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
 		mockFile.EXPECT().Sync().Return(nil),

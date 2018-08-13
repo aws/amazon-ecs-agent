@@ -29,7 +29,6 @@ import (
 	ecsengine "github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -58,14 +57,13 @@ func createRunningTask() *apitask.Task {
 func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainersWithoutHealth"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	// Create a container to get the container id.
 	container, err := createGremlin(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -127,10 +125,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 
 	container, err := createGremlin(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -195,14 +190,13 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 func TestStatsEngineWithExistingContainers(t *testing.T) {
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithExistingContainers"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	// Create a container to get the container id.
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -267,13 +261,12 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"))
 	defer engine.removeAll()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
 	engine.cluster = defaultCluster
 	engine.containerInstanceArn = defaultContainerInstance
@@ -347,16 +340,12 @@ func TestStatsEngineWithDockerTaskEngine(t *testing.T) {
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
 
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 	unmappedContainer, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    unmappedContainer.ID,
-		Force: true,
-	})
 	testTask := createRunningTask()
 	// enable the health check of the container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -431,13 +420,12 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	containerChangeEventStream := eventStream("TestStatsEngineWithDockerTaskEngineMissingRemoveEvent")
 	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
 		nil, dockerstate.NewTaskEngineState(), nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	container, err := createHealthContainer(client)
 	require.NoError(t, err, "creating container failed")
-	defer client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 	testTask := createRunningTask()
 	// enable container health check of this container
 	testTask.Containers[0].HealthCheckType = "docker"
@@ -478,10 +466,7 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	time.Sleep(checkPointSleep)
 	err = client.StopContainer(container.ID, defaultDockerTimeoutSeconds)
 	require.NoError(t, err, "stopping container failed")
-	err = client.RemoveContainer(docker.RemoveContainerOptions{
-		ID:    container.ID,
-		Force: true,
-	})
+	err, _ = client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 	require.NoError(t, err, "removing container failed")
 
 	time.Sleep(checkPointSleep)
