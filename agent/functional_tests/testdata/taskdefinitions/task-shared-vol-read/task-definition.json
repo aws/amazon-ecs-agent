@@ -21,12 +21,8 @@
             "name": "task-shared",
             "dockerVolumeConfiguration" : {
                 "scope": "shared",
-                "autoprovision": true,
+                "autoprovision": false,
                 "driver": "local",
-                "driverOpts": {
-                    "type": "tmpfs",
-                    "device": "tmpfs"
-                },
                 "labels": {
                     "mylables": "test"
                 }

@@ -417,7 +417,7 @@ func containerHealthWithoutStartPeriodTest(t *testing.T, taskDefinition string) 
 	RequireDockerVersion(t, ">=1.12.0") // container health check was added in Docker 1.12.0
 	// StartPeriod of container health check was added in 17.05.0,
 	// don't test it here, it should be tested in containerHealthWithStartPeriodTest
-	RequireDockerVersion(t, "<17.05.0")
+	RequireDockerAPIVersion(t, "<1.29")
 
 	tdOverrides := map[string]string{
 		"$$$$START_PERIOD$$$$": "",
@@ -427,7 +427,7 @@ func containerHealthWithoutStartPeriodTest(t *testing.T, taskDefinition string) 
 }
 
 func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
-	RequireDockerVersion(t, ">=17.05.0") // StartPeriod of container health check was added in 17.05.0
+	RequireDockerAPIVersion(t, ">=1.29") // StartPeriod of container health check was added in 17.05.0
 
 	tdOverrides := map[string]string{
 		"$$$$START_PERIOD$$$$": `"startPeriod": 1,`,

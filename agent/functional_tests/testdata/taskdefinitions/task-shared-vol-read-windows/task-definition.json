@@ -21,7 +21,7 @@
             "name": "task-shared",
             "dockerVolumeConfiguration" : {
                 "scope": "shared",
-                "autoprovision": true,
+                "autoprovision": false,
                 "driver": "local",
                 "labels": {
                     "mylables": "test"

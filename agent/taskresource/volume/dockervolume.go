@@ -292,7 +292,7 @@ func (vol *VolumeResource) Create() error {
 	}
 
 	// set readonly field after creation
-	vol.setMountPoint(volumeResponse.DockerVolume.Mountpoint)
+	vol.setMountPoint(volumeResponse.DockerVolume.Name)
 	return nil
 }
 

@@ -567,9 +567,34 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 			transition := task.containerNextState(container)
 			assert.Equal(t, tc.expectedContainerStatus, transition.nextState, "Mismatch container status")
 			assert.Equal(t, tc.expectedTransitionReason, transition.reason, "Mismatch transition possible")
-			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "Mismatch transition actionalbe")
+			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "Mismatch transition actionable")
 		})
 	}
+}
+
+func TestContainerNextStateWithAvoidingDanglingContainers(t *testing.T) {
+	container := &apicontainer.Container{
+		DesiredStatusUnsafe:       apicontainerstatus.ContainerStopped,
+		KnownStatusUnsafe:         apicontainerstatus.ContainerCreated,
+		AppliedStatus:             apicontainerstatus.ContainerRunning,
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &managedTask{
+		Task: &apitask.Task{
+			Containers: []*apicontainer.Container{
+				container,
+			},
+			DesiredStatusUnsafe: apitaskstatus.TaskStopped,
+		},
+		engine: &DockerTaskEngine{},
+	}
+	transition := task.containerNextState(container)
+	assert.Equal(t, apicontainerstatus.ContainerStatusNone, transition.nextState,
+		"Expected next state [%s] != Retrieved next state [%s]",
+		apicontainerstatus.ContainerStatusNone.String(), transition.nextState.String())
+	assert.Equal(t, false, transition.actionRequired, "Mismatch transition actionable")
+	assert.Equal(t, nil, transition.reason, "Mismatch transition possible")
 }
 
 func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
@@ -1877,4 +1902,58 @@ func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 	return cfg
+}
+
+// TestContainerNextStateDependsStoppedContainer tests the container that has
+// dependency on other containers' stopped status should wait for other container
+// to be stopped before it can be stopped
+func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
+	testCases := []struct {
+		// Known status of the dependent container
+		knownStatus    apicontainerstatus.ContainerStatus
+		actionRequired bool
+		err            error
+	}{
+		{
+			knownStatus:    apicontainerstatus.ContainerRunning,
+			actionRequired: false,
+			err:            dependencygraph.ErrContainerDependencyNotResolved,
+		},
+		{
+			knownStatus:    apicontainerstatus.ContainerStopped,
+			actionRequired: true,
+			err:            nil,
+		},
+	}
+
+	containerRunning := &apicontainer.Container{
+		Name:              "containerrunning",
+		KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+	}
+	containerToBeStopped := &apicontainer.Container{
+		Name:                "containertostop",
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+	}
+
+	// Add a dependency of the container's stopped status
+	containerToBeStopped.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	containerToBeStopped.BuildContainerDependency(containerRunning.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+
+	mtask := managedTask{
+		Task: &apitask.Task{
+			Arn:        "task1",
+			Containers: []*apicontainer.Container{containerRunning, containerToBeStopped},
+		},
+		engine: &DockerTaskEngine{},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Transition container to stopped but has dependent container container in %s", tc.knownStatus.String()), func(t *testing.T) {
+			containerRunning.SetKnownStatus(tc.knownStatus)
+			transition := mtask.containerNextState(containerToBeStopped)
+			assert.Equal(t, tc.actionRequired, transition.actionRequired)
+			assert.Equal(t, tc.err, transition.reason)
+		})
+	}
 }

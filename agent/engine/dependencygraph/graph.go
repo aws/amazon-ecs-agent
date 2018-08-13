@@ -141,7 +141,6 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
 		return DependentContainerNotResolvedErr
 	}
-
 	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
 		return err
 	}
@@ -197,12 +196,6 @@ func verifyStatusResolvable(target *apicontainer.Container, existingContainers m
 func verifyTransitionDependenciesResolved(target *apicontainer.Container,
 	existingContainers map[string]*apicontainer.Container,
 	existingResources map[string]taskresource.TaskResource) error {
-	targetGoal := target.GetDesiredStatus()
-	if targetGoal >= apicontainerstatus.ContainerStopped {
-		// A container can always stop, die, or reach whatever other state it
-		// wants regardless of what dependencies it has
-		return nil
-	}
 
 	if !verifyContainerDependenciesResolved(target, existingContainers) {
 		return ErrContainerDependencyNotResolved

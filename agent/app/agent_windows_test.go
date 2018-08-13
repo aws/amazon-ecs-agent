@@ -291,6 +291,8 @@ func TestDoStartTaskLimitsFail(t *testing.T) {
 		ec2MetadataClient:     ec2.NewBlackholeEC2MetadataClient(),
 	}
 
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
