@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
-	docker "github.com/fsouza/go-dockerclient"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -41,7 +41,7 @@ const (
 // operations
 type Manager interface {
 	SetContainerInstanceARN(string)
-	Create(*docker.Config, *docker.HostConfig, *apitask.Task, string) error
+	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
 }
@@ -88,7 +88,7 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) Create(config *docker.Config, hostConfig *docker.HostConfig, task *apitask.Task, containerName string) error {
+func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, task *apitask.Task, containerName string) error {
 	// Create task and container directories if they do not yet exist
 	metadataDirectoryPath, err := getMetadataFilePath(task.Arn, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason

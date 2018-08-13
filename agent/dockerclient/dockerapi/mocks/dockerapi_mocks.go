@@ -28,6 +28,7 @@ import (
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	types "github.com/docker/docker/api/types"
+	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
 	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
@@ -83,7 +84,7 @@ func (mr *MockDockerClientMockRecorder) ContainerEvents(arg0 interface{}) *gomoc
 }
 
 // CreateContainer mocks base method
-func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *go_dockerclient.Config, arg2 *go_dockerclient.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *container0.Config, arg2 *container0.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
@@ -120,9 +121,9 @@ func (mr *MockDockerClientMockRecorder) DescribeContainer(arg0, arg1 interface{}
 }
 
 // InspectContainer mocks base method
-func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*go_dockerclient.Container, error) {
+func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*go_dockerclient.Container)
+	ret0, _ := ret[0].(*types.ContainerJSON)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

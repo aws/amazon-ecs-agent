@@ -61,7 +61,7 @@ type DockerContainerMetadata struct {
 	// is unable to perform any of the required container transitions
 	Error apierrors.NamedError
 	// Volumes contains volume informaton for the container
-	Volumes []docker.Mount
+	Volumes []types.MountPoint
 	// Labels contains labels set for the container
 	Labels map[string]string
 	// CreatedAt is the timestamp of container creation
