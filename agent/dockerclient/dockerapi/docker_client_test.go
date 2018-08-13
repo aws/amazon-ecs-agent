@@ -1281,7 +1281,7 @@ func TestMetadataFromContainer(t *testing.T) {
 		},
 		ID:      "1234",
 		Volumes: volumes,
-		Config: &docker.Config{
+		Config: &containerSDK.Config{
 			Labels: labels,
 		},
 		Created: created,

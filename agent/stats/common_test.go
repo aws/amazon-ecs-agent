@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go/aws"
+	containerSDK "github.com/docker/docker/api/types/container"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -74,7 +75,7 @@ func eventStream(name string) *eventstream.EventStream {
 // It is used only in the test code.
 func createGremlin(client *docker.Client) (*docker.Container, error) {
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
+		Config: &containerSDK.Config{
 			Image: testImageName,
 		},
 	})
@@ -84,7 +85,7 @@ func createGremlin(client *docker.Client) (*docker.Container, error) {
 
 func createHealthContainer(client *docker.Client) (*docker.Container, error) {
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
+		Config: &containerSDK.Config{
 			Image: testContainerHealthImageName,
 		},
 	})

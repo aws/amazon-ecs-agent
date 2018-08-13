@@ -20,6 +20,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
+	containerSDK "github.com/docker/docker/api/types/container"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
@@ -88,7 +89,7 @@ func TestParseHasConfig(t *testing.T) {
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
 
-	mockConfig := &docker.Config{Image: "image"}
+	mockConfig := &containerSDK.Config{Image: "image"}
 
 	mockNetworks := make(map[string]docker.ContainerNetwork)
 	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
@@ -124,7 +125,7 @@ func TestParseHasNetworkSettingsPortBindings(t *testing.T) {
 	mockPortBinding = append(mockPortBinding, docker.PortBinding{HostIP: "0.0.0.0", HostPort: "8080"})
 	mockPorts["80/tcp"] = mockPortBinding
 
-	mockHostConfig := &docker.HostConfig{NetworkMode: "bridge"}
+	mockHostConfig := &containerSDK.HostConfig{NetworkMode: "bridge"}
 	mockNetworks := make(map[string]docker.ContainerNetwork)
 	mockNetworks["bridge"] = docker.ContainerNetwork{}
 	mockNetworks["network0"] = docker.ContainerNetwork{}
@@ -159,7 +160,7 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
 
-	mockHostConfig := &docker.HostConfig{NetworkMode: "bridge"}
+	mockHostConfig := &containerSDK.HostConfig{NetworkMode: "bridge"}
 	mockNetworkSettings := &docker.NetworkSettings{IPAddress: "0.0.0.0"}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig, NetworkSettings: mockNetworkSettings}
 
@@ -186,7 +187,7 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
 
-	mockHostConfig := &docker.HostConfig{NetworkMode: "bridge"}
+	mockHostConfig := &containerSDK.HostConfig{NetworkMode: "bridge"}
 	mockNetworks := make(map[string]docker.ContainerNetwork)
 	mockNetworks["bridge"] = docker.ContainerNetwork{}
 	mockNetworks["network0"] = docker.ContainerNetwork{}
@@ -216,8 +217,8 @@ func TestParseTaskDefinitionSettings(t *testing.T) {
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
 
-	mockHostConfig := &docker.HostConfig{NetworkMode: "bridge"}
-	mockConfig := &docker.Config{Image: "image"}
+	mockHostConfig := &containerSDK.HostConfig{NetworkMode: "bridge"}
+	mockConfig := &containerSDK.Config{Image: "image"}
 	mockNetworkSettings := &docker.NetworkSettings{IPAddress: "0.0.0.0"}
 	mockContainer := &docker.Container{HostConfig: mockHostConfig, Config: mockConfig, NetworkSettings: mockNetworkSettings}
 

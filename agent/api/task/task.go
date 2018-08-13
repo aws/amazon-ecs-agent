@@ -46,6 +46,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
@@ -649,11 +650,11 @@ func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskSt
 
 // DockerConfig converts the given container in this task to the format of
 // GoDockerClient's 'Config' struct
-func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
+func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*containerSDK.Config, *apierrors.DockerClientConfigError) {
 	return task.dockerConfig(container, apiVersion)
 }
 
-func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*docker.Config, *apierrors.DockerClientConfigError) {
+func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*containerSDK.Config, *apierrors.DockerClientConfigError) {
 	dockerEnv := make([]string, 0, len(container.Environment))
 	for envKey, envVal := range container.Environment {
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
@@ -670,7 +671,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		entryPoint = *container.EntryPoint
 	}
 
-	config := &docker.Config{
+	config := &containerSDK.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
@@ -707,7 +708,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 }
 
 // SetConfigHostconfigBasedOnVersion sets the fields in both Config and HostConfig based on api version for backward compatibility
-func (task *Task) SetConfigHostconfigBasedOnVersion(container *apicontainer.Container, config *docker.Config, hc *docker.HostConfig, apiVersion dockerclient.DockerVersion) error {
+func (task *Task) SetConfigHostconfigBasedOnVersion(container *apicontainer.Container, config *containerSDK.Config, hc *containerSDK.HostConfig, apiVersion dockerclient.DockerVersion) error {
 	// Convert MB to B
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
@@ -755,13 +756,13 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) map[dock
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*containerSDK.HostConfig, *apierrors.HostConfigError) {
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has execution role
 // credentials, and add the genereated credentials endpoint to the associated HostConfig
-func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, credentialsManager credentials.Manager) *apierrors.HostConfigError {
+func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *containerSDK.HostConfig, credentialsManager credentials.Manager) *apierrors.HostConfigError {
 	id := task.GetExecutionCredentialsID()
 	if id == "" {
 		// No execution credentials set for the task. Do not inject the endpoint environment variable.
@@ -781,7 +782,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *docker.HostConfig, cred
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*docker.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*containerSDK.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{err.Error()}
@@ -800,7 +801,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	}
 
 	// Populate hostConfig
-	hostConfig := &docker.HostConfig{
+	hostConfig := &containerSDK.HostConfig{
 		Links:        dockerLinkArr,
 		Binds:        binds,
 		PortBindings: dockerPortMap,
@@ -896,7 +897,7 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 // 2. ENI has custom DNS IPs and search list associated with it
 // This should only be done for the pause container as other containers inherit
 // /etc/resolv.conf of this container (they share the network namespace)
-func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig {
+func (task *Task) overrideDNS(hostConfig *containerSDK.HostConfig) *containerSDK.HostConfig {
 	eni := task.GetTaskENI()
 	if eni == nil {
 		return hostConfig
@@ -911,7 +912,7 @@ func (task *Task) overrideDNS(hostConfig *docker.HostConfig) *docker.HostConfig 
 // applyENIHostname adds the hostname provided by the ENI message to the
 // container's docker config. At the time of implmentation, we are only using it
 // to configure the pause container for awsvpc tasks
-func (task *Task) applyENIHostname(dockerConfig *docker.Config) *docker.Config {
+func (task *Task) applyENIHostname(dockerConfig *containerSDK.Config) *containerSDK.Config {
 	eni := task.GetTaskENI()
 	if eni == nil {
 		return dockerConfig
