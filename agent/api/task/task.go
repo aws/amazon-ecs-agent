@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -340,14 +341,17 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 
 	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
 	volumeConfig.DockerVolumeName = vol.Name
-	if volumeConfig.Autoprovision {
+	// if autoprovision == true, we will auto-provision the volume if it does not exist already
+	// else the named volume must exist
+	if !volumeConfig.Autoprovision {
 		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectVolumeTimeout)
 		if volumeMetadata.Error != nil {
-			return errors.Wrap(volumeMetadata.Error, "initialize volume: auto provisioned volume detection failed")
+			return errors.Wrapf(volumeMetadata.Error, "initialize volume: volume detection failed, volume '%s' does not exist and autoprovision is set to false", vol.Name)
 		}
 		return nil
 	}
 
+	// at this point we know autoprovision = true
 	// check if the volume configuration matches the one exists on the instance
 	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerapi.InspectVolumeTimeout)
 	if volumeMetadata.Error != nil {
@@ -374,16 +378,23 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 		return nil
 	}
 
-	seelog.Infof("initialize volue: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
+	seelog.Infof("initialize volume: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
 	// validate all the volume metadata fields match to the configuration
-	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
-		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: %s",
-			volumeMetadata.DockerVolume.Labels)
+	if len(volumeMetadata.DockerVolume.Labels) == 0 && len(volumeMetadata.DockerVolume.Labels) == len(volumeConfig.Labels) {
+		seelog.Infof("labels are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
+		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: existing: %v, expected: %v",
+			volumeMetadata.DockerVolume.Labels, volumeConfig.Labels)
 	}
-	if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
-		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: %s",
-			volumeMetadata.DockerVolume.Options)
+
+	if len(volumeMetadata.DockerVolume.Options) == 0 && len(volumeMetadata.DockerVolume.Options) == len(volumeConfig.DriverOpts) {
+		seelog.Infof("driver options are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
+		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: existing: %v, expected: %v",
+			volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts)
 	}
+	// Right now we are not adding shared, autoprovision = true volume to task as resource if it already exists (i.e. when this task didn't create the volume).
+	// if we need to change that, make a call to task.AddResource here.
 	return nil
 }
 
@@ -507,18 +518,21 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 	if !task.isNetworkModeVPC() {
 		return
 	}
-	for _, container := range task.Containers {
-		if container.IsInternal() {
-			continue
-		}
-		container.BuildContainerDependency(PauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
-	}
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
+	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	pauseContainer.Name = PauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
 	task.Containers = append(task.Containers, pauseContainer)
+
+	for _, container := range task.Containers {
+		if container.IsInternal() {
+			continue
+		}
+		container.BuildContainerDependency(PauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
+		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+	}
 }
 
 // ContainerByName returns the *Container for the given name
@@ -540,6 +554,27 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 		}
 	}
 	return nil, false
+}
+
+// UpdateMountPoints updates the mount points of volumes that were created
+// without specifying a host path.  This is used as part of the empty host
+// volume feature.
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
+	for _, mountPoint := range cont.MountPoints {
+		containerPath := getCanonicalPath(mountPoint.ContainerPath)
+		hostPath, ok := vols[containerPath]
+		if !ok {
+			// /path/ -> /path or \path\ -> \path
+			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
+		}
+		if ok {
+			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
+				if empty, ok := hostVolume.(*taskresourcevolume.LocalDockerVolume); ok {
+					empty.HostPath = hostPath
+				}
+			}
+		}
+	}
 }
 
 // updateTaskKnownStatus updates the given task's status based on its container's status.

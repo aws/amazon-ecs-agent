@@ -34,18 +34,6 @@ import (
 )
 
 const (
-	emptyVolumeName1                  = "Empty-Volume-1"
-	emptyVolumeContainerPath1         = `C:\my\empty-volume-1`
-	expectedEmptyVolumeGeneratedPath1 = `c:\ecs-empty-volume\empty-volume-1`
-
-	emptyVolumeName2                  = "empty-volume-2"
-	emptyVolumeContainerPath2         = `C:\my\empty-volume-2`
-	expectedEmptyVolumeGeneratedPath2 = `c:\ecs-empty-volume\` + emptyVolumeName2
-
-	expectedEmptyVolumeContainerImage = "microsoft/nanoserver"
-	expectedEmptyVolumeContainerTag   = "latest"
-	expectedEmptyVolumeContainerCmd   = "not-applicable"
-
 	expectedMemorySwappinessDefault = memorySwappinessDefault
 	minDockerClientAPIVersion       = dockerclient.Version_1_24
 )
