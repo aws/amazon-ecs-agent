@@ -41,9 +41,11 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types/network"
 )
 
 const (
@@ -137,7 +139,7 @@ type DockerClient interface {
 
 	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
-	CreateContainer(context.Context, *docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
+	CreateContainer(context.Context, *containerSDK.Config, *containerSDK.HostConfig, string, time.Duration) DockerContainerMetadata
 
 	// StartContainer starts the container identified by the name provided. A timeout value and a context should be
 	// provided for the request.
@@ -157,7 +159,7 @@ type DockerClient interface {
 
 	// InspectContainer returns information about the specified container. A timeout value and a context should be
 	// provided for the request.
-	InspectContainer(context.Context, string, time.Duration) (*docker.Container, error)
+	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
@@ -508,8 +510,8 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 }
 
 func (dg *dockerGoClient) CreateContainer(ctx context.Context,
-	config *docker.Config,
-	hostConfig *docker.HostConfig,
+	config *containerSDK.Config,
+	hostConfig *containerSDK.HostConfig,
 	name string,
 	timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -538,21 +540,15 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 }
 
 func (dg *dockerGoClient) createContainer(ctx context.Context,
-	config *docker.Config,
-	hostConfig *docker.HostConfig,
+	config *containerSDK.Config,
+	hostConfig *containerSDK.HostConfig,
 	name string) DockerContainerMetadata {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	containerOptions := docker.CreateContainerOptions{
-		Config:     config,
-		HostConfig: hostConfig,
-		Name:       name,
-		Context:    ctx,
-	}
-	dockerContainer, err := client.CreateContainer(containerOptions)
+	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, name)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
@@ -623,9 +619,9 @@ func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string
 	return DockerStateToState(dockerContainer.State), MetadataFromContainer(dockerContainer)
 }
 
-func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*docker.Container, error) {
+func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*types.ContainerJSON, error) {
 	type inspectResponse struct {
-		container *docker.Container
+		container *types.ContainerJSON
 		err       error
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -653,12 +649,13 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*docker.Container, error) {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*types.ContainerJSON, error) {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.InspectContainerWithContext(dockerID, ctx)
+	containerData, err := client.ContainerInspect(ctx, dockerID)
+	return &containerData, err
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
