@@ -29,18 +29,20 @@ import (
 )
 
 type configPair struct {
-	Container *Container
-	Config    *containerSDK.Config
+	Container  *Container
+	Config     *containerSDK.Config
+	HostConfig *containerSDK.HostConfig
 }
 
 func (pair configPair) Equal() bool {
 	conf := pair.Config
 	cont := pair.Container
+	hostConf := pair.HostConfig
 
-	if (conf.Memory / 1024 / 1024) != int64(cont.Memory) {
+	if (hostConf.Memory / 1024 / 1024) != int64(cont.Memory) {
 		return false
 	}
-	if conf.CPUShares != int64(cont.CPU) {
+	if hostConf.CPUShares != int64(cont.CPU) {
 		return false
 	}
 	if conf.Image != cont.Image {

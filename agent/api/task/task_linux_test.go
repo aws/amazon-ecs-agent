@@ -337,13 +337,16 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	assert.Nil(t, configErr)
 
 	expected := containerSDK.HostConfig{
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
+		Resources: containerSDK.Resources{
+			// Convert MB to B and set Memory
+			Memory:     int64(100 * 1024 * 1024),
+			CPUShares:  50,
+			CPUPercent: minimumCPUPercent,
+		},
 	}
-
 	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
@@ -364,24 +367,15 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, err)
 
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-
-	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
-	assert.Equal(t, int64(10), config.CPUShares)
-	assert.Empty(t, hostconfig.CPUShares)
-	assert.Empty(t, hostconfig.Memory)
+	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
+	assert.Equal(t, int64(10), hostconfig.CPUShares)
 
 	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
 	assert.Nil(t, err)
 
-	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
-	assert.Nil(t, err)
 	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
 	assert.Equal(t, int64(10), hostconfig.CPUShares)
 
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
 }
 
 func TestInitCgroupResourceSpecHappyPath(t *testing.T) {

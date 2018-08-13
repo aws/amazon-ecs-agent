@@ -187,10 +187,10 @@ func TestSquidProxy(t *testing.T) {
 	require.NoError(t, err)
 
 	squidImage := "127.0.0.1:51670/amazon/squid:latest"
-	dockerConfig := containerSDK.Config{
+	dockerConfig := docker.Config{
 		Image: squidImage,
 	}
-	dockerHostConfig := containerSDK.HostConfig{}
+	dockerHostConfig := docker.HostConfig{}
 
 	err = client.PullImage(docker.PullImageOptions{Repository: squidImage}, docker.AuthConfiguration{})
 	require.NoError(t, err)
@@ -917,7 +917,6 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	// then reader task
 	rTask, err := agent.StartTask(t, "task-shared-vol-read")
 	require.NoError(t, err, "Register task definition failed")
-
 	// clean up
 	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, wErr, "Error waiting for task to transition to STOPPED")
