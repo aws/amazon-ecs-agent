@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -127,18 +127,20 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := docker.State{
+	mockState := types.ContainerState{
 		Running: false,
 	}
-	mockContainer := &docker.Container{
-		State: mockState,
+	mockContainer := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State: &mockState,
+		},
 	}
 
 	newManager := &metadataManager{
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(&mockContainer, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)

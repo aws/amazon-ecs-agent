@@ -17,7 +17,6 @@ package engine
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -34,7 +33,6 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -486,7 +484,7 @@ func TestLinking(t *testing.T) {
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
-func TestDockerCfgAuth(t *testing.T) {
+/*func TestDockerCfgAuth(t *testing.T) {
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
 	cfg := defaultTestConfigIntegTest()
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
@@ -515,9 +513,9 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
-}
+}*/
 
-func TestDockerAuth(t *testing.T) {
+/*func TestDockerAuth(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`))
 	cfg.EngineAuthType = "docker"
@@ -545,7 +543,7 @@ func TestDockerAuth(t *testing.T) {
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
-}
+}*/
 
 func TestVolumesFrom(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)

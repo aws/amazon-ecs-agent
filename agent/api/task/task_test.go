@@ -46,12 +46,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/aws"
-	containerSDK "github.com/docker/docker/api/types/container"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/go-units"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/docker/docker/api/types"
 )
 
 const dockerIDPrefix = "dockerid-"
@@ -93,7 +93,7 @@ func TestDockerConfigPortBinding(t *testing.T) {
 	}
 }
 
-func TestDockerConfigCPUShareZero(t *testing.T) {
+func TestDockerHostConfigCPUShareZero(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
@@ -103,17 +103,21 @@ func TestDockerConfigCPUShareZero(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	if err != nil {
 		t.Error(err)
 	}
-
-	if config.CPUShares != 2 {
+	if runtime.GOOS == "windows" {
+		if hostconfig.CPUShares != 0 {
+			// CPUShares will always be 0 on windows
+			t.Error("CPU shares expected to be 0 on windows")
+		}
+	} else if hostconfig.CPUShares != 2 {
 		t.Error("CPU shares of 0 did not get changed to 2")
 	}
 }
 
-func TestDockerConfigCPUShareMinimum(t *testing.T) {
+func TestDockerHostConfigCPUShareMinimum(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
@@ -123,17 +127,22 @@ func TestDockerConfigCPUShareMinimum(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if config.CPUShares != 2 {
+	if runtime.GOOS == "windows" {
+		if hostconfig.CPUShares != 0 {
+			// CPUShares will always be 0 on windows
+			t.Error("CPU shares expected to be 0 on windows")
+		}
+	} else if hostconfig.CPUShares != 2 {
 		t.Error("CPU shares of 1 did not get changed to 2")
 	}
 }
 
-func TestDockerConfigCPUShareUnchanged(t *testing.T) {
+func TestDockerHostConfigCPUShareUnchanged(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
 			{
@@ -143,12 +152,17 @@ func TestDockerConfigCPUShareUnchanged(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if config.CPUShares != 100 {
+	if runtime.GOOS == "windows" {
+		if hostconfig.CPUShares != 0 {
+			// CPUShares will always be 0 on windows
+			t.Error("CPU shares expected to be 0 on windows")
+		}
+	} else if hostconfig.CPUShares != 100 {
 		t.Error("CPU shares unexpectedly changed")
 	}
 }
@@ -199,20 +213,21 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 }
 
 func TestDockerHostConfigRawConfig(t *testing.T) {
-	rawHostConfigInput := containerSDK.HostConfig{
+	rawHostConfigInput := dockercontainer.HostConfig{
 		Privileged:     true,
 		ReadonlyRootfs: true,
 		DNS:            []string{"dns1, dns2"},
 		DNSSearch:      []string{"dns.search"},
 		ExtraHosts:     []string{"extra:hosts"},
 		SecurityOpt:    []string{"foo", "bar"},
-		CPUShares:      2,
-		LogConfig: docker.LogConfig{
+		Resources: dockercontainer.Resources{
+			CPUShares: 2,
+			Ulimits:   []*units.Ulimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
+		},
+		LogConfig: dockercontainer.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
-		Ulimits:          []docker.ULimit{{Name: "ulimit name", Soft: 10, Hard: 100}},
-		MemorySwappiness: memorySwappinessDefault,
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
@@ -268,12 +283,18 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	// for a non pause container
 	config, err := testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
-	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, config.NetworkMode)
+	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, string(config.NetworkMode))
+
+	// Verify that the network mode is not set to "none"  for the
+	// empty volume container
+	config, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+	assert.Equal(t, networkModeNone, string(config.NetworkMode))
 
 	// Verify that the network mode is set to "none" for the pause container
 	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
-	assert.Equal(t, networkModeNone, config.NetworkMode)
+	assert.Equal(t, networkModeNone, string(config.NetworkMode))
 
 	// Verify that overridden DNS settings are set for the pause container
 	// and not set for non pause containers
@@ -330,11 +351,10 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 }
 
 func TestDockerConfigRawConfig(t *testing.T) {
-	rawConfigInput := containerSDK.Config{
+	rawConfigInput := dockercontainer.Config{
 		Hostname:        "hostname",
 		Domainname:      "domainname",
 		NetworkDisabled: true,
-		DNS:             []string{"dnsfoo", "dnsbar"},
 		WorkingDir:      "workdir",
 		User:            "user",
 	}
@@ -364,7 +384,6 @@ func TestDockerConfigRawConfig(t *testing.T) {
 	}
 
 	expectedOutput := rawConfigInput
-	expectedOutput.CPUShares = 2
 
 	assertSetStructFieldsEqual(t, expectedOutput, *config)
 }
@@ -397,7 +416,7 @@ func TestDockerConfigRawConfigNilLabel(t *testing.T) {
 
 func TestDockerConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// containerSDK.Config which will include a lot of zero values.
+	// dockercontainer.Config which will include a lot of zero values.
 	rawConfigInput := struct {
 		User string `json:"User,omitempty" yaml:"User,omitempty"`
 	}{
@@ -430,24 +449,13 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
-	hostConfig, HostconfigErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	if HostconfigErr != nil {
-		t.Fatal(configErr)
-	}
 
-	expected := containerSDK.Config{
-		Image:     "image",
-		User:      "user",
-	}
-	expectedHostConfig := containerSDK.HostConfig{
-		Resources: containerSDK.Resources{
-			Memory:    1000 * 1024 * 1024,
-			CPUShares: 50,
-		},
+	expected := dockercontainer.Config{
+		Image: "image",
+		User:  "user",
 	}
 
 	assertSetStructFieldsEqual(t, expected, *config)
-	assertSetStructFieldsEqual(t, expectedHostConfig, *hostConfig)
 }
 
 func TestBadDockerConfigRawConfig(t *testing.T) {
@@ -1188,8 +1196,8 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 	credentialsIDInTask := "credsid"
 	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
 
-	rawHostConfigInput := containerSDK.HostConfig{
-		LogConfig: docker.LogConfig{
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
@@ -1237,8 +1245,8 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
-	rawHostConfigInput := containerSDK.HostConfig{
-		LogConfig: docker.LogConfig{
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
@@ -1279,8 +1287,8 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 
 	credentialsIDInTask := "credsid"
 
-	rawHostConfigInput := containerSDK.HostConfig{
-		LogConfig: docker.LogConfig{
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
 		},
@@ -1330,19 +1338,12 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
 
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-
-	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), config.Memory)
-	assert.Empty(t, hostconfig.Memory)
+	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 
 	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
 	assert.Nil(t, err)
 
-	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
-	assert.Nil(t, err)
 	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
-	assert.Empty(t, config.Memory)
 }
 
 // TestContainerHealthConfig tests that we set the correct container health check config

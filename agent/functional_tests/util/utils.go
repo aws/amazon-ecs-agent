@@ -39,8 +39,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
+	"github.com/docker/go-connections/nat"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -110,14 +113,14 @@ type TestAgent struct {
 	Options              *AgentOptions
 	Process              *os.Process
 
-	DockerClient *docker.Client
+	DockerClient *sdkclient.Client
 	t            *testing.T
 }
 
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
-	PortBindings     map[docker.Port]map[string]string
+	PortBindings     nat.PortMap
 	EnableTaskENI    bool
 }
 
@@ -593,16 +596,16 @@ func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
 }
 
 func RequireDockerVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
+	dockerClient, err := client.NewClientWithOpts()
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}
-	dockerVersion, err := dockerClient.Version()
+	dockerVersion, err := dockerClient.ServerVersion(context.TODO())
 	if err != nil {
 		t.Fatalf("Could not get docker version: %v", err)
 	}
 
-	version := dockerVersion.Get("Version")
+	version := dockerVersion.Version
 
 	match, err := utils.Version(version).Matches(selector)
 	if err != nil {
@@ -615,16 +618,16 @@ func RequireDockerVersion(t *testing.T, selector string) {
 }
 
 func RequireDockerAPIVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
+	dockerClient, err := client.NewClientWithOpts()
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}
-	dockerVersion, err := dockerClient.Version()
+	dockerVersion, err := dockerClient.ServerVersion(context.TODO())
 	if err != nil {
 		t.Fatalf("Could not get docker version: %v", err)
 	}
 
-	version := dockerVersion.Get("ApiVersion")
+	version := dockerVersion.Version
 
 	// adding zero patch to use semver comparator
 	// TODO: Implement non-semver comparator
@@ -739,12 +742,7 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 
 	for _, container := range taskResponse.Containers {
 		ctx, _ := context.WithTimeout(context.Background(), 1*time.Minute)
-		agent.DockerClient.RemoveContainer(docker.RemoveContainerOptions{
-			ID:            container.DockerID,
-			RemoveVolumes: true,
-			Force:         true,
-			Context:       ctx,
-		})
+		agent.DockerClient.ContainerRemove(ctx, container.DockerID, types.ContainerRemoveOptions{Force:true, RemoveVolumes:true})
 	}
 
 	return nil
