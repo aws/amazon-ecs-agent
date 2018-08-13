@@ -59,6 +59,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/containernetworking/cni/pkg/types/current"
+	containerSDK "github.com/docker/docker/api/types/container"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
@@ -322,7 +323,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Ensure that the pause container is created first
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+			func(ctx interface{}, config *containerSDK.Config, hostConfig *containerSDK.HostConfig, containerName string, z time.Duration) {
 				sleepTask.SetTaskENI(&apieni.ENI{
 					ID: "TestTaskWithSteadyStateResourcesProvisioned",
 					IPV4Addresses: []*apieni.ENIIPV4Address{
@@ -365,7 +366,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+			func(ctx interface{}, config *containerSDK.Config, hostConfig *containerSDK.HostConfig, containerName string, z time.Duration) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
 				assert.Equal(t, "container:"+containerID+":"+pauseContainer.Name, hostConfig.NetworkMode)
 				containerEventsWG.Add(1)
@@ -1062,7 +1063,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		dockerClient.EXPECT().CreateContainer(
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *docker.Config, x, y, z interface{}) {
+			func(ctx interface{}, config *containerSDK.Config, x, y, z interface{}) {
 				name, ok := config.Labels[labelPrefix+"container-name"]
 				assert.True(t, ok)
 				assert.Equal(t, apitask.PauseContainerName, name)
@@ -2051,7 +2052,7 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 				}
 				client.EXPECT().InspectContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(&docker.Container{
 					ID: dockerID,
-					Config: &docker.Config{
+					Config: &containerSDK.Config{
 						Labels: labels,
 					},
 					Created: tc.created,

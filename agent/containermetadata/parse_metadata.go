@@ -19,6 +19,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -108,7 +109,7 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 // packages the desired metadata for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.HostConfig) (NetworkMetadata, error) {
+func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *containerSDK.HostConfig) (NetworkMetadata, error) {
 	// Network settings and Host configuration should not be missing except due to errors
 	if settings == nil {
 		err := fmt.Errorf("parse network metadata: could not find network settings")

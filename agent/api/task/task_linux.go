@@ -26,8 +26,8 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
+	containerSDK "github.com/docker/docker/api/types/container"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 )
 
@@ -188,14 +188,14 @@ func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(hostConfig *containerSDK.HostConfig) error {
 	// Override cgroup parent
 	return task.overrideCgroupParent(hostConfig)
 }
 
 // overrideCgroupParent updates hostconfig with cgroup parent when task cgroups
 // are enabled
-func (task *Task) overrideCgroupParent(hostConfig *docker.HostConfig) error {
+func (task *Task) overrideCgroupParent(hostConfig *containerSDK.HostConfig) error {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 	if task.MemoryCPULimitsEnabled {

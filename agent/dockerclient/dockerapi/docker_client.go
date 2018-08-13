@@ -135,7 +135,7 @@ type DockerClient interface {
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata
 
-	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
+	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
 	CreateContainer(context.Context, *docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
 
