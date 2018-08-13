@@ -140,7 +140,7 @@ type DockerClient interface {
 	// ImportLocalEmptyVolumeImage imports a locally-generated empty-volume image for supported platforms.
 	ImportLocalEmptyVolumeImage() DockerContainerMetadata
 
-	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
+	// CreateContainer creates a container with the provided containerSDK.Config, containerSDK.HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
 	CreateContainer(context.Context, *docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
 

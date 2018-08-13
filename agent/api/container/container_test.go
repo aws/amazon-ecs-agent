@@ -24,13 +24,13 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 type configPair struct {
 	Container *Container
-	Config    *docker.Config
+	Config    *containerSDK.Config
 }
 
 func (pair configPair) Equal() bool {

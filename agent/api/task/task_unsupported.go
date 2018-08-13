@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -66,7 +66,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields
 	return nil
 }
 
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(hostConfig *containerSDK.HostConfig) error {
 	return nil
 }
 

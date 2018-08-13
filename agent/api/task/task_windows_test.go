@@ -29,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
-	"github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -124,14 +124,14 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	task := &Task{}
 
-	hostConfig := &docker.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
+	hostConfig := &containerSDK.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
 
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
 	assert.Equal(t, int64(0), hostConfig.CPUShares)
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 
-	hostConfig = &docker.HostConfig{CPUShares: 10}
+	hostConfig = &containerSDK.HostConfig{CPUShares: 10}
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
 	assert.Empty(t, hostConfig.CPUShares)
@@ -139,7 +139,7 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 func TestWindowsMemorySwappinessOption(t *testing.T) {
 	// Testing sending a task to windows overriding MemorySwappiness value
-	rawHostConfigInput := docker.HostConfig{}
+	rawHostConfigInput := containerSDK.HostConfig{}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 	if err != nil {
@@ -170,7 +170,7 @@ func TestWindowsMemorySwappinessOption(t *testing.T) {
 
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
+	// containerSDK.HostConfig which will include a lot of zero values.
 	rawHostConfigInput := struct {
 		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
@@ -208,7 +208,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, configErr)
 
-	expected := docker.HostConfig{
+	expected := containerSDK.HostConfig{
 		Memory:           apicontainer.DockerContainerMinimumMemoryInBytes,
 		Privileged:       true,
 		SecurityOpt:      []string{"foo", "bar"},

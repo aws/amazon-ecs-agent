@@ -21,6 +21,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
+	containerSDK "github.com/docker/docker/api/types/container"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -34,8 +35,8 @@ func TestCreate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockConfig := &docker.Config{Env: make([]string, 0)}
-	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
+	mockConfig := &containerSDK.Config{Env: make([]string, 0)}
+	mockHostConfig := &containerSDK.HostConfig{Binds: make([]string, 0)}
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(nil),
@@ -71,7 +72,7 @@ func TestUpdate(t *testing.T) {
 		Running: true,
 	}
 
-	mockConfig := &docker.Config{Image: "image"}
+	mockConfig := &containerSDK.Config{Image: "image"}
 
 	mockNetworks := make(map[string]docker.ContainerNetwork)
 	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}

@@ -132,7 +132,7 @@ func (agent *TestAgent) StopAgent() error {
 
 func (agent *TestAgent) StartAgent() error {
 	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
-	dockerConfig := &docker.Config{
+	dockerConfig := &containerSDK.Config{
 		Image: agent.Image,
 		ExposedPorts: map[docker.Port]struct{}{
 			"51678/tcp": {},
@@ -159,7 +159,7 @@ func (agent *TestAgent) StartAgent() error {
 
 	binds := agent.getBindMounts()
 
-	hostConfig := &docker.HostConfig{
+	hostConfig := &containerSDK.HostConfig{
 		Binds: binds,
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"51678/tcp": {{HostIP: "0.0.0.0"}},

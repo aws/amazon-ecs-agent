@@ -44,6 +44,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/aws"
+	containerSDK "github.com/docker/docker/api/types/container"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -195,7 +196,7 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 }
 
 func TestDockerHostConfigRawConfig(t *testing.T) {
-	rawHostConfigInput := docker.HostConfig{
+	rawHostConfigInput := containerSDK.HostConfig{
 		Privileged:     true,
 		ReadonlyRootfs: true,
 		DNS:            []string{"dns1, dns2"},
@@ -334,7 +335,7 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 }
 
 func TestDockerConfigRawConfig(t *testing.T) {
-	rawConfigInput := docker.Config{
+	rawConfigInput := containerSDK.Config{
 		Hostname:        "hostname",
 		Domainname:      "domainname",
 		NetworkDisabled: true,
@@ -401,7 +402,7 @@ func TestDockerConfigRawConfigNilLabel(t *testing.T) {
 
 func TestDockerConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.Config which will include a lot of zero values.
+	// containerSDK.Config which will include a lot of zero values.
 	rawConfigInput := struct {
 		User string `json:"User,omitempty" yaml:"User,omitempty"`
 	}{
@@ -434,15 +435,24 @@ func TestDockerConfigRawConfigMerging(t *testing.T) {
 	if configErr != nil {
 		t.Fatal(configErr)
 	}
+	hostConfig, HostconfigErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	if HostconfigErr != nil {
+		t.Fatal(configErr)
+	}
 
-	expected := docker.Config{
-		Memory:    1000 * 1024 * 1024,
-		CPUShares: 50,
+	expected := containerSDK.Config{
 		Image:     "image",
 		User:      "user",
 	}
+	expectedHostConfig := containerSDK.HostConfig{
+		Resources: containerSDK.Resources{
+			Memory:    1000 * 1024 * 1024,
+			CPUShares: 50,
+		},
+	}
 
 	assertSetStructFieldsEqual(t, expected, *config)
+	assertSetStructFieldsEqual(t, expectedHostConfig, *hostConfig)
 }
 
 func TestBadDockerConfigRawConfig(t *testing.T) {
@@ -1135,7 +1145,7 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 	credentialsIDInTask := "credsid"
 	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
 
-	rawHostConfigInput := docker.HostConfig{
+	rawHostConfigInput := containerSDK.HostConfig{
 		LogConfig: docker.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
@@ -1184,7 +1194,7 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
-	rawHostConfigInput := docker.HostConfig{
+	rawHostConfigInput := containerSDK.HostConfig{
 		LogConfig: docker.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},
@@ -1226,7 +1236,7 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 
 	credentialsIDInTask := "credsid"
 
-	rawHostConfigInput := docker.HostConfig{
+	rawHostConfigInput := containerSDK.HostConfig{
 		LogConfig: docker.LogConfig{
 			Type:   "foo",
 			Config: map[string]string{"foo": "bar"},

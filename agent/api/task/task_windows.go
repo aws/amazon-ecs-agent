@@ -23,9 +23,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	containerSDK "github.com/docker/docker/api/types/container"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -79,7 +79,7 @@ func getCanonicalPath(path string) string {
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
 // passed to Docker API.
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(hostConfig *containerSDK.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
 	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
@@ -100,7 +100,7 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 // This bug is not noticed when no value is passed in. However, the go-dockerclient client version
 // we are using removed the json option omitempty causing this parameter to default to 0 if empty.
 // https://github.com/fsouza/go-dockerclient/commit/72342f96fabfa614a94b6ca57d987eccb8a836bf
-func (task *Task) overrideDefaultMemorySwappiness(hostConfig *docker.HostConfig) {
+func (task *Task) overrideDefaultMemorySwappiness(hostConfig *containerSDK.HostConfig) {
 	hostConfig.MemorySwappiness = memorySwappinessDefault
 }
 
