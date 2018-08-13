@@ -20,7 +20,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 // parseMetadataAtContainerCreate gathers metadata from task and cluster configurations
@@ -46,7 +47,7 @@ func (manager *metadataManager) parseMetadataAtContainerCreate(task *apitask.Tas
 // configuration and data then packages it for JSON Marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this or the above stage.
-func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container, task *apitask.Task, containerName string) Metadata {
+func (manager *metadataManager) parseMetadata(dockerContainer *types.ContainerJSON, task *apitask.Task, containerName string) Metadata {
 	dockerMD := parseDockerContainerMetadata(task.Arn, containerName, dockerContainer)
 	return Metadata{
 		cluster: manager.cluster,
@@ -66,7 +67,7 @@ func (manager *metadataManager) parseMetadata(dockerContainer *docker.Container,
 // and packages this data for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseDockerContainerMetadata(taskARN string, containerName string, dockerContainer *docker.Container) DockerContainerMetadata {
+func parseDockerContainerMetadata(taskARN string, containerName string, dockerContainer *types.ContainerJSON) DockerContainerMetadata {
 	if dockerContainer == nil {
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: container metadata not available or does not exist", taskARN, containerName)
 		return DockerContainerMetadata{}
@@ -82,7 +83,14 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no configuration", taskARN, containerName)
 	}
 
+	if dockerContainer.ContainerJSONBase == nil {
+		seelog.Warnf("Failed to parse container metadata for task %s container %s: container has no host configuration", taskARN, containerName)
+		return DockerContainerMetadata{
+			imageName: imageNameFromConfig,
+		}
+	}
 	networkMetadata, err := parseNetworkMetadata(dockerContainer.NetworkSettings, dockerContainer.HostConfig)
+
 	if err != nil {
 		seelog.Warnf("Failed to parse container metadata for task %s container %s: %v", taskARN, containerName, err)
 	}
@@ -108,7 +116,7 @@ func parseDockerContainerMetadata(taskARN string, containerName string, dockerCo
 // packages the desired metadata for JSON marshaling
 // Since we accept incomplete metadata fields, we should not return
 // errors here and handle them at this stage.
-func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.HostConfig) (NetworkMetadata, error) {
+func parseNetworkMetadata(settings *types.NetworkSettings, hostConfig *dockercontainer.HostConfig) (NetworkMetadata, error) {
 	// Network settings and Host configuration should not be missing except due to errors
 	if settings == nil {
 		err := fmt.Errorf("parse network metadata: could not find network settings")
@@ -124,7 +132,7 @@ func parseNetworkMetadata(settings *docker.NetworkSettings, hostConfig *docker.H
 	// We get the NetworkMode (Network interface name) from the HostConfig because this
 	// this is the network with which the container is created
 	ipv4AddressFromSettings := settings.IPAddress
-	networkModeFromHostConfig := hostConfig.NetworkMode
+	networkModeFromHostConfig := string(hostConfig.NetworkMode)
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network

@@ -41,7 +41,9 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	docker "github.com/fsouza/go-dockerclient"
 )
@@ -135,9 +137,9 @@ type DockerClient interface {
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
 	PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata
 
-	// CreateContainer creates a container with the provided docker.Config, docker.HostConfig, and name. A timeout value
+	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
-	CreateContainer(context.Context, *docker.Config, *docker.HostConfig, string, time.Duration) DockerContainerMetadata
+	CreateContainer(context.Context, *dockercontainer.Config, *dockercontainer.HostConfig, string, time.Duration) DockerContainerMetadata
 
 	// StartContainer starts the container identified by the name provided. A timeout value and a context should be
 	// provided for the request.
@@ -157,7 +159,7 @@ type DockerClient interface {
 
 	// InspectContainer returns information about the specified container. A timeout value and a context should be
 	// provided for the request.
-	InspectContainer(context.Context, string, time.Duration) (*docker.Container, error)
+	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
@@ -508,8 +510,8 @@ func (dg *dockerGoClient) getAuthdata(image string, authData *apicontainer.Regis
 }
 
 func (dg *dockerGoClient) CreateContainer(ctx context.Context,
-	config *docker.Config,
-	hostConfig *docker.HostConfig,
+	config *dockercontainer.Config,
+	hostConfig *dockercontainer.HostConfig,
 	name string,
 	timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -538,26 +540,21 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 }
 
 func (dg *dockerGoClient) createContainer(ctx context.Context,
-	config *docker.Config,
-	hostConfig *docker.HostConfig,
+	config *dockercontainer.Config,
+	hostConfig *dockercontainer.HostConfig,
 	name string) DockerContainerMetadata {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	containerOptions := docker.CreateContainerOptions{
-		Config:     config,
-		HostConfig: hostConfig,
-		Name:       name,
-		Context:    ctx,
-	}
-	dockerContainer, err := client.CreateContainer(containerOptions)
+	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, name)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
 
-	return MetadataFromContainer(dockerContainer)
+	// TODO Remove ContainerInspect call
+	return dg.containerMetadata(ctx, dockerContainer.ID)
 }
 
 func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
@@ -599,7 +596,7 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 
 // DockerStateToState converts the container status from docker to status recognized by the agent
 // Ref: https://github.com/fsouza/go-dockerclient/blob/fd53184a1439b6d7b82ca54c1cd9adac9a5278f2/container.go#L133
-func DockerStateToState(state docker.State) apicontainerstatus.ContainerStatus {
+func DockerStateToState(state *types.ContainerState) apicontainerstatus.ContainerStatus {
 	if state.Running {
 		return apicontainerstatus.ContainerRunning
 	}
@@ -608,7 +605,9 @@ func DockerStateToState(state docker.State) apicontainerstatus.ContainerStatus {
 		return apicontainerstatus.ContainerStopped
 	}
 
-	if state.StartedAt.IsZero() && state.Error == "" {
+	// StartAt field in ContainerState is a string and need to convert to compare to zero time instant
+	startTime, _ := time.Parse(time.RFC3339, state.StartedAt)
+	if startTime.IsZero() && state.Error == "" {
 		return apicontainerstatus.ContainerCreated
 	}
 
@@ -620,12 +619,12 @@ func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string
 	if err != nil {
 		return apicontainerstatus.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}
-	return DockerStateToState(dockerContainer.State), MetadataFromContainer(dockerContainer)
+	return DockerStateToState(dockerContainer.ContainerJSONBase.State), MetadataFromContainer(dockerContainer)
 }
 
-func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*docker.Container, error) {
+func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string, timeout time.Duration) (*types.ContainerJSON, error) {
 	type inspectResponse struct {
-		container *docker.Container
+		container *types.ContainerJSON
 		err       error
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -653,12 +652,13 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 }
 
-func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*docker.Container, error) {
-	client, err := dg.dockerClient()
+func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string) (*types.ContainerJSON, error) {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	return client.InspectContainerWithContext(dockerID, ctx)
+	containerData, err := client.ContainerInspect(ctx, dockerID)
+	return &containerData, err
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
@@ -747,7 +747,7 @@ func (dg *dockerGoClient) containerMetadata(ctx context.Context, id string) Dock
 }
 
 // MetadataFromContainer translates dockerContainer into DockerContainerMetadata
-func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMetadata {
+func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainerMetadata {
 	var bindings []apicontainer.PortBinding
 	var err apierrors.NamedError
 	if dockerContainer.NetworkSettings != nil {
@@ -758,19 +758,32 @@ func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 			return DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
 	}
+
+	createdTime, _ := time.Parse(time.RFC3339, dockerContainer.Created)
+	startedTime := time.Time{}
+	finishedTime := time.Time{}
+	// Need to check for nil to make sure we do not try to access fields of nil pointer
+	if dockerContainer.State != nil {
+		startedTime, _ = time.Parse(time.RFC3339, dockerContainer.State.StartedAt)
+		finishedTime, _ = time.Parse(time.RFC3339, dockerContainer.State.FinishedAt)
+	}
+
 	metadata := DockerContainerMetadata{
 		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
 		Volumes:      dockerContainer.Mounts,
-		CreatedAt:    dockerContainer.Created,
-		StartedAt:    dockerContainer.State.StartedAt,
-		FinishedAt:   dockerContainer.State.FinishedAt,
+		CreatedAt:    createdTime,
+		StartedAt:    startedTime,
+		FinishedAt:   finishedTime,
 	}
 	if dockerContainer.Config != nil {
 		metadata.Labels = dockerContainer.Config.Labels
 	}
 
-	if !dockerContainer.State.Running && !dockerContainer.State.FinishedAt.IsZero() {
+	if dockerContainer.State == nil {
+		return metadata
+	}
+	if !dockerContainer.State.Running && !finishedTime.IsZero() {
 		// Only record an exitcode if it has exited
 		metadata.ExitCode = &dockerContainer.State.ExitCode
 	}
@@ -780,18 +793,22 @@ func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	if dockerContainer.State.OOMKilled {
 		metadata.Error = OutOfMemoryError{}
 	}
-	if dockerContainer.State.Health.Status == "" || dockerContainer.State.Health.Status == healthCheckStarting {
+	// Health field in Docker SDK is a pointer, need to check before not nil before dereference.
+	if dockerContainer.State.Health == nil || dockerContainer.State.Health.Status == "" || dockerContainer.State.Health.Status == healthCheckStarting {
 		return metadata
 	}
-
 	// Record the health check information if exists
 	metadata.Health = getMetadataHealthCheck(dockerContainer)
 	return metadata
 }
 
-func getMetadataHealthCheck(dockerContainer *docker.Container) apicontainer.HealthStatus {
+func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) apicontainer.HealthStatus {
 	health := apicontainer.HealthStatus{}
+	if dockerContainer.State == nil || dockerContainer.State.Health == nil {
+		return health
+	}
 	logLength := len(dockerContainer.State.Health.Log)
+
 	if logLength != 0 {
 		// Only save the last log from the health check
 		output := dockerContainer.State.Health.Log[logLength-1].Output
@@ -801,7 +818,6 @@ func getMetadataHealthCheck(dockerContainer *docker.Container) apicontainer.Heal
 		}
 		health.Output = output[:size]
 	}
-
 	switch dockerContainer.State.Health.Status {
 	case healthCheckHealthy:
 		health.Status = apicontainerstatus.ContainerHealthy

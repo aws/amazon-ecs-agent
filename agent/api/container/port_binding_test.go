@@ -20,17 +20,19 @@ import (
 	"testing"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
 )
 
 func TestPortBindingFromDockerPortBinding(t *testing.T) {
 	pairs := []struct {
-		dockerPortBindings map[docker.Port][]docker.PortBinding
+		dockerPortBindings nat.PortMap
 		ecsPortBindings    []PortBinding
 	}{
 		{
-			map[docker.Port][]docker.PortBinding{
-				"53/udp": {{HostIP: "1.2.3.4", HostPort: "55"}},
+			nat.PortMap{
+				nat.Port("53/udp"): []nat.PortBinding{
+					{HostIP: "1.2.3.4", HostPort: "55"},
+				},
 			},
 			[]PortBinding{
 				{
@@ -42,8 +44,8 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 			},
 		},
 		{
-			map[docker.Port][]docker.PortBinding{
-				"80/tcp": {
+			nat.PortMap{
+				nat.Port("80/tcp"): []nat.PortBinding{
 					{HostIP: "2.3.4.5", HostPort: "8080"},
 					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
@@ -78,12 +80,12 @@ func TestPortBindingFromDockerPortBinding(t *testing.T) {
 
 func TestPortBindingErrors(t *testing.T) {
 	badInputs := []struct {
-		dockerPortBindings map[docker.Port][]docker.PortBinding
+		dockerPortBindings nat.PortMap
 		errorName          string
 	}{
 		{
-			map[docker.Port][]docker.PortBinding{
-				"woof/tcp": {
+			nat.PortMap{
+				nat.Port("woof/tcp"): []nat.PortBinding{
 					{HostIP: "2.3.4.5", HostPort: "8080"},
 					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
@@ -91,8 +93,8 @@ func TestPortBindingErrors(t *testing.T) {
 			UnparseablePortErrorName,
 		},
 		{
-			map[docker.Port][]docker.PortBinding{
-				"80/tcp": {
+			nat.PortMap{
+				nat.Port("80/tcp"): []nat.PortBinding{
 					{HostIP: "2.3.4.5", HostPort: "8080"},
 					{HostIP: "5.6.7.8", HostPort: "bark"},
 				},
@@ -100,8 +102,8 @@ func TestPortBindingErrors(t *testing.T) {
 			UnparseablePortErrorName,
 		},
 		{
-			map[docker.Port][]docker.PortBinding{
-				"80/bark": {
+			nat.PortMap{
+				nat.Port("80/bark"): []nat.PortBinding{
 					{HostIP: "2.3.4.5", HostPort: "8080"},
 					{HostIP: "5.6.7.8", HostPort: "80"},
 				},
