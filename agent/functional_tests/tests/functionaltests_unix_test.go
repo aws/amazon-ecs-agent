@@ -187,10 +187,10 @@ func TestSquidProxy(t *testing.T) {
 	require.NoError(t, err)
 
 	squidImage := "127.0.0.1:51670/amazon/squid:latest"
-	dockerConfig := containerSDK.Config{
+	dockerConfig := docker.Config{
 		Image: squidImage,
 	}
-	dockerHostConfig := containerSDK.HostConfig{}
+	dockerHostConfig := docker.HostConfig{}
 
 	err = client.PullImage(docker.PullImageOptions{Repository: squidImage}, docker.AuthConfiguration{})
 	require.NoError(t, err)

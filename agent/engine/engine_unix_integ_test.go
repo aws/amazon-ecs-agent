@@ -43,7 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/aws/aws-sdk-go/aws"
-	sdk "github.com/docker/docker/client"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,7 +196,7 @@ func TestPortForward(t *testing.T) {
 	// Kill the existing container now to make the test run more quickly.
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	client, _ := sdk.NewClientWithOpts(sdk.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
 	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
 	assert.NoError(t, err, "Could not kill container", err)
 
@@ -728,7 +728,7 @@ func TestSignalEvent(t *testing.T) {
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	client, _ := sdk.NewClientWithOpts(sdk.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
 	err := client.ContainerKill(context.TODO(), cid, "SIGUSR1")
 	assert.NoError(t, err, "Could not signal container", err)
 

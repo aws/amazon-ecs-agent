@@ -25,14 +25,12 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	sdkClient "github.com/docker/docker/client"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 var (
 	testImageName    = "amazon/amazon-ecs-gremlin:make"
 	endpoint         = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), ecsengine.DockerDefaultEndpoint)
-	client, _        = docker.NewClient(endpoint)
-	sdkclient, _     = sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _     = sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
 	clientFactory    = clientfactory.NewFactory(context.TODO(), endpoint)
 	sdkClientFactory = sdkclientfactory.NewFactory(context.TODO(), endpoint)
 	ctx              = context.TODO()
