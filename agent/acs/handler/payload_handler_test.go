@@ -15,11 +15,12 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"testing"
-
-	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -753,4 +754,31 @@ func TestPayloadHandlerAddedASMAuthData(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
 	assert.Equal(t, aws.StringValue(expected.AsmAuthData.Region), actual.ASMAuthData.Region)
 	assert.Equal(t, aws.StringValue(expected.AsmAuthData.CredentialsParameter), actual.ASMAuthData.CredentialsParameter)
+}
+
+func TestHandleUnrecognizedTask(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	arn := "arn"
+	ecsacsTask := &ecsacs.Task{Arn: &arn}
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks:     []*ecsacs.Task{ecsacsTask},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	mockECSACSClient := mock_api.NewMockECSClient(tester.ctrl)
+	taskHandler := eventhandler.NewTaskHandler(tester.ctx, tester.payloadHandler.saver, nil, mockECSACSClient)
+	tester.payloadHandler.taskHandler = taskHandler
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+
+	mockECSACSClient.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.NotNil(t, change.Task)
+		wait.Done()
+	})
+
+	tester.payloadHandler.handleUnrecognizedTask(ecsacsTask, errors.New("test error"), payloadMessage)
+	wait.Wait()
 }

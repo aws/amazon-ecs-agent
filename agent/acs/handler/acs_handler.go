@@ -16,13 +16,12 @@
 package handler
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-
-	"context"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"

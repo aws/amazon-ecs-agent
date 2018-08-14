@@ -111,17 +111,22 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	return testTask
 }
 
-func createVolumeTask(scope, arn, volume string, provisioned bool) (*apitask.Task, string, error) {
+func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
 	testTask := createTestTask(arn)
+
+	volumeConfig := &taskresourcevolume.DockerVolumeConfig{
+		Scope:  scope,
+		Driver: "local",
+	}
+	if scope == "shared" {
+		volumeConfig.Autoprovision = autoprovision
+	}
+
 	testTask.Volumes = []apitask.TaskVolume{
 		{
-			Type: "docker",
-			Name: volume,
-			Volume: &taskresourcevolume.DockerVolumeConfig{
-				Scope:         scope,
-				Autoprovision: provisioned,
-				Driver:        "local",
-			},
+			Type:   "docker",
+			Name:   volume,
+			Volume: volumeConfig,
 		},
 	}
 
@@ -574,7 +579,7 @@ func TestTaskLevelVolume(t *testing.T) {
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", false)
+	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
 	defer os.Remove(tmpDirectory)
 	require.NoError(t, err, "creating test task failed")
 

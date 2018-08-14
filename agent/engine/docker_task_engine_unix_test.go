@@ -18,12 +18,6 @@ import (
 	"context"
 	"testing"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/emptyvolume"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/golang/mock/gomock"
 
 	"github.com/stretchr/testify/assert"
@@ -37,31 +31,6 @@ const (
 	// on linux. Docker client's Version() call needs to be mocked
 	dockerVersionCheckDuringInit = true
 )
-
-func TestPullEmptyVolumeImage(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
-	defer ctrl.Finish()
-	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	taskEngine.SetSaver(saver)
-
-	imageName := "image"
-	container := &apicontainer.Container{
-		Type:  apicontainer.ContainerEmptyHostVolume,
-		Image: imageName,
-	}
-	task := &apitask.Task{
-		Containers: []*apicontainer.Container{container},
-	}
-
-	assert.True(t, emptyvolume.LocalImage, "empty volume image is local")
-	client.EXPECT().ImportLocalEmptyVolumeImage()
-
-	metadata := taskEngine.pullContainer(task, container)
-	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
-}
 
 func TestEngineDisableConcurrentPull(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())

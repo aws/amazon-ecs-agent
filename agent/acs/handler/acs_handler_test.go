@@ -48,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
@@ -667,7 +668,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 		mockWsClient.EXPECT().Serve().Return(io.EOF),
 		mockWsClient.EXPECT().Serve().Do(func() {
 			cancel()
-		}).Return(io.EOF),
+		}).Return(errors.New("InactiveInstanceException")),
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
