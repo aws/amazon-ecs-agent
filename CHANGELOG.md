@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.21.0-dev
+* Bug - Fixed a bug where unrecognized task cannot be stopped [#1467](https://github.com/aws/amazon-ecs-agent/pull/1467)
+
+## 1.20.1
+* Bug - Fixed a bug where the agent couldn't be upgraded if there are tasks that
+  use volumes in the task definition on the instance
+* Bug - Fixed a bug where volumes driver may not work with mountpoint
+
+## 1.20.0
+* Feature - Add support for Docker volume drivers, third party drivers are only supported on linux
+* Enhancement - Replace the empty container with Docker local volume
+* Enhancement - Deprecate support for Docker version older than 1.9.0 [#1477](https://github.com/aws/amazon-ecs-agent/pull/1477)
+* Bug - Fixed a bug where container marked as stopped comes back with a running status [#1446](https://github.com/aws/amazon-ecs-agent/pull/1446)
+
+## 1.19.1
+* Bug - Fixed a bug where responses of introspection API break backward compatibility [#1473](https://github.com/aws/amazon-ecs-agent/pull/1473)
+
 ## 1.19.0
 * Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
 

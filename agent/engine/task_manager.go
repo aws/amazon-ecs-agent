@@ -973,7 +973,20 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 		// It's not enough to just check if container is in steady state here
 		// we should really check if >= RUNNING <= STOPPED
 		if !container.IsRunning() {
-			// If it's not currently running we do not need to do anything to make it become stopped.
+			// If the container's AppliedStatus is running, it means the StartContainer
+			// api call has already been scheduled, we should not mark it as stopped
+			// directly, because when the stopped container comes back, we will end up
+			// with either:
+			// 1. The task is not cleaned up, the handleStoppedToRunningContainerTransition
+			// function will handle this case, but only once. If there are some
+			// other stopped containers come back, they will not be stopped by
+			// Agent.
+			// 2. The task has already been cleaned up, in this case any stopped container
+			// will not be stopped by Agent when they come back.
+			if container.GetAppliedStatus() == apicontainerstatus.ContainerRunning {
+				nextState = apicontainerstatus.ContainerStatusNone
+			}
+
 			return &containerTransition{
 				nextState:      nextState,
 				actionRequired: false,

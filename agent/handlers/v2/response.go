@@ -29,46 +29,46 @@ import (
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
-	Cluster            string
-	TaskARN            string
-	Family             string
-	Revision           string
-	DesiredStatus      string `json:",omitempty"`
-	KnownStatus        string
-	Containers         []ContainerResponse `json:",omitempty"`
-	Limits             *LimitsResponse     `json:",omitempty"`
-	PullStartedAt      *time.Time          `json:",omitempty"`
-	PullStoppedAt      *time.Time          `json:",omitempty"`
-	ExecutionStoppedAt *time.Time          `json:",omitempty"`
+	Cluster            string              `json:"Cluster"`
+	TaskARN            string              `json:"TaskARN"`
+	Family             string              `json:"Family"`
+	Revision           string              `json:"Revision"`
+	DesiredStatus      string              `json:"DesiredStatus,omitempty"`
+	KnownStatus        string              `json:"KnownStatus"`
+	Containers         []ContainerResponse `json:"Containers,omitempty"`
+	Limits             *LimitsResponse     `json:"Limits,omitempty"`
+	PullStartedAt      *time.Time          `json:"PullStartedAt,omitempty"`
+	PullStoppedAt      *time.Time          `json:"PullStoppedAt,omitempty"`
+	ExecutionStoppedAt *time.Time          `json:"ExecutionStoppedAt,omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
 // JSON object
 type ContainerResponse struct {
-	ID            string `json:"DockerId"`
-	Name          string
-	DockerName    string
-	Image         string
-	ImageID       string
-	Ports         []v1.PortResponse `json:",omitempty"`
-	Labels        map[string]string `json:",omitempty"`
-	DesiredStatus string
-	KnownStatus   string
-	ExitCode      *int `json:",omitempty"`
-	Limits        LimitsResponse
-	CreatedAt     *time.Time `json:",omitempty"`
-	StartedAt     *time.Time `json:",omitempty"`
-	FinishedAt    *time.Time `json:",omitempty"`
-	Type          string
-	Networks      []containermetadata.Network `json:",omitempty"`
-	Health        *apicontainer.HealthStatus  `json:",omitempty"`
+	ID            string                      `json:"DockerId"`
+	Name          string                      `json:"Name"`
+	DockerName    string                      `json:"DockerName"`
+	Image         string                      `json:"Image"`
+	ImageID       string                      `json:"ImageID"`
+	Ports         []v1.PortResponse           `json:"Ports,omitempty"`
+	Labels        map[string]string           `json:"Labels,omitempty"`
+	DesiredStatus string                      `json:"DesiredStatus"`
+	KnownStatus   string                      `json:"KnownStatus"`
+	ExitCode      *int                        `json:"ExitCode,omitempty"`
+	Limits        LimitsResponse              `json:"Limits"`
+	CreatedAt     *time.Time                  `json:"CreatedAt,omitempty"`
+	StartedAt     *time.Time                  `json:"StartedAt,omitempty"`
+	FinishedAt    *time.Time                  `json:"FinishedAt,omitempty"`
+	Type          string                      `json:"Type"`
+	Networks      []containermetadata.Network `json:"Networks,omitempty"`
+	Health        *apicontainer.HealthStatus  `json:"Health,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
 // JSON object
 type LimitsResponse struct {
-	CPU    *float64 `json:",omitempty"`
-	Memory *int64   `json:",omitempty"`
+	CPU    *float64 `json:"CPU,omitempty"`
+	Memory *int64   `json:"Memory,omitempty"`
 }
 
 // NewTaskResponse creates a new response object for the task

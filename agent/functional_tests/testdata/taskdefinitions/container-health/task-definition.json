@@ -9,7 +9,7 @@
         "memory": 300,
         "healthCheck": {
             "command": ["CMD-SHELL", "echo hello"],
-            "interval": 1,
+            "interval": 5,
             "timeout": 2,
             $$$$START_PERIOD$$$$
             "retries": 3

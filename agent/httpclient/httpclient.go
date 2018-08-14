@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
@@ -67,9 +68,11 @@ func New(timeout time.Duration, insecureSkipVerify bool) *http.Client {
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
-	if insecureSkipVerify {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
+
+	transport.TLSClientConfig = &tls.Config{}
+	cipher.WithSupportedCipherSuites(transport.TLSClientConfig)
+	transport.TLSClientConfig.InsecureSkipVerify = insecureSkipVerify
+
 	client := &http.Client{
 		Transport: &ecsRoundTripper{insecureSkipVerify, transport},
 		Timeout:   timeout,
