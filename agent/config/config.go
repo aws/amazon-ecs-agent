@@ -420,6 +420,7 @@ func environmentConfig() (Config, error) {
 		CgroupPath:                       os.Getenv("ECS_CGROUP_PATH"),
 		TaskMetadataSteadyStateRate:      steadyStateRate,
 		TaskMetadataBurstRate:            burstRate,
+		SharedVolumeMatchFullConfig:      utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 	}, err
 }
 
