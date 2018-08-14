@@ -226,7 +226,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeDockerVolumes(dockerClient, ctx)
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -285,7 +285,7 @@ func (task *Task) volumeName(name string) string {
 
 // initializeDockerVolumes checks the volume resource in the task to determine if the agent
 // should create the volume before creating the container
-func (task *Task) initializeDockerVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
+func (task *Task) initializeDockerVolumes(sharedVolumeMatchFullConfig bool, dockerClient dockerapi.DockerClient, ctx context.Context) error {
 	for i, vol := range task.Volumes {
 		// No need to do this for non-docker volume, eg: host bind/empty volume
 		if vol.Type != DockerVolumeType {
@@ -304,7 +304,7 @@ func (task *Task) initializeDockerVolumes(dockerClient dockerapi.DockerClient, c
 			}
 		} else {
 			// Agent needs to create shared volume if that's auto provisioned
-			err := task.addSharedVolumes(ctx, dockerClient, &task.Volumes[i])
+			err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i])
 			if err != nil {
 				return err
 			}
@@ -336,7 +336,7 @@ func (task *Task) addTaskScopedVolumes(ctx context.Context, dockerClient dockera
 }
 
 // addSharedVolumes adds shared volume into task resources and updates container dependency
-func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.DockerClient,
+func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context.Context, dockerClient dockerapi.DockerClient,
 	vol *TaskVolume) error {
 
 	volumeConfig := vol.Volume.(*taskresourcevolume.DockerVolumeConfig)
@@ -379,6 +379,11 @@ func (task *Task) addSharedVolumes(ctx context.Context, dockerClient dockerapi.D
 	}
 
 	seelog.Infof("initialize volume: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
+	if !SharedVolumeMatchFullConfig {
+		seelog.Infof("initialize volume: Task [%s]: ECS_SHARED_VOLUME_MATCH_FULL_CONFIG is set to false and volume with name [%s] is found", task.Arn, volumeConfig.DockerVolumeName)
+		return nil
+	}
+
 	// validate all the volume metadata fields match to the configuration
 	if len(volumeMetadata.DockerVolume.Labels) == 0 && len(volumeMetadata.DockerVolume.Labels) == len(volumeConfig.Labels) {
 		seelog.Infof("labels are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)

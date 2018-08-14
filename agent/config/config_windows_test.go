@@ -58,6 +58,7 @@ func TestConfigDefault(t *testing.T) {
 		"Default TaskMetadataSteadyStateRate is set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
+	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
