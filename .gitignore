@@ -18,4 +18,5 @@ _bin/
 *-stamp
 /.idea/
 /misc/taskmetadata-validator/taskmetadata-validator
+/misc/v3-task-endpoint-validator/v3-task-endpoint-validator
 /bin

@@ -409,7 +409,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
-	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
+	agent.RequireVersion(">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
 		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
@@ -430,7 +430,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+	// TaskIAMRoles enabled container should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
 	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
@@ -444,7 +444,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
+		t.Fatal("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
@@ -459,6 +459,18 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	// Search the audit log to verify the credential request
 	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
+}
+
+func TestV3TaskEndpointAWSVPCNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "awsvpc", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointBridgeNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "bridge", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
 }
 
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
