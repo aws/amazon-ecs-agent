@@ -532,6 +532,7 @@ func environmentConfig() (Config, error) {
 		ContainerInstancePropagateTagsFrom:  parseContainerInstancePropagateTagsFrom(),
 		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), false),
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
+		DisableDockerHealthCheck:            utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
 	}, err
 }
 
