@@ -143,7 +143,7 @@ func (agent *ecsAgent) appendDockerDependentCapabilities(capabilities []*ecs.Att
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-ecr-pull")
 	}
 
-	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok {
+	if _, ok := supportedVersions[dockerclient.Version_1_24]; ok && !agent.cfg.DisableDockerHealthCheck {
 		// Docker health check was added in API 1.24
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"container-health-check")
 	}

@@ -47,7 +47,17 @@ const (
 // StartMetricsSession starts a metric session. It initializes the stats engine
 // and invokes StartSession.
 func StartMetricsSession(params TelemetrySessionParams) {
-	err := params.StatsEngine.MustInit(params.Ctx, params.TaskEngine, params.Cfg.Cluster,
+	ok, err := params.isContainerHealthMetricsDisabled()
+	if err != nil {
+		seelog.Warnf("Error starting metrics session: %v", err)
+		return
+	}
+	if ok {
+		seelog.Warnf("Metrics were disabled, not starting the telemetry session")
+		return
+	}
+
+	err = params.StatsEngine.MustInit(params.Ctx, params.TaskEngine, params.Cfg.Cluster,
 		params.ContainerInstanceArn)
 	if err != nil {
 		seelog.Warnf("Error initializing metrics engine: %v", err)
