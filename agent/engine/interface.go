@@ -28,7 +28,7 @@ type TaskEngine interface {
 	Init(context.Context) error
 	MustInit(context.Context)
 	// Disable *must* only be called when this engine will no longer be used
-	// (e.g. right before exiting down the process). It will irreversably stop
+	// (e.g. right before exiting down the process). It will irreversibly stop
 	// this task engine from processing new tasks
 	Disable()
 
