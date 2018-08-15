@@ -72,6 +72,7 @@ func New(url string,
 	cs.CredentialProvider = credentialProvider
 	cs.ServiceError = &tcsError{}
 	cs.RequestHandlers = make(map[string]wsclient.RequestHandler)
+	cs.MakeRequestHook = signRequestFunc(url, cs.AgentConfig.AWSRegion, credentialProvider)
 	cs.TypeDecoder = NewTCSDecoder()
 	cs.RWTimeout = rwTimeout
 	cs.disableResourceMetrics = disableResourceMetrics
@@ -105,46 +106,6 @@ func (cs *clientServer) Serve() error {
 	return cs.ConsumeMessages()
 }
 
-// MakeRequest makes a request using the given input. Note, the input *MUST* be
-// a pointer to a valid backend type that this client recognises
-func (cs *clientServer) MakeRequest(input interface{}) error {
-	payload, err := cs.CreateRequestMessage(input)
-	if err != nil {
-		return err
-	}
-
-	seelog.Debugf("TCS client sending payload: %s", string(payload))
-	data, err := cs.signRequest(payload)
-	if err != nil {
-		return err
-	}
-
-	// Over the wire we send something like
-	// {"type":"AckRequest","message":{"messageId":"xyz"}}
-	return cs.WriteMessage(data)
-}
-
-func (cs *clientServer) signRequest(payload []byte) ([]byte, error) {
-	reqBody := bytes.NewReader(payload)
-	// NewRequest never returns an error if the url parses and we just verified
-	// it did above
-	request, _ := http.NewRequest("GET", cs.URL, reqBody)
-	err := utils.SignHTTPRequest(request, cs.AgentConfig.AWSRegion, "ecs", cs.CredentialProvider, aws.ReadSeekCloser(reqBody))
-	if err != nil {
-		return nil, err
-	}
-
-	request.Header.Add("Host", request.Host)
-	var dataBuffer bytes.Buffer
-	request.Header.Write(&dataBuffer)
-	io.WriteString(&dataBuffer, "\r\n")
-
-	data := dataBuffer.Bytes()
-	data = append(data, payload...)
-
-	return data, nil
-}
-
 // Close closes the underlying connection.
 func (cs *clientServer) Close() error {
 	if cs.publishTicker != nil {
@@ -156,6 +117,33 @@ func (cs *clientServer) Close() error {
 
 	cs.cancel()
 	return cs.Disconnect()
+}
+
+// signRequestFunc is a MakeRequestHookFunc that signs each generated request
+func signRequestFunc(url, region string, credentialProvider *credentials.Credentials) wsclient.MakeRequestHookFunc {
+	return func(payload []byte) ([]byte, error) {
+		reqBody := bytes.NewReader(payload)
+
+		request, err := http.NewRequest("GET", url, reqBody)
+		if err != nil {
+			return nil, err
+		}
+
+		err = utils.SignHTTPRequest(request, region, "ecs", credentialProvider, reqBody)
+		if err != nil {
+			return nil, err
+		}
+
+		request.Header.Add("Host", request.Host)
+		var dataBuffer bytes.Buffer
+		request.Header.Write(&dataBuffer)
+		io.WriteString(&dataBuffer, "\r\n")
+
+		data := dataBuffer.Bytes()
+		data = append(data, payload...)
+
+		return data, nil
+	}
 }
 
 // publishMetrics invokes the PublishMetricsRequest on the clientserver object.
