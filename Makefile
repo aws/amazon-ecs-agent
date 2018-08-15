@@ -14,7 +14,7 @@
 USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts build-image-for-ecr ecr-execution-role-image-for-upload
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 
 all: docker
 
@@ -183,11 +183,18 @@ test-in-docker:
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
 
+.PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
+
 build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
-	@./scripts/setup-ecr
 
 ecr-execution-role-image-for-upload:
 	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
+
+upload-images: build-image-for-ecr
+	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
+
+replicate-images: build-image-for-ecr
+	@./scripts/upload-images $(REPLICATE_REGION) $(REPLICATE_REPOSITORY)
 
 PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
