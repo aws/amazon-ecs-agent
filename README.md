@@ -183,6 +183,7 @@ additional details on each available environment variable.
 | `ECS_CGROUP_PATH` | `/sys/fs/cgroup` | The root cgroup path that is expected by the ECS agent. This is the path that accessible from the agent mount. | `/sys/fs/cgroup` | Not applicable |
 | `ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will allow CPU unbounded(CPU=`0`) tasks to run along with CPU bounded tasks in Windows. | Not applicable | `false` |
 | `ECS_TASK_METADATA_RPS_LIMIT` | `100,150` | Comma separated integer values for steady state and burst throttle limits for task metadata endpoint | `40,60` | `40,60` |
+| `ECS_DISABLE_DOCKER_HEALTH_CHECK` | `false` | Whether to disable the Docker Container health check for the ECS Agent. | `false` | `false` |
 
 ### Persistence
 

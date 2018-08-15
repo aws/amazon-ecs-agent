@@ -85,6 +85,10 @@ type Config struct {
 	// sent to the ECS telemetry endpoint
 	DisableMetrics bool
 
+	// DisableDockerHealthCheck configures whether container health feature was enabled
+	// on the instance
+	DisableDockerHealthCheck bool
+
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
 	ReservedMemory uint16

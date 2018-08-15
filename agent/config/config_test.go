@@ -151,10 +151,12 @@ func TestTrimWhitespace(t *testing.T) {
 
 func TestConfigBoolean(t *testing.T) {
 	defer setTestRegion()()
+	defer setTestEnv("ECS_DISABLE_DOCKER_HEALTH_CHECK", "true")()
 	defer setTestEnv("ECS_DISABLE_METRICS", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics)
+	assert.True(t, cfg.DisableDockerHealthCheck)
 }
 
 func TestBadLoggingDriverSerialization(t *testing.T) {
