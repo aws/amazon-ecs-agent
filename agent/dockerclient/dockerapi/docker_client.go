@@ -347,7 +347,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 	}
 	timeout := dg.time().After(dockerPullBeginTimeout)
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
-	// It is here to guard against a bug wherin docker never writes anything to that channel and hangs in pulling forever.
+	// It is here to guard against a bug wherein Docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
 
 	go dg.filterPullDebugOutput(pullDebugOut, pullBegan, image)

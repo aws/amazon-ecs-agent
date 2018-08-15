@@ -177,7 +177,7 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests
 func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.PayloadMessage) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
-	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
+	// verify that we were able to work with all tasks in this payload so we know whether to ack the whole thing or not
 	allTasksOK := true
 
 	validTasks := make([]*apitask.Task, 0, len(payload.Tasks))
