@@ -8,4 +8,4 @@ phases:
       - docker version
   build:
     commands:
-      - make upload-images
+      - make replicate-images
