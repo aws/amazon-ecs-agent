@@ -29,13 +29,23 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
-	"github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	expectedMemorySwappinessDefault = memorySwappinessDefault
-	minDockerClientAPIVersion       = dockerclient.Version_1_24
+	minDockerClientAPIVersion         = dockerclient.Version_1_24
+	emptyVolumeName1                  = "Empty-Volume-1"
+	emptyVolumeContainerPath1         = `C:\my\empty-volume-1`
+	expectedEmptyVolumeGeneratedPath1 = `c:\ecs-empty-volume\empty-volume-1`
+
+	emptyVolumeName2                  = "empty-volume-2"
+	emptyVolumeContainerPath2         = `C:\my\empty-volume-2`
+	expectedEmptyVolumeGeneratedPath2 = `c:\ecs-empty-volume\` + emptyVolumeName2
+
+	expectedEmptyVolumeContainerImage = "microsoft/nanoserver"
+	expectedEmptyVolumeContainerTag   = "latest"
+	expectedEmptyVolumeContainerCmd   = "not-applicable"
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -112,53 +122,21 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	task := &Task{}
 
-	hostConfig := &docker.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
+	hostConfig := &containerSDK.HostConfig{Resources: containerSDK.Resources{CPUShares: int64(1 * cpuSharesPerCore)}}
 
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
 	assert.Equal(t, int64(0), hostConfig.CPUShares)
-	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 
-	hostConfig = &docker.HostConfig{CPUShares: 10}
+	hostConfig = &containerSDK.HostConfig{Resources: containerSDK.Resources{CPUShares: 10}}
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
 	assert.Empty(t, hostConfig.CPUShares)
 }
 
-func TestWindowsMemorySwappinessOption(t *testing.T) {
-	// Testing sending a task to windows overriding MemorySwappiness value
-	rawHostConfigInput := docker.HostConfig{}
-
-	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testTask := &Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		Family:  "myFamily",
-		Version: "1",
-		Containers: []*apicontainer.Container{
-			{
-				Name: "c1",
-				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
-				},
-			},
-		},
-	}
-
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
-
-	assert.EqualValues(t, expectedMemorySwappinessDefault, config.MemorySwappiness)
-}
-
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
+	// containerSDK.HostConfig which will include a lot of zero values.
 	rawHostConfigInput := struct {
 		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
@@ -196,15 +174,18 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, configErr)
 
-	expected := docker.HostConfig{
-		Memory:           apicontainer.DockerContainerMinimumMemoryInBytes,
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
+	expected := containerSDK.HostConfig{
+		Resources: containerSDK.Resources{
+			// Convert MB to B and set Memory
+			Memory:     apicontainer.DockerContainerMinimumMemoryInBytes,
+			CPUPercent: minimumCPUPercent,
+		},
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
 	}
 
+	assert.Nil(t, expected.MemorySwappiness, "Expected default memorySwappiness to be nil")
 	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
@@ -221,18 +202,12 @@ func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
 			},
 		},
 	}
-
 	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, err)
 
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], minDockerClientAPIVersion)
-	assert.Nil(t, cerr)
 	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
 	assert.Empty(t, hostconfig.CPUShares)
 	assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
-
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
 }
 
 func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {

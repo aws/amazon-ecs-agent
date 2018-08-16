@@ -35,7 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
-	docker "github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -158,7 +158,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = task.Version
 	dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, config *docker.Config, y interface{}, containerName string, z time.Duration) {
+		func(ctx interface{}, config *containerSDK.Config, y interface{}, containerName string, z time.Duration) {
 			assert.True(t, reflect.DeepEqual(dockerConfig, config),
 				"Mismatch in container config; expected: %v, got: %v", dockerConfig, config)
 			// sleep5 task contains only one container. Just assign

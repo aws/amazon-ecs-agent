@@ -43,8 +43,11 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	containerSDK "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
+	"github.com/docker/go-connections/nat"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -355,46 +358,58 @@ func TestGetRepositoryWithUntaggedImage(t *testing.T) {
 }
 
 func TestCreateContainerTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
-	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(x interface{}) {
+	hostConfig := &containerSDK.HostConfig{Resources: containerSDK.Resources{Memory: 100}}
+	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &containerSDK.Config{}, hostConfig,
+		&network.NetworkingConfig{}, "containerName").Do(func(v, w, x, y, z interface{}) {
 		wait.Wait()
-	}).MaxTimes(1).Return(nil, errors.New("test error"))
+	}).MaxTimes(1).Return(containerSDK.ContainerCreateCreatedBody{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, xContainerShortTimeout)
+	metadata := client.CreateContainer(ctx, &containerSDK.Config{}, hostConfig, "containerName", xContainerShortTimeout)
 	assert.Error(t, metadata.Error, "expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
 
 func TestCreateContainer(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	config := docker.CreateContainerOptions{Config: &docker.Config{Memory: 100}, Name: "containerName"}
+	name := "containerName"
+	hostConfig := &containerSDK.HostConfig{Resources: containerSDK.Resources{Memory: 100}}
 	gomock.InOrder(
-		mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts docker.CreateContainerOptions) {
-			assert.True(t, reflect.DeepEqual(opts.Config, config.Config),
-				"Mismatch in create container config, %v != %v", opts.Config, config.Config)
-			assert.Equal(t, config.Name, opts.Name,
-				"Mismatch in create container options, %s != %s", opts.Name, config.Name)
-		}).Return(&docker.Container{ID: "id"}, nil),
+		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any(), hostConfig, gomock.Any(), name).
+			Do(func(v, w, x, y, z interface{}) {
+				assert.True(t, reflect.DeepEqual(x, hostConfig),
+					"Mismatch in create container HostConfig, %v != %v", y, hostConfig)
+				assert.Equal(t, z, name,
+					"Mismatch in create container options, %s != %s", z, name)
+			}).Return(containerSDK.ContainerCreateCreatedBody{ID: "id"}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
+			Return(types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID: "id",
+					State: &types.ContainerState{
+						Health: &types.Health{},
+					},
+				},
+			}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, config.Config, nil, config.Name, 1*time.Second)
+	metadata := client.CreateContainer(ctx, nil, hostConfig, name, 1*time.Second)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
 }
 
 func TestStartContainerTimeout(t *testing.T) {
-	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
@@ -402,7 +417,7 @@ func TestStartContainerTimeout(t *testing.T) {
 	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Do(func(x, y, z interface{}) {
 		wait.Wait() // wait until timeout happens
 	}).MaxTimes(1)
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(nil, errors.New("test error")).AnyTimes()
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Return(types.ContainerJSON{}, errors.New("test error")).AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StartContainer(ctx, "id", xContainerShortTimeout)
@@ -412,12 +427,19 @@ func TestStartContainerTimeout(t *testing.T) {
 }
 
 func TestStartContainer(t *testing.T) {
-	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
 		mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), "id", types.ContainerStartOptions{}).Return(nil),
-		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id"}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
+			Return(types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID: "id",
+					State: &types.ContainerState{
+						Health: &types.Health{},
+					},
+				}}, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -429,7 +451,7 @@ func TestStartContainer(t *testing.T) {
 func TestStopContainerTimeout(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.DockerStopTimeout = xContainerShortTimeout
-	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
 
 	wait := &sync.WaitGroup{}
@@ -438,7 +460,7 @@ func TestStopContainerTimeout(t *testing.T) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	}).MaxTimes(1).Return(errors.New("test error"))
-	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).AnyTimes()
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any()).AnyTimes()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StopContainer(ctx, "id", xContainerShortTimeout)
@@ -448,12 +470,24 @@ func TestStopContainerTimeout(t *testing.T) {
 }
 
 func TestStopContainer(t *testing.T) {
-	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	gomock.InOrder(
 		mockDockerSDK.EXPECT().ContainerStop(gomock.Any(), "id", &client.config.DockerStopTimeout).Return(nil),
-		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{ID: "id", State: docker.State{ExitCode: 10}}, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").
+			Return(
+				types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						ID: "id",
+						State: &types.ContainerState{
+							ExitCode: 10,
+							Health:   &types.Health{},
+						},
+					},
+					Config: &containerSDK.Config{},
+				},
+				nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -503,15 +537,15 @@ func TestRemoveContainer(t *testing.T) {
 }
 
 func TestInspectContainerTimeout(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Do(func(x, ctx interface{}) {
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Do(func(ctx, x interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
-	}).MaxTimes(1).Return(nil, errors.New("test error"))
+	}).MaxTimes(1).Return(types.ContainerJSON{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := client.InspectContainer(ctx, "id", xContainerShortTimeout)
@@ -521,23 +555,26 @@ func TestInspectContainerTimeout(t *testing.T) {
 }
 
 func TestInspectContainer(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	containerOutput := docker.Container{ID: "id",
-		State: docker.State{
-			ExitCode: 10,
-			Health: docker.Health{
-				Status: "healthy",
-				Log: []docker.HealthCheck{
-					{
-						ExitCode: 1,
-						Output:   "health output",
+	containerOutput := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "id",
+			State: &types.ContainerState{
+				ExitCode: 10,
+				Health: &types.Health{
+					Status: "healthy",
+					Log: []*types.HealthcheckResult{
+						{
+							ExitCode: 1,
+							Output:   "health output",
+						},
 					},
 				},
 			}}}
 	gomock.InOrder(
-		mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&containerOutput, nil),
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Return(containerOutput, nil),
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -547,7 +584,7 @@ func TestInspectContainer(t *testing.T) {
 }
 
 func TestContainerEvents(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	var events chan<- *docker.APIEvents
@@ -565,16 +602,27 @@ func TestContainerEvents(t *testing.T) {
 	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
 	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
 
-	container := &docker.Container{
-		ID: "cid2",
-		NetworkSettings: &docker.NetworkSettings{
-			Ports: map[docker.Port][]docker.PortBinding{
-				"80/tcp": {{HostPort: "9001"}},
+	container := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "cid2",
+			State: &types.ContainerState{
+				Health: &types.Health{},
 			},
 		},
-		Volumes: map[string]string{"/host/path": "/container/path"},
+		NetworkSettings: &types.NetworkSettings{
+			NetworkSettingsBase: types.NetworkSettingsBase{
+				Ports: nat.PortMap{
+					nat.Port("80/tcp"): []nat.PortBinding{{HostPort: "9001"}},
+				},
+			},
+		},
+		Config: &containerSDK.Config{},
+		Mounts: []types.MountPoint{
+			{Destination: "/host/path",
+				Source: "/container/path"},
+		},
 	}
-	mockDocker.EXPECT().InspectContainerWithContext("cid2", gomock.Any()).Return(container, nil)
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid2").Return(container, nil)
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
 	}()
@@ -586,14 +634,17 @@ func TestContainerEvents(t *testing.T) {
 	assert.Equal(t, event.Volumes["/host/path"], "/container/path", "Incorrect volume mapping")
 
 	for i := 0; i < 2; i++ {
-		stoppedContainer := &docker.Container{
-			ID: "cid3" + strconv.Itoa(i),
-			State: docker.State{
-				FinishedAt: time.Now(),
-				ExitCode:   20,
+		stoppedContainer := types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID: "cid3" + strconv.Itoa(i),
+				State: &types.ContainerState{
+					FinishedAt: (time.Now()).Format(time.RFC3339Nano),
+					ExitCode:   20,
+					Health:     &types.Health{},
+				},
 			},
 		}
-		mockDocker.EXPECT().InspectContainerWithContext("cid3"+strconv.Itoa(i), gomock.Any()).Return(stoppedContainer, nil)
+		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
 	}
 	go func() {
 		events <- &docker.APIEvents{Type: "container", ID: "cid30", Status: "stop"}
@@ -607,21 +658,22 @@ func TestContainerEvents(t *testing.T) {
 		assert.Equal(t, aws.IntValue(anEvent.ExitCode), 20, "Incorrect exit code")
 	}
 
-	containerWithHealthInfo := &docker.Container{
-		ID: "container_health",
-		State: docker.State{
-			Health: docker.Health{
-				Status: "healthy",
-				Log: []docker.HealthCheck{
-					{
-						ExitCode: 1,
-						Output:   "health output",
+	containerWithHealthInfo := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "container_health",
+			State: &types.ContainerState{
+				Health: &types.Health{
+					Status: "healthy",
+					Log: []*types.HealthcheckResult{
+						{
+							ExitCode: 1,
+							Output:   "health output",
+						},
 					},
 				},
-			},
-		},
+			}},
 	}
-	mockDocker.EXPECT().InspectContainerWithContext("container_health", gomock.Any()).Return(containerWithHealthInfo, nil)
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "container_health").Return(containerWithHealthInfo, nil)
 	go func() {
 		events <- &docker.APIEvents{
 			Type:   "container",
@@ -823,10 +875,9 @@ func TestUsesVersionedClient(t *testing.T) {
 
 	vclient := client.WithVersion(dockerclient.DockerVersion("1.20"))
 
-	factory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Return(mockDocker, nil)
-	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Return(mockDockerSDK, nil)
+	sdkFactory.EXPECT().GetClient(dockerclient.DockerVersion("1.20")).Times(2).Return(mockDockerSDK, nil)
 	mockDockerSDK.EXPECT().ContainerStart(gomock.Any(), gomock.Any(), types.ContainerStartOptions{}).Return(nil)
-	mockDocker.EXPECT().InspectContainerWithContext(gomock.Any(), gomock.Any()).Return(nil, errors.New("test error"))
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), gomock.Any()).Return(types.ContainerJSON{}, errors.New("test error"))
 	vclient.StartContainer(ctx, "foo", defaultTestConfig().ContainerStartTimeout)
 }
 
@@ -998,17 +1049,25 @@ func TestRemoveImage(t *testing.T) {
 // TestContainerMetadataWorkaroundIssue27601 tests the workaround for
 // issue https://github.com/moby/moby/issues/27601
 func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{
-		Mounts: []docker.Mount{{
+	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "id").Return(types.ContainerJSON{
+		Mounts: []types.MountPoint{{
 			Destination: "destination1",
 			Source:      "source1",
 		}, {
 			Destination: "destination2",
 			Source:      "source2",
 		}},
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State: &types.ContainerState{
+				Health: &types.Health{
+					Status: "",
+				},
+			},
+		},
+		Config: &containerSDK.Config{},
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1256,58 +1315,84 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 }
 
 func TestMetadataFromContainer(t *testing.T) {
-	ports := map[docker.Port][]docker.PortBinding{
-		docker.Port("80/tcp"): []docker.PortBinding{
+	ports := nat.PortMap{
+		"80/tcp": []nat.PortBinding{
 			{
 				HostIP:   "0.0.0.0",
 				HostPort: "80",
 			},
 		},
 	}
-	volumes := map[string]string{
+	// Representation of Volumes in ContainerJSON
+	volumes := []types.MountPoint{
+		{Destination: "/foo",
+			Source: "/bar",
+		},
+	}
+	// Represenation of Volumes in DockerContainerMetadata
+	volumeMap := map[string]string{
 		"/foo": "/bar",
 	}
 	labels := map[string]string{
 		"name": "metadata",
 	}
 
-	created := time.Now()
-	started := time.Now()
-	finished := time.Now()
+	created := time.Now().Format(time.RFC3339Nano)
+	started := time.Now().Format(time.RFC3339Nano)
+	finished := time.Now().Format(time.RFC3339Nano)
 
-	dockerContainer := &docker.Container{
-		NetworkSettings: &docker.NetworkSettings{
-			Ports: ports,
+	dockerContainer := types.ContainerJSON{
+		NetworkSettings: &types.NetworkSettings{
+			NetworkSettingsBase: types.NetworkSettingsBase{
+				Ports: ports,
+			},
 		},
-		ID:      "1234",
-		Volumes: volumes,
-		Config: &docker.Config{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:      "1234",
+			Created: created,
+			State: &types.ContainerState{
+				Running:    true,
+				StartedAt:  started,
+				FinishedAt: finished,
+				Health:     &types.Health{},
+			},
+		},
+		Config: &containerSDK.Config{
 			Labels: labels,
 		},
-		Created: created,
-		State: docker.State{
-			Running:    true,
-			StartedAt:  started,
-			FinishedAt: finished,
-		},
+		Mounts: volumes,
 	}
 
-	metadata := MetadataFromContainer(dockerContainer)
+	metadata := MetadataFromContainer(&dockerContainer)
 	assert.Equal(t, "1234", metadata.DockerID)
-	assert.Equal(t, volumes, metadata.Volumes)
+	assert.Equal(t, volumeMap, metadata.Volumes)
 	assert.Equal(t, labels, metadata.Labels)
 	assert.Len(t, metadata.PortBindings, 1)
-	assert.Equal(t, created, metadata.CreatedAt)
-	assert.Equal(t, started, metadata.StartedAt)
-	assert.Equal(t, finished, metadata.FinishedAt)
+
+	// Need to convert both strings to same format to be able to compare. Parse and Format are not inverses.
+	createdTimeSDK, _ := time.Parse(time.RFC3339Nano, dockerContainer.Created)
+	startedTimeSDK, _ := time.Parse(time.RFC3339Nano, dockerContainer.State.StartedAt)
+	finishedTimeSDK, _ := time.Parse(time.RFC3339Nano, dockerContainer.State.FinishedAt)
+
+	createdTime, _ := time.Parse(time.RFC3339Nano, created)
+	startedTime, _ := time.Parse(time.RFC3339Nano, started)
+	finishedTime, _ := time.Parse(time.RFC3339Nano, finished)
+
+	assert.True(t, createdTime.Equal(createdTimeSDK))
+	assert.True(t, startedTime.Equal(startedTimeSDK))
+	assert.True(t, finishedTime.Equal(finishedTimeSDK))
 }
 
 func TestMetadataFromContainerHealthCheckWithNoLogs(t *testing.T) {
 
-	dockerContainer := &docker.Container{
-		State: docker.State{
-			Health: docker.Health{Status: "unhealthy"},
-		}}
+	dockerContainer := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State: &types.ContainerState{
+				Health: &types.Health{Status: "unhealthy"},
+			},
+		},
+		Config: &containerSDK.Config{},
+	}
 
 	metadata := MetadataFromContainer(dockerContainer)
 	assert.Equal(t, apicontainerstatus.ContainerUnhealthy, metadata.Health.Status)

@@ -14,10 +14,10 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
-	"context"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -29,7 +29,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	containerSDK "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -72,24 +74,28 @@ func eventStream(name string) *eventstream.EventStream {
 
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
-func createGremlin(client *docker.Client) (*docker.Container, error) {
-	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
+func createGremlin(client *sdkClient.Client) (*containerSDK.ContainerCreateCreatedBody, error) {
+	containerGremlin, err := client.ContainerCreate(context.TODO(),
+		&containerSDK.Config{
 			Image: testImageName,
 		},
-	})
+		&containerSDK.HostConfig{},
+		&network.NetworkingConfig{},
+		testImageName)
 
-	return container, err
+	return &containerGremlin, err
 }
 
-func createHealthContainer(client *docker.Client) (*docker.Container, error) {
-	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &docker.Config{
+func createHealthContainer(client *sdkClient.Client) (*containerSDK.ContainerCreateCreatedBody, error) {
+	container, err := client.ContainerCreate(context.TODO(),
+		&containerSDK.Config{
 			Image: testContainerHealthImageName,
 		},
-	})
+		&containerSDK.HostConfig{},
+		&network.NetworkingConfig{},
+		testContainerHealthImageName)
 
-	return container, err
+	return &container, err
 }
 
 type IntegContainerMetadataResolver struct {
