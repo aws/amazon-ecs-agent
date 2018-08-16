@@ -14,10 +14,10 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
-	"context"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -41,7 +41,7 @@ const (
 	testContainerHealthImageName = "amazon/amazon-ecs-containerhealthcheck:make"
 
 	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
-	defaultDockerTimeoutSeconds uint = 10
+	defaultDockerTimeoutSeconds = time.Second * 10
 
 	// waitForCleanupSleep is the sleep duration in milliseconds
 	// for the waiting after container cleanup before checking the state of the manager.
