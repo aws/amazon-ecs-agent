@@ -709,7 +709,7 @@ func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	metadata := DockerContainerMetadata{
 		DockerID:     dockerContainer.ID,
 		PortBindings: bindings,
-		Volumes:      dockerContainer.Volumes,
+		Volumes:      dockerContainer.Mounts,
 		CreatedAt:    dockerContainer.Created,
 		StartedAt:    dockerContainer.State.StartedAt,
 		FinishedAt:   dockerContainer.State.FinishedAt,
@@ -717,8 +717,6 @@ func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 	if dockerContainer.Config != nil {
 		metadata.Labels = dockerContainer.Config.Labels
 	}
-
-	metadata = getMetadataVolumes(metadata, dockerContainer)
 
 	if !dockerContainer.State.Running && !dockerContainer.State.FinishedAt.IsZero() {
 		// Only record an exitcode if it has exited
@@ -736,19 +734,6 @@ func MetadataFromContainer(dockerContainer *docker.Container) DockerContainerMet
 
 	// Record the health check information if exists
 	metadata.Health = getMetadataHealthCheck(dockerContainer)
-	return metadata
-}
-
-func getMetadataVolumes(metadata DockerContainerMetadata, dockerContainer *docker.Container) DockerContainerMetadata {
-	// Workaround for https://github.com/docker/docker/issues/27601
-	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
-	// for how Docker handles API compatibility on Linux
-	if len(metadata.Volumes) == 0 {
-		metadata.Volumes = make(map[string]string)
-		for _, m := range dockerContainer.Mounts {
-			metadata.Volumes[m.Destination] = m.Source
-		}
-	}
 	return metadata
 }
 
