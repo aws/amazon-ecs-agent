@@ -531,7 +531,7 @@ func TestContainerEvents(t *testing.T) {
 				"80/tcp": {{HostPort: "9001"}},
 			},
 		},
-		Volumes: map[string]string{"/host/path": "/container/path"},
+		Mounts: []docker.Mount{{Source: "/host/path", Destination: "/container/path"}},
 	}
 	mockDocker.EXPECT().InspectContainerWithContext("cid2", gomock.Any()).Return(container, nil)
 	go func() {
@@ -542,7 +542,8 @@ func TestContainerEvents(t *testing.T) {
 	assert.Equal(t, event.Status, apicontainerstatus.ContainerRunning, "Wrong status")
 	assert.Equal(t, event.PortBindings[0].ContainerPort, uint16(80), "Incorrect port bindings")
 	assert.Equal(t, event.PortBindings[0].HostPort, uint16(9001), "Incorrect port bindings")
-	assert.Equal(t, event.Volumes["/host/path"], "/container/path", "Incorrect volume mapping")
+	assert.Equal(t, event.Volumes[0].Source, "/host/path", "Incorrect volume mapping")
+	assert.Equal(t, event.Volumes[0].Destination, "/container/path", "Incorrect volume mapping")
 
 	for i := 0; i < 2; i++ {
 		stoppedContainer := &docker.Container{
@@ -954,27 +955,6 @@ func TestRemoveImage(t *testing.T) {
 	}
 }
 
-// TestContainerMetadataWorkaroundIssue27601 tests the workaround for
-// issue https://github.com/moby/moby/issues/27601
-func TestContainerMetadataWorkaroundIssue27601(t *testing.T) {
-	mockDocker, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
-
-	mockDocker.EXPECT().InspectContainerWithContext("id", gomock.Any()).Return(&docker.Container{
-		Mounts: []docker.Mount{{
-			Destination: "destination1",
-			Source:      "source1",
-		}, {
-			Destination: "destination2",
-			Source:      "source2",
-		}},
-	}, nil)
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	metadata := client.containerMetadata(ctx, "id")
-	assert.Equal(t, map[string]string{"destination1": "source1", "destination2": "source2"}, metadata.Volumes)
-}
-
 func TestLoadImageHappyPath(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
@@ -1223,8 +1203,11 @@ func TestMetadataFromContainer(t *testing.T) {
 			},
 		},
 	}
-	volumes := map[string]string{
-		"/foo": "/bar",
+	volumes := []docker.Mount{
+		{
+			Source:      "/foo",
+			Destination: "/bar",
+		},
 	}
 	labels := map[string]string{
 		"name": "metadata",
@@ -1238,8 +1221,8 @@ func TestMetadataFromContainer(t *testing.T) {
 		NetworkSettings: &docker.NetworkSettings{
 			Ports: ports,
 		},
-		ID:      "1234",
-		Volumes: volumes,
+		ID:     "1234",
+		Mounts: volumes,
 		Config: &docker.Config{
 			Labels: labels,
 		},
