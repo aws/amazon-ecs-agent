@@ -87,6 +87,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
 	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
 	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
+	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -125,6 +126,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
 	assert.Equal(t, 1000, conf.TaskMetadataSteadyStateRate)
 	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
+	assert.True(t, conf.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -379,6 +381,14 @@ func TestInvalidImagePullBehavior(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, cfg.ImagePullBehavior, ImagePullDefaultBehavior, "Wrong value for ImagePullBehavior")
+}
+
+func TestSharedVolumeMatchFullConfigEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
 }
 
 func TestParseImagePullBehavior(t *testing.T) {
