@@ -49,7 +49,10 @@ sources.tgz:
 	cp packaging/amazon-linux-ami/ecs.service ecs.service
 	tar -czf ./sources.tgz ecs-init scripts
 
-sources: sources.tgz
+# Hook to perform preparation steps prior to the sources target.
+prepare-sources::
+
+sources: prepare-sources sources.tgz
 
 .srpm-done: sources.tgz
 	test -e SOURCES || ln -s . SOURCES
