@@ -391,6 +391,7 @@ func environmentConfig() (Config, error) {
 		UpdatesEnabled:                   utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
 		UpdateDownloadDir:                os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
 		DisableMetrics:                   utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
+		DisableDockerHealthCheck:         utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
 		ReservedMemory:                   parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
 		AvailableLoggingDrivers:          parseAvailableLoggingDrivers(),
 		PrivilegedDisabled:               utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),

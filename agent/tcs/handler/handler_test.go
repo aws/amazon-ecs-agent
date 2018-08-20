@@ -73,6 +73,19 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+// TestDisableMetrics tests the StartMetricsSession will return immediately if
+// the metrics was disabled
+func TestDisableMetrics(t *testing.T) {
+	params := TelemetrySessionParams{
+		Cfg: &config.Config{
+			DisableMetrics:           true,
+			DisableDockerHealthCheck: true,
+		},
+	}
+
+	StartMetricsSession(params)
+}
+
 func TestFormatURL(t *testing.T) {
 	endpoint := "http://127.0.0.0.1/"
 	wsurl := formatURL(endpoint, testClusterArn, testInstanceArn)
