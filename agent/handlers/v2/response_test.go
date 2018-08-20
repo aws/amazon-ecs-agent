@@ -28,6 +28,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -44,6 +45,9 @@ const (
 	cpu            = 1024
 	memory         = 512
 	eniIPv4Address = "10.0.0.2"
+	volName        = "volume1"
+	volSource      = "/var/lib/volume1"
+	volDestination = "/volume"
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -84,6 +88,13 @@ func TestTaskResponse(t *testing.T) {
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		VolumesUnsafe: []docker.Mount{
+			{
+				Name:        volName,
+				Source:      volSource,
+				Destination: volDestination,
 			},
 		},
 	}
@@ -152,6 +163,13 @@ func TestContainerResponse(t *testing.T) {
 					{
 						ContainerPort: 80,
 						Protocol:      apicontainer.TransportProtocolTCP,
+					},
+				},
+				VolumesUnsafe: []docker.Mount{
+					{
+						Name:        volName,
+						Source:      volSource,
+						Destination: volDestination,
 					},
 				},
 			}
