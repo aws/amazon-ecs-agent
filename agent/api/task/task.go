@@ -665,7 +665,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 		entryPoint = *container.EntryPoint
 	}
 
-	Config := &dockercontainer.Config{
+	containerConfig := &dockercontainer.Config{
 		Image:        container.Image,
 		Cmd:          container.Command,
 		Entrypoint:   entryPoint,
@@ -674,26 +674,26 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &Config)
+		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
 		if err != nil {
 			return nil, &apierrors.DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
 		}
 	}
-	if container.HealthCheckType == apicontainer.DockerHealthCheckType && Config.Healthcheck == nil {
+	if container.HealthCheckType == apicontainer.DockerHealthCheckType && containerConfig.Healthcheck == nil {
 		return nil, &apierrors.DockerClientConfigError{
 			"docker health check is nil while container health check type is DOCKER"}
 	}
 
-	if Config.Labels == nil {
-		Config.Labels = make(map[string]string)
+	if containerConfig.Labels == nil {
+		containerConfig.Labels = make(map[string]string)
 	}
 
 	if container.Type == apicontainer.ContainerCNIPause {
 		// apply hostname to pause container's docker config
-		return task.applyENIHostname(Config), nil
+		return task.applyENIHostname(containerConfig), nil
 	}
 
-	return Config, nil
+	return containerConfig, nil
 }
 
 func (task *Task) dockerExposedPorts(container *apicontainer.Container) nat.PortSet {
