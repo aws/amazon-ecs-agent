@@ -553,7 +553,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
 
-	return dg.containerMetadata(ctx, dockerContainer.ID)
+	return MetadataFromContainer(&dockerContainer)
 }
 
 func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
@@ -774,8 +774,6 @@ func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainer
 		metadata.Labels = dockerContainer.Config.Labels
 	}
 
-	metadata = getMetadataVolumes(metadata, dockerContainer)
-
 	if !dockerContainer.State.Running && !finishedTime.IsZero() {
 		// Only record an exitcode if it has exited
 		metadata.ExitCode = &dockerContainer.State.ExitCode
@@ -802,19 +800,6 @@ func mountPoints(mounts []types.MountPoint) map[string]string {
 		volumeMap[mount.Destination] = mount.Source
 	}
 	return volumeMap
-}
-
-func getMetadataVolumes(metadata DockerContainerMetadata, dockerContainer *types.ContainerJSON) DockerContainerMetadata {
-	// Workaround for https://github.com/docker/docker/issues/27601
-	// See https://github.com/docker/docker/blob/v1.12.2/daemon/inspect_unix.go#L38-L43
-	// for how Docker handles API compatibility on Linux
-	if len(metadata.Volumes) == 0 {
-		metadata.Volumes = make(map[string]string)
-		for _, m := range dockerContainer.Mounts {
-			metadata.Volumes[m.Destination] = m.Source
-		}
-	}
-	return metadata
 }
 
 func getMetadataHealthCheck(dockerContainer *types.ContainerJSON) apicontainer.HealthStatus {
