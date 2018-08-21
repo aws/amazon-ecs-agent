@@ -50,11 +50,12 @@ type TasksResponse struct {
 
 // ContainerResponse is the schema for the container response JSON object
 type ContainerResponse struct {
-	DockerID   string         `json:"DockerId"`
-	DockerName string         `json:"DockerName"`
-	Name       string         `json:"Name"`
-	Ports      []PortResponse `json:"Ports,omitempty"`
-	Networks   Network        `json:"Networks,omitempty"`
+	DockerID   string           `json:"DockerId"`
+	DockerName string           `json:"DockerName"`
+	Name       string           `json:"Name"`
+	Ports      []PortResponse   `json:"Ports,omitempty"`
+	Networks   Network          `json:"Networks,omitempty"`
+	Volumes    []VolumeResponse `json:"Volumes,omitempty"`
 }
 
 // PortResponse defines the schema for portmapping response JSON
@@ -70,6 +71,13 @@ type Network struct {
 	NetworkMode   string   `json:"NetworkMode,omitempty"`
 	IPv4Addresses []string `json:"IPv4Addresses,omitempty"`
 	IPv6Addresses []string `json:"IPv6Addresses,omitempty"`
+}
+
+// VolumeResponse is the schema for the volume response JSON object
+type VolumeResponse struct {
+	DockerName  string `json:"DockerName,omitempty"`
+	Source      string `json:"Source,omitempty"`
+	Destination string `json:"Destination,omitempty"`
 }
 
 func getTasksMetadata(client *http.Client, path string) (*TasksResponse, error) {
@@ -188,7 +196,7 @@ func verifyContainerMetadata(containerMetadataRawMsg json.RawMessage) error {
 	}
 
 	var actualContainerName string
-	json.Unmarshal(containerMetadataMap["Name"] ,&actualContainerName)
+	json.Unmarshal(containerMetadataMap["Name"], &actualContainerName)
 
 	if actualContainerName != containerName {
 		return fmt.Errorf("incorrect container name, expected %s, received %s",
@@ -201,6 +209,10 @@ func verifyContainerMetadata(containerMetadataRawMsg json.RawMessage) error {
 
 	if containerMetadataMap["DockerName"] == nil {
 		return notEmptyErrMsg("DockerName")
+	}
+
+	if containerMetadataMap["Volumes"] == nil {
+		return notEmptyErrMsg("Volumes")
 	}
 
 	return nil
