@@ -256,6 +256,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if containerMetadata.Volumes[0].DockerName != "shared-local" || containerMetadata.Volumes[0].Destination != "/ecs" {
+		fmt.Fprintf(os.Stderr, "Volume metadata fields incorrect")
+		os.Exit(1)
+	}
+
 	_, err = taskStats(client)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to get task stats: %v", err)

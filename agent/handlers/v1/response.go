@@ -156,7 +156,7 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 // NewVolumesResponse creates VolumeResponse for a container
 func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []VolumeResponse {
 	container := dockerContainer.Container
-	resp := []VolumeResponse{}
+	var resp []VolumeResponse
 
 	volumes := container.GetVolumes()
 
