@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.20.2-dev
+* Enhancement - Added Volumes metadata as part of v1 and v2 metadata endpoints [#1531](https://github.com/aws/amazon-ecs-agent/pull/1531)
 * Bug - Fixed a bug where unrecognized task cannot be stopped [#1467](https://github.com/aws/amazon-ecs-agent/pull/1467)
 * Enhancement - Added ECS config field `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` to make the volume labels and driver options comparison configurable for shared volume [#1519](https://github.com/aws/amazon-ecs-agent/pull/1519)
 
