@@ -12,6 +12,21 @@
             "awslogs-region":"$$$TEST_REGION$$$",
             "awslogs-stream-prefix":"ecs-functional-tests-agent-introspection-validator"
         }
-    }
-  }]
+    },
+    "mountPoints": [
+        {
+          "sourceVolume": "task-local",
+          "containerPath": "/ecs/"
+        }
+    ]
+    }],
+    "volumes":[
+        {
+            "name": "task-local",
+            "dockerVolumeConfiguration" :{
+                "scope": "task",
+                "driver": "local"
+            }
+        }
+    ]
 }
