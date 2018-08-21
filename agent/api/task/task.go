@@ -79,7 +79,7 @@ type TaskOverrides struct{}
 
 // Task is the internal representation of a task in the ECS agent
 type Task struct {
-	// Arn is the unique identifer for the task
+	// Arn is the unique identifier for the task
 	Arn string
 	// Overrides are the overrides applied to a task
 	Overrides TaskOverrides `json:"-"`
@@ -172,7 +172,7 @@ type Task struct {
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
-// ecsacs.Task to json and unmrashaling it as apitask.Task
+// ecsacs.Task to json and unmarshaling it as apitask.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
 	data, err := jsonutil.BuildJSON(acsTask)
 	if err != nil {
@@ -490,6 +490,7 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 	cfg.ENIID = eni.ID
 	cfg.ID = eni.MacAddress
 	cfg.ENIMACAddress = eni.MacAddress
+	cfg.SubnetGatewayIPV4Address = eni.GetSubnetGatewayIPV4Address()
 	for _, ipv4 := range eni.IPV4Addresses {
 		if ipv4.Primary {
 			cfg.ENIIPV4Address = ipv4.Address
@@ -559,18 +560,17 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 // UpdateMountPoints updates the mount points of volumes that were created
 // without specifying a host path.  This is used as part of the empty host
 // volume feature.
-func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols map[string]string) {
+func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []docker.Mount) {
 	for _, mountPoint := range cont.MountPoints {
 		containerPath := getCanonicalPath(mountPoint.ContainerPath)
-		hostPath, ok := vols[containerPath]
-		if !ok {
-			// /path/ -> /path or \path\ -> \path
-			hostPath, ok = vols[strings.TrimRight(containerPath, string(filepath.Separator))]
-		}
-		if ok {
-			if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
-				if empty, ok := hostVolume.(*taskresourcevolume.LocalDockerVolume); ok {
-					empty.HostPath = hostPath
+		for _, vol := range vols {
+			if strings.Compare(vol.Destination, containerPath) == 0 ||
+				// /path/ -> /path or \path\ -> \path
+				strings.Compare(vol.Destination, strings.TrimRight(containerPath, string(filepath.Separator))) == 0 {
+				if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
+					if empty, ok := hostVolume.(*taskresourcevolume.LocalDockerVolume); ok {
+						empty.HostPath = vol.Source
+					}
 				}
 			}
 		}

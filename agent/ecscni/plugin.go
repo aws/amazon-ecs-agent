@@ -104,7 +104,7 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 	}
 
-	seelog.Debugf("Starting setup the ENI (%s) in container namespace: %s", cfg.ENIID, cfg.ContainerID)
+	seelog.Debugf("[ECSCNI] Starting ENI (%s) setup in the the container namespace: %s", cfg.ENIID, cfg.ContainerID)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
@@ -113,16 +113,16 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke eni plugin failed")
 	}
-	seelog.Debugf("ECSCNI: Set up eni done: %s", result.String())
+	seelog.Debugf("[ECSCNI] ENI setup done: %s", result.String())
 
 	// Invoke bridge plugin ADD command
 	result, err = client.add(runtimeConfig, cfg, client.createBridgeNetworkConfigWithIPAM)
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke bridge plugin failed")
 	}
-	seelog.Debugf("ECSCNI: Set up container namespace done: %s", result.String())
+	seelog.Debugf("[ECSCNI] Set up container namespace done: %s", result.String())
 	if _, err = result.GetAsVersion(currentCNISpec); err != nil {
-		seelog.Warnf("ECSCNI: Unable to convert result to spec version %s; error: %v; result is of version: %s",
+		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
 			currentCNISpec, err, result.Version())
 		return nil, err
 	}
@@ -168,19 +168,19 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
-	seelog.Debugf("ECSCNI: Starting clean up the container namespace: %s", cfg.ContainerID)
+	seelog.Debugf("[ECSCNI] Starting clean up the container namespace: %s", cfg.ContainerID)
 	// clean up the network namespace is separate from releasing the IP from IPAM
 	err := client.del(runtimeConfig, cfg, client.createBridgeNetworkConfigWithoutIPAM)
 	if err != nil {
 		return errors.Wrap(err, "cni cleanup: invoke bridge plugin failed")
 	}
-	seelog.Debugf("ECSCNI: bridge cleanup done: %s", cfg.ContainerID)
+	seelog.Debugf("[ECSCNI] bridge cleanup done: %s", cfg.ContainerID)
 
 	err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
 	if err != nil {
 		return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
 	}
-	seelog.Debugf("ECSCNI: container namespace cleanup done: %s", cfg.ContainerID)
+	seelog.Debugf("[ECSCNI] container namespace cleanup done: %s", cfg.ContainerID)
 	return nil
 }
 
@@ -191,7 +191,7 @@ func (client *cniClient) ReleaseIPResource(cfg *Config) error {
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 	}
 
-	seelog.Debugf("Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)
+	seelog.Debugf("[ECSCNI] Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)
 	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 	return client.del(runtimeConfig, cfg, client.createIPAMNetworkConfig)
@@ -275,7 +275,7 @@ func (client *cniClient) createBridgeConfig(cfg *Config) BridgeConfig {
 func (client *cniClient) constructNetworkConfig(cfg interface{}, plugin string) (*libcni.NetworkConfig, error) {
 	configBytes, err := json.Marshal(cfg)
 	if err != nil {
-		seelog.Errorf("Marshal configuration for plugin %s failed, error: %v", plugin, err)
+		seelog.Errorf("[ECSCNI] Marshal configuration for plugin %s failed, error: %v", plugin, err)
 		return nil, err
 	}
 	networkConfig := &libcni.NetworkConfig{
@@ -290,13 +290,14 @@ func (client *cniClient) constructNetworkConfig(cfg interface{}, plugin string) 
 
 func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
 	eniConf := ENIConfig{
-		Type:                 ECSENIPluginName,
-		CNIVersion:           client.cniVersion,
-		ENIID:                cfg.ENIID,
-		IPV4Address:          cfg.ENIIPV4Address,
-		MACAddress:           cfg.ENIMACAddress,
-		IPV6Address:          cfg.ENIIPV6Address,
-		BlockInstanceMetdata: cfg.BlockInstanceMetdata,
+		Type:                     ECSENIPluginName,
+		CNIVersion:               client.cniVersion,
+		ENIID:                    cfg.ENIID,
+		IPV4Address:              cfg.ENIIPV4Address,
+		IPV6Address:              cfg.ENIIPV6Address,
+		MACAddress:               cfg.ENIMACAddress,
+		BlockInstanceMetdata:     cfg.BlockInstanceMetdata,
+		SubnetGatewayIPV4Address: cfg.SubnetGatewayIPV4Address,
 	}
 	networkConfig, err := client.constructNetworkConfig(eniConf, ECSENIPluginName)
 	if err != nil {
@@ -337,7 +338,7 @@ func (client *cniClient) createIPAMConfig(cfg *Config) (IPAMConfig, error) {
 		},
 	}
 	for _, route := range cfg.AdditionalLocalRoutes {
-		seelog.Debugf("Adding an additional route for %s", route)
+		seelog.Debugf("[ECSCNI] Adding an additional route for %s", route)
 		ipNetRoute := (net.IPNet)(route)
 		routes = append(routes, &cnitypes.Route{Dst: ipNetRoute})
 	}
