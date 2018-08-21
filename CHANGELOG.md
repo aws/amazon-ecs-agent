@@ -2,7 +2,7 @@
 
 ## 1.20.2-dev
 * Bug - Fixed a bug where unrecognized task cannot be stopped [#1467](https://github.com/aws/amazon-ecs-agent/pull/1467)
-* Enhancement - Added ECS config field to provide optionally comparing shared volumes' full details (driver options and labels), or names only [#1519](https://github.com/aws/amazon-ecs-agent/pull/1519)
+* Enhancement - Added ECS config field `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` to make the volume labels and driver options comparison configurable for shared volume [#1519](https://github.com/aws/amazon-ecs-agent/pull/1519)
 
 ## 1.20.1
 * Bug - Fixed a bug where the agent couldn't be upgraded if there are tasks that
