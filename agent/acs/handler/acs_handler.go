@@ -240,7 +240,7 @@ func (acsSession *session) Start() error {
 func (acsSession *session) startSessionOnce() error {
 	acsEndpoint, err := acsSession.ecsClient.DiscoverPollEndpoint(acsSession.containerInstanceARN)
 	if err != nil {
-		seelog.Errorf("Unable to discover poll endpoint, err: %v", err)
+		seelog.Errorf("acs: unable to discover poll endpoint, err: %v", err)
 		return err
 	}
 
