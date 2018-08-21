@@ -1935,6 +1935,13 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	labels := map[string]string{
 		"name": "metadata",
 	}
+	volumes := []docker.Mount{
+		{
+			Name:        "volume",
+			Source:      "/src/vol",
+			Destination: "/vol",
+		},
+	}
 	created := time.Now()
 	gomock.InOrder(
 		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainerstatus.ContainerRunning,
@@ -1942,12 +1949,14 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 				Labels:    labels,
 				DockerID:  dockerID,
 				CreatedAt: created,
+				Volumes:   volumes,
 			}),
 		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
 	)
 	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
 	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
 	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, volumes, dockerContainer.Container.GetVolumes())
 }
 
 // TestHandleDockerHealthEvent tests the docker health event will only cause the
