@@ -135,6 +135,7 @@ func TestInitializeLocalDockerVolume(t *testing.T) {
 func TestInitializeSharedProvisionedVolume(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -174,6 +175,7 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -210,6 +212,7 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -255,6 +258,7 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 	sharedVolumeMatchFullConfig := false
 
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -301,6 +305,7 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -338,6 +343,7 @@ func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -377,6 +383,7 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
