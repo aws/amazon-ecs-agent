@@ -191,7 +191,7 @@ type Container struct {
 	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
 	// VolumesUnsafe is an array of volume mounts in the container.
-	VolumesUnsafe []docker.Mount
+	VolumesUnsafe []docker.Mount `json:"-"`
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
