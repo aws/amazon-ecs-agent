@@ -32,7 +32,7 @@ const (
 	TaskMetadataPath = "/v2/metadata"
 
 	// TaskMetadataPathWithSlash specifies the relative URI path for serving task metadata.
-	TaskMetadataPathWithSlash = "/v2/metadata/"
+	TaskMetadataPathWithSlash = TaskMetadataPath + "/"
 )
 
 // ContainerMetadataPath specifies the relative URI path for serving container metadata.
