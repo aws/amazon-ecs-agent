@@ -322,22 +322,22 @@ func main() {
 	taskStatsPath := v3BaseEndpoint + "/task/stats"
 
 	if err := verifyContainerMetadata(client, containerMetadataPath); err != nil {
-		seelog.Infof("Container metadata: %v\n", err)
+		seelog.Errorf("Container metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskMetadata(client, taskMetadataPath); err != nil {
-		seelog.Infof("Task metadata: %v\n", err)
+		seelog.Errorf("Task metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyContainerStats(client, containerStatsPath); err != nil {
-		seelog.Infof("Container stats: %v\n", err)
+		seelog.Errorf("Container stats: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskStats(client, taskStatsPath); err != nil {
-		seelog.Infof("Task stats: %v\n", err)
+		seelog.Errorf("Task stats: %v\n", err)
 		os.Exit(1)
 	}
 

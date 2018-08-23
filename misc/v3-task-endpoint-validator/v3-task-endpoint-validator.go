@@ -262,7 +262,7 @@ func verifyContainerMetadataResponse(containerMetadataRawMsg json.RawMessage) er
 		"Type":          "NORMAL",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"DockerId", "DockerName", "ImageID", "Limits", "CreatedAt", "StartedAt", "Health", "Networks"}
+	taskExpectedFieldNotEmptyArray := []string{"DockerId", "DockerName", "ImageID", "Limits", "CreatedAt", "StartedAt", "Health"}
 
 	for fieldName, fieldVal := range containerExpectedFieldEqualMap {
 		if err = fieldEqual(containerMetadataResponseMap, fieldName, fieldVal); err != nil {
@@ -292,8 +292,8 @@ func verifyLimitResponse(limitRawMsg json.RawMessage) error {
 	json.Unmarshal(limitRawMsg, &limitResponseMap)
 
 	limitExpectedFieldEqualMap := map[string]interface{}{
-		"CPU":    float64(1024),
-		"Memory": float64(512),
+		"CPU":    float64(0),
+		"Memory": float64(50),
 	}
 
 	for fieldName, fieldVal := range limitExpectedFieldEqualMap {
@@ -306,6 +306,11 @@ func verifyLimitResponse(limitRawMsg json.RawMessage) error {
 }
 
 func verifyNetworksResponse(networksRawMsg json.RawMessage) error {
+	// host and bridge network mode
+	if networksRawMsg == nil {
+		return nil
+	}
+
 	var err error
 
 	var networksResponseArray []json.RawMessage
@@ -332,8 +337,8 @@ func verifyNetworksResponse(networksRawMsg json.RawMessage) error {
 		}
 
 		isAWSVPCNetworkMode = true
-	} else if len(networksResponseArray) != 0 {
-		return fmt.Errorf("incorrect number of networks, expected 0 or 1, received %d",
+	} else {
+		return fmt.Errorf("incorrect number of networks, expected 1, received %d",
 			len(networksResponseArray))
 	}
 
@@ -419,22 +424,22 @@ func main() {
 	taskStatsPath := v3BaseEndpoint + "/task/stats"
 
 	if err := verifyContainerMetadata(client, containerMetadataPath); err != nil {
-		seelog.Infof("Container metadata: %v\n", err)
+		seelog.Errorf("Container metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskMetadata(client, taskMetadataPath); err != nil {
-		seelog.Infof("Task metadata: %v\n", err)
+		seelog.Errorf("Task metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyContainerStats(client, containerStatsPath); err != nil {
-		seelog.Infof("Container stats: %v\n", err)
+		seelog.Errorf("Container stats: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskStats(client, taskStatsPath); err != nil {
-		seelog.Infof("Task stats: %v\n", err)
+		seelog.Errorf("Task stats: %v\n", err)
 		os.Exit(1)
 	}
 

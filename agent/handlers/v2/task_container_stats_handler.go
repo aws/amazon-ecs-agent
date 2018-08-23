@@ -33,7 +33,7 @@ const (
 	TaskStatsPath = "/v2/stats"
 
 	// TaskStatsPathWithSlash specifies the relative URI path for serving task stats.
-	TaskStatsPathWithSlash = "/v2/stats/"
+	TaskStatsPathWithSlash = TaskStatsPath + "/"
 )
 
 // ContainerStatsPath specifies the relative URI path for serving container stats.
