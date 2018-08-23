@@ -39,8 +39,7 @@ const (
 	percentageFactor  = 100
 	minimumCPUPercent = 1
 
-	ecsDataFileRootKey = registry.LOCAL_MACHINE
-	ecsDataFileKeyPath = `SOFTWARE\Amazon\ECS Agent\State File`
+	credentialspecFolderPath := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs")
 )
 
 // platformFields consists of fields specific to Windows for a task
@@ -108,10 +107,13 @@ func (task *Task) handleSecurityOpts(container *apicontainer.Container, hostConf
 			contents := strings.TrimPrefix(opt, "credentialspec=")
 			// Overwrite the hostConfig with the name of the file where it's stored
 			hostConfig.SecurityOpt[i] = "credentialspec=file://" + name
+			// Create the directory if needed
+			dir, err := os.MkdirAll(credentialspecFolderPath)
+			if err != nil {
+				return err
+			}
 			// Create the file
-			path := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs", name)
-			f, err := os.Create(path)
-			// TODO better error handling?
+			f, err := os.Create(filepath.Join(credentialspecFolderPath, name))
 			if err != nil {
 				return err
 			}
