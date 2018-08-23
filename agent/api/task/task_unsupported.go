@@ -18,6 +18,7 @@ package task
 import (
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/cihub/seelog"
@@ -66,7 +67,7 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields
 	return nil
 }
 
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(container *apicontainer.Container, hostConfig *docker.HostConfig) error {
 	return nil
 }
 

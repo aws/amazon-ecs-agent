@@ -17,15 +17,18 @@ package task
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
+	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -35,6 +38,9 @@ const (
 	cpuSharesPerCore  = 1024
 	percentageFactor  = 100
 	minimumCPUPercent = 1
+
+	ecsDataFileRootKey = registry.LOCAL_MACHINE
+	ecsDataFileKeyPath = `SOFTWARE\Amazon\ECS Agent\State File`
 )
 
 // platformFields consists of fields specific to Windows for a task
@@ -79,7 +85,7 @@ func getCanonicalPath(path string) string {
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
 // passed to Docker API.
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(container *apicontainer.Container, hostConfig *docker.HostConfig) error {
 	task.overrideDefaultMemorySwappiness(hostConfig)
 	// Convert the CPUShares to CPUPercent
 	hostConfig.CPUPercent = hostConfig.CPUShares * percentageFactor / int64(cpuShareScaleFactor)
@@ -91,6 +97,35 @@ func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) erro
 		hostConfig.CPUPercent = minimumCPUPercent
 	}
 	hostConfig.CPUShares = 0
+	return task.handleSecurityOpts(container, hostConfig)
+}
+func (task *Task) handleSecurityOpts(container *apicontainer.Container, hostConfig *docker.HostConfig) error {
+
+	for i, opt := range hostConfig.SecurityOpt {
+		if strings.HasPrefix(opt, "credentialspec=") {
+
+			name := task.Arn + "-" + container.Name + ".json"
+			contents := strings.TrimPrefix(opt, "credentialspec=")
+			// Overwrite the hostConfig with the name of the file where it's stored
+			hostConfig.SecurityOpt[i] = "credentialspec=file://" + name
+			// Create the file
+			path := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs", name)
+			f, err := os.Create(path)
+			// TODO better error handling?
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			_, err = f.WriteString(contents)
+			if err != nil {
+				return err
+			}
+			seelog.Infof("Created credentialspec file for task arn: [%s] and container name: [%s]", task.Arn, container.Name)
+			return nil
+		}
+		// TODO cleanup files after use
+	}
+	//
 	return nil
 }
 
