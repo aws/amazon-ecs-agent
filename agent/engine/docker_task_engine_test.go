@@ -2274,6 +2274,8 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)
+	cgroupResource.EXPECT().GetName().AnyTimes().Return("cgroup")
+	cgroupResource.EXPECT().StatusString(gomock.Any()).AnyTimes()
 
 	// Set the task to be stopped so that the process can done quickly
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
