@@ -106,7 +106,7 @@ func (task *Task) handleSecurityOpts(container *apicontainer.Container, hostConf
 			hostConfig.SecurityOpt[i] = "credentialspec=file://" + name
 			// Create the directory if needed
 			credentialspecFolderPath := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs")
-			dir, err := os.MkdirAll(credentialspecFolderPath)
+			err := os.MkdirAll(credentialspecFolderPath, os.ModeDir)
 			if err != nil {
 				return err
 			}
