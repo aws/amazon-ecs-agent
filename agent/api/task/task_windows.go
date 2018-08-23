@@ -28,7 +28,6 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
-	"golang.org/x/sys/windows/registry"
 )
 
 const (
@@ -38,8 +37,6 @@ const (
 	cpuSharesPerCore  = 1024
 	percentageFactor  = 100
 	minimumCPUPercent = 1
-
-	credentialspecFolderPath := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs")
 )
 
 // platformFields consists of fields specific to Windows for a task
@@ -108,6 +105,7 @@ func (task *Task) handleSecurityOpts(container *apicontainer.Container, hostConf
 			// Overwrite the hostConfig with the name of the file where it's stored
 			hostConfig.SecurityOpt[i] = "credentialspec=file://" + name
 			// Create the directory if needed
+			credentialspecFolderPath := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs")
 			dir, err := os.MkdirAll(credentialspecFolderPath)
 			if err != nil {
 				return err
