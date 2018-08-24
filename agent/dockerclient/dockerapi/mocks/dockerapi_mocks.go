@@ -30,7 +30,6 @@ import (
 	types "github.com/docker/docker/api/types"
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -280,9 +279,9 @@ func (mr *MockDockerClientMockRecorder) StartContainer(arg0, arg1, arg2 interfac
 }
 
 // Stats mocks base method
-func (m *MockDockerClient) Stats(arg0 string, arg1 context.Context) (<-chan *go_dockerclient.Stats, error) {
+func (m *MockDockerClient) Stats(arg0 string, arg1 context.Context) (<-chan *types.Stats, error) {
 	ret := m.ctrl.Call(m, "Stats", arg0, arg1)
-	ret0, _ := ret[0].(<-chan *go_dockerclient.Stats)
+	ret0, _ := ret[0].(<-chan *types.Stats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

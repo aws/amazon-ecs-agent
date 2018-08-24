@@ -34,15 +34,15 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
-	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -445,7 +445,7 @@ func TestContainerStats(t *testing.T) {
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
-	dockerStats := &docker.Stats{NumProcs: 2}
+	dockerStats := &types.Stats{NumProcs: 2}
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
@@ -459,7 +459,7 @@ func TestContainerStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult *docker.Stats
+	var statsFromResult *types.Stats
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
@@ -473,7 +473,7 @@ func TestTaskStats(t *testing.T) {
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
-	dockerStats := &docker.Stats{NumProcs: 2}
+	dockerStats := &types.Stats{NumProcs: 2}
 	containerMap := map[string]*apicontainer.DockerContainer{
 		containerName: &apicontainer.DockerContainer{
 			DockerID: containerID,
@@ -493,7 +493,7 @@ func TestTaskStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult map[string]*docker.Stats
+	var statsFromResult map[string]*types.Stats
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	containerStats, ok := statsFromResult[containerID]

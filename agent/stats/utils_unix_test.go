@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"testing"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +35,7 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 				}
 			}
 		}`, 100)
-	dockerStat := &docker.Stats{}
+	dockerStat := &types.Stats{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	_, err := dockerStatsToContainerStats(dockerStat)
 	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
@@ -57,7 +57,7 @@ func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 				}
 			}
 		}`, 1, 2, 3, 4, 100)
-	dockerStat := &docker.Stats{}
+	dockerStat := &types.Stats{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	assert.NoError(t, err, "converting container stats failed")
