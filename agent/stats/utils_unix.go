@@ -18,11 +18,11 @@ import (
 	"fmt"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *types.Stats) (*ContainerStats, error) {
 	// The length of PercpuUsage represents the number of cores in an instance.
 	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 || numCores == uint64(0) {
 		seelog.Debug("Invalid container statistics reported, no cpu core usage reported")
@@ -30,7 +30,7 @@ func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, er
 	}
 
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
-	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats.Cache
+	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats["cache"]
 	return &ContainerStats{
 		cpuUsage:    cpuUsage,
 		memoryUsage: memoryUsage,

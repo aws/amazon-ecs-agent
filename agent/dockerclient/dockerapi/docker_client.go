@@ -185,7 +185,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(string, context.Context) (<-chan *docker.Stats, error)
+	Stats(string, context.Context) (<-chan *types.Stats, error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1221,28 +1221,40 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
-// Stats returns a channel of *docker.Stats entries for the container.
-func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.Stats, error) {
-	client, err := dg.dockerClient()
+// Stats returns a channel of *types.Stats entries for the container.
+func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *types.Stats, error) {
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
 
-	stats := make(chan *docker.Stats)
-	options := docker.StatsOptions{
-		ID:                id,
-		Stats:             stats,
-		Stream:            true,
-		Context:           ctx,
-		InactivityTimeout: StatsInactivityTimeout,
-	}
+	// Create channel to hold the stats
+	stats := make(chan *types.Stats)
+	var resp types.ContainerStats
 
 	go func() {
-		statsErr := client.Stats(options)
-		if statsErr != nil {
-			seelog.Infof("DockerGoClient: Unable to retrieve stats for container %s: %v",
-				id, statsErr)
+		// ContainerStats outputs a io.ReadCloser and an OSType
+		resp, err = client.ContainerStats(ctx, id, true)
+		if err != nil {
+			seelog.Infof("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+			close(stats)
+			return
 		}
+		// Returns a *Decoder and takes in a readCloser
+		decoder := json.NewDecoder(resp.Body)
+		data := new(types.Stats)
+		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+			if err != nil {
+				seelog.Infof("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+				close(stats)
+				return
+			}
+			stats <- data
+			data = new(types.Stats)
+		}
+		// Once EOF, closer io.ReadCloser and stream
+		resp.Body.Close()
+		close(stats)
 	}()
 
 	return stats, nil

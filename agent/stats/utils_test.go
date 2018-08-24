@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 func TestIsNetworkStatsError(t *testing.T) {
@@ -56,7 +56,7 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 				"privateworkingset": %d
 			}
 		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10, 10)
-	dockerStat := &docker.Stats{}
+	dockerStat := &types.Stats{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
