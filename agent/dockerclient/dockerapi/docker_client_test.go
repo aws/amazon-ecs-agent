@@ -908,104 +908,104 @@ func TestUnavailableVersionError(t *testing.T) {
 }
 
 func TestStatsNormalExit(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	time1 := time.Now()
-	time2 := time1.Add(1 * time.Second)
-	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
-		opts := x.(docker.StatsOptions)
-		defer close(opts.Stats)
-		assert.Equal(t, "foo", opts.ID, "Expected ID foo, got %s", opts.ID)
-		assert.True(t, opts.Stream, "Expected stream to be true")
-		opts.Stats <- &docker.Stats{
-			Read: time1,
-		}
-		opts.Stats <- &docker.Stats{
-			Read: time2,
-		}
-	})
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+		Body: mockStream{
+			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+			index: 0,
+		},
+	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats("foo", ctx)
 	assert.NoError(t, err)
-	stat := <-stats
-	checkStatRead(t, stat, time1)
-	stat = <-stats
-	checkStatRead(t, stat, time2)
-	stat = <-stats
-	assert.Nil(t, stat, "Expected stat to be nil")
-}
-
-func checkStatRead(t *testing.T, stat *docker.Stats, read time.Time) {
-	assert.Equal(t, read, stat.Read, "Expected %v, but was %v", read, stat.Read)
-}
-
-func TestStatsClosed(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
-	time1 := time.Now()
-	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) {
-		opts := x.(docker.StatsOptions)
-		defer close(opts.Stats)
-		assert.Equal(t, "foo", opts.ID, "Expected ID foo, got %s", opts.ID)
-		assert.True(t, opts.Stream, "Expected stream to be true")
-		for i := 0; true; i++ {
-			select {
-			case <-opts.Context.Done():
-				t.Logf("Received cancel after %d iterations", i)
-				return
-			default:
-				opts.Stats <- &docker.Stats{
-					Read: time1.Add(time.Duration(i) * time.Second),
-				}
-			}
-		}
-	})
-	ctx, cancel := context.WithCancel(context.TODO())
-	stats, err := client.Stats("foo", ctx)
-	assert.NoError(t, err)
-	stat := <-stats
-	checkStatRead(t, stat, time1)
-	stat = <-stats
-	checkStatRead(t, stat, time1.Add(time.Second))
-	cancel()
-	// drain
-	for {
-		stat = <-stats
-		if stat == nil {
-			break
-		}
-	}
+	newStat := <-stats
+	waitForStats(t, newStat)
+	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
+	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
 }
 
 func TestStatsErrorReading(t *testing.T) {
-	mockDocker, _, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
-	mockDocker.EXPECT().Stats(gomock.Any()).Do(func(x interface{}) error {
-		opts := x.(docker.StatsOptions)
-		close(opts.Stats)
-		return errors.New("test error")
-	})
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), gomock.Any()).Return(types.ContainerStats{
+		Body: mockStream{
+			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+			index: 0,
+		},
+	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats("foo", ctx)
 	assert.NoError(t, err)
-	stat := <-stats
-	assert.Nil(t, stat, "Expected stat to be nil")
+	assert.Nil(t, <-stats)
+}
+
+func TestStatsErrorDecoding(t *testing.T) {
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+		Body: mockStream{
+			data:  []byte(`stuff`),
+			index: 0,
+		},
+	}, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	stats, err := client.Stats("foo", ctx)
+	assert.NoError(t, err)
+	assert.Nil(t, <-stats)
 }
 
 func TestStatsClientError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().Return(nil, errors.New("No client"))
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(nil, errors.New("No client"))
 	client := &dockerGoClient{
-		clientFactory: factory,
+		sdkClientFactory: sdkFactory,
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	_, err := client.Stats("foo", ctx)
-	assert.Error(t, err, "Expected error with nil docker client")
+	if err == nil {
+		t.Fatal("Expected error with nil docker client")
+	}
+}
+
+type mockStream struct {
+	data  []byte
+	index int64
+}
+
+func (ms mockStream) Read(data []byte) (n int, err error) {
+	if ms.index >= int64(len(ms.data)) {
+		err = io.EOF
+		return
+	}
+	n = copy(data, ms.data[ms.index:])
+	ms.index += int64(n)
+	return
+}
+func (ms mockStream) Close() error {
+	return nil
+}
+func waitForStats(t *testing.T, stat *types.Stats) {
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			t.Error("Timed out waiting for container stats")
+		default:
+			if stat == nil {
+				time.Sleep(time.Second)
+				continue
+			}
+			return
+		}
+	}
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
