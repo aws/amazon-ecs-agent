@@ -21,8 +21,8 @@ import (
 	reflect "reflect"
 
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
 	gomock "github.com/golang/mock/gomock"
+	"github.com/docker/docker/api/types"
 )
 
 // MockEngine is a mock of Engine interface
@@ -49,9 +49,9 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*go_dockerclient.Stats, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.Stats, error) {
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
-	ret0, _ := ret[0].(*go_dockerclient.Stats)
+	ret0, _ := ret[0].(*types.Stats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

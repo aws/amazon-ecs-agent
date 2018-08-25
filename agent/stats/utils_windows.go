@@ -18,11 +18,11 @@ import (
 	"fmt"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *docker.Stats) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *types.Stats) (*ContainerStats, error) {
 	if numCores == uint64(0) {
 		seelog.Error("Invalid number of cpu cores acquired from the system")
 		return nil, fmt.Errorf("invalid number of cpu cores acquired from the system")
