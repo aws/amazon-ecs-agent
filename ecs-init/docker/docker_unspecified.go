@@ -40,7 +40,10 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		dhclientLibDir+":"+dhclientLibDir+readOnly,
 		dhclientExecutableDir+":"+dhclientExecutableDir+readOnly)
 
+	logConfig := config.AgentLogDriverConfiguration()
+
 	return &godocker.HostConfig{
+		LogConfig:   logConfig,
 		Binds:       binds,
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,

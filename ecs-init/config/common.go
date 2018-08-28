@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
 
@@ -138,8 +139,8 @@ func DockerUnixSocket() (string, bool) {
 	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
 		return strings.TrimPrefix(dockerHost, UnixSocketPrefix), true
 	}
-	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
-	// eg: Docker daemon restart
+	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated
+	// outside the container, eg: Docker daemon restart
 	return "/var/run", false
 }
 
@@ -162,4 +163,17 @@ func HostPKIDirPath() string {
 		return ""
 	}
 	return hostPKIDirPath
+}
+
+// AgentLogDriverConfiguration returns a LogConfig object to be used by the agent. It defaults to a json file with
+// max-size of 16m and max-file of 4. At the moment this is not configurable.
+func AgentLogDriverConfiguration() godocker.LogConfig {
+	// TODO: Refactor code to allow use of environment variables to change LogConfig object
+	return godocker.LogConfig{
+		Type: "json-file",
+		Config: map[string]string{
+			"max-size": "16m",
+			"max-file": "4",
+		},
+	}
 }
