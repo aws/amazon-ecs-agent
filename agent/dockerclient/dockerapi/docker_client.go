@@ -360,7 +360,6 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 	pullFinished := make(chan error, 1)
 	go func() {
 		pullFinished <- client.PullImage(opts, authConfig)
-		seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
 	}()
 
 	select {
@@ -370,17 +369,19 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 		if pullErr != nil {
 			return CannotPullContainerError{pullErr}
 		}
+		seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
 		return nil
 	case <-timeout:
 		return &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}
 	}
 	seelog.Debugf("DockerGoClient: pull began for image: %s", image)
-	defer seelog.Debugf("DockerGoClient: pull completed for image: %s", image)
 
 	err = <-pullFinished
 	if err != nil {
 		return CannotPullContainerError{err}
 	}
+
+	seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
 	return nil
 }
 
