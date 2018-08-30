@@ -20,7 +20,7 @@ export GOPATH="${TOPWD}/ecs-init/:${BUILDDIR}"
 export SRCPATH="${BUILDDIR}/src/github.com/aws/amazon-ecs-init"
 
 if [ -d "${TOPWD}/.git" ]; then
-    version=$(cat "${TOPWD}/ecs-init/VERSION")
+    version=$(cat "${TOPWD}/ecs-init/ECSVERSION")
     git_hash=$(git rev-parse --short=8 HEAD)
     git_dirty=false
 
