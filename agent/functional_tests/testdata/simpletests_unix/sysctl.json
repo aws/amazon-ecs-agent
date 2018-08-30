@@ -1,0 +1,10 @@
+{
+  "Name": "Sysctl",
+  "Description": "checks that sysctl works",
+  "TaskDefinition": "sysctl",
+  "Version": ">=1.14.4",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}
