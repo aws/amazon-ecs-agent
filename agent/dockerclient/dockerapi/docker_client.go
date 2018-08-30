@@ -1269,10 +1269,9 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
 		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
 
-		statPollTimer := time.NewTimer(dg.config.PollingMetricsWaitDuration)
+		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
 		go func() {
-			for {
-				<- statPollTimer.C
+			for range statPollTicker.C {
 				stats := make(chan *docker.Stats, 1)
 				options := docker.StatsOptions{
 					ID:                id,
@@ -1287,8 +1286,6 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 				if ok {
 					returnStats <- dockerStats
 				}
-
-				time.Sleep(dg.config.PollingMetricsWaitDuration)
 			}
 		}()
 	}
