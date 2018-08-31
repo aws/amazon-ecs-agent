@@ -100,7 +100,7 @@ func (container *StatsContainer) processStatsStream() error {
 	if container.client == nil {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
-	dockerStats, err := container.client.Stats(dockerID, container.ctx)
+	dockerStats, err := container.client.Stats(container.ctx, dockerID, dockerapi.StatsInactivityTimeout)
 	if err != nil {
 		return err
 	}

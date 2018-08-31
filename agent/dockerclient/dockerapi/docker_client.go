@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -185,7 +186,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(string, context.Context) (<-chan *types.Stats, error)
+	Stats(context.Context, string, time.Duration) (<-chan *types.Stats, error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1222,42 +1223,56 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 }
 
 // Stats returns a channel of *types.Stats entries for the container.
-func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *types.Stats, error) {
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.Stats, error) {
+	subCtx, cancelRequest := context.WithCancel(ctx)
+
 	client, err := dg.sdkDockerClient()
 	if err != nil {
+		cancelRequest()
 		return nil, err
 	}
 
 	// Create channel to hold the stats
-	stats := make(chan *types.Stats)
+	statsChnl := make(chan *types.Stats)
 	var resp types.ContainerStats
 
 	go func() {
+		defer cancelRequest()
+		defer close(statsChnl)
 		// ContainerStats outputs a io.ReadCloser and an OSType
-		resp, err = client.ContainerStats(ctx, id, true)
+		stream := true
+		resp, err = client.ContainerStats(subCtx, id, stream)
 		if err != nil {
-			seelog.Infof("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
-			close(stats)
+			seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 			return
 		}
+
+		// handle inactivity timeout
+		var canceled uint32
+		var ch chan<- struct{}
+		resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
+		defer resp.Body.Close()
+		defer close(ch)
+
 		// Returns a *Decoder and takes in a readCloser
 		decoder := json.NewDecoder(resp.Body)
 		data := new(types.Stats)
 		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 			if err != nil {
-				seelog.Infof("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
-				close(stats)
+				seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
 				return
 			}
-			stats <- data
+			if atomic.LoadUint32(&canceled) != 0 {
+				seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+				return
+			}
+
+			statsChnl <- data
 			data = new(types.Stats)
 		}
-		// Once EOF, closer io.ReadCloser and stream
-		resp.Body.Close()
-		close(stats)
 	}()
 
-	return stats, nil
+	return statsChnl, nil
 }
 
 // RemoveImage invokes github.com/fsouza/go-dockerclient.Client's

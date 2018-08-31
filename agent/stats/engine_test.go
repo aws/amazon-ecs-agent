@@ -54,7 +54,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}, nil)
 	mockStatsChannel := make(chan *types.Stats)
 	defer close(mockStatsChannel)
-	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -177,7 +177,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{},
 	}, nil)
-	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -412,7 +412,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	client.EXPECT().ListContainers(gomock.Any(), false, gomock.Any()).Return(dockerapi.ListContainersResponse{
 		DockerIDs: []string{containerID},
 	})
-	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {
+	client.EXPECT().Stats(gomock.Any(), containerID, gomock.Any()).Do(func(ctx context.Context, id string, inactivityTimeout time.Duration) {
 		statsStarted <- struct{}{}
 	}).Return(statsChan, nil)
 

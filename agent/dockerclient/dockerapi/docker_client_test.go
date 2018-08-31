@@ -918,7 +918,7 @@ func TestStatsNormalExit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats("foo", ctx)
+	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
 	assert.NoError(t, err)
 	newStat := <-stats
 	waitForStats(t, newStat)
@@ -937,7 +937,7 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats("foo", ctx)
+	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
 	assert.NoError(t, err)
 	assert.Nil(t, <-stats)
 }
@@ -953,7 +953,7 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats("foo", ctx)
+	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
 	assert.NoError(t, err)
 	assert.Nil(t, <-stats)
 }
@@ -968,7 +968,7 @@ func TestStatsClientError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, err := client.Stats("foo", ctx)
+	_, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
 	if err == nil {
 		t.Fatal("Expected error with nil docker client")
 	}
@@ -1006,6 +1006,63 @@ func waitForStats(t *testing.T, stat *types.Stats) {
 			return
 		}
 	}
+}
+
+func TestStatsInactivityTimeout(t *testing.T) {
+	shortInactivityTimeout := 100 * time.Millisecond
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+		Body: mockStreamWithDelay{
+			mockStream{
+				data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+				index: 0,
+			},
+		},
+	}, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	stats, err := client.Stats(ctx, "foo", shortInactivityTimeout)
+	assert.NoError(t, err)
+	newStat := <-stats
+
+	assert.Nil(t, newStat)
+}
+
+func TestStatsInactivityTimeoutNoHit(t *testing.T) {
+	longInactivityTimeout := 500 * time.Millisecond
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
+		Body: mockStreamWithDelay{
+			mockStream{
+				data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+				index: 0,
+			},
+		},
+	}, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	stats, err := client.Stats(ctx, "foo", longInactivityTimeout)
+	assert.NoError(t, err)
+	newStat := <-stats
+
+	waitForStats(t, newStat)
+	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
+	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
+}
+
+type mockStreamWithDelay struct {
+	mockStream
+}
+
+func (msd mockStreamWithDelay) Read(data []byte) (n int, err error) {
+	time.Sleep(300 * time.Millisecond)
+	return msd.mockStream.Read(data)
+}
+
+func (msd mockStreamWithDelay) Close() error {
+	return msd.mockStream.Close()
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
