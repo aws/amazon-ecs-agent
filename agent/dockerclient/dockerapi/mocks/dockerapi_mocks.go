@@ -279,16 +279,16 @@ func (mr *MockDockerClientMockRecorder) StartContainer(arg0, arg1, arg2 interfac
 }
 
 // Stats mocks base method
-func (m *MockDockerClient) Stats(arg0 string, arg1 context.Context) (<-chan *types.Stats, error) {
-	ret := m.ctrl.Call(m, "Stats", arg0, arg1)
+func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.Stats, error) {
+	ret := m.ctrl.Call(m, "Stats", arg0, arg1, arg2)
 	ret0, _ := ret[0].(<-chan *types.Stats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Stats indicates an expected call of Stats
-func (mr *MockDockerClientMockRecorder) Stats(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stats", reflect.TypeOf((*MockDockerClient)(nil).Stats), arg0, arg1)
+func (mr *MockDockerClientMockRecorder) Stats(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stats", reflect.TypeOf((*MockDockerClient)(nil).Stats), arg0, arg1, arg2)
 }
 
 // StopContainer mocks base method
