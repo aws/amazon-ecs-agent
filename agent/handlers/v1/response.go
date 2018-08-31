@@ -51,6 +51,14 @@ type ContainerResponse struct {
 	Name       string                      `json:"Name"`
 	Ports      []PortResponse              `json:"Ports,omitempty"`
 	Networks   []containermetadata.Network `json:"Networks,omitempty"`
+	Volumes    []VolumeResponse            `json:"Volumes,omitempty"`
+}
+
+// VolumeResponse is the schema for the volume response JSON object
+type VolumeResponse struct {
+	DockerName  string `json:"DockerName,omitempty"`
+	Source      string `json:"Source,omitempty"`
+	Destination string `json:"Destination,omitempty"`
 }
 
 // PortResponse defines the schema for portmapping response JSON
@@ -101,6 +109,7 @@ func NewContainerResponse(dockerContainer *apicontainer.DockerContainer, eni *ap
 	}
 
 	resp.Ports = NewPortBindingsResponse(dockerContainer, eni)
+	resp.Volumes = NewVolumesResponse(dockerContainer)
 
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
@@ -140,6 +149,25 @@ func NewPortBindingsResponse(dockerContainer *apicontainer.DockerContainer, eni 
 		}
 
 		resp = append(resp, port)
+	}
+	return resp
+}
+
+// NewVolumesResponse creates VolumeResponse for a container
+func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []VolumeResponse {
+	container := dockerContainer.Container
+	var resp []VolumeResponse
+
+	volumes := container.GetVolumes()
+
+	for _, volume := range volumes {
+		volResp := VolumeResponse{
+			DockerName:  volume.Name,
+			Source:      volume.Source,
+			Destination: volume.Destination,
+		}
+
+		resp = append(resp, volResp)
 	}
 	return resp
 }

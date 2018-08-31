@@ -62,6 +62,7 @@ type ContainerResponse struct {
 	Type          string                      `json:"Type"`
 	Networks      []containermetadata.Network `json:"Networks,omitempty"`
 	Health        *apicontainer.HealthStatus  `json:"Health,omitempty"`
+	Volumes       []v1.VolumeResponse         `json:"Volumes,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -208,5 +209,6 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 		}
 	}
 
+	resp.Volumes = v1.NewVolumesResponse(dockerContainer)
 	return resp
 }

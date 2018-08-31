@@ -14,12 +14,19 @@
 package factory
 
 import (
+	"time"
+
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+)
+
+const (
+	roundtripTimeout = 5 * time.Second
 )
 
 type ClientCreator interface {
@@ -34,9 +41,12 @@ type asmClientCreator struct{}
 
 func (*asmClientCreator) NewASMClient(region string,
 	creds credentials.IAMRoleCredentials) secretsmanageriface.SecretsManagerAPI {
-	cfg := aws.NewConfig().WithRegion(region).WithCredentials(
-		awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
-			creds.SessionToken))
+	cfg := aws.NewConfig().
+		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
+		WithRegion(region).
+		WithCredentials(
+			awscreds.NewStaticCredentials(creds.AccessKeyID, creds.SecretAccessKey,
+				creds.SessionToken))
 	sess := session.Must(session.NewSession(cfg))
 	return secretsmanager.New(sess)
 }

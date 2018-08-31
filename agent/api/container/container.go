@@ -190,6 +190,9 @@ type Container struct {
 	// KnownPortBindingsUnsafe is an array of port bindings for the container.
 	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
+	// VolumesUnsafe is an array of volume mounts in the container.
+	VolumesUnsafe []types.MountPoint `json:"-"`
+
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
 	// it's not only supposed to be set when the container is being created, it's
@@ -533,6 +536,22 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 	defer c.lock.RUnlock()
 
 	return c.KnownPortBindingsUnsafe
+}
+
+// SetVolumes sets the volumes mounted in a container
+func (c *Container) SetVolumes(volumes []types.MountPoint) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.VolumesUnsafe = volumes
+}
+
+// GetVolumes returns the volumes mounted in a container
+func (c *Container) GetVolumes() []types.MountPoint {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.VolumesUnsafe
 }
 
 // HealthStatusShouldBeReported returns true if the health check is defined in

@@ -226,8 +226,8 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 						CPU:  uint(tc.cpu),
 					},
 				},
-				platformFields: platformFields{
-					cpuUnbounded: tc.cpuUnbounded,
+				PlatformFields: PlatformFields{
+					CpuUnbounded: tc.cpuUnbounded,
 				},
 			}
 

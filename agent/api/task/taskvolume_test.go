@@ -26,11 +26,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/docker/docker/api/types"
 )
 
 func TestMarshalUnmarshalOldTaskVolumes(t *testing.T) {
@@ -134,7 +134,9 @@ func TestInitializeLocalDockerVolume(t *testing.T) {
 }
 
 func TestInitializeSharedProvisionedVolume(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -164,7 +166,7 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 
 	// Expect the volume already exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
@@ -172,7 +174,9 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 }
 
 func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -202,12 +206,14 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 
 	// Expect the volume does not exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{Error: errors.New("volume not exist")})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.Error(t, err, "volume not found for auto-provisioned resource should cause task to fail")
 }
 
 func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -242,7 +248,55 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 			Labels: map[string]string{"test": "test"},
 		},
 	})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
+	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
+}
+
+func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
+	sharedVolumeMatchFullConfig := false
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "shared-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "shared-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.DockerVolumeConfig{
+					Scope:         "shared",
+					Autoprovision: true,
+					DriverOpts:    map[string]string{"type": "tmpfs"},
+					Labels:        map[string]string{"domain": "test"},
+				},
+			},
+		},
+	}
+
+	// Expect the volume already exists on the instance
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
+		DockerVolume: &types.Volume{
+			Options: map[string]string{},
+			Labels:  nil,
+		},
+	})
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
@@ -250,7 +304,9 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 }
 
 func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -279,14 +335,16 @@ func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 	}
 
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{Error: errors.New("not found")})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "volume resource should be provisioned by agent")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "volume resource should be in the container dependency map")
 }
 
 func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -319,12 +377,14 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 			Labels: map[string]string{"test": "test"},
 		},
 	})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.Error(t, err, "volume resource details not match should cause task fail")
 }
 
 func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	testTask := &Task{
@@ -355,11 +415,12 @@ func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
 		Error: &dockerapi.DockerTimeoutError{},
 	})
-	err := testTask.initializeDockerVolumes(dockerClient, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.Error(t, err, "volume resource details not match should cause task fail")
 }
 
 func TestInitializeTaskVolume(t *testing.T) {
+	sharedVolumeMatchFullConfig := true
 	testTask := &Task{
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers: []*apicontainer.Container{
@@ -384,7 +445,7 @@ func TestInitializeTaskVolume(t *testing.T) {
 		},
 	}
 
-	err := testTask.initializeDockerVolumes(nil, nil)
+	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, nil, nil)
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")

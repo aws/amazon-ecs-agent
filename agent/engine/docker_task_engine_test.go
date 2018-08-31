@@ -1949,6 +1949,13 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 	labels := map[string]string{
 		"name": "metadata",
 	}
+	volumes := []types.MountPoint{
+		{
+			Name:        "volume",
+			Source:      "/src/vol",
+			Destination: "/vol",
+		},
+	}
 	created := time.Now()
 	gomock.InOrder(
 		client.EXPECT().DescribeContainer(gomock.Any(), dockerID).Return(apicontainerstatus.ContainerRunning,
@@ -1956,12 +1963,14 @@ func TestSynchronizeContainerStatus(t *testing.T) {
 				Labels:    labels,
 				DockerID:  dockerID,
 				CreatedAt: created,
+				Volumes:   volumes,
 			}),
 		imageManager.EXPECT().RecordContainerReference(dockerContainer.Container),
 	)
 	taskEngine.(*DockerTaskEngine).synchronizeContainerStatus(dockerContainer, nil)
 	assert.Equal(t, created, dockerContainer.Container.GetCreatedAt())
 	assert.Equal(t, labels, dockerContainer.Container.GetLabels())
+	assert.Equal(t, volumes, dockerContainer.Container.GetVolumes())
 }
 
 // TestHandleDockerHealthEvent tests the docker health event will only cause the
@@ -2284,6 +2293,8 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource.EXPECT().TerminalStatus().MaxTimes(1)
 	cgroupResource.EXPECT().SteadyState().MaxTimes(1)
 	cgroupResource.EXPECT().GetKnownStatus().MaxTimes(1)
+	cgroupResource.EXPECT().GetName().AnyTimes().Return("cgroup")
+	cgroupResource.EXPECT().StatusString(gomock.Any()).AnyTimes()
 
 	// Set the task to be stopped so that the process can done quickly
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)

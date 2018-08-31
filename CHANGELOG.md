@@ -1,7 +1,12 @@
 # Changelog
 
-## 1.21.0-dev
+## 1.20.2-dev
+* Enhancement - Added ECS config field `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` to
+make the volume labels and driver options comparison configurable for shared volume [#1519](https://github.com/aws/amazon-ecs-agent/pull/1519)
+* Enhancement - Added Volumes metadata as part of v1 and v2 metadata endpoints [#1531](https://github.com/aws/amazon-ecs-agent/pull/1531)
 * Bug - Fixed a bug where unrecognized task cannot be stopped [#1467](https://github.com/aws/amazon-ecs-agent/pull/1467)
+* Bug - Fixed a bug where tasks with CPU windows unbounded field set are not honored
+on restart due to non-persistence of `PlatformFields` in agent state file [@julienduchesne](https://github.com/julienduchesne) [#1480](https://github.com/aws/amazon-ecs-agent/pull/1480)
 
 ## 1.20.1
 * Bug - Fixed a bug where the agent couldn't be upgraded if there are tasks that
