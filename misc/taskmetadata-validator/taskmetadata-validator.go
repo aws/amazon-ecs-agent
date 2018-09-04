@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -136,7 +136,7 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 	return &containerMetadata, nil
 }
 
-func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
+func taskStats(client *http.Client) (map[string]*types.Stats, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint, "task stats")
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 
 	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*docker.Stats
+	var taskStats map[string]*types.Stats
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return nil, fmt.Errorf("task stats: unable to parse response body: %v", err)
@@ -153,7 +153,7 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 	return taskStats, nil
 }
 
-func containerStats(client *http.Client, id string) (*docker.Stats, error) {
+func containerStats(client *http.Client, id string) (*types.Stats, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint+"/"+id, "container stats")
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func containerStats(client *http.Client, id string) (*docker.Stats, error) {
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats docker.Stats
+	var containerStats types.Stats
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return nil, fmt.Errorf("container stats: unable to parse response body: %v", err)
