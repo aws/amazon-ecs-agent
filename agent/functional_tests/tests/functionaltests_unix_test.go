@@ -625,9 +625,7 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 		},
 	})
 	defer agent.Cleanup()
-	// The Agent version was 1.14.2 when we added changes to agent introspection
-	// endpoint feature for the last time.
-	agent.RequireVersion(">1.14.1")
+	agent.RequireVersion(">1.20.1")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
@@ -663,7 +661,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 		},
 	})
 	defer agent.Cleanup()
-	agent.RequireVersion(">1.16.2")
+	agent.RequireVersion(">1.20.1")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region

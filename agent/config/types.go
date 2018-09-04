@@ -218,4 +218,10 @@ type Config struct {
 
 	// TaskMetadataBurstRate specifies the burst rate throttle for the task metadata endpoint
 	TaskMetadataBurstRate int
+
+	// SharedVolumeMatchFullConfig is config option used to short-circuit volume validation against a
+	// provisioned volume, if false (default). If true, we perform deep comparison including driver options
+	// and labels. For comparing shared volume across 2 instances, this should be set to false as docker's
+	// default behavior is to match name only, and does not propagate driver options and labels through volume drivers.
+	SharedVolumeMatchFullConfig bool
 }

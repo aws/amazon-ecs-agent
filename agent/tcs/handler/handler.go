@@ -81,7 +81,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
 	tcsEndpoint, err := params.ECSClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
-		seelog.Errorf("Unable to discover poll endpoint: %v", err)
+		seelog.Errorf("tcs: unable to discover poll endpoint: %v", err)
 		return err
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)

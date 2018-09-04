@@ -61,8 +61,9 @@ type ContainerResponse struct {
 	StartedAt     *time.Time `json:",omitempty"`
 	FinishedAt    *time.Time `json:",omitempty"`
 	Type          string
-	Health        HealthStatus `json:"health,omitempty"`
-	Networks      []Network    `json:",omitempty"`
+	Health        HealthStatus     `json:"health,omitempty"`
+	Networks      []Network        `json:",omitempty"`
+	Volumes       []VolumeResponse `json:"Volumes,omitempty"`
 }
 
 type HealthStatus struct {
@@ -92,6 +93,13 @@ type Network struct {
 	NetworkMode   string   `json:"NetworkMode,omitempty"`
 	IPv4Addresses []string `json:"IPv4Addresses,omitempty"`
 	IPv6Addresses []string `json:"IPv6Addresses,omitempty"`
+}
+
+// VolumeResponse is the schema for the volume response JSON object
+type VolumeResponse struct {
+	DockerName  string `json:"DockerName,omitempty"`
+	Source      string `json:"Source,omitempty"`
+	Destination string `json:"Destination,omitempty"`
 }
 
 func taskMetadata(client *http.Client) (*TaskResponse, error) {
@@ -241,6 +249,16 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
 			os.Exit(1)
 		}
+	}
+
+	if containerMetadata.Volumes == nil {
+		fmt.Fprintf(os.Stderr, "Expected container volume metadata to be non-empty")
+		os.Exit(1)
+	}
+
+	if containerMetadata.Volumes[0].DockerName != "shared-local" || containerMetadata.Volumes[0].Destination != "/ecs" {
+		fmt.Fprintf(os.Stderr, "Volume metadata fields incorrect")
+		os.Exit(1)
 	}
 
 	_, err = taskStats(client)

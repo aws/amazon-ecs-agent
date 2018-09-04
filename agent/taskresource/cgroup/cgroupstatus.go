@@ -39,7 +39,7 @@ var cgroupStatusMap = map[string]CgroupStatus{
 	"REMOVED": CgroupRemoved,
 }
 
-// StatusString returns a human readable string representation of this object
+// String returns a human readable string representation of this object
 func (cs CgroupStatus) String() string {
 	for k, v := range cgroupStatusMap {
 		if v == cs {

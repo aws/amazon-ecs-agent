@@ -228,7 +228,7 @@ run-sudo-tests:
 	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
 
 .PHONY: codebuild
-codebuild: get-deps test-artifacts .out-stamp
+codebuild: test-artifacts .out-stamp
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
 	$(MAKE) docker-release TARGET_OS="windows"
