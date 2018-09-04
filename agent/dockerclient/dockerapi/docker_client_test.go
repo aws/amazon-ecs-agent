@@ -44,6 +44,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
@@ -577,18 +578,17 @@ func TestInspectContainer(t *testing.T) {
 }
 
 func TestContainerEvents(t *testing.T) {
-	mockDocker, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	var events chan<- *docker.APIEvents
-	mockDocker.EXPECT().AddEventListener(gomock.Any()).Do(func(x interface{}) {
-		events = x.(chan<- *docker.APIEvents)
-	})
+	eventsChan := make(chan events.Message, dockerEventBufferSize)
+	errChan := make(chan error)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
 	require.NoError(t, err, "Could not get container events")
 	go func() {
-		events <- &docker.APIEvents{Type: "container", ID: "containerId", Status: "create"}
+		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
 	}()
 
 	event := <-dockerEvents
@@ -612,9 +612,10 @@ func TestContainerEvents(t *testing.T) {
 				Destination: "/container/path"},
 		},
 	}
+
 	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid2").Return(container, nil)
 	go func() {
-		events <- &docker.APIEvents{Type: "container", ID: "cid2", Status: "start"}
+		eventsChan <- events.Message{Type: "container", ID: "cid2", Status: "start"}
 	}()
 	event = <-dockerEvents
 	assert.Equal(t, event.DockerID, "cid2", "Wrong docker id")
@@ -637,8 +638,8 @@ func TestContainerEvents(t *testing.T) {
 		mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "cid3"+strconv.Itoa(i)).Return(stoppedContainer, nil)
 	}
 	go func() {
-		events <- &docker.APIEvents{Type: "container", ID: "cid30", Status: "stop"}
-		events <- &docker.APIEvents{Type: "container", ID: "cid31", Status: "die"}
+		eventsChan <- events.Message{Type: "container", ID: "cid30", Status: "stop"}
+		eventsChan <- events.Message{Type: "container", ID: "cid31", Status: "die"}
 	}()
 
 	for i := 0; i < 2; i++ {
@@ -665,12 +666,12 @@ func TestContainerEvents(t *testing.T) {
 	}
 	mockDockerSDK.EXPECT().ContainerInspect(gomock.Any(), "container_health").Return(containerWithHealthInfo, nil)
 	go func() {
-		events <- &docker.APIEvents{
+		eventsChan <- events.Message{
 			Type:   "container",
 			ID:     "container_health",
 			Action: "health_status: unhealthy",
 			Status: "health_status: unhealthy",
-			Actor: docker.APIActor{
+			Actor: events.Actor{
 				ID: "container_health",
 			},
 		}
@@ -706,7 +707,7 @@ func TestContainerEvents(t *testing.T) {
 		"kill",
 	}
 	for _, eventStatus := range ignore {
-		events <- &docker.APIEvents{Type: "container", ID: "123", Status: eventStatus}
+		eventsChan <- events.Message{Type: "container", ID: "123", Status: eventStatus}
 		select {
 		case <-dockerEvents:
 			t.Error("No event should be available for " + eventStatus)
@@ -725,13 +726,49 @@ func TestContainerEvents(t *testing.T) {
 	}
 
 	for eventType, eventStatus := range ignoreEventType {
-		events <- &docker.APIEvents{Type: eventType, ID: "123", Status: eventStatus}
+		eventsChan <- events.Message{Type: eventType, ID: "123", Status: eventStatus}
 		select {
 		case <-dockerEvents:
 			t.Errorf("No event should be available for %v", eventType)
 		default:
 		}
 	}
+}
+func TestContainerEventsEOFError(t *testing.T) {
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	eventsChan := make(chan events.Message, dockerEventBufferSize)
+	errChan := make(chan error)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
+
+	dockerEvents, err := client.ContainerEvents(context.TODO())
+	require.NoError(t, err, "Could not get container events")
+	go func() {
+		errChan <- io.EOF
+	}()
+
+	assert.Equal(t, len(dockerEvents), 0, "Wrong number of docker events")
+}
+
+func TestContainerEventsStreamError(t *testing.T) {
+	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	eventsChan := make(chan events.Message, dockerEventBufferSize)
+	errChan := make(chan error)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).Times(2)
+
+	dockerEvents, err := client.ContainerEvents(context.TODO())
+	require.NoError(t, err, "Could not get container events")
+	go func() {
+		errChan <- errors.New("some error happened")
+		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
+	}()
+
+	event := <-dockerEvents
+	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
+	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
 }
 
 func TestDockerVersion(t *testing.T) {
