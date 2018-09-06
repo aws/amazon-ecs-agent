@@ -46,6 +46,23 @@ const (
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
 	DefaultRegionName = endpoints.UsEast1RegionID
+
+	// dockerJSONLogMaxSize is the maximum allowed size of the
+	// individual backing json log files for the managed container.
+	dockerJSONLogMaxSize = "16m"
+	// dockerJSONLogMaxSizeEnvVar is the environment variable that may
+	// be used to override the default value of dockerJSONLogMaxSize
+	// used for managed containers.
+	dockerJSONLogMaxSizeEnvVar = "ECS_INIT_DOCKER_LOG_FILE_SIZE"
+
+	// dockerJSONLogMaxFiles is the maximum rotated number of backing
+	// json log files on disk managed by docker for the managed
+	// container.
+	dockerJSONLogMaxFiles = "4"
+	// dockerJSONLogMaxSizeEnvVar is the environment variable that may
+	// be used to override the default value used of
+	// dockerJSONLogMaxFiles for managed containers.
+	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
 )
 
 var partitionBucketMap = map[string]string{
@@ -165,15 +182,24 @@ func HostPKIDirPath() string {
 	return hostPKIDirPath
 }
 
-// AgentLogDriverConfiguration returns a LogConfig object to be used by the agent. It defaults to a json file with
-// max-size of 16m and max-file of 4. At the moment this is not configurable.
-func AgentLogDriverConfiguration() godocker.LogConfig {
-	// TODO: Refactor code to allow use of environment variables to change LogConfig object
+// AgentDockerLogDriverConfiguration returns a LogConfig object
+// suitable for used with the managed container.
+func AgentDockerLogDriverConfiguration() godocker.LogConfig {
+	maxSize := dockerJSONLogMaxSize
+	if fromEnv := os.Getenv(dockerJSONLogMaxSizeEnvVar); fromEnv != "" {
+		maxSize = fromEnv
+	}
+
+	maxFiles := dockerJSONLogMaxFiles
+	if fromEnv := os.Getenv(dockerJSONLogMaxFilesEnvVar); fromEnv != "" {
+		maxFiles = fromEnv
+	}
+
 	return godocker.LogConfig{
 		Type: "json-file",
 		Config: map[string]string{
-			"max-size": "16m",
-			"max-file": "4",
+			"max-size": maxSize,
+			"max-file": maxFiles,
 		},
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -35,7 +35,6 @@ func TestDockerUnixSocketWithoutDockerHost(t *testing.T) {
 }
 
 func TestDockerUnixSocketWithDockerHost(t *testing.T) {
-
 	os.Setenv("DOCKER_HOST", "unix:///foo/bar")
 	defer os.Unsetenv("DOCKER_HOST")
 
@@ -80,5 +79,60 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 					t.Error("GetAgentBucketRegion should return an error if the destination is not found")
 				}
 			})
+	}
+}
+
+func TestAgentDockerLogDriverConfiguration(t *testing.T) {
+	resetEnv := func() {
+		os.Unsetenv(dockerJSONLogMaxFilesEnvVar)
+		os.Unsetenv(dockerJSONLogMaxSizeEnvVar)
+	}
+	resetEnv()
+
+	testcases := []struct {
+		name string
+
+		envFiles string
+		envSize  string
+
+		expectedFiles string
+		expectedSize  string
+	}{
+
+		{
+			name: "defaults",
+
+			envFiles: "",
+			envSize:  "",
+
+			expectedFiles: dockerJSONLogMaxFiles,
+			expectedSize:  dockerJSONLogMaxSize,
+		},
+		{
+			name: "environment set",
+
+			envFiles: "1",
+			envSize:  "1m",
+
+			expectedFiles: "1",
+			expectedSize:  "1m",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			resetEnv()
+
+			os.Setenv(dockerJSONLogMaxFilesEnvVar, test.envFiles)
+			os.Setenv(dockerJSONLogMaxSizeEnvVar, test.envSize)
+
+			result := AgentDockerLogDriverConfiguration()
+			if actual := result.Config["max-size"]; actual != test.expectedSize {
+				t.Errorf("Configured max-size %q is not the expected %q", actual, test.expectedSize)
+			}
+			if actual := result.Config["max-file"]; actual != test.expectedFiles {
+				t.Errorf("Configured max-files %q is not the expected %q", actual, test.expectedFiles)
+			}
+		})
 	}
 }
