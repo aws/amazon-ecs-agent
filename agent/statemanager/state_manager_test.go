@@ -104,8 +104,8 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 	err = stateManager.Load()
 	assert.NoError(t, err)
 
-	assert.Equal(t, cluster, "test")
-	assert.True(t, sequenceNumber == 0)
+	assert.Equal(t,  "test", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
 	var deadTask *apitask.Task
