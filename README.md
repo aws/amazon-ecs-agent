@@ -83,7 +83,7 @@ PS C:\> Set-Location ${ecsExeDir}
 PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
 PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
 PS C:\> [bool]$EnableTaskIAMRoles = $false
-PS C:\> if (${EnableTaskIAMRoles} {
+PS C:\> if (${EnableTaskIAMRoles}) {
 >> .\hostsetup.ps1
 >> }
 PS C:\> # Install the agent service
