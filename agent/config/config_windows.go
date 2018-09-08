@@ -46,6 +46,8 @@ const (
 	defaultContainerStartTimeout = 8 * time.Minute
 	// minimumContainerStartTimeout specifies the minimum value for starting a container
 	minimumContainerStartTimeout = 2 * time.Minute
+	// default docker inactivity time is extra time needed on container extraction
+	defaultDockerPullInactivityTimeout = 1 * time.Minute
 )
 
 // DefaultConfig returns the default configuration for Windows
@@ -80,6 +82,7 @@ func DefaultConfig() Config {
 		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:           defaultDockerStopTimeout,
 		ContainerStartTimeout:       defaultContainerStartTimeout,
+		DockerPullInactivityTimeout: defaultDockerPullInactivityTimeout,
 		CredentialsAuditLogFile:     filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled: false,
 		ImageCleanupDisabled:        false,

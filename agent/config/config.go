@@ -77,6 +77,10 @@ const (
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
 	minimumTaskCleanupWaitDuration = 1 * time.Minute
 
+	// minimumDockerPullInactivityTimeout specifies the minimum duration to wait before cleaning up
+	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
+	minimumDockerPullInactivityTimeout = 1 * time.Minute
+
 	// minimumDockerStopTimeout specifies the minimum value for docker StopContainer API
 	minimumDockerStopTimeout = 1 * time.Second
 
@@ -255,6 +259,11 @@ func (cfg *Config) validateAndOverrideBounds() error {
 		cfg.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
+	if cfg.DockerPullInactivityTimeout < minimumDockerPullInactivityTimeout {
+		seelog.Warnf("Invalid value for docker pull inactivity timeout duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", defaultDockerPullInactivityTimeout.String(), cfg.DockerPullInactivityTimeout, minimumDockerPullInactivityTimeout)
+		cfg.TaskCleanupWaitDuration = defaultDockerPullInactivityTimeout
+	}
+
 	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
 		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
 		cfg.ImageCleanupInterval = DefaultImageCleanupTimeInterval
@@ -402,6 +411,7 @@ func environmentConfig() (Config, error) {
 		TaskCPUMemLimit:                  parseTaskCPUMemLimitEnabled(),
 		DockerStopTimeout:                parseDockerStopTimeout(),
 		ContainerStartTimeout:            parseContainerStartTimeout(),
+		DockerPullInactivityTimeout:	  parseDockerPullInactivityTimeout(),
 		CredentialsAuditLogFile:          os.Getenv("ECS_AUDIT_LOGFILE"),
 		CredentialsAuditLogDisabled:      utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
 		TaskIAMRoleEnabledForNetworkHost: utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
