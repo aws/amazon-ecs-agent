@@ -261,7 +261,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 
 	if cfg.DockerPullInactivityTimeout < minimumDockerPullInactivityTimeout {
 		seelog.Warnf("Invalid value for docker pull inactivity timeout duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", defaultDockerPullInactivityTimeout.String(), cfg.DockerPullInactivityTimeout, minimumDockerPullInactivityTimeout)
-		cfg.TaskCleanupWaitDuration = defaultDockerPullInactivityTimeout
+		cfg.DockerPullInactivityTimeout = defaultDockerPullInactivityTimeout
 	}
 
 	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
