@@ -823,34 +823,6 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
-// TestSerialImagePull tests the serial pull image behavior of the agent
-func TestSerialImagePull(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	// Force enable serial pull
-	dockerTaskEngine, ok := taskEngine.(*DockerTaskEngine)
-	require.True(t, ok)
-	dockerTaskEngine.enableConcurrentPull = false
-
-	// Ensure this image isn't pulled by deleting it
-	removeImage(t, testRegistryImage)
-	removeImage(t, testBusyboxImage)
-
-	testTask := createTestTask("testSerialImagePull")
-	testTask.Containers = append(testTask.Containers,
-		createTestContainerWithImageAndName(testBusyboxImage, "busybox"))
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-}
-
 func TestTaskLevelVolume(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
