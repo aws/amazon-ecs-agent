@@ -250,10 +250,10 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 			ID: "eniID",
 		},
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				Name: "c1",
 			},
-			&apicontainer.Container{
+			{
 				Name: PauseContainerName,
 				Type: apicontainer.ContainerCNIPause,
 			},
@@ -862,15 +862,15 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 				Essential:         true,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe:       apicontainerstatus.ContainerCreated,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
@@ -898,8 +898,8 @@ func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{},
-			&apicontainer.Container{},
+			{},
+			{},
 		},
 	}
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
@@ -909,10 +909,10 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
@@ -932,13 +932,13 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,
 			},
@@ -964,13 +964,13 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
@@ -995,15 +995,15 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 	testTask := &Task{
 		KnownStatusUnsafe: apitaskstatus.TaskStatusNone,
 		Containers: []*apicontainer.Container{
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerCreated,
 				Essential:         true,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				Essential:         true,
 			},
-			&apicontainer.Container{
+			{
 				KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 				Essential:               true,
 				SteadyStateStatusUnsafe: &resourcesProvisioned,

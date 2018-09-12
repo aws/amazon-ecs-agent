@@ -25,7 +25,7 @@ import (
 )
 
 func TestNewHttpClient(t *testing.T) {
-	expectedResult := New(time.Duration(10),true)
+	expectedResult := New(time.Duration(10), true)
 	transport := expectedResult.Transport.(*ecsRoundTripper)
 	assert.Equal(t, cipher.SupportedCipherSuites, transport.transport.(*http.Transport).TLSClientConfig.CipherSuites)
 	assert.Equal(t, true, transport.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify)

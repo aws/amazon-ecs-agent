@@ -136,7 +136,7 @@ func (agent *TestAgent) StartAgent() error {
 
 func (agent *TestAgent) Cleanup() {
 	if agent.Options != nil {
-		for k, _ := range agent.Options.ExtraEnvironment {
+		for k := range agent.Options.ExtraEnvironment {
 			os.Unsetenv(k)
 		}
 	}

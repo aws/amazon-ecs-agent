@@ -105,7 +105,7 @@ func TestTaskResponse(t *testing.T) {
 	}
 	container.SetLabels(labels)
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
-		taskARN: &apicontainer.DockerContainer{
+		taskARN: {
 			DockerID:   containerID,
 			DockerName: containerName,
 			Container:  container,

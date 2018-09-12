@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/registry"
@@ -172,8 +172,6 @@ func TestStateManagerLoadV13Data(t *testing.T) {
 	assert.Equal(t, "arn:aws:ecs:us-west-2:694464167470:container-instance/5e94f1e5-2177-4440-ab84-196d1a6072da", containerInstanceArn)
 	assert.Equal(t, "i-04e73559ead350d79", savedInstanceID)
 }
-
-
 
 func TestStateManagerSaveCreateFileError(t *testing.T) {
 	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t)
