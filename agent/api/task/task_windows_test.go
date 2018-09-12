@@ -295,3 +295,29 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCanonicalPath(t *testing.T) {
+	testcases := []struct {
+		name           string
+		path           string
+		expectedResult string
+	}{
+		{
+			name:           "folderPath",
+			path:           `C:\myFile`,
+			expectedResult: `c:\myfile`,
+		},
+		{
+			name:           "drivePath",
+			path:           `D:`,
+			expectedResult: `d:`,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := getCanonicalPath(tc.path)
+			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
