@@ -1587,7 +1587,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
 		credentialsID, credentialsManager, asmClientCreator)
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
-		asmauth.ResourceName: []taskresource.TaskResource{asmAuthRes},
+		asmauth.ResourceName: {asmAuthRes},
 	}
 	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
 	asmAuthDataBytes, _ := json.Marshal(&asm.AuthDataValue{
@@ -2204,7 +2204,7 @@ func TestSynchronizeResource(t *testing.T) {
 	cgroupResource := mock_taskresource.NewMockTaskResource(ctrl)
 	testTask := testdata.LoadTask("sleep5")
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
-		"cgroup": []taskresource.TaskResource{
+		"cgroup": {
 			cgroupResource,
 		},
 	}

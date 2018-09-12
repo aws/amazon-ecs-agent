@@ -115,7 +115,7 @@ func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
 	}
 
 	if len(lhs.Attachments) != 0 {
-		for i, _ := range lhs.Attachments {
+		for i := range lhs.Attachments {
 			if !(equal(lhs.Attachments[i].Status, rhs.Attachments[i].Status) &&
 				equal(lhs.Attachments[i].AttachmentArn, rhs.Attachments[i].AttachmentArn)) {
 				return false

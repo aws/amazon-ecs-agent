@@ -271,7 +271,7 @@ func getCpuAndMemory() (int64, int64) {
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{&ecs.Attribute{
+	return []*ecs.Attribute{{
 		Name:  aws.String("ecs.os-type"),
 		Value: aws.String(config.OSType),
 	}}

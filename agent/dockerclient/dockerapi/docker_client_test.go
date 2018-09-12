@@ -1196,7 +1196,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 
 func TestMetadataFromContainer(t *testing.T) {
 	ports := map[docker.Port][]docker.PortBinding{
-		docker.Port("80/tcp"): []docker.PortBinding{
+		docker.Port("80/tcp"): {
 			{
 				HostIP:   "0.0.0.0",
 				HostPort: "80",
@@ -1462,13 +1462,13 @@ func TestListPluginsWithFilter(t *testing.T) {
 	defer done()
 
 	plugins := []docker.PluginDetail{
-		docker.PluginDetail{
+		{
 			ID:     "id1",
 			Name:   "name1",
 			Tag:    "tag1",
 			Active: false,
 		},
-		docker.PluginDetail{
+		{
 			ID:     "id2",
 			Name:   "name2",
 			Tag:    "tag2",
@@ -1481,7 +1481,7 @@ func TestListPluginsWithFilter(t *testing.T) {
 				},
 			},
 		},
-		docker.PluginDetail{
+		{
 			ID:     "id3",
 			Name:   "name3",
 			Tag:    "tag3",

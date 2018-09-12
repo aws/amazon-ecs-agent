@@ -17,6 +17,7 @@ package cipher
 import (
 	"crypto/tls"
 )
+
 // Only support a subset of ciphers, corresponding cipher suite names can be found here: https://golang.org/pkg/crypto/tls/#Config
 var SupportedCipherSuites = []uint16{
 	tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
