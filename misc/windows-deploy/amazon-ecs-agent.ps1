@@ -70,7 +70,7 @@ try {
     try {
         .\amazon-ecs-agent.exe
     } catch {
-        LogMsg -message "Could not start agent.exe." -logLevel "ERROR"
+        LogMsg -message "Could not start amazon-ecs-agent.exe." -logLevel "ERROR"
         LogMsg -message $_.Exception.Message -logLevel "ERROR"
         exit 2
     }

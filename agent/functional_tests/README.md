@@ -66,7 +66,7 @@ done first:
 
 ### Windows
 
-Before running these tests, you should build the ECS agent (as `agent.exe`) and
+Before running these tests, you should build the ECS agent (as `amazon-ecs-agent.exe`) and
 record the directory where the binary is present in the `ECS_WINDOWS_TEST_DIR`
 environment variable.
 
@@ -75,7 +75,7 @@ You can configure the following environment variables to change test
 execution behavior:
 * `AWS_REGION`: Control the region that is used for test execution
 * `ECS_CLUSTER`: Control the cluster used for test execution
-* `ECS_WINDOWS_TEST_DIR`: Override the path used to find `agent.exe`
+* `ECS_WINDOWS_TEST_DIR`: Override the path used to find `amazon-ecs-agent.exe`
 * `ECS_FTEST_TMP`: Override the default temporary directory used for storing
   test logs and data files
 
