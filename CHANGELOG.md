@@ -1,4 +1,7 @@
 # Changelog
+## 1.20.3
+* Enhancement - Deprecate support for serial docker image pull [#1569](https://github.com/aws/amazon-ecs-agent/pull/1569)
+* Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.08.0`
 
 ## 1.20.2
 * Enhancement - Added ECS config field `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` to
