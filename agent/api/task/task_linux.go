@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -188,7 +189,7 @@ func (task *Task) buildLinuxMemorySpec() (specs.LinuxMemory, error) {
 }
 
 // platformHostConfigOverride to override platform specific feature sets
-func (task *Task) platformHostConfigOverride(hostConfig *docker.HostConfig) error {
+func (task *Task) platformHostConfigOverride(container *apicontainer.Container, hostConfig *docker.HostConfig) error {
 	// Override cgroup parent
 	return task.overrideCgroupParent(hostConfig)
 }

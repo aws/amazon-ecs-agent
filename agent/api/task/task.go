@@ -824,7 +824,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig)
+	err = task.platformHostConfigOverride(container, hostConfig)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{err.Error()}
 	}

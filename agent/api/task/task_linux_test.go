@@ -272,7 +272,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 
 	hostConfig := &docker.HostConfig{}
 
-	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
+	assert.NoError(t, task.platformHostConfigOverride(nil, hostConfig))
 	assert.NotEmpty(t, hostConfig)
 	assert.Equal(t, expectedCgroupRoot, hostConfig.CgroupParent)
 }

@@ -18,6 +18,9 @@ package task
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -114,13 +117,13 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	hostConfig := &docker.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
 
-	task.platformHostConfigOverride(hostConfig)
+	task.platformHostConfigOverride(nil, hostConfig)
 	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
 	assert.Equal(t, int64(0), hostConfig.CPUShares)
 	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 
 	hostConfig = &docker.HostConfig{CPUShares: 10}
-	task.platformHostConfigOverride(hostConfig)
+	task.platformHostConfigOverride(nil, hostConfig)
 	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
 	assert.Empty(t, hostConfig.CPUShares)
 }
@@ -294,4 +297,42 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 			assert.Equal(t, tc.cpuPercent, hostconfig.CPUPercent)
 		})
 	}
+}
+
+// TestWindowsPlatformHostConfigOverrideCredSpec tests the docker hostconfig was correctly transformed and written
+func TestWindowsPlatformHostConfigOverrideCredSpec(t *testing.T) {
+	// Testing Windows platform override for HostConfig.
+	// Expects MemorySwappiness option to be set to -1
+	// And that the credentialspec was transformed/written to disk
+
+	container := &apicontainer.Container{
+		Name: "c1",
+	}
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{container},
+	}
+
+	hostConfig := &docker.HostConfig{
+		SecurityOpt: []string{"credentialspec={\"key\":\"value\"}"},
+		CPUShares:   int64(1 * cpuSharesPerCore),
+	}
+
+	task.platformHostConfigOverride(container, hostConfig)
+	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
+	assert.Equal(t, int64(0), hostConfig.CPUShares)
+	assert.EqualValues(t, []string{"credentialspec=file://test-c1.json"}, hostConfig.SecurityOpt)
+	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
+
+	hostConfig = &docker.HostConfig{CPUShares: 10}
+	task.platformHostConfigOverride(container, hostConfig)
+	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
+	assert.Empty(t, hostConfig.CPUShares)
+
+	name := task.Arn + "-" + container.Name + ".json"
+	path := filepath.Join(os.Getenv("ProgramData"), "Docker", "credentialspecs", name)
+	dat, err := ioutil.ReadFile(path)
+	assert.Nil(t, err)
+	assert.EqualValues(t, "{\"key\":\"value\"}", string(dat))
+	os.Remove(path)
 }
