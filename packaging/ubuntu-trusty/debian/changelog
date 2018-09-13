@@ -1,14 +1,20 @@
+amazon-ecs-init (1.20.3-1) trusty; urgency=medium
+
+  * Cache Agent version 1.20.3
+
+  -- Yumeng Xie <yumex@amazon.com>  Thu, 13 Sep 2018 16:38:10 -0800
+
 amazon-ecs-init (1.20.2-1) trusty; urgency=medium
 
   * Cache Agent version 1.20.2
 
-  -- Feng Xiong<fenxiong@amazon.com>  Thu, 30 Aug 2018 16:43:01 -0800
+  -- Feng Xiong <fenxiong@amazon.com>  Thu, 30 Aug 2018 16:43:01 -0800
 
 amazon-ecs-init (1.20.1-1) trusty; urgency=medium
 
   * Cache Agent version 1.20.1
 
-  -- Peng Yin<penyin@amazon.com>  Wed, 08 Aug 2018 16:04:01 -0800
+  -- Peng Yin <penyin@amazon.com>  Wed, 08 Aug 2018 16:04:01 -0800
 
 amazon-ecs-init (1.20.0-1) trusty; urgency=medium
 
