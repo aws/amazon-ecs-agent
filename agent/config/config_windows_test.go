@@ -36,7 +36,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
 	assert.False(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
-	assert.Equal(t, 10, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
+	assert.Equal(t, 11, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.Equal(t, 8*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
@@ -75,7 +75,8 @@ func TestConfigIAMTaskRolesReserves80(t *testing.T) {
 		rdpPort,
 		rpcPort,
 		smbPort,
-		winRMPort,
+		winRMPortHTTP,
+		winRMPortHTTPS,
 		dnsPort,
 		netBIOSPort,
 		httpPort,
