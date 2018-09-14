@@ -727,7 +727,10 @@
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
         "registeredAt":{"shape":"Timestamp"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "ContainerInstanceStatus":{
@@ -1450,7 +1453,10 @@
         "totalResources":{"shape":"Resources"},
         "versionInfo":{"shape":"VersionInfo"},
         "containerInstanceArn":{"shape":"String"},
-        "attributes":{"shape":"Attributes"}
+        "attributes":{"shape":"Attributes"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "RegisterContainerInstanceResponse":{
