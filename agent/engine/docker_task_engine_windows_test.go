@@ -24,15 +24,6 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-const (
-	// dockerVersionCheckDuringInit specifies if Docker client's Version()
-	// API needs to be mocked in engine tests
-	//
-	// isParallelPullCompatible is not invoked during engin intialization
-	// on windows. No need for mock Docker client's Version() call
-	dockerVersionCheckDuringInit = false
-)
-
 func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

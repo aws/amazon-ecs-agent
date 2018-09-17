@@ -475,7 +475,7 @@ func TestTaskStats(t *testing.T) {
 
 	dockerStats := &types.Stats{NumProcs: 2}
 	containerMap := map[string]*apicontainer.DockerContainer{
-		containerName: &apicontainer.DockerContainer{
+		containerName: {
 			DockerID: containerID,
 		},
 	}

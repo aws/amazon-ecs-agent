@@ -83,7 +83,7 @@ PS C:\> Set-Location ${ecsExeDir}
 PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
 PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
 PS C:\> [bool]$EnableTaskIAMRoles = $false
-PS C:\> if (${EnableTaskIAMRoles} {
+PS C:\> if (${EnableTaskIAMRoles}) {
 >> .\hostsetup.ps1
 >> }
 PS C:\> # Install the agent service
@@ -141,7 +141,7 @@ additional details on each available environment variable.
 | Environment Key | Example Value(s)            | Description | Default value on Linux | Default value on Windows |
 |:----------------|:----------------------------|:------------|:-----------------------|:-------------------------|
 | `ECS_CLUSTER`       | clusterName             | The cluster this agent should check into. | default | default |
-| `ECS_RESERVED_PORTS` | `[22, 80, 5000, 8080]` | An array of ports that should be marked as unavailable for scheduling on this container instance. | `[22, 2375, 2376, 51678, 51679]` | `[53, 135, 139, 445, 2375, 2376, 3389, 5985, 51678, 51679]`
+| `ECS_RESERVED_PORTS` | `[22, 80, 5000, 8080]` | An array of ports that should be marked as unavailable for scheduling on this container instance. | `[22, 2375, 2376, 51678, 51679]` | `[53, 135, 139, 445, 2375, 2376, 3389, 5985, 5986, 51678, 51679]`
 | `ECS_RESERVED_PORTS_UDP` | `[53, 123]` | An array of UDP ports that should be marked as unavailable for scheduling on this container instance. | `[]` | `[]` |
 | `ECS_ENGINE_AUTH_TYPE`     |  "docker" &#124; "dockercfg" | The type of auth data that is stored in the `ECS_ENGINE_AUTH_DATA` key. | | |
 | `ECS_ENGINE_AUTH_DATA`     | See the [dockerauth documentation](https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth) | Docker [auth data](https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth) formatted as defined by `ECS_ENGINE_AUTH_TYPE`. | | |

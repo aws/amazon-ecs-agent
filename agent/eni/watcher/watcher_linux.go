@@ -182,7 +182,7 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 	// the race here. The state would be corrected during the next reconciliation loop.
 
 	// Add new interfaces next
-	for mac, _ := range currentState {
+	for mac := range currentState {
 		if err := udevWatcher.sendENIStateChange(mac); err != nil {
 			log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
 		}
