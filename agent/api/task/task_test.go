@@ -254,7 +254,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				Name: "c1",
 			},
 			{
-				Name: PauseContainerName,
+				Name: NetworkPauseContainerName,
 				Type: apicontainer.ContainerCNIPause,
 			},
 		},
@@ -266,7 +266,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	// for a non pause container
 	config, err := testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
-	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, config.NetworkMode)
+	assert.Equal(t, "container:"+dockerIDPrefix+NetworkPauseContainerName, config.NetworkMode)
 
 	// Verify that the network mode is set to "none" for the pause container
 	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
@@ -633,6 +633,197 @@ func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 		assert.Equal(t, 0, len(vol.VolumeConfig.Labels))
 	}
 
+}
+
+// Slice of structs for Table Driven testing for sharing PID and IPC resources
+var namespaceTests = []struct {
+	PIDMode         string
+	IPCMode         string
+	ShouldProvision bool
+}{
+	{"", "none", false},
+	{"", "", false},
+	{"host", "host", false},
+	{"task", "task", true},
+	{"host", "task", true},
+	{"task", "host", true},
+	{"", "task", true},
+	{"task", "none", true},
+	{"host", "none", false},
+}
+
+// Testing the Getter functions for IPCMode and PIDMode
+func TestGetPIDAndIPCFromTask(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTask := &Task{
+			Containers: []*apicontainer.Container{
+				{
+					Name: "c1",
+				},
+				{
+					Name: "c2",
+				},
+			},
+			PIDMode: aTest.PIDMode,
+			IPCMode: aTest.IPCMode,
+		}
+		assert.Equal(t, aTest.PIDMode, testTask.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, testTask.getIPCMode())
+	}
+}
+
+// Tests if NamespacePauseContainer was provisioned in PostUnmarshalTask
+func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTaskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			PidMode:       strptr(aTest.PIDMode),
+			IpcMode:       strptr(aTest.IPCMode),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: strptr("container1"),
+				},
+				{
+					Name: strptr("container2"),
+				},
+			},
+		}
+
+		seqNum := int64(42)
+		task, err := TaskFromACS(&testTaskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
+		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
+		cfg := config.Config{}
+		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		if aTest.ShouldProvision {
+			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
+		} else {
+			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
+		}
+	}
+}
+
+func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		taskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			PidMode:       strptr(aTest.PIDMode),
+			IpcMode:       strptr(aTest.IPCMode),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: strptr("container1"),
+				},
+				{
+					Name: strptr("container2"),
+				},
+			},
+		}
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
+		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
+		cfg := config.Config{}
+		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		if !aTest.ShouldProvision {
+			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
+		} else {
+			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
+
+			namespacePause, ok := task.ContainerByName(NamespacePauseContainerName)
+			if !ok {
+				t.Fatal()
+			}
+
+			docMaps := dockerMap(task)
+			dockerName := docMaps[namespacePause.Name].DockerID
+
+			for _, container := range task.Containers {
+				//configure HostConfig for each container
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				assert.Nil(t, err)
+				if namespacePause == container {
+					// Expected behavior for IPCMode="task" is "shareable"
+					if aTest.IPCMode == "task" {
+						assert.Equal(t, "shareable", dockHostCfg.IpcMode)
+					} else {
+						assert.Equal(t, "", dockHostCfg.IpcMode)
+					}
+					// Expected behavior for any PIDMode is ""
+					assert.Equal(t, "", dockHostCfg.PidMode)
+				} else {
+					switch aTest.IPCMode {
+					case "task":
+						assert.Equal(t, "container:"+dockerName, dockHostCfg.IpcMode)
+					case "host":
+						assert.Equal(t, "host", dockHostCfg.IpcMode)
+					}
+
+					switch aTest.PIDMode {
+					case "task":
+						assert.Equal(t, "container:"+dockerName, dockHostCfg.PidMode)
+					case "host":
+						assert.Equal(t, "host", dockHostCfg.PidMode)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTask := &Task{
+			PIDMode: aTest.PIDMode,
+			IPCMode: aTest.IPCMode,
+			Containers: []*apicontainer.Container{
+				{
+					Name:                      "c1",
+					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				},
+				{
+					Name:                      "c2",
+					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				},
+			},
+		}
+		cfg := &config.Config{
+			PauseContainerImageName: "pause-container-image-name",
+			PauseContainerTag:       "pause-container-tag",
+		}
+		testTask.addNamespaceSharingProvisioningDependency(cfg)
+		if aTest.ShouldProvision {
+			pauseContainer, ok := testTask.ContainerByName(NamespacePauseContainerName)
+			require.True(t, ok, "Expected to find pause container")
+			assert.True(t, pauseContainer.Essential, "Pause Container should be essential")
+			assert.Equal(t, len(testTask.Containers), 3)
+			for _, cont := range testTask.Containers {
+				// Check if dependency to Pause container was set
+				if cont.Name == NamespacePauseContainerName {
+					continue
+				}
+				found := false
+				for _, contDep := range cont.TransitionDependenciesMap[apicontainerstatus.ContainerPulled].ContainerDependencies {
+					if contDep.ContainerName == NamespacePauseContainerName && contDep.SatisfiedStatus == apicontainerstatus.ContainerRunning {
+						found = true
+					}
+				}
+				assert.True(t, found, "Dependency should have been found")
+			}
+		} else {
+			assert.Equal(t, len(testTask.Containers), 2, "Pause Container should not have been added")
+		}
+
+	}
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -1376,19 +1567,19 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 			essential:             true,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
-			msg: "essential container stopped should have executionStoppedAt set",
+			msg:                   "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
-			msg: "non essential container stopped should not cause executionStoppedAt set",
+			msg:                   "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
 			status:                apicontainerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
-			msg: "essential non-stop status change should not cause executionStoppedAt set",
+			msg:                   "essential non-stop status change should not cause executionStoppedAt set",
 		},
 	}
 

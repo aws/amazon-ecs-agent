@@ -710,9 +710,13 @@ type Task struct {
 
 	Family *string `locationName:"family" type:"string"`
 
+	IpcMode *string `locationName:"ipcMode" type:"string"`
+
 	Memory *int64 `locationName:"memory" type:"integer"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
+
+	PidMode *string `locationName:"pidMode" type:"string"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 

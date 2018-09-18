@@ -464,7 +464,9 @@
         "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
         "cpu":{"shape":"Double"},
-        "memory":{"shape":"Integer"}
+        "memory":{"shape":"Integer"},
+        "pidMode":{"shape":"String"},
+        "ipcMode":{"shape":"String"}
       }
     },
     "TaskList":{
