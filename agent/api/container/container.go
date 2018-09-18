@@ -401,8 +401,8 @@ func (c *Container) GetNextKnownStateProgression() apicontainerstatus.ContainerS
 	return c.GetKnownStatus() + 1
 }
 
-// IsInternal returns true if the container type is either `ContainerEmptyHostVolume`
-// or `ContainerCNIPause`. It returns false otherwise
+// IsInternal returns true if the container type is `ContainerCNIPause`
+// or `ContainerNamespacePause`. It returns false otherwise
 func (c *Container) IsInternal() bool {
 	if c.Type == ContainerNormal {
 		return false

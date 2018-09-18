@@ -172,16 +172,6 @@ func TestBadFileContent(t *testing.T) {
 	assert.Error(t, err, "create configuration should fail")
 }
 
-func TestShouldLoadPauseContainerTarball(t *testing.T) {
-	cfg := DefaultConfig()
-	assert.True(t, cfg.ShouldLoadPauseContainerTarball(), "should load tarball by default")
-	cfg.PauseContainerTag = "foo!"
-	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if tag differs")
-	cfg = DefaultConfig()
-	cfg.PauseContainerImageName = "foo!"
-	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if image name differs")
-}
-
 // setupFileConfiguration create a temp file store the configuration
 func setupFileConfiguration(t *testing.T, configContent string) string {
 	file, err := ioutil.TempFile("", "ecs-test")
