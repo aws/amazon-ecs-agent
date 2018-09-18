@@ -15,4 +15,4 @@
 package config
 
 // PlatformVariables consists of configuration variables specific to Linux
-type PlatformVariables struct {}
+type PlatformVariables struct{}

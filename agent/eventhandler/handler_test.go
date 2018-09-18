@@ -405,8 +405,8 @@ func TestGetBatchedContainerEvents(t *testing.T) {
 
 	handler := &TaskHandler{
 		tasksToContainerStates: map[string][]api.ContainerStateChange{
-			"t1": []api.ContainerStateChange{},
-			"t2": []api.ContainerStateChange{},
+			"t1": {},
+			"t2": {},
 		},
 		state: state,
 	}
@@ -427,7 +427,7 @@ func TestGetBatchedContainerEventsStoppedTask(t *testing.T) {
 
 	handler := &TaskHandler{
 		tasksToContainerStates: map[string][]api.ContainerStateChange{
-			"t1": []api.ContainerStateChange{},
+			"t1": {},
 		},
 		state: state,
 	}

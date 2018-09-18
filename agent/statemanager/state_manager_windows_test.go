@@ -21,12 +21,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"golang.org/x/sys/windows/registry"
-
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/windows/registry"
 )
 
 func setup(t *testing.T, options ...Option) (
@@ -146,6 +145,32 @@ func TestStateManagerLoadV1Data(t *testing.T) {
 	assert.Equal(t, int64(0), sequenceNumber, "v1 should give a sequence number of 0")
 	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:container-instance/a9f8e650-e66e-466d-9b0e-3cbce3ba5245", containerInstanceArn)
 	assert.Equal(t, "i-00000000", savedInstanceID)
+}
+
+func TestStateManagerLoadV13Data(t *testing.T) {
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t,
+		AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		AddSaveable("Cluster", &cluster),
+		AddSaveable("EC2InstanceID", &savedInstanceID),
+		AddSaveable("SeqNum", &sequenceNumber))
+	defer cleanup()
+	dataFile, err := os.Open(filepath.Join(".", "testdata", "v13", "1", ecsDataFile))
+	assert.Nil(t, err, "Error opening test data")
+	defer dataFile.Close()
+	// TODO figure out why gomock does not like registry.READ as the mode
+	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
+	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
+	mockKey.EXPECT().Close()
+	mockFS.EXPECT().Open(`C:\data.json`).Return(dataFile, nil)
+	mockFS.EXPECT().ReadAll(dataFile).Return(ioutil.ReadAll(dataFile))
+	err = manager.Load()
+	assert.Nil(t, err, "Error loading state")
+	assert.Equal(t, "test", cluster, "Wrong cluster")
+	assert.Equal(t, int64(0), sequenceNumber, "v13 should give a sequence number of 0")
+	assert.Equal(t, "arn:aws:ecs:us-west-2:694464167470:container-instance/5e94f1e5-2177-4440-ab84-196d1a6072da", containerInstanceArn)
+	assert.Equal(t, "i-04e73559ead350d79", savedInstanceID)
 }
 
 func TestStateManagerSaveCreateFileError(t *testing.T) {

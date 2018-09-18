@@ -120,7 +120,7 @@ func (agent *TestAgent) StartAgent() error {
 			os.Setenv(k, v)
 		}
 	}
-	agentInvoke := exec.Command(".\\agent.exe")
+	agentInvoke := exec.Command(".\\amazon-ecs-agent.exe")
 	if TestDirectory := os.Getenv("ECS_WINDOWS_TEST_DIR"); TestDirectory != "" {
 		agentInvoke.Dir = TestDirectory
 	}
@@ -136,7 +136,7 @@ func (agent *TestAgent) StartAgent() error {
 
 func (agent *TestAgent) Cleanup() {
 	if agent.Options != nil {
-		for k, _ := range agent.Options.ExtraEnvironment {
+		for k := range agent.Options.ExtraEnvironment {
 			os.Unsetenv(k)
 		}
 	}

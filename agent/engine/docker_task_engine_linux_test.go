@@ -84,9 +84,6 @@ func TestResourceContainerProgression(t *testing.T) {
 	// containerEventsWG is used to force the test to wait until the container created and started
 	// events are processed
 	containerEventsWG := sync.WaitGroup{}
-	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version(gomock.Any(), gomock.Any())
-	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	gomock.InOrder(
 		// Ensure that the resource is created first
@@ -190,9 +187,6 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	sleepTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	sleepTask.AddResource("cgroup", cgroupResource)
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
-	if dockerVersionCheckDuringInit {
-		client.EXPECT().Version(gomock.Any(), gomock.Any())
-	}
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	gomock.InOrder(
 		// resource creation failure
@@ -254,9 +248,6 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			// events are processed
 			containerEventsWG := sync.WaitGroup{}
 
-			if dockerVersionCheckDuringInit {
-				client.EXPECT().Version(gomock.Any(), gomock.Any()).Return("1.12.6", nil)
-			}
 			client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 			containerName := make(chan string)
 			go func() {
