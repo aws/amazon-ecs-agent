@@ -1,3 +1,9 @@
+#Changelog
+
+## 1.20.4
+* Bug - Fixed a bug where agent can register container instance back to back and gets
+  assigned two container instance ARNs [#1579](https://github.com/aws/amazon-ecs-agent/pull/1579)
+
 # Changelog
 ## 1.20.3
 * Enhancement - Deprecate support for serial docker image pull [#1569](https://github.com/aws/amazon-ecs-agent/pull/1569)
