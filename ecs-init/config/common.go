@@ -147,3 +147,9 @@ func DockerUnixSocket() (string, bool) {
 func CgroupMountpoint() string {
 	return cgroupMountpoint
 }
+
+// HostCertsDirPath() returns the CA store path on the host (specifically on
+// Amazon Linux platform)
+func HostCertsDirPath() string {
+	return hostCertsDirPath
+}

@@ -26,7 +26,7 @@ const (
 	// expectedAgentBinds is the total number of agent host config binds.
 	// Note: Change this value every time when a new bind mount is added to agent for
 	// the tests to pass
-	expectedAgentBinds = 13
+	expectedAgentBinds = 14
 )
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
