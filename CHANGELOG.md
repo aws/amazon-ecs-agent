@@ -1,4 +1,9 @@
 # Changelog
+## 1.20.4-dev
+* Bug - Fixed a bug where Windows drive volume couldn't be mounted [#1571](https://github.com/aws/amazon-ecs-agent/pull/1571)
+* Bug - Fixed a bug where the Agent's Windows binaries didn't use consistent naming [#1573](https://github.com/aws/amazon-ecs-agent/pull/1573)
+* Bug - Fixed a bug where a port used by WinRM service was not reserved by the Agent by default [#1577](https://github.com/aws/amazon-ecs-agent/pull/1577)
+
 ## 1.20.3
 * Enhancement - Deprecate support for serial docker image pull [#1569](https://github.com/aws/amazon-ecs-agent/pull/1569)
 * Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.08.0`
