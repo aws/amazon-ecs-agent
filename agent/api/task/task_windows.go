@@ -74,7 +74,22 @@ func (task *Task) downcaseAllVolumePaths() {
 }
 
 func getCanonicalPath(path string) string {
-	return filepath.Clean(strings.ToLower(path))
+	lowercasedPath := strings.ToLower(path)
+	// if the path is a bare drive like "d:", don't filepath.Clean it because it will add a '.'.
+	// this is to fix the case where mounting from D:\ to D: is supported by docker but not ecs
+	if isBareDrive(lowercasedPath) {
+		return lowercasedPath
+	}
+
+	return filepath.Clean(lowercasedPath)
+}
+
+func isBareDrive(path string) bool {
+	if filepath.VolumeName(path) == path {
+		return true
+	}
+
+	return false
 }
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
