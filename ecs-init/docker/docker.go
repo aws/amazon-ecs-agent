@@ -221,8 +221,8 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 
 	// for al, al2 add host ssl cert directory envvar if available
-	if config.HostCertsDirPath() != "" {
-		envVariables["SSL_CERT_DIR"] = config.HostCertsDirPath()
+	if certDir := config.HostCertsDirPath(); certDir != "" {
+		envVariables["SSL_CERT_DIR"] = certDir
 	}
 
 	// merge in platform-specific environment variables
@@ -283,8 +283,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 	}
 
 	// for al, al2 add host ssl cert directory mounts
-	if config.HostCertsDirPath() != "" {
-		certsPath := config.HostCertsDirPath() + ":" + config.HostCertsDirPath() + readOnly
+	if certDir := config.HostCertsDirPath(); certDir != "" {
+		certsPath := certDir + ":" + certDir + readOnly
 		binds = append(binds, certsPath)
 	}
 

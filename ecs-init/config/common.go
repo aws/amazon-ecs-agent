@@ -148,8 +148,10 @@ func CgroupMountpoint() string {
 	return cgroupMountpoint
 }
 
-// HostCertsDirPath() returns the CA store path on the host (specifically on
-// Amazon Linux platform)
+// HostCertsDirPath() returns the CA store path on the host
 func HostCertsDirPath() string {
+	if _, err := os.Stat(hostCertsDirPath); os.IsNotExist(err) {
+		return ""
+	}
 	return hostCertsDirPath
 }

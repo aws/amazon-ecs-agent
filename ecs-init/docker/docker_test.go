@@ -22,12 +22,10 @@ import (
 	"github.com/golang/mock/gomock"
 )
 
-const (
-	// expectedAgentBinds is the total number of agent host config binds.
-	// Note: Change this value every time when a new bind mount is added to agent for
-	// the tests to pass
-	expectedAgentBinds = 14
-)
+// expectedAgentBinds is the total number of agent host config binds.
+// Note: Change this value every time when a new bind mount is added to
+// agent for the tests to pass
+var expectedAgentBinds = 14
 
 func TestIsAgentImageLoadedListFailure(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
@@ -243,6 +241,14 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	}
 
 	hostCfg := opts.HostConfig
+
+	// for hosts that do not have cert directories explicity mounted, ignore
+	// host cert directory configuration.
+	// TODO (adnxn): ideally, these should be behind build flags.
+	// https://github.com/aws/amazon-ecs-init/issues/131
+	if certDir := config.HostCertsDirPath(); certDir == "" {
+		expectedAgentBinds = 13
+	}
 
 	if len(hostCfg.Binds) != expectedAgentBinds {
 		t.Errorf("Expected exactly %d elements to be in Binds, but was %d", expectedAgentBinds, len(hostCfg.Binds))
