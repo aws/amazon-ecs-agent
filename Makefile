@@ -306,7 +306,7 @@ ifeq (${PLATFORM},Linux)
 		dep_arch=darwin-386
 	endif
 
-DEP_VERSION=v0.4.1
+DEP_VERSION=v0.5.0
 .PHONY: get-dep
 get-dep: bin/dep
 
