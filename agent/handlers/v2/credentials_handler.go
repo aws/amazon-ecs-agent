@@ -16,15 +16,28 @@ package v2
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	"github.com/gorilla/mux"
 )
 
-// Credentials API version.
-const apiVersion = 2
+const (
+	// Credentials API version.
+	apiVersion = 2
+
+	// credentialsIDMuxName is the key that's used in gorilla/mux to get the credentials ID.
+	credentialsIDMuxName = "credentialsIDMuxName"
+)
+
+// CredentialsPath specifies the relative URI path for serving task IAM credentials.
+// Use "AnythingRegEx" regex to handle the case where the "credentialsIDMuxName" is
+// empty, this is because the name that's used to extract dynamic value in gorilla cannot
+// be empty by default. If we don't do this, we will get 404 error when we access "/v2/credentials/",
+// but it should be 400 error.
+var CredentialsPath = credentials.V2CredentialsPath + "/" + utils.ConstructMuxVar(credentialsIDMuxName, utils.AnythingRegEx)
 
 // CredentialsHandler creates response for the 'v2/credentials' API.
 func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
@@ -36,8 +49,6 @@ func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audi
 }
 
 func getCredentialsID(r *http.Request) string {
-	if strings.HasPrefix(r.URL.Path, credentials.CredentialsPath+"/") {
-		return r.URL.String()[len(credentials.V2CredentialsPath+"/"):]
-	}
-	return ""
+	vars := mux.Vars(r)
+	return vars[credentialsIDMuxName]
 }

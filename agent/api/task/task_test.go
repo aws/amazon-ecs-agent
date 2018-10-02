@@ -41,7 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
@@ -571,6 +571,25 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 	taskVol := task.Volumes[0]
 	assert.Equal(t, "dockervolume", taskVol.Name)
 	assert.Equal(t, DockerVolumeType, taskVol.Type)
+}
+
+func TestInitializeContainersV3MetadataEndpoint(t *testing.T) {
+	task := Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name:        "c1",
+				Environment: make(map[string]string),
+			},
+		},
+	}
+	container := task.Containers[0]
+
+	task.initializeContainersV3MetadataEndpoint(utils.NewStaticUUIDProvider("new-uuid"))
+
+	// Test if the v3 endpoint id is set and the endpoint is injected to env
+	assert.Equal(t, container.GetV3EndpointID(), "new-uuid")
+	assert.Equal(t, container.Environment[apicontainer.MetadataURIEnvironmentVariableName],
+		fmt.Sprintf(apicontainer.MetadataURIFormat, "new-uuid"))
 }
 
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {

@@ -74,7 +74,7 @@
 
 [[constraint]]
   name = "github.com/stretchr/testify"
-  revision ="d77da356e56a7428ad25149ca77381849a6a5232"
+  revision ="f35b8ab0b5a2cef36673838d662e249dd9c94686"
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"

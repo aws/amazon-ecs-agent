@@ -50,6 +50,9 @@ const (
 
 	// Credentials API version.
 	apiVersion = 1
+
+	// CredentialsPath specifies the relative URI path for serving task IAM credentials
+	CredentialsPath = credentials.V1CredentialsPath
 )
 
 // CredentialsHandler creates response for the 'v1/credentials' API. It returns a JSON response
