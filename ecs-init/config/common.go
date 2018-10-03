@@ -150,7 +150,7 @@ func CgroupMountpoint() string {
 
 // HostCertsDirPath() returns the CA store path on the host
 func HostCertsDirPath() string {
-	if _, err := os.Stat(hostCertsDirPath); os.IsNotExist(err) {
+	if _, err := os.Stat(hostCertsDirPath); err != nil {
 		return ""
 	}
 	return hostCertsDirPath
