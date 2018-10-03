@@ -339,7 +339,7 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 	opts := docker.PullImageOptions{
 		Repository:        repository,
 		OutputStream:      pullWriter,
-		InactivityTimeout: dg.config.DockerPullInactivityTimeout,
+		InactivityTimeout: dg.config.ImagePullInactivityTimeout,
 	}
 	timeout := dg.time().After(dockerPullBeginTimeout)
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
@@ -845,8 +845,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status: status,
-			Type:   eventType,
+			Status:                  status,
+			Type:                    eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}

@@ -119,6 +119,7 @@ additional details on each available environment variable.
 | `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h | 1h |
 | `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 | 5 |
 | `ECS_IMAGE_PULL_BEHAVIOR` | &lt;default &#124; always &#124; once &#124; prefer-cached &gt; | The behavior used to customize the pull image process. If `default` is specified, the image will be pulled remotely, if the pull fails then the cached image in the instance will be used. If `always` is specified, the image will be pulled remotely, if the pull fails then the task will fail. If `once` is specified, the image will be pulled remotely if it has not been pulled before or if the image was removed by image cleanup, otherwise the cached image in the instance will be used. If `prefer-cached` is specified, the image will be pulled remotely if there is no cached image, otherwise the cached image in the instance will be used. | default | default |
+| `ECS_IMAGE_PULL_INACTIVITY_TIMEOUT` | 1m | The time to wait after docker pulls complete waiting for extraction of a container. Useful for tuning large Windows containers. | 1m | 3m |
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | Not applicable |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | Not applicable |
@@ -131,7 +132,6 @@ additional details on each available environment variable.
 | `ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will allow CPU unbounded(CPU=`0`) tasks to run along with CPU bounded tasks in Windows. | Not applicable | `false` |
 | `ECS_TASK_METADATA_RPS_LIMIT` | `100,150` | Comma separated integer values for steady state and burst throttle limits for task metadata endpoint | `40,60` | `40,60` |
 | `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` | `true` | When `true`, ECS Agent will compare name, driver options, and labels to make sure volumes are identical. When `false`, Agent will short circuit shared volume comparison if the names match. This is the default Docker behavior. If a volume is shared across instances, this should be set to `false`. | `false` | `false`|
-| `ECS_DOCKER_PULL_INACTIVITY_TIMEOUT` | 1m | The time to wait after docker pulls complete waiting for extraction of a container. Useful for tuning large Windows containers. | 1m | 1m |
 
 ### Persistence
 

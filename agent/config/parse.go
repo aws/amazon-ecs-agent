@@ -91,19 +91,18 @@ func parseContainerStartTimeout() time.Duration {
 	return containerStartTimeout
 }
 
-func parseDockerPullInactivityTimeout() time.Duration {
-	var dockerPullInactivityTimeout time.Duration
-	parsedDockerPullInactivityTimeout := parseEnvVariableDuration("ECS_DOCKER_PULL_INACTIVITY_TIMEOUT")
-	if parsedDockerPullInactivityTimeout >= minimumDockerPullInactivityTimeout {
-		dockerPullInactivityTimeout = parsedDockerPullInactivityTimeout
+func parseImagePullInactivityTimeout() time.Duration {
+	var imagePullInactivityTimeout time.Duration
+	parsedImagePullInactivityTimeout := parseEnvVariableDuration("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT")
+	if parsedImagePullInactivityTimeout >= minimumImagePullInactivityTimeout {
+		imagePullInactivityTimeout = parsedImagePullInactivityTimeout
 		// do the parsedStartTimeout != 0 check for the same reason as in getDockerStopTimeout()
-	} else if parsedDockerPullInactivityTimeout != 0 {
-		dockerPullInactivityTimeout = minimumDockerPullInactivityTimeout
-		seelog.Warnf("Discarded invalid value for docker pull inactivity timeout, parsed as: %v", parsedDockerPullInactivityTimeout)
+	} else if parsedImagePullInactivityTimeout != 0 {
+		imagePullInactivityTimeout = minimumImagePullInactivityTimeout
+		seelog.Warnf("Discarded invalid value for image pull inactivity timeout, parsed as: %v", parsedImagePullInactivityTimeout)
 	}
-	return dockerPullInactivityTimeout
+	return imagePullInactivityTimeout
 }
-
 
 func parseAvailableLoggingDrivers() []dockerclient.LoggingDriver {
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
