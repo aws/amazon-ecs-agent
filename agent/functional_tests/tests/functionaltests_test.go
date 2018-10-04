@@ -22,11 +22,13 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	docker "github.com/fsouza/go-dockerclient"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -566,4 +568,68 @@ func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatc
 	}
 
 	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
+}
+func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awslogsPrefix string) {
+	agentOptions := &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+		PortBindings: map[docker.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+
+	if networkMode != "" {
+		tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+		tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] + "-" + networkMode
+	}
+
+	var task *TestTask
+	var err error
+
+	if networkMode == "awsvpc" {
+		task, err = agent.StartAWSVPCTask(taskName, tdOverrides)
+	} else {
+		task, err = agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+	}
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	v3TaskEndpointEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_URI=") {
+				v3TaskEndpointEnabled = true
+				break
+			}
+		}
+	}
+	if !v3TaskEndpointEnabled {
+		task.Stop()
+		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }

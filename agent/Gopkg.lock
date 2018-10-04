@@ -285,7 +285,7 @@
     "require",
     "suite"
   ]
-  revision = "d77da356e56a7428ad25149ca77381849a6a5232"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
 
 [[projects]]
   name = "github.com/vishvananda/netlink"
@@ -347,6 +347,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "522051f7afcb564ad3ea9764fdf9e235dc02c8e17cc2f0690dc9aecade72dada"
+  inputs-digest = "b686976a52c9d06578699cb7af3d8817c43a7ac4b957eaac8f401f3ebf82df8a"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -727,6 +727,49 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 }
 
+// TestCreateContainerAddV3EndpointIDToState tests that in createContainer, when the
+// container's v3 endpoint id is set, we will add mappings to engine state
+func TestCreateContainerAddV3EndpointIDToState(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+
+	testContainer := &apicontainer.Container{
+		Name:         "c1",
+		V3EndpointID: "v3EndpointID",
+	}
+
+	testTask := &apitask.Task{
+		Arn:     "myTaskArn",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			testContainer,
+		},
+	}
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	// V3EndpointID mappings are only added to state when dockerID is available. So return one here.
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{
+		DockerID: "dockerID",
+	})
+	taskEngine.createContainer(testTask, testContainer)
+
+	// check that we have added v3 endpoint mappings to state
+	state := taskEngine.state
+
+	addedTaskARN, ok := state.TaskARNByV3EndpointID("v3EndpointID")
+	assert.True(t, ok)
+	assert.Equal(t, testTask.Arn, addedTaskARN)
+
+	addedDockerID, ok := state.DockerIDByV3EndpointID("v3EndpointID")
+	assert.True(t, ok)
+	assert.Equal(t, "dockerID", addedDockerID)
+}
+
 // TestTaskTransitionWhenStopContainerTimesout tests that task transitions to stopped
 // only when terminal events are received from docker event stream when
 // StopContainer times out

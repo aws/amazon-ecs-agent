@@ -47,6 +47,13 @@ const (
 
 	// AuthTypeASM is to use image pull auth over AWS Secrets Manager
 	AuthTypeASM = "asm"
+
+	// MetadataURIEnvironmentVariableName defines the name of the environment
+	// variable in containers' config, which can be used by the containers to access the
+	// v3 metadata endpoint
+	MetadataURIEnvironmentVariableName = "ECS_CONTAINER_METADATA_URI"
+	// MetadataURIFormat defines the URI format for v3 metadata endpoint
+	MetadataURIFormat = "http://169.254.170.2/v3/%s"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -77,6 +84,9 @@ type HealthStatus struct {
 type Container struct {
 	// Name is the name of the container specified in the task definition
 	Name string
+	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
+	// all the containers managed by the agent
+	V3EndpointID string
 	// Image is the image name specified in the task definition
 	Image string
 	// ImageID is the local ID of the image used in the container
@@ -683,4 +693,34 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 // to the docker client to pull the image
 func (c *Container) SetASMDockerAuthConfig(dac docker.AuthConfiguration) {
 	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
+}
+
+// SetV3EndpointID sets the v3 endpoint id of container
+func (c *Container) SetV3EndpointID(v3EndpointID string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.V3EndpointID = v3EndpointID
+}
+
+// GetV3EndpointID returns the v3 endpoint id of container
+func (c *Container) GetV3EndpointID() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.V3EndpointID
+}
+
+// InjectV3MetadataEndpoint injects the v3 metadata endpoint as an environment variable for a container
+func (c *Container) InjectV3MetadataEndpoint() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// don't assume that the environment variable map has been initialized by others
+	if c.Environment == nil {
+		c.Environment = make(map[string]string)
+	}
+
+	c.Environment[MetadataURIEnvironmentVariableName] =
+		fmt.Sprintf(MetadataURIFormat, c.V3EndpointID)
 }

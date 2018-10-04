@@ -57,7 +57,7 @@ const (
 	emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
 
 	// awsSDKCredentialsRelativeURIPathEnvironmentVariableName defines the name of the environment
-	// variable containers' config, which will be used by the AWS SDK to fetch
+	// variable in containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
@@ -232,6 +232,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
+	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.addNetworkResourceProvisioningDependency(cfg)
 	return nil
 }
@@ -445,6 +446,19 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
 	}
 
+}
+
+// initializeContainersV3MetadataEndpoint generates an v3 endpoint id for each container, constructs the
+// v3 metadata endpoint, and injects it as an environment variable
+func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	for _, container := range task.Containers {
+		v3EndpointID := container.GetV3EndpointID()
+		if v3EndpointID == "" { // if container's v3 endpoint has not been set
+			container.SetV3EndpointID(uuidProvider.New())
+		}
+
+		container.InjectV3MetadataEndpoint()
+	}
 }
 
 // requiresASMDockerAuthData returns true if atleast one container in the task
