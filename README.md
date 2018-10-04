@@ -53,78 +53,25 @@ $ docker run --name ecs-agent \
 
 See also the Advanced Usage section below.
 
-### On Windows Server 2016
+### On the ECS Optimized Windows AMI
 
-On Windows Server 2016, the Amazon ECS Container Agent runs as a process or service on the host. Unlike Linux,
-the agent may not run inside a container as it uses the host's registry and the named pipe at `\\.\pipe\docker_engine`
-to communicate with the Docker daemon.
-
-#### As a Service
-To install the service, you can do the following:
+ECS Optimized Windows AMI ships with a pre-installed PowerShell module called ECSTools to install, configure, and run the ECS Agent as a Windows service.
+To install the service, you can run the following PowerShell commands on an EC2 instance. To launch into another cluster instead of windows, replace the 'windows' in the script below with the name of your cluster.
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> Set-Location ${ecsExeDir}
-PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
-PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [bool]$EnableTaskIAMRoles = $false
-PS C:\> if (${EnableTaskIAMRoles}) {
->> .\hostsetup.ps1
->> }
-PS C:\> # Install the agent service
-PS C:\> New-Service -Name "AmazonECS" `
-        -BinaryPathName "$ecsExeDir\amazon-ecs-agent.exe -windows-service" `
-        -DisplayName "Amazon ECS" `
-        -Description "Amazon ECS service runs the Amazon ECS agent" `
-        -DependsOn Docker `
-        -StartupType Manual
-PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/5000/restart/30000/restart/60000
-PS C:\> sc.exe failureflag AmazonECS 1
+PS C:\> Import-Module ECSTools
+PS C:\> # The -EnableTaskIAMRole option is required to enable IAM roles for tasks.
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole
 ```
 
-To run the service, you can do the following:
-```powershell
-Start-Service AmazonECS
-```
+#### Downloading Different Version of ECS Agent
 
-#### As a Process
+To download different version of ECS Agent, you can do the following:
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Set this environment variable to "true" to enable IAM roles.  Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> # Run the agent
-PS C:\> cd '$ecsExeDir'; .\amazon-ecs-agent.ps1
+PS C:\> # use agentVersion = "latest" for the latest available agent version
+PS C:\> $agentVersion = "v1.20.4"
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole -Version $agentVersion
 ```
 
 ## Advanced Usage
