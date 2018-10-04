@@ -15,4 +15,7 @@
 
 package config
 
-const cgroupMountpoint = "/sys/fs/cgroup"
+const (
+	cgroupMountpoint = "/sys/fs/cgroup"
+	hostCertsDirPath = ""
+)

@@ -15,4 +15,7 @@
 
 package config
 
-const cgroupMountpoint = "/cgroup"
+const (
+	cgroupMountpoint = "/cgroup"
+	hostCertsDirPath = "/etc/pki/tls/certs"
+)

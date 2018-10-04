@@ -220,6 +220,11 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 	}
 
+	// for al, al2 add host ssl cert directory envvar if available
+	if certDir := config.HostCertsDirPath(); certDir != "" {
+		envVariables["SSL_CERT_DIR"] = certDir
+	}
+
 	// merge in platform-specific environment variables
 	for envKey, envValue := range getPlatformSpecificEnvVariables() {
 		envVariables[envKey] = envValue
@@ -276,6 +281,13 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 	}
+
+	// for al, al2 add host ssl cert directory mounts
+	if certDir := config.HostCertsDirPath(); certDir != "" {
+		certsPath := certDir + ":" + certDir + readOnly
+		binds = append(binds, certsPath)
+	}
+
 	binds = append(binds, getDockerPluginDirBinds()...)
 	return createHostConfig(binds)
 }

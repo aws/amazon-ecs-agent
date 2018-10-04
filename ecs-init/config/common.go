@@ -147,3 +147,11 @@ func DockerUnixSocket() (string, bool) {
 func CgroupMountpoint() string {
 	return cgroupMountpoint
 }
+
+// HostCertsDirPath() returns the CA store path on the host
+func HostCertsDirPath() string {
+	if _, err := os.Stat(hostCertsDirPath); err != nil {
+		return ""
+	}
+	return hostCertsDirPath
+}
