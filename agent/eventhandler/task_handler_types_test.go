@@ -1,4 +1,6 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,12 +21,17 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldContainerEventBeSent(t *testing.T) {
 	event := newSendableContainerEvent(api.ContainerStateChange{
-		Status: api.ContainerStopped,
+		Status: apicontainerstatus.ContainerStopped,
 	})
 	assert.Equal(t, true, event.containerShouldBeSent())
 	assert.Equal(t, false, event.taskShouldBeSent())
@@ -38,9 +45,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// We don't send a task event to backend if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskStatusNone,
+				Status: apitaskstatus.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskStatusNone,
 				},
 			}),
 			shouldBeSent: false,
@@ -48,17 +55,17 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// task status == RUNNING should be sent to backend
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task:   &api.Task{},
+				Status: apitaskstatus.TaskRunning,
+				Task:   &apitask.Task{},
 			}),
 			shouldBeSent: true,
 		},
 		{
 			// task event will not be sent if sent status >= task status
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitaskstatus.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 			}),
 			shouldBeSent: false,
@@ -66,9 +73,9 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// this is a valid event as task status >= sent status
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStopped,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitaskstatus.TaskStopped,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 			}),
 			shouldBeSent: true,
@@ -77,21 +84,21 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// Even though the task has been sent, there's a container
 			// state change that needs to be sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitaskstatus.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
+							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 						},
 					},
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerStopped,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
+							KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 						},
 					},
 				},
@@ -102,15 +109,15 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			// Container state change should be sent regardless of task
 			// status.
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskStatusNone,
+				Status: apitaskstatus.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskStatusNone,
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerStatusNone,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainerstatus.ContainerStatusNone,
+							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 						},
 					},
 				},
@@ -120,21 +127,21 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 		{
 			// All states sent, nothing to send
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskRunning,
-				Task: &api.Task{
-					SentStatusUnsafe: api.TaskRunning,
+				Status: apitaskstatus.TaskRunning,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				Containers: []api.ContainerStateChange{
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerRunning,
-							KnownStatusUnsafe: api.ContainerRunning,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainerstatus.ContainerRunning,
+							KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 						},
 					},
 					{
-						Container: &api.Container{
-							SentStatusUnsafe:  api.ContainerStopped,
-							KnownStatusUnsafe: api.ContainerStopped,
+						Container: &apicontainer.Container{
+							SentStatusUnsafe:  apicontainerstatus.ContainerStopped,
+							KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 						},
 					},
 				},
@@ -159,8 +166,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		{
 			// ENI Attachment is only sent if task status == NONE
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStopped,
-				Task:   &api.Task{},
+				Status: apitaskstatus.TaskStopped,
+				Task:   &apitask.Task{},
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       true,
@@ -169,7 +176,7 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ENI Attachment is only sent if task status == NONE and if
 			// the event has a non nil attachment object
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
+				Status: apitaskstatus.TaskStatusNone,
 			}),
 			attachmentShouldBeSent: false,
 			taskShouldBeSent:       false,
@@ -179,8 +186,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// the event has a non nil attachment object and if expiration
 			// ack timeout is set for future
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitaskstatus.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()-1, 0),
 					AttachStatusSent: false,
 				},
@@ -194,8 +201,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 			// ack timeout is set for future and if attachment status hasn't
 			// already been sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitaskstatus.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 					AttachStatusSent: true,
 				},
@@ -206,8 +213,8 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 		{
 			// Valid attachment event, ensure that its sent
 			event: newSendableTaskEvent(api.TaskStateChange{
-				Status: api.TaskStatusNone,
-				Attachment: &api.ENIAttachment{
+				Status: apitaskstatus.TaskStatusNone,
+				Attachment: &apieni.ENIAttachment{
 					ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
 					AttachStatusSent: false,
 				},
@@ -226,52 +233,52 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 }
 
 func TestSetTaskSentStatus(t *testing.T) {
-	testContainer := &api.Container{}
-	testTask := &api.Task{}
+	testContainer := &apicontainer.Container{}
+	testTask := &apitask.Task{}
 
 	taskRunningStateChange := newSendableTaskEvent(api.TaskStateChange{
-		Status: api.TaskRunning,
+		Status: apitaskstatus.TaskRunning,
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    api.ContainerRunning,
+				Status:    apicontainerstatus.ContainerRunning,
 				Container: testContainer,
 			},
 		},
 	})
 	taskStoppedStateChange := newSendableTaskEvent(api.TaskStateChange{
-		Status: api.TaskStopped,
+		Status: apitaskstatus.TaskStopped,
 		Task:   testTask,
 		Containers: []api.ContainerStateChange{
 			{
-				Status:    api.ContainerStopped,
+				Status:    apicontainerstatus.ContainerStopped,
 				Container: testContainer,
 			},
 		},
 	})
 
 	setTaskChangeSent(taskStoppedStateChange)
-	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
 	setTaskChangeSent(taskRunningStateChange)
-	assert.Equal(t, testTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
 }
 
 func TestSetContainerSentStatus(t *testing.T) {
-	testContainer := &api.Container{}
+	testContainer := &apicontainer.Container{}
 
 	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    api.ContainerRunning,
+		Status:    apicontainerstatus.ContainerRunning,
 		Container: testContainer,
 	})
 	containerStoppedStateChange := newSendableContainerEvent(api.ContainerStateChange{
-		Status:    api.ContainerStopped,
+		Status:    apicontainerstatus.ContainerStopped,
 		Container: testContainer,
 	})
 
 	setContainerChangeSent(containerStoppedStateChange)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
 	setContainerChangeSent(containerRunningStateChange)
-	assert.Equal(t, testContainer.GetSentStatus(), api.ContainerStopped)
+	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
 }

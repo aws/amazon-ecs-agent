@@ -161,7 +161,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
+		t.Fatal("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
@@ -178,7 +178,10 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	if containerMetaData.State.ExitCode != 42 {
 		t.Fatalf("Container exit code non-zero: %v", containerMetaData.State.ExitCode)
 	}
+}
 
+func TestV3TaskEndpointDefaultNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "", "ecs-functional-tests-v3-task-endpoint-validator-windows")
 }
 
 // TestMetadataServiceValidator Tests that the metadata file can be accessed from the
@@ -342,15 +345,33 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 
 // TestContainerHealthMetrics tests the container health metrics was sent to backend
 func TestContainerHealthMetrics(t *testing.T) {
-	// TODO remove this after backend changes deployed
-	t.Skip("Not supported")
 	containerHealthWithoutStartPeriodTest(t, "container-health-windows")
 }
 
 // TestContainerHealthMetricsWithStartPeriod tests the container health metrics
 // with start period configured in the task definition
 func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
-	// TODO remove this after backend changes deployed
-	t.Skip("Not supported")
 	containerHealthWithStartPeriodTest(t, "container-health-windows")
+}
+
+func TestTwoTasksSharedLocalVolume(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.20.0")
+
+	wTask, wTaskErr := agent.StartTask(t, "task-shared-vol-write-windows")
+	require.NoError(t, wTaskErr, "Register task definition failed")
+
+	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, wErr, "Expect task to be stopped")
+	wExitCode := wTask.Containers[0].ExitCode
+	assert.NotEqual(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+
+	rTask, rTaskErr := agent.StartTask(t, "task-shared-vol-read-windows")
+	require.NoError(t, rTaskErr, "Register task definition failed")
+
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, rErr, "Expect task to be stopped")
+	rExitCode := rTask.Containers[0].ExitCode
+	assert.NotEqual(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
 }

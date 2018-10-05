@@ -36,6 +36,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
@@ -119,6 +120,9 @@ type ClientServerImpl struct {
 	// message with said message. It will be called before a RequestHandler is
 	// called. It must take a single interface{} argument.
 	AnyRequestHandler RequestHandler
+	// MakeRequestHook is an optional callback that, if set, is called on every
+	// generated request with the raw request body.
+	MakeRequestHook MakeRequestHookFunc
 	// URL is the full url to the backend, including path, querystring, and so on.
 	URL string
 	// RWTimeout is the duration used for setting read and write deadlines
@@ -131,8 +135,13 @@ type ClientServerImpl struct {
 	TypeDecoder
 }
 
+// MakeRequestHookFunc is a function that is invoked on every generated request
+// with the raw request body.  MakeRequestHookFunc must return either the body
+// to send or an error.
+type MakeRequestHookFunc func([]byte) ([]byte, error)
+
 // Connect opens a connection to the backend and upgrades it to a websocket. Calls to
-// 'MakeRequest' can be made after calling this, but responss will not be
+// 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
 	seelog.Debugf("Establishing a Websocket connection to %s", cs.URL)
@@ -159,6 +168,7 @@ func (cs *ClientServerImpl) Connect() error {
 
 	timeoutDialer := &net.Dialer{Timeout: wsConnectTimeout}
 	tlsConfig := &tls.Config{ServerName: parsedURL.Host, InsecureSkipVerify: cs.AgentConfig.AcceptInsecureCert}
+	cipher.WithSupportedCipherSuites(tlsConfig)
 
 	// Ensure that NO_PROXY gets set
 	noProxy := os.Getenv("NO_PROXY")
@@ -324,6 +334,13 @@ func (cs *ClientServerImpl) MakeRequest(input interface{}) error {
 	send, err := cs.CreateRequestMessage(input)
 	if err != nil {
 		return err
+	}
+
+	if cs.MakeRequestHook != nil {
+		send, err = cs.MakeRequestHook(send)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Over the wire we send something like

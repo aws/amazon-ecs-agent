@@ -1,4 +1,6 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,32 +20,34 @@ import (
 	"testing"
 	"time"
 
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestShouldBeReported(t *testing.T) {
 	cases := []struct {
-		status          TaskStatus
+		status          apitaskstatus.TaskStatus
 		containerChange []ContainerStateChange
 		result          bool
 	}{
 		{ // Normal task state change to running
-			status: TaskRunning,
+			status: apitaskstatus.TaskRunning,
 			result: true,
 		},
 		{ // Normal task state change to stopped
-			status: TaskStopped,
+			status: apitaskstatus.TaskStopped,
 			result: true,
 		},
 		{ // Container changed while task is not in steady state
-			status: TaskCreated,
+			status: apitaskstatus.TaskCreated,
 			containerChange: []ContainerStateChange{
 				{TaskArn: "taskarn"},
 			},
 			result: true,
 		},
 		{ // No container change and task status not recognized
-			status: TaskCreated,
+			status: apitaskstatus.TaskCreated,
 			result: false,
 		},
 	}
@@ -67,7 +71,7 @@ func TestSetTaskTimestamps(t *testing.T) {
 	t3 := t2.Add(time.Second)
 
 	change := &TaskStateChange{
-		Task: &Task{
+		Task: &apitask.Task{
 			PullStartedAtUnsafe:      t1,
 			PullStoppedAtUnsafe:      t2,
 			ExecutionStoppedAtUnsafe: t3,

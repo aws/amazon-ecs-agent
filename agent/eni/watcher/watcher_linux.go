@@ -26,6 +26,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
@@ -181,7 +182,7 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 	// the race here. The state would be corrected during the next reconciliation loop.
 
 	// Add new interfaces next
-	for mac, _ := range currentState {
+	for mac := range currentState {
 		if err := udevWatcher.sendENIStateChange(mac); err != nil {
 			log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
 		}
@@ -213,8 +214,8 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 
 	// We found an ENI, which has the expiration time set in future and
 	// needs to be acknowledged as having been 'attached' to the Instance
-	go func(eni *api.ENIAttachment) {
-		eni.Status = api.ENIAttached
+	go func(eni *apieni.ENIAttachment) {
+		eni.Status = apieni.ENIAttached
 		log.Infof("Emitting ENI change event for: %s", eni.String())
 		udevWatcher.eniChangeEvent <- api.TaskStateChange{
 			TaskARN:    eni.TaskARN,

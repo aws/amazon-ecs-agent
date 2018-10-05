@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,9 +29,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,10 +47,8 @@ import (
 )
 
 const (
-	dockerEndpoint        = "unix:///var/run/docker.sock"
 	testRegistryHost      = "127.0.0.1:51670"
 	testBusyboxImage      = testRegistryHost + "/busybox:latest"
-	testRegistryImage     = "127.0.0.1:51670/amazon/amazon-ecs-netkitten:latest"
 	testAuthRegistryHost  = "127.0.0.1:51671"
 	testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
 	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
@@ -55,42 +60,19 @@ var (
 	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 )
 
-func isDockerRunning() bool {
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		return false
-	}
-	return true
-}
-
-func createTestContainer() *api.Container {
-	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
-}
-
-func createTestContainerWithImageAndName(image string, name string) *api.Container {
-	return &api.Container{
-		Name:                name,
-		Image:               image,
-		Command:             []string{},
-		Essential:           true,
-		DesiredStatusUnsafe: api.ContainerRunning,
-		CPU:                 100,
-		Memory:              80,
-	}
-}
-
-func createTestHealthCheckTask(arn string) *api.Task {
-	testTask := &api.Task{
+func createTestHealthCheckTask(arn string) *apitask.Task {
+	testTask := &apitask.Task{
 		Arn:                 arn,
 		Family:              "family",
 		Version:             "1",
-		DesiredStatusUnsafe: api.TaskRunning,
-		Containers:          []*api.Container{createTestContainer()},
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-health-check"
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
-	testTask.Containers[0].DockerConfig = api.DockerConfig{
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
 		Config: aws.String(`{
 			"HealthCheck":{
 				"Test":["CMD-SHELL", "echo hello"],
@@ -101,6 +83,51 @@ func createTestHealthCheckTask(arn string) *api.Task {
 		}`),
 	}
 	return testTask
+}
+
+func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.Task, string, error) {
+	tmpDirectory, err := ioutil.TempDir("", "ecs_test")
+	if err != nil {
+		return nil, "", err
+	}
+	err = ioutil.WriteFile(filepath.Join(tmpDirectory, "volume-data"), []byte("volume"), 0666)
+	if err != nil {
+		return nil, "", err
+	}
+
+	testTask := createTestTask(arn)
+
+	volumeConfig := &taskresourcevolume.DockerVolumeConfig{
+		Scope:  scope,
+		Driver: "local",
+		DriverOpts: map[string]string{
+			"device": tmpDirectory,
+			"o":      "bind",
+		},
+	}
+	if scope == "shared" {
+		volumeConfig.Autoprovision = autoprovision
+	}
+
+	testTask.Volumes = []apitask.TaskVolume{
+		{
+			Type:   "docker",
+			Name:   volume,
+			Volume: volumeConfig,
+		},
+	}
+
+	testTask.Containers[0].Image = testVolumeImage
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{
+		{
+			SourceVolume:  volume,
+			ContainerPath: "/ecs",
+		},
+	}
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = []string{"sh", "-c", "if [[ $(cat /ecs/volume-data) != \"volume\" ]]; then cat /ecs/volume-data; exit 1; fi; exit 0"}
+	return testTask, tmpDirectory, nil
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -179,7 +206,7 @@ func TestPortForward(t *testing.T) {
 	testArn = "testPortForwardWorking"
 	testTask = createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	taskEngine.AddTask(testTask)
 
@@ -215,7 +242,7 @@ func TestPortForward(t *testing.T) {
 
 	// Stop the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -232,12 +259,12 @@ func TestMultiplePortForwards(t *testing.T) {
 	testArn := "testMultiplePortForwards"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "1"}
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 	testTask.Containers[0].Essential = false
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "nc2"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent + "2"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortTwo}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -269,7 +296,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	t.Log("Read second container")
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -286,12 +313,12 @@ func TestDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent}
 	// No HostPort = docker should pick
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -323,7 +350,7 @@ func TestDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -340,12 +367,12 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "-serve", serverContent, `-loop`}
 	// No HostPort or 0 hostport; docker should pick two ports for us
-	testTask.Containers[0].Ports = []api.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
+	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne}, {ContainerPort: containerPortOne, HostPort: 0}}
 
 	go taskEngine.AddTask(testTask)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning, "Expected container to be RUNNING")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
 
@@ -395,7 +422,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -416,7 +443,7 @@ func TestLinking(t *testing.T) {
 	testTask.Containers[0].Name = "linkee"
 	testTask.Containers[1].Command = []string{fmt.Sprintf("-l=%d", containerPortOne), "linkee_alias:80"}
 	testTask.Containers[1].Links = []string{"linkee:linkee_alias"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: containerPortOne, HostPort: containerPortOne}}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -453,7 +480,7 @@ func TestLinking(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -483,7 +510,7 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	taskUpdate := createTestTask("testDockerCfgAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -513,7 +540,7 @@ func TestDockerAuth(t *testing.T) {
 
 	taskUpdate := createTestTask("testDockerAuth")
 	taskUpdate.Containers[0].Image = testAuthRegistryImage
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -531,9 +558,9 @@ func TestVolumesFrom(t *testing.T) {
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[1].Name = "test2"
 	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []api.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
+	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
 
 	go taskEngine.AddTask(testTask)
 
@@ -557,7 +584,7 @@ func TestVolumesFrom(t *testing.T) {
 	}
 
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -578,15 +605,15 @@ func TestVolumesFromRO(t *testing.T) {
 		cont.Essential = i > 0
 		testTask.Containers = append(testTask.Containers, cont)
 	}
-	testTask.Containers[1].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
+	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: true}}
 	testTask.Containers[1].Command = []string{"touch /data/readonly-fs || exit 42"}
 	// make all the three containers non-essential to make sure all of the
 	// container can be transitioned to running even one of them finished first
 	testTask.Containers[1].Essential = false
-	testTask.Containers[2].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
+	testTask.Containers[2].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
 	testTask.Containers[2].Command = []string{"touch /data/notreadonly-fs-1 || exit 42"}
 	testTask.Containers[2].Essential = false
-	testTask.Containers[3].VolumesFrom = []api.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
+	testTask.Containers[3].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name, ReadOnly: false}}
 	testTask.Containers[3].Command = []string{"touch /data/notreadonly-fs-2 || exit 42"}
 	testTask.Containers[3].Essential = false
 
@@ -608,27 +635,12 @@ func TestVolumesFromRO(t *testing.T) {
 	}
 }
 
-func createTestHostVolumeMountTask(tmpPath string) *api.Task {
+func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	testTask := createTestTask("testHostVolumeMount")
-	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.FSHostVolume{FSSourcePath: tmpPath}}}
+	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
 	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
+	testTask.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/host/tmp", SourceVolume: "test-tmp"}}
 	testTask.Containers[0].Command = []string{`echo -n "hi" > /host/tmp/hello-from-container; if [[ "$(cat /host/tmp/test-file)" != "test-data" ]]; then exit 4; fi; exit 42`}
-	return testTask
-}
-
-func createTestEmptyHostVolumeMountTask() *api.Task {
-	testTask := createTestTask("testEmptyHostVolumeMount")
-	testTask.Volumes = []api.TaskVolume{{Name: "test-tmp", Volume: &api.EmptyHostVolume{}}}
-	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers[0].MountPoints = []api.MountPoint{{ContainerPath: "/empty", SourceVolume: "test-tmp"}}
-	testTask.Containers[0].Command = []string{`while true; do [[ -f "/empty/file" ]] && exit 42; done`}
-	testTask.Containers = append(testTask.Containers, createTestContainer())
-	testTask.Containers[1].Name = "test2"
-	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].MountPoints = []api.MountPoint{{ContainerPath: "/alsoempty/", SourceVolume: "test-tmp"}}
-	testTask.Containers[1].Command = []string{`touch /alsoempty/file`}
-	testTask.Containers[1].Essential = false
 	return testTask
 }
 
@@ -661,7 +673,7 @@ func TestInitOOMEvent(t *testing.T) {
 	verifyTaskRunningStateChange(t, taskEngine)
 
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped, "Expected container to be STOPPED")
+	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped, "Expected container to be STOPPED")
 
 	// hold on to the container stopped event, will need to check exit code
 	contEvent := event.(api.ContainerStateChange)
@@ -742,7 +754,7 @@ check_events:
 
 	// Stop the container now
 	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -753,6 +765,7 @@ check_events:
 	}
 }
 
+// TestDockerStopTimeout tests the container was killed after ECS_CONTAINER_STOP_TIMEOUT
 func TestDockerStopTimeout(t *testing.T) {
 	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", testDockerStopTimeout.String())
 	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
@@ -766,19 +779,19 @@ func TestDockerStopTimeout(t *testing.T) {
 		t.Errorf("Expect the docker stop timeout read from environment variable when ECS_CONTAINER_STOP_TIMEOUT is set, %v", dockerTaskEngine.cfg.DockerStopTimeout)
 	}
 	testTask := createTestTask("TestDockerStopTimeout")
-	testTask.Containers = append(testTask.Containers, createTestContainer())
-	testTask.Containers[0].Command = []string{"sh", "-c", "while true; do echo `date +%T`; sleep 1s; done;"}
+	testTask.Containers[0].Command = []string{"sh", "-c", "trap 'echo hello' SIGTERM; while true; do echo `date +%T`; sleep 1s; done;"}
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Name = "test-docker-timeout"
 
 	go dockerTaskEngine.AddTask(testTask)
 
 	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	startTime := ttime.Now()
 	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
 
-	verifyContainerRunningStateChange(t, taskEngine)
+	verifyContainerStoppedStateChange(t, taskEngine)
 
 	if ttime.Since(startTime) < testDockerStopTimeout {
 		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
@@ -794,7 +807,7 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	testArn := "testSecurityOptionNoNewPrivileges"
 	testTask := createTestTask(testArn)
-	testTask.Containers[0].DockerConfig = api.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"SecurityOpt":["no-new-privileges"]}`)}
 
 	go taskEngine.AddTask(testTask)
 
@@ -803,37 +816,26 @@ func TestStartStopWithSecurityOptionNoNewPrivileges(t *testing.T) {
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
-// TestSerialImagePull tests the serial pull image behavior of the agent
-func TestSerialImagePull(t *testing.T) {
+func TestTaskLevelVolume(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	// Force enable serial pull
-	dockerTaskEngine, ok := taskEngine.(*DockerTaskEngine)
-	require.True(t, ok)
-	dockerTaskEngine.enableConcurrentPull = false
-
-	// Ensure this image isn't pulled by deleting it
-	removeImage(t, testRegistryImage)
-	removeImage(t, testBusyboxImage)
-
-	testTask := createTestTask("testSerialImagePull")
-	testTask.Containers = append(testTask.Containers,
-		createTestContainerWithImageAndName(testBusyboxImage, "busybox"))
+	testTask, tmpDirectory, err := createVolumeTask("task", "TestTaskLevelVolume", "TestTaskLevelVolume", true)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
 
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
 }

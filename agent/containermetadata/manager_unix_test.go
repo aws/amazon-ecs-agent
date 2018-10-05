@@ -1,4 +1,5 @@
-// +build !integration,!windows
+// +build unit,!windows
+
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -18,7 +19,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
@@ -31,7 +32,7 @@ func TestCreate(t *testing.T) {
 	defer done()
 
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockConfig := &docker.Config{Env: make([]string, 0)}
 	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
@@ -64,7 +65,7 @@ func TestUpdate(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockState := docker.State{
 		Running: true,

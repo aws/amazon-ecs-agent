@@ -1,6 +1,6 @@
-// +build windows
+// +build windows,unit
 
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,8 +21,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -265,4 +269,31 @@ func TestHandler_Execute_AgentStops(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestDoStartTaskLimitsFail(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+	defer ctrl.Finish()
+
+	cfg := getTestConfig()
+	cfg.Checkpoint = true
+	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                   ctx,
+		cfg:                   &cfg,
+		dockerClient:          dockerClient,
+		stateManagerFactory:   stateManagerFactory,
+		saveableOptionFactory: saveableOptionFactory,
+		ec2MetadataClient:     ec2.NewBlackholeEC2MetadataClient(),
+	}
+
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+
+	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }

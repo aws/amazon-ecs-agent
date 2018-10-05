@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,65 +19,63 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestContainerEqual(t *testing.T) {
 
-	exitCodeContainer := func(p *int) Container {
-		c := Container{}
+	exitCodeContainer := func(p *int) apicontainer.Container {
+		c := apicontainer.Container{}
 		c.SetKnownExitCode(p)
 		return c
 	}
 
 	testCases := []struct {
-		lhs           Container
-		rhs           Container
+		lhs           apicontainer.Container
+		rhs           apicontainer.Container
 		shouldBeEqual bool
 	}{
 		// Equal Pairs
-		{Container{Name: "name"}, Container{Name: "name"}, true},
-		{Container{Image: "nginx"}, Container{Image: "nginx"}, true},
-		{Container{Command: []string{"c"}}, Container{Command: []string{"c"}}, true},
-		{Container{CPU: 1}, Container{CPU: 1}, true},
-		{Container{Memory: 1}, Container{Memory: 1}, true},
-		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"1", "2"}}, true},
-		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"2", "1"}}, true},
-		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, true},
-		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"2", true}, {"1", false}}}, true},
-		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, true},
-		{Container{Essential: true}, Container{Essential: true}, true},
-		{Container{EntryPoint: nil}, Container{EntryPoint: nil}, true},
-		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "2"}}, true},
-		{Container{Environment: map[string]string{}}, Container{Environment: map[string]string{}}, true},
-		{Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"c": "d", "a": "b"}}, true},
-		{Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerRunning}, true},
-		{Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerRunning}, true},
-		{Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerRunning}, true},
+		{apicontainer.Container{Name: "name"}, apicontainer.Container{Name: "name"}, true},
+		{apicontainer.Container{Image: "nginx"}, apicontainer.Container{Image: "nginx"}, true},
+		{apicontainer.Container{Command: []string{"c"}}, apicontainer.Container{Command: []string{"c"}}, true},
+		{apicontainer.Container{CPU: 1}, apicontainer.Container{CPU: 1}, true},
+		{apicontainer.Container{Memory: 1}, apicontainer.Container{Memory: 1}, true},
+		{apicontainer.Container{Links: []string{"1", "2"}}, apicontainer.Container{Links: []string{"1", "2"}}, true},
+		{apicontainer.Container{Links: []string{"1", "2"}}, apicontainer.Container{Links: []string{"2", "1"}}, true},
+		{apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolTCP}}}, apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolTCP}}}, true},
+		{apicontainer.Container{Essential: true}, apicontainer.Container{Essential: true}, true},
+		{apicontainer.Container{EntryPoint: nil}, apicontainer.Container{EntryPoint: nil}, true},
+		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, true},
+		{apicontainer.Container{Environment: map[string]string{}}, apicontainer.Container{Environment: map[string]string{}}, true},
+		{apicontainer.Container{Environment: map[string]string{"a": "b", "c": "d"}}, apicontainer.Container{Environment: map[string]string{"c": "d", "a": "b"}}, true},
+		{apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, true},
+		{apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, true},
+		{apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, true},
 		{exitCodeContainer(aws.Int(1)), exitCodeContainer(aws.Int(1)), true},
 		{exitCodeContainer(nil), exitCodeContainer(nil), true},
 		// Unequal Pairs
-		{Container{Name: "name"}, Container{Name: "名前"}, false},
-		{Container{Image: "nginx"}, Container{Image: "えんじんえっくす"}, false},
-		{Container{Command: []string{"c"}}, Container{Command: []string{"し"}}, false},
-		{Container{Command: []string{"c", "b"}}, Container{Command: []string{"b", "c"}}, false},
-		{Container{CPU: 1}, Container{CPU: 2e2}, false},
-		{Container{Memory: 1}, Container{Memory: 2e2}, false},
-		{Container{Links: []string{"1", "2"}}, Container{Links: []string{"1", "二"}}, false},
-		{Container{VolumesFrom: []VolumeFrom{{"1", false}, {"2", true}}}, Container{VolumesFrom: []VolumeFrom{{"1", false}, {"二", false}}}, false},
-		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "二", TransportProtocolTCP}}}, false},
-		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 22, "1", TransportProtocolTCP}}}, false},
-		{Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolTCP}}}, Container{Ports: []PortBinding{{1, 2, "1", TransportProtocolUDP}}}, false},
-		{Container{Essential: true}, Container{Essential: false}, false},
-		{Container{EntryPoint: nil}, Container{EntryPoint: &[]string{"nonnil"}}, false},
-		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"2", "1"}}, false},
-		{Container{EntryPoint: &[]string{"1", "2"}}, Container{EntryPoint: &[]string{"1", "二"}}, false},
-		{Container{Environment: map[string]string{"a": "b", "c": "d"}}, Container{Environment: map[string]string{"し": "d", "a": "b"}}, false},
-		{Container{DesiredStatusUnsafe: ContainerRunning}, Container{DesiredStatusUnsafe: ContainerStopped}, false},
-		{Container{AppliedStatus: ContainerRunning}, Container{AppliedStatus: ContainerStopped}, false},
-		{Container{KnownStatusUnsafe: ContainerRunning}, Container{KnownStatusUnsafe: ContainerStopped}, false},
+		{apicontainer.Container{Name: "name"}, apicontainer.Container{Name: "名前"}, false},
+		{apicontainer.Container{Image: "nginx"}, apicontainer.Container{Image: "えんじんえっくす"}, false},
+		{apicontainer.Container{Command: []string{"c"}}, apicontainer.Container{Command: []string{"し"}}, false},
+		{apicontainer.Container{Command: []string{"c", "b"}}, apicontainer.Container{Command: []string{"b", "c"}}, false},
+		{apicontainer.Container{CPU: 1}, apicontainer.Container{CPU: 2e2}, false},
+		{apicontainer.Container{Memory: 1}, apicontainer.Container{Memory: 2e2}, false},
+		{apicontainer.Container{Links: []string{"1", "2"}}, apicontainer.Container{Links: []string{"1", "二"}}, false},
+		{apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolTCP}}}, apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "二", apicontainer.TransportProtocolTCP}}}, false},
+		{apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolTCP}}}, apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 22, "1", apicontainer.TransportProtocolTCP}}}, false},
+		{apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolTCP}}}, apicontainer.Container{Ports: []apicontainer.PortBinding{{1, 2, "1", apicontainer.TransportProtocolUDP}}}, false},
+		{apicontainer.Container{Essential: true}, apicontainer.Container{Essential: false}, false},
+		{apicontainer.Container{EntryPoint: nil}, apicontainer.Container{EntryPoint: &[]string{"nonnil"}}, false},
+		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"2", "1"}}, false},
+		{apicontainer.Container{EntryPoint: &[]string{"1", "2"}}, apicontainer.Container{EntryPoint: &[]string{"1", "二"}}, false},
+		{apicontainer.Container{Environment: map[string]string{"a": "b", "c": "d"}}, apicontainer.Container{Environment: map[string]string{"し": "d", "a": "b"}}, false},
+		{apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{DesiredStatusUnsafe: apicontainerstatus.ContainerStopped}, false},
+		{apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerRunning}, apicontainer.Container{AppliedStatus: apicontainerstatus.ContainerStopped}, false},
+		{apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerRunning}, apicontainer.Container{KnownStatusUnsafe: apicontainerstatus.ContainerStopped}, false},
 		{exitCodeContainer(aws.Int(0)), exitCodeContainer(aws.Int(42)), false},
 		{exitCodeContainer(nil), exitCodeContainer(aws.Int(12)), false},
 	}

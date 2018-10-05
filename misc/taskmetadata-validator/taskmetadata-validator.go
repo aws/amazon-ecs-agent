@@ -61,8 +61,9 @@ type ContainerResponse struct {
 	StartedAt     *time.Time `json:",omitempty"`
 	FinishedAt    *time.Time `json:",omitempty"`
 	Type          string
-	Health        HealthStatus `json:"health,omitempty"`
-	Networks      []Network    `json:",omitempty"`
+	Health        HealthStatus     `json:"health,omitempty"`
+	Networks      []Network        `json:",omitempty"`
+	Volumes       []VolumeResponse `json:"Volumes,omitempty"`
 }
 
 type HealthStatus struct {
@@ -94,11 +95,20 @@ type Network struct {
 	IPv6Addresses []string `json:"IPv6Addresses,omitempty"`
 }
 
+// VolumeResponse is the schema for the volume response JSON object
+type VolumeResponse struct {
+	DockerName  string `json:"DockerName,omitempty"`
+	Source      string `json:"Source,omitempty"`
+	Destination string `json:"Destination,omitempty"`
+}
+
 func taskMetadata(client *http.Client) (*TaskResponse, error) {
 	body, err := metadataResponse(client, v2MetadataEndpoint, "task metadata")
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Received task metadata: %s \n", string(body))
 
 	var taskMetadata TaskResponse
 	err = json.Unmarshal(body, &taskMetadata)
@@ -115,7 +125,7 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 		return nil, err
 	}
 
-	fmt.Println("Received data: %s ", string(body))
+	fmt.Printf("Received container metadata: %s \n", string(body))
 
 	var containerMetadata ContainerResponse
 	err = json.Unmarshal(body, &containerMetadata)
@@ -132,6 +142,8 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Received task stats: %s \n", string(body))
+
 	var taskStats map[string]*docker.Stats
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
@@ -146,6 +158,8 @@ func containerStats(client *http.Client, id string) (*docker.Stats, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("Received container stats: %s \n", string(body))
 
 	var containerStats docker.Stats
 	err = json.Unmarshal(body, &containerStats)
@@ -177,10 +191,12 @@ func metadataResponseOnce(client *http.Client, endpoint string, respType string)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to get response: %v", respType, err)
 	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: incorrect status code  %d", respType, resp.StatusCode)
 	}
-	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("task metadata: unable to read response body: %v", err)
@@ -228,10 +244,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if containerMetadata.Health.Status != "HEALTHY" || containerMetadata.Health.Output != "hello\n" {
-		fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
-		// TODO uncomment this when the container health check is deployed in backend
-		//		os.Exit(1)
+	if containerMetadata.Health.Status != "" { // if the health status is available
+		if containerMetadata.Health.Status != "HEALTHY" || containerMetadata.Health.Output != "hello\n" {
+			fmt.Fprintf(os.Stderr, "Container health metadata unexpected, got: %s\n", containerMetadata.Health)
+			os.Exit(1)
+		}
+	}
+
+	if containerMetadata.Volumes == nil {
+		fmt.Fprintf(os.Stderr, "Expected container volume metadata to be non-empty")
+		os.Exit(1)
+	}
+
+	if containerMetadata.Volumes[0].DockerName != "shared-local" || containerMetadata.Volumes[0].Destination != "/ecs" {
+		fmt.Fprintf(os.Stderr, "Volume metadata fields incorrect")
+		os.Exit(1)
 	}
 
 	_, err = taskStats(client)

@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -314,7 +316,8 @@ func TestMetricsDisabled(t *testing.T) {
 	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
 	cs.SetConnection(conn)
 
-	metricsPublished := make(chan struct{})
+	published := make(chan struct{})
+	readed := make(chan struct{})
 
 	// stats engine should only be called for getting health metrics
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(&ecstcs.HealthMetadata{
@@ -324,14 +327,17 @@ func TestMetricsDisabled(t *testing.T) {
 		MessageId:         aws.String("message_id"),
 	}, []*ecstcs.TaskHealth{{}}, nil).MinTimes(1)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
-	conn.EXPECT().ReadMessage().Return(1, nil, nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Do(func() {
+		readed <- struct{}{}
+	}).Return(1, nil, nil).MinTimes(1)
 	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().WriteMessage(gomock.Any(), gomock.Any()).Do(func(messageType int, data []byte) {
-		metricsPublished <- struct{}{}
+		published <- struct{}{}
 	}).Return(nil).MinTimes(1)
 
 	go cs.Serve()
-	<-metricsPublished
+	<-published
+	<-readed
 }
 
 func TestCreatePublishHealthRequestsEmpty(t *testing.T) {

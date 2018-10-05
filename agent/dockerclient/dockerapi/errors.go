@@ -160,22 +160,23 @@ func (err CannotPullECRContainerError) Retry() bool {
 	return false
 }
 
-// CreateEmptyVolumeError indicates any error when trying create empty volume
-type CreateEmptyVolumeError struct {
+// CannotPullContainerAuthError indicates any error when trying to pull
+// a container image
+type CannotPullContainerAuthError struct {
 	FromError error
 }
 
-func (err CreateEmptyVolumeError) Error() string {
+func (err CannotPullContainerAuthError) Error() string {
 	return err.FromError.Error()
 }
 
-// ErrorName returns name of the CreateEmptyVolumeError.
-func (err CreateEmptyVolumeError) ErrorName() string {
-	return "CreateEmptyVolumeError"
+// ErrorName returns name of the CannotPullContainerAuthError.
+func (err CannotPullContainerAuthError) ErrorName() string {
+	return "CannotPullContainerAuthError"
 }
 
 // Retry fulfills the utils.Retrier interface and allows retries to be skipped by utils.Retry* functions
-func (err CreateEmptyVolumeError) Retry() bool {
+func (err CannotPullContainerAuthError) Retry() bool {
 	return false
 }
 
@@ -261,4 +262,56 @@ func (err CannotListContainersError) Error() string {
 // ErrorName returns name of the CannotListContainersError
 func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
+}
+
+// CannotCreateVolumeError indicates any error when trying to create a volume
+type CannotCreateVolumeError struct {
+	fromError error
+}
+
+func (err CannotCreateVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotCreateVolumeError) ErrorName() string {
+	return "CannotCreateVolumeError"
+}
+
+// CannotInspectVolumeError indicates any error when trying to inspect a volume
+type CannotInspectVolumeError struct {
+	fromError error
+}
+
+func (err CannotInspectVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotInspectVolumeError) ErrorName() string {
+	return "CannotInspectVolumeError"
+}
+
+// CannotRemoveVolumeError indicates any error when trying to inspect a volume
+type CannotRemoveVolumeError struct {
+	fromError error
+}
+
+func (err CannotRemoveVolumeError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotRemoveVolumeError) ErrorName() string {
+	return "CannotRemoveVolumeError"
+}
+
+// CannotListPluginsError indicates any error when trying to list docker plugins
+type CannotListPluginsError struct {
+	fromError error
+}
+
+func (err CannotListPluginsError) Error() string {
+	return err.fromError.Error()
+}
+
+func (err CannotListPluginsError) ErrorName() string {
+	return "CannotListPluginsError"
 }

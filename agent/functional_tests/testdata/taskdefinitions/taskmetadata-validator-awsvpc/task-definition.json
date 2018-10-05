@@ -19,6 +19,22 @@
             "awslogs-region":"$$$TEST_REGION$$$",
             "awslogs-stream-prefix":"ecs-functional-tests-taskmetadata-validator"
         }
-    }
-  }]
+    },
+    "mountPoints": [
+        {
+          "sourceVolume": "shared-local",
+          "containerPath": "/ecs/"
+        }
+    ]
+  }],
+  "volumes":[
+      {
+          "name": "shared-local",
+          "dockerVolumeConfiguration" :{
+              "scope": "shared",
+              "autoprovision":true,
+              "driver": "local"
+          }
+      }
+  ]
 }

@@ -19,7 +19,7 @@ package testutils
 import (
 	"reflect"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
@@ -27,7 +27,7 @@ import (
 // This is not exact equality, but logical equality.
 // TODO: use reflection along with `equal:"unordered"` annotations on slices to
 // replace this verbose code (low priority, but would be fun)
-func ContainersEqual(lhs, rhs *api.Container) bool {
+func ContainersEqual(lhs, rhs *apicontainer.Container) bool {
 	if lhs == rhs {
 		return true
 	}
@@ -90,7 +90,7 @@ func ContainersEqual(lhs, rhs *api.Container) bool {
 }
 
 // ContainerOverridesEqual determines if two container overrides are equal
-func ContainerOverridesEqual(lhs, rhs api.ContainerOverrides) bool {
+func ContainerOverridesEqual(lhs, rhs apicontainer.ContainerOverrides) bool {
 	if lhs.Command == nil || rhs.Command == nil {
 		if lhs.Command != rhs.Command {
 			return false

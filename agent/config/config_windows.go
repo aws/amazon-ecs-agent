@@ -36,8 +36,10 @@ const (
 	rpcPort = 135
 	// Server Message Block (SMB) over TCP
 	smbPort = 445
-	// Windows Remote Management (WinRM) listener
-	winRMPort = 5985
+	// HTTP port for Windows Remote Management (WinRM) listener
+	winRMPortHTTP = 5985
+	// HTTPS port for Windows Remote Management (WinRM) listener
+	winRMPortHTTPS = 5986
 	// DNS client
 	dnsPort = 53
 	// NetBIOS over TCP/IP
@@ -66,7 +68,8 @@ func DefaultConfig() Config {
 			rdpPort,
 			rpcPort,
 			smbPort,
-			winRMPort,
+			winRMPortHTTP,
+			winRMPortHTTPS,
 			dnsPort,
 			netBIOSPort,
 		},
@@ -91,6 +94,7 @@ func DefaultConfig() Config {
 		PlatformVariables:           platformVariables,
 		TaskMetadataSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:       DefaultTaskMetadataBurstRate,
+		SharedVolumeMatchFullConfig: false, //only requiring shared volumes to match on name, which is default docker behavior
 	}
 }
 

@@ -91,8 +91,8 @@ stage_windows_s3() {
 	echo "Saved with md5sum $(cat ${zip_md5})"
 
 	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
-		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip"
-		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.md5"
+		dryval s3_cp "${zipfile}.zip" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}-unsigned.zip"
+		dryval s3_cp "${zip_md5}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}-unsigned.zip.md5"
 		dryval s3_cp "${zip_manifest}" "s3://${S3_BUCKET}/ecs-agent-windows-${tag}.zip.json"
 	done
 	popd
@@ -130,6 +130,8 @@ while getopts ":d:p:b:i:a:o:sh" opt; do
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
 				DRYRUN=false
+			else
+				DRYRUN=true
 			fi
 			;;
 		p)

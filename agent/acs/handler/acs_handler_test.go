@@ -1,3 +1,5 @@
+// +build unit
+
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -28,8 +30,9 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -45,6 +48,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
@@ -664,7 +668,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 		mockWsClient.EXPECT().Serve().Return(io.EOF),
 		mockWsClient.EXPECT().Serve().Do(func() {
 			cancel()
-		}).Return(io.EOF),
+		}).Return(errors.New("InactiveInstanceException")),
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
@@ -949,7 +953,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	}()
 
 	updatedCredentials := rolecredentials.TaskIAMRoleCredentials{}
-	taskFromEngine := &api.Task{}
+	taskFromEngine := &apitask.Task{}
 	credentialsIdInRefreshMessage := "credsId"
 	// Ensure that credentials manager interface methods are invoked in the
 	// correct order, with expected arguments
@@ -1122,11 +1126,11 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 
 // validateAddedTask validates fields in addedTask for expected values
 // It returns an error if there's a mismatch
-func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
-	// The ecsacs.Task -> api.Task conversion initializes all fields in api.Task
+func validateAddedTask(expectedTask apitask.Task, addedTask apitask.Task) error {
+	// The ecsacs.Task -> apitask.Task conversion initializes all fields in apitask.Task
 	// with empty objects. So, we create a new object to compare with only those
 	// fields that we are intrested in for comparison
-	taskToCompareFromAdded := api.Task{
+	taskToCompareFromAdded := apitask.Task{
 		Arn:                 addedTask.Arn,
 		Family:              addedTask.Family,
 		Version:             addedTask.Version,
@@ -1143,11 +1147,11 @@ func validateAddedTask(expectedTask api.Task, addedTask api.Task) error {
 
 // validateAddedContainer validates fields in addedContainer for expected values
 // It returns an error if there's a mismatch
-func validateAddedContainer(expectedContainer *api.Container, addedContainer *api.Container) error {
-	// The ecsacs.Task -> api.Task conversion initializes all fields in api.Container
+func validateAddedContainer(expectedContainer *apicontainer.Container, addedContainer *apicontainer.Container) error {
+	// The ecsacs.Task -> apitask.Task conversion initializes all fields in apicontainer.Container
 	// with empty objects. So, we create a new object to compare with only those
 	// fields that we are intrested in for comparison
-	containerToCompareFromAdded := &api.Container{
+	containerToCompareFromAdded := &apicontainer.Container{
 		Name:      addedContainer.Name,
 		CPU:       addedContainer.CPU,
 		Essential: addedContainer.Essential,

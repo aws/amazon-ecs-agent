@@ -58,6 +58,7 @@
     "service/cloudwatchlogs",
     "service/iam",
     "service/secretsmanager",
+    "service/secretsmanager/secretsmanageriface",
     "service/sts"
   ]
   revision = "4f5d298bd2dcb34b06d944594f458d1f77ac4d66"
@@ -137,25 +138,27 @@
     "api/types/swarm/runtime",
     "api/types/versions",
     "opts",
-    "pkg/archive",
     "pkg/fileutils",
     "pkg/homedir",
     "pkg/idtools",
     "pkg/ioutils",
-    "pkg/jsonmessage",
     "pkg/longpath",
     "pkg/mount",
+    "pkg/plugins",
+    "pkg/plugins/transport",
     "pkg/pools",
     "pkg/stdcopy",
-    "pkg/system",
-    "pkg/term",
-    "pkg/term/windows"
+    "pkg/system"
   ]
-  revision = "e4d0fe84f9ea88b0e0cfd847412c9f29442cc62d"
+  revision = "7270b01e5dd1fca3fd7fed0d6fb9d2769ec5f4ba"
 
 [[projects]]
   name = "github.com/docker/go-connections"
-  packages = ["nat"]
+  packages = [
+    "nat",
+    "sockets",
+    "tlsconfig"
+  ]
   revision = "3ede32e2033de7505e6500d6c868c2b9ed9f169d"
   version = "v0.3.0"
 
@@ -167,8 +170,13 @@
 
 [[projects]]
   name = "github.com/fsouza/go-dockerclient"
-  packages = ["."]
-  revision = "8a48995398824064442c99cb45f453fb10c0154e"
+  packages = [
+    ".",
+    "internal/archive",
+    "internal/jsonmessage",
+    "internal/term"
+  ]
+  revision = "be08a2e7eafecb4d8c6bc61be94233a06904a121"
 
 [[projects]]
   name = "github.com/go-ini/ini"
@@ -192,6 +200,18 @@
   name = "github.com/golang/mock"
   packages = ["gomock"]
   revision = "58cd061d09382b6011f84c1291ebe50ef2e25bab"
+
+[[projects]]
+  name = "github.com/gorilla/context"
+  packages = ["."]
+  revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+  version = "v1.1.1"
+
+[[projects]]
+  name = "github.com/gorilla/mux"
+  packages = ["."]
+  revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
+  version = "v1.6.2"
 
 [[projects]]
   name = "github.com/gorilla/websocket"
@@ -221,10 +241,7 @@
 
 [[projects]]
   name = "github.com/opencontainers/runc"
-  packages = [
-    "libcontainer/system",
-    "libcontainer/user"
-  ]
+  packages = ["libcontainer/user"]
   revision = "baf6536d6259209c3edfa2b22237af82942d3dfa"
   version = "v0.1.1"
 
@@ -268,7 +285,7 @@
     "require",
     "suite"
   ]
-  revision = "d77da356e56a7428ad25149ca77381849a6a5232"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
 
 [[projects]]
   name = "github.com/vishvananda/netlink"
@@ -296,7 +313,8 @@
   packages = [
     "context",
     "html",
-    "html/atom"
+    "html/atom",
+    "proxy"
   ]
   revision = "a337091b0525af65de94df2eb7e98bd9962dcbe2"
 
@@ -329,6 +347,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9d2cc8b52dc77195516205e880e2e1099eabd15190bcc2c8f0f42df0d5abaf2e"
+  inputs-digest = "b686976a52c9d06578699cb7af3d8817c43a7ac4b957eaac8f401f3ebf82df8a"
   solver-name = "gps-cdcl"
   solver-version = 1

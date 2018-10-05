@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,7 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -39,7 +43,8 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	defer cleanup()
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v1", "1")}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(),
+		nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
 
@@ -57,7 +62,7 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	assert.True(t, sequenceNumber == 0)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
-	var deadTask *api.Task
+	var deadTask *apitask.Task
 	for _, task := range tasks {
 		if task.Arn == "arn:aws:ecs:us-west-2:1234567890:task/f44b4fc9-adb0-4f4f-9dff-871512310588" {
 			deadTask = task
@@ -65,10 +70,10 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 	}
 
 	require.NotNil(t, deadTask)
-	assert.Equal(t, deadTask.GetSentStatus(), api.TaskStopped)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, api.ContainerStopped)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, api.ContainerStopped)
+	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)
@@ -76,4 +81,50 @@ func TestLoadsV1DataCorrectly(t *testing.T) {
 
 	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
 	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
+}
+
+func TestLoadsV13DataCorrectly(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v13", "1", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v13", "1")}
+
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "test", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	var deadTask *apitask.Task
+	for _, task := range tasks {
+		if task.Arn == "arn:aws:ecs:us-west-2:694464167470:task/5e9f6adb-2a02-48db-860f-41e12c4ced32" {
+			deadTask = task
+		}
+	}
+	require.NotNil(t, deadTask)
+	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskRunning)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerRunning)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerRunning)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerRunning)
+
+	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
+	require.NotNil(t, exitCode)
+	assert.Equal(t, *exitCode, 128)
+
+	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
+	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
+
 }

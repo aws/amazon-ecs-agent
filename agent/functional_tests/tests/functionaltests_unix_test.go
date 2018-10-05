@@ -31,8 +31,10 @@ import (
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -407,7 +409,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
-	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
+	agent.RequireVersion(">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
 		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
@@ -428,7 +430,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+	// TaskIAMRoles enabled container should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
 	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
@@ -442,7 +444,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
+		t.Fatal("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
@@ -457,6 +459,18 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	// Search the audit log to verify the credential request
 	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
+}
+
+func TestV3TaskEndpointAWSVPCNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "awsvpc", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointBridgeNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "bridge", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
 }
 
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
@@ -582,7 +596,7 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
-// TestMetadataServiceValidator Tests that the metadata file can be accessed from the
+// TestMetadataServiceValidator tests that the metadata file can be accessed from the
 // container using the ECS_CONTAINER_METADATA_FILE environment variables
 func TestMetadataServiceValidator(t *testing.T) {
 	agentOptions := &AgentOptions{
@@ -607,6 +621,43 @@ func TestMetadataServiceValidator(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
+// TestAgentIntrospectionValidator tests that the agent introspection endpoint can
+// be accessed from within the container.
+func TestAgentIntrospectionValidator(t *testing.T) {
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+	defer agent.Cleanup()
+	agent.RequireVersion(">1.20.1")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "agent-introspection-validator", tdOverrides)
+	require.NoError(t, err, "Unable to start task")
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(waitTaskStateChangeDuration)
+	}()
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("agent-introspection-validator")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
 	// Best effort to create a log group. It should be safe to even not do this
@@ -622,7 +673,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 		},
 	})
 	defer agent.Cleanup()
-	agent.RequireVersion(">1.16.2")
+	agent.RequireVersion(">1.20.1")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
@@ -839,17 +890,87 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 	assert.Equal(t, *resp.Events[1].Message, "May 01, 2017 19:00:04 Agent\nRunning\nin the instance\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[1].Message))
 }
 
+// TestPrivateRegistryAuthOverASM tests the workflow for retriving private registry authentication data
+// from AWS Secrets Manager
+func TestPrivateRegistryAuthOverASM(t *testing.T) {
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	secretName := "FunctionalTest-PrivateRegistryAuth"
+	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &secretsmanager.CreateSecretInput{
+		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestPrivateRegistryAuthOverASM"),
+		Name:         aws.String(secretName),
+		SecretString: aws.String("{\"username\":\"user\",\"password\":\"swordfish\"}"),
+	}
+
+	// create secret value if it does not exist
+	_, err := asmClient.CreateSecret(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case secretsmanager.ErrCodeResourceExistsException:
+				t.Logf("AWS Secrets Manager resource already exists")
+				break
+			default:
+				require.NoError(t, err, "AWS Secrets Manager CreateSecret call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.19.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$REPOSITORY_CREDENTIALS$$$"] = secretName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "private-registry-auth-asm-validator-unix", tdOverrides)
+	require.NoError(t, err, "Expected to start task using private registry authentication over asm failed")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("private-registry-auth-asm-validator")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
 // TestContainerHealthMetrics tests the container health metrics was sent to backend
 func TestContainerHealthMetrics(t *testing.T) {
-	// TODO remove this after backend changes deployed
-	t.Skip("Not supported")
 	containerHealthWithoutStartPeriodTest(t, "container-health")
 }
 
 // TestContainerHealthMetricsWithStartPeriod tests the container health metrics
 // with start period configured in the task definition
 func TestContainerHealthMetricsWithStartPeriod(t *testing.T) {
-	// TODO remove this after backend changes deployed
-	t.Skip("Not supported")
 	containerHealthWithStartPeriodTest(t, "container-health")
+}
+
+// TestTwoTasksSharedLocalVolume tests shared volume between two tasks
+func TestTwoTasksSharedLocalVolume(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.20.0")
+
+	// start writer task first
+	wTask, err := agent.StartTask(t, "task-shared-vol-write")
+	require.NoError(t, err, "Register task definition failed")
+
+	// Wait for the first task to create the volume
+	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, wErr, "Error waiting for task to transition to STOPPED")
+	wExitCode, _ := wTask.ContainerExitcode("task-shared-vol-write")
+	assert.Equal(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+
+	// then reader task try to read from the volume
+	rTask, err := agent.StartTask(t, "task-shared-vol-read")
+	require.NoError(t, err, "Register task definition failed")
+
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("task-shared-vol-read")
+	assert.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
 }

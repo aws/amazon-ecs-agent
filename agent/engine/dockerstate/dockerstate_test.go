@@ -1,5 +1,6 @@
-// +build !integration
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,7 +18,9 @@ package dockerstate
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
 	"github.com/stretchr/testify/assert"
@@ -62,7 +65,7 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 func TestAddTask(t *testing.T) {
 	state := NewTaskEngineState()
 
-	testTask := &api.Task{Arn: "test"}
+	testTask := &apitask.Task{Arn: "test"}
 	state.AddTask(testTask)
 
 	if len(state.AllTasks()) != 1 {
@@ -81,7 +84,7 @@ func TestAddTask(t *testing.T) {
 func TestAddRemoveENIAttachment(t *testing.T) {
 	state := NewTaskEngineState()
 
-	attachment := &api.ENIAttachment{
+	attachment := &apieni.ENIAttachment{
 		TaskARN:       "taskarn",
 		AttachmentARN: "eni1",
 		MACAddress:    "mac1",
@@ -107,12 +110,12 @@ func TestAddRemoveENIAttachment(t *testing.T) {
 
 func TestTwophaseAddContainer(t *testing.T) {
 	state := NewTaskEngineState()
-	testTask := &api.Task{Arn: "test", Containers: []*api.Container{{
+	testTask := &apitask.Task{Arn: "test", Containers: []*apicontainer.Container{{
 		Name: "testContainer",
 	}}}
 	state.AddTask(testTask)
 
-	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
+	state.AddContainer(&apicontainer.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0]}, testTask)
 
 	if len(state.AllTasks()) != 1 {
 		t.Fatal("Should have 1 task")
@@ -142,7 +145,7 @@ func TestTwophaseAddContainer(t *testing.T) {
 		t.Fatal("DockerID Should be blank")
 	}
 
-	state.AddContainer(&api.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerID: "did"}, testTask)
+	state.AddContainer(&apicontainer.DockerContainer{DockerName: "dockerName", Container: testTask.Containers[0], DockerID: "did"}, testTask)
 
 	containerMap, ok = state.ContainerMapByArn("test")
 	if !ok {
@@ -171,26 +174,26 @@ func TestTwophaseAddContainer(t *testing.T) {
 
 func TestRemoveTask(t *testing.T) {
 	state := NewTaskEngineState()
-	testContainer1 := &api.Container{
+	testContainer1 := &apicontainer.Container{
 		Name: "c1",
 	}
 
 	containerID := "did"
-	testDockerContainer1 := &api.DockerContainer{
+	testDockerContainer1 := &apicontainer.DockerContainer{
 		DockerID:  containerID,
 		Container: testContainer1,
 	}
-	testContainer2 := &api.Container{
+	testContainer2 := &apicontainer.Container{
 		Name: "c2",
 	}
-	testDockerContainer2 := &api.DockerContainer{
+	testDockerContainer2 := &apicontainer.DockerContainer{
 		// DockerName is used before the DockerID is assigned
 		DockerName: "docker-name-2",
 		Container:  testContainer2,
 	}
-	testTask := &api.Task{
+	testTask := &apitask.Task{
 		Arn:        "t1",
-		Containers: []*api.Container{testContainer1, testContainer2},
+		Containers: []*apicontainer.Container{testContainer1, testContainer2},
 	}
 
 	state.AddTask(testTask)
@@ -310,12 +313,12 @@ func TestRemoveNonExistingImageState(t *testing.T) {
 func TestAddContainerNameAndID(t *testing.T) {
 	state := NewTaskEngineState()
 
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: "taskArn",
 	}
-	container := &api.DockerContainer{
+	container := &apicontainer.DockerContainer{
 		DockerName: "ecs-test-container-1",
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			Name: "test",
 		},
 	}
@@ -330,10 +333,10 @@ func TestAddContainerNameAndID(t *testing.T) {
 	_, ok = state.ContainerByID(container.DockerName)
 	assert.True(t, ok, "container with DockerName should be added to the state")
 
-	container = &api.DockerContainer{
+	container = &apicontainer.DockerContainer{
 		DockerName: "ecs-test-container-1",
 		DockerID:   "dockerid",
-		Container: &api.Container{
+		Container: &apicontainer.Container{
 			Name: "test",
 		},
 	}
@@ -357,4 +360,102 @@ func TestTaskIPAddress(t *testing.T) {
 	taskIP, ok := state.taskToIPUnsafe(taskARN)
 	assert.True(t, ok)
 	assert.Equal(t, addr, taskIP)
+}
+
+// TestAddContainerAddV3EndpointID tests that when we add a container, containers' v3EndpointID mappings
+// will be added to state
+func TestAddContainerAddV3EndpointID(t *testing.T) {
+	state := newDockerTaskEngineState()
+	assert.NotNil(t, state.v3EndpointIDToTask)
+	assert.NotNil(t, state.v3EndpointIDToDockerID)
+
+	container1 := &apicontainer.Container{
+		Name:         "containerName1",
+		V3EndpointID: "new-uuid-1",
+	}
+	dockerContainer1 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID1",
+		Container: container1,
+	}
+	container2 := &apicontainer.Container{
+		Name:         "containerName2",
+		V3EndpointID: "new-uuid-2",
+	}
+	dockerContainer2 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID2",
+		Container: container2,
+	}
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+		Containers: []*apicontainer.Container{
+			container1,
+			container2,
+		},
+	}
+
+	state.AddTask(task)
+	state.AddContainer(dockerContainer1, task)
+	state.AddContainer(dockerContainer2, task)
+
+	// check that v3EndpointID mappings have been added to state
+	addedTaskArn1, _ := state.v3EndpointIDToTask["new-uuid-1"]
+	assert.Equal(t, addedTaskArn1, "taskArn")
+
+	addedDockerID1, _ := state.v3EndpointIDToDockerID["new-uuid-1"]
+	assert.Equal(t, addedDockerID1, "dockerID1")
+
+	addedTaskArn2, _ := state.v3EndpointIDToTask["new-uuid-2"]
+	assert.Equal(t, addedTaskArn2, "taskArn")
+
+	addedDockerID2, _ := state.v3EndpointIDToDockerID["new-uuid-2"]
+	assert.Equal(t, addedDockerID2, "dockerID2")
+}
+
+// TestRemoveTaskRemoveV3EndpointID tests that when we remove the task, containers' v3EndpointIDs will be
+// removed from state
+func TestRemoveTaskRemoveV3EndpointID(t *testing.T) {
+	state := newDockerTaskEngineState()
+	assert.NotNil(t, state.v3EndpointIDToTask)
+	assert.NotNil(t, state.v3EndpointIDToDockerID)
+
+	container1 := &apicontainer.Container{
+		Name:         "containerName1",
+		V3EndpointID: "new-uuid-1",
+	}
+	dockerContainer1 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID1",
+		Container: container1,
+	}
+	container2 := &apicontainer.Container{
+		Name:         "containerName2",
+		V3EndpointID: "new-uuid-2",
+	}
+	dockerContainer2 := &apicontainer.DockerContainer{
+		DockerName: "dockerID2",
+		Container:  container2,
+	}
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+		Containers: []*apicontainer.Container{
+			container1,
+			container2,
+		},
+	}
+
+	state.AddTask(task)
+	state.AddContainer(dockerContainer1, task)
+	state.AddContainer(dockerContainer2, task)
+	state.RemoveTask(task)
+
+	// check that v3EndpointIDToTask and v3EndpointIDToDockerID maps have been cleaned up
+	_, ok := state.v3EndpointIDToTask["new-uuid-1"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToDockerID["new-uuid-1"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToTask["new-uuid-2"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToDockerID["new-uuid-2"]
+	assert.False(t, ok)
 }

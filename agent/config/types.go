@@ -224,4 +224,10 @@ type Config struct {
 	// which ECS agent tries to register the instance where the instance id document is
 	// not available or needed
 	NoIID bool
+
+	// SharedVolumeMatchFullConfig is config option used to short-circuit volume validation against a
+	// provisioned volume, if false (default). If true, we perform deep comparison including driver options
+	// and labels. For comparing shared volume across 2 instances, this should be set to false as docker's
+	// default behavior is to match name only, and does not propagate driver options and labels through volume drivers.
+	SharedVolumeMatchFullConfig bool
 }

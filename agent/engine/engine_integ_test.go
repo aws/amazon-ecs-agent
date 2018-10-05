@@ -25,16 +25,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/resources"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,22 +55,6 @@ func init() {
 	_stoppedSentWaitInterval = 1 * time.Second
 }
 
-func createTestTask(arn string) *api.Task {
-	return &api.Task{
-		Arn:                 arn,
-		Family:              "family",
-		Version:             "1",
-		DesiredStatusUnsafe: api.TaskRunning,
-		Containers:          []*api.Container{createTestContainer()},
-	}
-}
-
-func defaultTestConfigIntegTest() *config.Config {
-	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
-	return cfg
-}
-
 func setupWithDefaultConfig(t *testing.T) (TaskEngine, func(), credentials.Manager) {
 	return setup(defaultTestConfigIntegTest(), nil, t)
 }
@@ -80,61 +63,17 @@ func setupWithState(t *testing.T, state dockerstate.TaskEngineState) (TaskEngine
 	return setup(defaultTestConfigIntegTest(), state, t)
 }
 
-func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
-	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
-	if err != nil {
-		t.Fatalf("Error creating Docker client: %v", err)
-	}
-	credentialsManager := credentials.NewManager()
-	if state == nil {
-		state = dockerstate.NewTaskEngineState()
-	}
-	imageManager := NewImageManager(cfg, dockerClient, state)
-	imageManager.SetSaver(statemanager.NewNoopStateManager())
-	metadataManager := containermetadata.NewManager(dockerClient, cfg)
-	resource := resources.New()
-	resource.ApplyConfigDependencies(cfg)
-
-	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, resource)
-	taskEngine.MustInit(context.TODO())
-	return taskEngine, func() {
-		taskEngine.Shutdown()
-	}, credentialsManager
-}
-
-func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerRunning,
-		"Expected container to be RUNNING")
-}
-
 func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskRunning,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
-}
-
-func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.ContainerStateChange).Status, api.ContainerStopped,
-		"Expected container to be STOPPED")
 }
 
 func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, api.TaskStopped,
+	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped,
 		"Expected task to be STOPPED")
 }
 
@@ -175,17 +114,17 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ := client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerCreated, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerRunning, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -200,7 +139,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
 	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, api.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -232,26 +171,6 @@ func TestHostVolumeMount(t *testing.T) {
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
 }
 
-func TestEmptyHostVolumeMount(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	// creates a task with two containers
-	testTask := createTestEmptyHostVolumeMountTask()
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-
-	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
-	assert.Equal(t, 42, *testTask.Containers[0].GetKnownExitCode(), "Wrong exit code, file probably wasn't present")
-}
-
 func TestSweepContainer(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
@@ -271,12 +190,12 @@ func TestSweepContainer(t *testing.T) {
 
 	tasks, _ := taskEngine.ListTasks()
 	assert.Equal(t, len(tasks), 1)
-	assert.Equal(t, tasks[0].GetKnownStatus(), api.TaskStopped)
+	assert.Equal(t, tasks[0].GetKnownStatus(), apitaskstatus.TaskStopped)
 
 	// Should be stopped, let's verify it's still listed...
 	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
 	assert.True(t, ok, "Expected task to be present still, but wasn't")
-	task.SetSentStatus(api.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
+	task.SetSentStatus(apitaskstatus.TaskStopped) // cleanupTask waits for TaskStopped to be sent before cleaning
 	time.Sleep(1 * time.Minute)
 	for i := 0; i < 60; i++ {
 		_, ok = taskEngine.(*DockerTaskEngine).State().TaskByArn(taskArn)
@@ -326,7 +245,7 @@ func TestTaskStopWhenPullImageFail(t *testing.T) {
 	testTask := createTestTask("testTaskStopWhenPullImageFail")
 	// Assign an invalid image to the task, and verify the task fails
 	// when the pull image behavior is "always".
-	testTask.Containers = []*api.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
+	testTask.Containers = []*apicontainer.Container{createTestContainerWithImageAndName("invalidImage", "invalidName")}
 
 	go taskEngine.AddTask(testTask)
 
@@ -353,7 +272,7 @@ func TestContainerHealthCheck(t *testing.T) {
 	assert.Equal(t, "HEALTHY", healthStatus.Status.BackendStatus(), "container health status is not HEALTHY")
 
 	taskUpdate := createTestTask(taskArn)
-	taskUpdate.SetDesiredStatus(api.TaskStopped)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
@@ -386,24 +305,24 @@ func TestEngineSynchronize(t *testing.T) {
 	containerBeforeSync, ok := containersMap[testTask.Containers[0].Name]
 	assert.True(t, ok, "container not found in the containers map")
 	// Task and Container restored from state file
-	containerSaved := &api.Container{
+	containerSaved := &apicontainer.Container{
 		Name:                containerBeforeSync.Container.Name,
-		SentStatusUnsafe:    api.ContainerRunning,
-		DesiredStatusUnsafe: api.ContainerRunning,
+		SentStatusUnsafe:    apicontainerstatus.ContainerRunning,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 	}
-	task := &api.Task{
+	task := &apitask.Task{
 		Arn: taskArn,
-		Containers: []*api.Container{
+		Containers: []*apicontainer.Container{
 			containerSaved,
 		},
-		KnownStatusUnsafe:   api.TaskRunning,
-		DesiredStatusUnsafe: api.TaskRunning,
-		SentStatusUnsafe:    api.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		SentStatusUnsafe:    apitaskstatus.TaskRunning,
 	}
 
 	state = dockerstate.NewTaskEngineState()
 	state.AddTask(task)
-	state.AddContainer(&api.DockerContainer{
+	state.AddContainer(&apicontainer.DockerContainer{
 		DockerID:  containerBeforeSync.DockerID,
 		Container: containerSaved,
 	}, task)
@@ -430,9 +349,65 @@ func TestEngineSynchronize(t *testing.T) {
 	assert.Len(t, imageStateAfterSync, 1)
 	assert.Equal(t, *imageStateAfterSync[0], *imageStates[0])
 
-	testTask.SetDesiredStatus(api.TaskStopped)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(testTask)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+func TestSharedAutoprovisionVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	client := taskEngine.(*DockerTaskEngine).client
+	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
+}
+
+func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	client := taskEngine.(*DockerTaskEngine).client
+	// Set the task clean up duration to speed up the test
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
+
+	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedDoNotAutoprovisionVolume", "TestSharedDoNotAutoprovisionVolume", false)
+	defer os.Remove(tmpDirectory)
+	require.NoError(t, err, "creating test task failed")
+
+	// creating volume to simulate previously provisioned volume
+	volumeConfig := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
+	volumeMetadata := client.CreateVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume",
+		volumeConfig.Driver, volumeConfig.DriverOpts, volumeConfig.Labels, 1*time.Minute)
+	require.NoError(t, volumeMetadata.Error)
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
+	assert.Len(t, testTask.ResourcesMapUnsafe["dockerVolume"], 0, "volume that has been provisioned does not require the agent to create it again")
+	// Wait for task to be cleaned up
+	testTask.SetSentStatus(apitaskstatus.TaskStopped)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
+	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
+	assert.NoError(t, response.Error, "expect shared volume not removed")
 }

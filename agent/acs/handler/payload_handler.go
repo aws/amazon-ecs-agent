@@ -16,8 +16,12 @@ import (
 	"fmt"
 
 	"context"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -173,17 +177,17 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests
 func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.PayloadMessage) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
-	// verify thatwe were able to work with all tasks in this payload so we know whether to ack the whole thing or not
+	// verify that we were able to work with all tasks in this payload so we know whether to ack the whole thing or not
 	allTasksOK := true
 
-	validTasks := make([]*api.Task, 0, len(payload.Tasks))
+	validTasks := make([]*apitask.Task, 0, len(payload.Tasks))
 	for _, task := range payload.Tasks {
 		if task == nil {
 			seelog.Criticalf("Received nil task for messageId: %s", aws.StringValue(payload.MessageId))
 			allTasksOK = false
 			continue
 		}
-		apiTask, err := api.TaskFromACS(task, payload)
+		apiTask, err := apitask.TaskFromACS(task, payload)
 		if err != nil {
 			payloadHandler.handleUnrecognizedTask(task, err, payload)
 			allTasksOK = false
@@ -209,7 +213,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 		// Adding the eni information to the task struct
 		if len(task.ElasticNetworkInterfaces) != 0 {
-			eni, err := api.ENIFromACS(task.ElasticNetworkInterfaces)
+			eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces)
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
@@ -256,19 +260,14 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 // addTasks adds the tasks to the task engine based on the skipAddTask condition
 // This is used to add non-stopped tasks before adding stopped tasks
-func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMessage, tasks []*api.Task, skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
+func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMessage, tasks []*apitask.Task, skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
 	allTasksOK := true
 	var credentialsAcks []*ecsacs.IAMRoleCredentialsAckRequest
 	for _, task := range tasks {
 		if skipAddTask(task.GetDesiredStatus()) {
 			continue
 		}
-		err := payloadHandler.taskEngine.AddTask(task)
-		if err != nil {
-			seelog.Warnf("Could not add task; taskengine probably disabled, err: %v", err)
-			// Don't ack
-			allTasksOK = false
-		}
+		payloadHandler.taskEngine.AddTask(task)
 
 		ackCredentials := func(id string, description string) {
 			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)
@@ -310,16 +309,16 @@ func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, c
 
 // skipAddTaskComparatorFunc defines the function pointer that accepts task status
 // and returns the boolean comparison result
-type skipAddTaskComparatorFunc func(api.TaskStatus) bool
+type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 
 // isTaskStatusStopped returns true if the task status == STOPPTED
-func isTaskStatusStopped(status api.TaskStatus) bool {
-	return status == api.TaskStopped
+func isTaskStatusStopped(status apitaskstatus.TaskStatus) bool {
+	return status == apitaskstatus.TaskStopped
 }
 
 // isTaskStatusNotStopped returns true if the task status != STOPPTED
-func isTaskStatusNotStopped(status api.TaskStatus) bool {
-	return status != api.TaskStopped
+func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
+	return status != apitaskstatus.TaskStopped
 }
 
 // handleUnrecognizedTask handles unrecognized tasks by sending 'stopped' with
@@ -336,8 +335,12 @@ func (payloadHandler *payloadRequestHandler) handleUnrecognizedTask(task *ecsacs
 	// Only need to stop the task; it brings down the containers too.
 	taskEvent := api.TaskStateChange{
 		TaskARN: *task.Arn,
-		Status:  api.TaskStopped,
+		Status:  apitaskstatus.TaskStopped,
 		Reason:  UnrecognizedTaskError{err}.Error(),
+		// The real task cannot be extracted from payload message, so we send an empty task.
+		// This is necessary because the task handler will not send an event whose
+		// Task is nil.
+		Task: &apitask.Task{},
 	}
 
 	payloadHandler.taskHandler.AddStateChangeEvent(taskEvent, payloadHandler.ecsClient)

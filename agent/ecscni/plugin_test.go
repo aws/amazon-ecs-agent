@@ -1,3 +1,18 @@
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//	http://aws.amazon.com/apache2.0/
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package ecscni
 
 import (
@@ -142,13 +157,14 @@ func TestConstructENINetworkConfig(t *testing.T) {
 	ecscniClient := NewClient(&Config{})
 
 	config := &Config{
-		ENIID:                "eni-12345678",
-		ContainerID:          "containerid12",
-		ContainerPID:         "pid",
-		ENIIPV4Address:       "172.31.21.40",
-		ENIIPV6Address:       "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:        "02:7b:64:49:b1:40",
-		BlockInstanceMetdata: true,
+		ENIID:                    "eni-12345678",
+		ContainerID:              "containerid12",
+		ContainerPID:             "pid",
+		ENIIPV4Address:           "172.31.21.40",
+		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		ENIMACAddress:            "02:7b:64:49:b1:40",
+		BlockInstanceMetdata:     true,
+		SubnetGatewayIPV4Address: "172.31.1.1/20",
 	}
 
 	_, eniNetworkConfig, err := ecscniClient.(*cniClient).createENINetworkConfig(config)
@@ -162,6 +178,7 @@ func TestConstructENINetworkConfig(t *testing.T) {
 	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
 	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
 	assert.True(t, eniConfig.BlockInstanceMetdata)
+	assert.Equal(t, config.SubnetGatewayIPV4Address, eniConfig.SubnetGatewayIPV4Address)
 }
 
 // TestConstructBridgeNetworkConfigWithoutIPAM tests createBridgeNetworkConfigWithoutIPAM creates the right configuration for bridge plugin

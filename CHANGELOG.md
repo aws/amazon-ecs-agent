@@ -1,4 +1,40 @@
 # Changelog
+## 1.21.0-dev
+* Feature - Add v3 task metadata support for awsvpc, host and bridge network mode
+
+## 1.20.4
+* Bug - Fixed a bug where Windows drive volume couldn't be mounted [#1571](https://github.com/aws/amazon-ecs-agent/pull/1571)
+* Bug - Fixed a bug where the Agent's Windows binaries didn't use consistent naming [#1573](https://github.com/aws/amazon-ecs-agent/pull/1573)
+* Bug - Fixed a bug where a port used by WinRM service was not reserved by the Agent by default [#1577](https://github.com/aws/amazon-ecs-agent/pull/1577)
+
+## 1.20.3
+* Enhancement - Deprecate support for serial docker image pull [#1569](https://github.com/aws/amazon-ecs-agent/pull/1569)
+* Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.08.0`
+
+## 1.20.2
+* Enhancement - Added ECS config field `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` to
+make the volume labels and driver options comparison configurable for shared volume [#1519](https://github.com/aws/amazon-ecs-agent/pull/1519)
+* Enhancement - Added Volumes metadata as part of v1 and v2 metadata endpoints [#1531](https://github.com/aws/amazon-ecs-agent/pull/1531)
+* Bug - Fixed a bug where unrecognized task cannot be stopped [#1467](https://github.com/aws/amazon-ecs-agent/pull/1467)
+* Bug - Fixed a bug where tasks with CPU windows unbounded field set are not honored
+on restart due to non-persistence of `PlatformFields` in agent state file [@julienduchesne](https://github.com/julienduchesne) [#1480](https://github.com/aws/amazon-ecs-agent/pull/1480)
+
+## 1.20.1
+* Bug - Fixed a bug where the agent couldn't be upgraded if there are tasks that
+  use volumes in the task definition on the instance
+* Bug - Fixed a bug where volumes driver may not work with mountpoint
+
+## 1.20.0
+* Feature - Add support for Docker volume drivers, third party drivers are only supported on linux
+* Enhancement - Replace the empty container with Docker local volume
+* Enhancement - Deprecate support for Docker version older than 1.9.0 [#1477](https://github.com/aws/amazon-ecs-agent/pull/1477)
+* Bug - Fixed a bug where container marked as stopped comes back with a running status [#1446](https://github.com/aws/amazon-ecs-agent/pull/1446)
+
+## 1.19.1
+* Bug - Fixed a bug where responses of introspection API break backward compatibility [#1473](https://github.com/aws/amazon-ecs-agent/pull/1473)
+
+## 1.19.0
+* Feature - Private registry can be authenticated through task definition using AWS Secrets Manager [#1427](https://github.com/aws/amazon-ecs-agent/pull/1427)
 
 ## 1.18.0
 * Feature - Configurable container image pull behavior [#1348](https://github.com/aws/amazon-ecs-agent/pull/1348)

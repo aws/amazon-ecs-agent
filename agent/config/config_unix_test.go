@@ -1,4 +1,5 @@
-// +build !windows
+// +build !windows,unit
+
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -63,6 +64,7 @@ func TestConfigDefault(t *testing.T) {
 		"Default TaskMetadataSteadyStateRate is set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
+	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file

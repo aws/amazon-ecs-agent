@@ -50,7 +50,7 @@
 
 [[constraint]]
   name = "github.com/fsouza/go-dockerclient"
-  revision ="8a48995398824064442c99cb45f453fb10c0154e"
+  revision ="be08a2e7eafecb4d8c6bc61be94233a06904a121"
 
 [[constraint]]
   name = "github.com/golang/mock"
@@ -74,7 +74,7 @@
 
 [[constraint]]
   name = "github.com/stretchr/testify"
-  revision ="d77da356e56a7428ad25149ca77381849a6a5232"
+  revision ="f35b8ab0b5a2cef36673838d662e249dd9c94686"
 
 [[constraint]]
   name = "github.com/vishvananda/netlink"
@@ -83,3 +83,7 @@
 [[constraint]]
   name = "github.com/didip/tollbooth"
   version = "3.0.2"
+
+[[constraint]]
+  name = "github.com/gorilla/mux"
+  version = "1.6.2"

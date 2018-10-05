@@ -44,26 +44,29 @@ const (
 	// 4) Add 'DockerConfig' struct
 	// 5) Add 'ImageStates' struct as part of ImageManager
 	// 6)
-	//   a) Refactor 'Internal' field in 'api.Container' to 'Type' enum
+	//   a) Refactor 'Internal' field in 'apicontainer.Container' to 'Type' enum
 	//   b) Add 'ContainerResourcesProvisioned' as a new 'ContainerStatus' enum
 	//   c) Add 'SteadyStateStatus' field to 'Container' struct
 	//   d) Add 'ENIAttachments' struct
 	//   e) Deprecate 'SteadyStateDependencies' in favor of 'TransitionDependencySet'
 	// 7)
-	//   a) Add 'MetadataUpdated' field to 'api.Container'
-	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in 'api.ENI'
+	//   a) Add 'MetadataUpdated' field to 'apicontainer.Container'
+	//   b) Add 'DomainNameServers' and 'DomainNameSearchList' in `api.ENI`
 	// 8)
-	//   a) Add 'UseExecutionRole' in 'api.ECRAuthData'
-	//   b) Add 'executionCredentialsID' in 'api.Task'
-	//   c) Add 'LogsAuthStrategy' field to 'api.Container'
-	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'api.Task'
+	//   a) Add 'UseExecutionRole' in `api.ECRAuthData`
+	//   b) Add `executionCredentialsID` in `apitask.Task`
+	//   c) Add 'LogsAuthStrategy' field to 'apicontainer.Container'
+	//   d) Added task cgroup related fields ('CPU', 'Memory', 'MemoryCPULimitsEnabled') to 'apitask.Task'
 	// 9) Add 'ipToTask' map to state file
-	// 10) Add 'healthCheckType' field in 'api.Container'
+	// 10) Add 'healthCheckType' field in 'apicontainer.Container'
 	// 11)
-	//  a) Add 'PrivateDNSName' field to 'api.ENI'
-	//  b)Remove 'AppliedStatus' field from 'api.Container'
-	// 12) Add 'PullSucceeded' field to 'ImageState'
-	ECSDataVersion = 12
+	//   a) Add 'PrivateDNSName' field to 'api.ENI'
+	//   b)Remove `AppliedStatus` field form 'apicontainer.Container'
+	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'apicontainer.Container'
+	// 13) Add 'resources' field to 'api.task.task'
+	// 14) Add 'PlatformFields' field to 'api.task.task'
+	// 15) Add 'V3EndpointID' field to 'Container' struct
+	ECSDataVersion = 15
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

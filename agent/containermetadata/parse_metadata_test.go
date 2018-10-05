@@ -1,4 +1,5 @@
-// +build !integration
+// +build unit
+
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -17,7 +18,7 @@ package containermetadata
 import (
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +33,7 @@ func TestParseContainerCreate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTaskDefinitionFamily := taskDefinitionFamily
 	mockTaskDefinitionRevision := taskDefinitionRevision
-	mockTask := &api.Task{Arn: mockTaskARN, Family: mockTaskDefinitionFamily, Version: mockTaskDefinitionRevision}
+	mockTask := &apitask.Task{Arn: mockTaskARN, Family: mockTaskDefinitionFamily, Version: mockTaskDefinitionRevision}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -56,7 +57,7 @@ func TestParseContainerCreate(t *testing.T) {
 
 func TestParseHasNoContainer(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -82,7 +83,7 @@ func TestParseHasNoContainer(t *testing.T) {
 
 func TestParseHasConfig(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -113,7 +114,7 @@ func TestParseHasConfig(t *testing.T) {
 
 func TestParseHasNetworkSettingsPortBindings(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -153,7 +154,7 @@ func TestParseHasNetworkSettingsPortBindings(t *testing.T) {
 
 func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -180,7 +181,7 @@ func TestParseHasNetworkSettingsNetworksEmpty(t *testing.T) {
 
 func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -210,7 +211,7 @@ func TestParseHasNetworkSettingsNetworksNonEmpty(t *testing.T) {
 
 func TestParseTaskDefinitionSettings(t *testing.T) {
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockCluster := cluster
 	mockContainerInstanceARN := containerInstanceARN
@@ -239,7 +240,7 @@ func TestParseTaskDefinitionSettings(t *testing.T) {
 	// now add the task definition details
 	mockTaskDefinitionFamily := taskDefinitionFamily
 	mockTaskDefinitionRevision := taskDefinitionRevision
-	mockTask = &api.Task{ Arn: mockTaskARN, Family: mockTaskDefinitionFamily, Version: mockTaskDefinitionRevision }
+	mockTask = &apitask.Task{Arn: mockTaskARN, Family: mockTaskDefinitionFamily, Version: mockTaskDefinitionRevision}
 	metadata = newManager.parseMetadata(nil, mockTask, mockContainerName)
 	assert.Equal(t, metadata.taskMetadata.taskDefinitionFamily, mockTaskDefinitionFamily, "Expected task definition family "+mockTaskDefinitionFamily)
 	assert.Equal(t, metadata.taskMetadata.taskDefinitionRevision, mockTaskDefinitionRevision, "Expected task definition revision "+mockTaskDefinitionRevision)

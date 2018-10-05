@@ -1,4 +1,5 @@
-// +build !integration
+// +build unit
+
 // Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -19,7 +20,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/api"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
@@ -67,7 +68,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	defer done()
 
 	mockTaskARN := invalidTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 
 	newManager := &metadataManager{}
@@ -81,7 +82,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	defer done()
 
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 
 	gomock.InOrder(
@@ -102,7 +103,7 @@ func TestUpdateInspectFail(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 
 	newManager := &metadataManager{
@@ -124,7 +125,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 
 	mockDockerID := dockerID
 	mockTaskARN := validTaskARN
-	mockTask := &api.Task{Arn: mockTaskARN}
+	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
 	mockState := docker.State{
 		Running: false,

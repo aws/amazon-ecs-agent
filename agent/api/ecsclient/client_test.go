@@ -1,4 +1,6 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -25,7 +27,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -120,7 +126,7 @@ func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
 	}
 
 	if len(lhs.Attachments) != 0 {
-		for i, _ := range lhs.Attachments {
+		for i := range lhs.Attachments {
 			if !(equal(lhs.Attachments[i].Status, rhs.Attachments[i].Status) &&
 				equal(lhs.Attachments[i].AttachmentArn, rhs.Attachments[i].AttachmentArn)) {
 				return false
@@ -164,8 +170,8 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        api.ContainerRunning,
-		PortBindings: []api.PortBinding{
+		Status:        apicontainerstatus.ContainerRunning,
+		PortBindings: []apicontainer.PortBinding{
 			{
 				BindIP:        "1.2.3.4",
 				ContainerPort: 1,
@@ -175,7 +181,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 				BindIP:        "2.2.3.4",
 				ContainerPort: 3,
 				HostPort:      4,
-				Protocol:      api.TransportProtocolUDP,
+				Protocol:      apicontainer.TransportProtocolUDP,
 			},
 		},
 	})
@@ -212,10 +218,10 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        api.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
-		PortBindings: []api.PortBinding{
+		PortBindings: []apicontainer.PortBinding{
 			{},
 		},
 	})
@@ -245,7 +251,7 @@ func TestSubmitContainerStateChangeReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        api.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -276,7 +282,7 @@ func TestSubmitContainerStateChangeLongReason(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
-		Status:        api.ContainerStopped,
+		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
 	})
@@ -732,9 +738,9 @@ func TestSubmitTaskStateChangeWithAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Attachment: &api.ENIAttachment{
+		Attachment: &apieni.ENIAttachment{
 			AttachmentARN: "eni_arn",
-			Status:        api.ENIAttached,
+			Status:        apieni.ENIAttached,
 		},
 	})
 	assert.NoError(t, err, "Unable to submit task state change with attachments")
@@ -756,7 +762,7 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 
 	err := client.SubmitTaskStateChange(api.TaskStateChange{
 		TaskARN: "task_arn",
-		Status:  api.TaskRunning,
+		Status:  apitaskstatus.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }
@@ -768,27 +774,27 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	testCases := []struct {
-		taskStatus api.TaskStatus
+		taskStatus apitaskstatus.TaskStatus
 	}{
 		{
-			api.TaskStatusNone,
+			apitaskstatus.TaskStatusNone,
 		},
 		{
-			api.TaskPulled,
+			apitaskstatus.TaskPulled,
 		},
 		{
-			api.TaskCreated,
+			apitaskstatus.TaskCreated,
 		},
 	}
 
 	taskStateChangePending := api.TaskStateChange{
-		Status:  api.TaskCreated,
+		Status:  apitaskstatus.TaskCreated,
 		TaskARN: "arn",
 		Containers: []api.ContainerStateChange{
 			{
 				TaskArn:       "arn",
 				ContainerName: "container",
-				Status:        api.ContainerRunning,
+				Status:        apicontainerstatus.ContainerRunning,
 			},
 		},
 	}

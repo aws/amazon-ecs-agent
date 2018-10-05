@@ -14,6 +14,8 @@ The Amazon ECS Container Agent is a component of Amazon Elastic Container Servic
 The best source of information on running this software is the
 [Amazon ECS documentation](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ECS_agent.html).
 
+Please note that from Agent version 1.20.0, Minimum required Docker version is 1.9.0, corresponding to Docker API version 1.21. For more information, please visit [Amazon ECS Container Agent Versions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container_agent_versions.html).
+
 ### On the Amazon Linux AMI
 
 On the [Amazon Linux AMI](https://aws.amazon.com/amazon-linux-ami/), we provide an installable RPM which can be used via
@@ -51,78 +53,25 @@ $ docker run --name ecs-agent \
 
 See also the Advanced Usage section below.
 
-### On Windows Server 2016
+### On the ECS Optimized Windows AMI
 
-On Windows Server 2016, the Amazon ECS Container Agent runs as a process or service on the host. Unlike Linux,
-the agent may not run inside a container as it uses the host's registry and the named pipe at `\\.\pipe\docker_engine`
-to communicate with the Docker daemon.
-
-#### As a Service
-To install the service, you can do the following:
+ECS Optimized Windows AMI ships with a pre-installed PowerShell module called ECSTools to install, configure, and run the ECS Agent as a Windows service.
+To install the service, you can run the following PowerShell commands on an EC2 instance. To launch into another cluster instead of windows, replace the 'windows' in the script below with the name of your cluster.
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> Set-Location ${ecsExeDir}
-PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
-PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [bool]$EnableTaskIAMRoles = $false
-PS C:\> if (${EnableTaskIAMRoles} {
->> .\hostsetup.ps1
->> }
-PS C:\> # Install the agent service
-PS C:\> New-Service -Name "AmazonECS" `
-        -BinaryPathName "$ecsExeDir\amazon-ecs-agent.exe -windows-service" `
-        -DisplayName "Amazon ECS" `
-        -Description "Amazon ECS service runs the Amazon ECS agent" `
-        -DependsOn Docker `
-        -StartupType Manual
-PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/5000/restart/30000/restart/60000
-PS C:\> sc.exe failureflag AmazonECS 1
+PS C:\> Import-Module ECSTools
+PS C:\> # The -EnableTaskIAMRole option is required to enable IAM roles for tasks.
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole
 ```
 
-To run the service, you can do the following:
-```powershell
-Start-Service AmazonECS
-```
+#### Downloading Different Version of ECS Agent
 
-#### As a Process
+To download different version of ECS Agent, you can do the following:
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Set this environment variable to "true" to enable IAM roles.  Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> # Run the agent
-PS C:\> cd '$ecsExeDir'; .\amazon-ecs-agent.ps1
+PS C:\> # use agentVersion = "latest" for the latest available agent version
+PS C:\> $agentVersion = "v1.20.4"
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole -Version $agentVersion
 ```
 
 ## Advanced Usage
@@ -139,7 +88,7 @@ additional details on each available environment variable.
 | Environment Key | Example Value(s)            | Description | Default value on Linux | Default value on Windows |
 |:----------------|:----------------------------|:------------|:-----------------------|:-------------------------|
 | `ECS_CLUSTER`       | clusterName             | The cluster this agent should check into. | default | default |
-| `ECS_RESERVED_PORTS` | `[22, 80, 5000, 8080]` | An array of ports that should be marked as unavailable for scheduling on this container instance. | `[22, 2375, 2376, 51678, 51679]` | `[53, 135, 139, 445, 2375, 2376, 3389, 5985, 51678, 51679]`
+| `ECS_RESERVED_PORTS` | `[22, 80, 5000, 8080]` | An array of ports that should be marked as unavailable for scheduling on this container instance. | `[22, 2375, 2376, 51678, 51679]` | `[53, 135, 139, 445, 2375, 2376, 3389, 5985, 5986, 51678, 51679]`
 | `ECS_RESERVED_PORTS_UDP` | `[53, 123]` | An array of UDP ports that should be marked as unavailable for scheduling on this container instance. | `[]` | `[]` |
 | `ECS_ENGINE_AUTH_TYPE`     |  "docker" &#124; "dockercfg" | The type of auth data that is stored in the `ECS_ENGINE_AUTH_DATA` key. | | |
 | `ECS_ENGINE_AUTH_DATA`     | See the [dockerauth documentation](https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth) | Docker [auth data](https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth) formatted as defined by `ECS_ENGINE_AUTH_TYPE`. | | |
@@ -181,6 +130,7 @@ additional details on each available environment variable.
 | `ECS_CGROUP_PATH` | `/sys/fs/cgroup` | The root cgroup path that is expected by the ECS agent. This is the path that accessible from the agent mount. | `/sys/fs/cgroup` | Not applicable |
 | `ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will allow CPU unbounded(CPU=`0`) tasks to run along with CPU bounded tasks in Windows. | Not applicable | `false` |
 | `ECS_TASK_METADATA_RPS_LIMIT` | `100,150` | Comma separated integer values for steady state and burst throttle limits for task metadata endpoint | `40,60` | `40,60` |
+| `ECS_SHARED_VOLUME_MATCH_FULL_CONFIG` | `true` | When `true`, ECS Agent will compare name, driver options, and labels to make sure volumes are identical. When `false`, Agent will short circuit shared volume comparison if the names match. This is the default Docker behavior. If a volume is shared across instances, this should be set to `false`. | `false` | `false`|
 
 ### Persistence
 

@@ -31,7 +31,7 @@ import (
 
 	"context"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/types/v1"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -377,7 +377,7 @@ func (agent *TestAgent) resolveTaskDockerID(task *TestTask, containerName string
 	}
 	for _, container := range taskResp.Containers {
 		if container.Name == containerName {
-			return container.DockerId, nil
+			return container.DockerID, nil
 		}
 	}
 	return "", errors.New("No containers matched given name")
@@ -740,7 +740,7 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 	for _, container := range taskResponse.Containers {
 		ctx, _ := context.WithTimeout(context.Background(), 1*time.Minute)
 		agent.DockerClient.RemoveContainer(docker.RemoveContainerOptions{
-			ID:            container.DockerId,
+			ID:            container.DockerID,
 			RemoveVolumes: true,
 			Force:         true,
 			Context:       ctx,

@@ -35,6 +35,10 @@ const (
 	// http://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=docker
 	DockerReservedPort    = 2375
 	DockerReservedSSLPort = 2376
+	// DockerTagSeparator is the charactor used to separate names and tag in docker
+	DockerTagSeparator = ":"
+	// DockerDefaultTag is the default tag used by docker
+	DefaultDockerTag = "latest"
 
 	SSHPort = 22
 
@@ -416,6 +420,7 @@ func environmentConfig() (Config, error) {
 		CgroupPath:                       os.Getenv("ECS_CGROUP_PATH"),
 		TaskMetadataSteadyStateRate:      steadyStateRate,
 		TaskMetadataBurstRate:            burstRate,
+		SharedVolumeMatchFullConfig:      utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 	}, err
 }
 

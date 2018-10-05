@@ -1,4 +1,6 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -31,7 +33,7 @@ func TestGetTextSuccess(t *testing.T) {
 		t.Error("Did not expect error", err)
 	}
 
-	expectedText := "LICENSE\n" + strings.Repeat("=", 80) + "\nNOTICE"
+	expectedText := "LICENSE\n" + strings.Repeat("=", 80) + "\nNOTICE\n" + strings.Repeat("=", 80) + "\nTHIRD-PARTY"
 	if text != expectedText {
 		t.Errorf("Expected %s but was %s", expectedText, text)
 	}

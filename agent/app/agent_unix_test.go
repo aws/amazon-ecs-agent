@@ -1,4 +1,4 @@
-// +build linux
+// +build linux,unit
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -39,9 +39,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/resources/mock_resources"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -60,6 +62,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
@@ -67,6 +70,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failues
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
@@ -87,6 +91,9 @@ func TestDoStartHappyPath(t *testing.T) {
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
@@ -104,6 +111,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -128,6 +136,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	mockOS := mock_oswrapper.NewMockOS(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -136,6 +145,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	// invoked via go routines, which will lead to occasional test failues
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		dockerapi.ListContainersResponse{}).AnyTimes()
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
@@ -165,6 +175,9 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
 		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Do(
 			func(x interface{}, attributes []*ecs.Attribute) {
 				vpcFound := false
@@ -203,6 +216,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		os:                 mockOS,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -458,21 +472,25 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockResource := mock_resources.NewMockResource(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
 	gomock.InOrder(
-		mockResource.EXPECT().ApplyConfigDependencies(gomock.Any()),
-		mockResource.EXPECT().Init().Return(nil),
+		mockControl.EXPECT().Init().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
@@ -502,8 +520,11 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
-		resource:           mockResource,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
+		resourceFields: &taskresource.ResourceFields{
+			Control: mockControl,
+		},
 	}
 
 	go agent.doStart(eventstream.NewEventStream("events", ctx),
@@ -522,16 +543,16 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockResource := mock_resources.NewMockResource(ctrl)
+	mockControl := mock_control.NewMockControl(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
 
-	mockResource.EXPECT().ApplyConfigDependencies(gomock.Any())
-	mockResource.EXPECT().Init().Return(errors.New("cgroup init error"))
+	mockControl.EXPECT().Init().Return(errors.New("test error"))
 
 	cfg := getTestConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
@@ -544,8 +565,10 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
-		resource:           mockResource,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		resourceFields: &taskresource.ResourceFields{
+			Control: mockControl,
+		},
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),

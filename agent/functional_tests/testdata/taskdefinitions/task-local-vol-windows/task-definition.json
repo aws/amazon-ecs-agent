@@ -1,0 +1,31 @@
+{
+    "family": "ecsftest-task-local-volume",
+    "containerDefinitions": [
+        {
+            "image": "microsoft/windowsservercore:latest",
+            "name": "exit",
+            "cpu": 512,
+            "memory": 256,
+            "essential": true,
+            "command": ["powershell", "-c", "New-Item -ItemType file C:/ecs/success; exit 42"],
+            "mountPoints": [
+                {
+                  "sourceVolume": "task-local",
+                  "containerPath": "C:/ecs/"
+                }
+            ]
+        }
+    ],
+    "volumes":[
+        {
+            "name": "task-local",
+            "dockerVolumeConfiguration" : {
+                "scope": "task",
+                "driver": "local",
+                "labels": {
+                    "mylables": "test"
+                }
+            }
+        }
+    ]
+}

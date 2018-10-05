@@ -17,7 +17,8 @@ import (
 	"encoding/json"
 
 	"context"
-	"github.com/aws/amazon-ecs-agent/agent/api"
+
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
@@ -27,7 +28,7 @@ type TaskEngine interface {
 	Init(context.Context) error
 	MustInit(context.Context)
 	// Disable *must* only be called when this engine will no longer be used
-	// (e.g. right before exiting down the process). It will irreversably stop
+	// (e.g. right before exiting down the process). It will irreversibly stop
 	// this task engine from processing new tasks
 	Disable()
 
@@ -39,13 +40,13 @@ type TaskEngine interface {
 
 	// AddTask adds a new task to the task engine and manages its container's
 	// lifecycle. If it returns an error, the task was not added.
-	AddTask(*api.Task) error
+	AddTask(*apitask.Task)
 
 	// ListTasks lists all the tasks being managed by the TaskEngine.
-	ListTasks() ([]*api.Task, error)
+	ListTasks() ([]*apitask.Task, error)
 
 	// GetTaskByArn gets a managed task, given a task arn.
-	GetTaskByArn(string) (*api.Task, bool)
+	GetTaskByArn(string) (*apitask.Task, bool)
 
 	Version() (string, error)
 

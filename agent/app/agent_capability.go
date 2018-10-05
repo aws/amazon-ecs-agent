@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	// capabilityPrefix is deprecated. For new capabilities, use attributePrefix.
 	capabilityPrefix                            = "com.amazonaws.ecs.capability."
 	attributePrefix                             = "ecs.capability."
 	capabilityTaskIAMRole                       = "task-iam-role"
@@ -33,6 +34,9 @@ const (
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
+	capabilityDockerPluginInfix                 = "docker-plugin."
+	attributeSeparator                          = "."
+	capabilityPrivateRegistryAuthASM            = "private-registry-authentication.secretsmanager"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -54,11 +58,13 @@ const (
 //    com.amazonaws.ecs.capability.ecr-auth
 //    com.amazonaws.ecs.capability.task-iam-role
 //    com.amazonaws.ecs.capability.task-iam-role-network-host
+//    ecs.capability.docker-volume-driver.${driverName}
 //    ecs.capability.task-eni
 //    ecs.capability.task-eni-block-instance-metadata
 //    ecs.capability.execution-role-ecr-pull
 //    ecs.capability.execution-role-awslogs
 //    ecs.capability.container-health-check
+//    ecs.capability.private-registry-authentication.secretsmanager
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -98,6 +104,12 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if agent.cfg.OverrideAWSLogsExecutionRole {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
+
+	capabilities = agent.appendVolumeDriverCapabilities(capabilities)
+
+	// ecs agent version 1.19.0 supports private registry authentication using
+	// aws secrets manager
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityPrivateRegistryAuthASM)
 
 	return capabilities, nil
 }
