@@ -33,8 +33,9 @@ import (
 
 const (
 	currentCNISpec = "0.3.1"
+	// CNIVersion and CNIGitHash needs to be updated every time CNI plugin is updated
 	currentCNIVersion = "2018.08.0"
-	CNIGitHash = "a134a973585b560439ed25ec3857e4789bfeb89f"
+	currentCNIGitHash = "a134a973585b560439ed25ec3857e4789bfeb89f"
 )
 
 // CNIClient defines the method of setting/cleaning up container namespace

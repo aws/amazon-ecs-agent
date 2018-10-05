@@ -21,10 +21,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
-	"path/filepath"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
@@ -264,31 +264,30 @@ func TestCNIPluginVersion(t *testing.T) {
 	}
 }
 
-// Returns the version in CNI plugin VERSION file as a string
-func getCNIVersionString(t *testing.T) string {
-	// ../../amazon-ecs-cni-plugins/VERSION
-	var versionFilePath = filepath.Clean(filepath.Join("..","..","amazon-ecs-cni-plugins","VERSION"))
-	fmt.Println(versionFilePath)
-	versionStr, err := ioutil.ReadFile(versionFilePath)
-	assert.NoError(t, err, "Error reading the CNI plugin version file")
-	return strings.TrimSpace(string(versionStr))
-}
-
 // Asserts that CNI plugin version matches the expected version
 func TestCNIPluginVersionNumber(t *testing.T) {
-	var versionStr = getCNIVersionString(t)
+	versionStr := getCNIVersionString(t)
 	assert.Equal(t, currentCNIVersion, versionStr)
 }
 
 // Asserts that CNI plugin version is upgraded when new commits are made to CNI plugin submodule
 func TestCNIPluginVersionUpgrade(t *testing.T) {
-	var versionStr = getCNIVersionString(t)
+	versionStr := getCNIVersionString(t)
 	cmd := exec.Command("git", "submodule")
 	versionInfo, err := cmd.Output()
-	versionInfoStr := string(versionInfo)
 	assert.NoError(t, err, "Error running the command: git submodule")
+	versionInfoStr := string(versionInfo)
 	// If a new commit is added, version should be upgraded
-	if (string(CNIGitHash) != strings.Split(versionInfoStr, " ")[1]) {
-		assert.NotEqual(t, string(currentCNIVersion), versionStr)
+	if currentCNIGitHash != strings.Split(versionInfoStr, " ")[1] {
+		assert.NotEqual(t, currentCNIVersion, versionStr)
 	}
+}
+
+// Returns the version in CNI plugin VERSION file as a string
+func getCNIVersionString(t *testing.T) string {
+	// ../../amazon-ecs-cni-plugins/VERSION
+	versionFilePath := filepath.Clean(filepath.Join("..", "..", "amazon-ecs-cni-plugins", "VERSION"))
+	versionStr, err := ioutil.ReadFile(versionFilePath)
+	assert.NoError(t, err, "Error reading the CNI plugin version file")
+	return strings.TrimSpace(string(versionStr))
 }
