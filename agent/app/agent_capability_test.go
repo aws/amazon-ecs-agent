@@ -111,6 +111,9 @@ func TestCapabilities(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())

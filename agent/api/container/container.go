@@ -25,7 +25,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -54,6 +54,9 @@ const (
 	MetadataURIEnvironmentVariableName = "ECS_CONTAINER_METADATA_URI"
 	// MetadataURIFormat defines the URI format for v3 metadata endpoint
 	MetadataURIFormat = "http://169.254.170.2/v3/%s"
+
+	// SecretProviderSSM is to show secret provider being SSM
+	SecretProviderSSM = "ssm"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -105,6 +108,8 @@ type Container struct {
 	MountPoints []MountPoint `json:"mountPoints"`
 	// Ports contains a list of ports binding configuration
 	Ports []PortBinding `json:"portMappings"`
+	// Secrets contains a list of secret
+	Secrets []Secret `json:"secrets"`
 	// Essential denotes whether the container is essential or not
 	Essential bool
 	// EntryPoint is entrypoint of the container, corresponding to docker option: --entrypoint
@@ -240,6 +245,16 @@ type MountPoint struct {
 type VolumeFrom struct {
 	SourceContainer string `json:"sourceContainer"`
 	ReadOnly        bool   `json:"readOnly"`
+}
+
+// Secret contains all essential attributes needed for ECS secrets vending as environment variables/tmpfs files
+type Secret struct {
+	Name          string `json:"name"`
+	ValueFrom     string `json:"valueFrom"`
+	Region        string `json:"region"`
+	ContainerPath string `json:"containerPath"`
+	Type          string `json:"type"`
+	Provider      string `json:"provider"`
 }
 
 // String returns a human readable string representation of DockerContainer
@@ -723,4 +738,23 @@ func (c *Container) InjectV3MetadataEndpoint() {
 
 	c.Environment[MetadataURIEnvironmentVariableName] =
 		fmt.Sprintf(MetadataURIFormat, c.V3EndpointID)
+}
+
+// ShouldCreateWithSSMSecret returns true if this container needs to get secret
+// value from SSM Parameter Store
+func (c *Container) ShouldCreateWithSSMSecret() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	//Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderSSM {
+			return true
+		}
+	}
+	return false
 }
