@@ -117,7 +117,7 @@ func TestLoadsDataForAWSVPCTask(t *testing.T) {
 	assert.Equal(t, 1, len(tasks))
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:897977802564:task/fad405be-8705-4175-877b-db50109a15f2", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/fad405be-8705-4175-877b-db50109a15f2", task.Arn)
 	assert.Equal(t, "task-networking-state", task.Family)
 	assert.NotNil(t, task.ENI)
 

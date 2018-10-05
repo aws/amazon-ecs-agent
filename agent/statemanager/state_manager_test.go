@@ -159,7 +159,7 @@ func TestLoadsDataForContainerHealthCheckTask(t *testing.T) {
 	assert.Equal(t, 1, len(tasks))
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:897977802564:task/e4e6c98c-aa44-4146-baf9-431b04c0d162", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/e4e6c98c-aa44-4146-baf9-431b04c0d162", task.Arn)
 	assert.Equal(t, "chc-state", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
 
@@ -200,7 +200,7 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	assert.Equal(t, 1, len(tasks))
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:897977802564:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
 	assert.Equal(t, "private-registry-state", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
 
@@ -213,6 +213,6 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	assert.NotNil(t, registryAuth.ASMAuthData)
 
 	asmAuthData := registryAuth.ASMAuthData
-	assert.Equal(t, "arn:aws:secretsmanager:us-west-2:897977802564:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs", asmAuthData.CredentialsParameter)
+	assert.Equal(t, "arn:aws:secretsmanager:us-west-2:1234567890:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs", asmAuthData.CredentialsParameter)
 	assert.Equal(t, "us-west-2", asmAuthData.Region)
 }
