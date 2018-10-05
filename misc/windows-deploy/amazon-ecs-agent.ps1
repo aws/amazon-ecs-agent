@@ -10,7 +10,7 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-
+Import-Module ECSTools
 
 $ecsRootDir = "C:\ProgramData\Amazon\ECS\"
 
@@ -63,7 +63,7 @@ try {
 
     if([System.Environment]::GetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "Machine") -eq "true") {
         LogMsg "IAM roles environment variable is set."
-        .\hostsetup.ps1
+        Enable-ECSTaskIAMRoles
     }
 
     LogMsg "Starting agent... "
