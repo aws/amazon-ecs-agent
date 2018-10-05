@@ -164,6 +164,8 @@ type Container struct {
 
 	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
 
+	Secrets []*Secret `locationName:"secrets" type:"list"`
+
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 }
 
@@ -272,6 +274,24 @@ func (s ElasticNetworkInterface) String() string {
 
 // GoString returns the string representation
 func (s ElasticNetworkInterface) GoString() string {
+	return s.String()
+}
+
+type EncodedString struct {
+	_ struct{} `type:"structure"`
+
+	Encoding *string `locationName:"encoding" type:"string" enum:"Encoding"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s EncodedString) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EncodedString) GoString() string {
 	return s.String()
 }
 
@@ -655,6 +675,32 @@ func (s RegistryAuthenticationData) GoString() string {
 	return s.String()
 }
 
+type Secret struct {
+	_ struct{} `type:"structure"`
+
+	ContainerPath *string `locationName:"containerPath" type:"string"`
+
+	Name *string `locationName:"name" type:"string"`
+
+	Provider *string `locationName:"provider" type:"string" enum:"SecretProvider"`
+
+	Region *string `locationName:"region" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"SecretType"`
+
+	ValueFrom *string `locationName:"valueFrom" type:"string"`
+}
+
+// String returns the string representation
+func (s Secret) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Secret) GoString() string {
+	return s.String()
+}
+
 type ServerException struct {
 	_ struct{} `type:"structure"`
 
@@ -710,9 +756,13 @@ type Task struct {
 
 	Family *string `locationName:"family" type:"string"`
 
+	IpcMode *string `locationName:"ipcMode" type:"string"`
+
 	Memory *int64 `locationName:"memory" type:"integer"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
+
+	PidMode *string `locationName:"pidMode" type:"string"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 

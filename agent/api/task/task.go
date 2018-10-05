@@ -48,6 +48,7 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 )
 
 const (
@@ -220,6 +221,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	if task.requiresASMDockerAuthData() {
 		task.initializeASMAuthResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresSSMSecret() {
+		task.initializeSSMSecretResource(credentialsManager, resourceFields)
 	}
 
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
@@ -492,6 +497,53 @@ func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+		}
+	}
+	return reqs
+}
+
+// requiresSSMSecret returns true if at least one container in the task
+// needs to retrieve secret from SSM parameter
+func (task *Task) requiresSSMSecret() bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeSSMSecretResource builds the resource dependency map for the SSM ssmsecret resource
+func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
+	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
+
+	// for every container that needs ssm secret vending as env, it needs to wait all secrets got retrieved
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			container.BuildResourceDependency(ssmSecretResource.GetName(),
+				resourcestatus.ResourceStatus(ssmsecret.SSMSecretStatusCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+}
+
+func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret {
+	reqs := make(map[string][]apicontainer.Secret)
+
+	for _, container := range task.Containers {
+		for _, secret := range container.Secrets {
+			if secret.Provider == apicontainer.SecretProviderSSM {
+				if _, ok := reqs[secret.Region]; !ok {
+					reqs[secret.Region] = []apicontainer.Secret{}
+				}
+
+				allSecrets := reqs[secret.Region]
+				allSecrets = append(allSecrets, secret)
+				reqs[secret.Region] = allSecrets
+			}
 		}
 	}
 	return reqs

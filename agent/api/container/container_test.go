@@ -264,3 +264,42 @@ func TestInjectV3MetadataEndpoint(t *testing.T) {
 	assert.Equal(t, container.Environment[MetadataURIEnvironmentVariableName],
 		fmt.Sprintf(MetadataURIFormat, "myV3EndpointID"))
 }
+
+func TestShouldCreateWithSSMSecret(t *testing.T) {
+	secret := Secret{
+		Provider: "ssm",
+		Name: "secret",
+		ValueFrom: "/test/secretName",
+	}
+	container := Container{
+		Name:  "myName",
+		Image: "image:tag",
+		Secrets: []Secret{secret},
+	}
+
+	assert.True(t, container.ShouldCreateWithSSMSecret())
+}
+
+func TestShouldCreateWithSSMSecretFalseWithoutSecrets(t *testing.T) {
+	container := Container{
+		Name:  "myName",
+		Image: "image:tag",
+		Secrets: nil,
+	}
+
+	assert.False(t, container.ShouldCreateWithSSMSecret())
+}
+
+func TestShouldCreateWithSSMSecretFalseWithNotSSMType(t *testing.T) {
+	secret := Secret{
+		Provider: "asm",
+		Name: "secret",
+		ValueFrom: "/test/secretName",
+	}
+	container := Container{
+		Name:  "myName",
+		Image: "image:tag",
+		Secrets: []Secret{secret},
+	}
+	assert.False(t, container.ShouldCreateWithSSMSecret())
+}

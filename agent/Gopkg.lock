@@ -59,6 +59,8 @@
     "service/iam",
     "service/secretsmanager",
     "service/secretsmanager/secretsmanageriface",
+    "service/ssm",
+    "service/ssm/ssmiface",
     "service/sts"
   ]
   revision = "4f5d298bd2dcb34b06d944594f458d1f77ac4d66"
@@ -347,6 +349,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b686976a52c9d06578699cb7af3d8817c43a7ac4b957eaac8f401f3ebf82df8a"
+  inputs-digest = "b3a610744ed2077242e94cf200da9ae0f313b129235c840c39dbf6a4a3737545"
   solver-name = "gps-cdcl"
   solver-version = 1
