@@ -48,6 +48,7 @@ const (
 	dialTimeout            = 200 * time.Millisecond
 	localhost              = "127.0.0.1"
 	waitForDockerDuration  = 50 * time.Millisecond
+	removeVolumeTimeout    = 5 * time.Second
 )
 
 func init() {
@@ -94,6 +95,13 @@ func removeImage(t *testing.T, img string) {
 	client, err := docker.NewClient(endpoint)
 	require.NoError(t, err, "create docker client failed")
 	client.RemoveImage(img)
+}
+
+func cleanVolumes(testTask *apitask.Task, taskEngine TaskEngine) {
+	client := taskEngine.(*DockerTaskEngine).client
+	for _, aVolume := range testTask.Volumes {
+		client.RemoveVolume(context.TODO(), aVolume.Name, removeVolumeTimeout)
+	}
 }
 
 // TestDockerStateToContainerState tests convert the container status from
@@ -169,6 +177,8 @@ func TestHostVolumeMount(t *testing.T) {
 	data, err := ioutil.ReadFile(filepath.Join(tmpPath, "hello-from-container"))
 	assert.Nil(t, err, "Unexpected error")
 	assert.Equal(t, "hi", strings.TrimSpace(string(data)), "Incorrect file contents")
+
+	cleanVolumes(testTask, taskEngine)
 }
 
 func TestSweepContainer(t *testing.T) {
@@ -379,6 +389,8 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	client := taskEngine.(*DockerTaskEngine).client
 	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
+
+	cleanVolumes(testTask, taskEngine)
 }
 
 func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
@@ -410,4 +422,6 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
 	response := client.InspectVolume(context.TODO(), "TestSharedDoNotAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
+
+	cleanVolumes(testTask, taskEngine)
 }
