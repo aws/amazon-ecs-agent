@@ -92,3 +92,41 @@ func assertFileMode(t *testing.T, path string) {
 	mode := info.Mode()
 	assert.Equal(t, os.FileMode(0600), mode, "Wrong file mode")
 }
+
+// verify that the state manager correctly loads the existing task networking related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
+func TestLoadsDataForAWSVPCTask(t *testing.T) {
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v11", "task-networking")}
+
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "state-file", cluster)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/fad405be-8705-4175-877b-db50109a15f2", task.Arn)
+	assert.Equal(t, "task-networking-state", task.Family)
+	assert.NotNil(t, task.ENI)
+
+	eni := task.ENI
+	assert.Equal(t, "eni-089ba8329b8e3f6ec", eni.ID)
+	assert.Equal(t, "ip-172-31-10-246.us-west-2.compute.internal", eni.GetHostname())
+
+	ipv4Addresses := eni.GetIPV4Addresses()
+	assert.Equal(t, 1, len(ipv4Addresses))
+	assert.Equal(t, "172.31.10.246", ipv4Addresses[0])
+}
