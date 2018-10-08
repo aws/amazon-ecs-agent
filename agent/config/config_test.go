@@ -541,19 +541,55 @@ func TestTaskMetadataRPSLimits(t *testing.T) {
 }
 
 func TestUserDataConfig(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	userDataResponse := `{
-		"ECSAgentConfiguration":{
-			"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
-			"APIEndpoint":"https://some-endpoint.com"
-		}
-}`
+	testcases := []struct {
+		name                      string
+		userDataResponse          string
+		userDataResponseError     error
+		expectedConfigCluster     string
+		expectedConfigAPIEndpoint string
+		shouldFail                bool
+	}{
+		{
+			name: "successful consume userdata config",
+			userDataResponse: `{ "ECSAgentConfiguration":{
+					"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+					"APIEndpoint":"https://some-endpoint.com"
+				}
+			}`,
+			userDataResponseError:     nil,
+			expectedConfigCluster:     "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+			expectedConfigAPIEndpoint: "https://some-endpoint.com",
+		},
+		{
+			name:                      "returns errors retrieving ec2 userdata",
+			userDataResponse:          "",
+			userDataResponseError:     errors.New("failed to get userdata"),
+			expectedConfigCluster:     "",
+			expectedConfigAPIEndpoint: "",
+		},
+		{
+			name: "returns error, failed to parse json",
+			userDataResponse: `{{{ "ECSAgentConfiguration":{
+					"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+					"APIEndpoint":"https://some-endpoint.com"
+				}
+			}`,
+			userDataResponseError:     nil,
+			expectedConfigCluster:     "",
+			expectedConfigAPIEndpoint: "",
+		},
+	}
 
-	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
-	cfg := userDataConfig(mockEc2Metadata)
-	assert.Equal(t, "https://some-endpoint.com", cfg.APIEndpoint)
-	assert.Equal(t, "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster", cfg.Cluster)
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			mockEc2Metadata.EXPECT().GetUserData().Return(tc.userDataResponse, tc.userDataResponseError)
+			cfg := userDataConfig(mockEc2Metadata)
+			assert.Equal(t, tc.expectedConfigAPIEndpoint, cfg.APIEndpoint)
+			assert.Equal(t, tc.expectedConfigCluster, cfg.Cluster)
+		})
+	}
 }
 
 func setTestRegion() func() {

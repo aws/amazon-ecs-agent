@@ -389,7 +389,7 @@ func userDataConfig(ec2Client ec2.EC2MetadataClient) Config {
 		seelog.Warnf("Unable to parse user data: %v", err)
 		// Unable to parse userdata as a valid JSON. Return the
 		// empty config
-		return parsedUserData.Config
+		return Config{}
 	}
 
 	return parsedUserData.Config
