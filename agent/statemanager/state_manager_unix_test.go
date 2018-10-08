@@ -93,7 +93,8 @@ func assertFileMode(t *testing.T, path string) {
 	assert.Equal(t, os.FileMode(0600), mode, "Wrong file mode")
 }
 
-// verify that the state manager correctly loads task networking related fields in state file
+// verify that the state manager correctly loads the existing task networking related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
 func TestLoadsDataForAWSVPCTask(t *testing.T) {
 	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v11", "task-networking")}
 

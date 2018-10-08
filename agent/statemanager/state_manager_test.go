@@ -129,7 +129,8 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 
 }
 
-// verify that the state manager correctly loads container health check related fields in state file
+// verify that the state manager correctly loads the existing container health check related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
 func TestLoadsDataForContainerHealthCheckTask(t *testing.T) {
 	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v10", "container-health-check", "ecs_agent_data.json"))
 	require.Nil(t, err, "Failed to set up test")
@@ -170,7 +171,8 @@ func TestLoadsDataForContainerHealthCheckTask(t *testing.T) {
 	assert.Equal(t, "{\"HealthCheck\":{\"Test\":[\"CMD\",\"echo\",\"hello\"],\"Interval\":30000000000,\"Timeout\":5000000000,\"Retries\":3}}", *container.DockerConfig.Config)
 }
 
-// verify that the state manager correctly loads private registry related fields in state file
+// verify that the state manager correctly loads the existing private registry related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
 func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v14", "private-registry", "ecs_agent_data.json"))
 	require.Nil(t, err, "Failed to set up test")
