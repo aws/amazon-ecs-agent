@@ -1,0 +1,12 @@
+{
+  "family": "ecsftest-interactive-tty",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51670/ubuntu:latest",
+    "name": "exit",
+    "cpu": 10,
+    "memory": 10,
+    "interactive":true,
+    "pseudoTerminal":true,
+    "command": ["sh", "-c", "if [ -t 0 ] ; then exit 42; else exit 1; fi"]
+  }]
+}

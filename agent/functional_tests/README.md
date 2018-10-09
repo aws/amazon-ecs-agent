@@ -23,6 +23,11 @@ Before running these tests, you should build the ECS agent and tag its image as
 
 You should also run the registry the tests pull from. This can most easily be done via `make test-registry`.
 
+You should run following commands to set up the IP tables rules:
+* `sysctl -w net.ipv4.conf.all.route_localnet=1`
+* `iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679`
+* `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679`
+
 #### Environment variables
 In order to run telemetry functional test in non Amazon Linux AMI environment
 with older versions of the ECS agent (pre-1.10.0), the following environment
@@ -44,8 +49,6 @@ execution behavior:
 #### Additional setup for IAM roles
 In order to run TaskIamRole functional tests, the following steps should be
 done first:
-* Run command: `sysctl -w net.ipv4.conf.all.route_localnet=1` and
-  `iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679`.
 * Set the environment variable of IAM roles the test will use:
   `export TASK_IAM_ROLE_ARN="iam role arn"`. The role should have the
   `ec2:DescribeRegions` permission and have a trust relationship with
@@ -54,8 +57,6 @@ done first:
   In this case, the IAM role should additionally have the
   `iam:GetInstanceProfile` permission.
 * To skip the test `TestTaskIAMRolesDefaultNetworkMode`, please set `TEST_DISABLE_TASK_IAM_ROLE` to be true.
-* Testing under net=host network mode requires additional commands:
-  `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679`
 * To skip the test `TestTaskIAMRolesNetHostMode`, please set `TEST_DISABLE_TASK_IAM_ROLE_NET_HOST` to be true.
 
 

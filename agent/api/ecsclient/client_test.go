@@ -54,12 +54,23 @@ var (
 	iidSignatureResponse = []byte(iidSignature)
 )
 
-func NewMockClient(ctrl *gomock.Controller, ec2Metadata ec2.EC2MetadataClient, additionalAttributes map[string]string) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	client := NewECSClient(credentials.AnonymousCredentials,
-		&config.Config{Cluster: configuredCluster,
+func NewMockClient(ctrl *gomock.Controller,
+	ec2Metadata ec2.EC2MetadataClient,
+	additionalAttributes map[string]string) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
+
+	return NewMockClientWithConfig(ctrl, ec2Metadata, additionalAttributes,
+		&config.Config{
+			Cluster:            configuredCluster,
 			AWSRegion:          "us-east-1",
 			InstanceAttributes: additionalAttributes,
-		}, ec2Metadata)
+		})
+}
+
+func NewMockClientWithConfig(ctrl *gomock.Controller,
+	ec2Metadata ec2.EC2MetadataClient,
+	additionalAttributes map[string]string,
+	cfg *config.Config) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
+	client := NewECSClient(credentials.AnonymousCredentials, cfg, ec2Metadata)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -378,6 +389,60 @@ func TestRegisterContainerInstance(t *testing.T) {
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
 			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
 			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
+			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+			// 3 from expectedAttributes and 2 from additionalAttributes
+			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			for i := range req.Attributes {
+				if strings.Contains(*req.Attributes[i].Name, "capability") {
+					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
+				} else {
+					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
+				}
+			}
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
+			nil),
+	)
+
+	arn, err := client.RegisterContainerInstance("", capabilities)
+	assert.NoError(t, err)
+	assert.Equal(t, "registerArn", arn)
+}
+
+func TestRegisterContainerInstanceNoIID(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	client, mc, _ := NewMockClientWithConfig(mockCtrl, mockEC2Metadata, additionalAttributes,
+		&config.Config{
+			Cluster:            configuredCluster,
+			AWSRegion:          "us-east-1",
+			InstanceAttributes: additionalAttributes,
+			NoIID:              true,
+		})
+
+	fakeCapabilities := []string{"capability1", "capability2"}
+	expectedAttributes := map[string]string{
+		"ecs.os-type":               config.OSType,
+		"my_custom_attribute":       "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+	capabilities := buildAttributeList(fakeCapabilities, nil)
+
+	gomock.InOrder(
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			assert.Nil(t, req.ContainerInstanceArn)
+			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, "", *req.InstanceIdentityDocument, "Wrong IID")
+			assert.Equal(t, "", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
 			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)

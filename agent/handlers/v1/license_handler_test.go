@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package handlers
+package v1
 
 import (
 	"net/http"
@@ -38,7 +38,7 @@ func TestLicenseHandler(t *testing.T) {
 	mockLicenseProvider.EXPECT().GetText().Return(text, nil)
 	mockResponseWriter.EXPECT().Write([]byte(text))
 
-	licenseHandler(mockResponseWriter, nil)
+	LicenseHandler(mockResponseWriter, nil)
 }
 
 func TestLicenseHandlerError(t *testing.T) {
@@ -53,5 +53,5 @@ func TestLicenseHandlerError(t *testing.T) {
 	mockLicenseProvider.EXPECT().GetText().Return("", errors.New("test error"))
 	mockResponseWriter.EXPECT().WriteHeader(http.StatusInternalServerError)
 
-	licenseHandler(mockResponseWriter, nil)
+	LicenseHandler(mockResponseWriter, nil)
 }
