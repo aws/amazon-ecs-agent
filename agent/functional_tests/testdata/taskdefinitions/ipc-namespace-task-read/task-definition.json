@@ -1,0 +1,14 @@
+{
+    "family": "ecsftest-task-ipc-namespace-read",
+    "ipcMode": "task",
+    "containerDefinitions": [
+        {
+            "name": "ipcConsumer",
+            "image": "busybox:latest",
+            "command": ["sh", "-c", "if [ `ipcs -s | awk '$1+0 == 5' | wc -l` -gt 0 ]; then exit 1; else exit 2; fi;"],
+            "cpu": 100,
+            "memory": 80
+        }
+    ]
+    
+}

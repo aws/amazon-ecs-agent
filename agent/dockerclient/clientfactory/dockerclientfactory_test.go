@@ -117,7 +117,7 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	for i := 0; i < len(allVersions); i++ {
 		mockClients[string(allVersions[i])] = mock_dockeriface.NewMockClient(ctrl)
 		mockClients[string(allVersions[i])].EXPECT().VersionWithContext(gomock.Any()).Return(
-			&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.30"}, nil).AnyTimes()
+			&docker.Env{"MinAPIVersion=1.12", "ApiVersion=1.32"}, nil).AnyTimes()
 		mockClients[string(allVersions[i])].EXPECT().Ping().AnyTimes()
 	}
 
@@ -142,8 +142,8 @@ func TestCompareDockerVersionsWithMinAPIVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	minAPIVersion := "1.12"
-	apiVersion := "1.27"
-	versions := []string{"1.11", "1.29"}
+	apiVersion := "1.32"
+	versions := []string{"1.11", "1.33"}
 	rightVersion := "1.25"
 
 	for _, version := range versions {

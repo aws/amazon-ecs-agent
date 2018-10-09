@@ -671,6 +671,8 @@ var namespaceTests = []struct {
 	{"", "task", true},
 	{"task", "none", true},
 	{"host", "none", false},
+	{"host", "", false},
+	{"", "host", false},
 }
 
 // Testing the Getter functions for IPCMode and PIDMode
@@ -757,6 +759,28 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 		if !aTest.ShouldProvision {
 			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
+			docMaps := dockerMap(task)
+			for _, container := range task.Containers {
+				//configure HostConfig for each container
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				assert.Nil(t, err)
+				assert.Equal(t, task.IPCMode, dockHostCfg.IpcMode)
+				assert.Equal(t, task.PIDMode, dockHostCfg.PidMode)
+				switch aTest.IPCMode {
+				case "host":
+					assert.Equal(t, "host", dockHostCfg.IpcMode)
+				case "none":
+					assert.Equal(t, "none", dockHostCfg.IpcMode)
+				case "":
+					assert.Equal(t, "", dockHostCfg.IpcMode)
+				}
+				switch aTest.PIDMode {
+				case "host":
+					assert.Equal(t, "host", dockHostCfg.PidMode)
+				case "":
+					assert.Equal(t, "", dockHostCfg.PidMode)
+				}
+			}
 		} else {
 			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
 

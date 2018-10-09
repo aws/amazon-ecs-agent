@@ -46,6 +46,8 @@ func getAgentVersions() []dockerclient.DockerVersion {
 		dockerclient.Version_1_28,
 		dockerclient.Version_1_29,
 		dockerclient.Version_1_30,
+		dockerclient.Version_1_31,
+		dockerclient.Version_1_32,
 	}
 }
 
