@@ -18,11 +18,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
+	ssmclient "github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/aws-sdk-go/aws"
 	awscreds "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 )
 
 type SSMClientCreator interface {
-	NewSSMClient(region string, creds credentials.IAMRoleCredentials) ssmiface.SSMAPI
+	NewSSMClient(region string, creds credentials.IAMRoleCredentials) ssmclient.SSMClient
 }
 
 func NewSSMClientCreator() SSMClientCreator {
@@ -41,7 +41,7 @@ type ssmClientCreator struct{}
 
 //SSM Client will automatically retry 3 times when has throttling error
 func (*ssmClientCreator) NewSSMClient(region string,
-	creds credentials.IAMRoleCredentials) ssmiface.SSMAPI {
+	creds credentials.IAMRoleCredentials) ssmclient.SSMClient {
 	cfg := aws.NewConfig().
 		WithHTTPClient(httpclient.New(roundtripTimeout, false)).
 		WithRegion(region).

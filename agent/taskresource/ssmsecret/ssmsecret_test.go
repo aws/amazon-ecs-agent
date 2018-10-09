@@ -17,6 +17,7 @@ package ssmsecret
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
 
@@ -75,7 +76,7 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
-	mockSSMClient := mock_ssmiface.NewMockSSMAPI(ctrl)
+	mockSSMClient := mock_ssm.NewMockSSMClient(ctrl)
 
 	iamRoleCreds := credentials.IAMRoleCredentials{}
 	creds := credentials.TaskIAMRoleCredentials{
@@ -112,16 +113,16 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 	}
 	require.NoError(t, ssmRes.Create())
 
-	value1, ok := ssmRes.GetSSMSecretValue(secretKeyWest1)
+	value1, ok := ssmRes.GetCachedSecretValue(secretKeyWest1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value1)
 
-	value2, ok := ssmRes.GetSSMSecretValue(secretKeyWest2)
+	value2, ok := ssmRes.GetCachedSecretValue(secretKeyWest2)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value2)
 }
 
-func TestCreateAndGetWithTwoCalls(t *testing.T) {
+func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 	requiredSecretData := make(map[string][]apicontainer.Secret)
 	secretsInRegion1 := []apicontainer.Secret{
 		{
@@ -147,7 +148,7 @@ func TestCreateAndGetWithTwoCalls(t *testing.T) {
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
-	mockSSMClient := mock_ssmiface.NewMockSSMAPI(ctrl)
+	mockSSMClient := mock_ssm.NewMockSSMClient(ctrl)
 
 	iamRoleCreds := credentials.IAMRoleCredentials{}
 	creds := credentials.TaskIAMRoleCredentials{
@@ -181,13 +182,166 @@ func TestCreateAndGetWithTwoCalls(t *testing.T) {
 	}
 	require.NoError(t, ssmRes.Create())
 
-	value1, ok := ssmRes.GetSSMSecretValue(secretKeyWest1)
+	value1, ok := ssmRes.GetCachedSecretValue(secretKeyWest1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value1)
 
-	value2, ok := ssmRes.GetSSMSecretValue(secretKeyEast1)
+	value2, ok := ssmRes.GetCachedSecretValue(secretKeyEast1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value2)
+}
+
+func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
+	requiredSecretData := make(map[string][]apicontainer.Secret)
+	var secrets []apicontainer.Secret
+	for i := 1; i <= 12; i++ {
+		num := strconv.Itoa(i)
+		secret := apicontainer.Secret{
+			Name:      "db_username_" + num,
+			ValueFrom: "secret-name-" + num,
+			Region:    region1,
+			Provider:  "ssm",
+		}
+		secrets = append(secrets, secret)
+	}
+
+	requiredSecretData[region1] = secrets
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
+	mockSSMClient := mock_ssm.NewMockSSMClient(ctrl)
+
+	iamRoleCreds := credentials.IAMRoleCredentials{}
+	creds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: iamRoleCreds,
+	}
+
+	var params1, params2 []*ssm.Parameter
+	var paramsInput1, paramsInput2 []*string
+	var paramsValue1, paramsValue2 []string
+
+	for i := 1; i <= 10; i++ {
+		num := strconv.Itoa(i)
+		param := &ssm.Parameter{
+			Name:  aws.String("secret-name-" + num),
+			Value: aws.String("secret-value-" + num),
+		}
+		params1 = append(params1, param)
+		paramsInput1 = append(paramsInput1, aws.String("secret-name-"+num))
+		paramsValue1 = append(paramsValue1, "secret-value-"+num)
+	}
+
+	ssmOutput1 := &ssm.GetParametersOutput{
+		InvalidParameters: []*string{},
+		Parameters:        params1,
+	}
+
+	ssmInput1 := &ssm.GetParametersInput{
+		Names:          paramsInput1,
+		WithDecryption: aws.Bool(true),
+	}
+
+	for i := 11; i <= 12; i++ {
+		num := strconv.Itoa(i)
+		param := &ssm.Parameter{
+			Name:  aws.String("secret-name-" + num),
+			Value: aws.String("secret-value-" + num),
+		}
+		params2 = append(params2, param)
+		paramsInput2 = append(paramsInput2, aws.String("secret-name-"+num))
+		paramsValue2 = append(paramsValue2, "secret-value-"+num)
+	}
+	ssmOutput2 := &ssm.GetParametersOutput{
+		InvalidParameters: []*string{},
+		Parameters:        params2,
+	}
+
+	ssmInput2 := &ssm.GetParametersInput{
+		Names:          paramsInput2,
+		WithDecryption: aws.Bool(true),
+	}
+
+	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient).Times(2)
+	mockSSMClient.EXPECT().GetParameters(ssmInput1).Return(ssmOutput1, nil)
+	mockSSMClient.EXPECT().GetParameters(ssmInput2).Return(ssmOutput2, nil)
+
+	ssmRes := &SSMSecretResource{
+		executionCredentialsID: executionCredentialsID,
+		requiredSecrets:        requiredSecretData,
+		credentialsManager:     credentialsManager,
+		ssmClientCreator:       ssmClientCreator,
+	}
+	require.NoError(t, ssmRes.Create())
+
+	for i := 1; i <= 12; i++ {
+		num := strconv.Itoa(i)
+		value, ok := ssmRes.GetCachedSecretValue("secret-name-" + num + "_" + region1)
+		require.True(t, ok)
+		assert.Equal(t, "secret-value-"+num, value)
+	}
+}
+
+func TestCreateReturnMultipleErrors(t *testing.T) {
+	requiredSecretData := make(map[string][]apicontainer.Secret)
+	secretsInRegion1 := []apicontainer.Secret{
+		{
+			Name:      secretName1,
+			ValueFrom: valueFrom1,
+			Region:    region1,
+			Provider:  "ssm",
+		},
+	}
+	secretsInRegion2 := []apicontainer.Secret{
+		{
+			Name:      secretName1,
+			ValueFrom: valueFrom1,
+			Region:    region2,
+			Provider:  "ssm",
+		},
+	}
+	requiredSecretData[region1] = secretsInRegion1
+	requiredSecretData[region2] = secretsInRegion2
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
+	mockSSMClient := mock_ssm.NewMockSSMClient(ctrl)
+
+	iamRoleCreds := credentials.IAMRoleCredentials{}
+	creds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: iamRoleCreds,
+	}
+
+	ssmOutput := &ssm.GetParametersOutput{
+		InvalidParameters: []*string{aws.String(valueFrom1)},
+		Parameters:        []*ssm.Parameter{},
+	}
+
+	allNames := []*string{aws.String(valueFrom1)}
+
+	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+	ssmClientCreator.EXPECT().NewSSMClient(region1, iamRoleCreds).Return(mockSSMClient)
+	ssmClientCreator.EXPECT().NewSSMClient(region2, iamRoleCreds).Return(mockSSMClient)
+	mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
+		assert.Equal(t, in.Names, allNames)
+	}).Return(ssmOutput, nil).Times(2)
+
+	ssmRes := &SSMSecretResource{
+		executionCredentialsID: executionCredentialsID,
+		requiredSecrets:        requiredSecretData,
+		credentialsManager:     credentialsManager,
+		ssmClientCreator:       ssmClientCreator,
+	}
+
+	assert.Error(t, ssmRes.Create())
+	expectedError := "fetching secret data from ssm parameter store: invalid parameters: secret-name, "
+	assert.Equal(t, expectedError, ssmRes.GetTerminalReason())
 }
 
 func TestCreateReturnError(t *testing.T) {
@@ -207,7 +361,7 @@ func TestCreateReturnError(t *testing.T) {
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
-	mockSSMClient := mock_ssmiface.NewMockSSMAPI(ctrl)
+	mockSSMClient := mock_ssm.NewMockSSMClient(ctrl)
 
 	iamRoleCreds := credentials.IAMRoleCredentials{}
 	creds := credentials.TaskIAMRoleCredentials{
@@ -239,7 +393,7 @@ func TestCreateReturnError(t *testing.T) {
 	assert.Equal(t, expectedError, ssmRes.GetTerminalReason())
 }
 
-func TestGetGoRoutineTotalNumTwoRegions(t *testing.T) {
+func TestGetGoRoutineMaxNumTwoRegions(t *testing.T) {
 	requiredSecretData := make(map[string][]apicontainer.Secret)
 	secretsInRegion1 := []apicontainer.Secret{
 		{
@@ -264,11 +418,11 @@ func TestGetGoRoutineTotalNumTwoRegions(t *testing.T) {
 		requiredSecrets: requiredSecretData,
 	}
 
-	number := ssmRes.getGoRoutineTotalNum()
+	number := ssmRes.getGoRoutineMaxNum()
 	assert.Equal(t, 2, number)
 }
 
-func TestGetGoRoutineTotalNumOneRegion(t *testing.T) {
+func TestGetGoRoutineMaxNumOneRegion(t *testing.T) {
 	requiredSecretData := make(map[string][]apicontainer.Secret)
 	secretsInRegion1 := []apicontainer.Secret{
 		{
@@ -291,20 +445,8 @@ func TestGetGoRoutineTotalNumOneRegion(t *testing.T) {
 		requiredSecrets: requiredSecretData,
 	}
 
-	number := ssmRes.getGoRoutineTotalNum()
+	number := ssmRes.getGoRoutineMaxNum()
 	assert.Equal(t, 1, number)
-}
-
-func TestExtractNameFromValueFrom(t *testing.T) {
-	secretData := apicontainer.Secret{
-		Name:      secretName1,
-		ValueFrom: valueFromARN,
-		Region:    region1,
-	}
-	ssmRes := &SSMSecretResource{}
-
-	name := ssmRes.extractNameFromValueFrom(secretData)
-	assert.Equal(t, valueFrom1, name)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
@@ -363,6 +505,7 @@ func TestInitialize(t *testing.T) {
 	assert.Equal(t, resourcestatus.ResourceCreated, ssmRes.GetDesiredStatus())
 
 }
+
 func TestClearSSMSecretValue(t *testing.T) {
 	secretValues := map[string]string{
 		"db_name": "db_value",

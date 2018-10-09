@@ -17,13 +17,12 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/aws/aws-sdk-go/service/ssm/ssmiface"
 	"github.com/pkg/errors"
 )
 
 // GetSecretFromSSM makes the api call to the AWS SSM parameter store to
 // retrieve secrets value in batches
-func GetSecretsFromSSM(names []string, client ssmiface.SSMAPI) (map[string]string, error) {
+func GetSecretsFromSSM(names []string, client SSMClient) (map[string]string, error) {
 	var secretNames []*string
 	for _, name := range names {
 		secretNames = append(secretNames, aws.String(name))

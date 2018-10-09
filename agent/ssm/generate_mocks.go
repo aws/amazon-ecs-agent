@@ -13,4 +13,4 @@
 
 package ssm
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/aws-sdk-go/service/ssm/ssmiface SSMAPI mocks/ssmiface_mocks.go
+//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/ssm SSMClient mocks/ssm_mocks.go

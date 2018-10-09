@@ -277,24 +277,6 @@ func (s ElasticNetworkInterface) GoString() string {
 	return s.String()
 }
 
-type EncodedString struct {
-	_ struct{} `type:"structure"`
-
-	Encoding *string `locationName:"encoding" type:"string" enum:"Encoding"`
-
-	Value *string `locationName:"value" type:"string"`
-}
-
-// String returns the string representation
-func (s EncodedString) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s EncodedString) GoString() string {
-	return s.String()
-}
-
 type ErrorMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -756,13 +738,9 @@ type Task struct {
 
 	Family *string `locationName:"family" type:"string"`
 
-	IpcMode *string `locationName:"ipcMode" type:"string"`
-
 	Memory *int64 `locationName:"memory" type:"integer"`
 
 	Overrides *string `locationName:"overrides" type:"string"`
-
-	PidMode *string `locationName:"pidMode" type:"string"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 

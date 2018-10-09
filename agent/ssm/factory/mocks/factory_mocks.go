@@ -21,7 +21,7 @@ import (
 	reflect "reflect"
 
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
-	ssmiface "github.com/aws/aws-sdk-go/service/ssm/ssmiface"
+	ssm "github.com/aws/amazon-ecs-agent/agent/ssm"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -49,9 +49,9 @@ func (m *MockSSMClientCreator) EXPECT() *MockSSMClientCreatorMockRecorder {
 }
 
 // NewSSMClient mocks base method
-func (m *MockSSMClientCreator) NewSSMClient(arg0 string, arg1 credentials.IAMRoleCredentials) ssmiface.SSMAPI {
+func (m *MockSSMClientCreator) NewSSMClient(arg0 string, arg1 credentials.IAMRoleCredentials) ssm.SSMClient {
 	ret := m.ctrl.Call(m, "NewSSMClient", arg0, arg1)
-	ret0, _ := ret[0].(ssmiface.SSMAPI)
+	ret0, _ := ret[0].(ssm.SSMClient)
 	return ret0
 }
 

@@ -34,13 +34,13 @@ func TestStatusString(t *testing.T) {
 			OutSSMSecretStatus: "NONE",
 		},
 		{
-			Name:               "ToStringSSMSecretStatusCreated",
-			InSSMSecretStatus:  SSMSecretStatusCreated,
+			Name:               "ToStringSSMSecretCreated",
+			InSSMSecretStatus:  SSMSecretCreated,
 			OutSSMSecretStatus: "CREATED",
 		},
 		{
-			Name:               "ToStringSSMSecretStatusRemoved",
-			InSSMSecretStatus:  SSMSecretStatusRemoved,
+			Name:               "ToStringSSMSecretRemoved",
+			InSSMSecretStatus:  SSMSecretRemoved,
 			OutSSMSecretStatus: "REMOVED",
 		},
 	}
@@ -72,13 +72,13 @@ func TestMarshalSSMSecretStatus(t *testing.T) {
 			OutSSMSecretStatus: "\"NONE\"",
 		},
 		{
-			Name:               "MarshallSSMSecretStatusCreated",
-			InSSMSecretStatus:  SSMSecretStatusCreated,
+			Name:               "MarshallSSMSecretCreated",
+			InSSMSecretStatus:  SSMSecretCreated,
 			OutSSMSecretStatus: "\"CREATED\"",
 		},
 		{
-			Name:               "MarshallSSMSecretStatusRemoved",
-			InSSMSecretStatus:  SSMSecretStatusRemoved,
+			Name:               "MarshallSSMSecretRemoved",
+			InSSMSecretStatus:  SSMSecretRemoved,
 			OutSSMSecretStatus: "\"REMOVED\"",
 		},
 	}
@@ -108,15 +108,15 @@ func TestUnmarshalSSMSecretStatus(t *testing.T) {
 			ShouldError:        false,
 		},
 		{
-			Name:               "UnmarshallSSMSecretStatusCreated",
+			Name:               "UnmarshallSSMSecretCreated",
 			InSSMSecretStatus:  "\"CREATED\"",
-			OutSSMSecretStatus: SSMSecretStatusCreated,
+			OutSSMSecretStatus: SSMSecretCreated,
 			ShouldError:        false,
 		},
 		{
-			Name:               "UnmarshallSSMSecretStatusRemoved",
+			Name:               "UnmarshallSSMSecretRemoved",
 			InSSMSecretStatus:  "\"REMOVED\"",
-			OutSSMSecretStatus: SSMSecretStatusRemoved,
+			OutSSMSecretStatus: SSMSecretRemoved,
 			ShouldError:        false,
 		},
 		{
