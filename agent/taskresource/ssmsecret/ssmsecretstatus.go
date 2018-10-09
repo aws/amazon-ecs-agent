@@ -26,20 +26,20 @@ const (
 	// is the zero state of a task resource
 	SSMSecretStatusNone SSMSecretStatus = iota
 	// represents a task resource which has been created
-	SSMSecretStatusCreated
+	SSMSecretCreated
 	// represents a task resource which has been cleaned up
-	SSMSecretStatusRemoved
+	SSMSecretRemoved
 )
 
-var SSMSecretStatusMap = map[string]SSMSecretStatus{
+var ssmSecretStatusMap = map[string]SSMSecretStatus{
 	"NONE":    SSMSecretStatusNone,
-	"CREATED": SSMSecretStatusCreated,
-	"REMOVED": SSMSecretStatusRemoved,
+	"CREATED": SSMSecretCreated,
+	"REMOVED": SSMSecretRemoved,
 }
 
 // StatusString returns a human readable string representation of this object
 func (as SSMSecretStatus) String() string {
-	for k, v := range SSMSecretStatusMap {
+	for k, v := range ssmSecretStatusMap {
 		if v == as {
 			return k
 		}
@@ -50,7 +50,7 @@ func (as SSMSecretStatus) String() string {
 // MarshalJSON overrides the logic for JSON-encoding the ResourceStatus type
 func (as *SSMSecretStatus) MarshalJSON() ([]byte, error) {
 	if as == nil {
-		return nil, errors.New("asm-auth resource status is nil")
+		return nil, errors.New("ssmsecret resource status is nil")
 	}
 	return []byte(`"` + as.String() + `"`), nil
 }
@@ -68,7 +68,7 @@ func (as *SSMSecretStatus) UnmarshalJSON(b []byte) error {
 	}
 
 	strStatus := string(b[1 : len(b)-1])
-	stat, ok := SSMSecretStatusMap[strStatus]
+	stat, ok := ssmSecretStatusMap[strStatus]
 	if !ok {
 		*as = SSMSecretStatusNone
 		return errors.New("resource status unmarshal: unrecognized status")

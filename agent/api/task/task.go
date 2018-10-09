@@ -524,12 +524,14 @@ func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Man
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithSSMSecret() {
 			container.BuildResourceDependency(ssmSecretResource.GetName(),
-				resourcestatus.ResourceStatus(ssmsecret.SSMSecretStatusCreated),
+				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
 				apicontainerstatus.ContainerCreated)
 		}
 	}
 }
 
+// getAllSSMSecretRequirements stores all secrets in a map whose key is region and value is all
+// secrets in that region
 func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret {
 	reqs := make(map[string][]apicontainer.Secret)
 
@@ -540,9 +542,7 @@ func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret
 					reqs[secret.Region] = []apicontainer.Secret{}
 				}
 
-				allSecrets := reqs[secret.Region]
-				allSecrets = append(allSecrets, secret)
-				reqs[secret.Region] = allSecrets
+				reqs[secret.Region] = append(reqs[secret.Region], secret)
 			}
 		}
 	}

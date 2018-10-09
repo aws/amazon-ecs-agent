@@ -61,12 +61,15 @@ const (
 	// 10) Add 'healthCheckType' field in 'apicontainer.Container'
 	// 11)
 	//   a) Add 'PrivateDNSName' field to 'api.ENI'
-	//   b)Remove `AppliedStatus` field form 'apicontainer.Container'
+	//   b) Remove `AppliedStatus` field form 'apicontainer.Container'
 	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'apicontainer.Container'
 	// 13) Add 'resources' field to 'api.task.task'
 	// 14) Add 'PlatformFields' field to 'api.task.task'
 	// 15) Add 'V3EndpointID' field to 'Container' struct
-	ECSDataVersion = 15
+	// 16)
+	//   a) Add 'secrets' field to 'apicontainer.Container'
+	//   b) Add 'ssmsecret' field to 'resources'
+	ECSDataVersion = 16
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

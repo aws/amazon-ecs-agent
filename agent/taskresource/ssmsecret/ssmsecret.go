@@ -17,8 +17,6 @@ import (
 	"encoding/json"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
-	"regexp"
-	"strings"
 	"sync"
 	"time"
 
@@ -33,9 +31,10 @@ import (
 
 const (
 	// ResourceName is the name of the ssmsecret resource
-	ResourceName       = "ssmsecret"
-	ParameterARNRegex  = `\Aarn:.+\z`
-	ParameterARNPrefix = "parameter/"
+	ResourceName = "ssmsecret"
+
+	//MaxBatchNum is the maximum batch number that ssm GetParameters API can accept at one time
+	MaxBatchNum = 10
 )
 
 // SSMSecretResource represents secrets as a task resource.
@@ -93,14 +92,14 @@ func NewSSMSecretResource(taskARN string,
 
 func (secret *SSMSecretResource) initStatusToTransition() {
 	resourceStatusToTransitionFunction := map[resourcestatus.ResourceStatus]func() error{
-		resourcestatus.ResourceStatus(SSMSecretStatusCreated): secret.Create,
+		resourcestatus.ResourceStatus(SSMSecretCreated): secret.Create,
 	}
 	secret.resourceStatusToTransitionFunction = resourceStatusToTransitionFunction
 }
 
 func (secret *SSMSecretResource) setTerminalReason(reason string) {
 	secret.terminalReasonOnce.Do(func() {
-		seelog.Infof("SSM secret: setting terminal reason for ssm secret resource in task: [%s]", secret.taskARN)
+		seelog.Infof("ssm secret resource: setting terminal reason for ssm secret resource in task: [%s]", secret.taskARN)
 		secret.terminalReason = reason
 	})
 }
@@ -140,7 +139,7 @@ func (secret *SSMSecretResource) DesiredTerminal() bool {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
-	return secret.desiredStatusUnsafe == resourcestatus.ResourceStatus(SSMSecretStatusRemoved)
+	return secret.desiredStatusUnsafe == resourcestatus.ResourceStatus(SSMSecretRemoved)
 }
 
 // KnownCreated returns true if the secret's known status is CREATED
@@ -148,12 +147,12 @@ func (secret *SSMSecretResource) KnownCreated() bool {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
-	return secret.knownStatusUnsafe == resourcestatus.ResourceStatus(SSMSecretStatusCreated)
+	return secret.knownStatusUnsafe == resourcestatus.ResourceStatus(SSMSecretCreated)
 }
 
 // TerminalStatus returns the last transition state of cgroup
 func (secret *SSMSecretResource) TerminalStatus() resourcestatus.ResourceStatus {
-	return resourcestatus.ResourceStatus(SSMSecretStatusRemoved)
+	return resourcestatus.ResourceStatus(SSMSecretRemoved)
 }
 
 // NextKnownState returns the state that the resource should
@@ -174,7 +173,7 @@ func (secret *SSMSecretResource) ApplyTransition(nextState resourcestatus.Resour
 
 // SteadyState returns the transition state of the resource defined as "ready"
 func (secret *SSMSecretResource) SteadyState() resourcestatus.ResourceStatus {
-	return resourcestatus.ResourceStatus(SSMSecretStatusCreated)
+	return resourcestatus.ResourceStatus(SSMSecretCreated)
 }
 
 // SetKnownStatus safely sets the currently known status of the resource
@@ -245,11 +244,12 @@ func (secret *SSMSecretResource) GetCreatedAt() time.Time {
 	return secret.createdAt
 }
 
-// Create fetches secret value from SSM
+// Create fetches secret value from SSM in batches. It spins up multiple goroutines in order to
+// retrieve values in parallel.
 func (secret *SSMSecretResource) Create() error {
 
 	//To fail fast, check execution role first
-	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.GetExecutionCredentialsID())
+	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
 		return errors.New("ssm secret resource: unable to find execution role credentials")
@@ -257,38 +257,45 @@ func (secret *SSMSecretResource) Create() error {
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
 	var wg sync.WaitGroup
-	chanLen := secret.getGoRoutineTotalNum()
-	errorEvents := make(chan error, chanLen)
-	seelog.Infof("ssm secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
-	if secret.secretData == nil {
-		secret.secretData = make(map[string]string)
-	}
 
-	for region, secrets := range secret.GetRequiredSecrets() {
+	//Get the maximum number of errors can be returned, which will be one error per goroutine
+	chanLen := secret.getGoRoutineMaxNum()
+	errorEvents := make(chan error, chanLen)
+
+	seelog.Infof("ssm secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
+	secret.secretData = make(map[string]string)
+
+	for region, secrets := range secret.getRequiredSecrets() {
 		wg.Add(1)
+		//spin up goroutine each region to speed up processing time
 		go secret.retrieveSSMSecretValuesByRegion(region, secrets, iamCredentials, &wg, errorEvents)
 	}
 
 	wg.Wait()
+
 	//get the first error returned and set as terminal reason
 	select {
 	case err := <-errorEvents:
 		secret.setTerminalReason(err.Error())
 		return err
 	default:
-		break
+		return nil
 	}
-	return nil
 }
 
-func (secret *SSMSecretResource) getGoRoutineTotalNum() int {
+// getGoRoutineMaxNum calculates the maximum number of goroutines that we need to spin up
+// to retrieve secret values from SSM parameter store. Assume each goroutine initiates one
+// SSM GetParameters call and each call will have 10 parameters
+func (secret *SSMSecretResource) getGoRoutineMaxNum() int {
 	total := 0
 	for _, secrets := range secret.requiredSecrets {
-		total += len(secrets)/10 + 1
+		total += len(secrets)/MaxBatchNum + 1
 	}
 	return total
 }
 
+//retrieveSSMSecretValuesByRegion reads secret values from cache first, if not exists, batches secrets based on field
+//valueFrom and call retrieveSSMSecretValues to retrieve values from SSM
 func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, secrets []apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	seelog.Infof("ssm secret resource: retrieving secrets for region %s in task: [%s]", region, secret.taskARN)
 	defer wg.Done()
@@ -297,15 +304,15 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 	var secretNames []string
 
 	for _, s := range secrets {
-		secretName := secret.extractNameFromValueFrom(s)
+		secretName := s.ValueFrom
 		secretKey := secretName + "_" + region
-		if _, ok := secret.GetSSMSecretValue(secretKey); ok {
+		if _, ok := secret.GetCachedSecretValue(secretKey); ok {
 			continue
 		}
 		secretNames = append(secretNames, secretName)
-		if len(secretNames) == 10 {
-			secretNamesTmp := make([]string, 10)
-			copy(secretNames, secretNamesTmp)
+		if len(secretNames) == MaxBatchNum {
+			secretNamesTmp := make([]string, MaxBatchNum)
+			copy(secretNamesTmp, secretNames)
 			wgPerRegion.Add(1)
 			go secret.retrieveSSMSecretValues(region, secretNamesTmp, iamCredentials, &wgPerRegion, errorEvents)
 			secretNames = []string{}
@@ -316,11 +323,10 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 		wgPerRegion.Add(1)
 		go secret.retrieveSSMSecretValues(region, secretNames, iamCredentials, &wgPerRegion, errorEvents)
 	}
-
 	wgPerRegion.Wait()
-	return
 }
 
+// retrieveSSMSecretValues retrieves secret values from SSM parameter store and caches them into memory
 func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []string, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
 
@@ -340,33 +346,18 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 		secretKey := secretName + "_" + region
 		secret.secretData[secretKey] = secretValue
 	}
-
-	return
 }
 
-func (secret *SSMSecretResource) extractNameFromValueFrom(secretData apicontainer.Secret) string {
-	valueFrom := secretData.ValueFrom
-	match, _ := regexp.MatchString(ParameterARNRegex, valueFrom)
-
-	if match {
-		index := strings.Index(valueFrom, ParameterARNPrefix)
-		return string(valueFrom[index+len(ParameterARNPrefix):])
-	} else {
-		return valueFrom
-	}
-
-}
-
-// GetRequiredSecrets returns the requiredSecrets field of ssmsecret task resource
-func (secret *SSMSecretResource) GetRequiredSecrets() map[string][]apicontainer.Secret {
+// getRequiredSecrets returns the requiredSecrets field of ssmsecret task resource
+func (secret *SSMSecretResource) getRequiredSecrets() map[string][]apicontainer.Secret {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
 	return secret.requiredSecrets
 }
 
-// GetExecutionCredentialsID returns the execution role's credential ID
-func (secret *SSMSecretResource) GetExecutionCredentialsID() string {
+// getExecutionCredentialsID returns the execution role's credential ID
+func (secret *SSMSecretResource) getExecutionCredentialsID() string {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
@@ -390,8 +381,8 @@ func (secret *SSMSecretResource) clearSSMSecretValue() {
 	}
 }
 
-// GetSSMSecretValue retrieves the secret value based on a combination of region and valueFrom
-func (secret *SSMSecretResource) GetSSMSecretValue(secretKey string) (string, bool) {
+// GetCachedSecretValue retrieves the secret value from secretData field
+func (secret *SSMSecretResource) GetCachedSecretValue(secretKey string) (string, bool) {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
@@ -409,7 +400,6 @@ func (secret *SSMSecretResource) Initialize(resourceFields *taskresource.Resourc
 	// if task hasn't turn to 'created' status, and it's desire status is 'running'
 	// the resource status needs to be reset to 'NONE' status so the secret value
 	// will be retrieved again
-
 	if taskKnownStatus < status.TaskCreated &&
 		taskDesiredStatus <= status.TaskRunning {
 		secret.SetKnownStatus(resourcestatus.ResourceStatusNone)
@@ -428,7 +418,7 @@ type SSMSecretResourceJSON struct {
 // MarshalJSON serialises the SSMSecretResource struct to JSON
 func (secret *SSMSecretResource) MarshalJSON() ([]byte, error) {
 	if secret == nil {
-		return nil, errors.New("ssm-secret resource is nil")
+		return nil, errors.New("ssmsecret resource is nil")
 	}
 	createdAt := secret.GetCreatedAt()
 	return json.Marshal(SSMSecretResourceJSON{
@@ -444,8 +434,8 @@ func (secret *SSMSecretResource) MarshalJSON() ([]byte, error) {
 			s := SSMSecretStatus(knownState)
 			return &s
 		}(),
-		RequiredSecrets:        secret.GetRequiredSecrets(),
-		ExecutionCredentialsID: secret.GetExecutionCredentialsID(),
+		RequiredSecrets:        secret.getRequiredSecrets(),
+		ExecutionCredentialsID: secret.getExecutionCredentialsID(),
 	})
 }
 

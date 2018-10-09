@@ -33,6 +33,38 @@ type configPair struct {
 	Config    *docker.Config
 }
 
+var shouldCreateWithSecretsTests = []struct {
+	in Container
+	out bool
+}{
+	{Container{
+		Name:    "myName",
+		Image:   "image:tag",
+		Secrets: []Secret{
+			Secret{
+			Provider:  "ssm",
+			Name:      "secret",
+			ValueFrom: "/test/secretName",
+		}},
+	}, true},
+	{Container{
+		Name:    "myName",
+		Image:   "image:tag",
+		Secrets: nil,
+	}, false},
+	{Container{
+		Name:    "myName",
+		Image:   "image:tag",
+		Secrets: []Secret{
+			Secret{
+			Provider:  "asm",
+			Name:      "secret",
+			ValueFrom: "/test/secretName",
+		}},
+	}, false},
+
+}
+
 func (pair configPair) Equal() bool {
 	conf := pair.Config
 	cont := pair.Container
@@ -266,40 +298,8 @@ func TestInjectV3MetadataEndpoint(t *testing.T) {
 }
 
 func TestShouldCreateWithSSMSecret(t *testing.T) {
-	secret := Secret{
-		Provider: "ssm",
-		Name: "secret",
-		ValueFrom: "/test/secretName",
+	for _, test := range shouldCreateWithSecretsTests {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithSSMSecret())
 	}
-	container := Container{
-		Name:  "myName",
-		Image: "image:tag",
-		Secrets: []Secret{secret},
-	}
-
-	assert.True(t, container.ShouldCreateWithSSMSecret())
-}
-
-func TestShouldCreateWithSSMSecretFalseWithoutSecrets(t *testing.T) {
-	container := Container{
-		Name:  "myName",
-		Image: "image:tag",
-		Secrets: nil,
-	}
-
-	assert.False(t, container.ShouldCreateWithSSMSecret())
-}
-
-func TestShouldCreateWithSSMSecretFalseWithNotSSMType(t *testing.T) {
-	secret := Secret{
-		Provider: "asm",
-		Name: "secret",
-		ValueFrom: "/test/secretName",
-	}
-	container := Container{
-		Name:  "myName",
-		Image: "image:tag",
-		Secrets: []Secret{secret},
-	}
-	assert.False(t, container.ShouldCreateWithSSMSecret())
 }

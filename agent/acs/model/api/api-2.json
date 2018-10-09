@@ -236,20 +236,6 @@
       "type":"list",
       "member":{"shape":"ElasticNetworkInterface"}
     },
-    "EncodedString":{
-      "type":"structure",
-      "members":{
-        "value":{"shape":"String"},
-        "encoding":{"shape":"Encoding"}
-      }
-    },
-    "Encoding":{
-      "type":"string",
-      "enum":[
-        "identity",
-        "base64"
-      ]
-    },
     "EnvironmentVariables":{
       "type":"map",
       "key":{"shape":"String"},
@@ -505,9 +491,7 @@
         "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
         "cpu":{"shape":"Double"},
-        "memory":{"shape":"Integer"},
-        "pidMode":{"shape":"String"},
-        "ipcMode":{"shape":"String"}
+        "memory":{"shape":"Integer"}
       }
     },
     "TaskList":{
