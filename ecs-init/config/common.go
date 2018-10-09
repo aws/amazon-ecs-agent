@@ -155,3 +155,11 @@ func HostCertsDirPath() string {
 	}
 	return hostCertsDirPath
 }
+
+// HostPKIDirPath() returns the CA store path on the host
+func HostPKIDirPath() string {
+	if _, err := os.Stat(hostPKIDirPath); err != nil {
+		return ""
+	}
+	return hostPKIDirPath
+}

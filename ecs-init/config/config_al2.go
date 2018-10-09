@@ -18,4 +18,5 @@ package config
 const (
 	cgroupMountpoint = "/sys/fs/cgroup"
 	hostCertsDirPath = "/etc/pki/tls/certs"
+	hostPKIDirPath   = "/etc/pki"
 )

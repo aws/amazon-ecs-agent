@@ -283,8 +283,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 	}
 
 	// for al, al2 add host ssl cert directory mounts
-	if certDir := config.HostCertsDirPath(); certDir != "" {
-		certsPath := certDir + ":" + certDir + readOnly
+	if pkiDir := config.HostPKIDirPath(); pkiDir != "" {
+		certsPath := pkiDir + ":" + pkiDir + readOnly
 		binds = append(binds, certsPath)
 	}
 

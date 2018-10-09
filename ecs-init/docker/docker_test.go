@@ -251,7 +251,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	// host cert directory configuration.
 	// TODO (adnxn): ideally, these should be behind build flags.
 	// https://github.com/aws/amazon-ecs-init/issues/131
-	if certDir := config.HostCertsDirPath(); certDir == "" {
+	if certDir := config.HostPKIDirPath(); certDir == "" {
 		expectedAgentBinds = expectedAgentBindsSuseUbuntuPlatform
 	}
 
