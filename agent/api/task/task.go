@@ -1097,7 +1097,7 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nil or not exist if the Container definition within task exists; implies code-bug
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			seelog.Criticalf("Namespace Pause docker container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
