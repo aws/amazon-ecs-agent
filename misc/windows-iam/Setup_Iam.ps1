@@ -10,11 +10,18 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+echo "EBUG whoami:"
+whoami
+echo "DEBUG Env:PSModulePath: $Env:PSModulePath"
+echo "DEBUG getting available modules..."
+Get-Module -ListAvailable
+
+Import-Module ECSTools
 
 $oldPref = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
 
-Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
+Enable-ECSTaskIAMRoles
 
 # Create amazon/amazon-ecs-iamrolecontainer for tests
 $buildscript = @"
