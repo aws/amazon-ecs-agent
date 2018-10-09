@@ -113,11 +113,11 @@ func TestCreateAndGetWithOneCall(t *testing.T) {
 	}
 	require.NoError(t, ssmRes.Create())
 
-	value1, ok := ssmRes.GetCachedSecretValue(secretKeyWest1)
+	value1, ok := ssmRes.getCachedSecretValue(secretKeyWest1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value1)
 
-	value2, ok := ssmRes.GetCachedSecretValue(secretKeyWest2)
+	value2, ok := ssmRes.getCachedSecretValue(secretKeyWest2)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value2)
 }
@@ -182,11 +182,11 @@ func TestCreateAndGetWithTwoCallsAcrossRegions(t *testing.T) {
 	}
 	require.NoError(t, ssmRes.Create())
 
-	value1, ok := ssmRes.GetCachedSecretValue(secretKeyWest1)
+	value1, ok := ssmRes.getCachedSecretValue(secretKeyWest1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value1)
 
-	value2, ok := ssmRes.GetCachedSecretValue(secretKeyEast1)
+	value2, ok := ssmRes.getCachedSecretValue(secretKeyEast1)
 	require.True(t, ok)
 	assert.Equal(t, secretValue, value2)
 }
@@ -279,7 +279,7 @@ func TestCreateAndGetWithTwoCallsInSameRegion(t *testing.T) {
 
 	for i := 1; i <= 12; i++ {
 		num := strconv.Itoa(i)
-		value, ok := ssmRes.GetCachedSecretValue("secret-name-" + num + "_" + region1)
+		value, ok := ssmRes.getCachedSecretValue("secret-name-" + num + "_" + region1)
 		require.True(t, ok)
 		assert.Equal(t, "secret-value-"+num, value)
 	}

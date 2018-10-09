@@ -248,7 +248,7 @@ func (secret *SSMSecretResource) GetCreatedAt() time.Time {
 // retrieve values in parallel.
 func (secret *SSMSecretResource) Create() error {
 
-	//To fail fast, check execution role first
+	// To fail fast, check execution role first
 	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
@@ -258,7 +258,7 @@ func (secret *SSMSecretResource) Create() error {
 
 	var wg sync.WaitGroup
 
-	//Get the maximum number of errors can be returned, which will be one error per goroutine
+	// Get the maximum number of errors can be returned, which will be one error per goroutine
 	chanLen := secret.getGoRoutineMaxNum()
 	errorEvents := make(chan error, chanLen)
 
@@ -267,13 +267,13 @@ func (secret *SSMSecretResource) Create() error {
 
 	for region, secrets := range secret.getRequiredSecrets() {
 		wg.Add(1)
-		//spin up goroutine each region to speed up processing time
+		// Spin up goroutine each region to speed up processing time
 		go secret.retrieveSSMSecretValuesByRegion(region, secrets, iamCredentials, &wg, errorEvents)
 	}
 
 	wg.Wait()
 
-	//get the first error returned and set as terminal reason
+	// Get the first error returned and set as terminal reason
 	select {
 	case err := <-errorEvents:
 		secret.setTerminalReason(err.Error())
@@ -294,8 +294,8 @@ func (secret *SSMSecretResource) getGoRoutineMaxNum() int {
 	return total
 }
 
-//retrieveSSMSecretValuesByRegion reads secret values from cache first, if not exists, batches secrets based on field
-//valueFrom and call retrieveSSMSecretValues to retrieve values from SSM
+// retrieveSSMSecretValuesByRegion reads secret values from cache first, if not exists, batches secrets based on field
+// valueFrom and call retrieveSSMSecretValues to retrieve values from SSM
 func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, secrets []apicontainer.Secret, iamCredentials credentials.IAMRoleCredentials, wg *sync.WaitGroup, errorEvents chan error) {
 	seelog.Infof("ssm secret resource: retrieving secrets for region %s in task: [%s]", region, secret.taskARN)
 	defer wg.Done()
@@ -306,7 +306,7 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 	for _, s := range secrets {
 		secretName := s.ValueFrom
 		secretKey := secretName + "_" + region
-		if _, ok := secret.GetCachedSecretValue(secretKey); ok {
+		if _, ok := secret.getCachedSecretValue(secretKey); ok {
 			continue
 		}
 		secretNames = append(secretNames, secretName)
@@ -381,8 +381,8 @@ func (secret *SSMSecretResource) clearSSMSecretValue() {
 	}
 }
 
-// GetCachedSecretValue retrieves the secret value from secretData field
-func (secret *SSMSecretResource) GetCachedSecretValue(secretKey string) (string, bool) {
+// getCachedSecretValue retrieves the secret value from secretData field
+func (secret *SSMSecretResource) getCachedSecretValue(secretKey string) (string, bool) {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
