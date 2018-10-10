@@ -96,6 +96,9 @@ type Config struct {
 	// ContainerStartTimeout specifies the amount of time to wait to start a container
 	ContainerStartTimeout time.Duration
 
+	// ImagePullInactivityTimeout is here to override the amount of time to wait when pulling and extracting a container
+	ImagePullInactivityTimeout time.Duration
+
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file","none"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver
