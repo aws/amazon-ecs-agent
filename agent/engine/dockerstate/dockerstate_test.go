@@ -361,3 +361,101 @@ func TestTaskIPAddress(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, addr, taskIP)
 }
+
+// TestAddContainerAddV3EndpointID tests that when we add a container, containers' v3EndpointID mappings
+// will be added to state
+func TestAddContainerAddV3EndpointID(t *testing.T) {
+	state := newDockerTaskEngineState()
+	assert.NotNil(t, state.v3EndpointIDToTask)
+	assert.NotNil(t, state.v3EndpointIDToDockerID)
+
+	container1 := &apicontainer.Container{
+		Name:         "containerName1",
+		V3EndpointID: "new-uuid-1",
+	}
+	dockerContainer1 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID1",
+		Container: container1,
+	}
+	container2 := &apicontainer.Container{
+		Name:         "containerName2",
+		V3EndpointID: "new-uuid-2",
+	}
+	dockerContainer2 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID2",
+		Container: container2,
+	}
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+		Containers: []*apicontainer.Container{
+			container1,
+			container2,
+		},
+	}
+
+	state.AddTask(task)
+	state.AddContainer(dockerContainer1, task)
+	state.AddContainer(dockerContainer2, task)
+
+	// check that v3EndpointID mappings have been added to state
+	addedTaskArn1, _ := state.v3EndpointIDToTask["new-uuid-1"]
+	assert.Equal(t, addedTaskArn1, "taskArn")
+
+	addedDockerID1, _ := state.v3EndpointIDToDockerID["new-uuid-1"]
+	assert.Equal(t, addedDockerID1, "dockerID1")
+
+	addedTaskArn2, _ := state.v3EndpointIDToTask["new-uuid-2"]
+	assert.Equal(t, addedTaskArn2, "taskArn")
+
+	addedDockerID2, _ := state.v3EndpointIDToDockerID["new-uuid-2"]
+	assert.Equal(t, addedDockerID2, "dockerID2")
+}
+
+// TestRemoveTaskRemoveV3EndpointID tests that when we remove the task, containers' v3EndpointIDs will be
+// removed from state
+func TestRemoveTaskRemoveV3EndpointID(t *testing.T) {
+	state := newDockerTaskEngineState()
+	assert.NotNil(t, state.v3EndpointIDToTask)
+	assert.NotNil(t, state.v3EndpointIDToDockerID)
+
+	container1 := &apicontainer.Container{
+		Name:         "containerName1",
+		V3EndpointID: "new-uuid-1",
+	}
+	dockerContainer1 := &apicontainer.DockerContainer{
+		DockerID:  "dockerID1",
+		Container: container1,
+	}
+	container2 := &apicontainer.Container{
+		Name:         "containerName2",
+		V3EndpointID: "new-uuid-2",
+	}
+	dockerContainer2 := &apicontainer.DockerContainer{
+		DockerName: "dockerID2",
+		Container:  container2,
+	}
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+		Containers: []*apicontainer.Container{
+			container1,
+			container2,
+		},
+	}
+
+	state.AddTask(task)
+	state.AddContainer(dockerContainer1, task)
+	state.AddContainer(dockerContainer2, task)
+	state.RemoveTask(task)
+
+	// check that v3EndpointIDToTask and v3EndpointIDToDockerID maps have been cleaned up
+	_, ok := state.v3EndpointIDToTask["new-uuid-1"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToDockerID["new-uuid-1"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToTask["new-uuid-2"]
+	assert.False(t, ok)
+	_, ok = state.v3EndpointIDToDockerID["new-uuid-2"]
+	assert.False(t, ok)
+}

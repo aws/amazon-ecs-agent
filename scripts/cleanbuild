@@ -37,4 +37,5 @@ git clone -c user.name="cleanbuild" -c user.email="cleanbuild" /src/amazon-ecs-a
 export ECS_RELEASE="cleanbuild"
 
 cd /go/src/github.com/aws/amazon-ecs-agent
+
 exec ./scripts/build true /out

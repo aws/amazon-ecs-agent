@@ -47,6 +47,7 @@ func TestBrokenEC2Metadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
+	mockEc2Metadata.EXPECT().GetUserData()
 
 	_, err := NewConfig(mockEc2Metadata)
 	assert.Error(t, err, "Expected error when region isn't set and metadata doesn't work")
@@ -58,6 +59,7 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
+	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
@@ -206,6 +208,7 @@ func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
@@ -216,6 +219,7 @@ func TestZeroValueDockerStopTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "0s")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
@@ -226,6 +230,7 @@ func TestInvalidValueDockerStopTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, minimumDockerStopTimeout, "Wrong value for DockerStopTimeout")
@@ -236,6 +241,7 @@ func TestInvalidFormatContainerStartTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "invalid")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
@@ -246,6 +252,7 @@ func TestZeroValueContainerStartTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "0s")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
@@ -256,6 +263,7 @@ func TestInvalidValueContainerStartTimeout(t *testing.T) {
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	mockEc2Metadata.EXPECT().GetUserData()
 	conf, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, minimumContainerStartTimeout, "Wrong value for ContainerStartTimeout")
@@ -528,6 +536,58 @@ func TestTaskMetadataRPSLimits(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedSteadyStateRate, cfg.TaskMetadataSteadyStateRate)
 			assert.Equal(t, tc.expectedBurstRate, cfg.TaskMetadataBurstRate)
+		})
+	}
+}
+
+func TestUserDataConfig(t *testing.T) {
+	testcases := []struct {
+		name                      string
+		userDataResponse          string
+		userDataResponseError     error
+		expectedConfigCluster     string
+		expectedConfigAPIEndpoint string
+		shouldFail                bool
+	}{
+		{
+			name: "successful consume userdata config",
+			userDataResponse: `{ "ECSAgentConfiguration":{
+					"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+					"APIEndpoint":"https://some-endpoint.com"
+				}
+			}`,
+			userDataResponseError:     nil,
+			expectedConfigCluster:     "arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+			expectedConfigAPIEndpoint: "https://some-endpoint.com",
+		},
+		{
+			name:                      "returns errors retrieving ec2 userdata",
+			userDataResponse:          "",
+			userDataResponseError:     errors.New("failed to get userdata"),
+			expectedConfigCluster:     "",
+			expectedConfigAPIEndpoint: "",
+		},
+		{
+			name: "returns error, failed to parse json",
+			userDataResponse: `{{{ "ECSAgentConfiguration":{
+					"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+					"APIEndpoint":"https://some-endpoint.com"
+				}
+			}`,
+			userDataResponseError:     nil,
+			expectedConfigCluster:     "",
+			expectedConfigAPIEndpoint: "",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			mockEc2Metadata.EXPECT().GetUserData().Return(tc.userDataResponse, tc.userDataResponseError)
+			cfg := userDataConfig(mockEc2Metadata)
+			assert.Equal(t, tc.expectedConfigAPIEndpoint, cfg.APIEndpoint)
+			assert.Equal(t, tc.expectedConfigCluster, cfg.Cluster)
 		})
 	}
 }

@@ -836,4 +836,7 @@ func TestTaskLevelVolume(t *testing.T) {
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
+
+	client := taskEngine.(*DockerTaskEngine).client
+	client.RemoveVolume(context.TODO(), "TestTaskLevelVolume", 5*time.Second)
 }

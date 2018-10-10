@@ -128,3 +128,93 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
 
 }
+
+// verify that the state manager correctly loads the existing container health check related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
+func TestLoadsDataForContainerHealthCheckTask(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v10", "container-health-check", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v10", "container-health-check")}
+
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/e4e6c98c-aa44-4146-baf9-431b04c0d162", task.Arn)
+	assert.Equal(t, "chc-state", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+
+	container := task.Containers[0]
+	assert.Equal(t, "container_1", container.Name)
+	assert.Equal(t, "docker", container.HealthCheckType)
+	assert.NotNil(t, container.DockerConfig)
+	assert.Equal(t, "{\"HealthCheck\":{\"Test\":[\"CMD\",\"echo\",\"hello\"],\"Interval\":30000000000,\"Timeout\":5000000000,\"Retries\":3}}", *container.DockerConfig.Config)
+}
+
+// verify that the state manager correctly loads the existing private registry related fields in state file.
+// if we change those fields in the future, we should modify this test to test the new fields
+func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v14", "private-registry", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v14", "private-registry")}
+
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "private-registry-state", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+
+	container := task.Containers[0]
+	assert.Equal(t, "container_1", container.Name)
+	assert.NotNil(t, container.RegistryAuthentication)
+
+	registryAuth := container.RegistryAuthentication
+	assert.Equal(t, "asm", registryAuth.Type)
+	assert.NotNil(t, registryAuth.ASMAuthData)
+
+	asmAuthData := registryAuth.ASMAuthData
+	assert.Equal(t, "arn:aws:secretsmanager:us-west-2:1234567890:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs", asmAuthData.CredentialsParameter)
+	assert.Equal(t, "us-west-2", asmAuthData.Region)
+}

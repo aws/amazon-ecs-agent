@@ -16,7 +16,10 @@ package utils
 import (
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	"github.com/cihub/seelog"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -40,6 +43,15 @@ const (
 
 	// RequestTypeAgentMetadata specifies the Agent metadata request type of AgentMetadataHandler.
 	RequestTypeAgentMetadata = "agent metadata"
+
+	// AnythingButSlashRegEx is a regex pattern that matches any string without slash.
+	AnythingButSlashRegEx = "[^/]*"
+
+	// AnythingRegEx is a regex pattern that matches anything.
+	AnythingRegEx = ".*"
+
+	// AnythingButEmptyRegEx is a regex pattern that matches anything but an empty string.
+	AnythingButEmptyRegEx = ".+"
 )
 
 // ErrorMessage is used to store the human-readable error Code and a descriptive Message
@@ -69,4 +81,32 @@ func ValueFromRequest(r *http.Request, field string) (string, bool) {
 	values := r.URL.Query()
 	_, exists := values[field]
 	return values.Get(field), exists
+}
+
+// GetMuxValueFromRequest extracts the mux value from the request using a gorilla
+// mux name
+func GetMuxValueFromRequest(r *http.Request, gorillaMuxName string) (string, bool) {
+	vars := mux.Vars(r)
+	val, ok := vars[gorillaMuxName]
+	return val, ok
+}
+
+// ConstructMuxVar constructs the mux var that is used in the gorilla/mux styled
+// path, example: {id}, {id:[0-9]+}.
+func ConstructMuxVar(name string, pattern string) string {
+	if pattern == "" {
+		return "{" + name + "}"
+	}
+
+	return "{" + name + ":" + pattern + "}"
+}
+
+// LimitReachedHandler logs the throttled request in the credentials audit log
+func LimitReachedHandler(auditLogger audit.AuditLogger) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logRequest := request.LogRequest{
+			Request: r,
+		}
+		auditLogger.Log(logRequest, http.StatusTooManyRequests, "")
+	}
 }
