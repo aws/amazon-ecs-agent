@@ -161,7 +161,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
+		t.Fatal("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
@@ -178,7 +178,10 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	if containerMetaData.State.ExitCode != 42 {
 		t.Fatalf("Container exit code non-zero: %v", containerMetaData.State.ExitCode)
 	}
+}
 
+func TestV3TaskEndpointDefaultNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "", "ecs-functional-tests-v3-task-endpoint-validator-windows")
 }
 
 // TestMetadataServiceValidator Tests that the metadata file can be accessed from the

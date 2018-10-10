@@ -42,7 +42,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -180,10 +179,6 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	expectedInstanceID := "inst-1"
-	iid := ec2metadata.EC2InstanceIdentityDocument{
-		InstanceID: expectedInstanceID,
-		Region:     "us-west-2",
-	}
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
@@ -193,7 +188,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -304,10 +299,6 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := ec2metadata.EC2InstanceIdentityDocument{
-		InstanceID: expectedInstanceID,
-		Region:     "us-west-2",
-	}
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
 			func(name string, saveable statemanager.Saveable) {
@@ -321,7 +312,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -352,10 +343,6 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := ec2metadata.EC2InstanceIdentityDocument{
-		InstanceID: expectedInstanceID,
-		Region:     "us-west-2",
-	}
 
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
@@ -375,7 +362,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
 		state.EXPECT().Reset(),
 	)
 
@@ -408,10 +395,6 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	cfg.Checkpoint = true
 	cfg.Cluster = "default"
 	ec2InstanceID := "inst-1"
-	iid := ec2metadata.EC2InstanceIdentityDocument{
-		InstanceID: ec2InstanceID,
-		Region:     "us-west-2",
-	}
 
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
@@ -431,7 +414,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(ec2InstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -529,10 +512,6 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
-	iid := ec2metadata.EC2InstanceIdentityDocument{
-		InstanceID: expectedInstanceID,
-		Region:     "us-west-2",
-	}
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
@@ -541,7 +520,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(iid, nil),
+		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -590,7 +569,7 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
-	ec2MetadataClient.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("error"))
+	ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return("", errors.New("error"))
 	assert.Equal(t, "", agent.getEC2InstanceID())
 }
 

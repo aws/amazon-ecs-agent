@@ -408,7 +408,7 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 	stateSetupHelper(state, testTasks)
 
 	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := v1SetupServer(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
+	requestHandler := introspectionServerSetup(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)

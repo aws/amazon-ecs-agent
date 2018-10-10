@@ -1,0 +1,24 @@
+{
+  "family": "ecsftest-v3-task-endpoint-validator",
+  "networkMode": "$$$NETWORK_MODE$$$",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51670/amazon/amazon-ecs-v3-task-endpoint-validator:latest",
+    "name": "v3-task-endpoint-validator",
+    "memory": 50,
+    "healthCheck": {
+      "command": ["CMD-SHELL", "echo hello"],
+      "interval": 5,
+      "timeout": 5,
+      "retries": 2,
+      "startPeriod": 1
+    },
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":"ecs-functional-tests",
+        "awslogs-region":"$$$TEST_REGION$$$",
+        "awslogs-stream-prefix":"$$$TEST_AWSLOGS_STREAM_PREFIX$$$"
+      }
+    }
+  }]
+}
