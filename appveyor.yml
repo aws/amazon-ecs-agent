@@ -10,6 +10,8 @@ install:
   - rmdir c:\go /s /q
   - appveyor DownloadFile https://storage.googleapis.com/golang/go%GOVERSION%.windows-amd64.zip
   - 7z x go%GOVERSION%.windows-amd64.zip -y -oC:\ > NUL
+  - cd %APPVEYOR_BUILD_FOLDER%
+  - git submodule update --init --recursive
 build_script:
   - go build ./agent
 test_script:

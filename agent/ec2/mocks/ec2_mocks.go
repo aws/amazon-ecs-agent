@@ -87,6 +87,19 @@ func (mr *MockEC2MetadataClientMockRecorder) GetMetadata(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockEC2MetadataClient)(nil).GetMetadata), arg0)
 }
 
+// GetUserData mocks base method
+func (m *MockEC2MetadataClient) GetUserData() (string, error) {
+	ret := m.ctrl.Call(m, "GetUserData")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserData indicates an expected call of GetUserData
+func (mr *MockEC2MetadataClientMockRecorder) GetUserData() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockEC2MetadataClient)(nil).GetUserData))
+}
+
 // InstanceIdentityDocument mocks base method
 func (m *MockEC2MetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
 	ret := m.ctrl.Call(m, "InstanceIdentityDocument")
@@ -199,4 +212,17 @@ func (m *MockHttpClient) GetMetadata(arg0 string) (string, error) {
 // GetMetadata indicates an expected call of GetMetadata
 func (mr *MockHttpClientMockRecorder) GetMetadata(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockHttpClient)(nil).GetMetadata), arg0)
+}
+
+// GetUserData mocks base method
+func (m *MockHttpClient) GetUserData() (string, error) {
+	ret := m.ctrl.Call(m, "GetUserData")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserData indicates an expected call of GetUserData
+func (mr *MockHttpClientMockRecorder) GetUserData() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockHttpClient)(nil).GetUserData))
 }
