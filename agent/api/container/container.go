@@ -758,3 +758,19 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 	}
 	return false
 }
+
+// MergeEnvironmentVariables appends additional envVarName:envVarValue pairs to
+// the the container's enviornment values structure
+func (c *Container) MergeEnvironmentVariables(secrets map[string]string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// don't assume that the environment variable map has been initialized by others
+	if c.Environment == nil {
+		c.Environment = make(map[string]string)
+	}
+
+	for k, v := range secrets {
+		c.Environment[k] = v
+	}
+}
