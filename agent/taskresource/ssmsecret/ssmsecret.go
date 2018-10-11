@@ -348,6 +348,15 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 	}
 }
 
+// GetSecretValue returns the value retrieved from SSM
+func (secret *SSMSecretResource) GetSecretValue(key string) (string, bool) {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	s, ok := secret.secretData[key]
+	return s, ok
+}
+
 // getRequiredSecrets returns the requiredSecrets field of ssmsecret task resource
 func (secret *SSMSecretResource) getRequiredSecrets() map[string][]apicontainer.Secret {
 	secret.lock.RLock()

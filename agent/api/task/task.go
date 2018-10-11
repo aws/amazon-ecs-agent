@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -48,7 +49,6 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 )
 
 const (
@@ -1499,6 +1499,37 @@ func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
 	defer task.lock.RUnlock()
 
 	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
+	return res, ok
+}
+
+// PopulateSSMSecrets appends the container's env var map with ssm parameters
+func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+	resource, ok := task.getSSMSecretsResource()
+	if !ok {
+		return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
+	}
+
+	ssmResource := resource[0].(*ssmsecret.SSMSecretResource)
+	envVars := make(map[string]string)
+
+	for _, secret := range container.Secrets {
+		if secret.Provider == apicontainer.SecretProviderSSM {
+			k := secret.ValueFrom + "_" + secret.Region
+			if secretValue, ok := ssmResource.GetSecretValue(k); ok {
+				envVars[secret.Name] = secretValue
+			}
+		}
+	}
+
+	container.MergeEnvironmentVariables(envVars)
+	return nil
+}
+
+func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[ssmsecret.ResourceName]
 	return res, ok
 }
 
