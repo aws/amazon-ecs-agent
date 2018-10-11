@@ -74,6 +74,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "60s")()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "5m")()
+	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "10m")()
 	defer setTestEnv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")()
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
 	defer setTestEnv("ECS_APPARMOR_CAPABLE", "true")()
@@ -206,10 +207,7 @@ func TestCheckpointWithoutECSDataDir(t *testing.T) {
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "invalid")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -217,10 +215,7 @@ func TestInvalidFormatDockerStopTimeout(t *testing.T) {
 func TestZeroValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "0s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, defaultDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -228,10 +223,7 @@ func TestZeroValueDockerStopTimeout(t *testing.T) {
 func TestInvalidValueDockerStopTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "-10s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.DockerStopTimeout, minimumDockerStopTimeout, "Wrong value for DockerStopTimeout")
 }
@@ -239,21 +231,40 @@ func TestInvalidValueDockerStopTimeout(t *testing.T) {
 func TestInvalidFormatContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "invalid")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
 
+func TestInvalidFormatDockerInactivityTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "invalid")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ImagePullInactivityTimeout, defaultImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
+}
+
+func TestTooSmallDockerInactivityTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "5s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ImagePullInactivityTimeout, minimumImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
+}
+
+func TestNegativeValueDockerInactivityTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "-10s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ImagePullInactivityTimeout, minimumImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
+}
+
+// Zero is also how the config api handles 'bad' values... so we get a 'default' and not a minimum
 func TestZeroValueContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "0s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, defaultContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
@@ -261,12 +272,25 @@ func TestZeroValueContainerStartTimeout(t *testing.T) {
 func TestInvalidValueContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockEc2Metadata.EXPECT().GetUserData()
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, conf.ContainerStartTimeout, minimumContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestZeroValueDockerPullInactivityTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_DOCKER_PULL_INACTIVITY_TIMEOUT", "0s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ImagePullInactivityTimeout, defaultImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
+}
+
+func TestInvalidValueDockerPullInactivityTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_DOCKER_PULL_INACTIVITY_TIMEOUT", "-10s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, conf.ImagePullInactivityTimeout, defaultImagePullInactivityTimeout, "Wrong value for ImagePullInactivityTimeout")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
