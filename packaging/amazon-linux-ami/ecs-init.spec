@@ -24,7 +24,7 @@
 %global bundled_agent_version %{version}
 
 Name:           ecs-init
-Version:        1.20.3
+Version:        1.21.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -245,6 +245,11 @@ fi
 %endif
 
 %changelog
+* Thu Oct 11 2018 Sharanya Devaraj <sharanyd@amazon.com> - 1.21.0-1
+- Cache Agent version 1.21.0
+- Support configurable logconfig for Agent container to reduce disk usage
+- ECS Agent will use the host's cert store on the Amazon Linux platform
+
 * Thu Sep 13 2018 Yumeng Xie <yumex@amazon.com> - 1.20.3-1
 - Cache Agent version 1.20.3
 

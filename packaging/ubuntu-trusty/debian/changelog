@@ -1,3 +1,11 @@
+amazon-ecs-init (1.21.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.21.0
+  * Support configurable logconfig for Agent container to reduce disk usage
+  * ECS Agent will use the host's cert store on the Amazon Linux platform
+
+  -- Sharanya Devaraj <sharanyd@amazon.com>  Thu, 11 Oct 2018 10:49:28 -0800
+
 amazon-ecs-init (1.20.3-1) trusty; urgency=medium
 
   * Cache Agent version 1.20.3
