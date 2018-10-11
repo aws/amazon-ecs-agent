@@ -82,7 +82,7 @@ ubuntu-trusty:
 	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
 
 get-deps:
-	go get github.com/x/lint/golint
+	go get golang.org/x/lint/golint
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
 	go get golang.org/x/tools/cmd/goimports

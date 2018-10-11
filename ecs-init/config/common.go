@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
+	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
 
@@ -45,6 +46,23 @@ const (
 	// DefaultRegionName is the default region to fall back if the user's region is not a region containing
 	// the agent bucket
 	DefaultRegionName = endpoints.UsEast1RegionID
+
+	// dockerJSONLogMaxSize is the maximum allowed size of the
+	// individual backing json log files for the managed container.
+	dockerJSONLogMaxSize = "16m"
+	// dockerJSONLogMaxSizeEnvVar is the environment variable that may
+	// be used to override the default value of dockerJSONLogMaxSize
+	// used for managed containers.
+	dockerJSONLogMaxSizeEnvVar = "ECS_INIT_DOCKER_LOG_FILE_SIZE"
+
+	// dockerJSONLogMaxFiles is the maximum rotated number of backing
+	// json log files on disk managed by docker for the managed
+	// container.
+	dockerJSONLogMaxFiles = "4"
+	// dockerJSONLogMaxSizeEnvVar is the environment variable that may
+	// be used to override the default value used of
+	// dockerJSONLogMaxFiles for managed containers.
+	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
 )
 
 var partitionBucketMap = map[string]string{
@@ -138,8 +156,8 @@ func DockerUnixSocket() (string, bool) {
 	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
 		return strings.TrimPrefix(dockerHost, UnixSocketPrefix), true
 	}
-	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated outside the container,
-	// eg: Docker daemon restart
+	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated
+	// outside the container, eg: Docker daemon restart
 	return "/var/run", false
 }
 
@@ -162,4 +180,26 @@ func HostPKIDirPath() string {
 		return ""
 	}
 	return hostPKIDirPath
+}
+
+// AgentDockerLogDriverConfiguration returns a LogConfig object
+// suitable for used with the managed container.
+func AgentDockerLogDriverConfiguration() godocker.LogConfig {
+	maxSize := dockerJSONLogMaxSize
+	if fromEnv := os.Getenv(dockerJSONLogMaxSizeEnvVar); fromEnv != "" {
+		maxSize = fromEnv
+	}
+
+	maxFiles := dockerJSONLogMaxFiles
+	if fromEnv := os.Getenv(dockerJSONLogMaxFilesEnvVar); fromEnv != "" {
+		maxFiles = fromEnv
+	}
+
+	return godocker.LogConfig{
+		Type: "json-file",
+		Config: map[string]string{
+			"max-size": maxSize,
+			"max-file": maxFiles,
+		},
+	}
 }
