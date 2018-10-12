@@ -22,6 +22,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -49,7 +50,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -110,152 +110,128 @@ func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
 	return mockDocker, mockDockerSDK, goClient, mockTime, ctrl, ecrClientFactory, ctrl.Finish
 }
 
-type pullImageOptsMatcher struct {
-	image string
-}
-
-func (matcher *pullImageOptsMatcher) String() string {
-	return "matches " + matcher.image
-}
-
-func (matcher *pullImageOptsMatcher) Matches(x interface{}) bool {
-	return matcher.image == x.(docker.PullImageOptions).Repository
-}
-
 func TestPullImageOutputTimeout(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time)
 	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout).MinTimes(1)
 	testTime.EXPECT().After(pullImageTimeout).MinTimes(1)
-	wait := sync.WaitGroup{}
-	wait.Add(1)
+
 	// multiple invocations will happen due to retries, but all should timeout
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(
-		func(x, y interface{}) {
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
+		func(x, y, z interface{}) (io.ReadCloser, error) {
 			pullBeginTimeout <- time.Now()
-			wait.Wait()
-			// Don't return, verify timeout happens
+
+			reader := &mockReadCloser{
+				reader: strings.NewReader(`{"status":"pull in progress"}`),
+			}
+			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
 
 	metadata := client.PullImage("image", nil)
 	assert.Error(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
-
-	// cleanup
-	wait.Done()
 }
 
-func TestPullImageGlobalTimeout(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+func TestImagePullGlobalTimeout(t *testing.T) {
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time, 1)
 	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout)
 	pullTimeout := make(chan time.Time, 1)
 	testTime.EXPECT().After(pullImageTimeout).Return(pullTimeout)
-	wait := sync.WaitGroup{}
-	wait.Add(1)
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Do(func(x, y interface{}) {
-		opts, ok := x.(docker.PullImageOptions)
-		assert.True(t, ok, "Cannot cast argument to PullImageOptions")
-		io.WriteString(opts.OutputStream, "string\n")
-		pullBeginTimeout <- time.Now()
-		pullTimeout <- time.Now()
-		wait.Wait()
-		// Don't return, verify timeout happens
-	})
+
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
+		func(x, y, z interface{}) (io.ReadCloser, error) {
+			pullBeginTimeout <- time.Now()
+			pullTimeout <- time.Now()
+
+			reader := mockReadCloser{
+				reader: strings.NewReader(`{"status":"pull in progress"}`),
+			}
+			return reader, nil
+		})
 
 	metadata := client.PullImage("image", nil)
 	assert.Error(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
-
-	testTime.EXPECT().After(dockerPullBeginTimeout)
-	testTime.EXPECT().After(pullImageTimeout)
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image2:latest"}, gomock.Any())
-	_ = client.PullImage("image2", nil)
-
-	// cleanup
-	wait.Done()
 }
 
 func TestPullImageInactivityTimeout(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
+	client.config.ImagePullInactivityTimeout = 100 * time.Millisecond
+
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Return(
-		docker.ErrInactivityTimeout).Times(maximumPullRetries) // expected number of retries
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
+		func(x, y, z interface{}) (io.ReadCloser, error) {
+
+			reader := mockReadCloser{
+				reader: strings.NewReader(`{"status":"pull in progress"}`),
+				delay:  300 * time.Millisecond,
+			}
+			return reader, nil
+		}).Times(maximumPullRetries) // expected number of retries
 
 	metadata := client.PullImage("image", nil)
 	assert.Error(t, metadata.Error, "Expected error for pull inactivity timeout")
 	assert.Equal(t, "CannotPullContainerError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
 }
 
-func TestPullImage(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+func TestImagePull(t *testing.T) {
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:latest"}, gomock.Any()).Return(nil)
+
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil)
 
 	metadata := client.PullImage("image", nil)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
-func TestPullImageTag(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+func TestImagePullTag(t *testing.T) {
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
+	client.config.ImagePullInactivityTimeout = 10 * time.Second
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().PullImage(&pullImageOptsMatcher{"image:mytag"}, gomock.Any()).Return(nil)
+
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:mytag", gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil)
 
 	metadata := client.PullImage("image:mytag", nil)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
-func TestPullImageDigest(t *testing.T) {
-	mockDocker, _, client, testTime, _, _, done := dockerClientSetup(t)
+func TestImagePullDigest(t *testing.T) {
+	_, mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
-	mockDocker.EXPECT().PullImage(
-		&pullImageOptsMatcher{"image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"},
-		gomock.Any(),
-	).Return(nil)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil)
 
 	metadata := client.PullImage("image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", nil)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
 func TestPullImageECRSuccess(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
-	// Docker SDK tests
-	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
-	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
-	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
-	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	client, _ := NewDockerGoClient(factory, sdkFactory, defaultTestConfig(), ctx)
-	goClient, _ := client.(*dockerGoClient)
-	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
-	ecrClient := mock_ecr.NewMockECRClient(ctrl)
-	mockTime := mock_ttime.NewMockTime(ctrl)
-	goClient.ecrClientFactory = ecrClientFactory
-	goClient._time = mockTime
+	_, mockDockerSDK, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+	defer done()
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
+	ecrClient := mock_ecr.NewMockECRClient(ctrl)
 
 	registryID := "123456789012"
 	region := "eu-west-1"
@@ -272,10 +248,10 @@ func TestPullImageECRSuccess(t *testing.T) {
 	image := imageEndpoint + "/myimage:tag"
 	username := "username"
 	password := "password"
-	dockerAuthConfiguration := docker.AuthConfiguration{
-		Username:      username,
-		Password:      password,
-		ServerAddress: "https://" + imageEndpoint,
+
+	imagePullOpts := types.ImagePullOptions{
+		All:          false,
+		RegistryAuth: "eyJ1c2VybmFtZSI6InVzZXJuYW1lIiwicGFzc3dvcmQiOiJwYXNzd29yZCIsInNlcnZlcmFkZHJlc3MiOiJodHRwczovL3JlZ2lzdHJ5LmVuZHBvaW50In0K",
 	}
 
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
@@ -285,10 +261,10 @@ func TestPullImageECRSuccess(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 		}, nil)
 
-	mockDocker.EXPECT().PullImage(
-		&pullImageOptsMatcher{image},
-		dockerAuthConfiguration,
-	).Return(nil)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), image, imagePullOpts).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil)
 
 	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
@@ -344,6 +320,18 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	assert.Error(t, metadata.Error, "expected pull to fail")
 }
 
+type mockReadCloser struct {
+	reader io.Reader
+	delay  time.Duration
+}
+
+func (mr mockReadCloser) Read(data []byte) (n int, err error) {
+	time.Sleep(mr.delay)
+	return mr.reader.Read(data)
+}
+func (mr mockReadCloser) Close() error {
+	return nil
+}
 func TestGetRepositoryWithTaggedImage(t *testing.T) {
 	image := "registry.endpoint/myimage:tag"
 	repository := getRepository(image)
@@ -1014,9 +1002,11 @@ func TestStatsClientError(t *testing.T) {
 type mockStream struct {
 	data  []byte
 	index int64
+	delay time.Duration
 }
 
 func (ms mockStream) Read(data []byte) (n int, err error) {
+	time.Sleep(ms.delay)
 	if ms.index >= int64(len(ms.data)) {
 		err = io.EOF
 		return
@@ -1050,11 +1040,10 @@ func TestStatsInactivityTimeout(t *testing.T) {
 	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
-		Body: mockStreamWithDelay{
-			mockStream{
-				data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
-				index: 0,
-			},
+		Body: mockStream{
+			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+			index: 0,
+			delay: 300 * time.Millisecond,
 		},
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1071,11 +1060,10 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	_, mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
-		Body: mockStreamWithDelay{
-			mockStream{
-				data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
-				index: 0,
-			},
+		Body: mockStream{
+			data:  []byte(`{"memory_stats":{"Usage":50},"cpu_stats":{"system_cpu_usage":100}}`),
+			index: 0,
+			delay: 300 * time.Millisecond,
 		},
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -1087,19 +1075,6 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	waitForStats(t, newStat)
 	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
 	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
-}
-
-type mockStreamWithDelay struct {
-	mockStream
-}
-
-func (msd mockStreamWithDelay) Read(data []byte) (n int, err error) {
-	time.Sleep(300 * time.Millisecond)
-	return msd.mockStream.Read(data)
-}
-
-func (msd mockStreamWithDelay) Close() error {
-	return msd.mockStream.Close()
 }
 
 func TestRemoveImageTimeout(t *testing.T) {
@@ -1164,7 +1139,8 @@ func TestLoadImageTimeout(t *testing.T) {
 // TestECRAuthCache tests the client will use cached docker auth if pulling
 // from same registry on ecr with default instance profile
 func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
-	mockDocker, _, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+
 	defer done()
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -1173,8 +1149,6 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 	region := "eu-west-1"
 	registryID := "1234567890"
 	endpointOverride := "my.endpoint"
-	imageEndpoint := "registry.endpoint"
-	image := imageEndpoint + "myimage:tag"
 	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &apicontainer.ECRAuthData{
@@ -1184,6 +1158,8 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 		},
 	}
 
+	imageEndpoint := "registry.endpoint"
+	image := imageEndpoint + "myimage:tag"
 	username := "username"
 	password := "password"
 
@@ -1194,7 +1170,10 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(4)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil).Times(4)
 
 	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
@@ -1215,7 +1194,7 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 // TestECRAuthCacheForDifferentRegistry tests the client will call ecr client to get docker
 // auth for different registry
 func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
-	mockDocker, _, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
 	defer done()
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -1224,8 +1203,6 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 	region := "eu-west-1"
 	registryID := "1234567890"
 	endpointOverride := "my.endpoint"
-	imageEndpoint := "registry.endpoint"
-	image := imageEndpoint + "/myimage:tag"
 	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
 		ECRAuthData: &apicontainer.ECRAuthData{
@@ -1235,6 +1212,8 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 		},
 	}
 
+	imageEndpoint := "registry.endpoint"
+	image := imageEndpoint + "/myimage:tag"
 	username := "username"
 	password := "password"
 
@@ -1245,7 +1224,10 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil).Times(2)
 
 	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
@@ -1266,7 +1248,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 // TestECRAuthCacheWithExecutionRole tests the client will use the cached docker auth
 // for ecr when pull from the same registry with same execution role
 func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
-	mockDocker, _, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
 	defer done()
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -1299,7 +1281,10 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil).Times(3)
 
 	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
@@ -1316,7 +1301,7 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 // TestECRAuthCacheWithDifferentExecutionRole tests client will call ecr client to get
 // docker auth credentials for different execution role
 func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
-	mockDocker, _, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
+	_, mockDockerSDK, client, mockTime, ctrl, ecrClientFactory, done := dockerClientSetup(t)
 	defer done()
 
 	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
@@ -1324,8 +1309,6 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 
 	region := "eu-west-1"
 	registryID := "1234567890"
-	imageEndpoint := "registry.endpoint"
-	image := imageEndpoint + "/myimage:tag"
 	endpointOverride := "my.endpoint"
 	authData := &apicontainer.RegistryAuthenticationData{
 		Type: "ecr",
@@ -1339,6 +1322,8 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 		RoleArn: "executionRole",
 	})
 
+	imageEndpoint := "registry.endpoint"
+	image := imageEndpoint + "/myimage:tag"
 	username := "username"
 	password := "password"
 
@@ -1349,7 +1334,10 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	mockDocker.EXPECT().PullImage(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		mockReadCloser{
+			reader: strings.NewReader(`{"status":"pull complete"}`),
+		}, nil).Times(2)
 
 	metadata := client.PullImage(image, authData)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")

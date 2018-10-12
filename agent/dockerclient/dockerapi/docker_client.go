@@ -14,9 +14,11 @@
 package dockerapi
 
 import (
-	"bufio"
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -47,7 +49,6 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 const (
@@ -338,7 +339,7 @@ func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.Registr
 			maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
 		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries,
 			func() error {
-				err := dg.pullImage(image, authData)
+				err := dg.pullImage(ctx, image, authData)
 				if err != nil {
 					seelog.Warnf("DockerGoClient: failed to pull image %s: %s", image, err.Error())
 				}
@@ -367,45 +368,81 @@ func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
 	return retErr
 }
 
-func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.RegistryAuthenticationData) apierrors.NamedError {
+func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData *apicontainer.RegistryAuthenticationData) apierrors.NamedError {
 	seelog.Debugf("DockerGoClient: pulling image: %s", image)
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
 	sdkAuthConfig, err := dg.getAuthdata(image, authData)
-	authConfig := docker.AuthConfiguration{
-		Username:      sdkAuthConfig.Username,
-		Password:      sdkAuthConfig.Password,
-		Email:         sdkAuthConfig.Email,
-		ServerAddress: sdkAuthConfig.ServerAddress,
-	}
 	if err != nil {
 		return wrapPullErrorAsNamedError(err)
 	}
+	// encode auth data
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(sdkAuthConfig); err != nil {
+		return CannotPullECRContainerError{err}
+	}
 
-	pullDebugOut, pullWriter := io.Pipe()
-	defer pullWriter.Close()
+	imagePullOpts := types.ImagePullOptions{
+		All:          false,
+		RegistryAuth: base64.URLEncoding.EncodeToString(buf.Bytes()),
+	}
 
 	repository := getRepository(image)
 
-	opts := docker.PullImageOptions{
-		Repository:        repository,
-		OutputStream:      pullWriter,
-		InactivityTimeout: dg.config.ImagePullInactivityTimeout,
-	}
 	timeout := dg.time().After(dockerPullBeginTimeout)
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
 	// It is here to guard against a bug wherein Docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
-
-	go dg.filterPullDebugOutput(pullDebugOut, pullBegan, image)
+	// pullBeganOnce ensures we only indicate it began once (since our channel will only be read 0 or 1 times)
+	pullBeganOnce := sync.Once{}
 
 	pullFinished := make(chan error, 1)
-	// TODO Migrate Pull Image once Inactivity Timeout is sorted out
+	subCtx, cancelRequest := context.WithCancel(ctx)
+
 	go func() {
-		pullFinished <- client.PullImage(opts, authConfig)
+		defer cancelRequest()
+		reader, err := client.ImagePull(subCtx, repository, imagePullOpts)
+		if err != nil {
+			pullFinished <- err
+			return
+		}
+
+		// handle inactivity timeout
+		var canceled uint32
+		var ch chan<- struct{}
+		reader, ch = handleInactivityTimeout(reader, dg.config.ImagePullInactivityTimeout, cancelRequest, &canceled)
+		defer reader.Close()
+		defer close(ch)
+
+		decoder := json.NewDecoder(reader)
+		data := new(events.Message)
+		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+			if err != nil {
+				seelog.Warnf("DockerGoClient: Unable to decode pull event message for image %s: %v", image, err)
+				pullFinished <- err
+				return
+			}
+			if atomic.LoadUint32(&canceled) != 0 {
+				seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while pulling image %s", image)
+				pullErr := errors.New("inactivity time exceeded timeout while pulling image")
+				pullFinished <- pullErr
+				return
+			}
+
+			pullBeganOnce.Do(func() {
+				pullBegan <- true
+			})
+
+			dataBytes, _ := json.Marshal(data)
+			line := string(dataBytes[:])
+			dg.filterPullDebugOutput(line, image)
+
+			data = new(events.Message)
+		}
+		pullFinished <- nil
 	}()
 
 	select {
@@ -431,38 +468,21 @@ func (dg *dockerGoClient) pullImage(image string, authData *apicontainer.Registr
 	return nil
 }
 
-func (dg *dockerGoClient) filterPullDebugOutput(pullDebugOut *io.PipeReader, pullBegan chan<- bool, image string) {
-	// pullBeganOnce ensures we only indicate it began once (since our channel will only be read 0 or 1 times)
-	pullBeganOnce := sync.Once{}
+func (dg *dockerGoClient) filterPullDebugOutput(line string, image string) {
 
-	reader := bufio.NewReader(pullDebugOut)
-	var line string
-	var pullErr error
 	var statusDisplayed time.Time
-	for {
-		line, pullErr = reader.ReadString('\n')
-		if pullErr != nil {
-			break
-		}
-		pullBeganOnce.Do(func() {
-			pullBegan <- true
-		})
 
-		now := time.Now()
-		if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
-			// skip most of the progress bar lines, but retain enough for debugging
-			seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, line)
-			statusDisplayed = now
-		}
-
-		if strings.Contains(line, "already being pulled by another client. Waiting.") {
-			// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
-			seelog.Errorf("DockerGoClient: image 'pull' status marked as already being pulled for image %s, status %s",
-				image, line)
-		}
+	now := time.Now()
+	if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
+		// skip most of the progress bar lines, but retain enough for debugging
+		seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, line)
+		statusDisplayed = now
 	}
-	if pullErr != nil && pullErr != io.EOF {
-		seelog.Warnf("DockerGoClient: error reading pull image status for image %s: %v", image, pullErr)
+
+	if strings.Contains(line, "already being pulled by another client. Waiting.") {
+		// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
+		seelog.Errorf("DockerGoClient: image 'pull' status marked as already being pulled for image %s, status %s",
+			image, line)
 	}
 }
 
@@ -936,8 +956,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status:                  status,
-			Type:                    eventType,
+			Status: status,
+			Type:   eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
