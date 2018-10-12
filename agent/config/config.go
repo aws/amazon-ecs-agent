@@ -28,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
-	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
 const (
@@ -127,6 +126,16 @@ const (
 	// ImagePullPreferCachedBehavior specifies the behavior that agent will only attempt to pull
 	// the image if there is no cached image.
 	ImagePullPreferCachedBehavior
+)
+
+const (
+	// When ContainerInstancePropagateTagsFromNoneType is specified, no DescribeTags
+	// API call will be made.
+	ContainerInstancePropagateTagsFromNoneType ContainerInstancePropagateTagsFromType = iota
+
+	// When ContainerInstancePropagateTagsFromEC2InstanceType is specified, agent will
+	// make DescribeTags API call to get tags remotely.
+	ContainerInstancePropagateTagsFromEC2InstanceType
 )
 
 var (
@@ -411,62 +420,64 @@ func environmentConfig() (Config, error) {
 
 	steadyStateRate, burstRate := parseTaskMetadataThrottles()
 
-	var instanceAttributes map[string]string
 	var errs []error
-	instanceAttributes, errs = parseInstanceAttributes(errs)
+	instanceAttributes, errs := parseInstanceAttributes(errs)
 
-	var additionalLocalRoutes []cnitypes.IPNet
-	additionalLocalRoutes, errs = parseAdditionalLocalRoutes(errs)
+	containerInstanceTags, errs := parseContainerInstanceTags(errs)
+
+	additionalLocalRoutes, errs := parseAdditionalLocalRoutes(errs)
 
 	var err error
 	if len(errs) > 0 {
 		err = apierrors.NewMultiError(errs...)
 	}
 	return Config{
-		Cluster:                          os.Getenv("ECS_CLUSTER"),
-		APIEndpoint:                      os.Getenv("ECS_BACKEND_HOST"),
-		AWSRegion:                        os.Getenv("AWS_DEFAULT_REGION"),
-		DockerEndpoint:                   os.Getenv("DOCKER_HOST"),
-		ReservedPorts:                    parseReservedPorts("ECS_RESERVED_PORTS"),
-		ReservedPortsUDP:                 parseReservedPorts("ECS_RESERVED_PORTS_UDP"),
-		DataDir:                          dataDir,
-		Checkpoint:                       parseCheckpoint(dataDir),
-		EngineAuthType:                   os.Getenv("ECS_ENGINE_AUTH_TYPE"),
-		EngineAuthData:                   NewSensitiveRawMessage([]byte(os.Getenv("ECS_ENGINE_AUTH_DATA"))),
-		UpdatesEnabled:                   utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
-		UpdateDownloadDir:                os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
-		DisableMetrics:                   utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
-		ReservedMemory:                   parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
-		AvailableLoggingDrivers:          parseAvailableLoggingDrivers(),
-		PrivilegedDisabled:               utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
-		SELinuxCapable:                   utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false),
-		AppArmorCapable:                  utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false),
-		TaskCleanupWaitDuration:          parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
-		TaskENIEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false),
-		TaskIAMRoleEnabled:               utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false),
-		TaskCPUMemLimit:                  parseTaskCPUMemLimitEnabled(),
-		DockerStopTimeout:                parseDockerStopTimeout(),
-		ContainerStartTimeout:            parseContainerStartTimeout(),
-		ImagePullInactivityTimeout:       parseImagePullInactivityTimeout(),
-		CredentialsAuditLogFile:          os.Getenv("ECS_AUDIT_LOGFILE"),
-		CredentialsAuditLogDisabled:      utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
-		TaskIAMRoleEnabledForNetworkHost: utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
-		ImageCleanupDisabled:             utils.ParseBool(os.Getenv("ECS_DISABLE_IMAGE_CLEANUP"), false),
-		MinimumImageDeletionAge:          parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
-		ImageCleanupInterval:             parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
-		NumImagesToDeletePerCycle:        parseNumImagesToDeletePerCycle(),
-		ImagePullBehavior:                parseImagePullBehavior(),
-		InstanceAttributes:               instanceAttributes,
-		CNIPluginsPath:                   os.Getenv("ECS_CNI_PLUGINS_PATH"),
-		AWSVPCBlockInstanceMetdata:       utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),
-		AWSVPCAdditionalLocalRoutes:      additionalLocalRoutes,
-		ContainerMetadataEnabled:         utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false),
-		DataDirOnHost:                    os.Getenv("ECS_HOST_DATA_DIR"),
-		OverrideAWSLogsExecutionRole:     utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false),
-		CgroupPath:                       os.Getenv("ECS_CGROUP_PATH"),
-		TaskMetadataSteadyStateRate:      steadyStateRate,
-		TaskMetadataBurstRate:            burstRate,
-		SharedVolumeMatchFullConfig:      utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
+		Cluster:                            os.Getenv("ECS_CLUSTER"),
+		APIEndpoint:                        os.Getenv("ECS_BACKEND_HOST"),
+		AWSRegion:                          os.Getenv("AWS_DEFAULT_REGION"),
+		DockerEndpoint:                     os.Getenv("DOCKER_HOST"),
+		ReservedPorts:                      parseReservedPorts("ECS_RESERVED_PORTS"),
+		ReservedPortsUDP:                   parseReservedPorts("ECS_RESERVED_PORTS_UDP"),
+		DataDir:                            dataDir,
+		Checkpoint:                         parseCheckpoint(dataDir),
+		EngineAuthType:                     os.Getenv("ECS_ENGINE_AUTH_TYPE"),
+		EngineAuthData:                     NewSensitiveRawMessage([]byte(os.Getenv("ECS_ENGINE_AUTH_DATA"))),
+		UpdatesEnabled:                     utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
+		UpdateDownloadDir:                  os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
+		DisableMetrics:                     utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
+		ReservedMemory:                     parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
+		AvailableLoggingDrivers:            parseAvailableLoggingDrivers(),
+		PrivilegedDisabled:                 utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
+		SELinuxCapable:                     utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false),
+		AppArmorCapable:                    utils.ParseBool(os.Getenv("ECS_APPARMOR_CAPABLE"), false),
+		TaskCleanupWaitDuration:            parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
+		TaskENIEnabled:                     utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false),
+		TaskIAMRoleEnabled:                 utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false),
+		TaskCPUMemLimit:                    parseTaskCPUMemLimitEnabled(),
+		DockerStopTimeout:                  parseDockerStopTimeout(),
+		ContainerStartTimeout:              parseContainerStartTimeout(),
+		ImagePullInactivityTimeout:         parseImagePullInactivityTimeout(),
+		CredentialsAuditLogFile:            os.Getenv("ECS_AUDIT_LOGFILE"),
+		CredentialsAuditLogDisabled:        utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
+		TaskIAMRoleEnabledForNetworkHost:   utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
+		ImageCleanupDisabled:               utils.ParseBool(os.Getenv("ECS_DISABLE_IMAGE_CLEANUP"), false),
+		MinimumImageDeletionAge:            parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
+		ImageCleanupInterval:               parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
+		NumImagesToDeletePerCycle:          parseNumImagesToDeletePerCycle(),
+		ImagePullBehavior:                  parseImagePullBehavior(),
+		InstanceAttributes:                 instanceAttributes,
+		CNIPluginsPath:                     os.Getenv("ECS_CNI_PLUGINS_PATH"),
+		AWSVPCBlockInstanceMetdata:         utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),
+		AWSVPCAdditionalLocalRoutes:        additionalLocalRoutes,
+		ContainerMetadataEnabled:           utils.ParseBool(os.Getenv("ECS_ENABLE_CONTAINER_METADATA"), false),
+		DataDirOnHost:                      os.Getenv("ECS_HOST_DATA_DIR"),
+		OverrideAWSLogsExecutionRole:       utils.ParseBool(os.Getenv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE"), false),
+		CgroupPath:                         os.Getenv("ECS_CGROUP_PATH"),
+		TaskMetadataSteadyStateRate:        steadyStateRate,
+		TaskMetadataBurstRate:              burstRate,
+		SharedVolumeMatchFullConfig:        utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
+		ContainerInstanceTags:              containerInstanceTags,
+		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
 	}, err
 }
 

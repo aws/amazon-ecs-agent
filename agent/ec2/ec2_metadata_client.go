@@ -32,6 +32,7 @@ const (
 	MacResource                               = "mac"
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
+	InstanceIDResource                        = "instance-id"
 )
 
 const (
@@ -65,6 +66,7 @@ type EC2MetadataClient interface {
 	VPCID(mac string) (string, error)
 	SubnetID(mac string) (string, error)
 	PrimaryENIMAC() (string, error)
+	InstanceID() (string, error)
 	GetUserData() (string, error)
 }
 
@@ -142,6 +144,11 @@ func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
 // given its mac address
 func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
 	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
+}
+
+// InstanceID returns the id of this instance.
+func (c *ec2MetadataClientImpl) InstanceID() (string, error) {
+	return c.client.GetMetadata(InstanceIDResource)
 }
 
 // GetUserData returns the userdata that was configured for the

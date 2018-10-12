@@ -24,6 +24,10 @@ import (
 // behaviors including default, always, never and once.
 type ImagePullBehaviorType int8
 
+// ContainerInstancePropagateTagsFromType is an enum variable type corresponding to different
+// ways to propagate tags, it includes none (default) and ec2_instance.
+type ContainerInstancePropagateTagsFromType int8
+
 type Config struct {
 	// DEPRECATED
 	// ClusterArn is the Name or full ARN of a Cluster to register into. It has
@@ -233,4 +237,15 @@ type Config struct {
 	// which ECS agent tries to register the instance where the instance id document is
 	// not available or needed
 	NoIID bool
+
+	// ContainerInstancePropagateTagsFrom when set to "ec2_instance", agent will call EC2 API to
+	// get the tags and register them through RegisterContainerInstance call.
+	// When set to "none" (or any other string), no API call will be made.
+	ContainerInstancePropagateTagsFrom ContainerInstancePropagateTagsFromType
+
+	// ContainerInstanceTags contains key/value pairs representing
+	// tags extracted from config file and will be associated with this instance
+	// through RegisterContainerInstance call. Tags with the same keys from DescribeTags
+	// API call will be overridden.
+	ContainerInstanceTags map[string]string
 }
