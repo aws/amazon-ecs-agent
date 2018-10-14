@@ -121,6 +121,9 @@ define win-cgo-dockerbuild
 		$(1)
 endef
 
+gofmt:
+	go fmt $(shell go list ./agent/... | grep -v /vendor/)
+
 # TODO: use `go list -f` to target the test files more directly
 ALL_GO_FILES = $(shell find . -name "*.go" -print | tr "\n" " ")
 GO_INTEG_TEST = go test -race -tags integration -c -o
