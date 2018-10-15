@@ -304,12 +304,11 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 	var secretNames []string
 
 	for _, s := range secrets {
-		secretName := s.ValueFrom
-		secretKey := secretName + "_" + region
-		if _, ok := secret.getCachedSecretValue(secretKey); ok {
+		secretKey := s.GetSSMSecretResourceCacheKey()
+		if _, ok := secret.GetCachedSecretValue(secretKey); ok {
 			continue
 		}
-		secretNames = append(secretNames, secretName)
+		secretNames = append(secretNames, s.ValueFrom)
 		if len(secretNames) == MaxBatchNum {
 			secretNamesTmp := make([]string, MaxBatchNum)
 			copy(secretNamesTmp, secretNames)
@@ -348,15 +347,6 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 	}
 }
 
-// GetSecretValue returns the value retrieved from SSM
-func (secret *SSMSecretResource) GetSecretValue(key string) (string, bool) {
-	secret.lock.RLock()
-	defer secret.lock.RUnlock()
-
-	s, ok := secret.secretData[key]
-	return s, ok
-}
-
 // getRequiredSecrets returns the requiredSecrets field of ssmsecret task resource
 func (secret *SSMSecretResource) getRequiredSecrets() map[string][]apicontainer.Secret {
 	secret.lock.RLock()
@@ -390,8 +380,8 @@ func (secret *SSMSecretResource) clearSSMSecretValue() {
 	}
 }
 
-// getCachedSecretValue retrieves the secret value from secretData field
-func (secret *SSMSecretResource) getCachedSecretValue(secretKey string) (string, bool) {
+// GetCachedSecretValue retrieves the secret value from secretData field
+func (secret *SSMSecretResource) GetCachedSecretValue(secretKey string) (string, bool) {
 	secret.lock.RLock()
 	defer secret.lock.RUnlock()
 
