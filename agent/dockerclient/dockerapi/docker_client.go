@@ -237,6 +237,20 @@ type dockerGoClient struct {
 	lock                sync.Mutex
 }
 
+type ImagePullResponse struct {
+	Id             string `json:"id,omitempty"`
+	Status         string `json:"status,omitempty"`
+	ProgressDetail struct {
+		Current int64 `json:"current,omitempty"`
+		Total   int64 `json:"total,omitempty"`
+	} `json:"progressDetail,omitempty"`
+	Progress string `json:"progress,omitempty"`
+	Error    struct {
+		Code    int    `json:"code,omitempty"`
+		Message string `json:"message,omitempty"`
+	} `json:"errorDetail,omitempty"`
+}
+
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
 	return &dockerGoClient{
 		clientFactory:    dg.clientFactory,
@@ -418,7 +432,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 		defer close(ch)
 
 		decoder := json.NewDecoder(reader)
-		data := new(events.Message)
+		data := new(ImagePullResponse)
 		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 			if err != nil {
 				seelog.Warnf("DockerGoClient: Unable to decode pull event message for image %s: %v", image, err)
@@ -436,11 +450,9 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 				pullBegan <- true
 			})
 
-			dataBytes, _ := json.Marshal(data)
-			line := string(dataBytes[:])
-			dg.filterPullDebugOutput(line, image)
+			dg.filterPullDebugOutput(data, image)
 
-			data = new(events.Message)
+			data = new(ImagePullResponse)
 		}
 		pullFinished <- nil
 	}()
@@ -468,21 +480,21 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 	return nil
 }
 
-func (dg *dockerGoClient) filterPullDebugOutput(line string, image string) {
+func (dg *dockerGoClient) filterPullDebugOutput(data *ImagePullResponse, image string) {
 
 	var statusDisplayed time.Time
 
 	now := time.Now()
-	if !strings.Contains(line, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
+	if !strings.Contains(data.Progress, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
 		// skip most of the progress bar lines, but retain enough for debugging
-		seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, line)
+		seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, data.Progress)
 		statusDisplayed = now
 	}
 
-	if strings.Contains(line, "already being pulled by another client. Waiting.") {
+	if strings.Contains(data.Status, "already being pulled by another client. Waiting.") {
 		// This can mean the daemon is 'hung' in pulling status for this image, but we can't be sure.
 		seelog.Errorf("DockerGoClient: image 'pull' status marked as already being pulled for image %s, status %s",
-			image, line)
+			image, data.Status)
 	}
 }
 
