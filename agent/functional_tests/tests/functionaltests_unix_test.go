@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"runtime"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
@@ -536,6 +537,10 @@ func TestFluentdTag(t *testing.T) {
 	// tag was added in docker 1.9.0
 	RequireDockerVersion(t, ">=1.9.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-tag", t)
 }
 
@@ -546,10 +551,15 @@ func TestFluentdLogTag(t *testing.T) {
 	RequireDockerVersion(t, ">=1.8.0")
 	RequireDockerVersion(t, "<1.12.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-log-tag", t)
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
+
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
