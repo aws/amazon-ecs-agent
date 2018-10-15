@@ -1631,8 +1631,6 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	}
 	requiredASMResources := []*apicontainer.ASMAuthData{asmAuthData}
 	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
-	if false {
-	}
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
 		credentialsID, credentialsManager, asmClientCreator)
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
@@ -2273,7 +2271,6 @@ func TestSynchronizeResource(t *testing.T) {
 	dockerTaskEngine.synchronizeState()
 }
 
-// WIP
 func TestTaskSSMSecretsEnvironmentVariables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

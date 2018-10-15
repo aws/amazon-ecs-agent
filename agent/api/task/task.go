@@ -1514,8 +1514,8 @@ func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierro
 
 	for _, secret := range container.Secrets {
 		if secret.Provider == apicontainer.SecretProviderSSM {
-			k := secret.ValueFrom + "_" + secret.Region
-			if secretValue, ok := ssmResource.GetSecretValue(k); ok {
+			k := secret.GetSSMSecretResourceCacheKey()
+			if secretValue, ok := ssmResource.GetCachedSecretValue(k); ok {
 				envVars[secret.Name] = secretValue
 			}
 		}

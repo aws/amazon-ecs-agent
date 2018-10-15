@@ -257,6 +257,12 @@ type Secret struct {
 	Provider      string `json:"provider"`
 }
 
+// GetSSMSecretResourceCacheKey returns the key required to access the secret
+// from the ssmsecret resource
+func (s *Secret) GetSSMSecretResourceCacheKey() string {
+	return s.ValueFrom + "_" + s.Region
+}
+
 // String returns a human readable string representation of DockerContainer
 func (dc *DockerContainer) String() string {
 	if dc == nil {
@@ -761,7 +767,7 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 
 // MergeEnvironmentVariables appends additional envVarName:envVarValue pairs to
 // the the container's enviornment values structure
-func (c *Container) MergeEnvironmentVariables(secrets map[string]string) {
+func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -770,7 +776,7 @@ func (c *Container) MergeEnvironmentVariables(secrets map[string]string) {
 		c.Environment = make(map[string]string)
 	}
 
-	for k, v := range secrets {
+	for k, v := range envVars {
 		c.Environment[k] = v
 	}
 }
