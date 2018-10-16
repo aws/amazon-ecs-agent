@@ -18,7 +18,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	log "github.com/cihub/seelog"
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
@@ -31,8 +30,6 @@ const (
 	minAPIVersionKey = "MinAPIVersion"
 	// apiVersionKey is the docker.Env key for API version
 	apiVersionKey = "ApiVersion"
-	// zeroPatch is a string to append patch number zero if the major minor version lacks it
-	zeroPatch = ".0"
 )
 
 // Factory provides a collection of docker remote clients that include a
@@ -180,17 +177,13 @@ func getDockerClientForVersion(
 	minAPIVersion string,
 	apiVersion string) (dockeriface.Client, error) {
 	if minAPIVersion != "" && apiVersion != "" {
-		// Adding patch number zero to Docker versions to reuse the existing semver
-		// comparator
-		// TODO: remove this logic later when non-semver comparator is implemented
-		versionWithPatch := version + zeroPatch
-		lessThanMinCheck := "<" + minAPIVersion + zeroPatch
-		moreThanMaxCheck := ">" + apiVersion + zeroPatch
-		minVersionCheck, err := utils.Version(versionWithPatch).Matches(lessThanMinCheck)
+		lessThanMinCheck := "<" + minAPIVersion
+		moreThanMaxCheck := ">" + apiVersion
+		minVersionCheck, err := dockerclient.DockerAPIVersion(version).Matches(lessThanMinCheck)
 		if err != nil {
 			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get min version: %s", minAPIVersion)
 		}
-		maxVersionCheck, err := utils.Version(versionWithPatch).Matches(moreThanMaxCheck)
+		maxVersionCheck, err := dockerclient.DockerAPIVersion(version).Matches(moreThanMaxCheck)
 		if err != nil {
 			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get max version: %s", apiVersion)
 		}
