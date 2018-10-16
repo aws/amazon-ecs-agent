@@ -22,15 +22,13 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
 
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -46,11 +44,6 @@ func TestLoadFromFileWithReaderError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
@@ -60,7 +53,7 @@ func TestLoadFromFileWithReaderError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 	mockfs.EXPECT().Open(pauseTarballPath).Return(nil, errors.New("Dummy Reader Error"))
@@ -74,11 +67,6 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
@@ -88,7 +76,7 @@ func TestLoadFromFileHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
 	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{}, nil)
 	mockfs := mock_os.NewMockFileSystem(ctrl)
@@ -104,11 +92,6 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
@@ -118,9 +101,9 @@ func TestLoadFromFileDockerLoadImageError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return( types.ImageLoadResponse{},
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{},
 		errors.New("Dummy Load Image Error"))
 	mockfs := mock_os.NewMockFileSystem(ctrl)
 
@@ -133,11 +116,6 @@ func TestGetPauseContainerImageInspectImageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
@@ -147,7 +125,7 @@ func TestGetPauseContainerImageInspectImageError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
 	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), pauseName+":"+pauseTag).Return(
 		types.ImageInspect{}, nil, errors.New("error"))
@@ -160,11 +138,6 @@ func TestGetPauseContainerHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	// go-dockerclient tests
-	mockDocker := mock_dockeriface.NewMockClient(ctrl)
-	mockDocker.EXPECT().Ping().AnyTimes().Return(nil)
-	factory := mock_clientfactory.NewMockFactory(ctrl)
-	factory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDocker, nil)
 	// Docker SDK tests
 	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
 	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
@@ -174,7 +147,7 @@ func TestGetPauseContainerHappyPath(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	client, err := dockerapi.NewDockerGoClient(factory, sdkFactory, &defaultConfig, ctx)
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
 	assert.NoError(t, err)
 	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), pauseName+":"+pauseTag).Return(types.ImageInspect{}, nil, nil)
 
