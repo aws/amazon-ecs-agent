@@ -1,6 +1,6 @@
 // +build functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,13 +33,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
 )
 
@@ -626,12 +627,7 @@ func RequireDockerAPIVersion(t *testing.T, selector string) {
 
 	version := dockerVersion.Get("ApiVersion")
 
-	// adding zero patch to use semver comparator
-	// TODO: Implement non-semver comparator
-	version += ".0"
-	selector += ".0"
-
-	match, err := utils.Version(version).Matches(selector)
+	match, err := dockerclient.DockerAPIVersion(version).Matches(selector)
 	if err != nil {
 		t.Fatalf("Could not check docker api version to match required: %v", err)
 	}
