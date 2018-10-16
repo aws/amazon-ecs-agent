@@ -33,9 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/async"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockeriface"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
@@ -221,7 +219,6 @@ type DockerClient interface {
 // Implements DockerClient
 // TODO Remove clientfactory field once all API calls are migrated to sdkclientFactory
 type dockerGoClient struct {
-	clientFactory    clientfactory.Factory
 	sdkClientFactory sdkclientfactory.Factory
 	version          dockerclient.DockerVersion
 	ecrClientFactory ecr.ECRFactory
@@ -253,7 +250,6 @@ type ImagePullResponse struct {
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
 	return &dockerGoClient{
-		clientFactory:    dg.clientFactory,
 		sdkClientFactory: dg.sdkClientFactory,
 		version:          version,
 		auth:             dg.auth,
@@ -267,16 +263,9 @@ var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
 // TODO Remove clientfactory parameter once migration to Docker SDK is complete.
-func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdkclientfactory.Factory,
+func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 	cfg *config.Config, ctx context.Context) (DockerClient, error) {
-	// Ensure both clients can connect to the Docker daemon.
-	client, err := clientFactory.GetDefaultClient()
-
-	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to connect to Docker daemon. "+
-			"Ensure Docker is running: %v", err)
-		return nil, err
-	}
+	// Ensure SDK client can connect to the Docker daemon.
 	sdkclient, err := sdkclientFactory.GetDefaultClient()
 
 	if err != nil {
@@ -287,12 +276,6 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 
 	// Even if we have a DockerClient, the daemon might not be running. Ping from both clients
 	// to ensure it's up.
-	err = client.Ping()
-	if err != nil {
-		seelog.Errorf("DockerGoClient: go-dockerclient unable to ping Docker daemon. "+
-			"Ensure Docker is running: %v", err)
-		return nil, err
-	}
 	_, err = sdkclient.Ping(ctx)
 	if err != nil {
 		seelog.Errorf("DockerGoClient: Docker SDK client unable to ping Docker daemon. "+
@@ -305,7 +288,6 @@ func NewDockerGoClient(clientFactory clientfactory.Factory, sdkclientFactory sdk
 		dockerAuthData = cfg.EngineAuthData.Contents()
 	}
 	return &dockerGoClient{
-		clientFactory:    clientFactory,
 		sdkClientFactory: sdkclientFactory,
 		auth:             dockerauth.NewDockerAuthProvider(cfg.EngineAuthType, dockerAuthData),
 		ecrClientFactory: ecr.NewECRFactory(cfg.AcceptInsecureCert),
@@ -321,15 +303,6 @@ func (dg *dockerGoClient) sdkDockerClient() (sdkclient.Client, error) {
 		return dg.sdkClientFactory.GetDefaultClient()
 	}
 	return dg.sdkClientFactory.GetClient(dg.version)
-}
-
-// Returns the go-dockerclient Client
-// TODO Remove method once migration is complete.
-func (dg *dockerGoClient) dockerClient() (dockeriface.Client, error) {
-	if dg.version == "" {
-		return dg.clientFactory.GetDefaultClient()
-	}
-	return dg.clientFactory.GetClient(dg.version)
 }
 
 func (dg *dockerGoClient) time() ttime.Time {
@@ -499,7 +472,7 @@ func (dg *dockerGoClient) filterPullDebugOutput(data *ImagePullResponse, image s
 }
 
 func getRepository(image string) string {
-	repository, tag := parseRepositoryTag(image)
+	repository, tag := utils.ParseRepositoryTag(image)
 	if tag == "" {
 		repository = repository + ":" + dockerDefaultTag
 	} else {
@@ -626,7 +599,6 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 }
 
 // DockerStateToState converts the container status from docker to status recognized by the agent
-// Ref: https://github.com/fsouza/go-dockerclient/blob/fd53184a1439b6d7b82ca54c1cd9adac9a5278f2/container.go#L133
 func DockerStateToState(state *types.ContainerState) apicontainerstatus.ContainerStatus {
 	if state.Running {
 		return apicontainerstatus.ContainerRunning
@@ -725,6 +697,9 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 	if err != nil {
 		seelog.Infof("DockerGoClient: error stopping container %s: %v", dockerID, err)
 		if metadata.Error == nil {
+			if strings.Contains(err.Error(), "No such container") {
+				err = NoSuchContainerError{dockerID}
+			}
 			metadata.Error = CannotStopContainerError{err}
 		}
 	}
@@ -1325,8 +1300,6 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	return statsChnl, nil
 }
 
-// RemoveImage invokes github.com/fsouza/go-dockerclient.Client's
-// RemoveImage API with a timeout
 func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

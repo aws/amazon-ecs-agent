@@ -22,7 +22,6 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
-	docker "github.com/fsouza/go-dockerclient"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -86,7 +85,7 @@ type ListContainersResponse struct {
 // VolumeResponse wrapper for CreateVolume and InspectVolume
 // TODO Remove type when migration is complete
 type VolumeResponse struct {
-	DockerVolume *docker.Volume
+	DockerVolume *types.Volume
 	Error        error
 }
 

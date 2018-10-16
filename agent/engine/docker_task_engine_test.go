@@ -61,7 +61,6 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -873,7 +872,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 // TestTaskTransitionWhenStopContainerReturnsUnretriableError tests if the task transitions
 // to stopped without retrying stopping the container in the task when the initial
 // stop container call returns an unretriable error from docker, specifically the
-// ContainerNotRunning error
+// NoSuchContainer error
 func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -920,7 +919,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			// failure when there's a delay in task engine processing the ContainerRunning
 			// event.
 			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{
-				Error: dockerapi.CannotStopContainerError{&docker.ContainerNotRunning{}},
+				Error: dockerapi.CannotStopContainerError{dockerapi.NoSuchContainerError{}},
 			}).MinTimes(1),
 		)
 	}
