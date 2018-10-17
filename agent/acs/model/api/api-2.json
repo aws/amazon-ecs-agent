@@ -437,7 +437,7 @@
     },
     "SecretProvider":{
       "type":"string",
-      "enum":["SSM"]
+      "enum":["ssm"]
     },
     "SecretType":{
       "type":"string",
