@@ -271,4 +271,7 @@ type Config struct {
 
 	// ImageCleanupExclusionList is the list of image names customers want to keep for their own use and delete automatically
 	ImageCleanupExclusionList []string
+
+	// CGroupCPUPeriod is config option to set different CFS quota and period values in microsecond, defaults to 100 ms
+	CGroupCPUPeriod time.Duration
 }

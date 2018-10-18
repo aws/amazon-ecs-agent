@@ -130,6 +130,11 @@ const (
 	//Known cached image names
 	CachedImageNamePauseContainer = "amazon/amazon-ecs-pause:0.1.0"
 	CachedImageNameAgentContainer = "amazon/amazon-ecs-agent:latest"
+
+	// DefaultCPUPeriod is set to 100 ms to set CFS period and quota for task limits
+	defaultCGroupCPUPeriod = 100 * time.Millisecond
+	maximumCGroupCPUPeriod = 100 * time.Millisecond
+	minimumCGroupCPUPeriod = 1 * time.Millisecond
 )
 
 const (
@@ -532,6 +537,7 @@ func environmentConfig() (Config, error) {
 		ContainerInstancePropagateTagsFrom:  parseContainerInstancePropagateTagsFrom(),
 		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), false),
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
+		CGroupCPUPeriod:                     parseCGroupCPUPeriod(),
 	}, err
 }
 

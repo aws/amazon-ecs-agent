@@ -114,10 +114,12 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
+	defer setTestEnv("ECS_CGROUP_CPU_PERIOD", "")
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
+	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -157,6 +159,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, 1000, conf.TaskMetadataSteadyStateRate)
 	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
 	assert.True(t, conf.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
+	assert.Equal(t, 10*time.Millisecond, conf.CGroupCPUPeriod)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {

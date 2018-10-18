@@ -65,6 +65,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.Equal(t, defaultCGroupCPUPeriod, cfg.CGroupCPUPeriod, "CFS cpu period set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
@@ -200,4 +201,41 @@ func setupFileConfiguration(t *testing.T, configContent string) string {
 	require.NoError(t, err, "writing configuration to file failed")
 
 	return file.Name()
+}
+
+func TestOverrideDefaultCPUPeriod(t *testing.T) {
+	defer setTestRegion()()
+	defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
+
+	os.Setenv("ECS_CGROUP_CPU_PERIOD", "10ms")
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, 10*time.Millisecond, conf.CGroupCPUPeriod, "Wrong value for CGroupCPUPeriod")
+}
+
+func TestDefaultCPUPeriod(t *testing.T) {
+	defer setTestRegion()()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, defaultCGroupCPUPeriod, conf.CGroupCPUPeriod, "Wrong value for CGroupCPUPeriod")
+}
+
+func TestCPUPeriodUpperBoundLimit(t *testing.T) {
+	defer setTestRegion()()
+	defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
+
+	os.Setenv("ECS_CGROUP_CPU_PERIOD", "110ms")
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, defaultCGroupCPUPeriod, conf.CGroupCPUPeriod, "Wrong value for CGroupCPUPeriod")
+}
+
+func TestCPUPeriodLowerBoundLimit(t *testing.T) {
+	defer setTestRegion()()
+	defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
+
+	os.Setenv("ECS_CGROUP_CPU_PERIOD", "100us")
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, defaultCGroupCPUPeriod, conf.CGroupCPUPeriod, "Wrong value for CGroupCPUPeriod")
 }
