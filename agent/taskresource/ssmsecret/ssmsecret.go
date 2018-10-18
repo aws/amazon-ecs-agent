@@ -15,6 +15,7 @@ package ssmsecret
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"sync"
@@ -252,7 +253,9 @@ func (secret *SSMSecretResource) Create() error {
 	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		return errors.New("ssm secret resource: unable to find execution role credentials")
+		err := errors.New("ssm secret resource: unable to find execution role credentials")
+		secret.setTerminalReason(err.Error())
+		return err
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
@@ -333,7 +336,7 @@ func (secret *SSMSecretResource) retrieveSSMSecretValues(region string, names []
 	seelog.Infof("ssm secret resource: retrieving resource for secrets %v in region [%s] in task: [%s]", names, region, secret.taskARN)
 	secValueMap, err := ssm.GetSecretsFromSSM(names, ssmClient)
 	if err != nil {
-		errorEvents <- err
+		errorEvents <- fmt.Errorf("[%s] %v", region, err)
 		return
 	}
 
