@@ -65,6 +65,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.Equal(t, defaultCgroupCPUPeriod, cfg.CgroupCPUPeriod, "CFS cpu period set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
@@ -208,4 +209,46 @@ func TestEmptyNvidiaRuntime(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
+}
+
+func TestCPUPeriodSettings(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Env      string
+		Response time.Duration
+	}{
+		{
+			Name:     "OverrideDefaultCPUPeriod",
+			Env:      "10ms",
+			Response: 10 * time.Millisecond,
+		},
+		{
+			Name:     "DefaultCPUPeriod",
+			Env:      "",
+			Response: defaultCgroupCPUPeriod,
+		},
+		{
+			Name:     "TestCPUPeriodUpperBoundLimit",
+			Env:      "110ms",
+			Response: defaultCgroupCPUPeriod,
+		},
+		{
+			Name:     "TestCPUPeriodLowerBoundLimit",
+			Env:      "7ms",
+			Response: defaultCgroupCPUPeriod,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			defer setTestRegion()()
+			defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
+
+			os.Setenv("ECS_CGROUP_CPU_PERIOD", c.Env)
+			conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+
+			assert.NoError(t, err)
+			assert.Equal(t, c.Response, conf.CgroupCPUPeriod, "Wrong value for CgroupCPUPeriod")
+		})
+	}
 }

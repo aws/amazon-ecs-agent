@@ -133,6 +133,11 @@ const (
 
 	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers
 	DefaultNvidiaRuntime = "nvidia"
+
+	// defaultCgroupCPUPeriod is set to 100 ms to set isCFS period and quota for task limits
+	defaultCgroupCPUPeriod = 100 * time.Millisecond
+	maximumCgroupCPUPeriod = 100 * time.Millisecond
+	minimumCgroupCPUPeriod = 8 * time.Millisecond
 )
 
 const (
@@ -539,6 +544,7 @@ func environmentConfig() (Config, error) {
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
 		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),
+		CgroupCPUPeriod:                     parseCgroupCPUPeriod(),
 	}, err
 }
 

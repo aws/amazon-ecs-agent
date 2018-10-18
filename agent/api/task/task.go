@@ -250,7 +250,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// hook into this
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
-		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, resourceFields)
+		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields)
 		if err != nil {
 			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)

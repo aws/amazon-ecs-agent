@@ -307,3 +307,16 @@ func parseImageCleanupExclusionList(envVar string) []string {
 	}
 	return imageCleanupExclusionList
 }
+
+func parseCgroupCPUPeriod() time.Duration {
+	duration := parseEnvVariableDuration("ECS_CGROUP_CPU_PERIOD")
+
+	if duration >= minimumCgroupCPUPeriod && duration <= maximumCgroupCPUPeriod {
+		return duration
+	} else if duration != 0 {
+		seelog.Warnf("CPU Period duration value: %v for Environment Variable ECS_CGROUP_CPU_PERIOD is not within [%v, %v], using default value instead",
+			duration, minimumCgroupCPUPeriod, maximumCgroupCPUPeriod)
+	}
+
+	return defaultCgroupCPUPeriod
+}
