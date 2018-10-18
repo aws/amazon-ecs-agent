@@ -283,4 +283,7 @@ type Config struct {
 
 	// TaskMetadataAZDisabled specifies if availability zone should be disabled in Task Metadata endpoint
 	TaskMetadataAZDisabled bool
+
+	// CgroupCPUPeriod is config option to set different CFS quota and period values in microsecond, defaults to 100 ms
+	CgroupCPUPeriod time.Duration
 }

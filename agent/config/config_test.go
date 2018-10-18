@@ -117,10 +117,12 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "nvidia")()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
+	defer setTestEnv("ECS_CGROUP_CPU_PERIOD", "")
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
+	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -163,6 +165,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
+	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
