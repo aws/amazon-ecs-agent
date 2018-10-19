@@ -29,6 +29,7 @@ import (
 	"golang.org/x/tools/imports"
 )
 
+// TODO: add more awsvpc functional tests using simple test template
 var simpleTestPattern = `
 // +build functional,%s
 
