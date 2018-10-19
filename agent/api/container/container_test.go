@@ -17,6 +17,7 @@ package container
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -263,4 +264,112 @@ func TestInjectV3MetadataEndpoint(t *testing.T) {
 	assert.NotNil(t, container.Environment)
 	assert.Equal(t, container.Environment[MetadataURIEnvironmentVariableName],
 		fmt.Sprintf(MetadataURIFormat, "myV3EndpointID"))
+}
+
+func TestShouldCreateWithSSMSecret(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "ssm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, true},
+		{Container{
+			Name:    "myName",
+			Image:   "image:tag",
+			Secrets: nil,
+		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithSSMSecret())
+	}
+}
+
+func TestMergeEnvironmentVariables(t *testing.T) {
+	cases := []struct {
+		Name                   string
+		InContainerEnvironment map[string]string
+		InEnvVarMap            map[string]string
+		OutEnvVarMap           map[string]string
+	}{
+		{
+			Name: "merge single item",
+			InContainerEnvironment: map[string]string{
+				"CONFIG1": "config1"},
+			InEnvVarMap: map[string]string{
+				"SECRET1": "secret1"},
+			OutEnvVarMap: map[string]string{
+				"CONFIG1": "config1",
+				"SECRET1": "secret1",
+			},
+		},
+
+		{
+			Name: "merge single item to nil container env var map",
+			InContainerEnvironment: nil,
+			InEnvVarMap: map[string]string{
+				"SECRET1": "secret1"},
+			OutEnvVarMap: map[string]string{
+				"SECRET1": "secret1",
+			},
+		},
+
+		{
+			Name: "merge zero items to existing container env var map",
+			InContainerEnvironment: map[string]string{
+				"CONFIG1": "config1"},
+			InEnvVarMap: map[string]string{},
+			OutEnvVarMap: map[string]string{
+				"CONFIG1": "config1",
+			},
+		},
+
+		{
+			Name: "merge nil to existing container env var map",
+			InContainerEnvironment: map[string]string{
+				"CONFIG1": "config1"},
+			InEnvVarMap: nil,
+			OutEnvVarMap: map[string]string{
+				"CONFIG1": "config1",
+			},
+		},
+
+		{
+			Name: "merge nil to nil container env var map",
+			InContainerEnvironment: nil,
+			InEnvVarMap:            nil,
+			OutEnvVarMap:           map[string]string{},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			container := Container{
+				Environment: c.InContainerEnvironment,
+			}
+
+			container.MergeEnvironmentVariables(c.InEnvVarMap)
+			mapEq := reflect.DeepEqual(c.OutEnvVarMap, container.Environment)
+			assert.True(t, mapEq)
+		})
+	}
 }

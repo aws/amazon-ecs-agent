@@ -182,7 +182,8 @@
         "dockerConfig":{"shape":"DockerConfig"},
         "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
-        "logsAuthStrategy":{"shape":"AuthStrategy"}
+        "logsAuthStrategy":{"shape":"AuthStrategy"},
+        "secrets":{"shape":"SecretList"}
       }
     },
     "ContainerList":{
@@ -417,6 +418,32 @@
       "enum":[
         "task",
         "shared"
+      ]
+    },
+    "Secret":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"},
+        "containerPath":{"shape":"String"},
+        "type":{"shape":"SecretType"},
+        "region":{"shape":"String"},
+        "provider":{"shape":"SecretProvider"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
+    },
+    "SecretProvider":{
+      "type":"string",
+      "enum":["ssm"]
+    },
+    "SecretType":{
+      "type":"string",
+      "enum":[
+        "ENVIRONMENT_VARIABLE",
+        "MOUNT_POINT"
       ]
     },
     "SensitiveString":{
