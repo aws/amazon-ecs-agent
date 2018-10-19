@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.21.0-dev
+## 1.21.0
 * Feature - Add v3 task metadata support for awsvpc, host and bridge network mode
 * Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.10.0` [1610](https://github.com/aws/amazon-ecs-agent/pull/1610)
 * Enhancement - Configurable image pull inactivity timeout [@wattdave](https://github.com/wattdave) [#1566](https://github.com/aws/amazon-ecs-agent/pull/1566)
