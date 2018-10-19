@@ -29,7 +29,7 @@
   revision = "cd527374f1e5bff4938207604a14f2e38a9cf512"
 
 [[projects]]
-  digest = "1:defba37676013db787b53c2eb5bc990dc24975d897afa6e06e43b7091824dcd1"
+  digest = "1:4b0ad81a6f99b066516c3888a6b160f786f975364c8e0e3be6559c499ef2e92f"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -66,6 +66,7 @@
     "service/iam",
     "service/secretsmanager",
     "service/secretsmanager/secretsmanageriface",
+    "service/ssm",
     "service/sts",
   ]
   pruneopts = "UT"
@@ -235,12 +236,9 @@
   version = "v0.5"
 
 [[projects]]
-  digest = "1:49009e4914675de15e4f83a3468ecc8c709be0cfbd9af1e8c96f5c75bbc47f7a"
+  digest = "1:b9dd62eb71d308d6c4b44af0bae869174975b40baab2ccd65724cefcdb561d55"
   name = "github.com/golang/mock"
-  packages = [
-    "gomock",
-    "mockgen/model",
-  ]
+  packages = ["gomock"]
   pruneopts = "UT"
   revision = "58cd061d09382b6011f84c1291ebe50ef2e25bab"
 
@@ -454,6 +452,7 @@
     "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/secretsmanager",
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",
+    "github.com/aws/aws-sdk-go/service/ssm",
     "github.com/cihub/seelog",
     "github.com/containerd/cgroups",
     "github.com/containernetworking/cni/libcni",
@@ -465,7 +464,6 @@
     "github.com/docker/docker/pkg/system",
     "github.com/fsouza/go-dockerclient",
     "github.com/golang/mock/gomock",
-    "github.com/golang/mock/mockgen/model",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
     "github.com/opencontainers/runtime-spec/specs-go",
