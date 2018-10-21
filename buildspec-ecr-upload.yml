@@ -1,0 +1,11 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Checking versions...
+      - aws --version
+      - docker version
+  build:
+    commands:
+      - make upload-images

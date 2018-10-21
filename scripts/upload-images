@@ -1,0 +1,105 @@
+#!/bin/bash
+# Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You
+# may not use this file except in compliance with the License. A copy of
+# the License is located at
+#
+# 	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF
+# ANY KIND, either express or implied. See the License for the specific
+# language governing permissions and limitations under the License.
+#
+# The script is to upload linux images used by integration tests and functional
+# tests to ECR
+
+set -ex
+
+NAMESPACE="linux"
+REGION=$1
+REPOSITORY=$2
+PREFIX="${REPOSITORY}/${NAMESPACE}"
+echo "${PREFIX}"
+
+if [ -z "${REGION}" ] \
+    || [ -z "${REPOSITORY}" ]; then
+    echo "Needs to input REGION and REPOSITORY"
+    exit 1
+fi
+
+mirror_image() {
+  docker pull $1
+  mirror_local_image $@
+}
+
+mirror_local_image() {
+  docker tag $1 $2
+  docker push $2
+  docker rmi $2
+}
+
+if [ "${REGION}" == "cn-north-1" ] || [ "${REGION}" == "cn-northwest-1" ]; then
+  export AWS_ACCESS_KEY_ID=${ACCESS_KEY}
+  export AWS_SECRET_ACCESS_KEY=${SECRET_KEY}
+  export AWS_DEFAULT_REGION=${REGION}
+fi
+
+ECR_ROLE_IMAGE="executionrole"
+
+BUSYBOX_IMAGE="busybox@sha256:5551dbdfc48d66734d0f01cafee0952cb6e8eeecd1e2492240bf2fd9640c2279"
+NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
+PYTHON2_IMAGE="python@sha256:3a1e82d95d0e75677cdac237b0174425d8ae94dd11d1ef14db73075f1e34c06c"
+UBUNTU_IMAGE="ubuntu@sha256:1bea66e185d3464fec1abda32ffaf2a11de69833cfcf81bd2b9a5be147776814"
+
+PARALLEL_PULL_FTS_BUSYBOX=${BUSYBOX_IMAGE}
+PARALLEL_PULL_FTS_UBUNTU=${UBUNTU_IMAGE}
+PARALLEL_PULL_FTS_NGINX=${NGINX_IMAGE}
+PARALLEL_PULL_FTS_CONSUL="consul@sha256:ce15f85417a0cf121d943563dedb873c7d6c26e9b1e8b47bc2f1b5a3e27498e1"
+PARALLEL_PULL_FTS_DEBIAN="debian@sha256:f7062cf040f67f0c26ff46b3b44fe036c29468a7e69d8170f37c57f2eec1261b"
+PARALLEL_PULL_FTS_HTTPD="httpd@sha256:0d817a924bed1a216f12a0f4947b5f8a2f173bd5a9cebfe1382d024287154c99"
+PARALLEL_PULL_FTS_MONGO="mongo@sha256:23e5cdbd9bc26a6d1ae4db8252a295d6bdba8332dec68483816d5b7bb2438d7d"
+PARALLEL_PULL_FTS_REDIS="redis@sha256:eed4da4937cb562e9005f3c66eb8c3abc14bb95ad497c03dc89d66bcd172fc7f"
+PARALLEL_PULL_FTS_REGISTRY="registry@sha256:946480a23b33480b8e7cdb89b82c1bd6accae91a8e66d017e21e8b56551f6209"
+
+
+$(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
+
+for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "squid" "awscli" "image-cleanup-test-image1" "image-cleanup-test-image2" "image-cleanup-test-image3" "fluentd" "amazon-ecs-taskmetadata-validator" "amazon-ecs-telemetry-test" "amazon-ecs-containerhealthcheck"; do
+  # Create the repository if it does not exist
+  if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
+  then
+      aws ecr create-repository --region ${AWS_DEFAULT_REGION} --repository-name "${NAMESPACE}/${image}"
+  fi
+  mirror_local_image "amazon/${image}:make" "${PREFIX}/${image}:latest"
+done
+
+
+for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debian" "httpd" "mongo" "redis" "registry"; do
+  # Create the repository if it does not exist
+  if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
+  then
+      aws ecr create-repository --region ${AWS_DEFAULT_REGION} --repository-name "${NAMESPACE}/${image}"
+  fi
+done
+
+mirror_local_image "amazon/${ECR_ROLE_IMAGE}:fts" "${PREFIX}/${ECR_ROLE_IMAGE}:fts"
+mirror_image ${BUSYBOX_IMAGE} "${PREFIX}/busybox:latest"
+mirror_image ${NGINX_IMAGE} "${PREFIX}/nginx:latest"
+mirror_image ${PYTHON2_IMAGE} "${PREFIX}/python:2"
+mirror_image ${UBUNTU_IMAGE} "${PREFIX}/ubuntu:latest"
+mirror_image ${PARALLEL_PULL_FTS_BUSYBOX} "${PREFIX}/busybox:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_UBUNTU} "${PREFIX}/ubuntu:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_CONSUL} "${PREFIX}/consul:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_DEBIAN} "${PREFIX}/debian:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_HTTPD} "${PREFIX}/httpd:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_MONGO} "${PREFIX}/mongo:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_NGINX} "${PREFIX}/nginx:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_REDIS} "${PREFIX}/redis:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_REGISTRY} "${PREFIX}/registry:parallel-pull-fts"
+
+# Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
+docker rmi amazon/image-cleanup-test-image1:make
+docker rmi amazon/image-cleanup-test-image2:make
+docker rmi amazon/image-cleanup-test-image3:make

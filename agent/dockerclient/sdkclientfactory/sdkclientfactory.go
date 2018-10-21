@@ -16,17 +16,20 @@ package sdkclientfactory
 import (
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
-	"github.com/pkg/errors"
 	log "github.com/cihub/seelog"
 	docker "github.com/docker/docker/client"
+	"github.com/pkg/errors"
 )
 
 const (
-	// zeroPatch is a string to append patch number zero if the major minor version lacks it
-	zeroPatch = ".0"
+	// minAPIVersionKey is the docker.Env key for min API version
+	// This is supported in Docker API versions >=1.25
+	// https://docs.docker.com/engine/api/version-history/#v125-api-changes
+	minAPIVersionKey = "MinAPIVersion"
+	// apiVersionKey is the docker.Env key for API version
+	apiVersionKey = "ApiVersion"
 )
 
 // Factory provides a collection of docker remote clients that include a
@@ -68,14 +71,14 @@ type factory struct {
 // newVersionedClient is a variable such that the implementation can be
 // swapped out for unit tests
 var newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
-	return docker.NewClientWithOpts(docker.WithVersion(version),docker.WithHost(endpoint))
+	return docker.NewClientWithOpts(docker.WithVersion(version), docker.WithHost(endpoint))
 }
 
 // NewFactory initializes a client factory using a specified endpoint.
 func NewFactory(ctx context.Context, endpoint string) Factory {
 	return &factory{
 		endpoint: endpoint,
-		clients: findDockerVersions(ctx, endpoint),
+		clients:  findDockerVersions(ctx, endpoint),
 	}
 }
 
@@ -162,17 +165,13 @@ func getDockerClientForVersion(
 	apiVersion string,
 	derivedCtx context.Context) (sdkclient.Client, error) {
 	if minAPIVersion != "" && apiVersion != "" {
-		// Adding patch number zero to Docker versions to reuse the existing semver
-		// comparator
-		// TODO: remove this logic later when non-semver comparator is implemented
-		versionWithPatch := version + zeroPatch
-		lessThanMinCheck := "<" + minAPIVersion + zeroPatch
-		moreThanMaxCheck := ">" + apiVersion + zeroPatch
-		minVersionCheck, err := utils.Version(versionWithPatch).Matches(lessThanMinCheck)
+		lessThanMinCheck := "<" + minAPIVersion
+		moreThanMaxCheck := ">" + apiVersion
+		minVersionCheck, err := dockerclient.DockerAPIVersion(version).Matches(lessThanMinCheck)
 		if err != nil {
 			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get min version: %s", minAPIVersion)
 		}
-		maxVersionCheck, err := utils.Version(versionWithPatch).Matches(moreThanMaxCheck)
+		maxVersionCheck, err := dockerclient.DockerAPIVersion(version).Matches(moreThanMaxCheck)
 		if err != nil {
 			return nil, errors.Wrapf(err, "version detection using MinAPIVersion: unable to get max version: %s", apiVersion)
 		}

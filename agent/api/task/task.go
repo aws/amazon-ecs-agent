@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -222,6 +223,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	if task.requiresASMDockerAuthData() {
 		task.initializeASMAuthResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresSSMSecret() {
+		task.initializeSSMSecretResource(credentialsManager, resourceFields)
 	}
 
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
@@ -494,6 +499,53 @@ func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+		}
+	}
+	return reqs
+}
+
+// requiresSSMSecret returns true if at least one container in the task
+// needs to retrieve secret from SSM parameter
+func (task *Task) requiresSSMSecret() bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeSSMSecretResource builds the resource dependency map for the SSM ssmsecret resource
+func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
+	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
+
+	// for every container that needs ssm secret vending as env, it needs to wait all secrets got retrieved
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			container.BuildResourceDependency(ssmSecretResource.GetName(),
+				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+}
+
+// getAllSSMSecretRequirements stores all secrets in a map whose key is region and value is all
+// secrets in that region
+func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret {
+	reqs := make(map[string][]apicontainer.Secret)
+
+	for _, container := range task.Containers {
+		for _, secret := range container.Secrets {
+			if secret.Provider == apicontainer.SecretProviderSSM {
+				if _, ok := reqs[secret.Region]; !ok {
+					reqs[secret.Region] = []apicontainer.Secret{}
+				}
+
+				reqs[secret.Region] = append(reqs[secret.Region], secret)
+			}
 		}
 	}
 	return reqs
@@ -1416,6 +1468,37 @@ func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
 	defer task.lock.RUnlock()
 
 	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
+	return res, ok
+}
+
+// PopulateSSMSecrets appends the container's env var map with ssm parameters
+func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+	resource, ok := task.getSSMSecretsResource()
+	if !ok {
+		return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
+	}
+
+	ssmResource := resource[0].(*ssmsecret.SSMSecretResource)
+	envVars := make(map[string]string)
+
+	for _, secret := range container.Secrets {
+		if secret.Provider == apicontainer.SecretProviderSSM {
+			k := secret.GetSSMSecretResourceCacheKey()
+			if secretValue, ok := ssmResource.GetCachedSecretValue(k); ok {
+				envVars[secret.Name] = secretValue
+			}
+		}
+	}
+
+	container.MergeEnvironmentVariables(envVars)
+	return nil
+}
+
+func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[ssmsecret.ResourceName]
 	return res, ok
 }
 

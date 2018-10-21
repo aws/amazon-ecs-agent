@@ -1,6 +1,6 @@
 // +build functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -40,10 +40,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
-
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+
 	"github.com/pkg/errors"
 )
 
@@ -630,7 +630,6 @@ func RequireDockerAPIVersion(t *testing.T, selector string) {
 		t.Fatalf("Could not get docker version: %v", err)
 	}
 	apiVersion := version.APIVersion
-
 	// adding zero patch to use semver comparator
 	// TODO: Implement non-semver comparator
 	apiVersion += ".0"
