@@ -114,6 +114,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// aws secrets manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityPrivateRegistryAuthASM)
 
+	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvSSM)
 
 	return capabilities, nil
