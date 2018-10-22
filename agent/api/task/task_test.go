@@ -1500,7 +1500,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 
 func TestSetTerminalReason(t *testing.T) {
 
-	expectedTerminalReason := "failed to provison resource"
+	expectedTerminalReason := "Failed to provision resource"
 	overrideTerminalReason := "should not override terminal reason"
 
 	task := &Task{}
