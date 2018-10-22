@@ -35,7 +35,11 @@ func TestDataVolume(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
 		t.Parallel()
 	}
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.0.0")
 
@@ -43,10 +47,22 @@ func TestDataVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, 1)
-	if err != nil {
-		t.Fatalf("Could not start task: %v", err)
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("datavolume-windows", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
@@ -75,7 +91,11 @@ func TestHostname(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
 		t.Parallel()
 	}
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
 
@@ -83,10 +103,22 @@ func TestHostname(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, 1)
-	if err != nil {
-		t.Fatalf("Could not start task: %v", err)
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("hostname-windows", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
@@ -115,7 +147,11 @@ func TestSimpleExit(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
 		t.Parallel()
 	}
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.0.0")
 
@@ -123,10 +159,22 @@ func TestSimpleExit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, 1)
-	if err != nil {
-		t.Fatalf("Could not start task: %v", err)
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("simple-exit-windows", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
@@ -155,7 +203,11 @@ func TestTaskLocalVolume(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
 		t.Parallel()
 	}
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.20.0")
 
@@ -163,10 +215,22 @@ func TestTaskLocalVolume(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, 1)
-	if err != nil {
-		t.Fatalf("Could not start task: %v", err)
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("task-local-vol-windows", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
@@ -195,7 +259,11 @@ func TestWorkingDir(t *testing.T) {
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
 		t.Parallel()
 	}
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
 
@@ -203,10 +271,22 @@ func TestWorkingDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, 1)
-	if err != nil {
-		t.Fatalf("Could not start task: %v", err)
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("working-dir-windows", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)

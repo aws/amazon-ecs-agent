@@ -34,7 +34,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
@@ -50,14 +50,18 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
+	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -1639,7 +1643,7 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 		ASMAuthData: asmAuthData,
 	}
 	requiredASMResources := []*apicontainer.ASMAuthData{asmAuthData}
-	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
 	asmAuthRes := asmauth.NewASMAuthResource(testTask.Arn, requiredASMResources,
 		credentialsID, credentialsManager, asmClientCreator)
 	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
@@ -2283,4 +2287,128 @@ func TestSynchronizeResource(t *testing.T) {
 	// Set the task to be stopped so that the process can done quickly
 	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	dockerTaskEngine.synchronizeState()
+}
+
+func TestTaskSSMSecretsEnvironmentVariables(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, credentialsManager, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	// metadata required for createContainer workflow validation
+	ssmTaskARN := "ssmSecretsTask"
+	ssmTaskFamily := "ssmSecretsTaskFamily"
+	ssmTaskVersion := "1"
+	ssmTaskContainerName := "ssmSecretsContainer"
+
+	// metadata required for ssm secret resource validation
+	secretName := "mySecret"
+	secretValueFrom := "ssm/mySecret"
+	secretRetrievedValue := "mySecretValue"
+	secretRegion := "us-west-2"
+
+	expectedEnvVar := secretName + "=" + secretRetrievedValue
+
+	secrets := []apicontainer.Secret{
+		{
+			Name:      secretName,
+			ValueFrom: secretValueFrom,
+			Region:    secretRegion,
+			Type:      "ENVIRONMENT_VARIABLES",
+			Provider:  "ssm",
+		},
+	}
+
+	// sample test
+	testTask := &apitask.Task{
+		Arn:     ssmTaskARN,
+		Family:  ssmTaskFamily,
+		Version: ssmTaskVersion,
+		Containers: []*apicontainer.Container{
+			{
+				Name:    ssmTaskContainerName,
+				Secrets: secrets,
+			},
+		},
+	}
+
+	// metadata required for execution role authentication workflow
+	credentialsID := "execution role"
+	executionRoleCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: credentialsID,
+	}
+	taskIAMcreds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: executionRoleCredentials,
+	}
+
+	// configure the task and container to use execution role
+	testTask.SetExecutionRoleCredentialsID(credentialsID)
+
+	// validate base config
+	expectedConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedConfig.Labels = map[string]string{
+		"com.amazonaws.ecs.task-arn":                ssmTaskARN,
+		"com.amazonaws.ecs.container-name":          ssmTaskContainerName,
+		"com.amazonaws.ecs.task-definition-family":  ssmTaskFamily,
+		"com.amazonaws.ecs.task-definition-version": ssmTaskVersion,
+		"com.amazonaws.ecs.cluster":                 "",
+	}
+
+	// required to validate container config includes secrets as environment variables
+	expectedConfig.Env = []string{expectedEnvVar}
+
+	// required for validating ssm workflows
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
+
+	ssmRequirements := map[string][]apicontainer.Secret{
+		secretRegion: secrets,
+	}
+
+	ssmSecretRes := ssmsecret.NewSSMSecretResource(
+		testTask.Arn,
+		ssmRequirements,
+		credentialsID,
+		credentialsManager,
+		ssmClientCreator)
+
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+		ssmsecret.ResourceName: {ssmSecretRes},
+	}
+
+	ssmClientOutput := &ssm.GetParametersOutput{
+		InvalidParameters: []*string{},
+		Parameters: []*ssm.Parameter{
+			&ssm.Parameter{
+				Name:  aws.String(secretValueFrom),
+				Value: aws.String(secretRetrievedValue),
+			},
+		},
+	}
+
+	reqSecretNames := []*string{aws.String(secretValueFrom)}
+
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true)
+	ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
+
+	mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
+		assert.Equal(t, in.Names, reqSecretNames)
+	}).Return(ssmClientOutput, nil).Times(1)
+
+	require.NoError(t, ssmSecretRes.Create())
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+
+	// test validates that the expectedConfig includes secrets are appended as
+	// environment varibles
+	client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
+
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+
+	assert.Nil(t, ret.Error)
 }
