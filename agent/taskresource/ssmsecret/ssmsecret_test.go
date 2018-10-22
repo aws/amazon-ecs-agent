@@ -340,7 +340,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	}
 
 	assert.Error(t, ssmRes.Create())
-	expectedError := "fetching secret data from ssm parameter store: invalid parameters: secret-name,"
+	expectedError := "invalid parameters: secret-name"
 	assert.Contains(t, ssmRes.GetTerminalReason(), expectedError)
 }
 
@@ -389,7 +389,7 @@ func TestCreateReturnError(t *testing.T) {
 	}
 
 	assert.Error(t, ssmRes.Create())
-	expectedError := "[us-west-2] fetching secret data from ssm parameter store: invalid parameters: secret-name, "
+	expectedError := "fetching secret data from SSM Parameter Store in us-west-2: invalid parameters: secret-name"
 	assert.Equal(t, expectedError, ssmRes.GetTerminalReason())
 }
 
