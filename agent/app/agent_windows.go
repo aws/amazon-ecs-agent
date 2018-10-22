@@ -21,7 +21,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -253,7 +254,8 @@ func (t *termHandlerIndicator) wait() uint32 {
 func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.Manager) {
 	agent.resourceFields = &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
-			ASMClientCreator:   factory.NewClientCreator(),
+			ASMClientCreator:   asmfactory.NewClientCreator(),
+			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
 		Ctx:          agent.ctx,

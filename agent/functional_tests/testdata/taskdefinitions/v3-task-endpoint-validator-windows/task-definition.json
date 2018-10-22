@@ -1,0 +1,26 @@
+{
+  "family": "ecsftest-v3-task-endpoint-validator-windows",
+  "containerDefinitions": [{
+    "image": "amazon/amazon-ecs-v3-task-endpoint-validator-windows",
+    "name": "v3-task-endpoint-validator-windows",
+    "memory": 512,
+    "cpu": 1024,
+    "healthCheck": {
+      "command": ["CMD-SHELL", "echo hello"],
+      "interval": 5,
+      "timeout": 5,
+      "retries": 2,
+      "startPeriod": 1
+    },
+    "entryPoint": ["powershell"],
+    "command": [".\\application.ps1; $env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\v3-task-endpoint-validator-windows.exe; exit $LASTEXITCODE"],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":"ecs-functional-tests",
+        "awslogs-region":"$$$TEST_REGION$$$",
+        "awslogs-stream-prefix":"$$$TEST_AWSLOGS_STREAM_PREFIX$$$"
+      }
+    }
+  }]
+}

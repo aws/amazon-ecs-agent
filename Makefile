@@ -172,7 +172,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator
+test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -182,6 +182,19 @@ test-in-docker:
 
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
 	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
+
+.PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
+
+build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
+
+ecr-execution-role-image-for-upload:
+	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
+
+upload-images: build-image-for-ecr
+	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
+
+replicate-images: build-image-for-ecr
+	@./scripts/upload-images $(REPLICATE_REGION) $(REPLICATE_REPOSITORY)
 
 PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
@@ -242,7 +255,7 @@ volumes-test:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -266,6 +279,9 @@ agent-introspection-validator:
 
 taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
+
+v3-task-endpoint-validator:
+	$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS)
 
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
@@ -303,7 +319,7 @@ ifeq (${PLATFORM},Linux)
 		dep_arch=darwin-386
 	endif
 
-DEP_VERSION=v0.4.1
+DEP_VERSION=v0.5.0
 .PHONY: get-dep
 get-dep: bin/dep
 
@@ -326,6 +342,7 @@ clean:
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/agent-introspection-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
 	-rm -f .get-deps-stamp

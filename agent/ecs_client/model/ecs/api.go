@@ -4136,6 +4136,8 @@ type ContainerDefinition struct {
 	//    name (for example, quay.io/assemblyline/ubuntu).
 	Image *string `locationName:"image" type:"string"`
 
+	Interactive *bool `locationName:"interactive" type:"boolean"`
+
 	// The link parameter allows containers to communicate with each other without
 	// the need for port mappings. Only supported if the network mode of a task
 	// definition is set to bridge. The name:internalName construct is analogous
@@ -4297,6 +4299,8 @@ type ContainerDefinition struct {
 	// Fargate launch type.
 	Privileged *bool `locationName:"privileged" type:"boolean"`
 
+	PseudoTerminal *bool `locationName:"pseudoTerminal" type:"boolean"`
+
 	// When this parameter is true, the container is given read-only access to its
 	// root file system. This parameter maps to ReadonlyRootfs in the Create a container
 	// (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.27/#create-a-container)
@@ -4308,6 +4312,8 @@ type ContainerDefinition struct {
 
 	// The private repository authentication credentials to use.
 	RepositoryCredentials *RepositoryCredentials `locationName:"repositoryCredentials" type:"structure"`
+
+	SystemControls []*SystemControl `locationName:"systemControls" type:"list"`
 
 	// A list of ulimits to set in the container. This parameter maps to Ulimits
 	// in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.27/#create-a-container)
@@ -4487,6 +4493,12 @@ func (s *ContainerDefinition) SetImage(v string) *ContainerDefinition {
 	return s
 }
 
+// SetInteractive sets the Interactive field's value.
+func (s *ContainerDefinition) SetInteractive(v bool) *ContainerDefinition {
+	s.Interactive = &v
+	return s
+}
+
 // SetLinks sets the Links field's value.
 func (s *ContainerDefinition) SetLinks(v []*string) *ContainerDefinition {
 	s.Links = v
@@ -4541,6 +4553,12 @@ func (s *ContainerDefinition) SetPrivileged(v bool) *ContainerDefinition {
 	return s
 }
 
+// SetPseudoTerminal sets the PseudoTerminal field's value.
+func (s *ContainerDefinition) SetPseudoTerminal(v bool) *ContainerDefinition {
+	s.PseudoTerminal = &v
+	return s
+}
+
 // SetReadonlyRootFilesystem sets the ReadonlyRootFilesystem field's value.
 func (s *ContainerDefinition) SetReadonlyRootFilesystem(v bool) *ContainerDefinition {
 	s.ReadonlyRootFilesystem = &v
@@ -4550,6 +4568,12 @@ func (s *ContainerDefinition) SetReadonlyRootFilesystem(v bool) *ContainerDefini
 // SetRepositoryCredentials sets the RepositoryCredentials field's value.
 func (s *ContainerDefinition) SetRepositoryCredentials(v *RepositoryCredentials) *ContainerDefinition {
 	s.RepositoryCredentials = v
+	return s
+}
+
+// SetSystemControls sets the SystemControls field's value.
+func (s *ContainerDefinition) SetSystemControls(v []*SystemControl) *ContainerDefinition {
+	s.SystemControls = v
 	return s
 }
 
@@ -9723,6 +9747,36 @@ func (s *SubmitTaskStateChangeOutput) SetAcknowledgment(v string) *SubmitTaskSta
 	return s
 }
 
+type SystemControl struct {
+	_ struct{} `type:"structure"`
+
+	Namespace *string `locationName:"namespace" type:"string"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s SystemControl) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s SystemControl) GoString() string {
+	return s.String()
+}
+
+// SetNamespace sets the Namespace field's value.
+func (s *SystemControl) SetNamespace(v string) *SystemControl {
+	s.Namespace = &v
+	return s
+}
+
+// SetValue sets the Value field's value.
+func (s *SystemControl) SetValue(v string) *SystemControl {
+	s.Value = &v
+	return s
+}
+
 // Details on a task in a cluster.
 type Task struct {
 	_ struct{} `type:"structure"`
@@ -11145,19 +11199,19 @@ const (
 )
 
 const (
-	// ScopeTask is a Scope enum value
-	ScopeTask = "task"
-
-	// ScopeShared is a Scope enum value
-	ScopeShared = "shared"
-)
-
-const (
 	// SchedulingStrategyReplica is a SchedulingStrategy enum value
 	SchedulingStrategyReplica = "REPLICA"
 
 	// SchedulingStrategyDaemon is a SchedulingStrategy enum value
 	SchedulingStrategyDaemon = "DAEMON"
+)
+
+const (
+	// ScopeTask is a Scope enum value
+	ScopeTask = "task"
+
+	// ScopeShared is a Scope enum value
+	ScopeShared = "shared"
 )
 
 const (

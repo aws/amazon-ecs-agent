@@ -63,6 +63,12 @@ const (
 
 	vpcIDAttributeName    = "ecs.vpc-id"
 	subnetIDAttributeName = "ecs.subnet-id"
+
+	// instanceIDMetadataPath is the metadata path from instance metadata service
+	// to retrieve the instance id.
+	// See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
+	// for details
+	instanceIDMetadataPath = "instance-id"
 )
 
 var (
@@ -393,13 +399,13 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 
 // getEC2InstanceID gets the EC2 instance ID from the metadata service
 func (agent *ecsAgent) getEC2InstanceID() string {
-	instanceIdentityDoc, err := agent.ec2MetadataClient.InstanceIdentityDocument()
+	instanceID, err := agent.ec2MetadataClient.GetMetadata(instanceIDMetadataPath)
 	if err != nil {
-		seelog.Criticalf(
+		seelog.Warnf(
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		return ""
 	}
-	return instanceIdentityDoc.InstanceID
+	return instanceID
 }
 
 // newStateManager creates a new state manager object for the task engine.
@@ -527,12 +533,12 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.V1ServeHTTP(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.ServeIntrospectionHTTPEndpoint(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
-	go handlers.V2ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
+	go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)

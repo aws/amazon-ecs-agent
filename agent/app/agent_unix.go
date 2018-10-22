@@ -19,7 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -195,7 +196,8 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		Control: cgroup.New(),
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			IOUtil:             ioutilwrapper.NewIOUtil(),
-			ASMClientCreator:   factory.NewClientCreator(),
+			ASMClientCreator:   asmfactory.NewClientCreator(),
+			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
 		Ctx:          agent.ctx,

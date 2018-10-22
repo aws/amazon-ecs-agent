@@ -77,6 +77,10 @@ const (
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
 	minimumTaskCleanupWaitDuration = 1 * time.Minute
 
+	// minimumImagePullInactivityTimeout specifies the minimum amount of time for that an image can be
+	// 'stuck' in the pull / unpack step. Very small values are unsafe and lead to high failure rate.
+	minimumImagePullInactivityTimeout = 1 * time.Minute
+
 	// minimumDockerStopTimeout specifies the minimum value for docker StopContainer API
 	minimumDockerStopTimeout = 1 * time.Second
 
@@ -176,6 +180,8 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	}
 	config.Merge(fcfg)
 
+	config.Merge(userDataConfig(ec2client))
+
 	if config.AWSRegion == "" {
 		// Get it from metadata only if we need to (network io)
 		config.Merge(ec2MetadataConfig(ec2client))
@@ -253,6 +259,11 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	if cfg.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
 		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
 		cfg.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
+	}
+
+	if cfg.ImagePullInactivityTimeout < minimumImagePullInactivityTimeout {
+		seelog.Warnf("Invalid value for image pull inactivity timeout duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", defaultImagePullInactivityTimeout.String(), cfg.ImagePullInactivityTimeout, minimumImagePullInactivityTimeout)
+		cfg.ImagePullInactivityTimeout = defaultImagePullInactivityTimeout
 	}
 
 	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
@@ -359,6 +370,40 @@ func fileConfig() (Config, error) {
 	return cfg, nil
 }
 
+// userDataConfig reads configuration JSON from instance's userdata. It doesn't
+// return any error as it's entirely optional to configure the ECS agent using
+// this method.
+// Example:
+// {"ECSAgentConfiguration":{"Cluster":"default"}}
+func userDataConfig(ec2Client ec2.EC2MetadataClient) Config {
+	type userDataParser struct {
+		Config Config `json:"ECSAgentConfiguration"`
+	}
+
+	parsedUserData := userDataParser{
+		Config: Config{},
+	}
+
+	userData, err := ec2Client.GetUserData()
+	if err != nil {
+		seelog.Warnf("Unable to fetch user data: %v", err)
+		// Unable to read userdata from instance metadata. Just
+		// return early
+		return parsedUserData.Config
+	}
+	// In the future, if we want to support base64 encoded config,
+	// we'd need to add logic to decode the string here.
+	err = json.Unmarshal([]byte(userData), &parsedUserData)
+	if err != nil {
+		seelog.Warnf("Unable to parse user data: %v", err)
+		// Unable to parse userdata as a valid JSON. Return the
+		// empty config
+		return Config{}
+	}
+
+	return parsedUserData.Config
+}
+
 // environmentConfig reads the given configs from the environment and attempts
 // to convert them to the given type
 func environmentConfig() (Config, error) {
@@ -402,6 +447,7 @@ func environmentConfig() (Config, error) {
 		TaskCPUMemLimit:                  parseTaskCPUMemLimitEnabled(),
 		DockerStopTimeout:                parseDockerStopTimeout(),
 		ContainerStartTimeout:            parseContainerStartTimeout(),
+		ImagePullInactivityTimeout:       parseImagePullInactivityTimeout(),
 		CredentialsAuditLogFile:          os.Getenv("ECS_AUDIT_LOGFILE"),
 		CredentialsAuditLogDisabled:      utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
 		TaskIAMRoleEnabledForNetworkHost: utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),

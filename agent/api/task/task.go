@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -61,7 +62,7 @@ const (
 	emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
 
 	// awsSDKCredentialsRelativeURIPathEnvironmentVariableName defines the name of the environment
-	// variable containers' config, which will be used by the AWS SDK to fetch
+	// variable in containers' config, which will be used by the AWS SDK to fetch
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
@@ -242,6 +243,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMAuthResource(credentialsManager, resourceFields)
 	}
 
+	if task.requiresSSMSecret() {
+		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+	}
+
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -252,6 +257,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
+	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.addNetworkResourceProvisioningDependency(cfg)
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
@@ -470,6 +476,19 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 
 }
 
+// initializeContainersV3MetadataEndpoint generates an v3 endpoint id for each container, constructs the
+// v3 metadata endpoint, and injects it as an environment variable
+func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	for _, container := range task.Containers {
+		v3EndpointID := container.GetV3EndpointID()
+		if v3EndpointID == "" { // if container's v3 endpoint has not been set
+			container.SetV3EndpointID(uuidProvider.New())
+		}
+
+		container.InjectV3MetadataEndpoint()
+	}
+}
+
 // requiresASMDockerAuthData returns true if atleast one container in the task
 // needs to retrieve private registry authentication data from ASM
 func (task *Task) requiresASMDockerAuthData() bool {
@@ -501,6 +520,53 @@ func (task *Task) getAllASMAuthDataRequirements() []*apicontainer.ASMAuthData {
 	for _, container := range task.Containers {
 		if container.ShouldPullWithASMAuth() {
 			reqs = append(reqs, container.RegistryAuthentication.ASMAuthData)
+		}
+	}
+	return reqs
+}
+
+// requiresSSMSecret returns true if at least one container in the task
+// needs to retrieve secret from SSM parameter
+func (task *Task) requiresSSMSecret() bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeSSMSecretResource builds the resource dependency map for the SSM ssmsecret resource
+func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
+	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
+
+	// for every container that needs ssm secret vending as env, it needs to wait all secrets got retrieved
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithSSMSecret() {
+			container.BuildResourceDependency(ssmSecretResource.GetName(),
+				resourcestatus.ResourceStatus(ssmsecret.SSMSecretCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+}
+
+// getAllSSMSecretRequirements stores all secrets in a map whose key is region and value is all
+// secrets in that region
+func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret {
+	reqs := make(map[string][]apicontainer.Secret)
+
+	for _, container := range task.Containers {
+		for _, secret := range container.Secrets {
+			if secret.Provider == apicontainer.SecretProviderSSM {
+				if _, ok := reqs[secret.Region]; !ok {
+					reqs[secret.Region] = []apicontainer.Secret{}
+				}
+
+				reqs[secret.Region] = append(reqs[secret.Region], secret)
+			}
 		}
 	}
 	return reqs
@@ -1575,6 +1641,37 @@ func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
 	defer task.lock.RUnlock()
 
 	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
+	return res, ok
+}
+
+// PopulateSSMSecrets appends the container's env var map with ssm parameters
+func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+	resource, ok := task.getSSMSecretsResource()
+	if !ok {
+		return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
+	}
+
+	ssmResource := resource[0].(*ssmsecret.SSMSecretResource)
+	envVars := make(map[string]string)
+
+	for _, secret := range container.Secrets {
+		if secret.Provider == apicontainer.SecretProviderSSM {
+			k := secret.GetSSMSecretResourceCacheKey()
+			if secretValue, ok := ssmResource.GetCachedSecretValue(k); ok {
+				envVars[secret.Name] = secretValue
+			}
+		}
+	}
+
+	container.MergeEnvironmentVariables(envVars)
+	return nil
+}
+
+func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[ssmsecret.ResourceName]
 	return res, ok
 }
 

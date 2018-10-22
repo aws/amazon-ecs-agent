@@ -36,6 +36,8 @@ const (
 	defaultContainerStartTimeout = 3 * time.Minute
 	// minimumContainerStartTimeout specifies the minimum value for starting a container
 	minimumContainerStartTimeout = 45 * time.Second
+	// default docker inactivity time is extra time needed on container extraction
+	defaultImagePullInactivityTimeout = 1 * time.Minute
 )
 
 // DefaultConfig returns the default configuration for Linux

@@ -53,78 +53,25 @@ $ docker run --name ecs-agent \
 
 See also the Advanced Usage section below.
 
-### On Windows Server 2016
+### On the ECS Optimized Windows AMI
 
-On Windows Server 2016, the Amazon ECS Container Agent runs as a process or service on the host. Unlike Linux,
-the agent may not run inside a container as it uses the host's registry and the named pipe at `\\.\pipe\docker_engine`
-to communicate with the Docker daemon.
-
-#### As a Service
-To install the service, you can do the following:
+ECS Optimized Windows AMI ships with a pre-installed PowerShell module called ECSTools to install, configure, and run the ECS Agent as a Windows service.
+To install the service, you can run the following PowerShell commands on an EC2 instance. To launch into another cluster instead of windows, replace the 'windows' in the script below with the name of your cluster.
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> Set-Location ${ecsExeDir}
-PS C:\> # Set $EnableTaskIAMRoles to $true to enable task IAM roles
-PS C:\> # Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [bool]$EnableTaskIAMRoles = $false
-PS C:\> if (${EnableTaskIAMRoles}) {
->> .\hostsetup.ps1
->> }
-PS C:\> # Install the agent service
-PS C:\> New-Service -Name "AmazonECS" `
-        -BinaryPathName "$ecsExeDir\amazon-ecs-agent.exe -windows-service" `
-        -DisplayName "Amazon ECS" `
-        -Description "Amazon ECS service runs the Amazon ECS agent" `
-        -DependsOn Docker `
-        -StartupType Manual
-PS C:\> sc.exe failure AmazonECS reset=300 actions=restart/5000/restart/30000/restart/60000
-PS C:\> sc.exe failureflag AmazonECS 1
+PS C:\> Import-Module ECSTools
+PS C:\> # The -EnableTaskIAMRole option is required to enable IAM roles for tasks.
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole
 ```
 
-To run the service, you can do the following:
-```powershell
-Start-Service AmazonECS
-```
+#### Downloading Different Version of ECS Agent
 
-#### As a Process
+To download different version of ECS Agent, you can do the following:
 
 ```powershell
-PS C:\> # Set up directories the agent uses
-PS C:\> New-Item -Type directory -Path ${env:ProgramFiles}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS -Force
-PS C:\> New-Item -Type directory -Path ${env:ProgramData}\Amazon\ECS\data -Force
-PS C:\> # Set up configuration
-PS C:\> $ecsExeDir = "${env:ProgramFiles}\Amazon\ECS"
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_CLUSTER", "my-windows-cluster", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_LOGFILE", "${env:ProgramData}\Amazon\ECS\log\ecs-agent.log", "Machine")
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_DATADIR", "${env:ProgramData}\Amazon\ECS\data", "Machine")
-PS C:\> # Set this environment variable to "true" to enable IAM roles.  Note that enabling IAM roles will make port 80 unavailable for tasks.
-PS C:\> [Environment]::SetEnvironmentVariable("ECS_ENABLE_TASK_IAM_ROLE", "false", "Machine")
-PS C:\> # Download the agent
-PS C:\> $agentVersion = "latest"
-PS C:\> $agentZipUri = "https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-windows-$agentVersion.zip"
-PS C:\> $zipFile = "${env:TEMP}\ecs-agent.zip"
-PS C:\> Invoke-RestMethod -OutFile $zipFile -Uri $agentZipUri
-PS C:\> # Put the executables in the executable directory.
-PS C:\> Expand-Archive -Path $zipFile -DestinationPath $ecsExeDir -Force
-PS C:\> # Run the agent
-PS C:\> cd '$ecsExeDir'; .\amazon-ecs-agent.ps1
+PS C:\> # use agentVersion = "latest" for the latest available agent version
+PS C:\> $agentVersion = "v1.20.4"
+PS C:\> Initialize-ECSAgent -Cluster 'windows' -EnableTaskIAMRole -Version $agentVersion
 ```
 
 ## Advanced Usage
@@ -172,6 +119,7 @@ additional details on each available environment variable.
 | `ECS_IMAGE_MINIMUM_CLEANUP_AGE` | 30m | The minimum time interval between when an image is pulled and when it can be considered for automated image cleanup. | 1h | 1h |
 | `ECS_NUM_IMAGES_DELETE_PER_CYCLE` | 5 | The maximum number of images to delete in a single automated image cleanup cycle. If set to less than 1, the value is ignored. | 5 | 5 |
 | `ECS_IMAGE_PULL_BEHAVIOR` | &lt;default &#124; always &#124; once &#124; prefer-cached &gt; | The behavior used to customize the pull image process. If `default` is specified, the image will be pulled remotely, if the pull fails then the cached image in the instance will be used. If `always` is specified, the image will be pulled remotely, if the pull fails then the task will fail. If `once` is specified, the image will be pulled remotely if it has not been pulled before or if the image was removed by image cleanup, otherwise the cached image in the instance will be used. If `prefer-cached` is specified, the image will be pulled remotely if there is no cached image, otherwise the cached image in the instance will be used. | default | default |
+| `ECS_IMAGE_PULL_INACTIVITY_TIMEOUT` | 1m | The time to wait after docker pulls complete waiting for extraction of a container. Useful for tuning large Windows containers. | 1m | 3m |
 | `ECS_INSTANCE_ATTRIBUTES` | `{"stack": "prod"}` | These attributes take effect only during initial registration. After the agent has joined an ECS cluster, use the PutAttributes API action to add additional attributes. For more information, see [Amazon ECS Container Agent Configuration](http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-agent-config.html) in the Amazon ECS Developer Guide.| `{}` | `{}` |
 | `ECS_ENABLE_TASK_ENI` | `false` | Whether to enable task networking for task to be launched with its own network interface | `false` | Not applicable |
 | `ECS_CNI_PLUGINS_PATH` | `/ecs/cni` | The path where the cni binary file is located | `/amazon-ecs-cni-plugins` | Not applicable |

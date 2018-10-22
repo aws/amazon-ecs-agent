@@ -1,5 +1,9 @@
 # Changelog
-## 1.20.4-dev
+
+## 1.21.0
+* Feature - Add v3 task metadata support for awsvpc, host and bridge network mode
+* Enhancement - Update the `amazon-ecs-cni-plugins` to `2018.10.0` [1610](https://github.com/aws/amazon-ecs-agent/pull/1610)
+* Enhancement - Configurable image pull inactivity timeout [@wattdave](https://github.com/wattdave) [#1566](https://github.com/aws/amazon-ecs-agent/pull/1566)
 * Bug - Fixed a bug where Windows drive volume couldn't be mounted [#1571](https://github.com/aws/amazon-ecs-agent/pull/1571)
 * Bug - Fixed a bug where the Agent's Windows binaries didn't use consistent naming [#1573](https://github.com/aws/amazon-ecs-agent/pull/1573)
 * Bug - Fixed a bug where a port used by WinRM service was not reserved by the Agent by default [#1577](https://github.com/aws/amazon-ecs-agent/pull/1577)

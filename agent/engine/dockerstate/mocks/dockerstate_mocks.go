@@ -150,6 +150,19 @@ func (mr *MockTaskEngineStateMockRecorder) ContainerMapByArn(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).ContainerMapByArn), arg0)
 }
 
+// DockerIDByV3EndpointID mocks base method
+func (m *MockTaskEngineState) DockerIDByV3EndpointID(arg0 string) (string, bool) {
+	ret := m.ctrl.Call(m, "DockerIDByV3EndpointID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// DockerIDByV3EndpointID indicates an expected call of DockerIDByV3EndpointID
+func (mr *MockTaskEngineStateMockRecorder) DockerIDByV3EndpointID(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DockerIDByV3EndpointID", reflect.TypeOf((*MockTaskEngineState)(nil).DockerIDByV3EndpointID), arg0)
+}
+
 // ENIByMac mocks base method
 func (m *MockTaskEngineState) ENIByMac(arg0 string) (*eni.ENIAttachment, bool) {
 	ret := m.ctrl.Call(m, "ENIByMac", arg0)
@@ -239,6 +252,19 @@ func (m *MockTaskEngineState) Reset() {
 // Reset indicates an expected call of Reset
 func (mr *MockTaskEngineStateMockRecorder) Reset() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockTaskEngineState)(nil).Reset))
+}
+
+// TaskARNByV3EndpointID mocks base method
+func (m *MockTaskEngineState) TaskARNByV3EndpointID(arg0 string) (string, bool) {
+	ret := m.ctrl.Call(m, "TaskARNByV3EndpointID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// TaskARNByV3EndpointID indicates an expected call of TaskARNByV3EndpointID
+func (mr *MockTaskEngineStateMockRecorder) TaskARNByV3EndpointID(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskARNByV3EndpointID", reflect.TypeOf((*MockTaskEngineState)(nil).TaskARNByV3EndpointID), arg0)
 }
 
 // TaskByArn mocks base method

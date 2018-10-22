@@ -1,0 +1,14 @@
+{
+  "family": "ecsftest-sysctl",
+  "containerDefinitions": [{
+    "image": "127.0.0.1:51670/ubuntu:latest",
+    "name": "exit",
+    "cpu": 10,
+    "memory": 10,
+    "systemControls": [{
+        "namespace":"net.ipv4.conf.default.rp_filter",
+        "value":"0"
+    }],
+    "command": ["sh", "-c", "sysctl net.ipv4.conf.default.rp_filter | grep \"net.ipv4.conf.default.rp_filter = 0\" && exit 42 || exit 1"]
+  }]
+}

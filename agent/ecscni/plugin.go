@@ -31,7 +31,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-const currentCNISpec = "0.3.1"
+const (
+	currentCNISpec = "0.3.1"
+	// CNIVersion and CNIGitHash needs to be updated every time CNI plugin is updated
+	currentCNIVersion = "2018.10.0"
+	currentCNIGitHash = "93f4377604504bff92e7555da73b0cba732a4fbb"
+)
 
 // CNIClient defines the method of setting/cleaning up container namespace
 type CNIClient interface {
