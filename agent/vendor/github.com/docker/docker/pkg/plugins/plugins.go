@@ -11,7 +11,7 @@
 // The plugins need to implement an HTTP server and bind this to the UNIX socket
 // or the address specified in the spec files.
 // A handshake is send at /Plugin.Activate, and plugins are expected to return
-// a Manifest with a list of of Docker subsystems which this plugin implements.
+// a Manifest with a list of Docker subsystems which this plugin implements.
 //
 // In order to use a plugins, you can use the ``Get`` with the name of the
 // plugin and the subsystem it implements.
@@ -30,6 +30,9 @@ import (
 	"github.com/docker/go-connections/tlsconfig"
 	"github.com/sirupsen/logrus"
 )
+
+// ProtocolSchemeHTTPV1 is the name of the protocol used for interacting with plugins using this package.
+const ProtocolSchemeHTTPV1 = "moby.plugins.http/v1"
 
 var (
 	// ErrNotImplements is returned if the plugin does not implement the requested driver.
@@ -86,6 +89,11 @@ func (p *Plugin) Name() string {
 // Client returns a ready-to-use plugin client that can be used to communicate with the plugin.
 func (p *Plugin) Client() *Client {
 	return p.client
+}
+
+// Protocol returns the protocol name/version used for plugins in this package.
+func (p *Plugin) Protocol() string {
+	return ProtocolSchemeHTTPV1
 }
 
 // IsV1 returns true for V1 plugins and false otherwise.
