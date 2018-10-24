@@ -50,7 +50,7 @@ type Client interface {
 		error)
 	Ping(ctx context.Context) (types.Ping, error)
 	PluginList(ctx context.Context, filter filters.Args) (types.PluginsListResponse, error)
-	VolumeCreate(ctx context.Context, options volume.VolumesCreateBody) (types.Volume, error)
+	VolumeCreate(ctx context.Context, options volume.VolumeCreateBody) (types.Volume, error)
 	VolumeInspect(ctx context.Context, volumeID string) (types.Volume, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	ServerVersion(ctx context.Context) (types.Version, error)
