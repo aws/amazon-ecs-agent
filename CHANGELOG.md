@@ -1,4 +1,7 @@
 # Changelog
+## 1.22.1-dev
+* Enhancement - Configurable poll duration for container stats [@jcbowman](https://github.com/jcbowman) [#1646](https://github.com/aws/amazon-ecs-agent/pull/1646)
+
 ## 1.22.0-dev
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
 

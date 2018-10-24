@@ -846,8 +846,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status:                  status,
-			Type:                    eventType,
+			Status: status,
+			Type:   eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
@@ -1171,7 +1171,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 	returnStats := make(chan *docker.Stats)
 
 	if !dg.config.PollMetrics {
-		seelog.Infof("DockerGoClient: Starting to Stream for metrics")
+		seelog.Infof("DockerGoClient: Starting to Stream for metrics for container %s", id)
 		options := docker.StatsOptions{
 			ID:                id,
 			Stats:             returnStats,
@@ -1179,7 +1179,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 			Context:           ctx,
 			InactivityTimeout: StatsInactivityTimeout,
 		}
-	
+
 		go func() {
 			statsErr := client.Stats(options)
 			if statsErr != nil {
@@ -1188,7 +1188,7 @@ func (dg *dockerGoClient) Stats(id string, ctx context.Context) (<-chan *docker.
 			}
 		}()
 	} else {
-		seelog.Infof("DockerGoClient: Starting to Poll for metrics")
+		seelog.Infof("DockerGoClient: Starting to Poll for metrics for container %s", id)
 		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
 		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
 

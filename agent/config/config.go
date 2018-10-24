@@ -295,8 +295,15 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 
 	// check the PollMetrics specific configurations
-	if cfg.PollMetrics {
+	cfg.pollMetricsOverrides()
 
+	cfg.platformOverrides()
+
+	return nil
+}
+
+func (cfg *Config) pollMetricsOverrides() {
+	if cfg.PollMetrics {
 		if cfg.PollingMetricsWaitDuration < minimumPollingMetricsWaitDuration {
 			seelog.Warnf("Invalid value for polling metrics wait duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultPollingMetricsWaitDuration.String(), cfg.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration)
 			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
@@ -307,10 +314,6 @@ func (cfg *Config) validateAndOverrideBounds() error {
 			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
 		}
 	}
-
-	cfg.platformOverrides()
-
-	return nil
 }
 
 // checkMissingAndDeprecated checks all zero-valued fields for tags of the form

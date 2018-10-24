@@ -306,22 +306,20 @@ func TestInvalidValueDockerPullInactivityTimeout(t *testing.T) {
 
 func TestInvalidValueMaxPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
+	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "21s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.Equal(t, conf.PollingMetricsWaitDuration, maximumPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+	assert.Equal(t, conf.PollingMetricsWaitDuration, DefaultPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
 
 func TestInvalidValueMinPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
+	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "0s")()
-	ctrl := gomock.NewController(t)
-	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	conf, err := NewConfig(mockEc2Metadata)
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.Equal(t, conf.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+	assert.Equal(t, conf.PollingMetricsWaitDuration, DefaultPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {
