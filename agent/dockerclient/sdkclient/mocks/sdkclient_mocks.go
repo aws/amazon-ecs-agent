@@ -274,7 +274,7 @@ func (mr *MockClientMockRecorder) ServerVersion(arg0 interface{}) *gomock.Call {
 }
 
 // VolumeCreate mocks base method
-func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 volume.VolumesCreateBody) (types.Volume, error) {
+func (m *MockClient) VolumeCreate(arg0 context.Context, arg1 volume.VolumeCreateBody) (types.Volume, error) {
 	ret := m.ctrl.Call(m, "VolumeCreate", arg0, arg1)
 	ret0, _ := ret[0].(types.Volume)
 	ret1, _ := ret[1].(error)

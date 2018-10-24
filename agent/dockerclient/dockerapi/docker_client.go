@@ -1081,7 +1081,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	volumeOptions := volume.VolumesCreateBody{
+	volumeOptions := volume.VolumeCreateBody{
 		Driver:     driver,
 		DriverOpts: driverOptions,
 		Labels:     labels,
