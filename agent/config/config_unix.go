@@ -59,6 +59,7 @@ func DefaultConfig() Config {
 		ImageCleanupDisabled:        false,
 		MinimumImageDeletionAge:     DefaultImageDeletionAge,
 		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
+		ImagePullInactivityTimeout:  defaultImagePullInactivityTimeout,
 		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
 		CNIPluginsPath:              defaultCNIPluginsPath,
 		PauseContainerTarballPath:   pauseContainerTarballPath,
