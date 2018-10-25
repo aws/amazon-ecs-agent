@@ -77,7 +77,7 @@ func New() (*Engine, error) {
 func (e *Engine) PreStart() error {
 	err := e.nvidiaGPUManager.Setup()
 	if err != nil {
-		return engineError("GPU Manager", err)
+		return engineError("Nvidia GPU Manager", err)
 	}
 	// Enable use of loopback addresses for local routing purposes
 	err = e.loopbackRouting.Enable()

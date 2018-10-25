@@ -119,9 +119,9 @@ func TestGetGPUDeviceIDs(t *testing.T) {
 		NvmlGetDeviceCount = GetDeviceCount
 		NvmlNewDeviceLite = NewDeviceLite
 	}()
-	gpuIds, err := nvidiaGPUManager.GetGPUDeviceIDs()
+	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.NoError(t, err)
-	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, gpuIds))
+	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, gpuIDs))
 }
 
 func TestGetGPUDeviceIDsCountError(t *testing.T) {
@@ -132,9 +132,9 @@ func TestGetGPUDeviceIDsCountError(t *testing.T) {
 	defer func() {
 		NvmlGetDeviceCount = GetDeviceCount
 	}()
-	gpuIds, err := nvidiaGPUManager.GetGPUDeviceIDs()
+	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.Error(t, err)
-	assert.Empty(t, gpuIds)
+	assert.Empty(t, gpuIDs)
 }
 
 func TestGetGPUDeviceIDsDeviceError(t *testing.T) {
@@ -149,9 +149,9 @@ func TestGetGPUDeviceIDsDeviceError(t *testing.T) {
 		NvmlGetDeviceCount = GetDeviceCount
 		NvmlNewDeviceLite = NewDeviceLite
 	}()
-	gpuIds, err := nvidiaGPUManager.GetGPUDeviceIDs()
+	gpuIDs, err := nvidiaGPUManager.GetGPUDeviceIDs()
 	assert.Error(t, err)
-	assert.Empty(t, gpuIds)
+	assert.Empty(t, gpuIDs)
 }
 
 func TestNVMLShutdown(t *testing.T) {
@@ -322,7 +322,7 @@ func TestGPUSetupSuccessful(t *testing.T) {
 	err := nvidiaGPUManager.Setup()
 	assert.NoError(t, err)
 	assert.Equal(t, driverVersion, nvidiaGPUManager.(*NvidiaGPUManager).DriverVersion)
-	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIds))
+	assert.True(t, reflect.DeepEqual([]string{"gpu-0123", "gpu-1234"}, nvidiaGPUManager.(*NvidiaGPUManager).GPUIDs))
 }
 
 func TestSetupNVMLError(t *testing.T) {

@@ -42,7 +42,7 @@ type GPUManager interface {
 type NvidiaGPUManager struct {
 	DriverVersion       string
 	NvidiaDockerVersion string
-	GPUIds              []string
+	GPUIDs              []string
 }
 
 const (
@@ -51,13 +51,13 @@ const (
 	// GPUInfoDirPath is the directory where gpus and driver info are saved
 	GPUInfoDirPath = "/var/lib/ecs/gpu"
 	// NvidiaGPUInfoFilePath is the file path where gpus and driver info are saved
-	NvidiaGPUInfoFilePath = "/var/lib/ecs/gpu/nvidia-gpu-info.json"
+	NvidiaGPUInfoFilePath = GPUInfoDirPath + "/nvidia-gpu-info.json"
 	// FilePerm is the file permissions for gpu info json file
 	FilePerm = 0700
 )
 
 // ErrNoGPUDeviceFound is thrown when it is not a ECS GPU instance
-var ErrNoGPUDeviceFound = errors.New("No GPU device files found in the instance")
+var ErrNoGPUDeviceFound = errors.New("No GPU device files found on the instance")
 
 // NewNvidiaGPUManager is used to obtain NvidiaGPUManager handle
 func NewNvidiaGPUManager() GPUManager {
@@ -83,14 +83,14 @@ func (n *NvidiaGPUManager) Setup() error {
 		return errors.Wrapf(err, "setup failed")
 	}
 	n.DriverVersion = version
-	gpuIds, err := n.GetGPUDeviceIDs()
+	gpuIDs, err := n.GetGPUDeviceIDs()
 	if err != nil {
 		return errors.Wrapf(err, "setup failed")
 	}
-	n.GPUIds = gpuIds
+	n.GPUIDs = gpuIDs
 	err = n.SaveGPUState()
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: setup failed")
+		return errors.Wrapf(err, "setup failed")
 	}
 	return nil
 }
@@ -99,7 +99,7 @@ func (n *NvidiaGPUManager) Setup() error {
 func (n *NvidiaGPUManager) DetectGPUDevices() error {
 	matches, err := MatchFilePattern(NvidiaGPUDeviceFilePattern)
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: detecting GPU devices failed")
+		return errors.Wrapf(err, "detecting GPU devices failed")
 	}
 	if matches == nil {
 		return ErrNoGPUDeviceFound
@@ -117,7 +117,7 @@ func FilePatternMatch(pattern string) ([]string, error) {
 func (n *NvidiaGPUManager) Initialize() error {
 	err := InitializeNVML()
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: error initializing nvidia nvml")
+		return errors.Wrapf(err, "error initializing nvidia nvml")
 	}
 	return nil
 }
@@ -132,7 +132,7 @@ func InitNVML() error {
 func (n *NvidiaGPUManager) Shutdown() error {
 	err := ShutdownNVML()
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: error shutting down nvidia nvml")
+		return errors.Wrapf(err, "error shutting down nvidia nvml")
 	}
 	return nil
 }
@@ -147,7 +147,7 @@ func ShutdownNVMLib() error {
 func (n *NvidiaGPUManager) GetDriverVersion() (string, error) {
 	version, err := NvmlGetDriverVersion()
 	if err != nil {
-		return "", errors.Wrapf(err, "nvidia gpu manager: error getting nvidia driver version")
+		return "", errors.Wrapf(err, "error getting nvidia driver version")
 	}
 	return version, err
 }
@@ -162,22 +162,22 @@ func GetNvidiaDriverVersion() (string, error) {
 func (n *NvidiaGPUManager) GetGPUDeviceIDs() ([]string, error) {
 	count, err := NvmlGetDeviceCount()
 	if err != nil {
-		return nil, errors.Wrapf(err, "nvidia gpu manager: error getting GPU device count for UUID detection")
+		return nil, errors.Wrapf(err, "error getting GPU device count for UUID detection")
 	}
-	var gpuIds []string
+	var gpuIDs []string
 	var i uint
 	for i = 0; i < count; i++ {
 		device, err := NvmlNewDeviceLite(i)
 		if err != nil {
-			seelog.Errorf("nvidia gpu manager: error initializing device of index %d: %v", i, err)
+			seelog.Errorf("error initializing device of index %d: %v", i, err)
 			continue
 		}
-		gpuIds = append(gpuIds, device.UUID)
+		gpuIDs = append(gpuIDs, device.UUID)
 	}
-	if len(gpuIds) == 0 {
-		return gpuIds, errors.New("nvidia gpu manager: error initializing GPU devices")
+	if len(gpuIDs) == 0 {
+		return gpuIDs, errors.New("error initializing GPU devices")
 	}
-	return gpuIds, nil
+	return gpuIDs, nil
 }
 
 var NvmlGetDeviceCount = GetDeviceCount
@@ -198,11 +198,11 @@ func NewDeviceLite(idx uint) (*nvml.Device, error) {
 func (n *NvidiaGPUManager) SaveGPUState() error {
 	gpuManagerJSON, err := json.Marshal(n)
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: gpu info state save failed")
+		return errors.Wrapf(err, "gpu info state save failed")
 	}
 	err = WriteContentToFile(NvidiaGPUInfoFilePath, gpuManagerJSON, FilePerm)
 	if err != nil {
-		return errors.Wrapf(err, "nvidia gpu manager: gpu info state save failed")
+		return errors.Wrapf(err, "gpu info state save failed")
 	}
 	return nil
 }
