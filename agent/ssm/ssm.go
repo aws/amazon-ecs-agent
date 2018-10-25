@@ -15,6 +15,8 @@ package ssm
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/pkg/errors"
@@ -35,8 +37,7 @@ func GetSecretsFromSSM(names []string, client SSMClient) (map[string]string, err
 
 	out, err := client.GetParameters(in)
 	if err != nil {
-		return nil, errors.Wrapf(err,
-			"fetching secret data from ssm parameter store")
+		return nil, err
 	}
 
 	return extractSSMValues(out)
@@ -45,16 +46,16 @@ func GetSecretsFromSSM(names []string, client SSMClient) (map[string]string, err
 func extractSSMValues(out *ssm.GetParametersOutput) (map[string]string, error) {
 	if out == nil {
 		return nil, errors.New(
-			"fetching secret data from ssm parameter store: empty response")
+			"empty response")
 	}
 
 	if len(out.InvalidParameters) != 0 {
-		errorString := ""
+		var stringValues []string
 		for _, invalid := range out.InvalidParameters {
-			errorString += aws.StringValue(invalid) + ", "
+			stringValues = append(stringValues, aws.StringValue(invalid))
 		}
 		return nil, fmt.Errorf(
-			"fetching secret data from ssm parameter store: invalid parameters: %s", errorString)
+			"invalid parameters: %s", strings.Join(stringValues, ","))
 	}
 
 	parameterValues := make(map[string]string)

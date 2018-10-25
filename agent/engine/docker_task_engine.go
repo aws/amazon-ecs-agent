@@ -731,17 +731,20 @@ func (engine *DockerTaskEngine) concurrentPull(task *apitask.Task, container *ap
 
 	// Record the task pull_started_at timestamp
 	pullStart := engine.time().Now()
-	defer func(startTime time.Time) {
-		seelog.Infof("Task engine [%s]: Finished pulling container %s in %s",
-			task.Arn, container.Image, time.Since(startTime).String())
-	}(pullStart)
 	ok := task.SetPullStartedAt(pullStart)
 	if ok {
 		seelog.Infof("Task engine [%s]: Recording timestamp for starting image pulltime: %s",
 			task.Arn, pullStart)
 	}
-
-	return engine.pullAndUpdateContainerReference(task, container)
+	metadata := engine.pullAndUpdateContainerReference(task, container)
+	if metadata.Error == nil {
+		seelog.Infof("Task engine [%s]: Finished pulling container %s in %s",
+			task.Arn, container.Image, time.Since(pullStart).String())
+	} else {
+		seelog.Errorf("Task engine [%s]: Failed to pull container %s: %v",
+			task.Arn, container.Image, metadata.Error)
+	}
+	return metadata
 }
 
 func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {

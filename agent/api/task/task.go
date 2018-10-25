@@ -1605,7 +1605,11 @@ func (task *Task) SetTerminalReason(reason string) {
 	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
 	task.terminalReasonOnce.Do(func() {
 		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
-		task.terminalReason = reason
+
+		// Converts the first letter of terminal reason into capital letter
+		words := strings.Fields(reason)
+		words[0] = strings.Title(words[0])
+		task.terminalReason = strings.Join(words, " ")
 	})
 }
 
