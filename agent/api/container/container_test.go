@@ -123,6 +123,7 @@ func TestIsInternal(t *testing.T) {
 		{&Container{Type: ContainerNormal}, false},
 		{&Container{Type: ContainerCNIPause}, true},
 		{&Container{Type: ContainerEmptyHostVolume}, true},
+		{&Container{Type: ContainerNamespacePause}, true},
 	}
 
 	for _, tc := range testCases {

@@ -35,6 +35,7 @@ func TestMarshalContainerType(t *testing.T) {
 		{containerTypeWrapper{ContainerNormal}, `{"IsInternal":"NORMAL"}`},
 		{containerTypeWrapper{ContainerEmptyHostVolume}, `{"IsInternal":"EMPTY_HOST_VOLUME"}`},
 		{containerTypeWrapper{ContainerCNIPause}, `{"IsInternal":"CNI_PAUSE"}`},
+		{containerTypeWrapper{ContainerNamespacePause}, `{"IsInternal":"NAMESPACE_PAUSE"}`},
 	}
 
 	for _, tc := range testCases {
@@ -56,6 +57,7 @@ func TestUnmarhsalContainerType(t *testing.T) {
 		{containerTypeWrapper{ContainerNormal}, `{"IsInternal":"NORMAL"}`},
 		{containerTypeWrapper{ContainerEmptyHostVolume}, `{"IsInternal":"EMPTY_HOST_VOLUME"}`},
 		{containerTypeWrapper{ContainerCNIPause}, `{"IsInternal":"CNI_PAUSE"}`},
+		{containerTypeWrapper{ContainerNamespacePause}, `{"IsInternal":"NAMESPACE_PAUSE"}`},
 		{containerTypeWrapper{ContainerNormal}, `{"IsInternal":null}`},
 		{containerTypeWrapper{ContainerNormal}, `{"IsInternal":false}`},
 		{containerTypeWrapper{ContainerEmptyHostVolume}, `{"IsInternal":true}`},

@@ -8391,6 +8391,8 @@ type RegisterTaskDefinitionInput struct {
 	// Family is a required field
 	Family *string `locationName:"family" type:"string" required:"true"`
 
+	IpcMode *string `locationName:"ipcMode" type:"string" enum:"IpcMode"`
+
 	// The amount of memory (in MiB) used by the task. It can be expressed as an
 	// integer using MiB, for example 1024, or as a string using GB, for example
 	// 1GB or 1 GB, in a task definition. String values are converted to an integer
@@ -8452,6 +8454,8 @@ type RegisterTaskDefinitionInput struct {
 	// For more information, see Network settings (https://docs.docker.com/engine/reference/run/#network-settings)
 	// in the Docker run reference.
 	NetworkMode *string `locationName:"networkMode" type:"string" enum:"NetworkMode"`
+
+	PidMode *string `locationName:"pidMode" type:"string" enum:"PidMode"`
 
 	// An array of placement constraint objects to use for the task. You can specify
 	// a maximum of 10 constraints per task (this limit includes constraints in
@@ -8534,6 +8538,12 @@ func (s *RegisterTaskDefinitionInput) SetFamily(v string) *RegisterTaskDefinitio
 	return s
 }
 
+// SetIpcMode sets the IpcMode field's value.
+func (s *RegisterTaskDefinitionInput) SetIpcMode(v string) *RegisterTaskDefinitionInput {
+	s.IpcMode = &v
+	return s
+}
+
 // SetMemory sets the Memory field's value.
 func (s *RegisterTaskDefinitionInput) SetMemory(v string) *RegisterTaskDefinitionInput {
 	s.Memory = &v
@@ -8543,6 +8553,12 @@ func (s *RegisterTaskDefinitionInput) SetMemory(v string) *RegisterTaskDefinitio
 // SetNetworkMode sets the NetworkMode field's value.
 func (s *RegisterTaskDefinitionInput) SetNetworkMode(v string) *RegisterTaskDefinitionInput {
 	s.NetworkMode = &v
+	return s
+}
+
+// SetPidMode sets the PidMode field's value.
+func (s *RegisterTaskDefinitionInput) SetPidMode(v string) *RegisterTaskDefinitionInput {
+	s.PidMode = &v
 	return s
 }
 
@@ -10151,6 +10167,8 @@ type TaskDefinition struct {
 	// The family of your task definition, used as the definition name.
 	Family *string `locationName:"family" type:"string"`
 
+	IpcMode *string `locationName:"ipcMode" type:"string" enum:"IpcMode"`
+
 	// The amount (in MiB) of memory used by the task. If using the EC2 launch type,
 	// this field is optional and any value can be used. If using the Fargate launch
 	// type, this field is required and you must use one of the following values,
@@ -10208,6 +10226,8 @@ type TaskDefinition struct {
 	// For more information, see Network settings (https://docs.docker.com/engine/reference/run/#network-settings)
 	// in the Docker run reference.
 	NetworkMode *string `locationName:"networkMode" type:"string" enum:"NetworkMode"`
+
+	PidMode *string `locationName:"pidMode" type:"string" enum:"PidMode"`
 
 	// An array of placement constraint objects to use for tasks. This field is
 	// not valid if using the Fargate launch type for your task.
@@ -10294,6 +10314,12 @@ func (s *TaskDefinition) SetFamily(v string) *TaskDefinition {
 	return s
 }
 
+// SetIpcMode sets the IpcMode field's value.
+func (s *TaskDefinition) SetIpcMode(v string) *TaskDefinition {
+	s.IpcMode = &v
+	return s
+}
+
 // SetMemory sets the Memory field's value.
 func (s *TaskDefinition) SetMemory(v string) *TaskDefinition {
 	s.Memory = &v
@@ -10303,6 +10329,12 @@ func (s *TaskDefinition) SetMemory(v string) *TaskDefinition {
 // SetNetworkMode sets the NetworkMode field's value.
 func (s *TaskDefinition) SetNetworkMode(v string) *TaskDefinition {
 	s.NetworkMode = &v
+	return s
+}
+
+// SetPidMode sets the PidMode field's value.
+func (s *TaskDefinition) SetPidMode(v string) *TaskDefinition {
+	s.PidMode = &v
 	return s
 }
 
@@ -11135,6 +11167,17 @@ const (
 )
 
 const (
+	// IpcModeHost is a IpcMode enum value
+	IpcModeHost = "host"
+
+	// IpcModeTask is a IpcMode enum value
+	IpcModeTask = "task"
+
+	// IpcModeNone is a IpcMode enum value
+	IpcModeNone = "none"
+)
+
+const (
 	// LaunchTypeEc2 is a LaunchType enum value
 	LaunchTypeEc2 = "EC2"
 
@@ -11177,6 +11220,14 @@ const (
 
 	// NetworkModeNone is a NetworkMode enum value
 	NetworkModeNone = "none"
+)
+
+const (
+	// PidModeHost is a PidMode enum value
+	PidModeHost = "host"
+
+	// PidModeTask is a PidMode enum value
+	PidModeTask = "task"
 )
 
 const (

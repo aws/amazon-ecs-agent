@@ -77,19 +77,13 @@ func DefaultConfig() Config {
 
 func (cfg *Config) platformOverrides() {}
 
-// ShouldLoadPauseContainerTarball determines whether the pause container
-// tarball should be loaded into Docker or not.  This function will return
-// false is the default image name/tag have been overridden, because we do not
-// expect the tarball to match the overridden name/tag.
-func (cfg *Config) ShouldLoadPauseContainerTarball() bool {
-	return cfg.PauseContainerImageName == DefaultPauseContainerImageName &&
-		cfg.PauseContainerTag == DefaultPauseContainerTag
-}
-
 // platformString returns platform-specific config data that can be serialized
 // to string for debugging
 func (cfg *Config) platformString() string {
-	if cfg.ShouldLoadPauseContainerTarball() {
+	// Returns a string if the default image name/tag of the Pause container has
+	// been overridden
+	if cfg.PauseContainerImageName == DefaultPauseContainerImageName &&
+		cfg.PauseContainerTag == DefaultPauseContainerTag {
 		return fmt.Sprintf(", PauseContainerImageName: %s, PauseContainerTag: %s",
 			cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	}
