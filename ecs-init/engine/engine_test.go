@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
+	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 	"github.com/golang/mock/gomock"
 )
 
@@ -31,7 +32,9 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 	// Agent tarball and state is present
@@ -47,6 +50,7 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -62,7 +66,9 @@ func TestPreStartReloadNeeded(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 	// Agent tarball and state is present, but requires a reload off of disk
@@ -81,6 +87,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -98,7 +105,9 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	mockRoute.EXPECT().Create().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
@@ -112,6 +121,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -127,7 +137,9 @@ func TestPreStartImageNotCached(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusUncached)
 	mockDownloader.EXPECT().DownloadAgent()
@@ -145,10 +157,26 @@ func TestPreStartImageNotCached(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err != nil {
 		t.Errorf("engine pre-start error: %v", err)
+	}
+}
+
+func TestPreStartGPUSetupError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
+	mockGPUManager.EXPECT().Setup().Return(errors.New("gpu setup failed"))
+	engine := &Engine{
+		nvidiaGPUManager: mockGPUManager,
+	}
+	err := engine.PreStart()
+	if err == nil {
+		t.Error("Expected error to be returned but was nil")
 	}
 }
 
@@ -372,8 +400,10 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
-
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(fmt.Errorf("sysctl not found"))
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 
@@ -382,6 +412,7 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err == nil {
@@ -395,8 +426,10 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
-
+	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+
+	mockGPUManager.EXPECT().Setup().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
@@ -406,6 +439,7 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 		downloader:            mockDownloader,
 		loopbackRouting:       mockLoopbackRouting,
 		credentialsProxyRoute: mockRoute,
+		nvidiaGPUManager:      mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err == nil {
