@@ -18,7 +18,7 @@
 
 package="$1"
 inputfile="$2"
-outputfile="$(echo ${inputfile} | sed -e 's/\.go$/_mock_test.go/')"
+outputfile="$(echo ${inputfile} | sed -e 's/\.go$/_mocks.go/')"
 relativeoutputdir="$3"
 
 echo "Generating mocks from ${inputfile} to ${outputfile} in package ${package}"
