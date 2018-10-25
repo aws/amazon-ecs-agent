@@ -712,4 +712,10 @@ func TestContainerInstanceTags(t *testing.T) {
 		}
 	}
 	assert.Zero(t, len(expectedTagsMap))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
 }
