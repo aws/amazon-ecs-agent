@@ -786,7 +786,7 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 
 			namespacePause, ok := task.ContainerByName(NamespacePauseContainerName)
 			if !ok {
-				t.Fatal()
+				t.Fatal("Namespace Pause Container not found")
 			}
 
 			docMaps := dockerMap(task)

@@ -53,7 +53,7 @@ import (
 
 const (
 	// NetworkPauseContainerName is the internal name for the pause container
-	NetworkPauseContainerName = "~internal~ecs~pause~network"
+	NetworkPauseContainerName = "~internal~ecs~pause"
 
 	// NamespacePauseContainerName is the internal name for the IPC resource namespace and/or
 	// PID namespace sharing pause container
