@@ -32,6 +32,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -262,7 +263,7 @@ func TestPortForward(t *testing.T) {
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
@@ -343,7 +344,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
@@ -428,7 +429,7 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 	assert.NotEqual(t, bindingFor24751, 0, "could not find the port mapping for %d", containerPortOne)
 
-	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	cip, err := getContainerIP(client, cid)
@@ -491,7 +492,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	assert.NotZero(t, bindingFor24751_1, "could not find the port mapping for ", containerPortOne)
 	assert.NotZero(t, bindingFor24751_2, "could not find the port mapping for ", containerPortOne)
 
-	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	cip, err := getContainerIP(client, cid)

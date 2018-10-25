@@ -31,6 +31,7 @@ import (
 
 	"context"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -599,7 +600,7 @@ func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
 
 func RequireDockerVersion(t *testing.T, selector string) {
 	ctx := context.TODO()
-	dockerClient, err := docker.NewEnvClient()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}
@@ -621,7 +622,7 @@ func RequireDockerVersion(t *testing.T, selector string) {
 
 func RequireDockerAPIVersion(t *testing.T, selector string) {
 	ctx := context.TODO()
-	dockerClient, err := docker.NewEnvClient()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}

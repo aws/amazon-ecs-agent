@@ -32,12 +32,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/docker/docker/api/types"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	sdkClient "github.com/docker/docker/client"
-	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -93,7 +94,7 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 }
 
 func removeImage(t *testing.T, img string) {
-	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "create docker client failed")
 	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
 }
@@ -117,7 +118,7 @@ func TestDockerStateToContainerState(t *testing.T) {
 	testTask := createTestTask("test_task")
 	container := testTask.Containers[0]
 
-	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
 
 	containerMetadata := taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)

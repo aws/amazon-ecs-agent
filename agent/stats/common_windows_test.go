@@ -29,7 +29,7 @@ import (
 var (
 	testImageName    = "amazon/amazon-ecs-stats:make"
 	endpoint         = utils.DefaultIfBlank(os.Getenv(ecsengine.DockerEndpointEnvVariable), "npipe:////./pipe/docker_engine")
-	client, _        = sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint))
+	client, _        = sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	sdkClientFactory = sdkclientfactory.NewFactory(context.TODO(), endpoint)
 	ctx              = context.TODO()
 )

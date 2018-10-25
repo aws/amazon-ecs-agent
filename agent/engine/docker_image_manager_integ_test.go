@@ -30,6 +30,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 
 	"github.com/docker/docker/api/types"
@@ -285,7 +286,7 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, create a go docker client
-	sdkDockerClient, err := client.NewClientWithOpts()
+	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating SDK docker client failed")
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
@@ -425,7 +426,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 	dockerClient := taskEngine.(*DockerTaskEngine).client
 
 	// DockerClient doesn't implement TagImage, so create a go docker client
-	sdkDockerClient, err := client.NewClientWithOpts()
+	sdkDockerClient, err := client.NewClientWithOpts(client.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating docker client failed")
 
 	imageManager := taskEngine.(*DockerTaskEngine).imageManager.(*dockerImageManager)
