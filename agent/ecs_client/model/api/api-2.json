@@ -46,6 +46,20 @@
         {"shape":"AccessDeniedException"}
       ]
     },
+    "DeleteAccountSetting":{
+      "name":"DeleteAccountSetting",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DeleteAccountSettingRequest"},
+      "output":{"shape":"DeleteAccountSettingResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"}
+      ]
+    },
     "DeleteAttributes":{
       "name":"DeleteAttributes",
       "http":{
@@ -266,6 +280,21 @@
         {"shape":"ClusterNotFoundException"}
       ]
     },
+    "ListTagsForResource":{
+      "name":"ListTagsForResource",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ListTagsForResourceRequest"},
+      "output":{"shape":"ListTagsForResourceResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"ClusterNotFoundException"},
+        {"shape":"InvalidParameterException"}
+      ]
+    },
     "ListTaskDefinitionFamilies":{
       "name":"ListTaskDefinitionFamilies",
       "http":{
@@ -308,6 +337,20 @@
         {"shape":"InvalidParameterException"},
         {"shape":"ClusterNotFoundException"},
         {"shape":"ServiceNotFoundException"}
+      ]
+    },
+    "PutAccountSetting":{
+      "name":"PutAccountSetting",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PutAccountSettingRequest"},
+      "output":{"shape":"PutAccountSettingResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "PutAttributes":{
@@ -820,6 +863,20 @@
         "service":{"shape":"Service"}
       }
     },
+    "DeleteAccountSettingRequest":{
+      "type":"structure",
+      "required":["name"],
+      "members":{
+        "name":{"shape":"SettingName"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "DeleteAccountSettingResponse":{
+      "type":"structure",
+      "members":{
+        "setting":{"shape":"Setting"}
+      }
+    },
     "DeleteAttributesRequest":{
       "type":"structure",
       "required":["attributes"],
@@ -1220,6 +1277,19 @@
         "nextToken":{"shape":"String"}
       }
     },
+    "ListTagsForResourceRequest":{
+      "type":"structure",
+      "required":["resourceArn"],
+      "members":{
+        "resourceArn":{"shape":"String"}
+      }
+    },
+    "ListTagsForResourceResponse":{
+      "type":"structure",
+      "members":{
+        "tags":{"shape":"Tags"}
+      }
+    },
     "ListTaskDefinitionFamiliesRequest":{
       "type":"structure",
       "members":{
@@ -1445,6 +1515,24 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "PutAccountSettingRequest":{
+      "type":"structure",
+      "required":[
+        "name",
+        "value"
+      ],
+      "members":{
+        "name":{"shape":"SettingName"},
+        "value":{"shape":"String"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "PutAccountSettingResponse":{
+      "type":"structure",
+      "members":{
+        "setting":{"shape":"Setting"}
+      }
+    },
     "PutAttributesRequest":{
       "type":"structure",
       "required":["attributes"],
@@ -1468,7 +1556,8 @@
         "totalResources":{"shape":"Resources"},
         "versionInfo":{"shape":"VersionInfo"},
         "containerInstanceArn":{"shape":"String"},
-        "attributes":{"shape":"Attributes"}
+        "attributes":{"shape":"Attributes"},
+        "tags":{"shape":"Tags"}
       }
     },
     "RegisterContainerInstanceResponse":{
@@ -1495,7 +1584,8 @@
         "cpu":{"shape":"String"},
         "memory":{"shape":"String"},
         "pidMode":{"shape":"PidMode"},
-        "ipcMode":{"shape":"IpcMode"}
+        "ipcMode":{"shape":"IpcMode"},
+        "tags":{"shape":"Tags"}
       }
     },
     "RegisterTaskDefinitionResponse":{
@@ -1644,6 +1734,22 @@
       "type":"list",
       "member":{"shape":"Service"}
     },
+    "Setting":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"SettingName"},
+        "value":{"shape":"String"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "SettingName":{
+      "type":"string",
+      "enum":[
+        "serviceLongArnFormat",
+        "taskLongArnFormat",
+        "containerInstanceLongArnFormat"
+      ]
+    },
     "SortOrder":{
       "type":"string",
       "enum":[
@@ -1747,6 +1853,31 @@
     "SystemControls":{
       "type":"list",
       "member":{"shape":"SystemControl"}
+    },
+    "Tag":{
+      "type":"structure",
+      "members":{
+        "key":{"shape":"TagKey"},
+        "value":{"shape":"TagValue"}
+      }
+    },
+    "TagKey":{
+      "type":"string",
+      "max":128,
+      "min":1,
+      "pattern":"^([\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*)$"
+    },
+    "TagValue":{
+      "type":"string",
+      "max":256,
+      "min":0,
+      "pattern":"^([\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*)$"
+    },
+    "Tags":{
+      "type":"list",
+      "member":{"shape":"Tag"},
+      "max":50,
+      "min":0
     },
     "TargetNotFoundException":{
       "type":"structure",

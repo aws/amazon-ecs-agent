@@ -16,11 +16,11 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"testing"
-
-	"context"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -39,7 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
-
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -188,7 +188,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
+		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -232,7 +232,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
 
@@ -269,7 +269,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)
 
@@ -312,7 +312,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
+		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -362,7 +362,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
+		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
 		state.EXPECT().Reset(),
 	)
 
@@ -414,7 +414,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(ec2InstanceID, nil),
+		ec2MetadataClient.EXPECT().InstanceID().Return(ec2InstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -520,7 +520,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
-		ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return(expectedInstanceID, nil),
+		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
 	)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -569,7 +569,7 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
-	ec2MetadataClient.EXPECT().GetMetadata(instanceIDMetadataPath).Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	assert.Equal(t, "", agent.getEC2InstanceID())
 }
 
@@ -590,7 +590,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(containerInstanceARN, nil),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(containerInstanceARN, nil),
 	)
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -627,7 +627,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
 			"", awserr.New("", apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
@@ -667,7 +667,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
 
@@ -707,7 +707,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
 			"", errors.New("error")),
 	)
 
@@ -747,7 +747,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(containerInstanceARN, nil),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return(containerInstanceARN, nil),
 		stateManager.EXPECT().Save(),
 	)
 
@@ -787,7 +787,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", retriableError),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return("", retriableError),
 	)
 
 	cfg := getTestConfig()
@@ -826,7 +826,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return("", cannotRetryError),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return("", cannotRetryError),
 	)
 
 	cfg := getTestConfig()
@@ -864,7 +864,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return(
 			"", apierrors.NewAttributeError("error")),
 	)
 
@@ -902,7 +902,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", awserr.New("InvalidParameterException", "", nil)),
 	)
 
@@ -921,6 +921,101 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
+}
+func TestMergeTags(t *testing.T) {
+	ec2Key := "ec2Key"
+	ec2Value := "ec2Value"
+	localKey := "localKey"
+	localValue := "localValue"
+	commonKey := "commonKey"
+	commonKeyEC2Value := "commonEC2Value"
+	commonKeyLocalValue := "commonKeyLocalValue"
+
+	localTags := []*ecs.Tag{
+		{
+			Key:   aws.String(localKey),
+			Value: aws.String(localValue),
+		},
+		{
+			Key:   aws.String(commonKey),
+			Value: aws.String(commonKeyLocalValue),
+		},
+	}
+
+	ec2Tags := []*ecs.Tag{
+		{
+			Key:   aws.String(ec2Key),
+			Value: aws.String(ec2Value),
+		},
+		{
+			Key:   aws.String(commonKey),
+			Value: aws.String(commonKeyEC2Value),
+		},
+	}
+
+	mergedTags := mergeTags(localTags, ec2Tags)
+
+	assert.Equal(t, len(mergedTags), 3)
+	sort.Slice(mergedTags, func(i, j int) bool {
+		return aws.StringValue(mergedTags[i].Key) < aws.StringValue(mergedTags[j].Key)
+	})
+
+	assert.Equal(t, commonKey, aws.StringValue(mergedTags[0].Key))
+	assert.Equal(t, commonKeyLocalValue, aws.StringValue(mergedTags[0].Value))
+	assert.Equal(t, ec2Key, aws.StringValue(mergedTags[1].Key))
+	assert.Equal(t, ec2Value, aws.StringValue(mergedTags[1].Value))
+	assert.Equal(t, localKey, aws.StringValue(mergedTags[2].Key))
+	assert.Equal(t, localValue, aws.StringValue(mergedTags[2].Value))
+}
+
+func TestGetContainerInstanceTagsFromEC2API(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+
+	agent := &ecsAgent{
+		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
+	}
+	instanceID := "iid"
+	tags := []*ecs.Tag{
+		{
+			Key:   aws.String("key"),
+			Value: aws.String("value"),
+		},
+	}
+	gomock.InOrder(
+		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil),
+		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return(tags, nil),
+	)
+
+	resTags, err := agent.getContainerInstanceTagsFromEC2API()
+	assert.NoError(t, err)
+	assert.Equal(t, tags, resTags)
+}
+
+func TestGetContainerInstanceTagsFromEC2APIFailToDescribeECSTagsForInstance(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+
+	agent := &ecsAgent{
+		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
+	}
+	instanceID := "iid"
+	gomock.InOrder(
+		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil),
+		ec2Client.EXPECT().DescribeECSTagsForInstance(instanceID).Return(nil, errors.New("error")),
+	)
+
+	resTags, err := agent.getContainerInstanceTagsFromEC2API()
+	assert.Error(t, err)
+	assert.Nil(t, resTags)
 }
 
 func getTestConfig() config.Config {

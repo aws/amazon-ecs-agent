@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,7 +26,8 @@ type ECSClient interface {
 	// ContainerInstanceARN if successful. Supplying a non-empty container
 	// instance ARN allows a container instance to update its registered
 	// resources.
-	RegisterContainerInstance(existingContainerInstanceArn string, attributes []*ecs.Attribute) (string, error)
+	RegisterContainerInstance(existingContainerInstanceArn string,
+		attributes []*ecs.Attribute, tags []*ecs.Tag) (string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitTaskStateChange(change TaskStateChange) error

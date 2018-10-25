@@ -63,12 +63,6 @@ const (
 
 	vpcIDAttributeName    = "ecs.vpc-id"
 	subnetIDAttributeName = "ecs.subnet-id"
-
-	// instanceIDMetadataPath is the metadata path from instance metadata service
-	// to retrieve the instance id.
-	// See https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html
-	// for details
-	instanceIDMetadataPath = "instance-id"
 )
 
 var (
@@ -96,6 +90,7 @@ type agent interface {
 type ecsAgent struct {
 	ctx                   context.Context
 	ec2MetadataClient     ec2.EC2MetadataClient
+	ec2Client             ec2.Client
 	cfg                   *config.Config
 	dockerClient          dockerapi.DockerClient
 	containerInstanceARN  string
@@ -140,6 +135,8 @@ func newAgent(
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
+	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
+
 	dockerClient, err := dockerapi.NewDockerGoClient(
 		clientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg)
 	if err != nil {
@@ -159,6 +156,7 @@ func newAgent(
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
 		cfg:               cfg,
 		dockerClient:      dockerClient,
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
@@ -399,7 +397,7 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 
 // getEC2InstanceID gets the EC2 instance ID from the metadata service
 func (agent *ecsAgent) getEC2InstanceID() string {
-	instanceID, err := agent.ec2MetadataClient.GetMetadata(instanceIDMetadataPath)
+	instanceID, err := agent.ec2MetadataClient.InstanceID()
 	if err != nil {
 		seelog.Warnf(
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
@@ -452,7 +450,6 @@ func (agent *ecsAgent) registerContainerInstance(
 	stateManager statemanager.StateManager,
 	client api.ECSClient,
 	additionalAttributes []*ecs.Attribute) error {
-
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
@@ -464,13 +461,27 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	capabilities := append(agentCapabilities, additionalAttributes...)
 
+	// Get the tags of this container instance defined in config file
+	tags := utils.MapToTags(agent.cfg.ContainerInstanceTags)
+	if agent.cfg.ContainerInstancePropagateTagsFrom == config.ContainerInstancePropagateTagsFromEC2InstanceType {
+		ec2Tags, err := agent.getContainerInstanceTagsFromEC2API()
+		// If we are unable to call the API, we should not treat it as a transient error,
+		// because we've already retried several times, we may throttle the API if we
+		// keep retrying.
+		if err != nil {
+			return err
+		}
+		seelog.Infof("Retrieved Tags from EC2 DescribeTags API:\n%v", ec2Tags)
+		tags = mergeTags(tags, ec2Tags)
+	}
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities)
+		return agent.reregisterContainerInstance(client, capabilities, tags)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities)
+	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities, tags)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -496,8 +507,10 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute) error {
-	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities)
+func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
+	capabilities []*ecs.Attribute, tags []*ecs.Tag) error {
+	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags)
+
 	if err == nil {
 		return nil
 	}
@@ -613,4 +626,31 @@ func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
 	seelog.Criticalf("Required minimum docker API verion %s is not supported",
 		dockerclient.Version_1_21)
 	return exitcodes.ExitTerminal, false
+}
+
+// getContainerInstanceTagsFromEC2API will retrieve the tags of this instance remotely.
+func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecs.Tag, error) {
+	// Get instance ID from ec2 metadata client.
+	instanceID, err := agent.ec2MetadataClient.InstanceID()
+	if err != nil {
+		return nil, err
+	}
+
+	return agent.ec2Client.DescribeECSTagsForInstance(instanceID)
+}
+
+// mergeTags will merge the local tags and ec2 tags, for the overlap part, ec2 tags
+// will be overridden by local tags.
+func mergeTags(localTags []*ecs.Tag, ec2Tags []*ecs.Tag) []*ecs.Tag {
+	tagsMap := make(map[string]string)
+
+	for _, ec2Tag := range ec2Tags {
+		tagsMap[aws.StringValue(ec2Tag.Key)] = aws.StringValue(ec2Tag.Value)
+	}
+
+	for _, localTag := range localTags {
+		tagsMap[aws.StringValue(localTag.Key)] = aws.StringValue(localTag.Value)
+	}
+
+	return utils.MapToTags(tagsMap)
 }

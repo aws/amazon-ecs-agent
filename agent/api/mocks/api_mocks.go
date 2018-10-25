@@ -186,16 +186,16 @@ func (mr *MockECSClientMockRecorder) DiscoverTelemetryEndpoint(arg0 interface{})
 }
 
 // RegisterContainerInstance mocks base method
-func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute) (string, error) {
-	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1)
+func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute, arg2 []*ecs.Tag) (string, error) {
+	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterContainerInstance indicates an expected call of RegisterContainerInstance
-func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSClient)(nil).RegisterContainerInstance), arg0, arg1)
+func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSClient)(nil).RegisterContainerInstance), arg0, arg1, arg2)
 }
 
 // SubmitContainerStateChange mocks base method

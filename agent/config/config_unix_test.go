@@ -90,6 +90,9 @@ func TestConfigFromFile(t *testing.T) {
   "InstanceAttributes": {
     "attribute1": "value1"
   },
+  "ContainerInstanceTags": {
+    "tag1": "value1"
+  },
   "PauseContainerImageName":"%s",
   "PauseContainerTag":"%s",
   "AWSVPCAdditionalLocalRoutes":["169.254.172.1/32"]
@@ -108,6 +111,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.Equal(t, dockerAuthType, cfg.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(cfg.EngineAuthData.Contents()), "docker auth data not as expected from file")
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
+	assert.Equal(t, map[string]string{"tag1": "value1"}, cfg.ContainerInstanceTags)
 	assert.Equal(t, testPauseImageName, cfg.PauseContainerImageName, "should read PauseContainerImageName")
 	assert.Equal(t, testPauseTag, cfg.PauseContainerTag, "should read PauseContainerTag")
 	assert.Equal(t, 1, len(cfg.AWSVPCAdditionalLocalRoutes), "should have one additional local route")
@@ -137,6 +141,9 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
   "TaskIAMRoleEnabled": true,
   "InstanceAttributes": {
     "attribute1": "value1"
+  },
+  "ContainerInstanceTags": {
+    "tag1": "value1"
   }
 }`, dockerAuthType, dockerAuth)
 
@@ -154,6 +161,7 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	assert.Equal(t, dockerAuthType, cfg.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(cfg.EngineAuthData.Contents()), "docker auth data not as expected from file")
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
+	assert.Equal(t, map[string]string{"tag1": "value1"}, cfg.ContainerInstanceTags)
 }
 
 func TestBadFileContent(t *testing.T) {
