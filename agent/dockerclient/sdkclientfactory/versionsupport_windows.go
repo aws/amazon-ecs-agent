@@ -68,6 +68,6 @@ func getAgentVersions() []dockerclient.DockerVersion {
 }
 
 // getDefaultVersion returns agent's default version of the Docker API
-func getDefaultVersion() dockerclient.DockerVersion {
+func GetDefaultVersion() dockerclient.DockerVersion {
 	return minDockerAPIVersion
 }

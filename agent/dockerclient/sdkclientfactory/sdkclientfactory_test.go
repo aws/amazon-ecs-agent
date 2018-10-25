@@ -19,12 +19,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
 	docker "github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 const expectedEndpoint = "expectedEndpoint"
@@ -36,7 +36,7 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 	expectedClient := mock_sdkclient.NewMockClient(ctrl)
 	newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
 		mockClient := mock_sdkclient.NewMockClient(ctrl)
-		if version == string(getDefaultVersion()) {
+		if version == string(GetDefaultVersion()) {
 			mockClient = expectedClient
 		}
 		mockClient.EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()

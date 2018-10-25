@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -96,7 +97,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	}
 	agent.Image = agentImage
 
-	dockerClient, err := docker.NewEnvClient()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatal(err)
 	}
