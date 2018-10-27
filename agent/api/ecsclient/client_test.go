@@ -50,8 +50,22 @@ const (
 )
 
 var (
-	iidResponse          = []byte(iid)
-	iidSignatureResponse = []byte(iidSignature)
+	iidResponse           = []byte(iid)
+	iidSignatureResponse  = []byte(iidSignature)
+	containerInstanceTags = []*ecs.Tag{
+		{
+			Key:   aws.String("my_key1"),
+			Value: aws.String("my_val1"),
+		},
+		{
+			Key:   aws.String("my_key2"),
+			Value: aws.String("my_val2"),
+		},
+	}
+	containerInstanceTagsMap = map[string]string{
+		"my_key1": "my_val1",
+		"my_key2": "my_val2",
+	}
 )
 
 func NewMockClient(ctrl *gomock.Controller,
@@ -339,13 +353,19 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			reqAttributes := func() map[string]string {
 				rv := make(map[string]string, len(req.Attributes))
 				for i := range req.Attributes {
-					rv[*req.Attributes[i].Name] = aws.StringValue(req.Attributes[i].Value)
+					rv[aws.StringValue(req.Attributes[i].Name)] = aws.StringValue(req.Attributes[i].Value)
 				}
 				return rv
 			}()
 			for k, v := range reqAttributes {
 				assert.Contains(t, expectedAttributes, k)
 				assert.Equal(t, expectedAttributes[k], v)
+			}
+			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
+			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
+			for k, v := range reqTags {
+				assert.Contains(t, containerInstanceTagsMap, k)
+				assert.Equal(t, containerInstanceTagsMap[k], v)
 			}
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
@@ -355,7 +375,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("arn:test", capabilities)
+	arn, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -402,6 +422,12 @@ func TestRegisterContainerInstance(t *testing.T) {
 					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
 				}
 			}
+			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
+			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
+			for k, v := range reqTags {
+				assert.Contains(t, containerInstanceTagsMap, k)
+				assert.Equal(t, containerInstanceTagsMap[k], v)
+			}
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
 				ContainerInstanceArn: aws.String("registerArn"),
@@ -409,7 +435,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities)
+	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 }
@@ -456,6 +482,12 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
 				}
 			}
+			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
+			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
+			for k, v := range reqTags {
+				assert.Contains(t, containerInstanceTagsMap, k)
+				assert.Equal(t, containerInstanceTagsMap[k], v)
+			}
 		}).Return(&ecs.RegisterContainerInstanceOutput{
 			ContainerInstance: &ecs.ContainerInstance{
 				ContainerInstanceArn: aws.String("registerArn"),
@@ -463,7 +495,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities)
+	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 }
@@ -489,7 +521,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, err := client.RegisterContainerInstance("", nil)
+	_, err := client.RegisterContainerInstance("", nil, nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -563,7 +595,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", nil)
+	arn, err := client.RegisterContainerInstance("", nil, nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -822,4 +854,12 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func extractTagsMapFromRegisterContainerInstanceInput(req *ecs.RegisterContainerInstanceInput) map[string]string {
+	tagsMap := make(map[string]string, len(req.Tags))
+	for i := range req.Tags {
+		tagsMap[aws.StringValue(req.Tags[i].Key)] = aws.StringValue(req.Tags[i].Value)
+	}
+	return tagsMap
 }

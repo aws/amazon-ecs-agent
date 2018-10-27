@@ -987,3 +987,99 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	rExitCode, _ := rTask.ContainerExitcode("task-shared-vol-read")
 	assert.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
 }
+
+// TestHostPIDNamespaceSharing tests the visibility of an executable running on one Task from
+// another Task. Both tasks share their PID namespace with Host. Second Task should see the
+// running executable.
+func TestHostPIDNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "pid-namespace-host-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "pid-namespace-host-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("pidConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping pid-namespace-host-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for pid-namespace-host-share task to stop")
+	assert.Equal(t, 1, rExitCode, "Container could not see pidNamespaceTest process, but should")
+}
+
+// TestTaskPIDNamespaceSharing tests the visibility of an executable running on one Task from
+// another Task. Both tasks share their PID namespace within their respective Tasks. Second
+// Task should not see the running executable.
+func TestTaskPIDNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "pid-namespace-task-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "pid-namespace-task-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("pidConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping pid-namespace-task-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for pid-namespace-task-share task to stop")
+	assert.Equal(t, 2, rExitCode, "Container could see pidNamespaceTest process, but shouldn't")
+}
+
+// TestHostIPCNamespaceSharing tests the visibility of an IPC semaphore created on one Task from
+// another Task. Both tasks share their IPC namespace with Host. Second Task should see the
+// created semaphore.
+func TestHostIPCNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "ipc-namespace-host-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "ipc-namespace-host-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("ipcConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping ipc-namespace-host-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for ipc-namespace-host-share task to stop")
+	assert.Equal(t, 1, rExitCode, "Container could not see IPC resource, but should")
+}
+
+// TestTaskIPCNamespaceSharing tests the visibility of an IPC semaphore created on one Task from
+// another Task. Both tasks share their IPC namespace within their respective Tasks. Second
+// Task should not see the created semaphore.
+func TestTaskIPCNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "ipc-namespace-task-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "ipc-namespace-task-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("ipcConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping ipc-namespace-task-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for ipc-namespace-task-share task to stop")
+	assert.Equal(t, 2, rExitCode, "Container could see IPC resource, but shouldn't")
+}

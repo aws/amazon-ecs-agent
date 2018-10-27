@@ -25,8 +25,10 @@ import (
 	"strings"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
@@ -207,4 +209,21 @@ func ParseBool(str string, default_ bool) bool {
 func IsAWSErrorCodeEqual(err error, code string) bool {
 	awsErr, ok := err.(awserr.Error)
 	return ok && awsErr.Code() == code
+}
+
+// MapToTags converts a map to a slice of tags.
+func MapToTags(tagsMap map[string]string) []*ecs.Tag {
+	tags := make([]*ecs.Tag, 0)
+	if tagsMap == nil {
+		return tags
+	}
+
+	for key, value := range tagsMap {
+		tags = append(tags, &ecs.Tag{
+			Key:   aws.String(key),
+			Value: aws.String(value),
+		})
+	}
+
+	return tags
 }

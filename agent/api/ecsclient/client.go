@@ -107,7 +107,8 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 // ContainerInstanceARN if successful. Supplying a non-empty container
 // instance ARN allows a container instance to update its registered
 // resources.
-func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
+func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string,
+	attributes []*ecs.Attribute, tags []*ecs.Tag) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -118,7 +119,7 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes)
+		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
@@ -129,10 +130,11 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 			return "", err
 		}
 	}
-	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes)
+	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags)
 }
 
-func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string, attributes []*ecs.Attribute) (string, error) {
+func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
+	attributes []*ecs.Attribute, tags []*ecs.Tag) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -155,6 +157,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	// Add additional attributes such as the os type
 	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
 	registerRequest.Attributes = registrationAttributes
+	registerRequest.Tags = tags
 	registerRequest = client.setInstanceIdentity(registerRequest)
 
 	resources, err := client.getResources()
