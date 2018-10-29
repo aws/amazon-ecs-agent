@@ -45,6 +45,10 @@ func (blackholeMetadataClient) SubnetID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) InstanceID() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) GetMetadata(path string) (string, error) {
 	return "", errors.New("blackholed")
 }

@@ -273,7 +273,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 				Name: "c1",
 			},
 			{
-				Name: PauseContainerName,
+				Name: NetworkPauseContainerName,
 				Type: apicontainer.ContainerCNIPause,
 			},
 		},
@@ -285,7 +285,7 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	// for a non pause container
 	config, err := testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
-	assert.Equal(t, "container:"+dockerIDPrefix+PauseContainerName, string(config.NetworkMode))
+	assert.Equal(t, "container:"+dockerIDPrefix+NetworkPauseContainerName, string(config.NetworkMode))
 
 	// Verify that the network mode is not set to "none"  for the
 	// empty volume container
@@ -749,6 +749,223 @@ func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 		assert.Equal(t, 0, len(vol.VolumeConfig.Labels))
 	}
 
+}
+
+// Slice of structs for Table Driven testing for sharing PID and IPC resources
+var namespaceTests = []struct {
+	PIDMode         string
+	IPCMode         string
+	ShouldProvision bool
+}{
+	{"", "none", false},
+	{"", "", false},
+	{"host", "host", false},
+	{"task", "task", true},
+	{"host", "task", true},
+	{"task", "host", true},
+	{"", "task", true},
+	{"task", "none", true},
+	{"host", "none", false},
+	{"host", "", false},
+	{"", "host", false},
+}
+
+// Testing the Getter functions for IPCMode and PIDMode
+func TestGetPIDAndIPCFromTask(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTask := &Task{
+			Containers: []*apicontainer.Container{
+				{
+					Name: "c1",
+				},
+				{
+					Name: "c2",
+				},
+			},
+			PIDMode: aTest.PIDMode,
+			IPCMode: aTest.IPCMode,
+		}
+		assert.Equal(t, aTest.PIDMode, testTask.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, testTask.getIPCMode())
+	}
+}
+
+// Tests if NamespacePauseContainer was provisioned in PostUnmarshalTask
+func TestPostUnmarshalTaskWithPIDSharing(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTaskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			PidMode:       strptr(aTest.PIDMode),
+			IpcMode:       strptr(aTest.IPCMode),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: strptr("container1"),
+				},
+				{
+					Name: strptr("container2"),
+				},
+			},
+		}
+
+		seqNum := int64(42)
+		task, err := TaskFromACS(&testTaskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
+		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
+		cfg := config.Config{}
+		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		if aTest.ShouldProvision {
+			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
+		} else {
+			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
+		}
+	}
+}
+
+func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		taskFromACS := ecsacs.Task{
+			Arn:           strptr("myArn"),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			PidMode:       strptr(aTest.PIDMode),
+			IpcMode:       strptr(aTest.IPCMode),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: strptr("container1"),
+				},
+				{
+					Name: strptr("container2"),
+				},
+			},
+		}
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		assert.Nil(t, err, "Should be able to handle acs task")
+		assert.Equal(t, aTest.PIDMode, task.getPIDMode())
+		assert.Equal(t, aTest.IPCMode, task.getIPCMode())
+		assert.Equal(t, 2, len(task.Containers)) // before PostUnmarshalTask
+		cfg := config.Config{}
+		task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		if !aTest.ShouldProvision {
+			assert.Equal(t, 2, len(task.Containers), "Namespace Pause Container should NOT be created.")
+			docMaps := dockerMap(task)
+			for _, container := range task.Containers {
+				//configure HostConfig for each container
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				assert.Nil(t, err)
+				assert.Equal(t, task.IPCMode, string(dockHostCfg.IpcMode))
+				assert.Equal(t, task.PIDMode, string(dockHostCfg.PidMode))
+				switch aTest.IPCMode {
+				case "host":
+					assert.True(t, dockHostCfg.IpcMode.IsHost())
+				case "none":
+					assert.True(t, dockHostCfg.IpcMode.IsNone())
+				case "":
+					assert.True(t, dockHostCfg.IpcMode.IsEmpty())
+				}
+				switch aTest.PIDMode {
+				case "host":
+					assert.True(t, dockHostCfg.PidMode.IsHost())
+				case "":
+					assert.Equal(t, "", string(dockHostCfg.PidMode))
+				}
+			}
+		} else {
+			assert.Equal(t, 3, len(task.Containers), "Namespace Pause Container should be created.")
+
+			namespacePause, ok := task.ContainerByName(NamespacePauseContainerName)
+			if !ok {
+				t.Fatal("Namespace Pause Container not found")
+			}
+
+			docMaps := dockerMap(task)
+			dockerName := docMaps[namespacePause.Name].DockerID
+
+			for _, container := range task.Containers {
+				//configure HostConfig for each container
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				assert.Nil(t, err)
+				if namespacePause == container {
+					// Expected behavior for IPCMode="task" is "shareable"
+					if aTest.IPCMode == "task" {
+						assert.True(t, dockHostCfg.IpcMode.IsShareable())
+					} else {
+						assert.True(t, dockHostCfg.IpcMode.IsEmpty())
+					}
+					// Expected behavior for any PIDMode is ""
+					assert.Equal(t, "", string(dockHostCfg.PidMode))
+				} else {
+					switch aTest.IPCMode {
+					case "task":
+						assert.True(t, dockHostCfg.IpcMode.IsContainer())
+						assert.Equal(t, dockerName, dockHostCfg.IpcMode.Container())
+					case "host":
+						assert.True(t, dockHostCfg.IpcMode.IsHost())
+					}
+
+					switch aTest.PIDMode {
+					case "task":
+						assert.True(t, dockHostCfg.PidMode.IsContainer())
+						assert.Equal(t, dockerName, dockHostCfg.PidMode.Container())
+					case "host":
+						assert.True(t, dockHostCfg.PidMode.IsHost())
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
+	for _, aTest := range namespaceTests {
+		testTask := &Task{
+			PIDMode: aTest.PIDMode,
+			IPCMode: aTest.IPCMode,
+			Containers: []*apicontainer.Container{
+				{
+					Name: "c1",
+					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				},
+				{
+					Name: "c2",
+					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+				},
+			},
+		}
+		cfg := &config.Config{
+			PauseContainerImageName: "pause-container-image-name",
+			PauseContainerTag:       "pause-container-tag",
+		}
+		testTask.addNamespaceSharingProvisioningDependency(cfg)
+		if aTest.ShouldProvision {
+			pauseContainer, ok := testTask.ContainerByName(NamespacePauseContainerName)
+			require.True(t, ok, "Expected to find pause container")
+			assert.True(t, pauseContainer.Essential, "Pause Container should be essential")
+			assert.Equal(t, len(testTask.Containers), 3)
+			for _, cont := range testTask.Containers {
+				// Check if dependency to Pause container was set
+				if cont.Name == NamespacePauseContainerName {
+					continue
+				}
+				found := false
+				for _, contDep := range cont.TransitionDependenciesMap[apicontainerstatus.ContainerPulled].ContainerDependencies {
+					if contDep.ContainerName == NamespacePauseContainerName && contDep.SatisfiedStatus == apicontainerstatus.ContainerRunning {
+						found = true
+					}
+				}
+				assert.True(t, found, "Dependency should have been found")
+			}
+		} else {
+			assert.Equal(t, len(testTask.Containers), 2, "Pause Container should not have been added")
+		}
+
+	}
 }
 
 func TestTaskFromACS(t *testing.T) {
@@ -1588,7 +1805,7 @@ func TestMarshalUnmarshalTaskASMResource(t *testing.T) {
 
 func TestSetTerminalReason(t *testing.T) {
 
-	expectedTerminalReason := "failed to provison resource"
+	expectedTerminalReason := "Failed to provision resource"
 	overrideTerminalReason := "should not override terminal reason"
 
 	task := &Task{}

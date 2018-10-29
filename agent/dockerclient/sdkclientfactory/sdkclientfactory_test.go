@@ -141,8 +141,8 @@ func TestCompareDockerVersionsWithMinAPIVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	minAPIVersion := "1.12"
-	apiVersion := "1.27"
-	versions := []string{"1.11", "1.29"}
+	apiVersion := "1.32"
+	versions := []string{"1.11", "1.33"}
 	rightVersion := "1.25"
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

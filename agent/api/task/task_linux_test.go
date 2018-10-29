@@ -64,7 +64,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		ENI: &apieni.ENI{},
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -76,7 +76,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask.addNetworkResourceProvisioningDependency(cfg)
 	assert.Equal(t, 2, len(testTask.Containers),
 		"addNetworkResourceProvisioningDependency should add another container")
-	pauseContainer, ok := testTask.ContainerByName(PauseContainerName)
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
 	require.True(t, ok, "Expected to find pause container")
 	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
@@ -358,7 +358,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -386,7 +386,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -406,8 +406,8 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name:   "C1",
-				Memory: uint(2048), // container memory > task memory
+				Name:                      "C1",
+				Memory:                    uint(2048), // container memory > task memory
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -426,7 +426,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},

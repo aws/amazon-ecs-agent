@@ -14,7 +14,7 @@
 USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 
 all: docker
 
@@ -172,7 +172,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -235,7 +235,7 @@ cni-plugins: get-cni-sources .out-stamp
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=7m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && go test -race -tags integration -timeout=10m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 
 run-sudo-tests:
 	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
@@ -252,6 +252,17 @@ netkitten:
 
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
+
+namespace-tests:
+	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
+	@docker run --net=none \
+		-u "$(USERID)" \
+		-v "$(PWD)/misc/namespace-tests:/out" \
+		-v "$(PWD)/misc/namespace-tests/buildContainer:/usr/src/buildContainer" \
+		"amazon/amazon-ecs-namespace-tests:make"
+
+	$(MAKE) -C misc/namespace-tests $(MFLAGS)
+	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
@@ -337,6 +348,7 @@ clean:
 	$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
+	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean

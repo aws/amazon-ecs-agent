@@ -10,6 +10,14 @@
   version = "v0.4.7"
 
 [[projects]]
+  branch = "master"
+  digest = "1:3721a10686511b80c052323423f0de17a8c06d417dbdd3b392b1578432a33aae"
+  name = "github.com/Nvveen/Gotty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "cd527374f1e5bff4938207604a14f2e38a9cf512"
+
+[[projects]]
   digest = "1:4b0ad81a6f99b066516c3888a6b160f786f975364c8e0e3be6559c499ef2e92f"
   name = "github.com/aws/aws-sdk-go"
   packages = [
@@ -35,6 +43,7 @@
     "internal/shareddefaults",
     "private/model/api",
     "private/protocol",
+    "private/protocol/ec2query",
     "private/protocol/json/jsonutil",
     "private/protocol/jsonrpc",
     "private/protocol/query",
@@ -44,6 +53,7 @@
     "private/util",
     "service/cloudwatch",
     "service/cloudwatchlogs",
+    "service/ec2",
     "service/iam",
     "service/secretsmanager",
     "service/secretsmanager/secretsmanageriface",
@@ -430,6 +440,7 @@
     "github.com/aws/aws-sdk-go/private/util",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
+    "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/secretsmanager",
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",

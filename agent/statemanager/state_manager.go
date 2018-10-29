@@ -65,11 +65,12 @@ const (
 	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'apicontainer.Container'
 	// 13) Add 'resources' field to 'api.task.task'
 	// 14) Add 'PlatformFields' field to 'api.task.task'
-	// 15) Add 'V3EndpointID' field to 'Container' struct
-	// 16)
+	// 15) Add 'PIDMode' and 'IPCMode' fields to 'api.task.task'
+	// 16) Add 'V3EndpointID' field to 'Container' struct
+	// 17)
 	//   a) Add 'secrets' field to 'apicontainer.Container'
 	//   b) Add 'ssmsecret' field to 'resources'
-	ECSDataVersion = 16
+	ECSDataVersion = 17
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
