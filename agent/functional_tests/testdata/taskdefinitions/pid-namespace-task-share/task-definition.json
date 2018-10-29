@@ -1,0 +1,12 @@
+{
+    "family": "ecsftest-task-pid-namespace-share",
+    "pidMode": "task",
+    "containerDefinitions": [
+        {
+            "name": "pidProducer",
+            "image": "127.0.0.1:51670/amazon/amazon-ecs-pid-namespace-test:latest",
+            "cpu": 100,
+            "memory": 80
+        }
+    ]
+}

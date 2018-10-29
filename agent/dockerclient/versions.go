@@ -30,6 +30,8 @@ const (
 	Version_1_28 DockerVersion = "1.28"
 	Version_1_29 DockerVersion = "1.29"
 	Version_1_30 DockerVersion = "1.30"
+	Version_1_31 DockerVersion = "1.31"
+	Version_1_32 DockerVersion = "1.32"
 )
 
 // getKnownAPIVersions returns all of the API versions that we know about.
@@ -50,5 +52,7 @@ func GetKnownAPIVersions() []DockerVersion {
 		Version_1_28,
 		Version_1_29,
 		Version_1_30,
+		Version_1_31,
+		Version_1_32,
 	}
 }

@@ -52,8 +52,12 @@ import (
 )
 
 const (
-	// PauseContainerName is the internal name for the pause container
-	PauseContainerName = "~internal~ecs~pause"
+	// NetworkPauseContainerName is the internal name for the pause container
+	NetworkPauseContainerName = "~internal~ecs~pause"
+
+	// NamespacePauseContainerName is the internal name for the IPC resource namespace and/or
+	// PID namespace sharing pause container
+	NamespacePauseContainerName = "~internal~ecs~pause~namespace"
 
 	emptyHostVolumeName = "~internal~ecs-emptyvolume-source"
 
@@ -66,13 +70,21 @@ const (
 	arnResourceDelimiter = "/"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
-	// networkModeContainerPrefix specifies the prefix string used for setting the
-	// container's network mode to be mapped to that of another existing container
-	networkModeContainerPrefix = "container:"
+	// dockerMappingContainerPrefix specifies the prefix string used for setting the
+	// container's option (network, ipc, or pid) to that of another existing container
+	dockerMappingContainerPrefix = "container:"
 
 	// awslogsCredsEndpointOpt is the awslogs option that is used to pass in an
 	// http endpoint for authentication
 	awslogsCredsEndpointOpt = "awslogs-credentials-endpoint"
+
+	// These contants identify the docker flag options
+	pidModeHost     = "host"
+	pidModeTask     = "task"
+	ipcModeHost     = "host"
+	ipcModeTask     = "task"
+	ipcModeSharable = "shareable"
+	ipcModeNone     = "none"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -168,6 +180,14 @@ type Task struct {
 	terminalReason     string
 	terminalReasonOnce sync.Once
 
+	// PIDMode is used to determine how PID namespaces are organized between
+	// containers of the Task
+	PIDMode string `json:"PidMode,omitempty"`
+
+	// IPCMode is used to determine how IPC resources should be shared among
+	// containers of the Task
+	IPCMode string `json:"IpcMode,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -239,6 +259,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.addNetworkResourceProvisioningDependency(cfg)
+	// Adds necessary Pause containers for sharing PID or IPC namespaces
+	task.addNamespaceSharingProvisioningDependency(cfg)
+
 	return nil
 }
 
@@ -592,7 +615,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 	}
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	pauseContainer.Name = PauseContainerName
+	pauseContainer.Name = NetworkPauseContainerName
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
@@ -602,8 +625,30 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		if container.IsInternal() {
 			continue
 		}
-		container.BuildContainerDependency(PauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
+		container.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+	}
+}
+
+func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) {
+	// Pause container does not need to be created if no namespace sharing will be done at task level
+	if task.getIPCMode() != ipcModeTask && task.getPIDMode() != pidModeTask {
+		return
+	}
+	namespacePauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerRunning)
+	namespacePauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	namespacePauseContainer.Name = NamespacePauseContainerName
+	namespacePauseContainer.Image = fmt.Sprintf("%s:%s", config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag)
+	namespacePauseContainer.Essential = true
+	namespacePauseContainer.Type = apicontainer.ContainerNamespacePause
+	task.Containers = append(task.Containers, namespacePauseContainer)
+
+	for _, container := range task.Containers {
+		if container.IsInternal() {
+			continue
+		}
+		container.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled)
+		namespacePauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
 }
 
@@ -897,21 +942,29 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 
 	// Determine if network mode should be overridden and override it if needed
 	ok, networkMode := task.shouldOverrideNetworkMode(container, dockerContainerMap)
-	if !ok {
-		return hostConfig, nil
-	}
-	hostConfig.NetworkMode = networkMode
-	// Override 'awsvpc' parameters if needed
-	if container.Type == apicontainer.ContainerCNIPause {
+	if ok {
+		hostConfig.NetworkMode = networkMode
+		// Override 'awsvpc' parameters if needed
+		if container.Type == apicontainer.ContainerCNIPause {
+			// apply ExtraHosts to HostConfig for pause container
+			if hosts := task.generateENIExtraHosts(); hosts != nil {
+				hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
+			}
 
-		// apply ExtraHosts to HostConfig for pause container
-		if hosts := task.generateENIExtraHosts(); hosts != nil {
-			hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
+			// Override the DNS settings for the pause container if ENI has custom
+			// DNS settings
+			return task.overrideDNS(hostConfig), nil
 		}
+	}
 
-		// Override the DNS settings for the pause container if ENI has custom
-		// DNS settings
-		return task.overrideDNS(hostConfig), nil
+	ok, pidMode := task.shouldOverridePIDMode(container, dockerContainerMap)
+	if ok {
+		hostConfig.PidMode = pidMode
+	}
+
+	ok, ipcMode := task.shouldOverrideIPCMode(container, dockerContainerMap)
+	if ok {
+		hostConfig.IpcMode = ipcMode
 	}
 
 	return hostConfig, nil
@@ -958,7 +1011,7 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 			container.String(), task.String())
 		return false, ""
 	}
-	return true, networkModeContainerPrefix + pauseContainer.DockerID
+	return true, dockerMappingContainerPrefix + pauseContainer.DockerID
 }
 
 // overrideDNS overrides a container's host config if the following conditions are
@@ -1017,6 +1070,95 @@ func (task *Task) generateENIExtraHosts() []string {
 		extraHosts = append(extraHosts, host)
 	}
 	return extraHosts
+}
+
+// shouldOverridePIDMode returns true if the PIDMode of the container needs
+// to be overridden. It also returns the override string in this case. It returns
+// false otherwise
+func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
+	// If the container is an internal container (ContainerEmptyHostVolume,
+	// ContainerCNIPause, or ContainerNamespacePause), then PID namespace for
+	// the container itself should be private (default Docker option)
+	if container.IsInternal() {
+		return false, ""
+	}
+
+	switch task.getPIDMode() {
+	case pidModeHost:
+		return true, pidModeHost
+
+	case pidModeTask:
+		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
+		if !ok {
+			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.SetDesiredStatus(apitaskstatus.TaskStopped)
+			return false, ""
+		}
+		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
+		if !ok || pauseDockerID == nil {
+			// Docker container shouldn't be nil or not exist if the Container definition within task exists; implies code-bug
+			seelog.Criticalf("Namespace Pause docker container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.SetDesiredStatus(apitaskstatus.TaskStopped)
+			return false, ""
+		}
+		return true, dockerMappingContainerPrefix + pauseDockerID.DockerID
+
+	// If PIDMode is not Host or Task, then no need to override
+	default:
+		return false, ""
+	}
+}
+
+// shouldOverrideIPCMode returns true if the IPCMode of the container needs
+// to be overridden. It also returns the override string in this case. It returns
+// false otherwise
+func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) (bool, string) {
+	// All internal containers do not need the same IPCMode. The NamespaceContainerPause
+	// needs to be "shareable" if ipcMode is "task". All other internal containers should
+	// defer to the Docker daemon default option (either shareable or private depending on
+	// version and configuration)
+	if container.IsInternal() {
+		if container.Type == apicontainer.ContainerNamespacePause {
+			// Setting NamespaceContainerPause to be sharable with other containers
+			if task.getIPCMode() == ipcModeTask {
+				return true, ipcModeSharable
+			}
+		}
+		// Defaulting to Docker daemon default option
+		return false, ""
+	}
+
+	switch task.getIPCMode() {
+	// No IPCMode provided in Task Definition, no need to override
+	case "":
+		return false, ""
+
+	// IPCMode is none - container will have own private namespace with /dev/shm not mounted
+	case ipcModeNone:
+		return true, ipcModeNone
+
+	case ipcModeHost:
+		return true, ipcModeHost
+
+	case ipcModeTask:
+		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
+		if !ok {
+			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.SetDesiredStatus(apitaskstatus.TaskStopped)
+			return false, ""
+		}
+		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
+		if !ok || pauseDockerID == nil {
+			// Docker container shouldn't be nill or not exist if the Container definition within task exists; implies code-bug
+			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.SetDesiredStatus(apitaskstatus.TaskStopped)
+			return false, ""
+		}
+		return true, dockerMappingContainerPrefix + pauseDockerID.DockerID
+
+	default:
+		return false, ""
+	}
 }
 
 func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) ([]string, error) {
@@ -1549,4 +1691,20 @@ func (task *Task) InitializeResources(resourceFields *taskresource.ResourceField
 			resource.Initialize(resourceFields, task.KnownStatusUnsafe, task.DesiredStatusUnsafe)
 		}
 	}
+}
+
+// Retrieves a Task's PIDMode
+func (task *Task) getPIDMode() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.PIDMode
+}
+
+// Retrieves a Task's IPCMode
+func (task *Task) getIPCMode() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.IPCMode
 }

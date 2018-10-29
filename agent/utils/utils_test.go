@@ -18,6 +18,7 @@ package utils
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
-
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -309,4 +310,29 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 			assert.Equal(t, tc.res, IsAWSErrorCodeEqual(tc.err, ecs.ErrCodeInvalidParameterException))
 		})
 	}
+}
+
+func TestMapToTags(t *testing.T) {
+	tagKey1 := "tagKey1"
+	tagKey2 := "tagKey2"
+	tagValue1 := "tagValue1"
+	tagValue2 := "tagValue2"
+	tagsMap := map[string]string{
+		tagKey1: tagValue1,
+		tagKey2: tagValue2,
+	}
+	tags := MapToTags(tagsMap)
+	assert.Equal(t, 2, len(tags))
+	sort.Slice(tags, func(i, j int) bool {
+		return aws.StringValue(tags[i].Key) < aws.StringValue(tags[j].Key)
+	})
+
+	assert.Equal(t, aws.StringValue(tags[0].Key), tagKey1)
+	assert.Equal(t, aws.StringValue(tags[0].Value), tagValue1)
+	assert.Equal(t, aws.StringValue(tags[1].Key), tagKey2)
+	assert.Equal(t, aws.StringValue(tags[1].Value), tagValue2)
+}
+
+func TestNilMapToTags(t *testing.T) {
+	assert.Zero(t, len(MapToTags(nil)))
 }

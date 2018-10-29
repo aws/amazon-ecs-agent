@@ -29,7 +29,7 @@
   revision = "cd527374f1e5bff4938207604a14f2e38a9cf512"
 
 [[projects]]
-  digest = "1:4b0ad81a6f99b066516c3888a6b160f786f975364c8e0e3be6559c499ef2e92f"
+  digest = "1:079c1d69b982d2028f3328cb5f9049fc0e5704caa174ecf6fa5530a4b674ae49"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -54,6 +54,7 @@
     "internal/shareddefaults",
     "private/model/api",
     "private/protocol",
+    "private/protocol/ec2query",
     "private/protocol/json/jsonutil",
     "private/protocol/jsonrpc",
     "private/protocol/query",
@@ -63,6 +64,7 @@
     "private/util",
     "service/cloudwatch",
     "service/cloudwatchlogs",
+    "service/ec2",
     "service/iam",
     "service/secretsmanager",
     "service/secretsmanager/secretsmanageriface",
@@ -449,6 +451,7 @@
     "github.com/aws/aws-sdk-go/private/util",
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
+    "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/secretsmanager",
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",
