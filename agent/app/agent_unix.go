@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
-	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -30,6 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -200,8 +201,9 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
-		Ctx:          agent.ctx,
-		DockerClient: agent.dockerClient,
+		Ctx:              agent.ctx,
+		DockerClient:     agent.dockerClient,
+		NvidiaGPUManager: gpu.NewNvidiaGPUManager(),
 	}
 }
 
@@ -217,5 +219,12 @@ func (agent *ecsAgent) cgroupInit() error {
 	}
 	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
 	agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	return nil
+}
+
+func (agent *ecsAgent) initializeGPUManager() error {
+	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+		return agent.resourceFields.NvidiaGPUManager.Initialize()
+	}
 	return nil
 }

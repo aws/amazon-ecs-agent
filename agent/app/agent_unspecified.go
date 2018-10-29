@@ -40,3 +40,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 func (agent *ecsAgent) cgroupInit() error {
 	return nil
 }
+
+func (agent *ecsAgent) initializeGPUManager() error {
+	return nil
+}

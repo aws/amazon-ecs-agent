@@ -231,6 +231,12 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
+	err := agent.initializeGPUManager()
+	if err != nil {
+		seelog.Criticalf("Could not initialize Nvidia GPU Manager: %v", err)
+		return exitcodes.ExitError
+	}
+
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
 		credentialsManager, state, imageManager)

@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/gpu/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -575,4 +576,112 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		credentialsManager, state, imageManager, client)
 
 	assert.Equal(t, exitcodes.ExitTerminal, status)
+}
+
+func TestDoStartGPUManagerHappyPath(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	var discoverEndpointsInvoked sync.WaitGroup
+	discoverEndpointsInvoked.Add(2)
+	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
+
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+
+	gomock.InOrder(
+		mockGPUManager.EXPECT().Initialize().Return(nil),
+		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
+		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).Return([]string{}, nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return("arn", nil),
+		imageManager.EXPECT().SetSaver(gomock.Any()),
+		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
+		state.EXPECT().AllImageStates().Return(nil),
+		state.EXPECT().AllTasks().Return(nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until acs session has been started
+			discoverEndpointsInvoked.Done()
+		}).Return("poll-endpoint", nil),
+		client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes(),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
+			// Ensures that the test waits until telemetry session has been started
+			discoverEndpointsInvoked.Done()
+		}).Return("telemetry-endpoint", nil),
+		client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
+			"tele-endpoint", nil).AnyTimes(),
+		dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			dockerapi.ListContainersResponse{}).AnyTimes(),
+	)
+
+	cfg := getTestConfig()
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dockerClient:       dockerClient,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		mobyPlugins:        mockMobyPlugins,
+		resourceFields: &taskresource.ResourceFields{
+			NvidiaGPUManager: mockGPUManager,
+		},
+	}
+
+	go agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+
+	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
+	// invoked. These are used as proxies to indicate that acs and tcs handlers'
+	// NewSession call has been invoked
+
+	discoverEndpointsInvoked.Wait()
+}
+
+func TestDoStartGPUManagerInitError(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
+	var discoverEndpointsInvoked sync.WaitGroup
+	discoverEndpointsInvoked.Add(2)
+
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+	mockGPUManager.EXPECT().Initialize().Return(errors.New("init error"))
+
+	cfg := getTestConfig()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dockerClient:       dockerClient,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		resourceFields: &taskresource.ResourceFields{
+			NvidiaGPUManager: mockGPUManager,
+		},
+	}
+
+	status := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+
+	assert.Equal(t, exitcodes.ExitError, status)
 }
