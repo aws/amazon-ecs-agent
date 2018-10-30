@@ -2,7 +2,7 @@
 
 ## 1.22.0-dev
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
-* Feature - Introduce two environment variables `ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM` and `ECS_CONTAINER_INSTANCE_TAGS` to support ECS tagging [#1618](https://github.com/aws/amazon-ecs-agent/pull/1618)
+* Feature - Support for `--pid`, `--ipc` Docker run flags. [#1584](https://github.com/aws/amazon-ecs-agent/pull/1584)
 
 ## 1.21.0
 * Feature - Add v3 task metadata support for awsvpc, host and bridge network mode
