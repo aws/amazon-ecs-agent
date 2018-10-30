@@ -126,6 +126,25 @@
         "messageId":{"shape":"String"}
       }
     },
+    "Association":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "type":{"shape":"AssociationType"},
+        "content":{"shape":"EncodedString"},
+        "containers":{"shape":"StringList"}
+      }
+    },
+    "AssociationType":{
+      "type":"string",
+      "enum":[
+        "gpu"
+      ]
+    },
+    "Associations":{
+      "type":"list",
+      "member":{"shape":"Association"}
+    },
     "AttachTaskNetworkInterfacesMessage":{
       "type":"structure",
       "members":{
@@ -235,6 +254,20 @@
     "ElasticNetworkInterfaceList":{
       "type":"list",
       "member":{"shape":"ElasticNetworkInterface"}
+    },
+    "EncodedString":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "encoding":{"shape":"Encoding"}
+      }
+    },
+    "Encoding":{
+      "type":"string",
+      "enum":[
+        "identity",
+        "base64"
+      ]
     },
     "EnvironmentVariables":{
       "type":"map",
@@ -492,6 +525,7 @@
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
         "cpu":{"shape":"Double"},
         "memory":{"shape":"Integer"},
+        "associations":{"shape":"Associations"},
         "pidMode":{"shape":"String"},
         "ipcMode":{"shape":"String"}
       }

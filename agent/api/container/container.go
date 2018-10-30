@@ -98,6 +98,8 @@ type Container struct {
 	Command []string
 	// CPU is the cpu limitation of the container which is specified in the task definition
 	CPU uint `json:"Cpu"`
+	// GPUIDs is the list of GPU ids for a container
+	GPUIDs []string
 	// Memory is the memory limitation of the container which is specified in the task definition
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link

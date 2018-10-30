@@ -69,6 +69,28 @@ func (s AckRequest) GoString() string {
 	return s.String()
 }
 
+type Association struct {
+	_ struct{} `type:"structure"`
+
+	Containers []*string `locationName:"containers" type:"list"`
+
+	Content *EncodedString `locationName:"content" type:"structure"`
+
+	Name *string `locationName:"name" type:"string"`
+
+	Type *string `locationName:"type" type:"string" enum:"AssociationType"`
+}
+
+// String returns the string representation
+func (s Association) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Association) GoString() string {
+	return s.String()
+}
+
 type AttachTaskNetworkInterfacesMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -274,6 +296,24 @@ func (s ElasticNetworkInterface) String() string {
 
 // GoString returns the string representation
 func (s ElasticNetworkInterface) GoString() string {
+	return s.String()
+}
+
+type EncodedString struct {
+	_ struct{} `type:"structure"`
+
+	Encoding *string `locationName:"encoding" type:"string" enum:"Encoding"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s EncodedString) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EncodedString) GoString() string {
 	return s.String()
 }
 
@@ -725,6 +765,8 @@ type Task struct {
 	_ struct{} `type:"structure"`
 
 	Arn *string `locationName:"arn" type:"string"`
+
+	Associations []*Association `locationName:"associations" type:"list"`
 
 	Containers []*Container `locationName:"containers" type:"list"`
 

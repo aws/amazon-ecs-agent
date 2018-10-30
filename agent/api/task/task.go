@@ -66,6 +66,9 @@ const (
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
+	nvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
+	gpuAssociationType = "gpu"
+
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
@@ -102,6 +105,8 @@ type Task struct {
 	Version string
 	// Containers are the containers for the task
 	Containers []*apicontainer.Container
+	// Associations are the available associations for the task.
+	Associations []Association `json:"associations"`
 	// ResourcesMapUnsafe is the map of resource type to corresponding resources
 	ResourcesMapUnsafe resourcetype.ResourcesMap `json:"resources"`
 	// Volumes are the volumes for the task
@@ -255,7 +260,11 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-
+	err = task.initializeGPU()
+	if err != nil {
+		seelog.Errorf("Task [%s]: could not initialize GPU", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	task.addNetworkResourceProvisioningDependency(cfg)
@@ -263,6 +272,35 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
 	return nil
+}
+
+func(task *Task) initializeGPU() error {
+	for _, association := range task.Associations {
+		// One GPU can be associated with only one container
+		// That is why validating if association.Containers is of length 1
+		if association.Type == gpuAssociationType && len(association.Containers) == 1 {
+			container, ok := task.ContainerByName(association.Containers[0])
+			if !ok {
+				return fmt.Errorf("Could not find container with name %s for associating GPU %s",
+					association.Containers[0], association.Name)
+			} else {
+				container.GPUIDs = append(container.GPUIDs, association.Name)
+			}
+		}
+	}
+	task.populateGPUEnvironmentVariables()
+	return nil
+}
+
+func (task *Task) populateGPUEnvironmentVariables() {
+	for _, container := range task.Containers {
+		if len(container.GPUIDs) > 0 {
+			gpuList := strings.Join(container.GPUIDs, ",")
+			envVars := make(map[string]string)
+			envVars[nvidiaVisibleDevicesEnvVar] = gpuList
+			container.MergeEnvironmentVariables(envVars)
+		}
+	}
 }
 
 func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
