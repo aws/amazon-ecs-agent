@@ -20,7 +20,6 @@ Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
 $buildscript = @"
 mkdir C:\V3
 cp C:\ecs\v3-task-endpoint-validator-windows.go C:\V3
-go get -u  github.com/cihub/seelog
 go build -o C:\V3\v3-task-endpoint-validator-windows.exe C:\V3\v3-task-endpoint-validator-windows.go
 cp C:\V3\v3-task-endpoint-validator-windows.exe C:\ecs
 "@
