@@ -157,7 +157,9 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	// Add additional attributes such as the os type
 	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
 	registerRequest.Attributes = registrationAttributes
-	registerRequest.Tags = tags
+	if len(tags) > 0 {
+		registerRequest.Tags = tags
+	}
 	registerRequest = client.setInstanceIdentity(registerRequest)
 
 	resources, err := client.getResources()
