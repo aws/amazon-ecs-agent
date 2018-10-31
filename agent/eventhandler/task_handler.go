@@ -34,7 +34,7 @@ import (
 const (
 	// concurrentEventCalls is the maximum number of tasks that may be handled at
 	// once by the TaskHandler
-	concurrentEventCalls = 3
+	concurrentEventCalls = 10
 
 	// drainEventsFrequency is the frequency at the which unsent events batched
 	// by the task handler are sent to the backend

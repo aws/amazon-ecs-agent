@@ -525,6 +525,36 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
+func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, nil)
+
+	expectedAttributes := map[string]string{
+		"ecs.os-type":               config.OSType,
+		"my_custom_attribute":       "Custom_Value1",
+		"my_other_custom_attribute": "Custom_Value2",
+	}
+
+	fakeCapabilities := []string{"capability1", "capability2"}
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			assert.Nil(t, req.Tags)
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
+			nil),
+	)
+
+	_, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0))
+	assert.NoError(t, err)
+}
+
 func TestValidateRegisteredAttributes(t *testing.T) {
 	origAttributes := []*ecs.Attribute{
 		{Name: aws.String("foo"), Value: aws.String("bar")},
