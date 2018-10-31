@@ -481,13 +481,15 @@ func (agent *ecsAgent) registerContainerInstance(
 		tags = mergeTags(tags, ec2Tags)
 	}
 
+	platformDevices := agent.getPlatformDevices()
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags)
+		return agent.reregisterContainerInstance(client, capabilities, tags, platformDevices)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities, tags)
+	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities, tags, platformDevices)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -514,8 +516,8 @@ func (agent *ecsAgent) registerContainerInstance(
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag) error {
-	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags)
+	capabilities []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) error {
+	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, platformDevices)
 
 	if err == nil {
 		return nil

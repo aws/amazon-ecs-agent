@@ -17,10 +17,28 @@ package gpu
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
+
+var devices = []*ecs.PlatformDevice{
+	{
+		Id:   aws.String("id1"),
+		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+	},
+	{
+		Id:   aws.String("id2"),
+		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+	},
+	{
+		Id:   aws.String("id3"),
+		Type: aws.String(ecs.PlatformDeviceTypeGpu),
+	},
+}
 
 func TestNvidiaGPUManagerInitialize(t *testing.T) {
 	nvidiaGPUManager := NewNvidiaGPUManager()
@@ -36,9 +54,10 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 	}()
 	err := nvidiaGPUManager.Initialize()
 	assert.NoError(t, err)
-	assert.Equal(t, nvidiaGPUManager.GetGPUIDs(), []string{"id1", "id2", "id3"})
+	assert.Equal(t, nvidiaGPUManager.GetGPUIDsUnsafe(), []string{"id1", "id2", "id3"})
 	assert.Equal(t, nvidiaGPUManager.GetDriverVersion(), "396.44")
 	assert.Equal(t, nvidiaGPUManager.GetRuntimeVersion(), "1.0")
+	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
 }
 
 func TestNvidiaGPUManagerError(t *testing.T) {
@@ -55,7 +74,14 @@ func TestNvidiaGPUManagerError(t *testing.T) {
 	}()
 	err := nvidiaGPUManager.Initialize()
 	assert.Error(t, err)
-	assert.Nil(t, nvidiaGPUManager.GetGPUIDs())
+	assert.Nil(t, nvidiaGPUManager.GetGPUIDsUnsafe())
 	assert.Empty(t, nvidiaGPUManager.GetDriverVersion())
 	assert.Empty(t, nvidiaGPUManager.GetRuntimeVersion())
+}
+
+func TestSetGPUDevices(t *testing.T) {
+	nvidiaGPUManager := NewNvidiaGPUManager()
+	nvidiaGPUManager.SetGPUIDs([]string{"id1", "id2", "id3"})
+	nvidiaGPUManager.SetDevices()
+	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
 }

@@ -375,7 +375,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags)
+	arn, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -400,6 +400,20 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_other_custom_attribute": "Custom_Value2",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
+	platformDevices := []*ecs.PlatformDevice{
+		{
+			Id:   aws.String("id1"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id2"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id3"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+	}
 
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
@@ -423,6 +437,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 				}
 			}
 			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
+			assert.Equal(t, len(platformDevices), len(req.PlatformDevices), "Wrong number of devices")
 			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
 			for k, v := range reqTags {
 				assert.Contains(t, containerInstanceTagsMap, k)
@@ -435,7 +450,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags)
+	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, platformDevices)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 }
@@ -495,7 +510,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags)
+	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 }
@@ -521,7 +536,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, err := client.RegisterContainerInstance("", nil, nil)
+	_, err := client.RegisterContainerInstance("", nil, nil, nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -625,7 +640,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", nil, nil)
+	arn, err := client.RegisterContainerInstance("", nil, nil, nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}

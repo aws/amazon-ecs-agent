@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -225,6 +226,13 @@ func (agent *ecsAgent) cgroupInit() error {
 func (agent *ecsAgent) initializeGPUManager() error {
 	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
 		return agent.resourceFields.NvidiaGPUManager.Initialize()
+	}
+	return nil
+}
+
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
+	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+		return agent.resourceFields.NvidiaGPUManager.GetDevices()
 	}
 	return nil
 }

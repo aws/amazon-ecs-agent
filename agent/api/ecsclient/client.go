@@ -108,7 +108,7 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 // instance ARN allows a container instance to update its registered
 // resources.
 func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag) (string, error) {
+	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -119,7 +119,7 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags)
+		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, platformDevices)
 		if err == nil {
 			return containerInstanceArn, nil
 		}
@@ -130,11 +130,11 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 			return "", err
 		}
 	}
-	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags)
+	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, platformDevices)
 }
 
 func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag) (string, error) {
+	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -160,6 +160,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 	if len(tags) > 0 {
 		registerRequest.Tags = tags
 	}
+	registerRequest.PlatformDevices = platformDevices
 	registerRequest = client.setInstanceIdentity(registerRequest)
 
 	resources, err := client.getResources()

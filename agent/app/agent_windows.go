@@ -23,6 +23,7 @@ import (
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
@@ -268,5 +269,9 @@ func (agent *ecsAgent) cgroupInit() error {
 }
 
 func (agent *ecsAgent) initializeGPUManager() error {
+	return nil
+}
+
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 	return nil
 }

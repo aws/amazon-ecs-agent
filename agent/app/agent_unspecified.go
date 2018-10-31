@@ -19,6 +19,7 @@ import (
 	"errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/cihub/seelog"
@@ -42,5 +43,9 @@ func (agent *ecsAgent) cgroupInit() error {
 }
 
 func (agent *ecsAgent) initializeGPUManager() error {
+	return nil
+}
+
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 	return nil
 }

@@ -21,6 +21,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 )
 
@@ -28,7 +30,9 @@ import (
 type GPUManager interface {
 	Initialize() error
 	SetGPUIDs([]string)
-	GetGPUIDs() []string
+	GetGPUIDsUnsafe() []string
+	SetDevices()
+	GetDevices() []*ecs.PlatformDevice
 	SetDriverVersion(string)
 	GetDriverVersion() string
 	SetRuntimeVersion(string)
@@ -38,10 +42,11 @@ type GPUManager interface {
 // NvidiaGPUManager is used as a wrapper for NVML APIs and implements GPUManager
 // interface
 type NvidiaGPUManager struct {
-	DriverVersion       string   `json:"DriverVersion"`
-	NvidiaDockerVersion string   `json:"NvidiaDockerVersion"`
-	GPUIDs              []string `json:"GPUIDs"`
-	lock                sync.RWMutex
+	DriverVersion       string                `json:"DriverVersion"`
+	NvidiaDockerVersion string                `json:"NvidiaDockerVersion"`
+	GPUIDs              []string              `json:"GPUIDs"`
+	GPUDevices          []*ecs.PlatformDevice `json:"-"`
+	lock                sync.RWMutex          `json:"-"`
 }
 
 const (
@@ -70,8 +75,9 @@ func (n *NvidiaGPUManager) Initialize() error {
 			return errors.Wrapf(err, "could not unmarshal GPU file content")
 		}
 		n.SetDriverVersion(nvidiaGPUInfo.GetDriverVersion())
-		n.SetGPUIDs(nvidiaGPUInfo.GetGPUIDs())
+		n.SetGPUIDs(nvidiaGPUInfo.GetGPUIDsUnsafe())
 		n.SetRuntimeVersion(nvidiaGPUInfo.GetRuntimeVersion())
+		n.SetDevices()
 	}
 	return nil
 }
@@ -107,9 +113,7 @@ func (n *NvidiaGPUManager) SetGPUIDs(gpuIDs []string) {
 }
 
 // GetGPUIDs returns the GPUIDs
-func (n *NvidiaGPUManager) GetGPUIDs() []string {
-	n.lock.RLock()
-	defer n.lock.RUnlock()
+func (n *NvidiaGPUManager) GetGPUIDsUnsafe() []string {
 	return n.GPUIDs
 }
 
@@ -139,4 +143,25 @@ func (n *NvidiaGPUManager) GetRuntimeVersion() string {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
 	return n.NvidiaDockerVersion
+}
+
+func (n *NvidiaGPUManager) SetDevices() {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	devices := make([]*ecs.PlatformDevice, 0)
+	gpuIDs := n.GetGPUIDsUnsafe()
+	for _, gpuID := range gpuIDs {
+		devices = append(devices, &ecs.PlatformDevice{
+			Id:   aws.String(gpuID),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		})
+	}
+	n.GPUDevices = devices
+}
+
+// GetDevices returns the GPU devices as PlatformDevices
+func (n *NvidiaGPUManager) GetDevices() []*ecs.PlatformDevice {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	return n.GPUDevices
 }
