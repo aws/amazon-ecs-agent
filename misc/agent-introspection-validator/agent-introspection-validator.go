@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -86,7 +84,7 @@ func getTasksMetadata(client *http.Client, path string) (*TasksResponse, error) 
 		return nil, err
 	}
 
-	seelog.Infof("Received tasks metadata: %s \n", string(body))
+	fmt.Printf("Received tasks metadata: %s \n", string(body))
 
 	err = verifyTasksMetadata(body)
 	if err != nil {
@@ -108,7 +106,7 @@ func getTaskMetadata(client *http.Client, path string) (*TaskResponse, error) {
 		return nil, err
 	}
 
-	seelog.Infof("Received task metadata: %s \n", string(body))
+	fmt.Printf("Received task metadata: %s \n", string(body))
 
 	err = verifyTaskMetadata(body)
 	if err != nil {
