@@ -238,11 +238,15 @@
   version = "v0.5"
 
 [[projects]]
-  digest = "1:b9dd62eb71d308d6c4b44af0bae869174975b40baab2ccd65724cefcdb561d55"
+  digest = "1:95f2fa29a06186bf8bece6170d59f0bc8d4c60ac8f78695734da5d8d1d3c5fef"
   name = "github.com/golang/mock"
-  packages = ["gomock"]
+  packages = [
+    "gomock",
+    "mockgen/model",
+  ]
   pruneopts = "UT"
-  revision = "58cd061d09382b6011f84c1291ebe50ef2e25bab"
+  revision = "c34cdb4725f4c3844d095133c6e40e448b86589b"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
@@ -467,6 +471,7 @@
     "github.com/docker/docker/pkg/system",
     "github.com/fsouza/go-dockerclient",
     "github.com/golang/mock/gomock",
+    "github.com/golang/mock/mockgen/model",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
     "github.com/opencontainers/runtime-spec/specs-go",
