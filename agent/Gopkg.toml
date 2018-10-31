@@ -20,6 +20,8 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+required = ["github.com/golang/mock/mockgen/model"]
+
 [prune]
   go-tests = true
   unused-packages = true
@@ -54,7 +56,7 @@
 
 [[constraint]]
   name = "github.com/golang/mock"
-  revision ="58cd061d09382b6011f84c1291ebe50ef2e25bab"
+  version ="1.1.1"
 
 [[constraint]]
   name = "github.com/gorilla/websocket"
