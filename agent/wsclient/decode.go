@@ -84,7 +84,7 @@ func DecodeConnectionError(data []byte, dec TypeDecoder) (interface{}, string, e
 		return nil, typeStr, &UnrecognizedWSRequestType{"Pointer to non-struct kind: " + retObj.Kind().String()}
 	}
 
-	msgField := retObj.FieldByName("Message")
+	msgField := retObj.FieldByName("Message_")
 	if !msgField.IsValid() {
 		return nil, typeStr, &UnrecognizedWSRequestType{"Expected error type to have 'Message' field"}
 	}

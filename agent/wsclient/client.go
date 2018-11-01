@@ -20,7 +20,6 @@ package wsclient
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,14 +34,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
+	"crypto/tls"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const (
@@ -144,7 +144,7 @@ type MakeRequestHookFunc func([]byte) ([]byte, error)
 // 'MakeRequest' can be made after calling this, but responses will not be
 // receivable until 'Serve' is also called.
 func (cs *ClientServerImpl) Connect() error {
-	seelog.Debugf("Establishing a Websocket connection to %s", cs.URL)
+	seelog.Infof("Establishing a Websocket connection to %s", cs.URL)
 	parsedURL, err := url.Parse(cs.URL)
 	if err != nil {
 		return err

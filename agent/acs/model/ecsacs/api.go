@@ -36,7 +36,7 @@ func (s ASMAuthData) GoString() string {
 type AccessDeniedException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -69,6 +69,34 @@ func (s AckRequest) GoString() string {
 	return s.String()
 }
 
+type AttachTaskNetworkInterfacesInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s AttachTaskNetworkInterfacesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachTaskNetworkInterfacesInput) GoString() string {
+	return s.String()
+}
+
 type AttachTaskNetworkInterfacesMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -97,10 +125,30 @@ func (s AttachTaskNetworkInterfacesMessage) GoString() string {
 	return s.String()
 }
 
+type AttachTaskNetworkInterfacesOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s AttachTaskNetworkInterfacesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachTaskNetworkInterfacesOutput) GoString() string {
+	return s.String()
+}
+
 type BadRequestException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -277,6 +325,22 @@ func (s ElasticNetworkInterface) GoString() string {
 	return s.String()
 }
 
+type ErrorInput struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ErrorInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ErrorInput) GoString() string {
+	return s.String()
+}
+
 type ErrorMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -304,6 +368,22 @@ func (s ErrorOutput) String() string {
 
 // GoString returns the string representation
 func (s ErrorOutput) GoString() string {
+	return s.String()
+}
+
+type HeartbeatInput struct {
+	_ struct{} `type:"structure"`
+
+	Healthy *bool `locationName:"healthy" type:"boolean"`
+}
+
+// String returns the string representation
+func (s HeartbeatInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatInput) GoString() string {
 	return s.String()
 }
 
@@ -458,7 +538,7 @@ func (s IPv6AddressAssignment) GoString() string {
 type InactiveInstanceException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -474,7 +554,7 @@ func (s InactiveInstanceException) GoString() string {
 type InvalidClusterException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -490,7 +570,7 @@ func (s InvalidClusterException) GoString() string {
 type InvalidInstanceException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -545,6 +625,32 @@ func (s NackRequest) GoString() string {
 	return s.String()
 }
 
+type PayloadInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	Tasks []*Task `locationName:"tasks" type:"list"`
+}
+
+// String returns the string representation
+func (s PayloadInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PayloadInput) GoString() string {
+	return s.String()
+}
+
 type PayloadMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -571,6 +677,48 @@ func (s PayloadMessage) GoString() string {
 	return s.String()
 }
 
+type PayloadOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s PayloadOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PayloadOutput) GoString() string {
+	return s.String()
+}
+
+type PerformUpdateInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+}
+
+// String returns the string representation
+func (s PerformUpdateInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PerformUpdateInput) GoString() string {
+	return s.String()
+}
+
 type PerformUpdateMessage struct {
 	_ struct{} `type:"structure"`
 
@@ -590,6 +738,66 @@ func (s PerformUpdateMessage) String() string {
 
 // GoString returns the string representation
 func (s PerformUpdateMessage) GoString() string {
+	return s.String()
+}
+
+type PerformUpdateOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s PerformUpdateOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PerformUpdateOutput) GoString() string {
+	return s.String()
+}
+
+type PollInput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	SendCredentials *bool `locationName:"sendCredentials" type:"boolean"`
+
+	SeqNum *int64 `locationName:"seqNum" type:"integer"`
+
+	VersionInfo *VersionInfo `locationName:"versionInfo" type:"structure"`
+}
+
+// String returns the string representation
+func (s PollInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PollInput) GoString() string {
+	return s.String()
+}
+
+type PollOutput struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s PollOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PollOutput) GoString() string {
 	return s.String()
 }
 
@@ -634,6 +842,48 @@ func (s PortMapping) String() string {
 
 // GoString returns the string representation
 func (s PortMapping) GoString() string {
+	return s.String()
+}
+
+type RefreshTaskIAMRoleCredentialsInput struct {
+	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
+
+	RoleType *string `locationName:"roleType" type:"string" enum:"RoleType"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+}
+
+// String returns the string representation
+func (s RefreshTaskIAMRoleCredentialsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RefreshTaskIAMRoleCredentialsInput) GoString() string {
+	return s.String()
+}
+
+type RefreshTaskIAMRoleCredentialsOutput struct {
+	_ struct{} `type:"structure"`
+
+	CredentialsId *string `locationName:"credentialsId" type:"string"`
+
+	Expiration *string `locationName:"expiration" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s RefreshTaskIAMRoleCredentialsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s RefreshTaskIAMRoleCredentialsOutput) GoString() string {
 	return s.String()
 }
 
@@ -686,7 +936,7 @@ func (s Secret) GoString() string {
 type ServerException struct {
 	_ struct{} `type:"structure"`
 
-	Message *string `locationName:"message" type:"string"`
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -696,6 +946,28 @@ func (s ServerException) String() string {
 
 // GoString returns the string representation
 func (s ServerException) GoString() string {
+	return s.String()
+}
+
+type StageUpdateInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	UpdateInfo *UpdateInfo `locationName:"updateInfo" type:"structure"`
+}
+
+// String returns the string representation
+func (s StageUpdateInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s StageUpdateInput) GoString() string {
 	return s.String()
 }
 
@@ -718,6 +990,26 @@ func (s StageUpdateMessage) String() string {
 
 // GoString returns the string representation
 func (s StageUpdateMessage) GoString() string {
+	return s.String()
+}
+
+type StageUpdateOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s StageUpdateOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s StageUpdateOutput) GoString() string {
 	return s.String()
 }
 
@@ -762,6 +1054,28 @@ func (s Task) String() string {
 
 // GoString returns the string representation
 func (s Task) GoString() string {
+	return s.String()
+}
+
+type UpdateFailureInput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	Reason *string `locationName:"reason" type:"string"`
+}
+
+// String returns the string representation
+func (s UpdateFailureInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s UpdateFailureInput) GoString() string {
 	return s.String()
 }
 
