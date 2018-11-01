@@ -67,6 +67,25 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	assert.Zero(t, config.APIEndpoint, "Endpoint env variable not set; endpoint should be blank")
 }
 
+func TestGetRegionWithNoIID(t *testing.T) {
+	defer setTestEnv("AWS_DEFAULT_REGION", "")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+	userDataResponse := `{ "ECSAgentConfiguration":{
+		"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+		"APIEndpoint":"https://some-endpoint.com",
+		"NoIID":true
+	}}`
+	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
+	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
+
+	config, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, config.AWSRegion, "us-east-1", "Wrong region")
+	assert.Equal(t, config.APIEndpoint, "https://some-endpoint.com", "Endpoint env variable not set; endpoint should be blank")
+}
+
 func TestEnvironmentConfig(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CLUSTER", "myCluster")()

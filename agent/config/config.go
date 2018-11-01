@@ -192,8 +192,17 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	config.Merge(userDataConfig(ec2client))
 
 	if config.AWSRegion == "" {
-		// Get it from metadata only if we need to (network io)
-		config.Merge(ec2MetadataConfig(ec2client))
+		if config.NoIID {
+			// get it from AWS SDK if we don't have instance identity document
+			awsRegion, err := ec2client.Region()
+			if err != nil {
+				errs = append(errs, err)
+			}
+			config.AWSRegion = awsRegion
+		} else {
+			// Get it from metadata only if we need to (network io)
+			config.Merge(ec2MetadataConfig(ec2client))
+		}
 	}
 
 	return config, config.mergeDefaultConfig(errs)
