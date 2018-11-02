@@ -374,3 +374,41 @@ func TestMergeEnvironmentVariables(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldCreateWithASMSecret(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, true},
+		{Container{
+			Name:    "myName",
+			Image:   "image:tag",
+			Secrets: nil,
+		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "ssm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithASMSecret())
+	}
+}

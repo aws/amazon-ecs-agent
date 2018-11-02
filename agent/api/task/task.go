@@ -49,6 +49,7 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 )
 
 const (
@@ -245,6 +246,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	if task.requiresSSMSecret() {
 		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresASMSecret() {
+		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
 	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
@@ -569,6 +574,54 @@ func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret
 			}
 		}
 	}
+	return reqs
+}
+
+// requiresSSMSecret returns true if at least one container in the task
+// needs to retrieve secret from SSM parameter
+func (task *Task) requiresASMSecret() bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithASMSecret() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeASMSecretResource builds the resource dependency map for the asmsecret resource
+func (task *Task) initializeASMSecretResource(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	asmSecretResource := asmsecret.NewASMSecretResource(task.Arn, task.getAllASMSecretRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
+	task.AddResource(asmsecret.ResourceName, asmSecretResource)
+
+	// for every container that needs asm secret vending as env, it needs to wait all secrets got retrieved
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithASMSecret() {
+			container.BuildResourceDependency(asmSecretResource.GetName(),
+				resourcestatus.ResourceStatus(asmsecret.ASMSecretCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+}
+
+// getAllASMSecretRequirements stores secrets in a task in a map
+func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
+	reqs := make(map[string]apicontainer.Secret)
+
+	for _, container := range task.Containers {
+		for _, secret := range container.Secrets {
+			if secret.Provider == apicontainer.SecretProviderASM {
+
+				secretKey := secret.GetSSMSecretResourceCacheKey()
+				if _, ok := reqs[secretKey]; !ok {
+					reqs[secretKey] = secret
+				}
+
+			}
+		}
+	}
+
 	return reqs
 }
 
