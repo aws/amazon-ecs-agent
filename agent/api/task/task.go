@@ -262,9 +262,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeGPU()
+	err = task.addGPUResource()
 	if err != nil {
-		seelog.Errorf("Task [%s]: could not initialize GPU", task.Arn, err)
+		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	task.initializeCredentialsEndpoint(credentialsManager)
@@ -276,17 +276,21 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	return nil
 }
 
-func(task *Task) initializeGPU() error {
+func(task *Task) addGPUResource() error {
 	for _, association := range task.Associations {
 		// One GPU can be associated with only one container
 		// That is why validating if association.Containers is of length 1
-		if association.Type == gpuAssociationType && len(association.Containers) == 1 {
-			container, ok := task.ContainerByName(association.Containers[0])
-			if !ok {
-				return fmt.Errorf("Could not find container with name %s for associating GPU %s",
-					association.Containers[0], association.Name)
+		if association.Type == gpuAssociationType {
+			if len(association.Containers) == 1 {
+				container, ok := task.ContainerByName(association.Containers[0])
+				if !ok {
+					return fmt.Errorf("could not find container with name %s for associating GPU %s",
+						association.Containers[0], association.Name)
+				} else {
+					container.GPUIDs = append(container.GPUIDs, association.Name)
+				}
 			} else {
-				container.GPUIDs = append(container.GPUIDs, association.Name)
+				return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
 			}
 		}
 	}

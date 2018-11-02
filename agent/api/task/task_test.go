@@ -2238,7 +2238,7 @@ func TestRequiresSSMSecretNoSecret(t *testing.T) {
 	assert.Equal(t, false, task.requiresSSMSecret())
 }
 
-func TestInitializeGPU(t *testing.T) {
+func TestAddGPUResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
@@ -2281,14 +2281,14 @@ func TestInitializeGPU(t *testing.T) {
 		Associations:       association,
 	}
 
-	err := task.initializeGPU()
+	err := task.addGPUResource()
 
 	assert.Equal(t, []string{"gpu1", "gpu2"}, container.GPUIDs)
 	assert.Equal(t, []string(nil), container1.GPUIDs)
 	assert.NoError(t, err)
 }
 
-func TestInitializeGPUWithInvalidContainer(t *testing.T) {
+func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
@@ -2314,8 +2314,7 @@ func TestInitializeGPUWithInvalidContainer(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 		Associations:       association,
 	}
-
-	err := task.initializeGPU()
+	err := task.addGPUResource()
 	assert.Error(t, err)
 }
 
@@ -2323,7 +2322,7 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		GPUIDs:					   []string{"gpu1", "gpu2"},
+		GPUIDs:                    []string{"gpu1", "gpu2"},
 	}
 
 	container1 := &apicontainer.Container{
