@@ -57,6 +57,9 @@ const (
 
 	// SecretProviderSSM is to show secret provider being SSM
 	SecretProviderSSM = "ssm"
+
+	// SecretProviderASM is to show secret provider being ASM
+	SecretProviderASM = "asm"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -765,6 +768,25 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 	return false
 }
 
+// ShouldCreateWithASMSecret returns true if this container needs to get secret
+// value from ASM Secrets Manager
+func (c *Container) ShouldCreateWithASMSecret() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	//Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderASM {
+			return true
+		}
+	}
+	return false
+}
+
 // MergeEnvironmentVariables appends additional envVarName:envVarValue pairs to
 // the the container's enviornment values structure
 func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
@@ -775,7 +797,7 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	if c.Environment == nil {
 		c.Environment = make(map[string]string)
 	}
-
+	
 	for k, v := range envVars {
 		c.Environment[k] = v
 	}
