@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.22.0-dev
+## 1.22.0
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
 * Feature - Support for `--pid`, `--ipc` Docker run flags. [#1584](https://github.com/aws/amazon-ecs-agent/pull/1584)
 
