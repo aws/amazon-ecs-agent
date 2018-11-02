@@ -75,7 +75,10 @@ func (n *NvidiaGPUManager) Initialize() error {
 			return errors.Wrapf(err, "could not unmarshal GPU file content")
 		}
 		n.SetDriverVersion(nvidiaGPUInfo.GetDriverVersion())
-		n.SetGPUIDs(nvidiaGPUInfo.GetGPUIDsUnsafe())
+               nvidiaGPUInfo.lock.RLock()
+               gpuIDs := nvidiaGPUInfo.GetGPUIDsUnsafe()
+               nvidiaGPUInfo.lock.RUnlock()
+		n.SetGPUIDs(gpuIDs)
 		n.SetRuntimeVersion(nvidiaGPUInfo.GetRuntimeVersion())
 		n.SetDevices()
 	}
@@ -148,8 +151,8 @@ func (n *NvidiaGPUManager) GetRuntimeVersion() string {
 func (n *NvidiaGPUManager) SetDevices() {
 	n.lock.Lock()
 	defer n.lock.Unlock()
-	devices := make([]*ecs.PlatformDevice, 0)
 	gpuIDs := n.GetGPUIDsUnsafe()
+	devices := make([]*ecs.PlatformDevice, 0)
 	for _, gpuID := range gpuIDs {
 		devices = append(devices, &ecs.PlatformDevice{
 			Id:   aws.String(gpuID),

@@ -585,6 +585,20 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+        devices := []*ecs.PlatformDevice{
+		{
+			Id:   aws.String("id1"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id2"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+		{
+			Id:   aws.String("id3"),
+			Type: aws.String(ecs.PlatformDeviceTypeGpu),
+		},
+	}
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
@@ -602,8 +616,8 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
-		mockGPUManager.EXPECT().GetDevices().Return(nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("arn", nil),
+		mockGPUManager.EXPECT().GetDevices().Return(devices),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), devices).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),

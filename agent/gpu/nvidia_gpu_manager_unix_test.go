@@ -54,9 +54,9 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 	}()
 	err := nvidiaGPUManager.Initialize()
 	assert.NoError(t, err)
-	assert.Equal(t, nvidiaGPUManager.GetGPUIDsUnsafe(), []string{"id1", "id2", "id3"})
-	assert.Equal(t, nvidiaGPUManager.GetDriverVersion(), "396.44")
-	assert.Equal(t, nvidiaGPUManager.GetRuntimeVersion(), "1.0")
+	assert.Equal(t, []string{"id1", "id2", "id3"}, nvidiaGPUManager.GetGPUIDsUnsafe())
+	assert.Equal(t, "396.44", nvidiaGPUManager.GetDriverVersion())
+	assert.Equal(t, "1.0", nvidiaGPUManager.GetRuntimeVersion())
 	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
 }
 

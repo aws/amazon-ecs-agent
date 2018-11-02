@@ -566,7 +566,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			nil),
 	)
 
-	_, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0))
+	_, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), nil)
 	assert.NoError(t, err)
 }
 
