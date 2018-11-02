@@ -109,3 +109,34 @@ func TestASMGetAuthConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSecretFromASM(t *testing.T) {
+	cases := []struct {
+		Name        string
+		Resp        secretsmanager.GetSecretValueOutput
+		ShouldError bool
+	}{
+		{
+			Name: "SuccessWithValidResponse",
+			Resp: secretsmanager.GetSecretValueOutput{
+				SecretString: aws.String("secretValue"),
+			},
+			ShouldError: false,
+		},
+
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			asmClient := mockGetSecretValue{Resp: c.Resp}
+			_, err := GetSecretFromASM("secretName", asmClient)
+
+			if c.ShouldError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+
+}
