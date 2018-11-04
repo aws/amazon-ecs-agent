@@ -304,7 +304,7 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 	defer secret.lock.Unlock()
 
 	// put secret value in secretData
-	secretKey := apiSecret.GetSSMSecretResourceCacheKey()
+	secretKey := apiSecret.GetSecretResourceCacheKey()
 	secret.secretData[secretKey] = secretValue
 }
 
@@ -348,6 +348,18 @@ func (secret *ASMSecretResource) GetCachedSecretValue(secretKey string) (string,
 
 	s, ok := secret.secretData[secretKey]
 	return s, ok
+}
+
+// SetCachedSecretValue set the secret value in the secretData field given the key and value
+func (secret *ASMSecretResource) SetCachedSecretValue(secretKey string, secretValue string) {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	if secret.secretData == nil {
+		secret.secretData = make(map[string]string)
+	}
+
+	secret.secretData[secretKey] = secretValue
 }
 
 func (secret *ASMSecretResource) Initialize(resourceFields *taskresource.ResourceFields,
