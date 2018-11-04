@@ -55,7 +55,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const dockerIDPrefix = "dockerid-"
+const (
+	dockerIDPrefix = "dockerid-"
+	secretKeyWest1 = "/test/secretName_us-west-2"
+)
 
 var defaultDockerClientAPIVersion = dockerclient.Version_1_17
 
@@ -833,11 +836,11 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 			IPCMode: aTest.IPCMode,
 			Containers: []*apicontainer.Container{
 				{
-					Name:                      "c1",
+					Name: "c1",
 					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 				},
 				{
-					Name:                      "c2",
+					Name: "c2",
 					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 				},
 			},
@@ -1629,19 +1632,19 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 			essential:             true,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
-			msg:                   "essential container stopped should have executionStoppedAt set",
+			msg: "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
-			msg:                   "non essential container stopped should not cause executionStoppedAt set",
+			msg: "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
 			status:                apicontainerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
-			msg:                   "essential non-stop status change should not cause executionStoppedAt set",
+			msg: "essential non-stop status change should not cause executionStoppedAt set",
 		},
 	}
 
@@ -2292,7 +2295,7 @@ func TestGetAllASMSecretRequirements(t *testing.T) {
 	assert.Equal(t, 2, len(reqs))
 }
 
-func TestInitializeASMSecretResource(t *testing.T) {
+func TestInitializeAndGetASMSecretResource(t *testing.T) {
 	secret := apicontainer.Secret{
 		Provider:  "asm",
 		Name:      "secret",
@@ -2342,4 +2345,95 @@ func TestInitializeASMSecretResource(t *testing.T) {
 
 	assert.Equal(t, resourceDep, task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
 	assert.Equal(t, 0, len(task.Containers[1].TransitionDependenciesMap))
+
+	_, ok := task.getASMSecretsResource()
+	assert.True(t, ok)
+}
+
+func TestPopulateSecretsAsEnv(t *testing.T) {
+	secret1 := apicontainer.Secret{
+		Provider:  "ssm",
+		Name:      "secret1",
+		Region:    "us-west-2",
+		Type:      "ENVIRONMENT_VARIABLE",
+		ValueFrom: "/test/secretName",
+	}
+
+	secret2 := apicontainer.Secret{
+		Provider:  "asm",
+		Name:      "secret2",
+		Region:    "us-west-2",
+		Type:      "ENVIRONMENT_VARIABLE",
+		ValueFrom: "/test/secretName",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []apicontainer.Secret{secret1, secret2},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
+
+	asmRes := &asmsecret.ASMSecretResource{}
+	asmRes.SetCachedSecretValue(secretKeyWest1, "secretValue2")
+
+	task.AddResource(ssmsecret.ResourceName, ssmRes)
+	task.AddResource(asmsecret.ResourceName, asmRes)
+
+	task.PopulateSecretsAsEnv(container)
+	assert.Equal(t, "secretValue1", container.Environment["secret1"])
+	assert.Equal(t, "secretValue2", container.Environment["secret2"])
+}
+
+func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
+	secret1 := apicontainer.Secret{
+		Provider:  "asm",
+		Name:      "secret1",
+		Region:    "us-west-2",
+		Type:      "MOUNT_POINT",
+		ValueFrom: "/test/secretName",
+	}
+
+	secret2 := apicontainer.Secret{
+		Provider:  "ssm",
+		Name:      "secret2",
+		Region:    "us-west-2",
+		Type:      "ENVIRONMENT_VARIABLE",
+		ValueFrom: "/test/secretName",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []apicontainer.Secret{secret1, secret2},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	asmRes := &asmsecret.ASMSecretResource{}
+	asmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
+
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue2")
+
+	task.AddResource(ssmsecret.ResourceName, ssmRes)
+	task.AddResource(asmsecret.ResourceName, asmRes)
+
+	task.PopulateSecretsAsEnv(container)
+	assert.Equal(t, "secretValue2", container.Environment["secret2"])
+	assert.Equal(t, 1, len(container.Environment))
 }

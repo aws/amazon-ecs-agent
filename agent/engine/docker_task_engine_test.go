@@ -54,6 +54,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -724,7 +725,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		"com.amazonaws.ecs.task-definition-family":  "myFamily",
 		"com.amazonaws.ecs.task-definition-version": "1",
 		"com.amazonaws.ecs.cluster":                 "",
-		"key":                                       "value",
+		"key": "value",
 	}
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 	client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
@@ -2271,126 +2272,233 @@ func TestSynchronizeResource(t *testing.T) {
 	dockerTaskEngine.synchronizeState()
 }
 
-func TestTaskSSMSecretsEnvironmentVariables(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, mockTime, taskEngine, credentialsManager, _, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
+func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	// metadata required for createContainer workflow validation
-	ssmTaskARN := "ssmSecretsTask"
-	ssmTaskFamily := "ssmSecretsTaskFamily"
-	ssmTaskVersion := "1"
-	ssmTaskContainerName := "ssmSecretsContainer"
+	taskARN := "secretsTask"
+	taskFamily := "secretsTaskFamily"
+	taskVersion := "1"
+	taskContainerName := "secretsContainer"
 
 	// metadata required for ssm secret resource validation
-	secretName := "mySecret"
-	secretValueFrom := "ssm/mySecret"
-	secretRetrievedValue := "mySecretValue"
-	secretRegion := "us-west-2"
+	ssmSecretName := "mySSMSecret"
+	ssmSecretValueFrom := "ssm/mySecret"
+	ssmSecretRetrievedValue := "mySSMSecretValue"
+	ssmSecretRegion := "us-west-2"
 
-	expectedEnvVar := secretName + "=" + secretRetrievedValue
+	// metadata required for asm secret resource validation
+	asmSecretName := "myASMSecret"
+	asmSecretValueFrom := "asm/mySecret"
+	asmSecretRetrievedValue := "myASMSecretValue"
+	asmSecretRegion := "us-west-2"
+	asmSecretKey := asmSecretValueFrom + "_" + asmSecretRegion
 
-	secrets := []apicontainer.Secret{
+	ssmExpectedEnvVar := ssmSecretName + "=" + ssmSecretRetrievedValue
+	asmExpectedEnvVar := asmSecretName + "=" + asmSecretRetrievedValue
+
+	testCases := []struct {
+		name        string
+		secrets     []apicontainer.Secret
+		ssmSecret   apicontainer.Secret
+		asmSecret   apicontainer.Secret
+		expectedEnv []string
+	}{
 		{
-			Name:      secretName,
-			ValueFrom: secretValueFrom,
-			Region:    secretRegion,
-			Type:      "ENVIRONMENT_VARIABLES",
-			Provider:  "ssm",
-		},
-	}
-
-	// sample test
-	testTask := &apitask.Task{
-		Arn:     ssmTaskARN,
-		Family:  ssmTaskFamily,
-		Version: ssmTaskVersion,
-		Containers: []*apicontainer.Container{
-			{
-				Name:    ssmTaskContainerName,
-				Secrets: secrets,
+			name: "ASMSecretAsEnv",
+			secrets: []apicontainer.Secret{
+				{
+					Name:      ssmSecretName,
+					ValueFrom: ssmSecretValueFrom,
+					Region:    ssmSecretRegion,
+					Type:      "MOUNT_POINT",
+					Provider:  "ssm",
+				},
+				{
+					Name:      asmSecretName,
+					ValueFrom: asmSecretValueFrom,
+					Region:    asmSecretRegion,
+					Type:      "ENVIRONMENT_VARIABLE",
+					Provider:  "asm",
+				},
 			},
-		},
-	}
-
-	// metadata required for execution role authentication workflow
-	credentialsID := "execution role"
-	executionRoleCredentials := credentials.IAMRoleCredentials{
-		CredentialsID: credentialsID,
-	}
-	taskIAMcreds := credentials.TaskIAMRoleCredentials{
-		IAMRoleCredentials: executionRoleCredentials,
-	}
-
-	// configure the task and container to use execution role
-	testTask.SetExecutionRoleCredentialsID(credentialsID)
-
-	// validate base config
-	expectedConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	expectedConfig.Labels = map[string]string{
-		"com.amazonaws.ecs.task-arn":                ssmTaskARN,
-		"com.amazonaws.ecs.container-name":          ssmTaskContainerName,
-		"com.amazonaws.ecs.task-definition-family":  ssmTaskFamily,
-		"com.amazonaws.ecs.task-definition-version": ssmTaskVersion,
-		"com.amazonaws.ecs.cluster":                 "",
-	}
-
-	// required to validate container config includes secrets as environment variables
-	expectedConfig.Env = []string{expectedEnvVar}
-
-	// required for validating ssm workflows
-	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
-	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
-
-	ssmRequirements := map[string][]apicontainer.Secret{
-		secretRegion: secrets,
-	}
-
-	ssmSecretRes := ssmsecret.NewSSMSecretResource(
-		testTask.Arn,
-		ssmRequirements,
-		credentialsID,
-		credentialsManager,
-		ssmClientCreator)
-
-	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
-		ssmsecret.ResourceName: {ssmSecretRes},
-	}
-
-	ssmClientOutput := &ssm.GetParametersOutput{
-		InvalidParameters: []*string{},
-		Parameters: []*ssm.Parameter{
-			&ssm.Parameter{
-				Name:  aws.String(secretValueFrom),
-				Value: aws.String(secretRetrievedValue),
+			ssmSecret: apicontainer.Secret{
+				Name:      ssmSecretName,
+				ValueFrom: ssmSecretValueFrom,
+				Region:    ssmSecretRegion,
+				Type:      "MOUNT_POINT",
+				Provider:  "ssm",
 			},
+			asmSecret: apicontainer.Secret{
+				Name:      asmSecretName,
+				ValueFrom: asmSecretValueFrom,
+				Region:    asmSecretRegion,
+				Type:      "ENVIRONMENT_VARIABLE",
+				Provider:  "asm",
+			},
+			expectedEnv: []string{asmExpectedEnvVar},
+		},
+		{
+			name: "SSMSecretAsEnv",
+			secrets: []apicontainer.Secret{
+				{
+					Name:      ssmSecretName,
+					ValueFrom: ssmSecretValueFrom,
+					Region:    ssmSecretRegion,
+					Type:      "ENVIRONMENT_VARIABLE",
+					Provider:  "ssm",
+				},
+				{
+					Name:      asmSecretName,
+					ValueFrom: asmSecretValueFrom,
+					Region:    asmSecretRegion,
+					Type:      "MOUNT_POINT",
+					Provider:  "asm",
+				},
+			},
+			ssmSecret: apicontainer.Secret{
+				Name:      ssmSecretName,
+				ValueFrom: ssmSecretValueFrom,
+				Region:    ssmSecretRegion,
+				Type:      "ENVIRONMENT_VARIABLE",
+				Provider:  "ssm",
+			},
+			asmSecret: apicontainer.Secret{
+				Name:      asmSecretName,
+				ValueFrom: asmSecretValueFrom,
+				Region:    asmSecretRegion,
+				Type:      "MOUNT_POINT",
+				Provider:  "asm",
+			},
+			expectedEnv: []string{ssmExpectedEnvVar},
 		},
 	}
 
-	reqSecretNames := []*string{aws.String(secretValueFrom)}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 
-	credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true)
-	ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, mockTime, taskEngine, credentialsManager, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
 
-	mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
-		assert.Equal(t, in.Names, reqSecretNames)
-	}).Return(ssmClientOutput, nil).Times(1)
+			// sample test
+			testTask := &apitask.Task{
+				Arn:     taskARN,
+				Family:  taskFamily,
+				Version: taskVersion,
+				Containers: []*apicontainer.Container{
+					{
+						Name:    taskContainerName,
+						Secrets: tc.secrets,
+					},
+				},
+			}
 
-	require.NoError(t, ssmSecretRes.Create())
+			// metadata required for execution role authentication workflow
+			credentialsID := "execution role"
+			executionRoleCredentials := credentials.IAMRoleCredentials{
+				CredentialsID: credentialsID,
+			}
+			taskIAMcreds := credentials.TaskIAMRoleCredentials{
+				IAMRoleCredentials: executionRoleCredentials,
+			}
 
-	mockTime.EXPECT().Now().AnyTimes()
-	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			// configure the task and container to use execution role
+			testTask.SetExecutionRoleCredentialsID(credentialsID)
 
-	// test validates that the expectedConfig includes secrets are appended as
-	// environment varibles
-	client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
+			// validate base config
+			expectedConfig, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+			expectedConfig.Labels = map[string]string{
+				"com.amazonaws.ecs.task-arn":                taskARN,
+				"com.amazonaws.ecs.container-name":          taskContainerName,
+				"com.amazonaws.ecs.task-definition-family":  taskFamily,
+				"com.amazonaws.ecs.task-definition-version": taskVersion,
+				"com.amazonaws.ecs.cluster":                 "",
+			}
 
-	assert.Nil(t, ret.Error)
+			// required to validate container config includes secrets as environment variables
+			expectedConfig.Env = tc.expectedEnv
+
+			// required for validating ssm workflows
+			ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+			mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
+
+			ssmRequirements := map[string][]apicontainer.Secret{
+				ssmSecretRegion: []apicontainer.Secret{
+					tc.ssmSecret,
+				},
+			}
+
+			ssmSecretRes := ssmsecret.NewSSMSecretResource(
+				testTask.Arn,
+				ssmRequirements,
+				credentialsID,
+				credentialsManager,
+				ssmClientCreator)
+
+			// required for validating asm workflows
+			asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
+			mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+			asmRequirements := map[string]apicontainer.Secret{
+				asmSecretKey: tc.asmSecret,
+			}
+
+			asmSecretRes := asmsecret.NewASMSecretResource(
+				testTask.Arn,
+				asmRequirements,
+				credentialsID,
+				credentialsManager,
+				asmClientCreator)
+
+			testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+				ssmsecret.ResourceName: {ssmSecretRes},
+				asmsecret.ResourceName: {asmSecretRes},
+			}
+
+			ssmClientOutput := &ssm.GetParametersOutput{
+				InvalidParameters: []*string{},
+				Parameters: []*ssm.Parameter{
+					&ssm.Parameter{
+						Name:  aws.String(ssmSecretValueFrom),
+						Value: aws.String(ssmSecretRetrievedValue),
+					},
+				},
+			}
+
+			asmClientOutput := &secretsmanager.GetSecretValueOutput{
+				SecretString: aws.String(asmSecretRetrievedValue),
+			}
+
+			reqSecretNames := []*string{aws.String(ssmSecretValueFrom)}
+
+			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(taskIAMcreds, true).Times(2)
+			ssmClientCreator.EXPECT().NewSSMClient(region, executionRoleCredentials).Return(mockSSMClient)
+			asmClientCreator.EXPECT().NewASMClient(region, executionRoleCredentials).Return(mockASMClient)
+
+			mockSSMClient.EXPECT().GetParameters(gomock.Any()).Do(func(in *ssm.GetParametersInput) {
+				assert.Equal(t, in.Names, reqSecretNames)
+			}).Return(ssmClientOutput, nil).Times(1)
+
+			mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
+				assert.Equal(t, aws.StringValue(in.SecretId), asmSecretValueFrom)
+			}).Return(asmClientOutput, nil).Times(1)
+
+			require.NoError(t, ssmSecretRes.Create())
+			require.NoError(t, asmSecretRes.Create())
+
+			mockTime.EXPECT().Now().AnyTimes()
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+
+			// test validates that the expectedConfig includes secrets are appended as
+			// environment varibles
+			client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())
+			ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+			assert.Nil(t, ret.Error)
+
+		})
+	}
 }

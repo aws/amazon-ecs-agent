@@ -64,7 +64,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		ENI: &apieni.ENI{},
 		Containers: []*apicontainer.Container{
 			{
-				Name:                      "c1",
+				Name: "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -392,7 +392,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name:                      "c1",
+				Name: "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -420,7 +420,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name:                      "c1",
+				Name: "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -440,8 +440,8 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name:                      "C1",
-				Memory:                    uint(2048), // container memory > task memory
+				Name:   "C1",
+				Memory: uint(2048), // container memory > task memory
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -460,7 +460,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name:                      "c1",
+				Name: "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},

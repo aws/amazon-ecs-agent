@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
@@ -49,7 +50,6 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/pkg/errors"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 )
 
 const (
@@ -595,7 +595,7 @@ func (task *Task) initializeASMSecretResource(credentialsManager credentials.Man
 		task.ExecutionCredentialsID, credentialsManager, resourceFields.ASMClientCreator)
 	task.AddResource(asmsecret.ResourceName, asmSecretResource)
 
-	// for every container that needs asm secret vending as env, it needs to wait all secrets got retrieved
+	// for every container that needs asm secret vending as envvar, it needs to wait all secrets got retrieved
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithASMSecret() {
 			container.BuildResourceDependency(asmSecretResource.GetName(),
@@ -613,7 +613,7 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 		for _, secret := range container.Secrets {
 			if secret.Provider == apicontainer.SecretProviderASM {
 
-				secretKey := secret.GetSSMSecretResourceCacheKey()
+				secretKey := secret.GetSecretResourceCacheKey()
 				if _, ok := reqs[secretKey]; !ok {
 					reqs[secretKey] = secret
 				}
@@ -621,7 +621,6 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 			}
 		}
 	}
-
 	return reqs
 }
 
@@ -1713,7 +1712,7 @@ func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierro
 
 	for _, secret := range container.Secrets {
 		if secret.Provider == apicontainer.SecretProviderSSM {
-			k := secret.GetSSMSecretResourceCacheKey()
+			k := secret.GetSecretResourceCacheKey()
 			if secretValue, ok := ssmResource.GetCachedSecretValue(k); ok {
 				envVars[secret.Name] = secretValue
 			}
@@ -1724,11 +1723,64 @@ func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierro
 	return nil
 }
 
+// getSSMSecretsResource retrieves ssmsecret resource from resource map
 func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
 	res, ok := task.ResourcesMapUnsafe[ssmsecret.ResourceName]
+	return res, ok
+}
+
+// PopulateSecretsAsEnv appends the container's env var map with secrets
+func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+	var ssmRes *ssmsecret.SSMSecretResource
+	var asmRes *asmsecret.ASMSecretResource
+
+	if container.ShouldCreateWithSSMSecret() {
+		resource, ok := task.getSSMSecretsResource()
+		if !ok {
+			return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
+		}
+		ssmRes = resource[0].(*ssmsecret.SSMSecretResource)
+	}
+
+	if container.ShouldCreateWithASMSecret() {
+		resource, ok := task.getASMSecretsResource()
+		if !ok {
+			return &apierrors.DockerClientConfigError{"task secret data: unable to fetch ASM Secrets resource"}
+		}
+		asmRes = resource[0].(*asmsecret.ASMSecretResource)
+	}
+
+	envVars := make(map[string]string)
+
+	for _, secret := range container.Secrets {
+		if secret.Provider == apicontainer.SecretProviderSSM && secret.Type == apicontainer.SecretTypeEnv {
+			k := secret.GetSecretResourceCacheKey()
+			if secretValue, ok := ssmRes.GetCachedSecretValue(k); ok {
+				envVars[secret.Name] = secretValue
+			}
+		}
+
+		if secret.Provider == apicontainer.SecretProviderASM && secret.Type == apicontainer.SecretTypeEnv {
+			k := secret.GetSecretResourceCacheKey()
+			if secretValue, ok := asmRes.GetCachedSecretValue(k); ok {
+				envVars[secret.Name] = secretValue
+			}
+		}
+	}
+
+	container.MergeEnvironmentVariables(envVars)
+	return nil
+}
+
+// getASMSecretsResource retrieves asmsecret resource from resource map
+func (task *Task) getASMSecretsResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[asmsecret.ResourceName]
 	return res, ok
 }
 
