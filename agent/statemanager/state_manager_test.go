@@ -251,7 +251,7 @@ func TestLoadsDataForSecretsTask(t *testing.T) {
 	assert.Equal(t, "container_1", container.Name)
 	assert.NotNil(t, container.Secrets)
 	secret := container.Secrets[0]
-	assert.Equal(t, "ENVIRONMENT_VARIABLES", secret.Type)
+	assert.Equal(t, "ENVIRONMENT_VARIABLE", secret.Type)
 	assert.Equal(t, "ssm-secret", secret.Name)
 	assert.Equal(t, "us-west-2", secret.Region)
 	assert.Equal(t, "secret-value-from", secret.ValueFrom)

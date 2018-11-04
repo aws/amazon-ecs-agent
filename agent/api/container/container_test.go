@@ -412,3 +412,44 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 		assert.Equal(t, test.out, container.ShouldCreateWithASMSecret())
 	}
 }
+
+func TestHasSecretAsEnv(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					Type:      "ENVIRONMENT_VARIABLE",
+					ValueFrom: "/test/secretName",
+				}},
+		}, true},
+		{Container{
+			Name:    "myName",
+			Image:   "image:tag",
+			Secrets: nil,
+		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					Type:      "MOUNT_POINT",
+					ValueFrom: "/test/secretName",
+				}},
+		}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.HasSecretAsEnv())
+	}
+
+}
