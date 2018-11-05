@@ -141,6 +141,19 @@ func (mr *MockEC2MetadataClientMockRecorder) PrimaryENIMAC() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrimaryENIMAC", reflect.TypeOf((*MockEC2MetadataClient)(nil).PrimaryENIMAC))
 }
 
+// Region mocks base method
+func (m *MockEC2MetadataClient) Region() (string, error) {
+	ret := m.ctrl.Call(m, "Region")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Region indicates an expected call of Region
+func (mr *MockEC2MetadataClientMockRecorder) Region() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockEC2MetadataClient)(nil).Region))
+}
+
 // SubnetID mocks base method
 func (m *MockEC2MetadataClient) SubnetID(arg0 string) (string, error) {
 	ret := m.ctrl.Call(m, "SubnetID", arg0)
@@ -240,6 +253,19 @@ func (m *MockHttpClient) GetUserData() (string, error) {
 // GetUserData indicates an expected call of GetUserData
 func (mr *MockHttpClientMockRecorder) GetUserData() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserData", reflect.TypeOf((*MockHttpClient)(nil).GetUserData))
+}
+
+// Region mocks base method
+func (m *MockHttpClient) Region() (string, error) {
+	ret := m.ctrl.Call(m, "Region")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Region indicates an expected call of Region
+func (mr *MockHttpClientMockRecorder) Region() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockHttpClient)(nil).Region))
 }
 
 // MockClient is a mock of Client interface
