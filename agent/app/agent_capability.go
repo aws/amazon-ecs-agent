@@ -39,6 +39,7 @@ const (
 	capabilityPrivateRegistryAuthASM            = "private-registry-authentication.secretsmanager"
 	capabilitySecretEnvSSM                      = "secrets.ssm.environment-variables"
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
+	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -121,6 +122,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
+
+	capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
 
 	return capabilities, nil
 }

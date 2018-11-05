@@ -64,3 +64,10 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	}
 	return capabilities
 }
+
+func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityNvidiaDriverVersionInfix+agent.resourceFields.NvidiaGPUManager.GetDriverVersion())
+	}
+	return capabilities
+}
