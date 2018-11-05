@@ -2344,3 +2344,49 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	assert.Equal(t, environment, container.Environment)
 	assert.Equal(t, map[string]string(nil), container1.Environment)
 }
+
+func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
+	testTask := &Task{
+		Arn:     "test",
+		Containers: []*apicontainer.Container{
+			{
+				Name:  "myName1",
+				Image: "image:tag",
+				GPUIDs:	[]string{"gpu1"},
+			},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{
+					"myName1",
+				},
+				Content: EncodedString{
+					Encoding: "base64",
+					Value: "val",
+				},
+				Name: "gpu1",
+				Type: "gpu",
+			},
+		},
+	}
+
+	testTask.addGPUResource()
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Equal(t, nvidiaRuntime, dockerHostConfig.Runtime)
+}
+
+func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
+	testTask := &Task{
+		Arn:     "test",
+		Containers: []*apicontainer.Container{
+			{
+				Name:  "myName1",
+				Image: "image:tag",
+			},
+		},
+	}
+
+	testTask.addGPUResource()
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Equal(t, "", dockerHostConfig.Runtime)
+}

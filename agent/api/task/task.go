@@ -70,6 +70,7 @@ const (
 
 	nvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	gpuAssociationType = "gpu"
+	nvidiaRuntime = "nvidia"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
@@ -307,6 +308,11 @@ func (task *Task) populateGPUEnvironmentVariables() {
 			container.MergeEnvironmentVariables(envVars)
 		}
 	}
+}
+
+func (task *Task) shouldRequireNvidiaRuntime(container *apicontainer.Container) bool {
+	_, ok := container.Environment[nvidiaVisibleDevicesEnvVar]
+	return ok
 }
 
 func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClient, ctx context.Context) error {
@@ -919,6 +925,11 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		PortBindings: dockerPortMap,
 		VolumesFrom:  volumesFrom,
 		Resources:    resources,
+	}
+
+	if task.shouldRequireNvidiaRuntime(container) {
+		seelog.Debugf("Setting runtime as nvidia for container %s", container.Name)
+		hostConfig.Runtime = nvidiaRuntime
 	}
 
 	if container.DockerConfig.HostConfig != nil {
