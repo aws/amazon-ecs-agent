@@ -585,7 +585,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-        devices := []*ecs.PlatformDevice{
+	devices := []*ecs.PlatformDevice{
 		{
 			Id:   aws.String("id1"),
 			Type: aws.String(ecs.PlatformDeviceTypeGpu),
@@ -616,6 +616,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
+		mockGPUManager.EXPECT().GetDriverVersion().Return("396.44"),
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), devices).Return("arn", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
