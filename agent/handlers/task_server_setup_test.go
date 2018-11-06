@@ -73,6 +73,7 @@ const (
 	v2BaseMetadataPath    = "/v2/metadata"
 	v3BasePath            = "/v3/"
 	v3EndpointID          = "v3eid"
+	availabilityzone      = "us-west-2b"
 )
 
 var (
@@ -166,6 +167,7 @@ var (
 		PullStartedAt:      aws.Time(now.UTC()),
 		PullStoppedAt:      aws.Time(now.UTC()),
 		ExecutionStoppedAt: aws.Time(now.UTC()),
+		AvailabilityZone:   availabilityzone,
 	}
 )
 
@@ -311,7 +313,7 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	server := taskServerSetup(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
-		config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataBurstRate, "")
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
@@ -345,7 +347,7 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	server := taskServerSetup(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
-		config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()
@@ -412,7 +414,7 @@ func TestV2TaskMetadata(t *testing.T) {
 				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			)
 			server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone)
 			recorder := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", tc.path, nil)
 			req.RemoteAddr = remoteIP + ":" + remotePort
@@ -424,7 +426,6 @@ func TestV2TaskMetadata(t *testing.T) {
 			err = json.Unmarshal(res, &taskResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedTaskResponse, taskResponse)
-
 		})
 	}
 }
@@ -443,7 +444,7 @@ func TestV2ContainerMetadata(t *testing.T) {
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v2BaseMetadataPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -471,7 +472,7 @@ func TestV2ContainerStats(t *testing.T) {
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v2BaseStatsPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -518,7 +519,7 @@ func TestV2TaskStats(t *testing.T) {
 				statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 			)
 			server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 			recorder := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", tc.path, nil)
 			req.RemoteAddr = remoteIP + ":" + remotePort
@@ -550,7 +551,7 @@ func TestV3TaskMetadata(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -577,7 +578,7 @@ func TestV3ContainerMetadata(t *testing.T) {
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID, nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -612,7 +613,7 @@ func TestV3TaskStats(t *testing.T) {
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task/stats", nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -643,7 +644,7 @@ func TestV3ContainerStats(t *testing.T) {
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/stats", nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -678,7 +679,7 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 
 	for _, testPath := range testPaths {
 		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {
@@ -718,7 +719,7 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "")
 
 	for _, testPath := range testPaths {
 		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {

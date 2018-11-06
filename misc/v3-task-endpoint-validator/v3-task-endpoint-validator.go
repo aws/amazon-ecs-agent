@@ -40,6 +40,7 @@ type TaskResponse struct {
 	Revision           string              `json:"Revision"`
 	DesiredStatus      string              `json:"DesiredStatus,omitempty"`
 	KnownStatus        string              `json:"KnownStatus"`
+	AvailabilityZone   string              `json:"AvailabilityZone"`
 	Containers         []ContainerResponse `json:"Containers,omitempty"`
 	Limits             *LimitsResponse     `json:"Limits,omitempty"`
 	PullStartedAt      *time.Time          `json:"PullStartedAt,omitempty"`
@@ -184,7 +185,7 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 		"KnownStatus":   "RUNNING",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers"}
+	taskExpectedFieldNotEmptyArray := []string{"TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
 
 	for fieldName, fieldVal := range taskExpectedFieldEqualMap {
 		if err = fieldEqual(taskMetadataResponseMap, fieldName, fieldVal); err != nil {

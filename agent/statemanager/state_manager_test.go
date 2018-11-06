@@ -257,3 +257,33 @@ func TestLoadsDataForSecretsTask(t *testing.T) {
 	assert.Equal(t, "secret-value-from", secret.ValueFrom)
 	assert.Equal(t, "ssm", secret.Provider)
 }
+
+func TestLoadsDataForAddingAvailabilityZoneInTask(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v18", "availabilityZone", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "availabilityZone")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID, availabilityZone string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+		statemanager.AddSaveable("AvailabilityZone", &availabilityZone),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, 1, len(task.Containers))
+	assert.Equal(t, "us-west-2c", availabilityZone)
+}
