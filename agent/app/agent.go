@@ -107,6 +107,7 @@ type ecsAgent struct {
 	terminationHandler    sighandlers.TerminationHandler
 	mobyPlugins           mobypkgwrapper.Plugins
 	resourceFields        *taskresource.ResourceFields
+	availabilityZone      string
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -240,7 +241,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
+		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -321,7 +322,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	}
 
 	// We try to set these values by loading the existing state file first
-	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
+	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousAZ string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 		credentialsManager, containerChangeEventStream, imageManager, state,
 		agent.metadataManager, agent.resourceFields)
@@ -329,7 +330,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
 	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID)
+		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
@@ -413,7 +414,8 @@ func (agent *ecsAgent) newStateManager(
 	taskEngine engine.TaskEngine,
 	cluster *string,
 	containerInstanceArn *string,
-	savedInstanceID *string) (statemanager.StateManager, error) {
+	savedInstanceID *string,
+	availabilityZone *string) (statemanager.StateManager, error) {
 
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
@@ -427,6 +429,7 @@ func (agent *ecsAgent) newStateManager(
 		agent.saveableOptionFactory.AddSaveable("Cluster", cluster),
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
+		agent.saveableOptionFactory.AddSaveable("availabilityZone", availabilityZone),
 	)
 }
 
@@ -481,7 +484,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities, tags)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -499,6 +502,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	seelog.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
+	agent.availabilityZone = availabilityZone
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil
@@ -509,7 +513,7 @@ func (agent *ecsAgent) registerContainerInstance(
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
 	capabilities []*ecs.Attribute, tags []*ecs.Tag) error {
-	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags)
+	_, _, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags)
 
 	if err == nil {
 		return nil
@@ -551,7 +555,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
-	go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
+	go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)

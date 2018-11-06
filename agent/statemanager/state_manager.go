@@ -70,7 +70,8 @@ const (
 	// 17)
 	//   a) Add 'secrets' field to 'apicontainer.Container'
 	//   b) Add 'ssmsecret' field to 'resources'
-	ECSDataVersion = 17
+	// 18) Add 'AvailabilityZone' field to the TaskResponse struct
+	ECSDataVersion = 18
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

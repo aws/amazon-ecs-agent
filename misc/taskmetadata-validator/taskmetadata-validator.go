@@ -33,14 +33,15 @@ const (
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
-	Cluster       string
-	TaskARN       string
-	Family        string
-	Revision      string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Containers    []ContainerResponse `json:",omitempty"`
-	Limits        LimitsResponse      `json:",omitempty"`
+	Cluster          string
+	TaskARN          string
+	Family           string
+	Revision         string
+	DesiredStatus    string `json:",omitempty"`
+	KnownStatus      string
+	AvailabilityZone string
+	Containers       []ContainerResponse `json:",omitempty"`
+	Limits           LimitsResponse      `json:",omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
