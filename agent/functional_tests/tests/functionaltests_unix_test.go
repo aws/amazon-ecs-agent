@@ -16,7 +16,7 @@
 package functional_tests
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,7 +35,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -182,48 +187,51 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestSquidProxy(t *testing.T) {
+	ctx := context.TODO()
 	// Run a squid proxy manually, verify that the agent can connect through it
-	client, err := docker.NewVersionedClientFromEnv("1.17")
+	client, err := docker.NewClientWithOpts(docker.WithVersion("1.17"))
 	require.NoError(t, err)
 
 	squidImage := "127.0.0.1:51670/amazon/squid:latest"
-	dockerConfig := docker.Config{
+	dockerConfig := dockercontainer.Config{
 		Image: squidImage,
 	}
-	dockerHostConfig := docker.HostConfig{}
+	dockerHostConfig := dockercontainer.HostConfig{}
 
-	err = client.PullImage(docker.PullImageOptions{Repository: squidImage}, docker.AuthConfiguration{})
+	_, err = client.ImagePull(ctx, squidImage, types.ImagePullOptions{})
 	require.NoError(t, err)
+	// Squid pull time
+	time.Sleep(2 * time.Second)
 
-	squidContainer, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config:     &dockerConfig,
-		HostConfig: &dockerHostConfig,
-	})
+	squidContainer, err := client.ContainerCreate(ctx,
+		&dockerConfig,
+		&dockerHostConfig,
+		&network.NetworkingConfig{},
+		"") // containerName
 	require.NoError(t, err)
-	err = client.StartContainer(squidContainer.ID, &dockerHostConfig)
+	err = client.ContainerStart(ctx, squidContainer.ID, types.ContainerStartOptions{})
 	require.NoError(t, err)
 	defer func() {
-		client.RemoveContainer(docker.RemoveContainerOptions{
-			Force:         true,
-			ID:            squidContainer.ID,
+		client.ContainerRemove(ctx, squidContainer.ID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
+			Force:         true,
 		})
 	}()
 
 	// Resolve the name so we can use it in the link below; the create returns an ID only
-	squidContainer, err = client.InspectContainer(squidContainer.ID)
+	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainer.Name)
+	t.Logf("Started squid container: %v", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"HTTP_PROXY": "squid:3128",
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainer.Name + ":squid"},
+		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
@@ -250,30 +258,32 @@ func TestSquidProxy(t *testing.T) {
 	// Note, do a docker exec instead of bindmount the logs out because the logs
 	// will not be permissioned correctly in the bindmount. Once we have proper
 	// user namespacing we could revisit this
-	logExec, err := client.CreateExec(docker.CreateExecOptions{
-		AttachStdout: true,
-		AttachStdin:  false,
-		Container:    squidContainer.ID,
-		// Takes a second to flush the file sometimes, so slightly complicated command to wait for it to be written
-		Cmd: []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
-	})
+	idResponse, err := client.ContainerExecCreate(
+		ctx,
+		squidContainer.ID,
+		types.ExecConfig{
+			AttachStdout: true,
+			AttachStdin:  false,
+			Cmd:          []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
+		})
 	require.NoError(t, err)
 	t.Logf("Execing cat of /var/log/squid/access.log on %v", squidContainer.ID)
 
-	var squidLogs bytes.Buffer
-	err = client.StartExec(logExec.ID, docker.StartExecOptions{
-		OutputStream: &squidLogs,
-	})
+	hijackedResp, err := client.ContainerExecAttach(ctx, idResponse.ID, types.ExecStartCheck{})
+	defer hijackedResp.Close()
 	require.NoError(t, err)
 	for {
-		tmp, _ := client.InspectExec(logExec.ID)
-		if !tmp.Running {
+		inspect, _ := client.ContainerExecInspect(ctx, idResponse.ID)
+		if !inspect.Running {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	t.Logf("Squid logs: %v", squidLogs.String())
+	squidLogs, err := ioutil.ReadAll(hijackedResp.Reader)
+	require.NoError(t, err)
+	squildLogStr := string(squidLogs[:])
+	t.Logf("Squid logs: %v", squildLogStr)
 
 	// Of the format:
 	//    1445018173.730   3163 10.0.0.1 TCP_MISS/200 5706 CONNECT ecs.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.250.253 -
@@ -282,7 +292,7 @@ func TestSquidProxy(t *testing.T) {
 	//    1445018173.731   3086 10.0.0.1 TCP_MISS/200 3411 CONNECT ecs-t-1.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.254.59
 	allAddressesRegex := regexp.MustCompile("CONNECT [^ ]+ ")
 	// Match just the host+port it's proxying to
-	matches := allAddressesRegex.FindAllStringSubmatch(squidLogs.String(), -1)
+	matches := allAddressesRegex.FindAllStringSubmatch(squildLogStr, -1)
 	t.Logf("Proxy connections: %v", matches)
 	dedupedMatches := map[string]struct{}{}
 	for _, match := range matches {
@@ -372,7 +382,7 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -395,7 +405,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -409,6 +419,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
+	ctx := context.TODO()
 	agent.RequireVersion(">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -431,7 +442,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// TaskIAMRoles enabled container should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
 	if containerMetaData.Config != nil {
@@ -451,7 +462,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	err = task.WaitStopped(30 * time.Second)
 	require.NoError(t, err, "Waiting task to stop error")
 
-	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err = agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
@@ -475,6 +486,7 @@ func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
 
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
@@ -492,7 +504,7 @@ func TestMemoryOvercommit(t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, memoryReservation*1024*1024, containerMetaData.HostConfig.MemoryReservation,
@@ -549,6 +561,7 @@ func TestFluentdLogTag(t *testing.T) {
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
+	ctx := context.TODO()
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
@@ -575,7 +588,7 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
 	assert.NoError(t, err, "failed to resolve the container id from agent state")
 
-	container, err := agent.DockerClient.InspectContainer(dockerID)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerID)
 	assert.NoError(t, err, "failed to inspect the container")
 
 	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)

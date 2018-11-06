@@ -21,7 +21,9 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,8 +36,8 @@ func TestCreate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockConfig := &docker.Config{Env: make([]string, 0)}
-	mockHostConfig := &docker.HostConfig{Binds: make([]string, 0)}
+	mockConfig := &dockercontainer.Config{Env: make([]string, 0)}
+	mockHostConfig := &dockercontainer.HostConfig{Binds: make([]string, 0)}
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(nil),
@@ -67,17 +69,21 @@ func TestUpdate(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := docker.State{
+	mockState := types.ContainerState{
 		Running: true,
 	}
 
-	mockConfig := &docker.Config{Image: "image"}
+	mockConfig := &dockercontainer.Config{Image: "image"}
 
-	mockNetworks := make(map[string]docker.ContainerNetwork)
-	mockNetworkSettings := &docker.NetworkSettings{Networks: mockNetworks}
+	mockNetworks := map[string]*network.EndpointSettings{}
+	mockNetworkSettings := &types.NetworkSettings{
+		Networks: mockNetworks,
+	}
 
-	mockContainer := &docker.Container{
-		State:           mockState,
+	mockContainer := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State: &mockState,
+		},
 		Config:          mockConfig,
 		NetworkSettings: mockNetworkSettings,
 	}
@@ -89,7 +95,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil),
+		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(&mockContainer, nil),
 		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
 		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),

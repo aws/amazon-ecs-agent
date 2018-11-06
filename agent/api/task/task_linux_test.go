@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
-	docker "github.com/fsouza/go-dockerclient"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -238,7 +238,7 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.NoError(t, task.overrideCgroupParent(hostConfig))
 	assert.NotEmpty(t, hostConfig)
@@ -255,7 +255,7 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.Error(t, task.overrideCgroupParent(hostConfig))
 	assert.Empty(t, hostConfig.CgroupParent)
@@ -270,7 +270,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
@@ -298,7 +298,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
+	// dockercontainer.HostConfig which will include a lot of zero values.
 	rawHostConfigInput := struct {
 		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
@@ -336,52 +336,18 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, configErr)
 
-	expected := docker.HostConfig{
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
-	}
-
-	assertSetStructFieldsEqual(t, expected, *hostConfig)
-}
-
-// TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly
-// set based on the docker client version
-func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
-	memoryMiB := 500
-	testTask := &Task{
-		Containers: []*apicontainer.Container{
-			{
-				Name:   "c1",
-				CPU:    uint(10),
-				Memory: uint(memoryMiB),
-			},
+	expected := dockercontainer.HostConfig{
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
+		Resources: dockercontainer.Resources{
+			// Convert MB to B and set Memory
+			Memory:     int64(100 * 1024 * 1024),
+			CPUShares:  50,
+			CPUPercent: minimumCPUPercent,
 		},
 	}
-
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
-	assert.Nil(t, err)
-
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-
-	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
-	assert.Equal(t, int64(10), config.CPUShares)
-	assert.Empty(t, hostconfig.CPUShares)
-	assert.Empty(t, hostconfig.Memory)
-
-	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
-	assert.Nil(t, err)
-
-	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
-	assert.Equal(t, int64(10), hostconfig.CPUShares)
-
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
+	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
 func TestInitCgroupResourceSpecHappyPath(t *testing.T) {

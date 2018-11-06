@@ -24,11 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	docker "github.com/fsouza/go-dockerclient"
+	docker "github.com/docker/docker/client"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -66,7 +67,7 @@ func init() {
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
 
-	dockerClient, err := docker.NewClientFromEnv()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatal(err)
 	}

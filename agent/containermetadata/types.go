@@ -20,8 +20,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -80,7 +79,7 @@ func (status *MetadataStatus) UnmarshalText(text []byte) error {
 // The problems described above are indications dockerapi.DockerClient needs to be moved
 // outside the engine package
 type DockerMetadataClient interface {
-	InspectContainer(context.Context, string, time.Duration) (*docker.Container, error)
+	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 }
 
 // Network is a struct that keeps track of metadata of a network interface

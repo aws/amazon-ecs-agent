@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -64,7 +64,7 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
-	ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error)
+	ContainerDockerStats(taskARN string, containerID string) (*types.Stats, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 }
 
@@ -649,7 +649,7 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*docker.Stats, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.Stats, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 

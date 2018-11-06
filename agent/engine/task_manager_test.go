@@ -49,7 +49,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/golang/mock/gomock"
@@ -93,7 +92,7 @@ func TestHandleEventError(t *testing.T) {
 			EventStatus:                 apicontainerstatus.ContainerStopped,
 			CurrentContainerKnownStatus: apicontainerstatus.ContainerRunning,
 			Error: &dockerapi.CannotStopContainerError{
-				FromError: &docker.ContainerNotRunning{},
+				FromError: dockerapi.NoSuchContainerError{},
 			},
 			ExpectedContainerKnownStatusSet:       true,
 			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerStopped,

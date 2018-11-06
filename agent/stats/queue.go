@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -36,7 +36,7 @@ type Queue struct {
 	buffer        []UsageStats
 	maxSize       int
 	lastResetTime time.Time
-	lastStat      *docker.Stats
+	lastStat      *types.Stats
 	lock          sync.RWMutex
 }
 
@@ -57,7 +57,7 @@ func (queue *Queue) Reset() {
 }
 
 // Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(dockerStat *docker.Stats) error {
+func (queue *Queue) Add(dockerStat *types.Stats) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
@@ -67,7 +67,7 @@ func (queue *Queue) Add(dockerStat *docker.Stats) error {
 	return nil
 }
 
-func (queue *Queue) setLastStat(stat *docker.Stats) {
+func (queue *Queue) setLastStat(stat *types.Stats) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -108,7 +108,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 }
 
 // GetLastStat returns the last recorded raw statistics object from docker
-func (queue *Queue) GetLastStat() *docker.Stats {
+func (queue *Queue) GetLastStat() *types.Stats {
 	queue.lock.RLock()
 	defer queue.lock.RUnlock()
 

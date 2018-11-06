@@ -25,7 +25,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -208,7 +208,7 @@ type Container struct {
 	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
 	// VolumesUnsafe is an array of volume mounts in the container.
-	VolumesUnsafe []docker.Mount `json:"-"`
+	VolumesUnsafe []types.MountPoint `json:"-"`
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
@@ -572,7 +572,7 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 }
 
 // SetVolumes sets the volumes mounted in a container
-func (c *Container) SetVolumes(volumes []docker.Mount) {
+func (c *Container) SetVolumes(volumes []types.MountPoint) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -580,7 +580,7 @@ func (c *Container) SetVolumes(volumes []docker.Mount) {
 }
 
 // GetVolumes returns the volumes mounted in a container
-func (c *Container) GetVolumes() []docker.Mount {
+func (c *Container) GetVolumes() []types.MountPoint {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -714,7 +714,7 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 // SetASMDockerAuthConfig add the docker auth config data to the
 // RegistryAuthentication struct held by the container, this is then passed down
 // to the docker client to pull the image
-func (c *Container) SetASMDockerAuthConfig(dac docker.AuthConfiguration) {
+func (c *Container) SetASMDockerAuthConfig(dac types.AuthConfig) {
 	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
 }
 

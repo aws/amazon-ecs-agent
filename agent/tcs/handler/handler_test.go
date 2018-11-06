@@ -36,7 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -65,7 +65,7 @@ func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return req.Metadata, req.TaskMetrics, nil
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.Stats, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -147,7 +147,7 @@ func verifyContainerStats(client *http.Client, containerStatsEndpoint string) er
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats docker.Stats
+	var containerStats types.Stats
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return fmt.Errorf("container stats: unable to parse response body: %v", err)
@@ -164,7 +164,7 @@ func verifyTaskStats(client *http.Client, taskStatsEndpoint string) error {
 
 	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*docker.Stats
+	var taskStats map[string]*types.Stats
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return fmt.Errorf("task stats: unable to parse response body: %v", err)

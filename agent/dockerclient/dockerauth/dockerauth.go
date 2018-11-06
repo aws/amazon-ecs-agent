@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,9 +21,10 @@ import (
 	"strings"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 func NewDockerAuthProvider(authType string, authData json.RawMessage) DockerAuthProvider {
@@ -37,7 +38,7 @@ type dockerAuthProvider struct {
 }
 
 // map from registry url (minus schema) to auth information
-type dockerAuths map[string]docker.AuthConfiguration
+type dockerAuths map[string]types.AuthConfig
 
 type dockercfgConfigEntry struct {
 	Auth string `json:"auth"`
@@ -46,9 +47,9 @@ type dockercfgConfigEntry struct {
 type dockercfgData map[string]dockercfgConfigEntry
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
-func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
 	// Ignore 'tag', not used in auth determination
-	repository, _ := docker.ParseRepositoryTag(image)
+	repository, _ := utils.ParseRepositoryTag(image)
 	authDataMap := authProvider.authMap
 
 	// Ignore repo/image name for some auth checks (see use of 'image' below for where it's not ignored.
@@ -86,7 +87,7 @@ func (authProvider *dockerAuthProvider) GetAuthconfig(image string, registryAuth
 	if longestKey != "" {
 		return authDataMap[longestKey], nil
 	}
-	return docker.AuthConfiguration{}, nil
+	return types.AuthConfig{}, nil
 }
 
 // Normalize all auth types into a uniform 'dockerAuths' type.
@@ -120,7 +121,7 @@ func parseAuthData(authType string, authData json.RawMessage) dockerAuths {
 				seelog.Warnf("Malformed auth data for registry %v; must contain ':'", registry)
 				continue
 			}
-			intermediateAuthData[registry] = docker.AuthConfiguration{
+			intermediateAuthData[registry] = types.AuthConfig{
 				Username: usernamePass[0],
 				Password: usernamePass[1],
 			}

@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -36,7 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/docker/docker/pkg/system"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,6 +74,7 @@ func TestPullInvalidImage(t *testing.T) {
 // its control, and starting the agent results in that container being moved to
 // 'stopped'
 func TestSavedState(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	testTask, err := agent.StartTask(t, savedStateTaskDefinition)
@@ -94,7 +96,8 @@ func TestSavedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +182,7 @@ func TestPortResourceContention(t *testing.T) {
 }
 
 func TestLabels(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -196,7 +200,7 @@ func TestLabels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +210,7 @@ func TestLabels(t *testing.T) {
 }
 
 func TestLogdriverOptions(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -223,7 +228,7 @@ func TestLogdriverOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,6 +241,7 @@ func TestLogdriverOptions(t *testing.T) {
 }
 
 func TestTaskCleanup(t *testing.T) {
+	ctx := context.TODO()
 	// Set the task cleanup time to just over a minute.
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "70s")
 	agent := RunAgent(t, nil)
@@ -261,13 +267,14 @@ func TestTaskCleanup(t *testing.T) {
 	}
 
 	// We should be able to inspect the container ID from docker at this point.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatalf("Error inspecting container in task: %v", err)
 	}
 
 	// Stop the task and sleep for 2 minutes to let the task be cleaned up.
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatalf("Error stoppping task: %v", err)
 	}
@@ -280,7 +287,7 @@ func TestTaskCleanup(t *testing.T) {
 	time.Sleep(2 * time.Minute)
 
 	// We should not be able to describe the container now since it has been cleaned up.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err == nil {
 		t.Fatalf("Expected error inspecting container in task")
 	}
@@ -576,7 +583,7 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -612,7 +619,8 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	ctx := context.TODO()
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	v3TaskEndpointEnabled := false
 	if containerMetaData.Config != nil {
