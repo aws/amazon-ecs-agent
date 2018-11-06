@@ -644,6 +644,8 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 }
 
 func TestContainerInstanceTags(t *testing.T) {
+	t.Skip("Skipping TestContainerInstanceTags")
+
 	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
 	// will enable long container instance ARN.
 	putAccountSettingInput := ecsapi.PutAccountSettingInput{

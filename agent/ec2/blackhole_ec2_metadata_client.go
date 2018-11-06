@@ -60,3 +60,7 @@ func (blackholeMetadataClient) GetDynamicData(path string) (string, error) {
 func (blackholeMetadataClient) GetUserData() (string, error) {
 	return "", errors.New("blackholed")
 }
+
+func (blackholeMetadataClient) Region() (string, error) {
+	return "", errors.New("blackholed")
+}
