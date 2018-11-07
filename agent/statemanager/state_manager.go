@@ -70,7 +70,10 @@ const (
 	// 17)
 	//   a) Add 'secrets' field to 'apicontainer.Container'
 	//   b) Add 'ssmsecret' field to 'resources'
-	ECSDataVersion = 17
+	// 18)
+	//   a) Add 'Associations' field to 'api.task.task'
+	//   b) Add 'GPUIDs' field to 'apicontainer.Container'
+	ECSDataVersion = 18
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
