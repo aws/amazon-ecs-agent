@@ -189,8 +189,8 @@ func (d *Downloader) getPartitionBucketRegion() string {
 	return destination
 }
 
-// DownloadAgent downloads a fresh copy of the Agent and performs an
-// integrity check on the downloaded image
+// DownloadAgent downloads a copy of the Agent and performs an
+// integrity check of the downloaded image
 func (d *Downloader) DownloadAgent() error {
 	err := d.fs.MkdirAll(config.CacheDirectory(), os.ModeDir|orwPerm)
 	if err != nil {
@@ -228,12 +228,14 @@ func (d *Downloader) DownloadAgent() error {
 
 	calculatedMd5Sum := md5hash.Sum(nil)
 	calculatedMd5SumString := fmt.Sprintf("%x", calculatedMd5Sum)
-	log.Debugf("Expected %s", publishedMd5Sum)
-	log.Debugf("Calculated %s", calculatedMd5SumString)
-	agentRemoteTarball := config.AgentRemoteTarballKey()
+	log.Debugf("Expected MD5 %q", publishedMd5Sum)
+	log.Debugf("Calculated MD5 %q", calculatedMd5SumString)
 	if publishedMd5Sum != calculatedMd5SumString {
-		err = fmt.Errorf("mismatched md5sum while downloading %s", agentRemoteTarball)
-		return err
+		agentTarballName, err := config.AgentRemoteTarballKey()
+		if err != nil {
+			return errors.New("downloaded agent does not match expected checksum")
+		}
+		return errors.Errorf("downloaded agent %q does not match expected checksum", agentTarballName)
 	}
 
 	log.Debugf("Attempting to rename %s to %s", tempFileName, config.AgentTarball())
@@ -241,7 +243,11 @@ func (d *Downloader) DownloadAgent() error {
 }
 
 func (d *Downloader) getPublishedMd5Sum() (string, error) {
-	tempMd5FileName, err := d.s3Downloader.downloadFile(config.AgentRemoteTarballMD5Key())
+	objectKey, err := config.AgentRemoteTarballMD5Key()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to determine md5 file for download")
+	}
+	tempMd5FileName, err := d.s3Downloader.downloadFile(objectKey)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to download md5 file for published tarball")
 	}
@@ -264,7 +270,11 @@ func (d *Downloader) getPublishedMd5Sum() (string, error) {
 }
 
 func (d *Downloader) getPublishedTarball() (string, error) {
-	tempAgentFileName, err := d.s3Downloader.downloadFile(config.AgentRemoteTarballKey())
+	objectKey, err := config.AgentRemoteTarballKey()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to determine download tarball")
+	}
+	tempAgentFileName, err := d.s3Downloader.downloadFile(objectKey)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to download published tarball")
 	}
