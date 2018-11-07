@@ -69,7 +69,9 @@ const (
 	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
 )
 
-var partitionBucketMap = map[string]string{
+// partitionBucketRegion provides the "partitional" bucket region
+// suitable for downloading agent from.
+var partitionBucketRegion = map[string]string{
 	endpoints.AwsPartitionID:      endpoints.UsEast1RegionID,
 	endpoints.AwsCnPartitionID:    endpoints.CnNorth1RegionID,
 	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
@@ -83,12 +85,12 @@ var goarch string = runtime.GOARCH
 func GetAgentPartitionBucketRegion(region string) (string, error) {
 	regionPartition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
 	if !ok {
-		return "", errors.Errorf("GetAgentBucketRegion: partition not found for region: %s", region)
+		return "", errors.Errorf("could not resolve partition ID for region %q", region)
 	}
 
-	bucketRegion, ok := partitionBucketMap[regionPartition.ID()]
+	bucketRegion, ok := partitionBucketRegion[regionPartition.ID()]
 	if !ok {
-		return "", errors.Errorf("GetAgentBucketRegion: partition not found: %s", regionPartition)
+		return "", errors.Errorf("no bucket available for partition ID %q", regionPartition.ID())
 	}
 
 	return bucketRegion, nil
