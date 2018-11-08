@@ -1,4 +1,4 @@
-// +build linux
+// +build !linux,!windows
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -66,8 +66,5 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 }
 
 func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
-		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityNvidiaDriverVersionInfix+agent.resourceFields.NvidiaGPUManager.GetDriverVersion())
-	}
 	return capabilities
 }
