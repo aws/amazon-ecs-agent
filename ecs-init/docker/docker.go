@@ -230,8 +230,13 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		envVariables[envKey] = envValue
 	}
 
+	// merge in instance-specific environment variables
+	for envKey, envValue := range c.LoadCustomInstanceEnvVars() {
+		envVariables[envKey] = envValue
+	}
+
 	// merge in user-supplied environment variables
-	for envKey, envValue := range c.loadEnvVariables() {
+	for envKey, envValue := range c.LoadEnvVariables() {
 		envVariables[envKey] = envValue
 	}
 
@@ -246,10 +251,20 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 }
 
-func (c *Client) loadEnvVariables() map[string]string {
+// LoadEnvVariables gets user-supplied environment variables
+func (c *Client) LoadEnvVariables() map[string]string {
+	return c.getEnvVars(config.AgentConfigFile())
+}
+
+// LoadCustomInstanceEnvVars gets custom config set in the instance by Amazon
+func (c *Client) LoadCustomInstanceEnvVars() map[string]string {
+	return c.getEnvVars(config.InstanceConfigFile())
+}
+
+func (c *Client) getEnvVars(filename string) map[string]string {
 	envVariables := make(map[string]string)
 
-	file, err := c.fs.ReadFile(config.AgentConfigFile())
+	file, err := c.fs.ReadFile(filename)
 	if err != nil {
 		return envVariables
 	}

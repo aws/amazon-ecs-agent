@@ -32,6 +32,7 @@ const (
 	terminalSuccessAgentExitCode = 0
 	terminalFailureAgentExitCode = 5
 	upgradeAgentExitCode         = 42
+	gpuSupportEnvVar             = "ECS_ENABLE_GPU_SUPPORT"
 )
 
 // Engine contains methods invoked when ecs-init is run
@@ -75,12 +76,25 @@ func New() (*Engine, error) {
 // to handle credentials requests from containers by rerouting these requests to
 // to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
-	err := e.nvidiaGPUManager.Setup()
-	if err != nil {
-		return engineError("Nvidia GPU Manager", err)
+	envVariables := make(map[string]string)
+	// load custom config from AMI
+	for envKey, envValue := range e.docker.LoadCustomInstanceEnvVars() {
+		envVariables[envKey] = envValue
+	}
+	// load user-supplied environment variables
+	for envKey, envValue := range e.docker.LoadEnvVariables() {
+		envVariables[envKey] = envValue
+	}
+	if val, ok := envVariables[gpuSupportEnvVar]; ok {
+		if val == "true" {
+			err := e.nvidiaGPUManager.Setup()
+			if err != nil {
+				return engineError("Nvidia GPU Manager", err)
+			}
+		}
 	}
 	// Enable use of loopback addresses for local routing purposes
-	err = e.loopbackRouting.Enable()
+	err := e.loopbackRouting.Enable()
 	if err != nil {
 		return engineError("could not enable loopback routing", err)
 	}

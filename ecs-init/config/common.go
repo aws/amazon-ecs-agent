@@ -203,3 +203,13 @@ func AgentDockerLogDriverConfiguration() godocker.LogConfig {
 		},
 	}
 }
+
+// InstanceConfigDirectory returns the location on disk for custom instance configuration
+func InstanceConfigDirectory() string {
+	return directoryPrefix + "/usr/lib/ecs"
+}
+
+// InstanceConfigFile returns the location of a file of custom environment variables
+func InstanceConfigFile() string {
+	return InstanceConfigDirectory() + "/ecs.config"
+}

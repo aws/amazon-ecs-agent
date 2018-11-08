@@ -196,6 +196,7 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error"))
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
@@ -322,6 +323,7 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
@@ -358,6 +360,7 @@ func TestGetContainerConfigWithFileOverrides(t *testing.T) {
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
 	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
 
 	client := &Client{
@@ -375,6 +378,53 @@ func TestGetContainerConfigWithFileOverrides(t *testing.T) {
 		t.Errorf("Did not expect ECS_UPDATES_ENABLED=true to be defined")
 	}
 
+}
+
+func TestGetInstanceConfig(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+
+	mockFS := NewMockfileSystem(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil)
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found"))
+
+	client := &Client{
+		fs: mockFS,
+	}
+	cfg := client.getContainerConfig()
+
+	envVariables := make(map[string]struct{})
+	for _, envVar := range cfg.Env {
+		envVariables[envVar] = struct{}{}
+	}
+	expectKey("ECS_ENABLE_GPU_SUPPORT=true", envVariables, t)
+}
+
+func TestGetInstanceConfigOverrides(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	instanceEnvFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	userEnvFile := "\nECS_ENABLE_GPU_SUPPORT=false\n"
+
+	mockFS := NewMockfileSystem(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(instanceEnvFile), nil)
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(userEnvFile), nil)
+
+	client := &Client{
+		fs: mockFS,
+	}
+	cfg := client.getContainerConfig()
+
+	envVariables := make(map[string]struct{})
+	for _, envVar := range cfg.Env {
+		envVariables[envVar] = struct{}{}
+	}
+	expectKey("ECS_ENABLE_GPU_SUPPORT=false", envVariables, t)
 }
 
 func TestStopAgentError(t *testing.T) {
