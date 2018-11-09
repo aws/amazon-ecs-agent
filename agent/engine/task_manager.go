@@ -163,21 +163,21 @@ type managedTask struct {
 func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		Task:                     task,
-		acsMessages:              make(chan acsTransition),
-		dockerMessages:           make(chan dockerContainerChange),
-		resourceStateChangeEvent: make(chan resourceStateChange),
+		ctx:                        ctx,
+		cancel:                     cancel,
+		Task:                       task,
+		acsMessages:                make(chan acsTransition),
+		dockerMessages:             make(chan dockerContainerChange),
+		resourceStateChangeEvent:   make(chan resourceStateChange),
 		engine:                     engine,
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:                   engine.saver,
-		credentialsManager:      engine.credentialsManager,
-		cniClient:               engine.cniClient,
-		taskStopWG:              engine.taskStopGroup,
-		steadyStatePollInterval: engine.taskSteadyStatePollInterval,
+		saver:                      engine.saver,
+		credentialsManager:         engine.credentialsManager,
+		cniClient:                  engine.cniClient,
+		taskStopWG:                 engine.taskStopGroup,
+		steadyStatePollInterval:    engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -214,7 +214,7 @@ func (mtask *managedTask) overseeTask() {
 		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
-			seelog.Debugf("Managed task [%s]: task not steady state or terminal; progressing it",
+			seelog.Infof("Managed task [%s]: task not steady state or terminal; progressing it",
 				mtask.Arn)
 
 			mtask.progressTask()
@@ -236,7 +236,7 @@ func (mtask *managedTask) overseeTask() {
 	}
 	// We only break out of the above if this task is known to be stopped. Do
 	// onetime cleanup here, including removing the task after a timeout
-	seelog.Debugf("Managed task [%s]: task has reached stopped. Waiting for container cleanup", mtask.Arn)
+	seelog.Infof("Managed task [%s]: task has reached stopped. Waiting for container cleanup", mtask.Arn)
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		seelog.Debugf("Managed task [%s]: marking done for this sequence: %d",
@@ -328,25 +328,25 @@ func (mtask *managedTask) cleanupCredentials() {
 // channel. When the Done channel is signalled by the context, waitEvent will
 // return true.
 func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
-	seelog.Debugf("Managed task [%s]: waiting for event for task", mtask.Arn)
+	seelog.Infof("Managed task [%s]: waiting for event for task", mtask.Arn)
 	select {
 	case acsTransition := <-mtask.acsMessages:
-		seelog.Debugf("Managed task [%s]: got acs event", mtask.Arn)
+		seelog.Infof("Managed task [%s]: got acs event", mtask.Arn)
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
 		return false
 	case dockerChange := <-mtask.dockerMessages:
-		seelog.Debugf("Managed task [%s]: got container [%s] event: [%s]",
+		seelog.Infof("Managed task [%s]: got container [%s] event: [%s]",
 			mtask.Arn, dockerChange.container.Name, dockerChange.event.Status.String())
 		mtask.handleContainerChange(dockerChange)
 		return false
 	case resChange := <-mtask.resourceStateChangeEvent:
 		res := resChange.resource
-		seelog.Debugf("Managed task [%s]: got resource [%s] event: [%s]",
+		seelog.Infof("Managed task [%s]: got resource [%s] event: [%s]",
 			mtask.Arn, res.GetName(), res.StatusString(resChange.nextState))
 		mtask.handleResourceStateChange(resChange)
 		return false
 	case <-stopWaiting:
-		seelog.Debugf("Managed task [%s]: no longer waiting", mtask.Arn)
+		seelog.Infof("Managed task [%s]: no longer waiting", mtask.Arn)
 		return true
 	}
 }
@@ -358,15 +358,15 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.TaskStatus, seqnum int64) {
 	// Handle acs message changes this task's desired status to whatever
 	// acs says it should be if it is compatible
-	seelog.Debugf("Managed task [%s]: new acs transition to: %s; sequence number: %d; task stop sequence number: %d",
+	seelog.Infof("Managed task [%s]: new acs transition to: %s; sequence number: %d; task stop sequence number: %d",
 		mtask.Arn, desiredStatus.String(), seqnum, mtask.StopSequenceNumber)
 	if desiredStatus <= mtask.GetDesiredStatus() {
-		seelog.Debugf("Managed task [%s]: redundant task transition from [%s] to [%s], ignoring",
+		seelog.Infof("Managed task [%s]: redundant task transition from [%s] to [%s], ignoring",
 			mtask.Arn, mtask.GetDesiredStatus().String(), desiredStatus.String())
 		return
 	}
 	if desiredStatus == apitaskstatus.TaskStopped && seqnum != 0 && mtask.GetStopSequenceNumber() == 0 {
-		seelog.Debugf("Managed task [%s]: task moving to stopped, adding to stopgroup with sequence number: %d",
+		seelog.Infof("Managed task [%s]: task moving to stopped, adding to stopgroup with sequence number: %d",
 			mtask.Arn, seqnum)
 		mtask.SetStopSequenceNumber(seqnum)
 		mtask.taskStopWG.Add(seqnum, 1)
@@ -389,7 +389,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 
 	event := containerChange.event
-	seelog.Debugf("Managed task [%s]: handling container change [%v] for container [%s]",
+	seelog.Infof("Managed task [%s]: handling container change [%v] for container [%s]",
 		mtask.Arn, event, container.Name)
 
 	// If this is a backwards transition stopped->running, the first time set it
@@ -430,7 +430,7 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
 	if mtask.UpdateStatus() {
-		seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
+		seelog.Infof("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
 			mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
 		// If knownStatus changed, let it be known
 		var taskStateChangeReason string
@@ -439,8 +439,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
 	}
-	seelog.Debugf("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
-		mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
 }
 
 // handleResourceStateChange attempts to update resource's known status depending on
@@ -469,7 +467,7 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 		mtask.engine.saver.Save()
 		return
 	}
-	seelog.Debugf("Managed task [%s]: error while transitioning resource %s to %s: %v",
+	seelog.Infof("Managed task [%s]: unable to transition resource %s to %s: %v",
 		mtask.Arn, res.GetName(), res.StatusString(status), err)
 	if status == res.SteadyState() {
 		seelog.Errorf("Managed task [%s]: error while creating resource %s, setting the task's desired status to STOPPED",
@@ -505,7 +503,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		seelog.Debugf("Managed task [%s]: unable to create state change event for container [%s]: %v",
+		seelog.Infof("Managed task [%s]: unable to create state change event for container [%s]: %v",
 			task.Arn, cont.Name, err)
 		return
 	}
@@ -768,9 +766,8 @@ func (mtask *managedTask) progressTask() {
 	// transitions to complete
 	mtask.waitForTransition(transitions, transitionChange, transitionChangeEntity)
 	// update the task status
-	changed := mtask.UpdateStatus()
-	if changed {
-		seelog.Debugf("Managed task [%s]: container or resource change also resulted in task change", mtask.Arn)
+	if mtask.UpdateStatus() {
+		seelog.Infof("Managed task [%s]: container or resource change also resulted in task change", mtask.Arn)
 
 		// If knownStatus changed, let it be known
 		var taskStateChangeReason string
@@ -786,14 +783,14 @@ func (mtask *managedTask) progressTask() {
 func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bool {
 	for _, reason := range reasons {
 		if reason == dependencygraph.CredentialsNotResolvedErr {
-			seelog.Debugf("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
+			seelog.Infof("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
 
 			timeoutCtx, timeoutCancel := context.WithTimeout(mtask.ctx, waitForPullCredentialsTimeout)
 			defer timeoutCancel()
 
 			timedOut := mtask.waitEvent(timeoutCtx.Done())
 			if timedOut {
-				seelog.Debugf("Managed task [%s]: timed out waiting for acs credentials message", mtask.Arn)
+				seelog.Infof("Managed task [%s]: timed out waiting for acs credentials message", mtask.Arn)
 			}
 			return true
 		}
@@ -911,7 +908,7 @@ func (mtask *managedTask) applyResourceState(resource taskresource.TaskResource,
 			mtask.Arn, resName, resStatus, err)
 		return err
 	}
-	seelog.Debugf("Managed task [%s]: transitioned resource [%s] to [%s]",
+	seelog.Infof("Managed task [%s]: transitioned resource [%s] to [%s]",
 		mtask.Arn, resName, resStatus)
 	return nil
 }
@@ -1065,7 +1062,7 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
 	// value in this case in favor of the default config value.
 	if cleanupTimeDuration < 0 {
-		seelog.Debugf("Managed task [%s]: Cleanup Duration is too short. Resetting to: %s",
+		seelog.Infof("Managed task [%s]: Cleanup Duration is too short. Resetting to: %s",
 			mtask.Arn, config.DefaultTaskCleanupWaitDuration.String())
 		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
 	}
