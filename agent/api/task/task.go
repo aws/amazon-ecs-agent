@@ -892,7 +892,7 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 // there was no change
 // Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
-	seelog.Debugf("Updating task's known status, task: %s", task.String())
+	seelog.Debugf("api/task: Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
@@ -913,7 +913,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 			containerEarliestKnownStatus.String(), task)
 		return apitaskstatus.TaskStatusNone
 	}
-	seelog.Debugf("Container with earliest known container is [%s] for task: %s",
+	seelog.Debugf("api/task: Container with earliest known container is [%s] for task: %s",
 		earliestKnownStatusContainer.String(), task.String())
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
@@ -929,7 +929,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	// statuses and compute the min of this
 	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
 	if task.GetKnownStatus() < earliestKnownTaskStatus {
-		seelog.Debugf("Updating task's known status to: %s, task: %s",
+		seelog.Infof("api/task: Updating task's known status to: %s, task: %s",
 			earliestKnownTaskStatus.String(), task.String())
 		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
@@ -1482,7 +1482,7 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
-			seelog.Debugf("Updating task desired status to stopped because of container: [%s]; task: [%s]",
+			seelog.Infof("api/task: Updating task desired status to stopped because of container: [%s]; task: [%s]",
 				cont.Name, task.stringUnsafe())
 			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		}
