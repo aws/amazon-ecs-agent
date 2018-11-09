@@ -452,7 +452,7 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 	for _, cont := range task.Containers {
 		err := engine.removeContainer(task, cont)
 		if err != nil {
-			seelog.Debugf("Task engine [%s]: unable to remove old container [%s]: %v",
+			seelog.Infof("Task engine [%s]: unable to remove old container [%s]: %v",
 				task.Arn, cont.Name, err)
 		}
 		// Internal container(created by ecs-agent) state isn't recorded
@@ -483,7 +483,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 			seelog.Warnf("Task engine [%s]: unable to cleanup resource %s: %v",
 				task.Arn, resource.GetName(), err)
 		} else {
-			seelog.Debugf("Task engine [%s]: resource %s cleanup complete", task.Arn,
+			seelog.Infof("Task engine [%s]: resource %s cleanup complete", task.Arn,
 				resource.GetName())
 		}
 	}
@@ -495,10 +495,10 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	if eni == nil {
 		seelog.Debugf("Task engine [%s]: no eni associated with task", task.Arn)
 	} else {
-		seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
+		seelog.Infof("Task engine [%s]: removing the eni from agent state", task.Arn)
 		engine.state.RemoveENIAttachment(eni.MacAddress)
 	}
-	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
+	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
 	engine.tasksLock.Unlock()
 	engine.saver.Save()
@@ -507,7 +507,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		seelog.Debugf("Task engine [%s]: unable to create task state change event: %v", task.Arn, err)
+		seelog.Infof("Task engine [%s]: unable to create task state change event: %v", task.Arn, err)
 		return
 	}
 
