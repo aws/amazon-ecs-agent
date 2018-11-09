@@ -639,6 +639,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
+	cfg.GPUSupportEnabled = true
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -681,7 +682,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	mockGPUManager.EXPECT().Initialize().Return(errors.New("init error"))
 
 	cfg := getTestConfig()
-
+	cfg.GPUSupportEnabled = true
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()

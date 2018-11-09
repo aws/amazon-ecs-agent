@@ -248,4 +248,7 @@ type Config struct {
 	// through RegisterContainerInstance call. Tags with the same keys from DescribeTags
 	// API call will be overridden.
 	ContainerInstanceTags map[string]string
+
+	// GPUSupportEnabled specifies if the Agent is capable of launching GPU tasks
+	GPUSupportEnabled bool
 }
