@@ -24,9 +24,9 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 )
 
 func TestMarshalUnmarshalVolumeResource(t *testing.T) {
@@ -59,7 +59,6 @@ func TestMarshalUnmarshalVolumeResource(t *testing.T) {
 	assert.Equal(t, unMarshalledVolumes[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
 	assert.Equal(t, unMarshalledVolumes[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }
-
 
 func TestMarshalUnmarshalSSMSecretResource(t *testing.T) {
 	bytes := []byte(`{"ssmsecret":[{"TaskARN":"task_arn","RequiredSecrets":{"us-west-2":[]},"CreatedAt":"0001-01-01T00:00:00Z","DesiredStatus":"CREATED","KnownStatus":"REMOVED"}]}`)

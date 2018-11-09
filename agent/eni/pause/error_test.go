@@ -26,7 +26,7 @@ import (
 
 func TestUnsupportedPlatform(t *testing.T) {
 	testCases := map[error]bool{
-		errors.New("error"):                              false,
+		errors.New("error"): false,
 		NewUnsupportedPlatformError(errors.New("error")): true,
 	}
 

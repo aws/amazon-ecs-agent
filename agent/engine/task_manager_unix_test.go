@@ -263,7 +263,7 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
-				ctx: ctx,
+				ctx:                      ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),
 			}
 			mtask.Task.AddResource("cgroup", res)
