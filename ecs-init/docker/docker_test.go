@@ -403,7 +403,7 @@ func TestGetInstanceConfig(t *testing.T) {
 	expectKey("ECS_ENABLE_GPU_SUPPORT=true", envVariables, t)
 }
 
-func TestGetInstanceConfigOverrides(t *testing.T) {
+func TestGetConfigOverrides(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 

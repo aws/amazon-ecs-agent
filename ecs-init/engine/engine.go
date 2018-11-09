@@ -19,6 +19,7 @@ import (
 	"io"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/aws/amazon-ecs-init/ecs-init/docker"
 	"github.com/aws/amazon-ecs-init/ecs-init/exec"
 	"github.com/aws/amazon-ecs-init/ecs-init/exec/iptables"
@@ -32,7 +33,6 @@ const (
 	terminalSuccessAgentExitCode = 0
 	terminalFailureAgentExitCode = 5
 	upgradeAgentExitCode         = 42
-	gpuSupportEnvVar             = "ECS_ENABLE_GPU_SUPPORT"
 )
 
 // Engine contains methods invoked when ecs-init is run
@@ -76,16 +76,8 @@ func New() (*Engine, error) {
 // to handle credentials requests from containers by rerouting these requests to
 // to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
-	envVariables := make(map[string]string)
-	// load custom config from AMI
-	for envKey, envValue := range e.docker.LoadCustomInstanceEnvVars() {
-		envVariables[envKey] = envValue
-	}
-	// load user-supplied environment variables
-	for envKey, envValue := range e.docker.LoadEnvVariables() {
-		envVariables[envKey] = envValue
-	}
-	if val, ok := envVariables[gpuSupportEnvVar]; ok {
+	envVariables := e.docker.LoadEnvVars()
+	if val, ok := envVariables[config.GPUSupportEnvVar]; ok {
 		if val == "true" {
 			err := e.nvidiaGPUManager.Setup()
 			if err != nil {

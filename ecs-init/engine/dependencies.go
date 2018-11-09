@@ -36,8 +36,7 @@ type dockerClient interface {
 	RemoveExistingAgentContainer() error
 	StartAgent() (int, error)
 	StopAgent() error
-	LoadEnvVariables() map[string]string
-	LoadCustomInstanceEnvVars() map[string]string
+	LoadEnvVars() map[string]string
 }
 
 type loopbackRouting interface {

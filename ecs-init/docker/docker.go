@@ -230,14 +230,10 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		envVariables[envKey] = envValue
 	}
 
-	// merge in instance-specific environment variables
-	for envKey, envValue := range c.LoadCustomInstanceEnvVars() {
-		envVariables[envKey] = envValue
-	}
+	envVars := c.LoadEnvVars()
 
-	// merge in user-supplied environment variables
-	for envKey, envValue := range c.LoadEnvVariables() {
-		envVariables[envKey] = envValue
+	for key, val := range envVars {
+		envVariables[key] = val
 	}
 
 	var env []string
@@ -251,13 +247,30 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 }
 
-// LoadEnvVariables gets user-supplied environment variables
-func (c *Client) LoadEnvVariables() map[string]string {
+func (c *Client) LoadEnvVars() map[string]string {
+	envVariables := make(map[string]string)
+	// merge in instance-specific environment variables
+	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
+		envVariables[envKey] = envValue
+	}
+
+	// merge in user-supplied environment variables
+	for envKey, envValue := range c.loadUsrEnvVars() {
+		if val, ok := envVariables[envKey]; ok {
+			log.Debugf("Overriding instance config %s of value %s to %s", envKey, val, envValue)
+		}
+		envVariables[envKey] = envValue
+	}
+	return envVariables
+}
+
+// loadUsrEnvVars gets user-supplied environment variables
+func (c *Client) loadUsrEnvVars() map[string]string {
 	return c.getEnvVars(config.AgentConfigFile())
 }
 
-// LoadCustomInstanceEnvVars gets custom config set in the instance by Amazon
-func (c *Client) LoadCustomInstanceEnvVars() map[string]string {
+// loadCustomInstanceEnvVars gets custom config set in the instance by Amazon
+func (c *Client) loadCustomInstanceEnvVars() map[string]string {
 	return c.getEnvVars(config.InstanceConfigFile())
 }
 

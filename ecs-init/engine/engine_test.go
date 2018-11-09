@@ -33,8 +33,7 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 	// Agent tarball and state is present
@@ -66,8 +65,7 @@ func TestPreStartReloadNeeded(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
 	// Agent tarball and state is present, but requires a reload off of disk
@@ -104,9 +102,7 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
-
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockRoute.EXPECT().Create().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
@@ -136,8 +132,7 @@ func TestPreStartImageNotCached(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusUncached)
 	mockDownloader.EXPECT().DownloadAgent()
@@ -170,10 +165,9 @@ func TestPreStartGPUSetupSuccessful(t *testing.T) {
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(map[string]string{
+	mockDocker.EXPECT().LoadEnvVars().Return(map[string]string{
 		"ECS_ENABLE_GPU_SUPPORT": "true",
 	})
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
 	mockGPUManager.EXPECT().Setup().Return(nil)
 	// Docker reports image is loaded.
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(true, nil)
@@ -205,10 +199,9 @@ func TestPreStartGPUSetupError(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockGPUManager := gpu.NewMockGPUManager(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(map[string]string{
+	mockDocker.EXPECT().LoadEnvVars().Return(map[string]string{
 		"ECS_ENABLE_GPU_SUPPORT": "true",
 	})
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
 	mockGPUManager.EXPECT().Setup().Return(errors.New("gpu setup failed"))
 	engine := &Engine{
 		docker:           mockDocker,
@@ -442,8 +435,7 @@ func TestPrestartLoopbackRoutingNotEnabled(t *testing.T) {
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(fmt.Errorf("sysctl not found"))
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 
@@ -467,8 +459,7 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 
-	mockDocker.EXPECT().LoadCustomInstanceEnvVars().Return(nil)
-	mockDocker.EXPECT().LoadEnvVariables().Return(nil)
+	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
