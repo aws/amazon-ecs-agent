@@ -123,7 +123,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// with host EC2 instance and among containers within the task
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
 
-	capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
+	if agent.cfg.GPUSupportEnabled {
+		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
+	}
 
 	return capabilities, nil
 }

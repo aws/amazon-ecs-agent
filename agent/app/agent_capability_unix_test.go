@@ -149,6 +149,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	conf := &config.Config{
 		PrivilegedDisabled: true,
+		GPUSupportEnabled:  true,
 	}
 
 	gomock.InOrder(

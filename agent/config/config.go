@@ -478,6 +478,7 @@ func environmentConfig() (Config, error) {
 		SharedVolumeMatchFullConfig:        utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 		ContainerInstanceTags:              containerInstanceTags,
 		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
+		GPUSupportEnabled:                  utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
 	}, err
 }
 

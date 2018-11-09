@@ -231,8 +231,10 @@ func (agent *ecsAgent) initializeGPUManager() error {
 }
 
 func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
-	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
-		return agent.resourceFields.NvidiaGPUManager.GetDevices()
+	if agent.cfg.GPUSupportEnabled {
+		if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+			return agent.resourceFields.NvidiaGPUManager.GetDevices()
+		}
 	}
 	return nil
 }
