@@ -74,6 +74,16 @@ func (mr *MockManagerMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManager)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
+// SetAvailabilityZone mocks base method
+func (m *MockManager) SetAvailabilityZone(arg0 string) {
+	m.ctrl.Call(m, "SetAvailabilityZone", arg0)
+}
+
+// SetAvailabilityZone indicates an expected call of SetAvailabilityZone
+func (mr *MockManagerMockRecorder) SetAvailabilityZone(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAvailabilityZone", reflect.TypeOf((*MockManager)(nil).SetAvailabilityZone), arg0)
+}
+
 // SetContainerInstanceARN mocks base method
 func (m *MockManager) SetContainerInstanceARN(arg0 string) {
 	m.ctrl.Call(m, "SetContainerInstanceARN", arg0)

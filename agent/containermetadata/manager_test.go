@@ -39,6 +39,7 @@ const (
 	taskDefinitionRevision = "8"
 	containerName          = "container"
 	dataDir                = "ecs_mockdata"
+	availabilityZone       = "us-west-2b"
 )
 
 func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
@@ -60,6 +61,16 @@ func TestSetContainerInstanceARN(t *testing.T) {
 	newManager := &metadataManager{}
 	newManager.SetContainerInstanceARN(mockARN)
 	assert.Equal(t, mockARN, newManager.containerInstanceARN)
+}
+
+// TestAvailabilityZone checks whether the container availabilityZone is set correctly.
+func TestSetAvailabilityZone(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	mockAvailabilityZone := availabilityZone
+	newManager := &metadataManager{}
+	newManager.SetAvailabilityZone(mockAvailabilityZone)
+	assert.Equal(t, mockAvailabilityZone, newManager.availabilityZone)
 }
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path

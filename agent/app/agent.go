@@ -285,6 +285,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
+		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
 	}
 
 	// Begin listening to the docker daemon and saving changes
