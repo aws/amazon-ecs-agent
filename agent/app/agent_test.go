@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"testing"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -27,11 +28,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -291,6 +295,72 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client)
 	assert.Equal(t, exitcodes.ExitError, exitCode)
+}
+
+func TestDoStartRegisterAvailabilityZone(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _ := setup(t)
+	defer ctrl.Finish()
+
+	var discoverEndpointsInvoked sync.WaitGroup
+	discoverEndpointsInvoked.Add(2)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	containermetadata := mock_containermetadata.NewMockManager(ctrl)
+	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
+	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		dockerapi.ListContainersResponse{}).AnyTimes()
+	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
+		// Ensures that the test waits until acs session has bee started
+		discoverEndpointsInvoked.Done()
+	}).Return("poll-endpoint", nil)
+	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
+	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
+		// Ensures that the test waits until telemetry session has bee started
+		discoverEndpointsInvoked.Done()
+	}).Return("telemetry-endpoint", nil)
+	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
+		"tele-endpoint", nil).AnyTimes()
+
+	gomock.InOrder(
+		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		mockCredentialsProvider.EXPECT().Retrieve().Return(aws_credentials.Value{}, nil),
+		dockerClient.EXPECT().SupportedVersions().Return(nil),
+		dockerClient.EXPECT().KnownVersions().Return(nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
+		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			"arn:123", availabilityZone, nil),
+		containermetadata.EXPECT().SetContainerInstanceARN("arn:123"),
+		containermetadata.EXPECT().SetAvailabilityZone(availabilityZone),
+		imageManager.EXPECT().SetSaver(gomock.Any()),
+		dockerClient.EXPECT().ContainerEvents(gomock.Any()),
+		state.EXPECT().AllImageStates().Return(nil),
+		state.EXPECT().AllTasks().Return(nil),
+	)
+
+	cfg := getTestConfig()
+	cfg.ContainerMetadataEnabled = true
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                &cfg,
+		dockerClient:       dockerClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+		metadataManager:    containermetadata,
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+	}
+
+	go agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client)
+
+	discoverEndpointsInvoked.Wait()
 }
 
 func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *testing.T) {
