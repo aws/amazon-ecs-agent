@@ -577,8 +577,8 @@ func (task *Task) getAllSSMSecretRequirements() map[string][]apicontainer.Secret
 	return reqs
 }
 
-// requiresSSMSecret returns true if at least one container in the task
-// needs to retrieve secret from SSM parameter
+// requiresASMSecret returns true if at least one container in the task
+// needs to retrieve secret from AWS Secrets Manager
 func (task *Task) requiresASMSecret() bool {
 	for _, container := range task.Containers {
 		if container.ShouldCreateWithASMSecret() {
@@ -612,12 +612,10 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 	for _, container := range task.Containers {
 		for _, secret := range container.Secrets {
 			if secret.Provider == apicontainer.SecretProviderASM {
-
 				secretKey := secret.GetSecretResourceCacheKey()
 				if _, ok := reqs[secretKey]; !ok {
 					reqs[secretKey] = secret
 				}
-
 			}
 		}
 	}
@@ -1698,29 +1696,6 @@ func (task *Task) getASMAuthResource() ([]taskresource.TaskResource, bool) {
 
 	res, ok := task.ResourcesMapUnsafe[asmauth.ResourceName]
 	return res, ok
-}
-
-// PopulateSSMSecrets appends the container's env var map with ssm parameters
-func (task *Task) PopulateSSMSecrets(container *apicontainer.Container) *apierrors.DockerClientConfigError {
-	resource, ok := task.getSSMSecretsResource()
-	if !ok {
-		return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
-	}
-
-	ssmResource := resource[0].(*ssmsecret.SSMSecretResource)
-	envVars := make(map[string]string)
-
-	for _, secret := range container.Secrets {
-		if secret.Provider == apicontainer.SecretProviderSSM {
-			k := secret.GetSecretResourceCacheKey()
-			if secretValue, ok := ssmResource.GetCachedSecretValue(k); ok {
-				envVars[secret.Name] = secretValue
-			}
-		}
-	}
-
-	container.MergeEnvironmentVariables(envVars)
-	return nil
 }
 
 // getSSMSecretsResource retrieves ssmsecret resource from resource map

@@ -283,7 +283,6 @@ func (secret *ASMSecretResource) Create() error {
 		secret.setTerminalReason(errorString)
 		return errors.New(errorString)
 	}
-
 	return nil
 }
 
@@ -294,6 +293,7 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 
 	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
 	seelog.Infof("asm secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
+	//for asm secret, ValueFrom will always be arn
 	secretValue, err := asm.GetSecretFromASM(apiSecret.ValueFrom, asmClient)
 	if err != nil {
 		errorEvents <- fmt.Errorf("fetching secret data from AWS Secrets Manager in region %s: %v", apiSecret.Region, err)
@@ -352,8 +352,8 @@ func (secret *ASMSecretResource) GetCachedSecretValue(secretKey string) (string,
 
 // SetCachedSecretValue set the secret value in the secretData field given the key and value
 func (secret *ASMSecretResource) SetCachedSecretValue(secretKey string, secretValue string) {
-	secret.lock.RLock()
-	defer secret.lock.RUnlock()
+	secret.lock.Lock()
+	defer secret.lock.Unlock()
 
 	if secret.secretData == nil {
 		secret.secretData = make(map[string]string)

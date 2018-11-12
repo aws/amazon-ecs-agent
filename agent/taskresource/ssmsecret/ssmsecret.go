@@ -394,8 +394,8 @@ func (secret *SSMSecretResource) GetCachedSecretValue(secretKey string) (string,
 
 // SetCachedSecretValue set the secret value in the secretData field given the key and value
 func (secret *SSMSecretResource) SetCachedSecretValue(secretKey string, secretValue string) {
-	secret.lock.RLock()
-	defer secret.lock.RUnlock()
+	secret.lock.Lock()
+	defer secret.lock.Unlock()
 
 	if secret.secretData == nil {
 		secret.secretData = make(map[string]string)

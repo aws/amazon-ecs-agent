@@ -772,7 +772,7 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 }
 
 // ShouldCreateWithASMSecret returns true if this container needs to get secret
-// value from ASM Secrets Manager
+// value from AWS Secrets Manager
 func (c *Container) ShouldCreateWithASMSecret() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
