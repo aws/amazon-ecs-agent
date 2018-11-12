@@ -18,15 +18,19 @@ package types
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+)
+
+const (
+	secretKeyWest1    = "/test/secretName_us-west-2"
+	asmSecretKeyWest1 = "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName_us-west-2"
 )
 
 func TestMarshalUnmarshalVolumeResource(t *testing.T) {
@@ -61,29 +65,44 @@ func TestMarshalUnmarshalVolumeResource(t *testing.T) {
 }
 
 func TestMarshalUnmarshalSSMSecretResource(t *testing.T) {
-	bytes := []byte(`{"ssmsecret":[{"TaskARN":"task_arn","RequiredSecrets":{"us-west-2":[]},"CreatedAt":"0001-01-01T00:00:00Z","DesiredStatus":"CREATED","KnownStatus":"REMOVED"}]}`)
+	resources := make(map[string][]taskresource.TaskResource)
+	ssmSecrets := []taskresource.TaskResource{
+		&ssmsecret.SSMSecretResource{},
+	}
 
-	unmarshalledMap := make(ResourcesMap)
-	err := unmarshalledMap.UnmarshalJSON(bytes)
+	ssmSecrets[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	ssmSecrets[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
+
+	resources["ssmsecret"] = ssmSecrets
+	data, err := json.Marshal(resources)
+	require.NoError(t, err)
+
+	var unMarshalledResource ResourcesMap
+	err = json.Unmarshal(data, &unMarshalledResource)
 	assert.NoError(t, err)
-
-	ssmRes := unmarshalledMap["ssmsecret"][0].(*ssmsecret.SSMSecretResource)
-	assert.Equal(t, "ssmsecret", ssmRes.GetName())
-	assert.Equal(t, time.Time{}, ssmRes.GetCreatedAt())
-	assert.Equal(t, resourcestatus.ResourceCreated, ssmRes.GetDesiredStatus())
-	assert.Equal(t, resourcestatus.ResourceRemoved, ssmRes.GetKnownStatus())
+	unMarshalledSSMSecret, ok := unMarshalledResource["ssmsecret"]
+	assert.True(t, ok)
+	assert.Equal(t, unMarshalledSSMSecret[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledSSMSecret[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }
 
 func TestMarshalUnmarshalASMSecretResource(t *testing.T) {
-	bytes := []byte(`{"asmsecret":[{"TaskARN":"task_arn","RequiredSecrets":{"secret-name_us-west-2":[]},"CreatedAt":"0001-01-01T00:00:00Z","DesiredStatus":"CREATED","KnownStatus":"REMOVED"}]}`)
+	resources := make(map[string][]taskresource.TaskResource)
+	asmSecrets := []taskresource.TaskResource{
+		&asmsecret.ASMSecretResource{},
+	}
+	asmSecrets[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	asmSecrets[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
 
-	unmarshalledMap := make(ResourcesMap)
-	err := unmarshalledMap.UnmarshalJSON(bytes)
+	resources["asmsecret"] = asmSecrets
+	data, err := json.Marshal(resources)
+	require.NoError(t, err)
+
+	var unMarshalledResource ResourcesMap
+	err = json.Unmarshal(data, &unMarshalledResource)
 	assert.NoError(t, err)
-
-	asmRes := unmarshalledMap["asmsecret"][0].(*asmsecret.ASMSecretResource)
-	assert.Equal(t, "asmsecret", asmRes.GetName())
-	assert.Equal(t, time.Time{}, asmRes.GetCreatedAt())
-	assert.Equal(t, resourcestatus.ResourceCreated, asmRes.GetDesiredStatus())
-	assert.Equal(t, resourcestatus.ResourceRemoved, asmRes.GetKnownStatus())
+	unMarshalledASMSecret, ok := unMarshalledResource["asmsecret"]
+	assert.True(t, ok)
+	assert.Equal(t, unMarshalledASMSecret[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledASMSecret[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }

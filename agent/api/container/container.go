@@ -758,7 +758,7 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//Secrets field will be nil if there is no secrets for container
+	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
@@ -772,12 +772,12 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 }
 
 // ShouldCreateWithASMSecret returns true if this container needs to get secret
-// value from ASM Secrets Manager
+// value from AWS Secrets Manager
 func (c *Container) ShouldCreateWithASMSecret() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//Secrets field will be nil if there is no secrets for container
+	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
@@ -806,10 +806,10 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 }
 
 func (c *Container) HasSecretAsEnv() bool {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 
-	//Secrets field will be nil if there is no secrets for container
+	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
