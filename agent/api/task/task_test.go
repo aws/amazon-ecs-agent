@@ -56,8 +56,9 @@ import (
 )
 
 const (
-	dockerIDPrefix = "dockerid-"
-	secretKeyWest1 = "/test/secretName_us-west-2"
+	dockerIDPrefix    = "dockerid-"
+	secretKeyWest1    = "/test/secretName_us-west-2"
+	asmSecretKeyWest1 = "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName_us-west-2"
 )
 
 var defaultDockerClientAPIVersion = dockerclient.Version_1_17
@@ -2217,7 +2218,7 @@ func TestRequiresASMSecret(t *testing.T) {
 		Containers:         []*apicontainer.Container{container, container1},
 	}
 
-	assert.Equal(t, true, task.requiresASMSecret())
+	assert.True(t, task.requiresASMSecret())
 }
 
 func TestRequiresASMSecretNoSecret(t *testing.T) {
@@ -2241,7 +2242,7 @@ func TestRequiresASMSecretNoSecret(t *testing.T) {
 		Containers:         []*apicontainer.Container{container, container1},
 	}
 
-	assert.Equal(t, false, task.requiresASMSecret())
+	assert.False(t, task.requiresASMSecret())
 }
 
 func TestGetAllASMSecretRequirements(t *testing.T) {
@@ -2364,7 +2365,7 @@ func TestPopulateSecretsAsEnv(t *testing.T) {
 		Name:      "secret2",
 		Region:    "us-west-2",
 		Type:      "ENVIRONMENT_VARIABLE",
-		ValueFrom: "/test/secretName",
+		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
 	}
 
 	container := &apicontainer.Container{
@@ -2384,7 +2385,7 @@ func TestPopulateSecretsAsEnv(t *testing.T) {
 	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
 
 	asmRes := &asmsecret.ASMSecretResource{}
-	asmRes.SetCachedSecretValue(secretKeyWest1, "secretValue2")
+	asmRes.SetCachedSecretValue(asmSecretKeyWest1, "secretValue2")
 
 	task.AddResource(ssmsecret.ResourceName, ssmRes)
 	task.AddResource(asmsecret.ResourceName, asmRes)
@@ -2400,7 +2401,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 		Name:      "secret1",
 		Region:    "us-west-2",
 		Type:      "MOUNT_POINT",
-		ValueFrom: "/test/secretName",
+		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
 	}
 
 	secret2 := apicontainer.Secret{
@@ -2425,7 +2426,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 	}
 
 	asmRes := &asmsecret.ASMSecretResource{}
-	asmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
+	asmRes.SetCachedSecretValue(asmSecretKeyWest1, "secretValue1")
 
 	ssmRes := &ssmsecret.SSMSecretResource{}
 	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue2")

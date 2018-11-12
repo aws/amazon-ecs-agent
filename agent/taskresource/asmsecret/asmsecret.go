@@ -98,7 +98,7 @@ func (secret *ASMSecretResource) initStatusToTransition() {
 
 func (secret *ASMSecretResource) setTerminalReason(reason string) {
 	secret.terminalReasonOnce.Do(func() {
-		seelog.Infof("asm secret resource: setting terminal reason for asm secret resource in task: [%s]", secret.taskARN)
+		seelog.Infof("ASM secret resource: setting terminal reason for asm secret resource in task: [%s]", secret.taskARN)
 		secret.terminalReason = reason
 	})
 }
@@ -250,7 +250,7 @@ func (secret *ASMSecretResource) Create() error {
 	executionCredentials, ok := secret.credentialsManager.GetTaskCredentials(secret.getExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		err := errors.New("asm secret resource: unable to find execution role credentials")
+		err := errors.New("ASM secret resource: unable to find execution role credentials")
 		secret.setTerminalReason(err.Error())
 		return err
 	}
@@ -258,10 +258,10 @@ func (secret *ASMSecretResource) Create() error {
 
 	var wg sync.WaitGroup
 
-	// Get the maximum number of errors be returned, which will be one error per goroutine
+	// Get the maximum number of errors to be returned, which will be one error per goroutine
 	errorEvents := make(chan error, len(secret.requiredSecrets))
 
-	seelog.Infof("asm secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
+	seelog.Infof("ASM secret resource: retrieving secrets for containers in task: [%s]", secret.taskARN)
 	secret.secretData = make(map[string]string)
 
 	for _, asmsecret := range secret.getRequiredSecrets() {
@@ -283,7 +283,6 @@ func (secret *ASMSecretResource) Create() error {
 		secret.setTerminalReason(errorString)
 		return errors.New(errorString)
 	}
-
 	return nil
 }
 
@@ -293,7 +292,8 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 	defer wg.Done()
 
 	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
-	seelog.Infof("asm secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
+	seelog.Infof("ASM secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
+	//for asm secret, ValueFrom can be arn or name
 	secretValue, err := asm.GetSecretFromASM(apiSecret.ValueFrom, asmClient)
 	if err != nil {
 		errorEvents <- fmt.Errorf("fetching secret data from AWS Secrets Manager in region %s: %v", apiSecret.Region, err)
@@ -352,8 +352,8 @@ func (secret *ASMSecretResource) GetCachedSecretValue(secretKey string) (string,
 
 // SetCachedSecretValue set the secret value in the secretData field given the key and value
 func (secret *ASMSecretResource) SetCachedSecretValue(secretKey string, secretValue string) {
-	secret.lock.RLock()
-	defer secret.lock.RUnlock()
+	secret.lock.Lock()
+	defer secret.lock.Unlock()
 
 	if secret.secretData == nil {
 		secret.secretData = make(map[string]string)

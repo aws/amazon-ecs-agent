@@ -96,8 +96,7 @@ func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManager
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return "", errors.Wrapf(err,
-			"secret %s", secretID)
+		return "", errors.Wrapf(err, "secret %s", secretID)
 	}
 
 	return aws.StringValue(out.SecretString), nil
