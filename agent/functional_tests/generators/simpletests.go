@@ -30,8 +30,7 @@ import (
 )
 
 // TODO: add more awsvpc functional tests using simple test template
-var simpleTestPattern = `
-// +build functional,%s
+var simpleTestPattern = `// +build functional,%s
 
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
