@@ -69,8 +69,8 @@ const (
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
 	nvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
-	gpuAssociationType = "gpu"
-	nvidiaRuntime = "nvidia"
+	gpuAssociationType         = "gpu"
+	nvidiaRuntime              = "nvidia"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
@@ -263,10 +263,12 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.addGPUResource()
-	if err != nil {
-		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
-		return apierrors.NewResourceInitError(task.Arn, err)
+	if cfg.GPUSupportEnabled {
+		err = task.addGPUResource()
+		if err != nil {
+			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
 	}
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
@@ -277,7 +279,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	return nil
 }
 
-func(task *Task) addGPUResource() error {
+func (task *Task) addGPUResource() error {
 	for _, association := range task.Associations {
 		// One GPU can be associated with only one container
 		// That is why validating if association.Containers is of length 1
