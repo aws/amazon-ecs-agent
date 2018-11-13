@@ -2339,7 +2339,7 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	task.populateGPUEnvironmentVariables()
 
 	environment := make(map[string]string)
-	environment[nvidiaVisibleDevicesEnvVar] = "gpu1,gpu2"
+	environment[NvidiaVisibleDevicesEnvVar] = "gpu1,gpu2"
 
 	assert.Equal(t, environment, container.Environment)
 	assert.Equal(t, map[string]string(nil), container1.Environment)
@@ -2372,7 +2372,7 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 
 	testTask.addGPUResource()
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	assert.Equal(t, nvidiaRuntime, dockerHostConfig.Runtime)
+	assert.Equal(t, NvidiaRuntime, dockerHostConfig.Runtime)
 }
 
 func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {

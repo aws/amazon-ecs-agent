@@ -42,11 +42,11 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-
 	"github.com/aws/aws-sdk-go/aws"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 )
 
 const (
@@ -70,10 +70,15 @@ const (
 	testIPCNamespaceCommand          = "if [ `ipcs -s | awk '$1+0 == 5' | wc -l` -gt 0 ]; then exit 1; else exit 2; fi;"
 	testIPCNamespaceResourceFound    = 1
 	testIPCNamespaceResourceNotFound = 2
+
+	testGPUImage	      = "nvidia/cuda:9.0-base"
+	testGPUContainerName  = "testGPUContainer"
+	gpuConfigFilePath     = "/var/lib/ecs/ecs.config"
 )
 
 var (
-	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+	endpoint            = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+	TestGPUInstanceType = []string{"p2", "p3"}
 )
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
@@ -193,6 +198,65 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	testTask.Containers[0].Command = []string{"sh", "-c", "if [[ $(cat /ecs/volume-data) != \"volume\" ]]; then cat /ecs/volume-data; exit 1; fi; exit 0"}
 	return testTask, tmpDirectory, nil
+}
+
+func createTestGPUTask() (*apitask.Task) {
+	return &apitask.Task{
+		Arn:                 "testGPUArn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{createTestGPUContainerWithImage(testGPUImage)},
+		Associations: 		 []apitask.Association{
+			{
+				Containers: []string{
+					testGPUContainerName,
+				},
+				Content: apitask.EncodedString{
+					Encoding: "base64",
+					Value:    "val",
+				},
+				Name: "1",
+				Type: apitask.GPUAssociationType,
+			},
+		},
+	}
+}
+
+func createTestGPUContainerWithImage(image string) *apicontainer.Container {
+	return &apicontainer.Container{
+		Name:                testGPUContainerName,
+		Image:               image,
+		Command:             []string{},
+		Essential:           true,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		CPU:                 100,
+		Memory:              80,
+	}
+}
+
+func getGPUEnvVar(filename string) map[string]string {
+	envVariables := make(map[string]string)
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return envVariables
+	}
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return envVariables
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		envVariables[parts[0]] = parts[1]
+	}
+	return envVariables
 }
 
 // A map that stores statusChangeEvents for both Tasks and Containers
@@ -1330,4 +1394,55 @@ func TestTaskLevelVolume(t *testing.T) {
 
 	client := taskEngine.(*DockerTaskEngine).client
 	client.RemoveVolume(context.TODO(), "TestTaskLevelVolume", 5*time.Second)
+}
+
+func TestGPUAssociationTask(t *testing.T) {
+	gpuSupportEnabled := utils.ParseBool(getGPUEnvVar(gpuConfigFilePath)["ECS_ENABLE_GPU_SUPPORT"], false)
+
+	iid, _  := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+
+	var isGPUInstanceType bool
+
+	for _, gpuInstanceType := range TestGPUInstanceType {
+		if strings.HasPrefix(iid.InstanceType, gpuInstanceType) {
+			isGPUInstanceType = true
+			break
+		}
+	}
+
+	if !(isGPUInstanceType && gpuSupportEnabled) {
+		t.Skip("Skipped because either ECS_ENABLE_GPU_SUPPORT is not set to true or the instance type is not a supported GPU instance type")
+	}
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.GPUSupportEnabled = true
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	testTask := createTestGPUTask()
+	container := testTask.Containers[0]
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	assert.Equal(t, []string{"1"}, container.GPUIDs)
+	assert.Equal(t, "1", container.Environment[apitask.NvidiaVisibleDevicesEnvVar])
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+	assert.Equal(t, apitask.NvidiaRuntime, state.HostConfig.Runtime)
+	assert.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=1")
+
+	taskUpdate := *testTask
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&taskUpdate)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
