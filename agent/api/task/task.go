@@ -68,9 +68,9 @@ const (
 	// credentials.
 	awsSDKCredentialsRelativeURIPathEnvironmentVariableName = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
 
-	nvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
-	gpuAssociationType         = "gpu"
-	nvidiaRuntime              = "nvidia"
+	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
+	GPUAssociationType         = "gpu"
+	NvidiaRuntime              = "nvidia"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
@@ -283,7 +283,7 @@ func (task *Task) addGPUResource() error {
 	for _, association := range task.Associations {
 		// One GPU can be associated with only one container
 		// That is why validating if association.Containers is of length 1
-		if association.Type == gpuAssociationType {
+		if association.Type == GPUAssociationType {
 			if len(association.Containers) == 1 {
 				container, ok := task.ContainerByName(association.Containers[0])
 				if !ok {
@@ -306,14 +306,14 @@ func (task *Task) populateGPUEnvironmentVariables() {
 		if len(container.GPUIDs) > 0 {
 			gpuList := strings.Join(container.GPUIDs, ",")
 			envVars := make(map[string]string)
-			envVars[nvidiaVisibleDevicesEnvVar] = gpuList
+			envVars[NvidiaVisibleDevicesEnvVar] = gpuList
 			container.MergeEnvironmentVariables(envVars)
 		}
 	}
 }
 
 func (task *Task) shouldRequireNvidiaRuntime(container *apicontainer.Container) bool {
-	_, ok := container.Environment[nvidiaVisibleDevicesEnvVar]
+	_, ok := container.Environment[NvidiaVisibleDevicesEnvVar]
 	return ok
 }
 
@@ -931,7 +931,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 
 	if task.shouldRequireNvidiaRuntime(container) {
 		seelog.Debugf("Setting runtime as nvidia for container %s", container.Name)
-		hostConfig.Runtime = nvidiaRuntime
+		hostConfig.Runtime = NvidiaRuntime
 	}
 
 	if container.DockerConfig.HostConfig != nil {
