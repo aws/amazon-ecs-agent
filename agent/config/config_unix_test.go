@@ -180,6 +180,17 @@ func TestBadFileContent(t *testing.T) {
 	assert.Error(t, err, "create configuration should fail")
 }
 
+func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	defer setTestEnv("ECS_ENABLE_PROMETHEUS_METRICS", "true")()
+	cfg.platformOverrides()
+	assert.True(t, cfg.PrometheusMetricsEnabled, "Prometheus metrics should be enabled")
+	assert.Equal(t, 6, len(cfg.ReservedPorts), "Reserved ports should have added Prometheus endpoint")
+}
+
 // setupFileConfiguration create a temp file store the configuration
 func setupFileConfiguration(t *testing.T, configContent string) string {
 	file, err := ioutil.TempFile("", "ecs-test")
