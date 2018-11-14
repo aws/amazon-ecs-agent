@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
+
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -237,6 +239,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	agent.initMetricsEngine()
+
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
@@ -369,6 +373,20 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	agent.containerInstanceARN = previousContainerInstanceArn
 
 	return previousTaskEngine, currentEC2InstanceID, nil
+}
+
+func (agent *ecsAgent) initMetricsEngine() {
+	// In case of a panic during set-up, we will recover quietly and resume
+	// normal Agent execution.
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("MetricsEngine Set-up panicked. Recovering quietly: %s", r)
+		}
+	}()
+
+	// We init the global MetricsEngine before we publish metrics
+	metrics.MustInit(agent.cfg)
+	metrics.PublishMetrics()
 }
 
 // setClusterInConfig sets the cluster name in the config object based on
