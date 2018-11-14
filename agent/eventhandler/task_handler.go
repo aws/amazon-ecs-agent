@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"sync"
 	"time"
 
@@ -267,6 +268,7 @@ func (handler *TaskHandler) getTaskEventsUnsafe(event *sendableEvent) *taskSenda
 // Continuously retries sending an event until it succeeds, sleeping between each
 // attempt
 func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, client api.ECSClient, taskARN string) {
+	defer metrics.MetricsEngineGlobal.RecordECSClientMetric("SUBMIT_TASK_EVENTS")()
 	defer handler.removeTaskEvents(taskARN)
 
 	backoff := utils.NewSimpleBackoff(submitStateBackoffMin, submitStateBackoffMax,

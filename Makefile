@@ -14,7 +14,7 @@
 USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container prometheus-monitor get-cni-sources cni-plugins test-artifacts
 
 all: docker
 
@@ -53,7 +53,7 @@ build-in-docker: .builder-image-stamp .out-stamp
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
-docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
+docker: certs build-in-docker pause-container-release prometheus-monitor-release cni-plugins .out-stamp
 	@cd scripts && ./create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
@@ -61,7 +61,7 @@ docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
 # TODO: make this idempotent
-docker-release: pause-container-release cni-plugins .out-stamp
+docker-release: pause-container-release prometheus-monitor-release cni-plugins .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run --net=none \
 		--env TARGET_OS="${TARGET_OS}" \
@@ -172,7 +172,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
+test-registry: netkitten volumes-test namespace-tests pause-container prometheus-monitor squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -213,6 +213,15 @@ pause-container: .out-stamp
 
 pause-container-release: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
+
+PROMETHEUS_MONITOR_IMAGE = "amazon/amazon-ecs-prometheus-monitor"
+PROMETHEUS_MONITOR_TAG = "0.1.0"
+PROMETHEUS_MONITOR_TARBALL = "amazon-ecs-prometheus-monitor.tar"
+prometheus-monitor: .out-stamp
+	$(MAKE) -C misc/prometheus-monitor $(MFLAGS)
+
+prometheus-monitor-release: prometheus-monitor
+	@docker save ${PROMETHEUS_MONITOR_IMAGE}:${PROMETHEUS_MONITOR_TAG} > "$(PWD)/out/${PROMETHEUS_MONITOR_TARBALL}"
 
 # Variable to determine branch/tag of amazon-ecs-cni-plugins
 ECS_CNI_REPOSITORY_REVISION=master

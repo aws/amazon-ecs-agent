@@ -19,6 +19,7 @@ COPY out/amazon-ecs-agent /agent
 COPY ["LICENSE", "NOTICE", "THIRD-PARTY", "/"]
 
 COPY out/amazon-ecs-pause.tar /images/amazon-ecs-pause.tar
+COPY out/amazon-ecs-prometheus-monitor.tar /images/amazon-ecs-prometheus-pause.tar
 
 # Copy our cni plugins ecs-eni, ecs-ipam and ecs-bridge
 COPY out/cni-plugins /amazon-ecs-cni-plugins

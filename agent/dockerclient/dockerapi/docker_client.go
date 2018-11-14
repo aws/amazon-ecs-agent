@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"io"
 	"strconv"
 	"strings"
@@ -319,7 +320,7 @@ func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.Registr
 	timeout := dg.time().After(pullImageTimeout)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
 		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay,
@@ -482,6 +483,7 @@ func getRepository(image string) string {
 }
 
 func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_IMAGE")()
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
@@ -520,7 +522,7 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 	timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -564,7 +566,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -632,7 +634,7 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan inspectResponse, 1)
@@ -667,7 +669,7 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("STOP_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -709,7 +711,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -943,8 +945,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status: status,
-			Type:   eventType,
+			Status:                  status,
+			Type:                    eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
@@ -1048,7 +1050,7 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 	timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1098,7 +1100,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1140,7 +1142,7 @@ func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) SDKVol
 func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -1327,7 +1329,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("LOAD_IMAGE")()
 	response := make(chan error, 1)
 	go func() {
 		response <- dg.loadImage(ctx, inputStream)

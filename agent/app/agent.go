@@ -17,6 +17,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
+	"github.com/aws/amazon-ecs-agent/agent/metrics/monitor"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -107,6 +109,7 @@ type ecsAgent struct {
 	terminationHandler    sighandlers.TerminationHandler
 	mobyPlugins           mobypkgwrapper.Plugins
 	resourceFields        *taskresource.ResourceFields
+	prometheusContainerID string
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -237,9 +240,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	agent.prometheusContainerID = agent.initMetricsEngine(taskEngine)
+
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
+		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.prometheusContainerID)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -320,7 +325,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	}
 
 	// We try to set these values by loading the existing state file first
-	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
+	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousPrometheusContainerID string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 		credentialsManager, containerChangeEventStream, imageManager, state,
 		agent.metadataManager, agent.resourceFields)
@@ -328,7 +333,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
 	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID)
+		&previousContainerInstanceArn, &previousEC2InstanceID, &previousPrometheusContainerID)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
@@ -345,6 +350,8 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Criticalf("Error checking compatibility with previously saved state: %v", err)
 		return nil, "", err
 	}
+
+	agent.cfg.PrometheusMonitorContainerID = previousPrometheusContainerID
 
 	currentEC2InstanceID := agent.getEC2InstanceID()
 	if previousEC2InstanceID != "" && previousEC2InstanceID != currentEC2InstanceID {
@@ -369,6 +376,22 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	agent.containerInstanceARN = previousContainerInstanceArn
 
 	return previousTaskEngine, currentEC2InstanceID, nil
+}
+
+func (agent *ecsAgent) initMetricsEngine(taskEngine engine.TaskEngine) string {
+	// In case of a panic during set-up, we will recover quiently and resume
+	// normal Agent execution.
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("MetricsEngine Set-up panicked. Recovering quietly: %s", r)
+		}
+	}()
+
+	// We init the global MetricsEngine before we publish metrics
+	metrics.MustInit(agent.cfg)
+	prometheusContainerID := monitor.InitPrometheusContainer(agent.ctx, agent.cfg, agent.dockerClient)
+	metrics.PublishMetrics(agent.cfg)
+	return prometheusContainerID
 }
 
 // setClusterInConfig sets the cluster name in the config object based on
@@ -412,7 +435,8 @@ func (agent *ecsAgent) newStateManager(
 	taskEngine engine.TaskEngine,
 	cluster *string,
 	containerInstanceArn *string,
-	savedInstanceID *string) (statemanager.StateManager, error) {
+	savedInstanceID *string,
+	prometheusContainerID *string) (statemanager.StateManager, error) {
 
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
@@ -426,6 +450,8 @@ func (agent *ecsAgent) newStateManager(
 		agent.saveableOptionFactory.AddSaveable("Cluster", cluster),
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
+		// This is for making testing easier as we can mock this
+		agent.saveableOptionFactory.AddSaveable("PrometheusContainerID", prometheusContainerID),
 	)
 }
 

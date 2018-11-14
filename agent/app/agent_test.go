@@ -146,10 +146,11 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		// An error in creating the state manager should result in an
 		// error from newTaskEngine as well
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(
 			nil, errors.New("error")),
 	)
@@ -184,16 +185,18 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
 
@@ -308,8 +311,9 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 			}).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -358,8 +362,9 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 				assert.True(t, ok)
 				*previousEC2InstanceID = "inst-2"
 			}).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -410,8 +415,9 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 				*previousCluster = clusterName
 			}).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(ec2InstanceID, nil),
@@ -446,8 +452,9 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
 
@@ -480,8 +487,9 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(stateManager, nil),
 		stateManager.EXPECT().Load().Return(errors.New("error")),
 	)
@@ -516,8 +524,9 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("PrometheusContainerID", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),

@@ -100,6 +100,18 @@ const (
 	// pauseContainerTarball is the path to the pause container tarball
 	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
 
+	// prometheusMonitorContainerTarballPath is the path to the prometheus monitor container tarball
+	prometheusMonitorContainerTarballPath = "images/amazon-ecs-prometheus-monitor.tar"
+
+	// prometheusMonitorContainerTarballPath is the name of the prometheus monitor container image
+	prometheusMonitorContainerImageName = "amazon/amazon-ecs-prometheus-monitor"
+
+	// prometheusMonitorContainerTarballPath is the tag of the prometheus monitor container image
+	prometheusMonitorContainerImageTag = "0.1.0"
+
+	// prometheusMonitorVolumeName is the name of the Docker volume we create to persist metrics data
+	prometheusMonitorVolumeName = "amazon-ecs-prometheus-persistance-data"
+
 	// DefaultTaskMetadataSteadyStateRate is set as 40. This is arrived from our benchmarking
 	// results where task endpoint can handle 4000 rps effectively. Here, 100 containers
 	// will be able to send out 40 rps.
@@ -487,6 +499,7 @@ func environmentConfig() (Config, error) {
 		SharedVolumeMatchFullConfig:        utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 		ContainerInstanceTags:              containerInstanceTags,
 		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
+		PrometheusMetricsEnabled:           utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false),
 	}, err
 }
 

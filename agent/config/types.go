@@ -189,6 +189,34 @@ type Config struct {
 	// the image from the tarball; the referenced image must already be loaded.
 	PauseContainerTag string
 
+	// PrometheusMonitorContainerTarballPath is the path to the prometheus
+	// monitor container tarball
+	PrometheusMonitorContainerTarballPath string
+
+	// PrometheusMonitorContainerImageName is the name for the prometheus
+	// monitor container image.
+	// The referenced image must already be loaded.
+	PrometheusMonitorContainerImageName string
+
+	// PrometheusMonitorContainerTag is the tag for the prometheus monitor
+	// container image.
+	// The referenced image must already be loaded.
+	PrometheusMonitorContainerTag string
+
+	// PrometheusMonitorVolumeName is the tag for the prometheus monitor
+	// container's shared volume with the host instance.
+	// The referenced volume will be created if it does not exist.
+	PrometheusMonitorVolumeName string
+
+	// PrometheusMonitorContainerID is the Docker ID of the prometheus
+	// monitor container we create
+	PrometheusMonitorContainerID string
+
+	// PrometheusMetricsEnabled configures whether Agent metrics should be
+	// collected and published to the specified endpoints. This is disabled by
+	// default.
+	PrometheusMetricsEnabled bool
+
 	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
 	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true
 	AWSVPCBlockInstanceMetdata bool

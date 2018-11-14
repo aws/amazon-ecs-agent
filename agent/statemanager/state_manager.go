@@ -20,6 +20,7 @@ package statemanager
 import (
 	"encoding/json"
 	"errors"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"os"
 	"strconv"
 	"sync"
@@ -70,7 +71,8 @@ const (
 	// 17)
 	//   a) Add 'secrets' field to 'apicontainer.Container'
 	//   b) Add 'ssmsecret' field to 'resources'
-	ECSDataVersion = 17
+	// 18) Add 'PrometheusContainerID' saveable option to state file
+	ECSDataVersion = 18
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
@@ -192,6 +194,7 @@ func AddSaveable(name string, saveable Saveable) Option {
 // Save triggers a save to file, though respects a minimum save interval to wait
 // between saves.
 func (manager *basicStateManager) Save() error {
+	defer metrics.MetricsEngineGlobal.RecordStateManagerMetric("SAVE")()
 	manager.saveTimesLock.Lock()
 	defer manager.saveTimesLock.Unlock()
 	if time.Since(manager.lastSave) >= minSaveInterval {
