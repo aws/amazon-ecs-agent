@@ -1,3 +1,5 @@
+// +build linux,unit
+
 // Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -57,7 +59,7 @@ func TestDisablePrometheusMetrics(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.PrometheusMetricsEnabled = false
 	MustInit(&cfg, prometheus.NewRegistry())
-	PublishMetrics(&cfg)
+	PublishMetrics()
 	assert.False(t, MetricsEngineGlobal.collection)
 }
 
@@ -160,7 +162,7 @@ func TestMetricCollection(t *testing.T) {
 	}
 	// We will do a simple tree search to verify all metrics in metricsFamilies
 	// are as expected
-	assert.True(t, VerifyStats(metricFamilies, expected), "Metrics are not accurate")
+	assert.True(t, verifyStats(metricFamilies, expected), "Metrics are not accurate")
 }
 
 // A type for storing a Tree-based map. We map the MetricName to a map of metrics
@@ -174,7 +176,7 @@ type metricMap map[string]map[string][]interface{}
 // metric values.
 // This method only verifes that all metrics in var metricsReceived are present in
 // var expectedMetrics
-func VerifyStats(metricsReceived []*dto.MetricFamily, expectedMetrics metricMap) bool {
+func verifyStats(metricsReceived []*dto.MetricFamily, expectedMetrics metricMap) bool {
 	var threshhold float64 = 0.1 // Maximum threshhold for two metrics being equal
 	for _, metricFamily := range metricsReceived {
 		if metricList, found := expectedMetrics[metricFamily.GetName()]; found {

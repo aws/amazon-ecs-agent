@@ -499,7 +499,6 @@ func environmentConfig() (Config, error) {
 		SharedVolumeMatchFullConfig:        utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 		ContainerInstanceTags:              containerInstanceTags,
 		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
-		PrometheusMetricsEnabled:           utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false),
 	}, err
 }
 

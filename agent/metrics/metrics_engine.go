@@ -54,8 +54,8 @@ var (
 )
 
 // Function called during Agent start up to expose metrics on a local endpoint
-func PublishMetrics(cfg *config.Config) {
-	if MetricsEngineGlobal.cfg.PrometheusMetricsEnabled {
+func PublishMetrics() {
+	if MetricsEngineGlobal.collection {
 		MetricsEngineGlobal.publishMetrics()
 		MetricsEngineGlobal.collection = true
 	}
@@ -67,6 +67,9 @@ func PublishMetrics(cfg *config.Config) {
 // In future cases, we can use a custom Prometheus Registry to group metrics.
 // For unit testing purposes, we only focus on API calls and use our own Registry
 func MustInit(cfg *config.Config, registry ...*prometheus.Registry) {
+	if !cfg.PrometheusMetricsEnabled {
+		return
+	}
 	var registryToUse *prometheus.Registry
 	if len(registry) > 0 {
 		registryToUse = registry[0]
@@ -74,6 +77,7 @@ func MustInit(cfg *config.Config, registry ...*prometheus.Registry) {
 		registryToUse = prometheus.DefaultRegisterer.(*prometheus.Registry)
 	}
 	MetricsEngineGlobal = NewMetricsEngine(cfg, registryToUse)
+	MetricsEngineGlobal.collection = true
 }
 
 // We create a MetricsClient for all managed APIs (APIs for which we will collect

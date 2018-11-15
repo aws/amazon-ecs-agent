@@ -240,7 +240,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
-	agent.prometheusContainerID = agent.initMetricsEngine(taskEngine)
+	agent.prometheusContainerID = agent.initMetricsEngine()
 
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
@@ -378,7 +378,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
 
-func (agent *ecsAgent) initMetricsEngine(taskEngine engine.TaskEngine) string {
+func (agent *ecsAgent) initMetricsEngine() string {
 	// In case of a panic during set-up, we will recover quiently and resume
 	// normal Agent execution.
 	defer func() {
@@ -390,7 +390,7 @@ func (agent *ecsAgent) initMetricsEngine(taskEngine engine.TaskEngine) string {
 	// We init the global MetricsEngine before we publish metrics
 	metrics.MustInit(agent.cfg)
 	prometheusContainerID := monitor.InitPrometheusContainer(agent.ctx, agent.cfg, agent.dockerClient)
-	metrics.PublishMetrics(agent.cfg)
+	metrics.PublishMetrics()
 	return prometheusContainerID
 }
 

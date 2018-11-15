@@ -25,19 +25,28 @@ import (
 	"github.com/pkg/errors"
 )
 
+// The functions in this library are adapted from the loader for the Pause container.
+// See pause_linux.go
+// The unit tests prometheus_monitor_test.go only tests new functionality outside
+// of the pause loader functionality, like create a new container and volume.
+
 const noSuchFile = "no such file or directory"
 
-type NoSuchFileError struct {
-	error
-}
-
 // This function loads the Docker image from a tarball packaged with Agent.
-// It is adapted from the LoadImage(...) function from the Paues container
+// It is adapted from the LoadImage(...) function from the Pause container
 // TODO: Use a common utils LoadImage(...) call for both Prometheus and Pause
 // containers
-func LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
+func LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient, fs ...os.FileSystem) (*types.ImageInspect, error) {
 	log.Debugf("Loading prometheus monitor tarball: %s", cfg.PrometheusMonitorContainerTarballPath)
-	if err := loadFromFile(ctx, cfg.PrometheusMonitorContainerTarballPath, dockerClient, os.Default); err != nil {
+	// This is so we can mock the FileSystem and optionally pass it into this function
+	// for unit testing
+	var fsToUse os.FileSystem
+	if len(fs) > 0 {
+		fsToUse = fs[0]
+	} else {
+		fsToUse = os.Default
+	}
+	if err := loadFromFile(ctx, cfg.PrometheusMonitorContainerTarballPath, dockerClient, fsToUse); err != nil {
 		return nil, err
 	}
 
@@ -49,13 +58,13 @@ func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.Docke
 	prometheusMonitorContainerReader, err := fs.Open(path)
 	if err != nil {
 		if err.Error() == noSuchFile {
-			return errors.Wrapf(err, "Prometheus Monitor container  load: failed to read Prometheus Monitor container  image: %s", path)
+			return errors.Wrapf(err, "Prometheus Monitor container load: failed to read Prometheus Monitor container image: %s", path)
 		}
-		return errors.Wrapf(err, "Prometheus Monitor container  load: failed to read Prometheus Monitor container  image: %s", path)
+		return errors.Wrapf(err, "Prometheus Monitor container load: failed to read Prometheus Monitor container image: %s", path)
 	}
 	if err := dockerClient.LoadImage(ctx, prometheusMonitorContainerReader, dockerclient.LoadImageTimeout); err != nil {
 		return errors.Wrapf(err,
-			"Prometheus Monitor container  load: failed to load Prometheus Monitor container  image: %s", path)
+			"Prometheus Monitor container load: failed to load Prometheus Monitor container image: %s", path)
 	}
 
 	return nil
@@ -64,7 +73,7 @@ func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.Docke
 
 func getPrometheusContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	imageName := fmt.Sprintf("%s:%s", name, tag)
-	log.Debugf("Inspecting Prometheus Monitor container  image: %s", imageName)
+	log.Debugf("Inspecting Prometheus Monitor container image: %s", imageName)
 
 	image, err := dockerClient.InspectImage(imageName)
 	if err != nil {

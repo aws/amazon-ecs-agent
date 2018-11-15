@@ -53,7 +53,7 @@ func (dm *GenericMetrics) RecordCall(callID, callName string, callTime time.Time
 		hash := fmt.Sprintf("%x", md5.Sum(hashData))
 		// Go routines are utilized to avoid blocking the main thread in case of
 		// resource contention with var outstandingCalls
-		go dm.FireCallStart(hash, callTime)
+		go dm.FireCallStart(hash, callName, callTime)
 		go dm.IncrementCallCount(callName)
 		return hash
 	} else {
@@ -62,18 +62,23 @@ func (dm *GenericMetrics) RecordCall(callID, callName string, callTime time.Time
 	}
 }
 
-func (dm *GenericMetrics) FireCallStart(callHash string, timestamp time.Time) {
+func (dm *GenericMetrics) FireCallStart(callHash, callName string, timestamp time.Time) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 	// Check map to see if call is outstanding, otherwise, store in map
 	if _, found := dm.outstandingCalls[callHash]; !found {
 		dm.outstandingCalls[callHash] = timestamp
 	} else {
-		seelog.Error("Call is already outstanding")
+		seelog.Errorf("Call is already outstanding: %s", callName)
 	}
 }
 
 func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.Time) {
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("IncrementCallCount for %s panicked. Recovering quietly: %s", callName, r)
+		}
+	}()
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 	// Check map to see if call is outstanding and calculate duration
@@ -83,7 +88,7 @@ func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 		dm.durations.WithLabelValues(callName).Set(seconds.Seconds())
 		delete(dm.outstandingCalls, callHash)
 	} else {
-		seelog.Error("Call is not outstanding")
+		seelog.Error("Call is not outstanding: %s", callName)
 	}
 }
 
@@ -91,6 +96,11 @@ func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 // This is invoked at the API call's start, whereas the duration metrics
 // are updated at the API call's end.
 func (dm *GenericMetrics) IncrementCallCount(callName string) {
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("IncrementCallCount for %s panicked. Recovering quietly: %s", callName, r)
+		}
+	}()
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 	dm.counterVec.WithLabelValues(callName).Inc()

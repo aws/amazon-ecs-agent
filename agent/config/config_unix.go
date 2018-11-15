@@ -16,6 +16,8 @@ package config
 
 import (
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -81,7 +83,9 @@ func DefaultConfig() Config {
 	}
 }
 
-func (cfg *Config) platformOverrides() {}
+func (cfg *Config) platformOverrides() {
+	cfg.PrometheusMetricsEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false)
+}
 
 // platformString returns platform-specific config data that can be serialized
 // to string for debugging

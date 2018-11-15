@@ -15,6 +15,7 @@ package monitor
 
 import (
 	"context"
+	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/cihub/seelog"
@@ -24,6 +25,7 @@ import (
 
 const (
 	PrometheusContainerName = "Prometheus_Monitor"
+	dockerTimeout           = 2 * time.Minute
 )
 
 // Performs the required set-up for the Prometheus container. This function is
@@ -32,11 +34,11 @@ const (
 // 1) Create Volume if not created.
 // 2) Create Prometheus container if not created.
 // 3) Start Prometheus container
-func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockerapi.DockerClient) string {
+func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockerapi.DockerClient, fs ...os.FileSystem) string {
 	if !cfg.PrometheusMetricsEnabled {
 		return ""
 	}
-	PrometheusVolumeSetup(dg, cfg, ctx)
+	prometheusVolumeSetup(dg, cfg, ctx)
 
 	containerID := cfg.PrometheusMonitorContainerID
 
@@ -45,7 +47,7 @@ func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockera
 	// cannot be inspected. Note the fallthrough keyword here.
 	switch {
 	case containerID != "":
-		_, err := dg.InspectContainer(ctx, containerID, 1*time.Minute)
+		_, err := dg.InspectContainer(ctx, containerID, dockerTimeout)
 		if err == nil {
 			seelog.Infof("Prometheus container found with Docker ID: %s", containerID)
 			break
@@ -53,11 +55,23 @@ func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockera
 		fallthrough
 	case containerID == "":
 		seelog.Info("Prometheus container not found. Creating one.")
-		metadata := CreatePrometheusContainer(dg, cfg, ctx)
+		// This is so we can mock the FileSystem and optionally pass it into this function
+		// for unit testing
+		var fsToUse os.FileSystem
+		if len(fs) > 0 {
+			fsToUse = fs[0]
+		} else {
+			fsToUse = os.Default
+		}
+		metadata, err := createPrometheusContainer(dg, cfg, ctx, fsToUse)
+		if err != nil {
+			seelog.Errorf("Prometheus container could not be created: %s", err.Error())
+			return ""
+		}
 		containerID = metadata.DockerID
 	}
 	// We start the Prometheus container after all set-up has been done
-	metadata := dg.StartContainer(ctx, containerID, 2*time.Minute)
+	metadata := dg.StartContainer(ctx, containerID, dockerTimeout)
 	if metadata.Error == nil {
 		seelog.Info("Prometheus container started")
 	} else {
@@ -67,19 +81,23 @@ func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockera
 	return containerID
 }
 
-func PrometheusVolumeSetup(dg dockerapi.DockerClient, cfg *config.Config, ctx context.Context) {
-	resp := dg.InspectVolume(ctx, cfg.PrometheusMonitorVolumeName, 1*time.Minute)
+func prometheusVolumeSetup(dg dockerapi.DockerClient, cfg *config.Config, ctx context.Context) {
+	resp := dg.InspectVolume(ctx, cfg.PrometheusMonitorVolumeName, dockerTimeout)
 	if resp.Error != nil {
 		// Inspection failed, attempt to remove the volume.
-		dg.RemoveVolume(ctx, cfg.PrometheusMonitorVolumeName, 1*time.Minute)
+		dg.RemoveVolume(ctx, cfg.PrometheusMonitorVolumeName, dockerTimeout)
 		// Create the new volume
-		resp = dg.CreateVolume(ctx, cfg.PrometheusMonitorVolumeName, "", nil, make(map[string]string), 2*time.Minute)
+		dg.CreateVolume(ctx, cfg.PrometheusMonitorVolumeName, "", nil, make(map[string]string), dockerTimeout)
 	}
 }
 
-func CreatePrometheusContainer(dg dockerapi.DockerClient, cfg *config.Config, ctx context.Context) dockerapi.DockerContainerMetadata {
+func createPrometheusContainer(dg dockerapi.DockerClient, cfg *config.Config, ctx context.Context, fs os.FileSystem) (dockerapi.DockerContainerMetadata, error) {
 	// Load the image from the tarball path in the cfg
-	LoadImage(ctx, cfg, dg)
+	_, err := LoadImage(ctx, cfg, dg, fs)
+	if err != nil {
+		seelog.Errorf("Failed to load Prometheus container image: %s", err.Error())
+		return dockerapi.DockerContainerMetadata{}, err
+	}
 	dockerConfig := dockercontainer.Config{
 		Image: cfg.PrometheusMonitorContainerImageName + ":" + cfg.PrometheusMonitorContainerTag,
 	}
@@ -102,7 +120,7 @@ func CreatePrometheusContainer(dg dockerapi.DockerClient, cfg *config.Config, ct
 		Binds:         volumeBinds,
 		RestartPolicy: restartPolicy,
 	}
-	metadata := dg.CreateContainer(ctx, &dockerConfig, &dockerHostConfig, PrometheusContainerName, 2*time.Minute)
+	metadata := dg.CreateContainer(ctx, &dockerConfig, &dockerHostConfig, PrometheusContainerName, dockerTimeout)
 
-	return metadata
+	return metadata, nil
 }

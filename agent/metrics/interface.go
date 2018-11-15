@@ -40,7 +40,7 @@ type MetricsClient interface {
 	// at different times (once at the beginning and once at the end). Ideally,
 	// RecordCall should handle this through an execution and returned function
 	// to be deferred (see docker_client.go for usage examples)
-	FireCallStart(string, time.Time)
+	FireCallStart(string, string, time.Time)
 	FireCallEnd(string, string, time.Time)
 
 	// This function will increment the call count. The metric for call duration
