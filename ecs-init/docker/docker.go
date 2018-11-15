@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,6 +20,7 @@ import (
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -308,6 +309,10 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
+		// bind mount instance config dir
+		config.InstanceConfigDirectory() + ":" + config.InstanceConfigDirectory(),
+		// bind mount gpu info dir
+		gpu.GPUInfoDirPath + ":" + gpu.GPUInfoDirPath,
 	}
 
 	// for al, al2 add host ssl cert directory mounts
