@@ -3,6 +3,7 @@
 ** github.com/containerd/continuity; version 1bed1ecb1dc42d8f4d2ac8c23e5cac64749e82c9 -- https://github.com/containerd/continuity
 ** github.com/containernetworking/cni; version v0.5.2 -- https://github.com/containernetworking/cni
 ** github.com/coreos/go-systemd; version 24036eb3df68550d24a2736c5d013f4e83366866 -- https://github.com/coreos/go-systemd
+** github.com/docker/distribution; version 749f6afb4572201e3c37325d0ffedb6f32be8950 -- https://www.docker.com
 ** github.com/docker/docker; version e4d0fe84f9ea88b0e0cfd847412c9f29442cc62d -- https://github.com/moby/moby
 ** github.com/docker/go-connections; version v0.3.0 -- https://github.com/docker/go-connections
 ** github.com/docker/go-units; version v0.3.2 -- https://github.com/docker/go-units
@@ -13,6 +14,8 @@
 ** github.com/opencontainers/image-spec; version v1.0.1 -- https://github.com/opencontainers/image-spec
 ** github.com/opencontainers/runc; version v0.1.1 -- https://github.com/opencontainers/runc
 ** github.com/opencontainers/runtime-spec; version d349388c43b01b2ea695965ae561b5bddb81318f -- https://github.com/opencontainers/runtime-spec
+** github.com/prometheus/client_golang; version 0.9.0 -- https://github.com/prometheus/client_golang
+** github.com/prometheus/prometheus; version 2.5.0 -- https://github.com/prometheus/prometheus
 ** github.com/vishvananda/netlink; version fe3b5664d23a11b52ba59bece4ff29c52772a56b -- https://github.com/vishvananda/netlink
 ** github.com/vishvananda/netns; version be1fbeda19366dea804f00efff2dd73a1642fdcc -- https://github.com/vishvananda/netns
 
@@ -213,6 +216,8 @@ Copyright (c) 2016-2017 the containerd authors
 Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
 * For github.com/coreos/go-systemd see also this required NOTICE:
 Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+* For github.com/docker/distribution see also this required NOTICE:
+Copyright 2013-2017 Docker, Inc.
 * For github.com/docker/docker see also this required NOTICE:
 Copyright 2013-2017 Docker, Inc.
 * For github.com/docker/go-connections see also this required NOTICE:
@@ -234,6 +239,126 @@ Copyright 2016 The Linux Foundation.
 Copyright 2014 Docker, Inc.
 * For github.com/opencontainers/runtime-spec see also this required NOTICE:
 Copyright 2015 The Linux Foundation.
+* For github.com/prometheus/client_golang see also this required NOTICE:
+Prometheus instrumentation library for Go applications
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+
+The following components are included in this product:
+
+perks - a fork of https://github.com/bmizerany/perks
+https://github.com/beorn7/perks
+Copyright 2013-2015 Blake Mizerany, Björn Rabenstein
+See https://github.com/beorn7/perks/blob/master/README.md for license
+details.
+
+Go support for Protocol Buffers - Google's data interchange format
+http://github.com/golang/protobuf/
+Copyright 2010 The Go Authors
+See source code for license details.
+
+Support for streaming Protocol Buffer messages for the Go language
+(golang).
+https://github.com/matttproud/golang_protobuf_extensions
+Copyright 2013 Matt T. Proud
+Licensed under the Apache License, Version 2.0
+* For github.com/prometheus/prometheus see also this required NOTICE:
+The Prometheus systems and service monitoring server
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+
+The following components are included in this product:
+
+Bootstrap
+http://getbootstrap.com
+Copyright 2011-2014 Twitter, Inc.
+Licensed under the MIT License
+
+bootstrap3-typeahead.js
+https://github.com/bassjobsen/Bootstrap-3-Typeahead
+Original written by @mdo and @fat
+Copyright 2014 Bass Jobsen @bassjobsen
+Licensed under the Apache License, Version 2.0
+
+fuzzy
+https://github.com/mattyork/fuzzy
+Original written by @mattyork
+Copyright 2012 Matt York
+Licensed under the MIT License
+
+bootstrap-datetimepicker.js
+https://github.com/Eonasdan/bootstrap-datetimepicker
+Copyright 2015 Jonathan Peterson (@Eonasdan)
+Licensed under the MIT License
+
+moment.js
+https://github.com/moment/moment/
+Copyright JS Foundation and other contributors
+Licensed under the MIT License
+
+Rickshaw
+https://github.com/shutterstock/rickshaw
+Copyright 2011-2014 by Shutterstock Images, LLC
+See https://github.com/shutterstock/rickshaw/blob/master/LICENSE for license
+details
+
+mustache.js
+https://github.com/janl/mustache.js
+Copyright 2009 Chris Wanstrath (Ruby)
+Copyright 2010-2014 Jan Lehnardt (JavaScript)
+Copyright 2010-2015 The mustache.js community
+Licensed under the MIT License
+
+jQuery
+https://jquery.org
+Copyright jQuery Foundation and other contributors
+Licensed under the MIT License
+
+Protocol Buffers for Go with Gadgets
+http://github.com/gogo/protobuf/
+Copyright (c) 2013, The GoGo Authors.
+See source code for license details.
+
+Go support for leveled logs, analogous to
+https://code.google.com/p/google-glog/
+Copyright 2013 Google Inc.
+Licensed under the Apache License, Version 2.0
+
+Support for streaming Protocol Buffer messages for the Go language
+(golang).
+https://github.com/matttproud/golang_protobuf_extensions
+Copyright 2013 Matt T. Proud
+Licensed under the Apache License, Version 2.0
+
+DNS library in Go
+http://miek.nl/posts/2014/Aug/16/go-dns-package/
+Copyright 2009 The Go Authors, 2011 Miek Gieben
+See https://github.com/miekg/dns/blob/master/LICENSE for license
+details.
+
+LevelDB key/value database in Go
+https://github.com/syndtr/goleveldb
+Copyright 2012 Suryandaru Triandana
+See https://github.com/syndtr/goleveldb/blob/master/LICENSE for license
+details.
+
+gosnappy - a fork of code.google.com/p/snappy-go
+https://github.com/syndtr/gosnappy
+Copyright 2011 The Snappy-Go Authors
+See https://github.com/syndtr/gosnappy/blob/master/LICENSE for license
+details.
+
+go-zookeeper - Native ZooKeeper client for Go
+https://github.com/samuel/go-zookeeper
+Copyright (c) 2013, Samuel Stauffer <samuel@descolada.com>
+See https://github.com/samuel/go-zookeeper/blob/master/LICENSE for license
+details.
 * For github.com/vishvananda/netlink see also this required NOTICE:
 Copyright 2014 Vishvananda Ishaya.
 Copyright 2014 Docker, Inc.
