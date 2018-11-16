@@ -280,3 +280,17 @@ func parseEnvVariableDuration(envVar string) time.Duration {
 	}
 	return duration
 }
+
+func parseImageCleanupExclusionList(envVar string) []string {
+	imageEnv := os.Getenv(envVar)
+	var imageCleanupExclusionList []string
+	if imageEnv == "" {
+		seelog.Debugf("Environment variable empty: %s", imageEnv)
+	} else {
+		imageCleanupExclusionList = strings.Split(imageEnv, ",")
+	}
+	for _, image := range imageCleanupExclusionList {
+		seelog.Infof("Image excluded from cleanup: %s", image)
+	}
+	return imageCleanupExclusionList
+}

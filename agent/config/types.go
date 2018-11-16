@@ -248,4 +248,7 @@ type Config struct {
 	// through RegisterContainerInstance call. Tags with the same keys from DescribeTags
 	// API call will be overridden.
 	ContainerInstanceTags map[string]string
+
+	// ImageCleanupExclusionList is the list of image names customers want to keep for their own use and delete automatically
+	ImageCleanupExclusionList []string
 }
