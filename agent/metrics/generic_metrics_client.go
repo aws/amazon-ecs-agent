@@ -76,7 +76,7 @@ func (dm *GenericMetrics) FireCallStart(callHash, callName string, timestamp tim
 func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.Time) {
 	defer func() {
 		if r := recover(); r != nil {
-			seelog.Errorf("IncrementCallCount for %s panicked. Recovering quietly: %s", callName, r)
+			seelog.Errorf("FireCallEnd for %s panicked. Recovering quietly: %s", callName, r)
 		}
 	}()
 	dm.lock.Lock()
@@ -88,7 +88,7 @@ func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 		dm.durations.WithLabelValues(callName).Set(seconds.Seconds())
 		delete(dm.outstandingCalls, callHash)
 	} else {
-		seelog.Error("Call is not outstanding: %s", callName)
+		seelog.Errorf("Call is not outstanding: %s", callName)
 	}
 }
 

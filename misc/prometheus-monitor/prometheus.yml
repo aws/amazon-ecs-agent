@@ -29,10 +29,13 @@ rule_files:
   # - "first_rules.yml"
   # - "second_rules.yml"
 
-# A scrape configuration containing exactly one endpoint to scrape:
-# Here it's Prometheus itself.
+# A scrape configuration containing 2 endpoints (one for the Agent application and one for the
+# Prometheus server):
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+
+  # This endpoint exposes metrics on Agent's API calls to Docker, ECS, and internal structs such as
+  # the Task Engine and State Manager
   - job_name: 'agent'
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
@@ -40,6 +43,7 @@ scrape_configs:
     static_configs:
     - targets: ['localhost:8080']
 
+  # This endpoint exposes metrics on the Prometheus server that is running within a Docker container
   - job_name: 'prometheus'
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.

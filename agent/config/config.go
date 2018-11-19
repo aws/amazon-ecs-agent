@@ -101,7 +101,7 @@ const (
 	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
 
 	// prometheusMonitorContainerTarballPath is the path to the prometheus monitor container tarball
-	prometheusMonitorContainerTarballPath = "images/amazon-ecs-prometheus-monitor.tar"
+	prometheusMonitorContainerTarballPath = "/images/amazon-ecs-prometheus-monitor.tar"
 
 	// prometheusMonitorContainerTarballPath is the name of the prometheus monitor container image
 	prometheusMonitorContainerImageName = "amazon/amazon-ecs-prometheus-monitor"

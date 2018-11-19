@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	prometheusTarballPath   = "images/amazon-ecs-prometheus-monitor.tar"
+	prometheusTarballPath   = "/images/amazon-ecs-prometheus-monitor.tar"
 	prometheusName          = "amazon/amazon-ecs-prometheus-monitor"
 	prometheusTag           = "0.1.0"
 	prometheusVolume        = "amazon-ecs-prometheus-persistance-data"

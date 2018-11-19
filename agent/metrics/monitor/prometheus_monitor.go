@@ -67,6 +67,9 @@ func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockera
 		if err != nil {
 			seelog.Errorf("Prometheus container could not be created: %s", err.Error())
 			return ""
+		} else if metadata.Error != nil {
+			seelog.Errorf("Prometheus container could not be created: %s", metadata.Error.Error())
+			return ""
 		}
 		containerID = metadata.DockerID
 	}
@@ -84,6 +87,7 @@ func InitPrometheusContainer(ctx context.Context, cfg *config.Config, dg dockera
 func prometheusVolumeSetup(dg dockerapi.DockerClient, cfg *config.Config, ctx context.Context) {
 	resp := dg.InspectVolume(ctx, cfg.PrometheusMonitorVolumeName, dockerTimeout)
 	if resp.Error != nil {
+		seelog.Infof("Desired Prometheus Volume inspection: %s", resp.Error.Error())
 		// Inspection failed, attempt to remove the volume.
 		dg.RemoveVolume(ctx, cfg.PrometheusMonitorVolumeName, dockerTimeout)
 		// Create the new volume
