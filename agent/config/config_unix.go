@@ -46,7 +46,7 @@ const (
 func DefaultConfig() Config {
 	return Config{
 		DockerEndpoint:                        "unix:///var/run/docker.sock",
-		ReservedPorts:                         []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		ReservedPorts:                         []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort, AgentPrometheusExpositionPort},
 		ReservedPortsUDP:                      []uint16{},
 		DataDir:                               "/data/",
 		DataDirOnHost:                         "/var/lib/ecs",

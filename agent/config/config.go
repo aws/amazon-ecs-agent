@@ -47,6 +47,9 @@ const (
 	// AgentCredentialsPort is used to serve the credentials for tasks.
 	AgentCredentialsPort = 51679
 
+	// AgentPrometheusExpositionPort is used to expose Prometheus metrics that can be scraped by a Prometheus server
+	AgentPrometheusExpositionPort = 51680
+
 	// defaultConfigFileName is the default (json-formatted) config file
 	defaultConfigFileName = "/etc/ecs_container_agent/config.json"
 

@@ -92,7 +92,9 @@ func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 	select {
 	case <-timeout:
 		seelog.Errorf("FireCallEnd timed out with %s", callName)
+		dm.lock.Lock()
 		delete(dm.outstandingCalls, callHash)
+		dm.lock.Unlock()
 		return
 	case <-callStarted:
 		break
