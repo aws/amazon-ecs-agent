@@ -24,6 +24,10 @@ import (
 	"time"
 )
 
+const (
+	callTimeout = 2 * time.Minute
+)
+
 // A GenericMetricsClient records 3 metrics:
 // 1) A Prometheus summary vector representing call durations for different API calls
 // 2) A durations guage vector that updates the last recorded duration for the API call
@@ -47,22 +51,24 @@ func Init() {
 // required to compute the call duration. The final metric is observed when the
 // FireCallEnd function is called.
 // If callID is empty, then we initiate the call with FireCallStart
-func (dm *GenericMetrics) RecordCall(callID, callName string, callTime time.Time) string {
+// We use a channel holding 1 bool to ensure that the FireCallEnd is called AFTER
+// the FireCallStart (because these are done in separate go routines)
+func (dm *GenericMetrics) RecordCall(callID, callName string, callTime time.Time, callStarted chan bool) string {
 	if callID == "" {
 		hashData := []byte("GenericMetrics-" + callName + strconv.FormatFloat(float64(rand.Float32()), 'f', -1, 32))
 		hash := fmt.Sprintf("%x", md5.Sum(hashData))
 		// Go routines are utilized to avoid blocking the main thread in case of
 		// resource contention with var outstandingCalls
-		go dm.FireCallStart(hash, callName, callTime)
+		go dm.FireCallStart(hash, callName, callTime, callStarted)
 		go dm.IncrementCallCount(callName)
 		return hash
 	} else {
-		go dm.FireCallEnd(callID, callName, callTime)
+		go dm.FireCallEnd(callID, callName, callTime, callStarted)
 		return ""
 	}
 }
 
-func (dm *GenericMetrics) FireCallStart(callHash, callName string, timestamp time.Time) {
+func (dm *GenericMetrics) FireCallStart(callHash, callName string, timestamp time.Time, callStarted chan bool) {
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 	// Check map to see if call is outstanding, otherwise, store in map
@@ -71,14 +77,27 @@ func (dm *GenericMetrics) FireCallStart(callHash, callName string, timestamp tim
 	} else {
 		seelog.Errorf("Call is already outstanding: %s", callName)
 	}
+	callStarted <- true
 }
 
-func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.Time) {
+func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.Time, callStarted chan bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			seelog.Errorf("FireCallEnd for %s panicked. Recovering quietly: %s", callName, r)
 		}
 	}()
+	// We will block until the FireCallStart complement has completed
+	timeout := make(chan bool)
+	go startTimeout(timeout)
+	select {
+	case <-timeout:
+		seelog.Errorf("FireCallEnd timed out with %s", callName)
+		delete(dm.outstandingCalls, callHash)
+		return
+	case <-callStarted:
+		break
+	}
+
 	dm.lock.Lock()
 	defer dm.lock.Unlock()
 	// Check map to see if call is outstanding and calculate duration
@@ -86,10 +105,16 @@ func (dm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 		seconds := timestamp.Sub(timeStart)
 		dm.durationVec.WithLabelValues(callName).Observe(seconds.Seconds())
 		dm.durations.WithLabelValues(callName).Set(seconds.Seconds())
-		delete(dm.outstandingCalls, callHash)
+
 	} else {
 		seelog.Errorf("Call is not outstanding: %s", callName)
 	}
+}
+
+// Simple Timeout function
+func startTimeout(timeout chan bool) {
+	time.Sleep(callTimeout)
+	timeout <- true
 }
 
 // This function increments the call count for a specific API call

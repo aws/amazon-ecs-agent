@@ -34,14 +34,16 @@ type MetricsClient interface {
 	// that is used. It is the responsibility of the MetricsEngine to call the
 	// appropriate RecordCall(...) method.
 	// This method is the defining function for this interface.
-	RecordCall(string, string, time.Time) string
+	// We use a channel holding 1 bool to ensure that the FireCallEnd is called AFTER
+	// the FireCallStart (because these are done in separate go routines)
+	RecordCall(string, string, time.Time, chan bool) string
 
 	// In order to record call duration, we must fire a method's start and end
 	// at different times (once at the beginning and once at the end). Ideally,
 	// RecordCall should handle this through an execution and returned function
 	// to be deferred (see docker_client.go for usage examples)
-	FireCallStart(string, string, time.Time)
-	FireCallEnd(string, string, time.Time)
+	FireCallStart(string, string, time.Time, chan bool)
+	FireCallEnd(string, string, time.Time, chan bool)
 
 	// This function will increment the call count. The metric for call duration
 	// should ideally have the accurate call count as well, but the Prometheus

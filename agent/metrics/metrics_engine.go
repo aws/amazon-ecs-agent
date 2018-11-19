@@ -120,22 +120,25 @@ func (engine *MetricsEngine) RecordECSClientMetric(callName string) func() {
 // If Metrics collection is enabled from the cfg, we record a metric with callID
 // as an empty string (signaling a call start), and then return a function to
 // record a second metric with a non-empty callID.
+// We use a channel holding 1 bool to ensure that the FireCallEnd is called AFTER
+// the FireCallStart (because these are done in separate go routines)
 // Recording a metric in an API needs only a wrapper function that supplies the
 // APIType and called using the following format:
 // defer metrics.MetricsEngineGlobal.RecordMetricWrapper(callName)()
 func (engine *MetricsEngine) recordGenericMetric(apiType APIType, callName string) func() {
+	callStarted := make(chan bool, 1)
 	if engine == nil || !engine.collection {
 		return func() {
 		}
 	}
-	callID := engine.recordMetric(apiType, callName, "")
+	callID := engine.recordMetric(apiType, callName, "", callStarted)
 	return func() {
-		engine.recordMetric(apiType, callName, callID)
+		engine.recordMetric(apiType, callName, callID, callStarted)
 	}
 }
 
-func (engine *MetricsEngine) recordMetric(apiType APIType, callName, callID string) string {
-	return engine.managedMetrics[apiType].RecordCall(callID, callName, time.Now())
+func (engine *MetricsEngine) recordMetric(apiType APIType, callName, callID string, callStarted chan bool) string {
+	return engine.managedMetrics[apiType].RecordCall(callID, callName, time.Now(), callStarted)
 }
 
 // Function that exposes all Agent Metrics on a given port.
