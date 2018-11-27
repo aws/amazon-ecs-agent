@@ -311,14 +311,19 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 		// bind mount instance config dir
 		config.InstanceConfigDirectory() + ":" + config.InstanceConfigDirectory(),
-		// bind mount gpu info dir
-		gpu.GPUInfoDirPath + ":" + gpu.GPUInfoDirPath,
 	}
 
 	// for al, al2 add host ssl cert directory mounts
 	if pkiDir := config.HostPKIDirPath(); pkiDir != "" {
 		certsPath := pkiDir + ":" + pkiDir + readOnly
 		binds = append(binds, certsPath)
+	}
+
+	for key, val := range c.LoadEnvVars() {
+		if key == config.GPUSupportEnvVar && val == "true" {
+			// bind mount gpu info dir
+			binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)

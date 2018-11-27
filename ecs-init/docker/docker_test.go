@@ -18,15 +18,17 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 	godocker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 // expectedAgentBinds is the total number of agent host config binds.
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	expectedAgentBindsUnspecifiedPlatform = 16
+	expectedAgentBindsUnspecifiedPlatform = 15
 	expectedAgentBindsSuseUbuntuPlatform  = 13
 )
 
@@ -196,8 +198,8 @@ func TestStartAgentNoEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
-	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error"))
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error")).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
 	}).Return(&godocker.Container{
@@ -323,8 +325,8 @@ func TestStartAgentEnvFile(t *testing.T) {
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
 
-	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found"))
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil)
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return([]byte(envFile), nil).AnyTimes()
 	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
 		validateCommonCreateContainerOptions(opts, t)
 		cfg := opts.Config
@@ -350,6 +352,54 @@ func TestStartAgentEnvFile(t *testing.T) {
 	if err != nil {
 		t.Error("Error should not be returned")
 	}
+}
+func TestStartAgentWithGPUConfig(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	containerID := "container id"
+	expectedAgentBinds += 1
+
+	defer func() {
+		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
+	}()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		validateCommonCreateContainerOptions(opts, t)
+		var found bool
+		for _, bind := range opts.HostConfig.Binds {
+			if bind == gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found)
+
+		cfg := opts.Config
+
+		envVariables := make(map[string]struct{})
+		for _, envVar := range cfg.Env {
+			envVariables[envVar] = struct{}{}
+		}
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &Client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
 }
 
 func TestGetContainerConfigWithFileOverrides(t *testing.T) {
