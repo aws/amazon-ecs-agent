@@ -1,3 +1,9 @@
+amazon-ecs-init (1.22.0-2) trusty; urgency=medium
+
+  * Cache Agent version 1.22.0
+
+  -- Yunhee Lee <yhlee@amazon.com>  Fri, 2 Nov 2018 09:51:28 -0800
+
 amazon-ecs-init (1.21.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.21.0
