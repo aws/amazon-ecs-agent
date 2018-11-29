@@ -221,10 +221,10 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 
 // verify that the state manager correctly loads ssm secrets related fields in state file
 func TestLoadsDataForSecretsTask(t *testing.T) {
-	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v16", "secrets", "ecs_agent_data.json"))
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v17", "secrets", "ecs_agent_data.json"))
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
-	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v16", "secrets")}
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v17", "secrets")}
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
@@ -286,4 +286,43 @@ func TestLoadsDataForAddingAvailabilityZoneInTask(t *testing.T) {
 	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
 	assert.Equal(t, 1, len(task.Containers))
 	assert.Equal(t, "us-west-2c", availabilityZone)
+}
+
+// verify that the state manager correctly loads asm secrets related fields in state file
+func TestLoadsDataForASMSecretsTask(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v18", "secrets", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "secrets")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "secrets-state", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+	container := task.Containers[0]
+	assert.Equal(t, "container_1", container.Name)
+	assert.NotNil(t, container.Secrets)
+	secret := container.Secrets[1]
+	assert.Equal(t, "ENVIRONMENT_VARIABLE", secret.Type)
+	assert.Equal(t, "asm-secret", secret.Name)
+	assert.Equal(t, "us-west-2", secret.Region)
+	assert.Equal(t, "secret-value-from", secret.ValueFrom)
+	assert.Equal(t, "asm", secret.Provider)
 }
