@@ -100,6 +100,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_DISABLE_PRIVILEGED", "true")()
 	defer setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
+	defer setTestEnv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP", "true")()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")()
 	defer setTestEnv("ECS_DISABLE_IMAGE_CLEANUP", "true")()
 	defer setTestEnv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")()
@@ -132,9 +133,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
 	assert.True(t, conf.AppArmorCapable, "Wrong value for AppArmorCapable")
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
+	assert.True(t, conf.DeleteNonECSImagesEnabled, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
-
 	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
@@ -344,8 +345,8 @@ func TestInvalidFormatParseEnvVariableDuration(t *testing.T) {
 
 func TestValidForImagesCleanupExclusion(t *testing.T) {
 	defer setTestRegion()()
-	defer setTestEnv("ECS_IMAGE_CLEANUP_EXCLUDE", "amazonlinux:2,amazonlinux:3")()
-	imagesNotDelete := parseImageCleanupExclusionList("ECS_IMAGE_CLEANUP_EXCLUDE")
+	defer setTestEnv("ECS_NONECS_IMAGE_CLEANUP_EXCLUDE", "amazonlinux:2,amazonlinux:3")()
+	imagesNotDelete := parseImageCleanupExclusionList("ECS_NONECS_IMAGE_CLEANUP_EXCLUDE")
 	assert.Equal(t, []string{"amazonlinux:2", "amazonlinux:3"}, imagesNotDelete, "unexpected imageCleanupExclusionList")
 }
 
@@ -399,6 +400,14 @@ func TestTaskIAMRoleEnabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
+}
+
+func TestDeleteNonECSImagesEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.DeleteNonECSImagesEnabled, "Wrong value for DeleteNonECSImagesEnabled")
 }
 
 func TestTaskIAMRoleForHostNetworkEnabled(t *testing.T) {

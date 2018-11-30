@@ -153,6 +153,9 @@ type DockerClient interface {
 	// should be provided for the request.
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
 
+	// ListImages returns the set of the images known to the Docker daemon
+	ListImages(context.Context, time.Duration) ListImagesResponse
+
 	// CreateVolume creates a docker volume. A timeout value should be provided for the request
 	CreateVolume(context.Context, string, string, map[string]string, map[string]string, time.Duration) VolumeResponse
 
@@ -186,6 +189,7 @@ type DockerClient interface {
 	// RemoveImage removes the metadata associated with an image and may remove the underlying layer data. A timeout
 	// value and a context should be provided for the request.
 	RemoveImage(context.Context, string, time.Duration) error
+
 	// LoadImage loads an image from an input stream. A timeout value and a context should be provided for the request.
 	LoadImage(context.Context, io.Reader, time.Duration) error
 }
@@ -897,6 +901,46 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 	}
 
 	return ListContainersResponse{DockerIDs: containerIDs, Error: nil}
+}
+
+func (dg *dockerGoClient) ListImages(ctx context.Context, timeout time.Duration) ListImagesResponse {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	response := make(chan ListImagesResponse, 1)
+	go func() { response <- dg.listImages(ctx) }()
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return ListImagesResponse{Error: &DockerTimeoutError{timeout, "listing"}}
+		}
+		return ListImagesResponse{Error: &CannotListImagesError{err}}
+	}
+}
+
+func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
+	client, err := dg.dockerClient()
+	if err != nil {
+		return ListImagesResponse{Error: err}
+	}
+	images, err := client.ListImages(docker.ListImagesOptions{
+		All: false,
+	})
+	if err != nil {
+		return ListImagesResponse{Error: err}
+	}
+	var imagesRepoTag []string
+	imageIDs := make([]string, len(images))
+	for i, image := range images {
+		imageIDs[i] = image.ID
+		for _, imageRepoTag := range image.RepoTags {
+			imagesRepoTag = append(imagesRepoTag, imageRepoTag)
+		}
+	}
+	return ListImagesResponse{ImageIDs: imageIDs, RepoTags: imagesRepoTag, Error: nil}
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {

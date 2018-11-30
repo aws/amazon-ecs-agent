@@ -264,6 +264,19 @@ func (err CannotListContainersError) ErrorName() string {
 	return "CannotListContainersError"
 }
 
+type CannotListImagesError struct {
+	FromError error
+}
+
+func (err CannotListImagesError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns name of the CannotListImagesError
+func (err CannotListImagesError) ErrorName() string {
+	return "CannotListImagesError"
+}
+
 // CannotCreateVolumeError indicates any error when trying to create a volume
 type CannotCreateVolumeError struct {
 	fromError error

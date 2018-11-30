@@ -19,6 +19,8 @@ import "time"
 const (
 	// ListContainersTimeout is the timeout for the ListContainers API.
 	ListContainersTimeout = 10 * time.Minute
+	// ListImagesTimeout is the timeout for the ListImages API
+	ListImagesTimeout = 10 * time.Minute
 	// LoadImageTimeout is the timeout for the LoadImage API. It's set
 	// to much lower value than pullImageTimeout as it involves loading
 	// image from either a file or STDIN

@@ -130,6 +130,15 @@ func parseNumImagesToDeletePerCycle() int {
 	return numImagesToDeletePerCycle
 }
 
+func parseNumNonECSContainersToDeletePerCycle() int {
+	numNonEcsContainersToDeletePerCycleEnvVal := os.Getenv("NONECS_NUM_CONTAINERS_DELETE_PER_CYCLE")
+	numNonEcsContainersToDeletePerCycle, err := strconv.Atoi(numNonEcsContainersToDeletePerCycleEnvVal)
+	if numNonEcsContainersToDeletePerCycleEnvVal != "" && err != nil {
+		seelog.Warnf("Invalid format for \"NONECS_NUM_CONTAINERS_DELETE_PER_CYCLE\", expected an integer. err %v", err)
+	}
+	return numNonEcsContainersToDeletePerCycle
+}
+
 func parseImagePullBehavior() ImagePullBehaviorType {
 	ImagePullBehaviorString := os.Getenv("ECS_IMAGE_PULL_BEHAVIOR")
 	switch ImagePullBehaviorString {

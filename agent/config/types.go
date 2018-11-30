@@ -127,6 +127,9 @@ type Config struct {
 	// tasks with IAM Roles.
 	TaskIAMRoleEnabled bool
 
+	// DeleteNonECSImagesEnabled specifies if the Agent can delete the cached, unused non-ecs images.
+	DeleteNonECSImagesEnabled bool
+
 	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
 	TaskCPUMemLimit Conditional
 
@@ -159,6 +162,10 @@ type Config struct {
 	// NumImagesToDeletePerCycle specifies the num of image to delete every time
 	// when Agent performs cleanup
 	NumImagesToDeletePerCycle int
+
+	// NumNonECSContainersToDeletePerCycle specifies the num of NonECS containers to delete every time
+	// when Agent performs cleanup
+	NumNonECSContainersToDeletePerCycle int
 
 	// ImagePullBehavior specifies the agent's behavior for pulling image and loading
 	// local Docker image cache
