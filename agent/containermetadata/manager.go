@@ -42,6 +42,7 @@ const (
 type Manager interface {
 	SetContainerInstanceARN(string)
 	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
+	SetAvailabilityZone(string)
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
 }
@@ -65,6 +66,8 @@ type metadataManager struct {
 	osWrap oswrapper.OS
 	// ioutilWrap is a wrapper for 'ioutil' package operations
 	ioutilWrap ioutilwrapper.IOUtil
+	// availabilityZone is the availabiltyZone where task is in
+	availabilityZone string
 }
 
 // NewManager creates a metadataManager for a given DockerTaskEngine settings.
@@ -83,6 +86,12 @@ func NewManager(client DockerMetadataClient, cfg *config.Config) Manager {
 // at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN string) {
 	manager.containerInstanceARN = containerInstanceARN
+}
+
+// SetAvailabilityzone sets the metadataManager's AvailabilityZone which is not available
+// at its creation as this information is not present immediately at the agent's startup
+func (manager *metadataManager) SetAvailabilityZone(availabilityZone string) {
+	manager.availabilityZone = availabilityZone
 }
 
 // Create creates the metadata file and adds the metadata directory to

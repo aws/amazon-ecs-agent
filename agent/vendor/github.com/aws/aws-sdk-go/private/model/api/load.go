@@ -40,14 +40,13 @@ func (a *API) Setup() {
 	a.resolveReferences()
 	a.fixStutterNames()
 	a.renameExportable()
-	if !a.NoRenameToplevelShapes {
-		a.renameToplevelShapes()
-	}
-
+	a.applyShapeNameAliases()
+	a.createInputOutputShapes()
+	a.renameAPIPayloadShapes()
 	a.renameCollidingFields()
 	a.updateTopLevelShapeReferences()
-	a.createInputOutputShapes()
-	a.suppressEventStreams()
+	a.suppressHTTP2EventStreams()
+	a.setupEventStreams()
 	a.customizationPasses()
 
 	if !a.NoRemoveUnusedShapes {

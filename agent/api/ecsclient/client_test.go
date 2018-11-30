@@ -329,7 +329,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type": config.OSType,
+		"ecs.os-type":           config.OSType,
+		"ecs.availability-zone": "us-west-2b",
 	}
 	for i := range fakeCapabilities {
 		expectedAttributes[fakeCapabilities[i]] = ""
@@ -375,13 +376,14 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
 	if arn != "registerArn" {
 		t.Errorf("Wrong arn: %v", arn)
 	}
+	assert.Equal(t, "us-west-2b", availabilityzone, "availabilityZone is incorrect")
 }
 
 func TestRegisterContainerInstance(t *testing.T) {
@@ -398,6 +400,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"ecs.os-type":               config.OSType,
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
+		"ecs.availability-zone":     "us-west-2b",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 	platformDevices := []*ecs.PlatformDevice{
@@ -450,9 +453,10 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, platformDevices)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, platformDevices)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
+	assert.Equal(t, "us-west-2b", availabilityzone)
 }
 
 func TestRegisterContainerInstanceNoIID(t *testing.T) {
@@ -475,6 +479,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 		"ecs.os-type":               config.OSType,
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
+		"ecs.availability-zone":     "us-west-2b",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 
@@ -510,9 +515,10 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
+	assert.Equal(t, "us-west-2b", availabilityzone)
 }
 
 // TestRegisterContainerInstanceWithNegativeResource tests the registeration should fail with negative resource
@@ -536,7 +542,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, err := client.RegisterContainerInstance("", nil, nil, nil)
+	_, _, err := client.RegisterContainerInstance("", nil, nil, nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -566,7 +572,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			nil),
 	)
 
-	_, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), nil)
+	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), nil)
 	assert.NoError(t, err)
 }
 
@@ -640,12 +646,15 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, err := client.RegisterContainerInstance("", nil, nil, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil, nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
 	if arn != "registerArn" {
 		t.Errorf("Wrong arn: %v", arn)
+	}
+	if availabilityzone != "" {
+		t.Errorf("wrong availability zone: %v", availabilityzone)
 	}
 }
 

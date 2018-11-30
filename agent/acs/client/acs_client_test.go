@@ -304,7 +304,7 @@ func TestConnect(t *testing.T) {
 }
 
 func TestConnectClientError(t *testing.T) {
-	testServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		w.Write([]byte(`{"InvalidClusterException":"Invalid cluster"}` + "\n"))
 	}))
@@ -313,7 +313,7 @@ func TestConnectClientError(t *testing.T) {
 	cs := New(testServer.URL, testCfg, testCreds, rwTimeout)
 	err := cs.Connect()
 	_, ok := err.(*wsclient.WSError)
-	assert.True(t, ok)
+	assert.True(t, ok, "Connect error expected to be a WSError type")
 	assert.EqualError(t, err, "InvalidClusterException: Invalid cluster")
 }
 

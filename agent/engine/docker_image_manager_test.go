@@ -140,8 +140,8 @@ func TestRecordContainerReferenceInspectError(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -174,8 +174,8 @@ func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -401,8 +401,8 @@ func TestRemoveContainerReferenceFromImageStateWithNoReference(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -437,8 +437,8 @@ func TestGetCandidateImagesForDeletionImageNoImageState(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -457,8 +457,8 @@ func TestGetCandidateImagesForDeletionImageJustPulled(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -482,8 +482,8 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -523,8 +523,8 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -572,6 +572,110 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 	}
 }
 
+func TestImageCleanupExclusionListWithSingleName(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	sourceImageA := &image.Image{
+		ImageID: "sha256:qwerty1",
+		Names:   []string{"a"},
+	}
+	sourceImageB := &image.Image{
+		ImageID: "sha256:qwerty2",
+		Names:   []string{"b"},
+	}
+	sourceImageC := &image.Image{
+		ImageID: "sha256:qwerty3",
+		Names:   []string{"c"},
+	}
+	ImageStateA := &image.ImageState{
+		Image:    sourceImageA,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	ImageStateB := &image.ImageState{
+		Image:    sourceImageB,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	ImageStateC := &image.ImageState{
+		Image:    sourceImageC,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	imageManager := &dockerImageManager{
+		client:                    client,
+		state:                     dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:  config.DefaultImageDeletionAge,
+		numImagesToDelete:         config.DefaultNumImagesToDeletePerCycle,
+		imageCleanupTimeInterval:  config.DefaultImageCleanupTimeInterval,
+		imageCleanupExclusionList: []string{"a", "c"},
+		imageStatesConsideredForDeletion: map[string]*image.ImageState{
+			"sha256:qwerty2": ImageStateB,
+		},
+	}
+	var testImageStates = []*image.ImageState{ImageStateA, ImageStateB, ImageStateC}
+	var testResult = imageManager.imagesConsiderForDeletion(testImageStates)
+
+	assert.Equal(t, 1, len(testResult), "Expected 1 image state to be returned for deletion")
+	if !reflect.DeepEqual(imageManager.imageStatesConsideredForDeletion, testResult) {
+		t.Error("Incorrect image return from  getCandidateImagesForDeletionHelper function")
+	}
+}
+
+func TestImageCleanupExclusionListWithMultipleNames(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	sourceImageA := &image.Image{
+		ImageID: "sha256:qwerty1",
+		Names:   []string{"a", "b", "c"},
+	}
+	sourceImageB := &image.Image{
+		ImageID: "sha256:qwerty2",
+		Names:   []string{"d", "e", "f"},
+	}
+	sourceImageC := &image.Image{
+		ImageID: "sha256:qwerty3",
+		Names:   []string{"g", "h", "i"},
+	}
+	sourceImageD := &image.Image{
+		ImageID: "sha256:qwerty4",
+		Names:   []string{"x", "y", "z"},
+	}
+	ImageStateA := &image.ImageState{
+		Image:    sourceImageA,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	ImageStateB := &image.ImageState{
+		Image:    sourceImageB,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	ImageStateC := &image.ImageState{
+		Image:    sourceImageC,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	ImageStateD := &image.ImageState{
+		Image:    sourceImageD,
+		PulledAt: time.Now().AddDate(0, -2, 0),
+	}
+	imageManager := &dockerImageManager{
+		client:                    client,
+		state:                     dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:  config.DefaultImageDeletionAge,
+		numImagesToDelete:         config.DefaultNumImagesToDeletePerCycle,
+		imageCleanupTimeInterval:  config.DefaultImageCleanupTimeInterval,
+		imageCleanupExclusionList: []string{"a", "d", "g"},
+		imageStatesConsideredForDeletion: map[string]*image.ImageState{
+			"sha256:qwerty4": ImageStateD,
+		},
+	}
+	var testImageStates = []*image.ImageState{ImageStateA, ImageStateB, ImageStateC, ImageStateD}
+	var testResult = imageManager.imagesConsiderForDeletion(testImageStates)
+
+	assert.Equal(t, 1, len(testResult), "Expected 1 image state to be returned for deletion")
+	if !reflect.DeepEqual(imageManager.imageStatesConsideredForDeletion, testResult) {
+		t.Error("Incorrect image return from  getCandidateImagesForDeletionHelper function")
+	}
+}
+
 func TestGetLeastRecentlyUsedImages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -616,8 +720,8 @@ func TestGetLeastRecentlyUsedImagesLessThanFive(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -650,8 +754,8 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -701,8 +805,8 @@ func TestImageCleanupHappyPath(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: 1 * time.Millisecond,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -753,8 +857,8 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -806,8 +910,8 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,
@@ -1037,8 +1141,8 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	imageManager := &dockerImageManager{
-		client: client,
-		state:  dockerstate.NewTaskEngineState(),
+		client:                   client,
+		state:                    dockerstate.NewTaskEngineState(),
 		minimumAgeBeforeDeletion: config.DefaultImageDeletionAge,
 		numImagesToDelete:        config.DefaultNumImagesToDeletePerCycle,
 		imageCleanupTimeInterval: config.DefaultImageCleanupTimeInterval,

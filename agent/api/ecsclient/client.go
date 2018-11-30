@@ -41,6 +41,7 @@ const (
 	pollEndpointCacheSize = 1
 	pollEndpointCacheTTL  = 20 * time.Minute
 	roundtripTimeout      = 5 * time.Second
+	azAttrName            = "ecs.availability-zone"
 )
 
 // APIECSClient implements ECSClient
@@ -108,7 +109,7 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 // instance ARN allows a container instance to update its registered
 // resources.
 func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, error) {
+	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, string, error) {
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -119,22 +120,22 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, platformDevices)
+		containerInstanceArn, availabilityzone, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, platformDevices)
 		if err == nil {
-			return containerInstanceArn, nil
+			return containerInstanceArn, availabilityzone, nil
 		}
 		// If trying to register fails, try to create the cluster before calling
 		// register again
 		clusterRef, err = client.CreateCluster(clusterRef)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, platformDevices)
 }
 
 func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, error) {
+	attributes []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) (string, string, error) {
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -165,18 +166,29 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 
 	resources, err := client.getResources()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	registerRequest.TotalResources = resources
 	resp, err := client.standardClient.RegisterContainerInstance(&registerRequest)
 	if err != nil {
 		seelog.Errorf("Unable to register as a container instance with ECS: %v", err)
-		return "", err
+		return "", "", err
 	}
+
+	var availabilityzone = ""
+	if resp != nil {
+		for _, attr := range resp.ContainerInstance.Attributes {
+			if aws.StringValue(attr.Name) == azAttrName {
+				availabilityzone = aws.StringValue(attr.Value)
+				break
+			}
+		}
+	}
+
 	seelog.Info("Registered container instance with cluster!")
 	err = validateRegisteredAttributes(registerRequest.Attributes, resp.ContainerInstance.Attributes)
-	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), err
+	return aws.StringValue(resp.ContainerInstance.ContainerInstanceArn), availabilityzone, err
 }
 
 func (client *APIECSClient) setInstanceIdentity(registerRequest ecs.RegisterContainerInstanceInput) ecs.RegisterContainerInstanceInput {
