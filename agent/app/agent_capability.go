@@ -40,6 +40,7 @@ const (
 	capabilitySecretEnvSSM                      = "secrets.ssm.environment-variables"
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
 	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
+	capabilityECREndpoint                       = "ecr-endpoint"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -69,6 +70,8 @@ const (
 //    ecs.capability.container-health-check
 //    ecs.capability.private-registry-authentication.secretsmanager
 //    ecs.capability.secrets.ssm.environment-variables
+//    ecs.capability.pid-ipc-namespace-sharing
+//    ecs.capability.ecr-endpoint
 
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
@@ -126,6 +129,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
 	}
+	// support ecr endpoint override
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityECREndpoint)
 
 	return capabilities, nil
 }

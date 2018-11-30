@@ -39,7 +39,7 @@ const (
 var ContainerMetadataPath = TaskMetadataPathWithSlash + utils.ConstructMuxVar(metadataContainerIDMuxName, utils.AnythingButEmptyRegEx)
 
 // TaskContainerMetadataHandler returns the handler method for handling task and container metadata requests.
-func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster string) func(http.ResponseWriter, *http.Request) {
+func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster string, az string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
@@ -55,7 +55,7 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster str
 		}
 
 		seelog.Infof("V2 task/container metadata handler: writing response for task '%s'", taskARN)
-		WriteTaskMetadataResponse(w, taskARN, cluster, state)
+		WriteTaskMetadataResponse(w, taskARN, cluster, state, az)
 	}
 }
 
@@ -73,9 +73,9 @@ func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, s
 }
 
 // WriteTaskMetadataResponse writes the task metadata to response writer.
-func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState) {
+func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState, az string) {
 	// Generate a response for the task
-	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
+	taskResponse, err := NewTaskResponse(taskARN, state, cluster, az)
 	if err != nil {
 		errResponseJSON, _ := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskMetadata)
