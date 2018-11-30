@@ -954,6 +954,18 @@
         "Service$schedulingStrategy": "<p>The scheduling strategy to use for the service. For more information, see <a href=\"http://docs.aws.amazon.com/AmazonECS/latest/developerguideecs_services.html\">Services</a>.</p> <p>There are two service scheduler strategies available:</p> <ul> <li> <p> <code>REPLICA</code>-The replica scheduling strategy places and maintains the desired number of tasks across your cluster. By default, the service scheduler spreads tasks across Availability Zones. You can use task placement strategies and constraints to customize task placement decisions.</p> </li> <li> <p> <code>DAEMON</code>-The daemon scheduling strategy deploys exactly one task on each container instance in your cluster. When using this strategy, do not specify a desired number of tasks or any task placement strategies.</p> <note> <p>Fargate tasks do not support the <code>DAEMON</code> scheduling strategy.</p> </note> </li> </ul>"
       }
     },
+    "Secret": {
+      "base": null,
+      "refs": {
+        "SecretList$member": null
+      }
+    },
+    "SecretList": {
+      "base": null,
+      "refs": {
+        "ContainerDefinition$secrets": null
+      }
+    },
     "ServerException": {
       "base": "<p>These errors are usually caused by a server issue.</p>",
       "refs": {
@@ -1162,6 +1174,8 @@
         "RunTaskRequest$startedBy": "<p>An optional tag specified when a task is started. For example if you automatically trigger a task to run a batch process job, you could apply a unique identifier for that job to your task with the <code>startedBy</code> parameter. You can then identify which tasks belong to that job by filtering the results of a <a>ListTasks</a> call with the <code>startedBy</code> value. Up to 36 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed.</p> <p>If a task is started by an Amazon ECS service, then the <code>startedBy</code> parameter contains the deployment ID of the service that starts it.</p>",
         "RunTaskRequest$group": "<p>The name of the task group to associate with the task. The default value is the family name of the task definition (for example, family:my-family-name).</p>",
         "RunTaskRequest$platformVersion": "<p>The platform version on which to run your task. If one is not specified, the latest version is used by default.</p>",
+        "Secret$name": null,
+        "Secret$valueFrom": null,
         "ServerException$message": null,
         "Service$serviceArn": "<p>The ARN that identifies the service. The ARN contains the <code>arn:aws:ecs</code> namespace, followed by the Region of the service, the AWS account ID of the service owner, the <code>service</code> namespace, and then the service name. For example, <code>arn:aws:ecs:<i>region</i>:<i>012345678910</i>:service/<i>my-service</i> </code>.</p>",
         "Service$serviceName": "<p>The name of your service. Up to 255 letters (uppercase and lowercase), numbers, hyphens, and underscores are allowed. Service names must be unique within a cluster, but you can have similarly named services in multiple clusters within a Region or across multiple Regions.</p>",

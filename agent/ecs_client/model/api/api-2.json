@@ -734,6 +734,7 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "linuxParameters":{"shape":"LinuxParameters"},
+        "secrets":{"shape":"SecretList"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -1657,6 +1658,21 @@
         "REPLICA",
         "DAEMON"
       ]
+    },
+    "Secret":{
+      "type":"structure",
+      "required":[
+        "name",
+        "valueFrom"
+      ],
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
     },
     "ServerException":{
       "type":"structure",
