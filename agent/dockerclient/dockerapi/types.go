@@ -82,6 +82,17 @@ type ListContainersResponse struct {
 	Error error
 }
 
+// ListImagesResponse encapsulates the response from the docker client for the
+// ListImages call.
+type ListImagesResponse struct {
+	// ImagesIDs is the list of Images IDs from the ListImages call
+	ImageIDs []string
+	// RepoTags is the list of Images names from the ListImages call
+	RepoTags []string
+	// Error contains any error returned when listing images
+	Error error
+}
+
 // VolumeResponse wrapper for CreateVolume and InspectVolume
 type VolumeResponse struct {
 	DockerVolume *docker.Volume

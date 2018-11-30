@@ -179,6 +179,18 @@ func (mr *MockDockerClientMockRecorder) ListContainers(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListContainers", reflect.TypeOf((*MockDockerClient)(nil).ListContainers), arg0, arg1, arg2)
 }
 
+// ListImages mocks base method
+func (m *MockDockerClient) ListImages(arg0 context.Context, arg1 time.Duration) dockerapi.ListImagesResponse {
+	ret := m.ctrl.Call(m, "ListImages", arg0, arg1)
+	ret0, _ := ret[0].(dockerapi.ListImagesResponse)
+	return ret0
+}
+
+// ListImages indicates an expected call of ListImages
+func (mr *MockDockerClientMockRecorder) ListImages(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListImages", reflect.TypeOf((*MockDockerClient)(nil).ListImages), arg0, arg1)
+}
+
 // ListPlugins mocks base method
 func (m *MockDockerClient) ListPlugins(arg0 context.Context, arg1 time.Duration) dockerapi.ListPluginsResponse {
 	ret := m.ctrl.Call(m, "ListPlugins", arg0, arg1)

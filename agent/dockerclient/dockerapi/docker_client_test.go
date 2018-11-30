@@ -51,6 +51,11 @@ import (
 // upon the expiration of the timeout duration.
 const xContainerShortTimeout = 1 * time.Millisecond
 
+// xImgesShortTimeout is a short duration intended to be used by the
+// docker client APIs that test if the underlying context gets canceled
+// upon the expiration of the timeout duration.
+const xImageShortTimeout = 1 * time.Millisecond
+
 func defaultTestConfig() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	return cfg
@@ -723,6 +728,51 @@ func TestListContainersTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListContainers(ctx, true, xContainerShortTimeout)
+	if response.Error == nil {
+		t.Error("Expected error for pull timeout")
+	}
+	if response.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
+		t.Error("Wrong error type")
+	}
+	wait.Done()
+}
+
+func TestListImages(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	images := []docker.APIImages{{ID: "id"}}
+	mockDocker.EXPECT().ListImages(gomock.Any()).Return(images, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	response := client.ListImages(ctx, dockerclient.ListImagesTimeout)
+	if response.Error != nil {
+		t.Error("Did not expect error")
+	}
+
+	imageIDs := response.ImageIDs
+	if len(imageIDs) != 1 {
+		t.Error("Unexpected number of images in list", len(imageIDs))
+	}
+
+	if imageIDs[0] != "id" {
+		t.Error("Unexpected image id in the list:", imageIDs[0])
+	}
+}
+
+func TestListImagesTimeout(t *testing.T) {
+	mockDocker, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDocker.EXPECT().ListImages(gomock.Any()).Do(func(x interface{}) {
+		wait.Wait()
+		// Don't return, verify timeout happens
+	}).MaxTimes(1).Return(nil, errors.New("test error"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	response := client.ListImages(ctx, xImageShortTimeout)
 	if response.Error == nil {
 		t.Error("Expected error for pull timeout")
 	}
