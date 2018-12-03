@@ -151,10 +151,11 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		// An error in creating the state manager should result in an
 		// error from newTaskEngine as well
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(
 			nil, errors.New("error")),
 	)
@@ -190,8 +191,9 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -199,8 +201,9 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
 
@@ -239,7 +242,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", apierrors.NewAttributeError("error")),
 	)
 
@@ -276,7 +279,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", errors.New("error")),
 	)
 
@@ -331,7 +334,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"arn:123", availabilityZone, nil),
 		containermetadata.EXPECT().SetContainerInstanceARN("arn:123"),
 		containermetadata.EXPECT().SetAvailabilityZone(availabilityZone),
@@ -382,8 +385,14 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Do(
+			func(name string, saveable statemanager.Saveable) {
+				previousRegistrationToken, ok := saveable.(*string)
+				assert.True(t, ok)
+				*previousRegistrationToken = "prev-reg-token"
+			}).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -406,6 +415,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.Equal(t, "prev-container-inst", agent.containerInstanceARN)
+	assert.Equal(t, "prev-reg-token", agent.registrationToken)
 }
 
 func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(t *testing.T) {
@@ -438,8 +448,14 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 				assert.True(t, ok)
 				*previousAZ = "us-west-2b"
 			}).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Do(
+			func(name string, saveable statemanager.Saveable) {
+				previousRegistrationToken, ok := saveable.(*string)
+				assert.True(t, ok)
+				*previousRegistrationToken = "prev-reg-token"
+			}).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -464,6 +480,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.NotEqual(t, "prev-container-inst", agent.containerInstanceARN)
 	assert.NotEqual(t, "us-west-2b", agent.availabilityZone)
+	assert.NotEqual(t, "prev-reg-token", agent.registrationToken)
 }
 
 func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
@@ -492,9 +509,10 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 			}).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(ec2InstanceID, nil),
@@ -530,8 +548,9 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
 
@@ -565,8 +584,9 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(stateManager, nil),
 		stateManager.EXPECT().Load().Return(errors.New("error")),
 	)
@@ -602,8 +622,9 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("RegistrationToken", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
@@ -676,7 +697,9 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(containerInstanceARN, availabilityZone, nil),
+
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any()).Return(containerInstanceARN, availabilityZone, nil),
 	)
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -714,7 +737,9 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{""}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
+
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", awserr.New("", apierrors.InstanceTypeChangedErrorMessage, errors.New(""))),
 	)
 
@@ -755,7 +780,8 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", apierrors.NewAttributeError("error")),
 	)
 
@@ -796,7 +822,8 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any()).Return(
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", errors.New("error")),
 	)
 
@@ -837,7 +864,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return(containerInstanceARN, availabilityZone, nil),
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any()).Return(containerInstanceARN, availabilityZone, nil),
 		stateManager.EXPECT().Save(),
 	)
 
@@ -877,7 +905,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return("", "", retriableError),
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any()).Return("", "", retriableError),
 	)
 
 	cfg := getTestConfig()
@@ -916,7 +945,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return("", "", cannotRetryError),
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any()).Return("", "", cannotRetryError),
 	)
 
 	cfg := getTestConfig()
@@ -954,7 +984,8 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		mockDockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any()).Return(
+		stateManager.EXPECT().Save(),
+		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", apierrors.NewAttributeError("error")),
 	)
 
@@ -992,7 +1023,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			"", "", awserr.New("InvalidParameterException", "", nil)),
 	)
 
