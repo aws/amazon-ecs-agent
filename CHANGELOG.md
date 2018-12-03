@@ -1,8 +1,8 @@
 # Changelog
 
-## 1.22.1
+## 1.23.0-dev
 * Bug - Fixed a bug where agent can register container instance back to back and gets
-  assigned two container instance ARNs [#1579](https://github.com/aws/amazon-ecs-agent/pull/1579)
+  assigned two container instance ARNs [#1711](https://github.com/aws/amazon-ecs-agent/pull/1711)
 
 ## 1.22.0
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
