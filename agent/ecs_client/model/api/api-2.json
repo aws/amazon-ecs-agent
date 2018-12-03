@@ -774,7 +774,10 @@
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
         "registeredAt":{"shape":"Timestamp"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "ContainerInstanceStatus":{
@@ -1558,7 +1561,10 @@
         "versionInfo":{"shape":"VersionInfo"},
         "containerInstanceArn":{"shape":"String"},
         "attributes":{"shape":"Attributes"},
-        "tags":{"shape":"Tags"}
+        "tags":{"shape":"Tags"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "RegisterContainerInstanceResponse":{

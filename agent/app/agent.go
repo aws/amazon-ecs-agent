@@ -52,6 +52,7 @@ import (
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
+	"github.com/pborman/uuid"
 )
 
 const (
@@ -107,6 +108,7 @@ type ecsAgent struct {
 	terminationHandler    sighandlers.TerminationHandler
 	mobyPlugins           mobypkgwrapper.Plugins
 	resourceFields        *taskresource.ResourceFields
+	registrationToken     string
 	availabilityZone      string
 }
 
@@ -241,7 +243,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone)
+		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone, &agent.registrationToken)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -323,7 +325,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	}
 
 	// We try to set these values by loading the existing state file first
-	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousAZ string
+	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousAZ, previousRegistrationToken string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 		credentialsManager, containerChangeEventStream, imageManager, state,
 		agent.metadataManager, agent.resourceFields)
@@ -331,7 +333,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
 	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ)
+		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ, &previousRegistrationToken)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
@@ -370,6 +372,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	// Use the values we loaded if there's no issue
 	agent.containerInstanceARN = previousContainerInstanceArn
+	agent.registrationToken = previousRegistrationToken
 
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
@@ -416,7 +419,7 @@ func (agent *ecsAgent) newStateManager(
 	cluster *string,
 	containerInstanceArn *string,
 	savedInstanceID *string,
-	availabilityZone *string) (statemanager.StateManager, error) {
+	availabilityZone *string, registrationToken *string) (statemanager.StateManager, error) {
 
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
@@ -431,6 +434,7 @@ func (agent *ecsAgent) newStateManager(
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
 		agent.saveableOptionFactory.AddSaveable("availabilityZone", availabilityZone),
+		agent.saveableOptionFactory.AddSaveable("RegistrationToken", registrationToken),
 	)
 }
 
@@ -479,13 +483,18 @@ func (agent *ecsAgent) registerContainerInstance(
 		tags = mergeTags(tags, ec2Tags)
 	}
 
+	if agent.registrationToken == "" {
+		agent.registrationToken = uuid.New()
+		stateManager.Save()
+	}
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags)
+		return agent.reregisterContainerInstance(client, capabilities, tags, agent.registrationToken)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, agent.registrationToken)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -513,8 +522,8 @@ func (agent *ecsAgent) registerContainerInstance(
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag) error {
-	_, _, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags)
+	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string) error {
+	_, _, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken)
 
 	if err == nil {
 		return nil

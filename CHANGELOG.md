@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.1
+* Bug - Fixed a bug where agent can register container instance back to back and gets
+  assigned two container instance ARNs [#1579](https://github.com/aws/amazon-ecs-agent/pull/1579)
+
 ## 1.22.0
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
 * Feature - Support for `--pid`, `--ipc` Docker run flags. [#1584](https://github.com/aws/amazon-ecs-agent/pull/1584)

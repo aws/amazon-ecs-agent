@@ -4893,6 +4893,8 @@ type ContainerInstance struct {
 	// agent at instance registration or manually with the PutAttributes operation.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
+	ClientToken *string `locationName:"clientToken" type:"string"`
+
 	// The Amazon Resource Name (ARN) of the container instance. The ARN contains
 	// the arn:aws:ecs namespace, followed by the Region of the container instance,
 	// the AWS account ID of the container instance owner, the container-instance
@@ -4982,6 +4984,12 @@ func (s *ContainerInstance) SetAttachments(v []*Attachment) *ContainerInstance {
 // SetAttributes sets the Attributes field's value.
 func (s *ContainerInstance) SetAttributes(v []*Attribute) *ContainerInstance {
 	s.Attributes = v
+	return s
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *ContainerInstance) SetClientToken(v string) *ContainerInstance {
+	s.ClientToken = &v
 	return s
 }
 
@@ -8692,6 +8700,8 @@ type RegisterContainerInstanceInput struct {
 	// The container instance attributes that this container instance supports.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
+	ClientToken *string `locationName:"clientToken" type:"string"`
+
 	// The short name or full Amazon Resource Name (ARN) of the cluster with which
 	// to register your container instance. If you do not specify a cluster, the
 	// default cluster is assumed.
@@ -8762,6 +8772,12 @@ func (s *RegisterContainerInstanceInput) Validate() error {
 // SetAttributes sets the Attributes field's value.
 func (s *RegisterContainerInstanceInput) SetAttributes(v []*Attribute) *RegisterContainerInstanceInput {
 	s.Attributes = v
+	return s
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *RegisterContainerInstanceInput) SetClientToken(v string) *RegisterContainerInstanceInput {
+	s.ClientToken = &v
 	return s
 }
 
