@@ -179,7 +179,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(x interface{}, attributes []*ecs.Attribute, y interface{}) {
+			func(x interface{}, attributes []*ecs.Attribute, y interface{}, z interface{}) {
 				vpcFound := false
 				subnetFound := false
 				for _, attribute := range attributes {
