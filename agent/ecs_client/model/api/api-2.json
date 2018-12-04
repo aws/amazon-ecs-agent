@@ -777,7 +777,8 @@
         "attachments":{"shape":"Attachments"},
         "clientToken":{
           "shape":"String"
-        }
+        },
+        "tags":{"shape":"Tags"}
       }
     },
     "ContainerInstanceStatus":{
@@ -1623,6 +1624,12 @@
         "stringSetValue":{"shape":"StringList"}
       }
     },
+    "ResourceNotFoundException":{
+      "type":"structure",
+      "members":{
+      },
+      "exception":true
+    },
     "Resources":{
       "type":"list",
       "member":{"shape":"Resource"}
@@ -1663,6 +1670,13 @@
       "enum":[
         "REPLICA",
         "DAEMON"
+      ]
+    },
+    "Scope":{
+      "type":"string",
+      "enum":[
+        "task",
+        "shared"
       ]
     },
     "Secret":{
@@ -1940,7 +1954,8 @@
         "launchType":{"shape":"LaunchType"},
         "platformVersion":{"shape":"String"},
         "attachments":{"shape":"Attachments"},
-        "healthStatus":{"shape":"HealthStatus"}
+        "healthStatus":{"shape":"HealthStatus"},
+        "tags":{"shape":"Tags"}
       }
     },
     "TaskDefinition":{

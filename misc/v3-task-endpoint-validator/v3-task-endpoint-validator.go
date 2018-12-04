@@ -31,6 +31,7 @@ const (
 )
 
 var isAWSVPCNetworkMode bool
+var checkContainerInstanceTags bool
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
@@ -185,6 +186,9 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 	}
 
 	taskExpectedFieldNotEmptyArray := []string{"Cluster", "TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
+	if checkContainerInstanceTags {
+		taskExpectedFieldNotEmptyArray = append(taskExpectedFieldNotEmptyArray, "ContainerInstanceTags")
+	}
 
 	for fieldName, fieldVal := range taskExpectedFieldEqualMap {
 		if err = fieldEqual(taskMetadataResponseMap, fieldName, fieldVal); err != nil {
@@ -411,13 +415,26 @@ func main() {
 		Timeout: 5 * time.Second,
 	}
 
+	// If the image is built with option to check Tags
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 {
+		if argsWithoutProg[0] == "CheckTags" {
+			checkContainerInstanceTags = true
+		}
+	}
+
 	// Wait for the Health information to be ready
 	time.Sleep(5 * time.Second)
 
 	isAWSVPCNetworkMode = false
 	v3BaseEndpoint := os.Getenv(containerMetadataEnvVar)
 	containerMetadataPath := v3BaseEndpoint
-	taskMetadataPath := v3BaseEndpoint + "/task"
+	taskMetadataPath := v3BaseEndpoint
+	if checkContainerInstanceTags {
+		taskMetadataPath += "/taskWithTags"
+	} else {
+		taskMetadataPath += "/task"
+	}
 	containerStatsPath := v3BaseEndpoint + "/stats"
 	taskStatsPath := v3BaseEndpoint + "/task/stats"
 

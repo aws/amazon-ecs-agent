@@ -523,3 +523,13 @@ func (client *APIECSClient) discoverPollEndpoint(containerInstanceArn string) (*
 	client.pollEndpoinCache.Set(containerInstanceArn, output)
 	return output, nil
 }
+
+func (client *APIECSClient) GetResourceTags(resourceArn string) ([]*ecs.Tag, error) {
+	output, err := client.standardClient.ListTagsForResource(&ecs.ListTagsForResourceInput{
+		ResourceArn: &resourceArn,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Tags, nil
+}

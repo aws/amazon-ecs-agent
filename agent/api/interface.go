@@ -40,6 +40,8 @@ type ECSClient interface {
 	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact Telemetry Service
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
+	// GetTaskTags retrieves the Tags associated with a certain Task
+	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
@@ -49,6 +51,7 @@ type ECSSDK interface {
 	CreateCluster(*ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error)
 	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
 	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
+	ListTagsForResource(*ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error)
 }
 
 // ECSSubmitStateSDK is an interface with customized ecs client that
