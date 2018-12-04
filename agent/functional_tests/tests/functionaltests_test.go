@@ -590,6 +590,7 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$CHECK_TAGS$$$"] = "" // Tags are not checked in regular V3TaskEndpoint Test
 
 	if networkMode != "" {
 		tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
@@ -711,6 +712,81 @@ func TestContainerInstanceTags(t *testing.T) {
 		}
 	}
 	assert.Zero(t, len(expectedTagsMap))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
+}
+
+func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode string) {
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+	awslogsPrefix := "ecs-functional-tests-v3-task-endpoint-with-tags-validator"
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
+		},
+		PortBindings: map[docker.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // To enable Tag check in v3-task-endpoint-validator image
+
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] + "-" + networkMode
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	v3TaskEndpointEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_URI=") {
+				v3TaskEndpointEnabled = true
+				break
+			}
+		}
+	}
+	if !v3TaskEndpointEnabled {
+		task.Stop()
+		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 
 	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
 		Name: aws.String("containerInstanceLongArnFormat"),

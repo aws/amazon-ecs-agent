@@ -14,5 +14,4 @@ FROM busybox:1.29.3
 
 MAINTAINER Amazon Web Services, Inc.
 COPY v3-task-endpoint-validator /
-
 ENTRYPOINT ["/v3-task-endpoint-validator"]

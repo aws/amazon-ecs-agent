@@ -184,6 +184,10 @@ func TestV3TaskEndpointDefaultNetworkMode(t *testing.T) {
 	testV3TaskEndpoint(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "", "ecs-functional-tests-v3-task-endpoint-validator-windows")
 }
 
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "")
+}
+
 // TestMetadataServiceValidator Tests that the metadata file can be accessed from the
 // container using the ECS_CONTAINER_METADATA_FILE environment variables
 func TestMetadataServiceValidator(t *testing.T) {

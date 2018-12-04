@@ -475,6 +475,10 @@ func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
 	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
 }
 
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host")
+}
+
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
 	agent := RunAgent(t, nil)
@@ -671,6 +675,17 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	// Added to test presence of tags in metadata endpoint
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
 	// Best effort to create a log group. It should be safe to even not do this
 	// as the log group gets created in the TestAWSLogsDriver functional test.
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
@@ -680,7 +695,10 @@ func TestTaskMetadataValidator(t *testing.T) {
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
 		},
 	})
 	defer agent.Cleanup()
@@ -688,6 +706,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // Added to test presence of tags in metadata endpoint
 
 	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
 	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
@@ -703,6 +722,12 @@ func TestTaskMetadataValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
 }
 
 // TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
