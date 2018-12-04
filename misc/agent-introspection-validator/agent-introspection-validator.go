@@ -268,6 +268,12 @@ func main() {
 		Timeout: 5 * time.Second,
 	}
 
+	// Wait for a while before checking because it's possible that the volumes field in container
+	// is not available when we just started the container, because it is populated after we
+	// start the container, inspect it and get the volumes from inspectContainer response.
+	// TODO: we probably should change something in agent so that the volumes field is ready before we start the container
+	time.Sleep(3 * time.Second)
+
 	tasksMetadataPath := agentIntrospectionEndpoint + "tasks"
 	tasksMetadata, err := getTasksMetadata(client, tasksMetadataPath)
 	if err != nil {
