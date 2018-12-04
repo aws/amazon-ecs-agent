@@ -86,3 +86,18 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 
 	return dac, nil
 }
+
+// GetSecretFromASM makes the api call to the AWS Secrets Manager service to
+// retrieve the secret value
+func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (string, error) {
+	in := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secretID),
+	}
+
+	out, err := client.GetSecretValue(in)
+	if err != nil {
+		return "", errors.Wrapf(err, "secret %s", secretID)
+	}
+
+	return aws.StringValue(out.SecretString), nil
+}

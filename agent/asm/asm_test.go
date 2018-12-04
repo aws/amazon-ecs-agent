@@ -109,3 +109,13 @@ func TestASMGetAuthConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSecretFromASM(t *testing.T) {
+	asmClient := mockGetSecretValue{
+		Resp: secretsmanager.GetSecretValueOutput{
+			SecretString: aws.String("secretValue"),
+		},
+	}
+	_, err := GetSecretFromASM("secretName", asmClient)
+	assert.NoError(t, err)
+}
