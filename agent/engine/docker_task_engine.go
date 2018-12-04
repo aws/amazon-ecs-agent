@@ -858,8 +858,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	// apply secrets to container.Environment
-	if container.ShouldCreateWithSSMSecret() {
-		err := task.PopulateSSMSecrets(container)
+	if container.HasSecretAsEnv() {
+		err := task.PopulateSecretsAsEnv(container)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}

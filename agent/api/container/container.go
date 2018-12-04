@@ -57,6 +57,12 @@ const (
 
 	// SecretProviderSSM is to show secret provider being SSM
 	SecretProviderSSM = "ssm"
+
+	// SecretProviderASM is to show secret provider being ASM
+	SecretProviderASM = "asm"
+
+	// SecretTypeEnv is to show secret type being ENVIRONMENT_VARIABLE
+	SecretTypeEnv = "ENVIRONMENT_VARIABLE"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -257,9 +263,9 @@ type Secret struct {
 	Provider      string `json:"provider"`
 }
 
-// GetSSMSecretResourceCacheKey returns the key required to access the secret
+// GetSecretResourceCacheKey returns the key required to access the secret
 // from the ssmsecret resource
-func (s *Secret) GetSSMSecretResourceCacheKey() string {
+func (s *Secret) GetSecretResourceCacheKey() string {
 	return s.ValueFrom + "_" + s.Region
 }
 
@@ -752,13 +758,32 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//Secrets field will be nil if there is no secrets for container
+	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
 
 	for _, secret := range c.Secrets {
 		if secret.Provider == SecretProviderSSM {
+			return true
+		}
+	}
+	return false
+}
+
+// ShouldCreateWithASMSecret returns true if this container needs to get secret
+// value from AWS Secrets Manager
+func (c *Container) ShouldCreateWithASMSecret() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderASM {
 			return true
 		}
 	}
@@ -775,8 +800,23 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	if c.Environment == nil {
 		c.Environment = make(map[string]string)
 	}
-
 	for k, v := range envVars {
 		c.Environment[k] = v
 	}
+}
+
+func (c *Container) HasSecretAsEnv() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+	for _, secret := range c.Secrets {
+		if secret.Type == SecretTypeEnv {
+			return true
+		}
+	}
+	return false
 }
