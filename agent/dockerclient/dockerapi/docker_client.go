@@ -99,7 +99,7 @@ const (
 	StatsInactivityTimeout = 5 * time.Second
 
 	// retry settings for pulling images
-	maximumPullRetries        = 10
+	maximumPullRetries        = 5
 	minimumPullRetryDelay     = 250 * time.Millisecond
 	maximumPullRetryDelay     = 1 * time.Second
 	pullRetryDelayMultiplier  = 1.5
