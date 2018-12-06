@@ -933,7 +933,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	}
 
 	if task.shouldRequireNvidiaRuntime(container) {
-		seelog.Debugf("Setting runtime as nvidia for container %s", container.Name)
+		if task.NvidiaRuntime == "" {
+			return nil, &apierrors.HostConfigError{"Runtime is not set for GPU containers"}
+		}
+		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 		hostConfig.Runtime = task.NvidiaRuntime
 	}
 

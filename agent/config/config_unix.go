@@ -73,6 +73,7 @@ func DefaultConfig() Config {
 		SharedVolumeMatchFullConfig:        false, // only requiring shared volumes to match on name, which is default docker behavior
 		ImagePullInactivityTimeout:         defaultImagePullInactivityTimeout,
 		ContainerInstancePropagateTagsFrom: ContainerInstancePropagateTagsFromNoneType,
+		NvidiaRuntime:                      DefaultNvidiaRuntime,
 	}
 }
 

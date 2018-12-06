@@ -2391,3 +2391,33 @@ func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Equal(t, "", dockerHostConfig.Runtime)
 }
+
+func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
+	testTask := &Task{
+		Arn: "test",
+		Containers: []*apicontainer.Container{
+			{
+				Name:   "myName1",
+				Image:  "image:tag",
+				GPUIDs: []string{"gpu1"},
+			},
+		},
+		Associations: []Association{
+			{
+				Containers: []string{
+					"myName1",
+				},
+				Content: EncodedString{
+					Encoding: "base64",
+					Value:    "val",
+				},
+				Name: "gpu1",
+				Type: "gpu",
+			},
+		},
+	}
+
+	testTask.addGPUResource()
+	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	assert.Error(t, err)
+}
