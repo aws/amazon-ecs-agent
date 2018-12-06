@@ -253,4 +253,7 @@ type Config struct {
 	GPUSupportEnabled bool
 	// ImageCleanupExclusionList is the list of image names customers want to keep for their own use and delete automatically
 	ImageCleanupExclusionList []string
+
+	// NvidiaRuntime is the runtime to be used for passing Nvidia GPU devices to containers
+	NvidiaRuntime string `trim:"true"`
 }

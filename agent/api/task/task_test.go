@@ -929,11 +929,11 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 			IPCMode: aTest.IPCMode,
 			Containers: []*apicontainer.Container{
 				{
-					Name: "c1",
+					Name:                      "c1",
 					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 				},
 				{
-					Name: "c2",
+					Name:                      "c2",
 					TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 				},
 			},
@@ -1122,7 +1122,7 @@ func TestTaskFromACS(t *testing.T) {
 				},
 				Content: EncodedString{
 					Encoding: "base64",
-					Value: "val",
+					Value:    "val",
 				},
 				Name: "gpu1",
 				Type: "gpu",
@@ -1728,19 +1728,19 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 			essential:             true,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: true,
-			msg: "essential container stopped should have executionStoppedAt set",
+			msg:                   "essential container stopped should have executionStoppedAt set",
 		},
 		{
 			essential:             false,
 			status:                apicontainerstatus.ContainerStopped,
 			executionStoppedAtSet: false,
-			msg: "non essential container stopped should not cause executionStoppedAt set",
+			msg:                   "non essential container stopped should not cause executionStoppedAt set",
 		},
 		{
 			essential:             true,
 			status:                apicontainerstatus.ContainerRunning,
 			executionStoppedAtSet: false,
-			msg: "essential non-stop status change should not cause executionStoppedAt set",
+			msg:                   "essential non-stop status change should not cause executionStoppedAt set",
 		},
 	}
 
@@ -2240,13 +2240,13 @@ func TestRequiresSSMSecretNoSecret(t *testing.T) {
 
 func TestAddGPUResource(t *testing.T) {
 	container := &apicontainer.Container{
-		Name:                      "myName",
-		Image:                     "image:tag",
+		Name:  "myName",
+		Image: "image:tag",
 	}
 
 	container1 := &apicontainer.Container{
-		Name:                      "myName1",
-		Image:                     "image:tag",
+		Name:  "myName1",
+		Image: "image:tag",
 	}
 
 	association := []Association{
@@ -2256,7 +2256,7 @@ func TestAddGPUResource(t *testing.T) {
 			},
 			Content: EncodedString{
 				Encoding: "base64",
-				Value: "val",
+				Value:    "val",
 			},
 			Name: "gpu1",
 			Type: "gpu",
@@ -2267,7 +2267,7 @@ func TestAddGPUResource(t *testing.T) {
 			},
 			Content: EncodedString{
 				Encoding: "base64",
-				Value: "val",
+				Value:    "val",
 			},
 			Name: "gpu2",
 			Type: "gpu",
@@ -2290,8 +2290,8 @@ func TestAddGPUResource(t *testing.T) {
 
 func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 	container := &apicontainer.Container{
-		Name:                      "myName",
-		Image:                     "image:tag",
+		Name:  "myName",
+		Image: "image:tag",
 	}
 
 	association := []Association{
@@ -2301,7 +2301,7 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 			},
 			Content: EncodedString{
 				Encoding: "base64",
-				Value: "val",
+				Value:    "val",
 			},
 			Name: "gpu1",
 			Type: "gpu",
@@ -2320,14 +2320,14 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 
 func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 	container := &apicontainer.Container{
-		Name:                      "myName",
-		Image:                     "image:tag",
-		GPUIDs:                    []string{"gpu1", "gpu2"},
+		Name:   "myName",
+		Image:  "image:tag",
+		GPUIDs: []string{"gpu1", "gpu2"},
 	}
 
 	container1 := &apicontainer.Container{
-		Name:                      "myName1",
-		Image:                     "image:tag",
+		Name:  "myName1",
+		Image: "image:tag",
 	}
 
 	task := &Task{
@@ -2347,12 +2347,12 @@ func TestPopulateGPUEnvironmentVariables(t *testing.T) {
 
 func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 	testTask := &Task{
-		Arn:     "test",
+		Arn: "test",
 		Containers: []*apicontainer.Container{
 			{
-				Name:  "myName1",
-				Image: "image:tag",
-				GPUIDs:	[]string{"gpu1"},
+				Name:   "myName1",
+				Image:  "image:tag",
+				GPUIDs: []string{"gpu1"},
 			},
 		},
 		Associations: []Association{
@@ -2362,22 +2362,23 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 				},
 				Content: EncodedString{
 					Encoding: "base64",
-					Value: "val",
+					Value:    "val",
 				},
 				Name: "gpu1",
 				Type: "gpu",
 			},
 		},
+		NvidiaRuntime: config.DefaultNvidiaRuntime,
 	}
 
 	testTask.addGPUResource()
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	assert.Equal(t, NvidiaRuntime, dockerHostConfig.Runtime)
+	assert.Equal(t, testTask.NvidiaRuntime, dockerHostConfig.Runtime)
 }
 
 func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 	testTask := &Task{
-		Arn:     "test",
+		Arn: "test",
 		Containers: []*apicontainer.Container{
 			{
 				Name:  "myName1",

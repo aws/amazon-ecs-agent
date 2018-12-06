@@ -112,6 +112,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
 	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
 	defer setTestEnv("ECS_ENABLE_GPU_SUPPORT", "true")()
+	defer setTestEnv("ECS_NVIDIA_RUNTIME", "nvidia")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -153,6 +154,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
 	assert.True(t, conf.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
+	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -699,6 +701,14 @@ func TestGPUSupportEnabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
+}
+
+func TestEmptyNvidiaRuntime(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
 }
 
 func setTestRegion() func() {

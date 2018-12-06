@@ -107,6 +107,9 @@ const (
 
 	// DefaultTaskMetadataBurstRate is set to handle 60 burst requests at once
 	DefaultTaskMetadataBurstRate = 60
+
+	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers
+	DefaultNvidiaRuntime = "ecs-nvidia"
 )
 
 const (
@@ -489,6 +492,7 @@ func environmentConfig() (Config, error) {
 		ContainerInstanceTags:              containerInstanceTags,
 		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
 		GPUSupportEnabled:                  utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
+		NvidiaRuntime:                      parseNvidiaRuntime(),
 	}, err
 }
 
