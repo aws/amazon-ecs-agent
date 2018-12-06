@@ -70,7 +70,7 @@ const (
 
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
-	NvidiaRuntime              = "nvidia"
+	NvidiaRuntime              = "ecs-nvidia"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
