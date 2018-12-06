@@ -931,9 +931,12 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 // TestPrivateRegistryAuthOverASM tests the workflow for retriving private registry authentication data
 // from AWS Secrets Manager
 func TestPrivateRegistryAuthOverASM(t *testing.T) {
-
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestPrivateRegistryAuthOverASM in China partition")
 	}
 
 	secretName := "FunctionalTest-PrivateRegistryAuth"
@@ -1112,7 +1115,6 @@ func TestTaskIPCNamespaceSharing(t *testing.T) {
 // TestSSMSecretsNonEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
 // here secret is a non encrypted parameter
 func TestSSMSecretsNonEncryptedParameterARN(t *testing.T) {
-
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
 	}
@@ -1157,24 +1159,27 @@ func TestSSMSecretsNonEncryptedParameterARN(t *testing.T) {
 	tdOverrides["$$$SECRET_NAME$$$"] = secretName
 
 	arn := fmt.Sprintf("arn:%s:ssm:%s:%s:parameter/%s", partition, region, accountId, parameterName)
-	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = arn
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = arn
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = executionRole
 
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
 	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
 
 	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err)
-	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
 // TestSSMSecretsEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
 // here secret is an encrypted parameter
 func TestSSMSecretsEncryptedParameter(t *testing.T) {
-
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
 	}
 
 	parameterName := "FunctionalTest-SSMSecretsSecureString"
@@ -1208,24 +1213,27 @@ func TestSSMSecretsEncryptedParameter(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$SECRET_NAME$$$"] = secretName
-	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = parameterName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
 
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
-	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
 
 	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err)
-	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
 // TestSSMSecretsEncryptedASMSecrets tests the workflow for retrieving secrets from SSM Parameter Store,
 // here secret is a secret in secrets manager passing through parameter store
 func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
-
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
 	}
 
 	parameterName := "/aws/reference/secretsmanager/FunctionalTest-SSMSecretsSecretFromASM"
@@ -1258,14 +1266,75 @@ func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$SECRET_NAME$$$"] = secretName
-	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = parameterName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
 
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
-	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
 
 	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err)
-	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestASMSecretsARN tests the workflow for retrieving secrets directly from AWS Secrets Manager.
+func TestASMSecretsARN(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestASMSecretsARN in China partition")
+	}
+
+	secret := "FunctionalTest-SSMSecretsSecretFromASM"
+	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &secretsmanager.CreateSecretInput{
+		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestASMSecretsARN"),
+		Name:         aws.String(secret),
+		SecretString: aws.String("secretValue"),
+	}
+
+	// create secret in secrets manager if it does not exist
+	_, err := asmClient.CreateSecret(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case secretsmanager.ErrCodeResourceExistsException:
+				t.Logf("Secret %s already exists in AWS Secrets Manager", secret)
+				break
+			default:
+				require.NoError(t, err, "Secrets Manager CreateSecret call failed")
+			}
+		}
+	}
+
+	// get secret arn
+	secretInput := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secret),
+	}
+	res, err := asmClient.GetSecretValue(secretInput)
+	if err != nil {
+		require.NoError(t, err, "Secrets Manager GetSecretValue call failed")
+	}
+	secretARN := aws.StringValue(res.ARN)
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.23.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = "SECRET_NAME"
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = secretARN
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }

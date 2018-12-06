@@ -16,6 +16,7 @@
 package util
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
@@ -29,8 +30,6 @@ import (
 	"testing"
 	"time"
 
-	"context"
-
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
@@ -38,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
@@ -103,6 +103,16 @@ func GetTaskDefinitionWithOverrides(name string, overrides map[string]string) (s
 		return "", err
 	}
 	return fmt.Sprintf("%s:%d", *registered.TaskDefinition.Family, *registered.TaskDefinition.Revision), nil
+}
+
+func IsCNPartition() bool {
+	partitions := endpoints.DefaultPartitions()
+	p, _ := endpoints.PartitionForRegion(partitions, *ECS.Config.Region)
+
+	if p.ID() == endpoints.AwsCnPartition().ID() {
+		return true
+	}
+	return false
 }
 
 type TestAgent struct {

@@ -1,9 +1,9 @@
 {
-  "family": "ssm-integration",
+  "family": "secrets-integration",
   "executionRoleArn": "$$$EXECUTION_ROLE$$$",
   "containerDefinitions": [
     {
-      "name": "ssmsecrets-environment-variables",
+      "name": "secrets-environment-variables",
       "image": "busybox:latest",
       "cpu": 100,
       "memory": 100,
@@ -12,7 +12,7 @@
       "secrets": [
         {
           "name": "$$$SECRET_NAME$$$",
-          "valueFrom": "$$$SSM_PARAMETER_NAME$$$"
+          "valueFrom": "$$$SECRET_VALUE_FROM$$$"
         }
       ]
     }
