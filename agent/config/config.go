@@ -492,7 +492,7 @@ func environmentConfig() (Config, error) {
 		ContainerInstanceTags:              containerInstanceTags,
 		ContainerInstancePropagateTagsFrom: parseContainerInstancePropagateTagsFrom(),
 		GPUSupportEnabled:                  utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
-		NvidiaRuntime:                      parseNvidiaRuntime(),
+		NvidiaRuntime:                      os.Getenv("ECS_NVIDIA_RUNTIME"),
 	}, err
 }
 

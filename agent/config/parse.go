@@ -252,14 +252,6 @@ func parseContainerInstancePropagateTagsFrom() ContainerInstancePropagateTagsFro
 	}
 }
 
-func parseNvidiaRuntime() string {
-	runtime := os.Getenv("ECS_NVIDIA_RUNTIME")
-	if runtime != "" {
-		return runtime
-	}
-	return DefaultNvidiaRuntime
-}
-
 func parseEnvVariableUint16(envVar string) uint16 {
 	envVal := os.Getenv(envVar)
 	var var16 uint16

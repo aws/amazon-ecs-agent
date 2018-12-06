@@ -703,14 +703,6 @@ func TestGPUSupportEnabled(t *testing.T) {
 	assert.True(t, cfg.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 }
 
-func TestEmptyNvidiaRuntime(t *testing.T) {
-	defer setTestRegion()()
-	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
-	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	assert.NoError(t, err)
-	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
-}
-
 func setTestRegion() func() {
 	return setTestEnv("AWS_DEFAULT_REGION", "us-west-2")
 }
