@@ -46,7 +46,7 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 		return true
 	}
 	GetGPUInfoJSON = func() ([]byte, error) {
-		return []byte(`{"DriverVersion":"396.44","NvidiaDockerVersion":"1.0","GPUIDs":["id1","id2","id3"]}`), nil
+		return []byte(`{"DriverVersion":"396.44","GPUIDs":["id1","id2","id3"]}`), nil
 	}
 	defer func() {
 		GPUInfoFileExists = CheckForGPUInfoFile
@@ -56,7 +56,6 @@ func TestNvidiaGPUManagerInitialize(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"id1", "id2", "id3"}, nvidiaGPUManager.GetGPUIDsUnsafe())
 	assert.Equal(t, "396.44", nvidiaGPUManager.GetDriverVersion())
-	assert.Equal(t, "1.0", nvidiaGPUManager.GetRuntimeVersion())
 	assert.True(t, reflect.DeepEqual(devices, nvidiaGPUManager.GetDevices()))
 }
 
@@ -76,7 +75,6 @@ func TestNvidiaGPUManagerError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, nvidiaGPUManager.GetGPUIDsUnsafe())
 	assert.Empty(t, nvidiaGPUManager.GetDriverVersion())
-	assert.Empty(t, nvidiaGPUManager.GetRuntimeVersion())
 }
 
 func TestSetGPUDevices(t *testing.T) {

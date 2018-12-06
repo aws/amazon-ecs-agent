@@ -35,18 +35,15 @@ type GPUManager interface {
 	GetDevices() []*ecs.PlatformDevice
 	SetDriverVersion(string)
 	GetDriverVersion() string
-	SetRuntimeVersion(string)
-	GetRuntimeVersion() string
 }
 
 // NvidiaGPUManager is used as a wrapper for NVML APIs and implements GPUManager
 // interface
 type NvidiaGPUManager struct {
-	DriverVersion       string                `json:"DriverVersion"`
-	NvidiaDockerVersion string                `json:"NvidiaDockerVersion"`
-	GPUIDs              []string              `json:"GPUIDs"`
-	GPUDevices          []*ecs.PlatformDevice `json:"-"`
-	lock                sync.RWMutex          `json:"-"`
+	DriverVersion string                `json:"DriverVersion"`
+	GPUIDs        []string              `json:"GPUIDs"`
+	GPUDevices    []*ecs.PlatformDevice `json:"-"`
+	lock          sync.RWMutex          `json:"-"`
 }
 
 const (
@@ -75,11 +72,10 @@ func (n *NvidiaGPUManager) Initialize() error {
 			return errors.Wrapf(err, "could not unmarshal GPU file content")
 		}
 		n.SetDriverVersion(nvidiaGPUInfo.GetDriverVersion())
-               nvidiaGPUInfo.lock.RLock()
-               gpuIDs := nvidiaGPUInfo.GetGPUIDsUnsafe()
-               nvidiaGPUInfo.lock.RUnlock()
+		nvidiaGPUInfo.lock.RLock()
+		gpuIDs := nvidiaGPUInfo.GetGPUIDsUnsafe()
+		nvidiaGPUInfo.lock.RUnlock()
 		n.SetGPUIDs(gpuIDs)
-		n.SetRuntimeVersion(nvidiaGPUInfo.GetRuntimeVersion())
 		n.SetDevices()
 	}
 	return nil
@@ -132,20 +128,6 @@ func (n *NvidiaGPUManager) GetDriverVersion() string {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
 	return n.DriverVersion
-}
-
-// SetRuntimeVersion is a setter for nvidia docker version
-func (n *NvidiaGPUManager) SetRuntimeVersion(version string) {
-	n.lock.Lock()
-	defer n.lock.Unlock()
-	n.NvidiaDockerVersion = version
-}
-
-// GetRuntimeVersion is a getter for nvidia docker version
-func (n *NvidiaGPUManager) GetRuntimeVersion() string {
-	n.lock.RLock()
-	defer n.lock.RUnlock()
-	return n.NvidiaDockerVersion
 }
 
 func (n *NvidiaGPUManager) SetDevices() {
