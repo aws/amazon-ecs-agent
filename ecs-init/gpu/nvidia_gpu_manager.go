@@ -40,9 +40,8 @@ type GPUManager interface {
 // NvidiaGPUManager is used as a wrapper for NVML APIs and implements GPUManager
 // interface
 type NvidiaGPUManager struct {
-	DriverVersion       string
-	NvidiaDockerVersion string
-	GPUIDs              []string
+	DriverVersion string
+	GPUIDs        []string
 }
 
 const (
