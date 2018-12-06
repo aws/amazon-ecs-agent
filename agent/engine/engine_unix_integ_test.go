@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -46,7 +47,6 @@ import (
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 )
 
 const (
@@ -71,9 +71,9 @@ const (
 	testIPCNamespaceResourceFound    = 1
 	testIPCNamespaceResourceNotFound = 2
 
-	testGPUImage	      = "nvidia/cuda:9.0-base"
-	testGPUContainerName  = "testGPUContainer"
-	gpuConfigFilePath     = "/var/lib/ecs/ecs.config"
+	testGPUImage         = "nvidia/cuda:9.0-base"
+	testGPUContainerName = "testGPUContainer"
+	gpuConfigFilePath    = "/var/lib/ecs/ecs.config"
 )
 
 var (
@@ -200,14 +200,14 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	return testTask, tmpDirectory, nil
 }
 
-func createTestGPUTask() (*apitask.Task) {
+func createTestGPUTask() *apitask.Task {
 	return &apitask.Task{
 		Arn:                 "testGPUArn",
 		Family:              "family",
 		Version:             "1",
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestGPUContainerWithImage(testGPUImage)},
-		Associations: 		 []apitask.Association{
+		Associations: []apitask.Association{
 			{
 				Containers: []string{
 					testGPUContainerName,
@@ -220,6 +220,7 @@ func createTestGPUTask() (*apitask.Task) {
 				Type: apitask.GPUAssociationType,
 			},
 		},
+		NvidiaRuntime: config.DefaultNvidiaRuntime,
 	}
 }
 
@@ -1399,7 +1400,7 @@ func TestTaskLevelVolume(t *testing.T) {
 func TestGPUAssociationTask(t *testing.T) {
 	gpuSupportEnabled := utils.ParseBool(getGPUEnvVar(gpuConfigFilePath)["ECS_ENABLE_GPU_SUPPORT"], false)
 
-	iid, _  := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
 
 	var isGPUInstanceType bool
 
@@ -1438,7 +1439,7 @@ func TestGPUAssociationTask(t *testing.T) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	state, _ := client.ContainerInspect(ctx, cid)
-	assert.Equal(t, apitask.NvidiaRuntime, state.HostConfig.Runtime)
+	assert.Equal(t, testTask.NvidiaRuntime, state.HostConfig.Runtime)
 	assert.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=1")
 
 	taskUpdate := *testTask

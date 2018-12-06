@@ -70,7 +70,6 @@ const (
 
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
-	NvidiaRuntime              = "ecs-nvidia"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
@@ -196,6 +195,9 @@ type Task struct {
 	// containers of the Task
 	IPCMode string `json:"IpcMode,omitempty"`
 
+	// NvidiaRuntime is the runtime to pass Nvidia GPU devices to containers
+	NvidiaRuntime string `json:"NvidiaRuntime,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -269,6 +271,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
+		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
@@ -931,7 +934,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 
 	if task.shouldRequireNvidiaRuntime(container) {
 		seelog.Debugf("Setting runtime as nvidia for container %s", container.Name)
-		hostConfig.Runtime = NvidiaRuntime
+		hostConfig.Runtime = task.NvidiaRuntime
 	}
 
 	if container.DockerConfig.HostConfig != nil {
