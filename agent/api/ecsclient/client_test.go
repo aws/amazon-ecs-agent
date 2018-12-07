@@ -47,6 +47,7 @@ const (
 	configuredCluster = "mycluster"
 	iid               = "instanceIdentityDocument"
 	iidSignature      = "signature"
+	registrationToken = "clientToken"
 )
 
 var (
@@ -343,6 +344,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Equal(t, "arn:test", *req.ContainerInstanceArn, "Wrong container instance ARN")
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
 			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
 			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
 			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
@@ -376,13 +378,10 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, nil)
-	if err != nil {
-		t.Errorf("Should not be an error: %v", err)
-	}
-	if arn != "registerArn" {
-		t.Errorf("Wrong arn: %v", arn)
-	}
+	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, registrationToken, nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone, "availabilityZone is incorrect")
 }
 
@@ -424,6 +423,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Nil(t, req.ContainerInstanceArn)
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
 			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
 			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
 			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
@@ -453,7 +453,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, platformDevices)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, platformDevices)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -487,6 +487,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
 			assert.Nil(t, req.ContainerInstanceArn)
 			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+			assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
 			assert.Equal(t, "", *req.InstanceIdentityDocument, "Wrong IID")
 			assert.Equal(t, "", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
 			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
@@ -515,7 +516,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -542,7 +543,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, _, err := client.RegisterContainerInstance("", nil, nil, nil)
+	_, _, err := client.RegisterContainerInstance("", nil, nil, "", nil)
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -572,7 +573,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			nil),
 	)
 
-	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), nil)
+	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), "", nil)
 	assert.NoError(t, err)
 }
 
@@ -646,7 +647,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil, "", nil)
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}

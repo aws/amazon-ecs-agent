@@ -14,10 +14,10 @@
 package taskresource
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 
 type ResourceFieldsCommon struct {

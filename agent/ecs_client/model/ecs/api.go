@@ -4568,6 +4568,8 @@ type ContainerDefinition struct {
 
 	ResourceRequirements []*ResourceRequirement `locationName:"resourceRequirements" type:"list"`
 
+	Secrets []*Secret `locationName:"secrets" type:"list"`
+
 	SystemControls []*SystemControl `locationName:"systemControls" type:"list"`
 
 	// A list of ulimits to set in the container. This parameter maps to Ulimits
@@ -4645,6 +4647,16 @@ func (s *ContainerDefinition) Validate() error {
 	if s.RepositoryCredentials != nil {
 		if err := s.RepositoryCredentials.Validate(); err != nil {
 			invalidParams.AddNested("RepositoryCredentials", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.Secrets != nil {
+		for i, v := range s.Secrets {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Secrets", i), err.(request.ErrInvalidParams))
+			}
 		}
 	}
 	if s.Ulimits != nil {
@@ -4832,6 +4844,12 @@ func (s *ContainerDefinition) SetResourceRequirements(v []*ResourceRequirement) 
 	return s
 }
 
+// SetSecrets sets the Secrets field's value.
+func (s *ContainerDefinition) SetSecrets(v []*Secret) *ContainerDefinition {
+	s.Secrets = v
+	return s
+}
+
 // SetSystemControls sets the SystemControls field's value.
 func (s *ContainerDefinition) SetSystemControls(v []*SystemControl) *ContainerDefinition {
 	s.SystemControls = v
@@ -4882,6 +4900,8 @@ type ContainerInstance struct {
 	// The attributes set for the container instance, either by the Amazon ECS container
 	// agent at instance registration or manually with the PutAttributes operation.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
+
+	ClientToken *string `locationName:"clientToken" type:"string"`
 
 	// The Amazon Resource Name (ARN) of the container instance. The ARN contains
 	// the arn:aws:ecs namespace, followed by the Region of the container instance,
@@ -4972,6 +4992,12 @@ func (s *ContainerInstance) SetAttachments(v []*Attachment) *ContainerInstance {
 // SetAttributes sets the Attributes field's value.
 func (s *ContainerInstance) SetAttributes(v []*Attribute) *ContainerInstance {
 	s.Attributes = v
+	return s
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *ContainerInstance) SetClientToken(v string) *ContainerInstance {
+	s.ClientToken = &v
 	return s
 }
 
@@ -8720,6 +8746,8 @@ type RegisterContainerInstanceInput struct {
 	// The container instance attributes that this container instance supports.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
+	ClientToken *string `locationName:"clientToken" type:"string"`
+
 	// The short name or full Amazon Resource Name (ARN) of the cluster with which
 	// to register your container instance. If you do not specify a cluster, the
 	// default cluster is assumed.
@@ -8792,6 +8820,12 @@ func (s *RegisterContainerInstanceInput) Validate() error {
 // SetAttributes sets the Attributes field's value.
 func (s *RegisterContainerInstanceInput) SetAttributes(v []*Attribute) *RegisterContainerInstanceInput {
 	s.Attributes = v
+	return s
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *RegisterContainerInstanceInput) SetClientToken(v string) *RegisterContainerInstanceInput {
+	s.ClientToken = &v
 	return s
 }
 
@@ -9490,6 +9524,54 @@ func (s *RunTaskOutput) SetFailures(v []*Failure) *RunTaskOutput {
 // SetTasks sets the Tasks field's value.
 func (s *RunTaskOutput) SetTasks(v []*Task) *RunTaskOutput {
 	s.Tasks = v
+	return s
+}
+
+type Secret struct {
+	_ struct{} `type:"structure"`
+
+	// Name is a required field
+	Name *string `locationName:"name" type:"string" required:"true"`
+
+	// ValueFrom is a required field
+	ValueFrom *string `locationName:"valueFrom" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s Secret) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Secret) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Secret) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Secret"}
+	if s.Name == nil {
+		invalidParams.Add(request.NewErrParamRequired("Name"))
+	}
+	if s.ValueFrom == nil {
+		invalidParams.Add(request.NewErrParamRequired("ValueFrom"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetName sets the Name field's value.
+func (s *Secret) SetName(v string) *Secret {
+	s.Name = &v
+	return s
+}
+
+// SetValueFrom sets the ValueFrom field's value.
+func (s *Secret) SetValueFrom(v string) *Secret {
+	s.ValueFrom = &v
 	return s
 }
 

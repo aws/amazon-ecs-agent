@@ -734,6 +734,7 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "linuxParameters":{"shape":"LinuxParameters"},
+        "secrets":{"shape":"SecretList"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -774,7 +775,10 @@
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
         "registeredAt":{"shape":"Timestamp"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "ContainerInstanceStatus":{
@@ -1575,7 +1579,10 @@
         "containerInstanceArn":{"shape":"String"},
         "attributes":{"shape":"Attributes"},
         "tags":{"shape":"Tags"},
-        "platformDevices":{"shape":"PlatformDevices"}
+        "clientToken":{
+          "shape":"String"
+        },
+	"platformDevices":{"shape":"PlatformDevices"}
       }
     },
     "RegisterContainerInstanceResponse":{
@@ -1690,6 +1697,21 @@
         "REPLICA",
         "DAEMON"
       ]
+    },
+    "Secret":{
+      "type":"structure",
+      "required":[
+        "name",
+        "valueFrom"
+      ],
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
     },
     "ServerException":{
       "type":"structure",
