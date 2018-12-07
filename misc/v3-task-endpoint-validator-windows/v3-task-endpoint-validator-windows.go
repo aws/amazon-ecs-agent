@@ -164,12 +164,11 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 	json.Unmarshal(taskMetadataRawMsg, &taskMetadataResponseMap)
 
 	taskExpectedFieldEqualMap := map[string]interface{}{
-		"Cluster":       "ecs-functional-tests",
 		"DesiredStatus": "RUNNING",
 		"KnownStatus":   "RUNNING",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
+	taskExpectedFieldNotEmptyArray := []string{"Cluster", "TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
 
 	for fieldName, fieldVal := range taskExpectedFieldEqualMap {
 		if err = fieldEqual(taskMetadataResponseMap, fieldName, fieldVal); err != nil {
