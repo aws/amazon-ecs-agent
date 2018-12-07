@@ -515,7 +515,9 @@ func (agent *ecsAgent) registerContainerInstance(
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
 	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string) error {
-	_, _, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken)
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken)
+	//set az to agent
+	agent.availabilityZone = availabilityZone
 
 	if err == nil {
 		return nil
