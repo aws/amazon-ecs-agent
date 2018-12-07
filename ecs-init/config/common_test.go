@@ -136,3 +136,44 @@ func TestAgentDockerLogDriverConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentRemoteTarballKey(t *testing.T) {
+	testcases := []struct {
+		arch        string
+		shouldError bool
+		expected    string
+	}{
+		{
+			arch:     "amd64",
+			expected: "ecs-agent-" + DefaultAgentVersion + ".tar",
+		},
+		{
+			arch:     "arm64",
+			expected: "ecs-agent-arm64-" + DefaultAgentVersion + ".tar",
+		},
+		{
+			arch:        "unknown",
+			shouldError: true,
+		},
+	}
+
+	originalGoarch := goarch
+	defer func() { goarch = originalGoarch }()
+
+	for _, test := range testcases {
+		t.Run(test.arch, func(t *testing.T) {
+			goarch = test.arch
+
+			actual, err := AgentRemoteTarballKey()
+			if err == nil && test.shouldError {
+				t.Fatal("expected error when trying to get tarball key")
+			}
+			if err != nil && !test.shouldError {
+				t.Fatalf("unexpected error when trying to get tarball key: %s", err)
+			}
+			if actual != test.expected {
+				t.Fatalf("expected %q, got %q", test.expected, actual)
+			}
+		})
+	}
+}

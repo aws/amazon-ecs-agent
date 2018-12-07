@@ -14,7 +14,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
@@ -37,8 +39,10 @@ const (
 	// Used to mount /proc for agent container
 	ProcFS = "/proc"
 
-	// AgentFilename is the filename, including version number, of the agent to be downloaded.
-	AgentFilename = "ecs-agent-v1.22.0.tar"
+	// DefaultAgentVersion is the version of the agent that will be
+	// fetched if required. This should look like v1.2.3 or an
+	// 8-character sha, as is downloadable from S3.
+	DefaultAgentVersion = "v1.22.0"
 
 	// AgentPartitionBucketName is the name of the paritional s3 bucket that stores the agent
 	AgentPartitionBucketName = "amazon-ecs-agent"
@@ -67,22 +71,28 @@ const (
 	GPUSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
 )
 
-var partitionBucketMap = map[string]string{
+// partitionBucketRegion provides the "partitional" bucket region
+// suitable for downloading agent from.
+var partitionBucketRegion = map[string]string{
 	endpoints.AwsPartitionID:      endpoints.UsEast1RegionID,
 	endpoints.AwsCnPartitionID:    endpoints.CnNorth1RegionID,
 	endpoints.AwsUsGovPartitionID: endpoints.UsGovWest1RegionID,
 }
 
+// goarch is an injectable GOARCH runtime string. This controls the
+// formatting of configuration for supported architectures.
+var goarch string = runtime.GOARCH
+
 // GetAgentPartitionBucketRegion returns the s3 bucket region where ECS Agent artifact is located
 func GetAgentPartitionBucketRegion(region string) (string, error) {
 	regionPartition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
 	if !ok {
-		return "", errors.Errorf("GetAgentBucketRegion: partition not found for region: %s", region)
+		return "", errors.Errorf("could not resolve partition ID for region %q", region)
 	}
 
-	bucketRegion, ok := partitionBucketMap[regionPartition.ID()]
+	bucketRegion, ok := partitionBucketRegion[regionPartition.ID()]
 	if !ok {
-		return "", errors.Errorf("GetAgentBucketRegion: partition not found: %s", regionPartition)
+		return "", errors.Errorf("no bucket available for partition ID %q", regionPartition.ID())
 	}
 
 	return bucketRegion, nil
@@ -138,14 +148,22 @@ func AgentTarball() string {
 	return CacheDirectory() + "/ecs-agent.tar"
 }
 
-// AgentRemoteTarball is the remote filename of the Agent image, used for populating the cache
-func AgentRemoteTarballKey() string {
-	return AgentFilename
+// AgentRemoteTarballKey is the remote filename of the Agent image, used for populating the cache
+func AgentRemoteTarballKey() (string, error) {
+	name, err := agentArtifactName(DefaultAgentVersion, goarch)
+	if err != nil {
+		return "", errors.Wrap(err, "no artifact available")
+	}
+	return fmt.Sprintf("%s.tar", name), nil
 }
 
-// AgentRemoteTarballMD5 is the remote file of a md5sum used to verify the integrity of the AgentRemoteTarball
-func AgentRemoteTarballMD5Key() string {
-	return AgentRemoteTarballKey() + ".md5"
+// AgentRemoteTarballMD5Key is the remote file of a md5sum used to verify the integrity of the AgentRemoteTarball
+func AgentRemoteTarballMD5Key() (string, error) {
+	tarballKey, err := AgentRemoteTarballKey()
+	if err != nil {
+		return "", err
+	}
+	return tarballKey + ".md5", nil
 }
 
 // DesiredImageLocatorFile returns the location on disk of a well-known file describing an Agent image to load
@@ -214,4 +232,17 @@ func InstanceConfigDirectory() string {
 // InstanceConfigFile returns the location of a file of custom environment variables
 func InstanceConfigFile() string {
 	return InstanceConfigDirectory() + "/ecs.config"
+}
+
+func agentArtifactName(version string, arch string) (string, error) {
+	var interpose string
+	switch arch {
+	case "amd64":
+		interpose = ""
+	case "arm64":
+		interpose = "-" + arch
+	default:
+		return "", errors.Errorf("unknown architecture %q", arch)
+	}
+	return fmt.Sprintf("ecs-agent%s-%s", interpose, version), nil
 }

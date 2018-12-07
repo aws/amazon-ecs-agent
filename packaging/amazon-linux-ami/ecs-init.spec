@@ -23,17 +23,27 @@
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
 
+%ifarch x86_64
+%global agent_image %{SOURCE3}
+%endif
+%ifarch aarch64
+%global agent_image %{SOURCE4}
+%endif
+
 Name:           ecs-init
 Version:        1.22.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
-ExclusiveArch:  x86_64
+ExclusiveArch:  x86_64 aarch64
 
 Source0:        sources.tgz
 Source1:        ecs.conf
-Source2:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
-Source3:        ecs.service
+Source2:        ecs.service
+# x86_64 Container agent docker image
+Source3:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
+# aarch64 Container agent docker image
+Source4:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v%{bundled_agent_version}.tar
 
 BuildRequires:  golang >= 1.7
 %if %{with systemd}
@@ -156,15 +166,16 @@ mkdir -p %{buildroot}%{_sysconfdir}/ecs
 touch %{buildroot}%{_sysconfdir}/ecs/ecs.config
 touch %{buildroot}%{_sysconfdir}/ecs/ecs.config.json
 
-install -D %{SOURCE2} %{buildroot}%{_cachedir}/ecs/ecs-agent-v%{bundled_agent_version}.tar
-# Configure ecs-init to reload the bundled ECS Agent image.
+# Configure ecs-init to reload the bundled ECS container agent image.
 mkdir -p %{buildroot}%{_cachedir}/ecs
 echo 2 > %{buildroot}%{_cachedir}/ecs/state
+# Add a bundled ECS container agent image
+install %{agent_image} %{buildroot}%{_cachedir}/ecs/
 
 mkdir -p %{buildroot}%{_sharedstatedir}/ecs/{data,dhclient}
 
 %if %{with systemd}
-install -D %{SOURCE3} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
+install -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
 %else
 install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 %endif
@@ -175,7 +186,7 @@ install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
 %ghost %{_cachedir}/ecs/ecs-agent.tar
-%{_cachedir}/ecs/ecs-agent-v%{bundled_agent_version}.tar
+%{_cachedir}/ecs/%{basename:%{agent_image}}
 %{_cachedir}/ecs/state
 %dir %{_sharedstatedir}/ecs/data
 %ghost %{_sharedstatedir}/ecs/dhclient
@@ -188,7 +199,7 @@ install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 
 %post
 # Symlink the bundled ECS Agent at loadable path.
-ln -sf ecs-agent-v%{bundled_agent_version}.tar %{_cachedir}/ecs/ecs-agent.tar
+ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %if %{with systemd}
 %systemd_post ecs
 
@@ -245,6 +256,10 @@ fi
 %endif
 
 %changelog
+* Fri Nov 16 2018 Jacob Vallejo <jakeev@amazon.com> - 1.22.0-4
+- Cache ECS agent version 1.22.0 for x86_64 & ARM
+- Support ARM architecture builds
+
 * Thu Nov 15 2018 Jacob Vallejo <jakeev@amazon.com> - 1.22.0-3
 - Rebuild
 
