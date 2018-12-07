@@ -94,6 +94,16 @@ func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerInstanceARN", reflect.TypeOf((*MockManager)(nil).SetContainerInstanceARN), arg0)
 }
 
+// SetHostPublicIPv4Address mocks base method
+func (m *MockManager) SetHostPublicIPv4Address(arg0 string) {
+	m.ctrl.Call(m, "SetHostPublicIPv4Address", arg0)
+}
+
+// SetHostPublicIPv4Address indicates an expected call of SetHostPublicIPv4Address
+func (mr *MockManagerMockRecorder) SetHostPublicIPv4Address(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostPublicIPv4Address", reflect.TypeOf((*MockManager)(nil).SetHostPublicIPv4Address), arg0)
+}
+
 // Update mocks base method
 func (m *MockManager) Update(arg0 context.Context, arg1 string, arg2 *task.Task, arg3 string) error {
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2, arg3)
