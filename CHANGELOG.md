@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.23.0-dev
+* Feature - Add support for ECS Secrets integrating with AWS Secrets Manager [#1713](https://github.com/aws/amazon-ecs-agent/pull/1713)
+* Enhancement - Add availability zone to task metadata endpoint and ECS metadata file
+* Bug - Fixed a bug where agent can register container instance back to back and gets
+  assigned two container instance ARNs [#1711](https://github.com/aws/amazon-ecs-agent/pull/1711)
+* Bug - Fixed a bug where propagated `aws:` tags are passed through RegisterContainerInstance API call [#1706](https://github.com/aws/amazon-ecs-agent/pull/1706)
+
 ## 1.22.0
 * Feature - Add support for ECS Secrets integrating with AWS Systems Manager Parameter Store
 * Feature - Support for `--pid`, `--ipc` Docker run flags. [#1584](https://github.com/aws/amazon-ecs-agent/pull/1584)

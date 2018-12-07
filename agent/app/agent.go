@@ -52,6 +52,7 @@ import (
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
+	"github.com/pborman/uuid"
 )
 
 const (
@@ -489,11 +490,11 @@ func (agent *ecsAgent) registerContainerInstance(
 
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags, platformDevices)
+		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, platformDevices)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -521,8 +522,10 @@ func (agent *ecsAgent) registerContainerInstance(
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag, platformDevices []*ecs.PlatformDevice) error {
-	_, _, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, platformDevices)
+	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) error {
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken, platformDevices)
+	//set az to agent
+	agent.availabilityZone = availabilityZone
 
 	if err == nil {
 		return nil

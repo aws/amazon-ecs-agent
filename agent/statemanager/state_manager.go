@@ -70,11 +70,13 @@ const (
 	// 17)
 	//   a) Add 'secrets' field to 'apicontainer.Container'
 	//   b) Add 'ssmsecret' field to 'resources'
-	// 18) Add 'AvailabilityZone' field to the TaskResponse struct
-	// 19)
-	//   a) Add 'Associations' field to 'api.task.task'
-	//   b) Add 'GPUIDs' field to 'apicontainer.Container'
-	//   c) Add 'NvidiaRuntime' field to 'api.task.task'
+	// 18)
+	//   a) Add 'AvailabilityZone' field to the TaskResponse struct
+	//   b) Add 'asmsecret' field to 'resources'
+        // 19)
+        //   a) Add 'Associations' field to 'api.task.task'
+        //   b) Add 'GPUIDs' field to 'apicontainer.Container'
+        //   c) Add 'NvidiaRuntime' field to 'api.task.task'
 	ECSDataVersion = 19
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
