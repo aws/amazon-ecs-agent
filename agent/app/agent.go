@@ -287,6 +287,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.ContainerMetadataEnabled {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
+		agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -661,4 +662,16 @@ func mergeTags(localTags []*ecs.Tag, ec2Tags []*ecs.Tag) []*ecs.Tag {
 	}
 
 	return utils.MapToTags(tagsMap)
+}
+
+// getHostPublicIPv4AddressFromEC2Metadata will retrieve the PublicIPAddress (IPv4) of this
+// instance through the EC2 API
+func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
+	// Get instance ID from ec2 metadata client.
+	hostPublicIPv4Address, err := agent.ec2MetadataClient.PublicIPv4Address()
+	if err != nil {
+		seelog.Errorf("Unable to retrieve Host Instance PublicIPv4 Address: %v", err)
+		return ""
+	}
+	return hostPublicIPv4Address
 }

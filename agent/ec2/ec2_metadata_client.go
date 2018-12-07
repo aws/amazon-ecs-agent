@@ -33,6 +33,7 @@ const (
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 	InstanceIDResource                        = "instance-id"
+	PublicIPv4Resource                        = "public-ipv4"
 )
 
 const (
@@ -70,6 +71,7 @@ type EC2MetadataClient interface {
 	InstanceID() (string, error)
 	GetUserData() (string, error)
 	Region() (string, error)
+	PublicIPv4Address() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -161,4 +163,8 @@ func (c *ec2MetadataClientImpl) GetUserData() (string, error) {
 // Region returns the region the instance is running in.
 func (c *ec2MetadataClientImpl) Region() (string, error) {
 	return c.client.Region()
+}
+
+func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
+	return c.client.GetMetadata(PublicIPv4Resource)
 }
