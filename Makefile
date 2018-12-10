@@ -15,6 +15,7 @@ USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
 .PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+BUILD_PLATFORM:=$(shell uname -m)
 
 all: docker
 
@@ -88,8 +89,13 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-test:
+ifeq (${BUILD_PLATFORM},aarch64)
+test::
+	. ./scripts/shared_env && go test -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+else
+test::
 	. ./scripts/shared_env && go test -race -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+endif
 
 test-silent:
 	. ./scripts/shared_env && go test -timeout=25s -cover $(shell go list ./agent/... | grep -v /vendor/)
@@ -123,7 +129,13 @@ endef
 
 # TODO: use `go list -f` to target the test files more directly
 ALL_GO_FILES = $(shell find . -name "*.go" -print | tr "\n" " ")
+
+ifeq (${BUILD_PLATFORM},aarch64)
+GO_INTEG_TEST = go test -tags integration -c -o
+else
 GO_INTEG_TEST = go test -race -tags integration -c -o
+endif
+
 out/test-artifacts/linux-engine-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
 	$(call dockerbuild,$(GO_INTEG_TEST) $@ ./agent/engine)
 
@@ -234,11 +246,21 @@ cni-plugins: get-cni-sources .out-stamp
 		"amazon/amazon-ecs-build-cniplugins:make"
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
+ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=10m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && go test -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...agent
+else
+run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
+	. ./scripts/shared_env && go test -race -tags integration -timeout=12m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+endif
 
-run-sudo-tests:
+ifeq (${BUILD_PLATFORM},aarch64)
+run-sudo-tests::
+	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -tags sudo -timeout=10m -v ./agent/engine/...
+else
+run-sudo-tests::
 	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
+endif
 
 .PHONY: codebuild
 codebuild: test-artifacts .out-stamp

@@ -59,6 +59,18 @@ func TestDescribeECSTagsForInstance(t *testing.T) {
 				Key:   aws.String("key"),
 				Value: aws.String("value"),
 			},
+			{
+				Key:   aws.String("aws:key"),
+				Value: aws.String("aws:value"),
+			},
+			{
+				Key:   aws.String("aWS:key"),
+				Value: aws.String("value"),
+			},
+			{
+				Key:   aws.String("key"),
+				Value: aws.String("Aws:value"),
+			},
 		},
 	}
 

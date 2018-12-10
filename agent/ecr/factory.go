@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -50,14 +50,24 @@ func NewECRFactory(acceptInsecureCert bool) ECRFactory {
 
 // GetClient creates the ECR SDK client based on the authdata
 func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRClient, error) {
-	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(factory.httpClient)
+	clientConfig, err := getClientConfig(factory.httpClient, authData)
+	if err != nil {
+		return &ecrClient{}, err
+	}
+
+	return factory.newClient(clientConfig), nil
+}
+
+// getClientConfig returns the config for the ecr client based on authData
+func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData) (*aws.Config, error) {
+	cfg := aws.NewConfig().WithRegion(authData.Region).WithHTTPClient(httpClient)
 	if authData.EndpointOverride != "" {
-		cfg.Region = aws.String(authData.EndpointOverride)
+		cfg.Endpoint = aws.String(authData.EndpointOverride)
 	}
 
 	if authData.UseExecutionRole {
 		if authData.GetPullCredentials() == (credentials.IAMRoleCredentials{}) {
-			return &ecrClient{}, fmt.Errorf("container uses execution credentials, but the credentials are empty")
+			return nil, fmt.Errorf("container uses execution credentials, but the credentials are empty")
 		}
 		creds := awscreds.NewStaticCredentials(authData.GetPullCredentials().AccessKeyID,
 			authData.GetPullCredentials().SecretAccessKey,
@@ -65,7 +75,7 @@ func (factory *ecrFactory) GetClient(authData *apicontainer.ECRAuthData) (ECRCli
 		cfg = cfg.WithCredentials(creds)
 	}
 
-	return factory.newClient(cfg), nil
+	return cfg, nil
 }
 
 func (factory *ecrFactory) newClient(cfg *aws.Config) ECRClient {
