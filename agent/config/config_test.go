@@ -342,6 +342,13 @@ func TestInvalidFormatParseEnvVariableDuration(t *testing.T) {
 	assert.Zero(t, duration, "Expected 0 from parseEnvVariableDuration for invalid format")
 }
 
+func TestValidForImagesCleanupExclusion(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_CLEANUP_EXCLUDE", "amazonlinux:2,amazonlinux:3")()
+	imagesNotDelete := parseImageCleanupExclusionList("ECS_IMAGE_CLEANUP_EXCLUDE")
+	assert.Equal(t, []string{"amazonlinux:2", "amazonlinux:3"}, imagesNotDelete, "unexpected imageCleanupExclusionList")
+}
+
 func TestValidFormatParseEnvVariableDuration(t *testing.T) {
 	defer setTestRegion()()
 	setTestEnv("FOO", "1s")

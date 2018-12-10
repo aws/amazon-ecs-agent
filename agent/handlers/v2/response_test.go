@@ -34,20 +34,21 @@ import (
 )
 
 const (
-	taskARN        = "t1"
-	cluster        = "default"
-	family         = "sleep"
-	version        = "1"
-	containerID    = "cid"
-	containerName  = "sleepy"
-	imageName      = "busybox"
-	imageID        = "bUsYbOx"
-	cpu            = 1024
-	memory         = 512
-	eniIPv4Address = "10.0.0.2"
-	volName        = "volume1"
-	volSource      = "/var/lib/volume1"
-	volDestination = "/volume"
+	taskARN          = "t1"
+	cluster          = "default"
+	family           = "sleep"
+	version          = "1"
+	containerID      = "cid"
+	containerName    = "sleepy"
+	imageName        = "busybox"
+	imageID          = "bUsYbOx"
+	cpu              = 1024
+	memory           = 512
+	eniIPv4Address   = "10.0.0.2"
+	volName          = "volume1"
+	volSource        = "/var/lib/volume1"
+	volDestination   = "/volume"
+	availabilityZone = "us-west-2b"
 )
 
 func TestTaskResponse(t *testing.T) {
@@ -116,7 +117,7 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
+	taskResponse, err := NewTaskResponse(taskARN, state, cluster, availabilityZone)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
@@ -212,12 +213,13 @@ func TestTaskResponseMarshal(t *testing.T) {
 	defer ctrl.Finish()
 
 	expectedTaskResponseMap := map[string]interface{}{
-		"Cluster":       cluster,
-		"TaskARN":       taskARN,
-		"Family":        family,
-		"Revision":      version,
-		"DesiredStatus": "RUNNING",
-		"KnownStatus":   "RUNNING",
+		"Cluster":          cluster,
+		"TaskARN":          taskARN,
+		"Family":           family,
+		"Revision":         version,
+		"DesiredStatus":    "RUNNING",
+		"KnownStatus":      "RUNNING",
+		"AvailabilityZone": availabilityZone,
 		"Containers": []interface{}{
 			map[string]interface{}{
 				"DockerId":   containerID,
@@ -294,7 +296,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
+	taskResponse, err := NewTaskResponse(taskARN, state, cluster, availabilityZone)
 	assert.NoError(t, err)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)

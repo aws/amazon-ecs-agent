@@ -59,6 +59,7 @@ type dockerImageManager struct {
 	numImagesToDelete                int
 	imageCleanupTimeInterval         time.Duration
 	imagePullBehavior                config.ImagePullBehaviorType
+	imageCleanupExclusionList        []string
 }
 
 // ImageStatesForDeletion is used for implementing the sort interface
@@ -67,12 +68,13 @@ type ImageStatesForDeletion []*image.ImageState
 // NewImageManager returns a new ImageManager
 func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state dockerstate.TaskEngineState) ImageManager {
 	return &dockerImageManager{
-		client: client,
-		state:  state,
-		minimumAgeBeforeDeletion: cfg.MinimumImageDeletionAge,
-		numImagesToDelete:        cfg.NumImagesToDeletePerCycle,
-		imageCleanupTimeInterval: cfg.ImageCleanupInterval,
-		imagePullBehavior:        cfg.ImagePullBehavior,
+		client:                    client,
+		state:                     state,
+		minimumAgeBeforeDeletion:  cfg.MinimumImageDeletionAge,
+		numImagesToDelete:         cfg.NumImagesToDeletePerCycle,
+		imageCleanupTimeInterval:  cfg.ImageCleanupInterval,
+		imagePullBehavior:         cfg.ImagePullBehavior,
+		imageCleanupExclusionList: cfg.ImageCleanupExclusionList,
 	}
 }
 
@@ -301,11 +303,7 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 	imageManager.updateLock.Lock()
 	defer imageManager.updateLock.Unlock()
 
-	imageManager.imageStatesConsideredForDeletion = make(map[string]*image.ImageState)
-	seelog.Info("Begin building map of eligible unused images for deletion")
-	for _, imageState := range imageManager.getAllImageStates() {
-		imageManager.imageStatesConsideredForDeletion[imageState.Image.ImageID] = imageState
-	}
+	imageManager.imageStatesConsideredForDeletion = imageManager.imagesConsiderForDeletion(imageManager.getAllImageStates())
 	for i := 0; i < imageManager.numImagesToDelete; i++ {
 		err := imageManager.removeLeastRecentlyUsedImage(ctx)
 		if err != nil {
@@ -313,6 +311,34 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 			break
 		}
 	}
+}
+
+func (imageManager *dockerImageManager) imagesConsiderForDeletion(allImageStates []*image.ImageState) map[string]*image.ImageState {
+	var imagesConsiderForDeletionMap = make(map[string]*image.ImageState)
+	seelog.Info("Begin building map of eligible unused images for deletion")
+	for _, imageState := range allImageStates {
+		if imageManager.isExcludedFromCleanup(imageState) {
+			//imageState that we want to keep
+			seelog.Infof("Image excluded from deletion: [%s]", imageState.String())
+		} else {
+			imagesConsiderForDeletionMap[imageState.Image.ImageID] = imageState
+		}
+	}
+	return imagesConsiderForDeletionMap
+}
+
+func (imageManager *dockerImageManager) isExcludedFromCleanup(imageState *image.ImageState) bool {
+	var encountered = make(map[string]bool)
+	for _, imageNotDelete := range imageManager.imageCleanupExclusionList {
+		encountered[imageNotDelete] = true
+	}
+
+	for _, name := range imageState.Image.Names {
+		if encountered[name] {
+			return true
+		}
+	}
+	return false
 }
 
 func (imageManager *dockerImageManager) removeLeastRecentlyUsedImage(ctx context.Context) error {
