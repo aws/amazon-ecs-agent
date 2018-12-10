@@ -22,11 +22,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-	"runtime"
 
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
@@ -36,12 +36,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -570,11 +570,8 @@ func TestFluentdLogTag(t *testing.T) {
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
-<<<<<<< HEAD
 	ctx := context.TODO()
-=======
 
->>>>>>> dev
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
