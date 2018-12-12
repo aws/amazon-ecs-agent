@@ -84,12 +84,10 @@ for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debia
   fi
 done
 
-REGISTRY_IMAGE_CONTAINER="test-ecs-registry-container:arm"
-REGISTRY_IMAGE="registry:2.6.2"
+REGISTRY_CONTAINER_NAME="test-ecs-registry"
+REGISTRY_IMAGE="registry:2.7.0"
 
-docker build -t "${REGISTRY_IMAGE_CONTAINER}" "${REGISTRY_IMAGE}"
-
-mirror_local_image "${REGISTRY_IMAGE_CONTAINER}" "127.0.0.1:51670/registry:parallel-pull-fts"
+mirror_local_image "${REGISTRY_IMAGE}" "127.0.0.1:51670/registry:parallel-pull-fts"
 
 mirror_local_image "amazon/${ECR_ROLE_IMAGE}:fts" "${PREFIX}/${ECR_ROLE_IMAGE}:fts"
 mirror_image ${BUSYBOX_IMAGE} "${PREFIX}/busybox:latest"

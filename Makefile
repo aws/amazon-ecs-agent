@@ -253,7 +253,7 @@ cni-plugins: get-cni-sources .out-stamp
 
 ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...agent
+	. ./scripts/shared_env && go test -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 else
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	. ./scripts/shared_env && go test -race -tags integration -timeout=12m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
