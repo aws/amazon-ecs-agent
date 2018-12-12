@@ -570,7 +570,8 @@ func TestFluentdTag(t *testing.T) {
 	// tag was added in docker 1.9.0
 	RequireDockerVersion(t, ">=1.9.0")
 
-	if runtime.GOOS == "arm64" {
+	// Skipping the test for arm as they do not have official support for Arm images
+	if runtime.GOARCH == "arm64" {
 		t.Skip()
 	}
 
@@ -584,7 +585,8 @@ func TestFluentdLogTag(t *testing.T) {
 	RequireDockerVersion(t, ">=1.8.0")
 	RequireDockerVersion(t, "<1.12.0")
 
-	if runtime.GOOS == "arm64" {
+	// Skipping the test for arm as they do not have official support for Arm images
+	if runtime.GOARCH == "arm64" {
 		t.Skip()
 	}
 

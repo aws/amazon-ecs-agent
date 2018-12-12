@@ -16,43 +16,21 @@
 # Also push images we will need to it.
 set -e
 
-REGISTRY_IMAGE="registry:2.6.2"
+REGISTRY_IMAGE="registry:2.7.0"
 
 NGINX_IMAGE="nginx:1.15"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
+REGISTRY_CONTAINER_NAME="test-ecs-registry"
 
-REGISTRY_CONTAINER_NAME=test-ecs-registry
-status=$(docker inspect -f "{{ .State.Running }}" "$REGISTRY_CONTAINER_NAME") || true
+echo "Removing $REGISTRY_CONTAINER_NAME"
+# stop and remove the registry container. The script will not exit if the container is not running
+docker stop "$REGISTRY_CONTAINER_NAME" || true && docker rm "$REGISTRY_CONTAINER_NAME" || true
 
-if [[ "$status" == "false" ]]; then
-	docker rm -f "$REGISTRY_CONTAINER_NAME"
-fi
-
-# This will fail if we already have one running, but that's fine. We'll see it
-# running and push our image to it to make sure it's there
-if [[ "$status" != "true" ]]; then
-	docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p "127.0.0.1:51670:5000" "${REGISTRY_IMAGE}"
-fi
-
-# Wait for it to be started which might include downloading the image
-status="false"
-for try in $(seq 1 300); do
-	status=$(docker inspect -f "{{ .State.Running }}" $REGISTRY_CONTAINER_NAME)
-	if [[ "$status" == "true" ]]; then
-		break
-	fi
-	sleep 1
-done
-
-if [[ "$status" != "true" ]]; then
-	echo "Unable to start test registry"
-	exit 1
-fi
-
-sleep 2
+echo "Running $REGISTRY_CONTAINER_NAME"
+docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p "127.0.0.1:51670:5000" "${REGISTRY_IMAGE}"
 
 # Make sure our images are pushed to it
 mirror_image() {
@@ -61,6 +39,7 @@ mirror_image() {
 }
 
 mirror_local_image() {
+  echo "Mirroring $1"
   docker tag $1 $2
   docker push $2
   docker rmi $2
@@ -111,7 +90,8 @@ mirror_image ${PARALLEL_PULL_FTS_HTTPD} "127.0.0.1:51670/httpd:parallel-pull-fts
 mirror_image ${PARALLEL_PULL_FTS_MONGO} "127.0.0.1:51670/mongo:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_NGINX} "127.0.0.1:51670/nginx:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_REDIS} "127.0.0.1:51670/redis:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_REGISTRY} "127.0.0.1:51670/registry:parallel-pull-fts"
+mirror_local_image ${PARALLEL_PULL_FTS_REGISTRY} "127.0.0.1:51670/registry:parallel-pull-fts"
+
 
 # Now setup a v2 registry with auth... aka nginx with basic auth in front of it
 REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
