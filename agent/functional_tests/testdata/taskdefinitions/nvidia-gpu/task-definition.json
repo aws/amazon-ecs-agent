@@ -1,0 +1,14 @@
+{
+    "family": "ecsftest-nvidia-gpu",
+    "containerDefinitions": [{
+      "image": "nvidia/cuda:9.0-base",
+      "name": "exit",
+      "cpu": 100,
+      "memory": 100,
+      "resourceRequirements": [{
+        "type":"GPU",
+        "value": "2"
+      }],
+      "command": ["sh", "-c", "nvidia-smi -L | wc -l | grep -w \"2\" && exit 42 || exit 1"]
+    }]
+}

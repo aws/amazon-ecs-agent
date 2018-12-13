@@ -78,7 +78,7 @@ const (
 
 var (
 	endpoint            = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-	TestGPUInstanceType = []string{"p2", "p3"}
+	TestGPUInstanceType = []string{"p2", "p3", "g3"}
 )
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
@@ -120,29 +120,29 @@ func createNamespaceSharingTask(arn, pidMode, ipcMode, testImage string, theComm
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers: []*apicontainer.Container{
 			&apicontainer.Container{
-				Name:                "container0",
-				Image:               testImage,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-				CPU:                 100,
-				Memory:              80,
+				Name:                      "container0",
+				Image:                     testImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 			&apicontainer.Container{
-				Name:                "container1",
-				Image:               testBusyboxImage,
-				Command:             theCommand,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-				CPU:                 100,
-				Memory:              80,
+				Name:                      "container1",
+				Image:                     testBusyboxImage,
+				Command:                   theCommand,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 			&apicontainer.Container{
-				Name:                "container2",
-				Image:               testBusyboxImage,
-				Command:             theCommand,
-				DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-				CPU:                 100,
-				Memory:              80,
+				Name:                      "container2",
+				Image:                     testBusyboxImage,
+				Command:                   theCommand,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
