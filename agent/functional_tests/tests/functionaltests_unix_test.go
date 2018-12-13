@@ -489,6 +489,10 @@ func TestV3TaskEndpointTags(t *testing.T) {
 	testV3TaskEndpointTags(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host")
 }
 
+func TestContainerMetadataFile(t *testing.T) {
+	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
+}
+
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
 	ctx := context.TODO()
@@ -621,31 +625,6 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 
 	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
-}
-
-// TestMetadataServiceValidator tests that the metadata file can be accessed from the
-// container using the ECS_CONTAINER_METADATA_FILE environment variables
-func TestMetadataServiceValidator(t *testing.T) {
-	agentOptions := &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_CONTAINER_METADATA": "true",
-		},
-	}
-
-	agent := RunAgent(t, agentOptions)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.15.0")
-
-	task, err := agent.StartTask(t, "mdservice-validator-unix")
-	require.NoError(t, err, "Register task definition failed")
-	defer task.Stop()
-
-	// clean up
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
-	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
-
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
 // TestAgentIntrospectionValidator tests that the agent introspection endpoint can

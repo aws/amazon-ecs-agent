@@ -130,6 +130,7 @@ type Metadata struct {
 	containerInstanceARN    string
 	metadataStatus          MetadataStatus
 	availabilityZone        string
+	hostPublicIPv4Address   string
 }
 
 // metadataSerializer is an intermediate struct that converts the information
@@ -149,6 +150,7 @@ type metadataSerializer struct {
 	Networks               []Network                  `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
 	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
+	HostPublicIPv4Address  string                     `json:"HostPublicIPv4Address,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
@@ -168,5 +170,6 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Networks:               m.dockerContainerMetadata.networkInfo.networks,
 			MetadataFileStatus:     m.metadataStatus,
 			AvailabilityZone:       m.availabilityZone,
+			HostPublicIPv4Address:  m.hostPublicIPv4Address,
 		})
 }

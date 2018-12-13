@@ -64,3 +64,7 @@ func (blackholeMetadataClient) GetUserData() (string, error) {
 func (blackholeMetadataClient) Region() (string, error) {
 	return "", errors.New("blackholed")
 }
+
+func (blackholeMetadataClient) PublicIPv4Address() (string, error) {
+	return "", errors.New("blackholed")
+}
