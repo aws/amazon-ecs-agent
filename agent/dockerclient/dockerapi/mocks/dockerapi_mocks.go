@@ -27,7 +27,9 @@ import (
 	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
+	types "github.com/docker/docker/api/types"
+	container0 "github.com/docker/docker/api/types/container"
+	filters "github.com/docker/docker/api/types/filters"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -81,7 +83,7 @@ func (mr *MockDockerClientMockRecorder) ContainerEvents(arg0 interface{}) *gomoc
 }
 
 // CreateContainer mocks base method
-func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *go_dockerclient.Config, arg2 *go_dockerclient.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
+func (m *MockDockerClient) CreateContainer(arg0 context.Context, arg1 *container0.Config, arg2 *container0.HostConfig, arg3 string, arg4 time.Duration) dockerapi.DockerContainerMetadata {
 	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
@@ -93,9 +95,9 @@ func (mr *MockDockerClientMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, 
 }
 
 // CreateVolume mocks base method
-func (m *MockDockerClient) CreateVolume(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 time.Duration) dockerapi.VolumeResponse {
+func (m *MockDockerClient) CreateVolume(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 time.Duration) dockerapi.SDKVolumeResponse {
 	ret := m.ctrl.Call(m, "CreateVolume", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(dockerapi.VolumeResponse)
+	ret0, _ := ret[0].(dockerapi.SDKVolumeResponse)
 	return ret0
 }
 
@@ -118,9 +120,9 @@ func (mr *MockDockerClientMockRecorder) DescribeContainer(arg0, arg1 interface{}
 }
 
 // InspectContainer mocks base method
-func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*go_dockerclient.Container, error) {
+func (m *MockDockerClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*go_dockerclient.Container)
+	ret0, _ := ret[0].(*types.ContainerJSON)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -131,9 +133,9 @@ func (mr *MockDockerClientMockRecorder) InspectContainer(arg0, arg1, arg2 interf
 }
 
 // InspectImage mocks base method
-func (m *MockDockerClient) InspectImage(arg0 string) (*go_dockerclient.Image, error) {
+func (m *MockDockerClient) InspectImage(arg0 string) (*types.ImageInspect, error) {
 	ret := m.ctrl.Call(m, "InspectImage", arg0)
-	ret0, _ := ret[0].(*go_dockerclient.Image)
+	ret0, _ := ret[0].(*types.ImageInspect)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -144,9 +146,9 @@ func (mr *MockDockerClientMockRecorder) InspectImage(arg0 interface{}) *gomock.C
 }
 
 // InspectVolume mocks base method
-func (m *MockDockerClient) InspectVolume(arg0 context.Context, arg1 string, arg2 time.Duration) dockerapi.VolumeResponse {
+func (m *MockDockerClient) InspectVolume(arg0 context.Context, arg1 string, arg2 time.Duration) dockerapi.SDKVolumeResponse {
 	ret := m.ctrl.Call(m, "InspectVolume", arg0, arg1, arg2)
-	ret0, _ := ret[0].(dockerapi.VolumeResponse)
+	ret0, _ := ret[0].(dockerapi.SDKVolumeResponse)
 	return ret0
 }
 
@@ -180,15 +182,15 @@ func (mr *MockDockerClientMockRecorder) ListContainers(arg0, arg1, arg2 interfac
 }
 
 // ListPlugins mocks base method
-func (m *MockDockerClient) ListPlugins(arg0 context.Context, arg1 time.Duration) dockerapi.ListPluginsResponse {
-	ret := m.ctrl.Call(m, "ListPlugins", arg0, arg1)
+func (m *MockDockerClient) ListPlugins(arg0 context.Context, arg1 time.Duration, arg2 filters.Args) dockerapi.ListPluginsResponse {
+	ret := m.ctrl.Call(m, "ListPlugins", arg0, arg1, arg2)
 	ret0, _ := ret[0].(dockerapi.ListPluginsResponse)
 	return ret0
 }
 
 // ListPlugins indicates an expected call of ListPlugins
-func (mr *MockDockerClientMockRecorder) ListPlugins(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockDockerClient)(nil).ListPlugins), arg0, arg1)
+func (mr *MockDockerClientMockRecorder) ListPlugins(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPlugins", reflect.TypeOf((*MockDockerClient)(nil).ListPlugins), arg0, arg1, arg2)
 }
 
 // ListPluginsWithFilters mocks base method
@@ -277,16 +279,16 @@ func (mr *MockDockerClientMockRecorder) StartContainer(arg0, arg1, arg2 interfac
 }
 
 // Stats mocks base method
-func (m *MockDockerClient) Stats(arg0 string, arg1 context.Context) (<-chan *go_dockerclient.Stats, error) {
-	ret := m.ctrl.Call(m, "Stats", arg0, arg1)
-	ret0, _ := ret[0].(<-chan *go_dockerclient.Stats)
+func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.Stats, error) {
+	ret := m.ctrl.Call(m, "Stats", arg0, arg1, arg2)
+	ret0, _ := ret[0].(<-chan *types.Stats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Stats indicates an expected call of Stats
-func (mr *MockDockerClientMockRecorder) Stats(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stats", reflect.TypeOf((*MockDockerClient)(nil).Stats), arg0, arg1)
+func (mr *MockDockerClientMockRecorder) Stats(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stats", reflect.TypeOf((*MockDockerClient)(nil).Stats), arg0, arg1, arg2)
 }
 
 // StopContainer mocks base method

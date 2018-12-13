@@ -25,7 +25,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	docker "github.com/fsouza/go-dockerclient"
+
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -164,7 +165,7 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{})
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{})
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 
 	assert.NoError(t, err)
@@ -204,7 +205,7 @@ func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
 	}
 
 	// Expect the volume does not exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("volume not exist")})
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{Error: errors.New("volume not exist")})
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.Error(t, err, "volume not found for auto-provisioned resource should cause task to fail")
 }
@@ -242,8 +243,8 @@ func TestInitializeSharedNonProvisionedVolume(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
-		DockerVolume: &docker.Volume{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
+		DockerVolume: &types.Volume{
 			Labels: map[string]string{"test": "test"},
 		},
 	})
@@ -289,8 +290,8 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 	}
 
 	// Expect the volume already exists on the instance
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
-		DockerVolume: &docker.Volume{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
+		DockerVolume: &types.Volume{
 			Options: map[string]string{},
 			Labels:  nil,
 		},
@@ -333,7 +334,7 @@ func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 		},
 	}
 
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{Error: errors.New("not found")})
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{Error: errors.New("not found")})
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "volume resource should be provisioned by agent")
@@ -371,8 +372,8 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 		},
 	}
 
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
-		DockerVolume: &docker.Volume{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
+		DockerVolume: &types.Volume{
 			Labels: map[string]string{"test": "test"},
 		},
 	})
@@ -411,7 +412,7 @@ func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 		},
 	}
 
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.VolumeResponse{
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
 		Error: &dockerapi.DockerTimeoutError{},
 	})
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)

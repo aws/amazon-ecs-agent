@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 type authTestPair struct {
@@ -121,7 +121,7 @@ func TestAuthErrors(t *testing.T) {
 	for _, pair := range badPairs {
 		provider := NewDockerAuthProvider(pair.t, []byte(pair.a))
 		result, _ := provider.GetAuthconfig("nginx", nil)
-		if !reflect.DeepEqual(result, docker.AuthConfiguration{}) {
+		if !reflect.DeepEqual(result, types.AuthConfig{}) {
 			t.Errorf("Expected empty auth config for %v; got %v", pair, result)
 		}
 	}
@@ -131,7 +131,7 @@ func TestAuthErrors(t *testing.T) {
 func TestEmptyConfig(t *testing.T) {
 	provider := NewDockerAuthProvider("", []byte(""))
 	authConfig, _ := provider.GetAuthconfig("nginx", nil)
-	if !reflect.DeepEqual(authConfig, docker.AuthConfiguration{}) {
+	if !reflect.DeepEqual(authConfig, types.AuthConfig{}) {
 		t.Errorf("Expected empty authconfig to not return any auth data at all")
 	}
 }
