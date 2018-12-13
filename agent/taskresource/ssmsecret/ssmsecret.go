@@ -307,7 +307,7 @@ func (secret *SSMSecretResource) retrieveSSMSecretValuesByRegion(region string, 
 	var secretNames []string
 
 	for _, s := range secrets {
-		secretKey := s.GetSSMSecretResourceCacheKey()
+		secretKey := s.GetSecretResourceCacheKey()
 		if _, ok := secret.GetCachedSecretValue(secretKey); ok {
 			continue
 		}
@@ -390,6 +390,18 @@ func (secret *SSMSecretResource) GetCachedSecretValue(secretKey string) (string,
 
 	s, ok := secret.secretData[secretKey]
 	return s, ok
+}
+
+// SetCachedSecretValue set the secret value in the secretData field given the key and value
+func (secret *SSMSecretResource) SetCachedSecretValue(secretKey string, secretValue string) {
+	secret.lock.Lock()
+	defer secret.lock.Unlock()
+
+	if secret.secretData == nil {
+		secret.secretData = make(map[string]string)
+	}
+
+	secret.secretData[secretKey] = secretValue
 }
 
 func (secret *SSMSecretResource) Initialize(resourceFields *taskresource.ResourceFields,

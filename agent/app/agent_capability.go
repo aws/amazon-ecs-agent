@@ -38,7 +38,9 @@ const (
 	attributeSeparator                          = "."
 	capabilityPrivateRegistryAuthASM            = "private-registry-authentication.secretsmanager"
 	capabilitySecretEnvSSM                      = "secrets.ssm.environment-variables"
+	capabilitySecretEnvASM                      = "secrets.asm.environment-variables"
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
+	capabilityECREndpoint                       = "ecr-endpoint"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -68,6 +70,9 @@ const (
 //    ecs.capability.container-health-check
 //    ecs.capability.private-registry-authentication.secretsmanager
 //    ecs.capability.secrets.ssm.environment-variables
+//    ecs.capability.pid-ipc-namespace-sharing
+//    ecs.capability.ecr-endpoint
+//    ecs.capability.secrets.asm.environment-variables
 
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
@@ -121,6 +126,12 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
+
+	// support ecr endpoint override
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityECREndpoint)
+
+	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvASM)
 
 	return capabilities, nil
 }

@@ -129,6 +129,7 @@ type Metadata struct {
 	dockerContainerMetadata DockerContainerMetadata
 	containerInstanceARN    string
 	metadataStatus          MetadataStatus
+	availabilityZone        string
 }
 
 // metadataSerializer is an intermediate struct that converts the information
@@ -147,6 +148,7 @@ type metadataSerializer struct {
 	Ports                  []apicontainer.PortBinding `json:"PortMappings,omitempty"`
 	Networks               []Network                  `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
+	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
@@ -165,5 +167,6 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Ports:                  m.dockerContainerMetadata.ports,
 			Networks:               m.dockerContainerMetadata.networkInfo.networks,
 			MetadataFileStatus:     m.metadataStatus,
+			AvailabilityZone:       m.availabilityZone,
 		})
 }

@@ -49,7 +49,8 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	cluster string,
 	statsEngine stats.Engine,
 	steadyStateRate int,
-	burstRate int) *http.Server {
+	burstRate int,
+	availabilityZone string) *http.Server {
 	muxRouter := mux.NewRouter()
 
 	// Set this so that for request like "/v3//metadata/task", the Agent will pass
@@ -59,9 +60,9 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	muxRouter.HandleFunc(v1.CredentialsPath,
 		v1.CredentialsHandler(credentialsManager, auditLogger))
 
-	v2HandlersSetup(muxRouter, state, statsEngine, cluster, credentialsManager, auditLogger)
+	v2HandlersSetup(muxRouter, state, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone)
 
-	v3HandlersSetup(muxRouter, state, statsEngine, cluster)
+	v3HandlersSetup(muxRouter, state, statsEngine, cluster, availabilityZone)
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
@@ -93,11 +94,12 @@ func v2HandlersSetup(muxRouter *mux.Router,
 	statsEngine stats.Engine,
 	cluster string,
 	credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger) {
+	auditLogger audit.AuditLogger,
+	availabilityZone string) {
 	muxRouter.HandleFunc(v2.CredentialsPath, v2.CredentialsHandler(credentialsManager, auditLogger))
-	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, cluster))
-	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, cluster))
-	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, cluster))
+	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, cluster, availabilityZone))
+	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, cluster, availabilityZone))
+	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, cluster, availabilityZone))
 	muxRouter.HandleFunc(v2.ContainerStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPathWithSlash, v2.TaskContainerStatsHandler(state, statsEngine))
@@ -107,9 +109,10 @@ func v2HandlersSetup(muxRouter *mux.Router,
 func v3HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
 	statsEngine stats.Engine,
-	cluster string) {
+	cluster string,
+	availabilityZone string) {
 	muxRouter.HandleFunc(v3.ContainerMetadataPath, v3.ContainerMetadataHandler(state))
-	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, cluster))
+	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, cluster, availabilityZone))
 	muxRouter.HandleFunc(v3.ContainerStatsPath, v3.ContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v3.TaskStatsPath, v3.TaskStatsHandler(state, statsEngine))
 }
@@ -120,7 +123,8 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	containerInstanceArn string,
 	cfg *config.Config,
-	statsEngine stats.Engine) {
+	statsEngine stats.Engine,
+	availabilityZone string) {
 	// Create and initialize the audit log
 	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -133,7 +137,7 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
 	server := taskServerSetup(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine,
-		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate)
+		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone)
 
 	for {
 		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {

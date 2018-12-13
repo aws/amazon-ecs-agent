@@ -40,6 +40,7 @@ func (manager *metadataManager) parseMetadataAtContainerCreate(task *apitask.Tas
 		},
 		containerInstanceARN: manager.containerInstanceARN,
 		metadataStatus:       MetadataInitial,
+		availabilityZone:     manager.availabilityZone,
 	}
 }
 
@@ -60,6 +61,7 @@ func (manager *metadataManager) parseMetadata(dockerContainer *types.ContainerJS
 		dockerContainerMetadata: dockerMD,
 		containerInstanceARN:    manager.containerInstanceARN,
 		metadataStatus:          MetadataReady,
+		availabilityZone:        manager.availabilityZone,
 	}
 }
 

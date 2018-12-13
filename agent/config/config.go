@@ -477,6 +477,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:               parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
 		NumImagesToDeletePerCycle:          parseNumImagesToDeletePerCycle(),
 		ImagePullBehavior:                  parseImagePullBehavior(),
+		ImageCleanupExclusionList:          parseImageCleanupExclusionList("ECS_IMAGE_CLEANUP_EXCLUDE"),
 		InstanceAttributes:                 instanceAttributes,
 		CNIPluginsPath:                     os.Getenv("ECS_CNI_PLUGINS_PATH"),
 		AWSVPCBlockInstanceMetdata:         utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),

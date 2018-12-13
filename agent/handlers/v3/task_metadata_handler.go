@@ -31,7 +31,7 @@ const v3EndpointIDMuxName = "v3EndpointIDMuxName"
 var TaskMetadataPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task"
 
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
-func TaskMetadataHandler(state dockerstate.TaskEngineState, cluster string) func(http.ResponseWriter, *http.Request) {
+func TaskMetadataHandler(state dockerstate.TaskEngineState, cluster string, az string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
@@ -44,6 +44,6 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, cluster string) func
 		seelog.Infof("V3 task metadata handler: writing response for task '%s'", taskARN)
 
 		// v3 handler shares the same task metadata response format with v2 handler.
-		v2.WriteTaskMetadataResponse(w, taskARN, cluster, state)
+		v2.WriteTaskMetadataResponse(w, taskARN, cluster, state, az)
 	}
 }
