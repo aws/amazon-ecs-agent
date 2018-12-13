@@ -729,6 +729,7 @@ func TestContainerInstanceTags(t *testing.T) {
 }
 
 func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode string) {
+	ctx := context.TODO()
 	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
 	// will enable long container instance ARN.
 	putAccountSettingInput := ecsapi.PutAccountSettingInput{
@@ -746,7 +747,7 @@ func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode s
 			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
 				"localKey", "localValue"),
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -774,7 +775,7 @@ func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode s
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	v3TaskEndpointEnabled := false
 	if containerMetaData.Config != nil {
