@@ -30,7 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -95,7 +95,7 @@ func TestTaskResponse(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []docker.Mount{
+		VolumesUnsafe: []types.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
@@ -170,7 +170,7 @@ func TestContainerResponse(t *testing.T) {
 						Protocol:      apicontainer.TransportProtocolTCP,
 					},
 				},
-				VolumesUnsafe: []docker.Mount{
+				VolumesUnsafe: []types.MountPoint{
 					{
 						Name:        volName,
 						Source:      volSource,

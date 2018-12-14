@@ -32,7 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -58,7 +58,7 @@ func TestImagePullRemoveDeadlock(t *testing.T) {
 		Name:  "sleep",
 		Image: "busybox",
 	}
-	sleepContainerImageInspected := &docker.Image{
+	sleepContainerImageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 
@@ -109,7 +109,7 @@ func TestAddAndRemoveContainerToImageStateReferenceHappyPath(t *testing.T) {
 	}
 	sourceImageState.AddImageName(container.Image)
 	imageManager.(*dockerImageManager).addImageState(sourceImageState)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
@@ -194,7 +194,7 @@ func TestRecordContainerReferenceWithNoImageName(t *testing.T) {
 		PulledAt: time.Now(),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -350,7 +350,7 @@ func TestRemoveContainerReferenceFromInvalidImageState(t *testing.T) {
 	container := &apicontainer.Container{
 		Image: "myContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -421,7 +421,7 @@ func TestRemoveContainerReferenceFromImageStateWithNoReference(t *testing.T) {
 		PulledAt: time.Now(),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -503,7 +503,7 @@ func TestGetCandidateImagesForDeletionImageHasContainerReference(t *testing.T) {
 		PulledAt: time.Now().AddDate(0, -2, 0),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -548,7 +548,7 @@ func TestGetCandidateImagesForDeletionImageHasMoreContainerReferences(t *testing
 		PulledAt: time.Now().AddDate(0, -2, 0),
 	}
 	imageManager.addImageState(sourceImageState)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -770,7 +770,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil)
@@ -782,7 +782,7 @@ func TestRemoveAlreadyExistingImageNameWithDifferentID(t *testing.T) {
 		Name:  "testContainer1",
 		Image: "testContainerImage",
 	}
-	imageInspected1 := &docker.Image{
+	imageInspected1 := &types.ImageInspect{
 		ID: "sha256:asdfg",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected1, nil)
@@ -817,7 +817,7 @@ func TestImageCleanupHappyPath(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -873,7 +873,7 @@ func TestImageCleanupCannotRemoveImage(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -926,7 +926,7 @@ func TestImageCleanupRemoveImageById(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -964,7 +964,7 @@ func TestDeleteImage(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -995,7 +995,7 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1027,7 +1027,7 @@ func TestDeleteImageOtherRemoveImageErrors(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1095,7 +1095,7 @@ func TestGetImageStateFromImageName(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1119,7 +1119,7 @@ func TestGetImageStateFromImageNameNoImageState(t *testing.T) {
 		Name:  "testContainer",
 		Image: "testContainerImage",
 	}
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
@@ -1157,7 +1157,7 @@ func TestConcurrentRemoveUnusedImages(t *testing.T) {
 		ImageID: "sha256:qwerty",
 	}
 	sourceImage.Names = append(sourceImage.Names, container.Image)
-	imageInspected := &docker.Image{
+	imageInspected := &types.ImageInspect{
 		ID: "sha256:qwerty",
 	}
 	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()

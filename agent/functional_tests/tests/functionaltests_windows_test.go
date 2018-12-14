@@ -16,6 +16,7 @@
 package functional_tests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -116,6 +117,7 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+	ctx := context.TODO()
 	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -146,7 +148,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 
 	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		t.Fatalf("Could not inspect container for task: %v", err)
 	}
@@ -170,7 +172,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 		t.Fatalf("Waiting task to stop error : %v", err)
 	}
 
-	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err = agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		t.Fatalf("Could not inspect container for task: %v", err)
 	}

@@ -32,9 +32,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -92,9 +94,9 @@ func dialWithRetries(proto string, address string, tries int, timeout time.Durat
 }
 
 func removeImage(t *testing.T, img string) {
-	client, err := docker.NewClient(endpoint)
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "create docker client failed")
-	client.RemoveImage(img)
+	client.ImageRemove(context.TODO(), img, types.ImageRemoveOptions{})
 }
 
 func cleanVolumes(testTask *apitask.Task, taskEngine TaskEngine) {
@@ -110,10 +112,13 @@ func TestDockerStateToContainerState(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	testTask := createTestTask("test_task")
 	container := testTask.Containers[0]
 
-	client, err := docker.NewClientFromEnv()
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
 
 	containerMetadata := taskEngine.(*DockerTaskEngine).pullContainer(testTask, container)
@@ -121,18 +126,18 @@ func TestDockerStateToContainerState(t *testing.T) {
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).createContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ := client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.State))
+	state, _ := client.ContainerInspect(ctx, containerMetadata.DockerID)
+	assert.Equal(t, apicontainerstatus.ContainerCreated, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
+	assert.Equal(t, apicontainerstatus.ContainerRunning, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	containerMetadata = taskEngine.(*DockerTaskEngine).stopContainer(testTask, container)
 	assert.NoError(t, containerMetadata.Error)
-	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)
@@ -146,8 +151,8 @@ func TestDockerStateToContainerState(t *testing.T) {
 	assert.NoError(t, containerMetadata.Error)
 	containerMetadata = taskEngine.(*DockerTaskEngine).startContainer(testTask, container)
 	assert.Error(t, containerMetadata.Error)
-	state, _ = client.InspectContainer(containerMetadata.DockerID)
-	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.State))
+	state, _ = client.ContainerInspect(ctx, containerMetadata.DockerID)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, dockerapi.DockerStateToState(state.ContainerJSONBase.State))
 
 	// clean up the container
 	err = taskEngine.(*DockerTaskEngine).removeContainer(testTask, container)

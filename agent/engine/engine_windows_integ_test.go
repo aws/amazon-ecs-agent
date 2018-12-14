@@ -16,6 +16,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,11 +32,12 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -157,8 +159,8 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 // TODO Modify the container ip to localhost after the AMI has the required feature
 // https://github.com/docker/for-win/issues/204#issuecomment-352899657
 
-func getContainerIP(client *docker.Client, id string) (string, error) {
-	dockerContainer, err := client.InspectContainer(id)
+func getContainerIP(client *sdkClient.Client, id string) (string, error) {
+	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
 	if err != nil {
 		return "", err
 	}
@@ -261,7 +263,7 @@ func TestPortForward(t *testing.T) {
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	client, _ := docker.NewClient(endpoint)
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 
 	testArn := "testPortForwardFail"
 	testTask := createTestTask(testArn)
@@ -283,8 +285,11 @@ func TestPortForward(t *testing.T) {
 	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", cip, containerPortOne), dialTimeout)
 	assert.Error(t, err, "Did not expect to be able to dial port %d but didn't get error", containerPortOne)
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	// Kill the existing container now to make the test run more quickly.
-	err = client.KillContainer(docker.KillContainerOptions{ID: cid})
+	err = client.ContainerKill(ctx, cid, "SIGKILL")
 	assert.NoError(t, err, "Could not kill container")
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
@@ -339,7 +344,7 @@ func TestMultiplePortForwards(t *testing.T) {
 	defer done()
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	client, _ := docker.NewClient(endpoint)
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 
 	// Forward it and make sure that works
 	testArn := "testMultiplePortForwards"
@@ -424,7 +429,7 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 	assert.NotEqual(t, bindingFor24751, 0, "could not find the port mapping for %d", containerPortOne)
 
-	client, _ := docker.NewClient(endpoint)
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	cip, err := getContainerIP(client, cid)
@@ -487,7 +492,7 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	assert.NotZero(t, bindingFor24751_1, "could not find the port mapping for ", containerPortOne)
 	assert.NotZero(t, bindingFor24751_2, "could not find the port mapping for ", containerPortOne)
 
-	client, _ := docker.NewClient(endpoint)
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	cip, err := getContainerIP(client, cid)
