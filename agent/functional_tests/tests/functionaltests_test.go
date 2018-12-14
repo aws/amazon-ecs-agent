@@ -648,6 +648,7 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 // ECS_CONTAINER_METADATA_FILE environment variable contains all the required
 // fields
 func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
+	ctx := context.TODO()
 	agentOptions := &AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_CONTAINER_METADATA": "true",
@@ -674,7 +675,7 @@ func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	containerMetadataFileFound := false
 	if containerMetaData.Config != nil {
