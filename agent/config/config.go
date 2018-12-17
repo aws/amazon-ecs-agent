@@ -109,7 +109,7 @@ const (
 	DefaultTaskMetadataBurstRate = 60
 
 	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers
-	DefaultNvidiaRuntime = "ecs-nvidia"
+	DefaultNvidiaRuntime = "nvidia"
 )
 
 const (
