@@ -21,8 +21,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -32,6 +31,7 @@ const (
 )
 
 var isAWSVPCNetworkMode bool
+var checkContainerInstanceTags bool
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
@@ -41,6 +41,7 @@ type TaskResponse struct {
 	Revision           string              `json:"Revision"`
 	DesiredStatus      string              `json:"DesiredStatus,omitempty"`
 	KnownStatus        string              `json:"KnownStatus"`
+	AvailabilityZone   string              `json:"AvailabilityZone"`
 	Containers         []ContainerResponse `json:"Containers,omitempty"`
 	Limits             *LimitsResponse     `json:"Limits,omitempty"`
 	PullStartedAt      *time.Time          `json:"PullStartedAt,omitempty"`
@@ -106,7 +107,7 @@ func verifyContainerMetadata(client *http.Client, containerMetadataEndpoint stri
 		return err
 	}
 
-	seelog.Infof("Received container metadata: %s \n", string(body))
+	fmt.Printf("Received container metadata: %s \n", string(body))
 
 	var containerMetadata ContainerResponse
 	if err = json.Unmarshal(body, &containerMetadata); err != nil {
@@ -126,7 +127,7 @@ func verifyTaskMetadata(client *http.Client, taskMetadataEndpoint string) error 
 		return err
 	}
 
-	seelog.Infof("Received task metadata: %s \n", string(body))
+	fmt.Printf("Received task metadata: %s \n", string(body))
 
 	var taskMetadata TaskResponse
 	if err = json.Unmarshal(body, &taskMetadata); err != nil {
@@ -146,9 +147,9 @@ func verifyContainerStats(client *http.Client, containerStatsEndpoint string) er
 		return err
 	}
 
-	seelog.Infof("Received container stats: %s \n", string(body))
+	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats docker.Stats
+	var containerStats types.Stats
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return fmt.Errorf("container stats: unable to parse response body: %v", err)
@@ -163,9 +164,9 @@ func verifyTaskStats(client *http.Client, taskStatsEndpoint string) error {
 		return err
 	}
 
-	seelog.Infof("Received task stats: %s \n", string(body))
+	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*docker.Stats
+	var taskStats map[string]*types.Stats
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return fmt.Errorf("task stats: unable to parse response body: %v", err)
@@ -180,13 +181,14 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 	json.Unmarshal(taskMetadataRawMsg, &taskMetadataResponseMap)
 
 	taskExpectedFieldEqualMap := map[string]interface{}{
-		"Cluster":       "ecs-functional-tests",
-		"Revision":      "1",
 		"DesiredStatus": "RUNNING",
 		"KnownStatus":   "RUNNING",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"TaskARN", "Family", "PullStartedAt", "PullStoppedAt", "Containers"}
+	taskExpectedFieldNotEmptyArray := []string{"Cluster", "TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
+	if checkContainerInstanceTags {
+		taskExpectedFieldNotEmptyArray = append(taskExpectedFieldNotEmptyArray, "ContainerInstanceTags")
+	}
 
 	for fieldName, fieldVal := range taskExpectedFieldEqualMap {
 		if err = fieldEqual(taskMetadataResponseMap, fieldName, fieldVal); err != nil {
@@ -413,33 +415,46 @@ func main() {
 		Timeout: 5 * time.Second,
 	}
 
+	// If the image is built with option to check Tags
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 {
+		if argsWithoutProg[0] == "CheckTags" {
+			checkContainerInstanceTags = true
+		}
+	}
+
 	// Wait for the Health information to be ready
 	time.Sleep(5 * time.Second)
 
 	isAWSVPCNetworkMode = false
 	v3BaseEndpoint := os.Getenv(containerMetadataEnvVar)
 	containerMetadataPath := v3BaseEndpoint
-	taskMetadataPath := v3BaseEndpoint + "/task"
+	taskMetadataPath := v3BaseEndpoint
+	if checkContainerInstanceTags {
+		taskMetadataPath += "/taskWithTags"
+	} else {
+		taskMetadataPath += "/task"
+	}
 	containerStatsPath := v3BaseEndpoint + "/stats"
 	taskStatsPath := v3BaseEndpoint + "/task/stats"
 
 	if err := verifyContainerMetadata(client, containerMetadataPath); err != nil {
-		seelog.Errorf("Container metadata: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to get container metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskMetadata(client, taskMetadataPath); err != nil {
-		seelog.Errorf("Task metadata: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to get task metadata: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyContainerStats(client, containerStatsPath); err != nil {
-		seelog.Errorf("Container stats: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to get container stats: %v\n", err)
 		os.Exit(1)
 	}
 
 	if err := verifyTaskStats(client, taskStatsPath); err != nil {
-		seelog.Errorf("Task stats: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to get task stats: %v\n", err)
 		os.Exit(1)
 	}
 

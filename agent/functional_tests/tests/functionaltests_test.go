@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -36,7 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/docker/docker/pkg/system"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,6 +74,7 @@ func TestPullInvalidImage(t *testing.T) {
 // its control, and starting the agent results in that container being moved to
 // 'stopped'
 func TestSavedState(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	testTask, err := agent.StartTask(t, savedStateTaskDefinition)
@@ -94,7 +96,8 @@ func TestSavedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,6 +182,7 @@ func TestPortResourceContention(t *testing.T) {
 }
 
 func TestLabels(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -196,7 +200,7 @@ func TestLabels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,6 +210,7 @@ func TestLabels(t *testing.T) {
 }
 
 func TestLogdriverOptions(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -223,7 +228,7 @@ func TestLogdriverOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,6 +241,7 @@ func TestLogdriverOptions(t *testing.T) {
 }
 
 func TestTaskCleanup(t *testing.T) {
+	ctx := context.TODO()
 	// Set the task cleanup time to just over a minute.
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "70s")
 	agent := RunAgent(t, nil)
@@ -261,13 +267,14 @@ func TestTaskCleanup(t *testing.T) {
 	}
 
 	// We should be able to inspect the container ID from docker at this point.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatalf("Error inspecting container in task: %v", err)
 	}
 
 	// Stop the task and sleep for 2 minutes to let the task be cleaned up.
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatalf("Error stoppping task: %v", err)
 	}
@@ -280,7 +287,7 @@ func TestTaskCleanup(t *testing.T) {
 	time.Sleep(2 * time.Minute)
 
 	// We should not be able to describe the container now since it has been cleaned up.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err == nil {
 		t.Fatalf("Expected error inspecting container in task")
 	}
@@ -576,7 +583,7 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -590,6 +597,7 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$CHECK_TAGS$$$"] = "" // Tags are not checked in regular V3TaskEndpoint Test
 
 	if networkMode != "" {
 		tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
@@ -612,7 +620,8 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	ctx := context.TODO()
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	v3TaskEndpointEnabled := false
 	if containerMetaData.Config != nil {
@@ -626,6 +635,60 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 	if !v3TaskEndpointEnabled {
 		task.Stop()
 		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// testContainerMetadataFile validates that the metadata file from the
+// ECS_CONTAINER_METADATA_FILE environment variable contains all the required
+// fields
+func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
+	ctx := context.TODO()
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_CONTAINER_METADATA": "true",
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+	// TODO: Bump version to 1.24.0 (or next release after 1.23.0)
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+	containerName := "container-metadata-file-validator"
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	containerMetadataFileFound := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_FILE=") {
+				containerMetadataFileFound = true
+				break
+			}
+		}
+	}
+	if !containerMetadataFileFound {
+		task.Stop()
+		t.Fatal("Could not find ECS_CONTAINER_METADATA_FILE in the container environment variable")
 	}
 
 	err = task.WaitStopped(waitTaskStateChangeDuration)
@@ -686,8 +749,7 @@ func TestContainerInstanceTags(t *testing.T) {
 	}
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
-	// Change the required Agent version to v1.22.0 during 1.22.0 staging or after staging.
-	agent.RequireVersion(">=1.21.0")
+	agent.RequireVersion(">=1.22.0")
 
 	// Verify the tags are registered.
 	ListTagsForResourceInput := ecsapi.ListTagsForResourceInput{
@@ -712,6 +774,82 @@ func TestContainerInstanceTags(t *testing.T) {
 		}
 	}
 	assert.Zero(t, len(expectedTagsMap))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
+}
+
+func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode string) {
+	ctx := context.TODO()
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+	awslogsPrefix := "ecs-functional-tests-v3-task-endpoint-with-tags-validator"
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
+		},
+		PortBindings: map[nat.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // To enable Tag check in v3-task-endpoint-validator image
+
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] + "-" + networkMode
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	v3TaskEndpointEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_URI=") {
+				v3TaskEndpointEnabled = true
+				break
+			}
+		}
+	}
+	if !v3TaskEndpointEnabled {
+		task.Stop()
+		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 
 	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
 		Name: aws.String("containerInstanceLongArnFormat"),

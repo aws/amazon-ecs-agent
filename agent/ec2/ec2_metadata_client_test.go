@@ -38,6 +38,7 @@ const (
 	vpcID        = "vpc-1234"
 	subnetID     = "subnet-1234"
 	iidRegion    = "us-east-1"
+	publicIP     = "127.0.0.1"
 )
 
 func makeTestRoleCredentials() ec2.RoleCredentials {
@@ -178,4 +179,18 @@ func TestSubnetID(t *testing.T) {
 	subnetIDResponse, err := testClient.SubnetID(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, subnetID, subnetIDResponse)
+}
+
+func TestPublicIPv4Address(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		ec2.PublicIPv4Resource).Return(publicIP, nil)
+	publicIPResponse, err := testClient.PublicIPv4Address()
+	assert.NoError(t, err)
+	assert.Equal(t, publicIP, publicIPResponse)
 }

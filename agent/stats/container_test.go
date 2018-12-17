@@ -22,13 +22,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+
 	"context"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 )
 
@@ -56,12 +58,12 @@ func TestContainerStatsCollection(t *testing.T) {
 
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
-	statChan := make(chan *docker.Stats)
-	mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil)
+	statChan := make(chan *types.Stats)
+	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(statChan, nil)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
-			// deal with the docker.Stats.MemoryStats inner struct
+			// deal with the types.Stats.MemoryStats inner struct
 			jsonStat := fmt.Sprintf(`
 				{
 					"memory_stats": {"usage":%d, "privateworkingset":%d},
@@ -72,7 +74,7 @@ func TestContainerStatsCollection(t *testing.T) {
 						}
 					}
 				}`, stat.memBytes, stat.memBytes, stat.cpuTime, stat.cpuTime)
-			dockerStat := &docker.Stats{}
+			dockerStat := &types.Stats{}
 			json.Unmarshal([]byte(jsonStat), dockerStat)
 			dockerStat.Read = stat.timestamp
 			statChan <- dockerStat
@@ -134,9 +136,9 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	statChan := make(chan *docker.Stats)
+	statChan := make(chan *types.Stats)
 	statErr := fmt.Errorf("test error")
-	closedChan := make(chan *docker.Stats)
+	closedChan := make(chan *types.Stats)
 	close(closedChan)
 
 	mockContainer := &apicontainer.DockerContainer{
@@ -146,11 +148,11 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(nil, statErr),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(nil, statErr),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
-		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(closedChan, nil),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
-		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(statChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(statChan, nil),
 	)
 
 	container := &StatsContainer{
@@ -176,7 +178,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	closedChan := make(chan *docker.Stats)
+	closedChan := make(chan *types.Stats)
 	close(closedChan)
 
 	statsErr := fmt.Errorf("test error")
@@ -187,7 +189,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(dockerID, ctx).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(closedChan, nil),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, statsErr),
 	)
 

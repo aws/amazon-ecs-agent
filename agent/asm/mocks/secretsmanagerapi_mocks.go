@@ -137,6 +137,50 @@ func (mr *MockSecretsManagerAPIMockRecorder) CreateSecretWithContext(arg0, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecretWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).CreateSecretWithContext), varargs...)
 }
 
+// DeleteResourcePolicy mocks base method
+func (m *MockSecretsManagerAPI) DeleteResourcePolicy(arg0 *secretsmanager.DeleteResourcePolicyInput) (*secretsmanager.DeleteResourcePolicyOutput, error) {
+	ret := m.ctrl.Call(m, "DeleteResourcePolicy", arg0)
+	ret0, _ := ret[0].(*secretsmanager.DeleteResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteResourcePolicy indicates an expected call of DeleteResourcePolicy
+func (mr *MockSecretsManagerAPIMockRecorder) DeleteResourcePolicy(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicy", reflect.TypeOf((*MockSecretsManagerAPI)(nil).DeleteResourcePolicy), arg0)
+}
+
+// DeleteResourcePolicyRequest mocks base method
+func (m *MockSecretsManagerAPI) DeleteResourcePolicyRequest(arg0 *secretsmanager.DeleteResourcePolicyInput) (*request.Request, *secretsmanager.DeleteResourcePolicyOutput) {
+	ret := m.ctrl.Call(m, "DeleteResourcePolicyRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*secretsmanager.DeleteResourcePolicyOutput)
+	return ret0, ret1
+}
+
+// DeleteResourcePolicyRequest indicates an expected call of DeleteResourcePolicyRequest
+func (mr *MockSecretsManagerAPIMockRecorder) DeleteResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyRequest", reflect.TypeOf((*MockSecretsManagerAPI)(nil).DeleteResourcePolicyRequest), arg0)
+}
+
+// DeleteResourcePolicyWithContext mocks base method
+func (m *MockSecretsManagerAPI) DeleteResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.DeleteResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.DeleteResourcePolicyOutput, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteResourcePolicyWithContext", varargs...)
+	ret0, _ := ret[0].(*secretsmanager.DeleteResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteResourcePolicyWithContext indicates an expected call of DeleteResourcePolicyWithContext
+func (mr *MockSecretsManagerAPIMockRecorder) DeleteResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteResourcePolicyWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).DeleteResourcePolicyWithContext), varargs...)
+}
+
 // DeleteSecret mocks base method
 func (m *MockSecretsManagerAPI) DeleteSecret(arg0 *secretsmanager.DeleteSecretInput) (*secretsmanager.DeleteSecretOutput, error) {
 	ret := m.ctrl.Call(m, "DeleteSecret", arg0)
@@ -267,6 +311,50 @@ func (m *MockSecretsManagerAPI) GetRandomPasswordWithContext(arg0 aws.Context, a
 func (mr *MockSecretsManagerAPIMockRecorder) GetRandomPasswordWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRandomPasswordWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).GetRandomPasswordWithContext), varargs...)
+}
+
+// GetResourcePolicy mocks base method
+func (m *MockSecretsManagerAPI) GetResourcePolicy(arg0 *secretsmanager.GetResourcePolicyInput) (*secretsmanager.GetResourcePolicyOutput, error) {
+	ret := m.ctrl.Call(m, "GetResourcePolicy", arg0)
+	ret0, _ := ret[0].(*secretsmanager.GetResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetResourcePolicy indicates an expected call of GetResourcePolicy
+func (mr *MockSecretsManagerAPIMockRecorder) GetResourcePolicy(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicy", reflect.TypeOf((*MockSecretsManagerAPI)(nil).GetResourcePolicy), arg0)
+}
+
+// GetResourcePolicyRequest mocks base method
+func (m *MockSecretsManagerAPI) GetResourcePolicyRequest(arg0 *secretsmanager.GetResourcePolicyInput) (*request.Request, *secretsmanager.GetResourcePolicyOutput) {
+	ret := m.ctrl.Call(m, "GetResourcePolicyRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*secretsmanager.GetResourcePolicyOutput)
+	return ret0, ret1
+}
+
+// GetResourcePolicyRequest indicates an expected call of GetResourcePolicyRequest
+func (mr *MockSecretsManagerAPIMockRecorder) GetResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyRequest", reflect.TypeOf((*MockSecretsManagerAPI)(nil).GetResourcePolicyRequest), arg0)
+}
+
+// GetResourcePolicyWithContext mocks base method
+func (m *MockSecretsManagerAPI) GetResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.GetResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.GetResourcePolicyOutput, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetResourcePolicyWithContext", varargs...)
+	ret0, _ := ret[0].(*secretsmanager.GetResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetResourcePolicyWithContext indicates an expected call of GetResourcePolicyWithContext
+func (mr *MockSecretsManagerAPIMockRecorder) GetResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourcePolicyWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).GetResourcePolicyWithContext), varargs...)
 }
 
 // GetSecretValue mocks base method
@@ -457,6 +545,50 @@ func (m *MockSecretsManagerAPI) ListSecretsWithContext(arg0 aws.Context, arg1 *s
 func (mr *MockSecretsManagerAPIMockRecorder) ListSecretsWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretsWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).ListSecretsWithContext), varargs...)
+}
+
+// PutResourcePolicy mocks base method
+func (m *MockSecretsManagerAPI) PutResourcePolicy(arg0 *secretsmanager.PutResourcePolicyInput) (*secretsmanager.PutResourcePolicyOutput, error) {
+	ret := m.ctrl.Call(m, "PutResourcePolicy", arg0)
+	ret0, _ := ret[0].(*secretsmanager.PutResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutResourcePolicy indicates an expected call of PutResourcePolicy
+func (mr *MockSecretsManagerAPIMockRecorder) PutResourcePolicy(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicy", reflect.TypeOf((*MockSecretsManagerAPI)(nil).PutResourcePolicy), arg0)
+}
+
+// PutResourcePolicyRequest mocks base method
+func (m *MockSecretsManagerAPI) PutResourcePolicyRequest(arg0 *secretsmanager.PutResourcePolicyInput) (*request.Request, *secretsmanager.PutResourcePolicyOutput) {
+	ret := m.ctrl.Call(m, "PutResourcePolicyRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*secretsmanager.PutResourcePolicyOutput)
+	return ret0, ret1
+}
+
+// PutResourcePolicyRequest indicates an expected call of PutResourcePolicyRequest
+func (mr *MockSecretsManagerAPIMockRecorder) PutResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyRequest", reflect.TypeOf((*MockSecretsManagerAPI)(nil).PutResourcePolicyRequest), arg0)
+}
+
+// PutResourcePolicyWithContext mocks base method
+func (m *MockSecretsManagerAPI) PutResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.PutResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.PutResourcePolicyOutput, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutResourcePolicyWithContext", varargs...)
+	ret0, _ := ret[0].(*secretsmanager.PutResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutResourcePolicyWithContext indicates an expected call of PutResourcePolicyWithContext
+func (mr *MockSecretsManagerAPIMockRecorder) PutResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutResourcePolicyWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).PutResourcePolicyWithContext), varargs...)
 }
 
 // PutSecretValue mocks base method

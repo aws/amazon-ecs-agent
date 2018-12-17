@@ -67,6 +67,25 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	assert.Zero(t, config.APIEndpoint, "Endpoint env variable not set; endpoint should be blank")
 }
 
+func TestGetRegionWithNoIID(t *testing.T) {
+	defer setTestEnv("AWS_DEFAULT_REGION", "")()
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+	userDataResponse := `{ "ECSAgentConfiguration":{
+		"Cluster":"arn:aws:ecs:us-east-1:123456789012:cluster/my-cluster",
+		"APIEndpoint":"https://some-endpoint.com",
+		"NoIID":true
+	}}`
+	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
+	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
+
+	config, err := NewConfig(mockEc2Metadata)
+	assert.NoError(t, err)
+	assert.Equal(t, config.AWSRegion, "us-east-1", "Wrong region")
+	assert.Equal(t, config.APIEndpoint, "https://some-endpoint.com", "Endpoint env variable not set; endpoint should be blank")
+}
+
 func TestEnvironmentConfig(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CLUSTER", "myCluster")()
@@ -350,6 +369,13 @@ func TestInvalidFormatParseEnvVariableDuration(t *testing.T) {
 	setTestEnv("FOO", "foo")
 	duration := parseEnvVariableDuration("FOO")
 	assert.Zero(t, duration, "Expected 0 from parseEnvVariableDuration for invalid format")
+}
+
+func TestValidForImagesCleanupExclusion(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_IMAGE_CLEANUP_EXCLUDE", "amazonlinux:2,amazonlinux:3")()
+	imagesNotDelete := parseImageCleanupExclusionList("ECS_IMAGE_CLEANUP_EXCLUDE")
+	assert.Equal(t, []string{"amazonlinux:2", "amazonlinux:3"}, imagesNotDelete, "unexpected imageCleanupExclusionList")
 }
 
 func TestValidFormatParseEnvVariableDuration(t *testing.T) {

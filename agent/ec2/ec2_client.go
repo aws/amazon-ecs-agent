@@ -14,6 +14,8 @@
 package ec2
 
 import (
+	"strings"
+
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -30,6 +32,7 @@ const (
 	ResourceIDFilterName            = "resource-id"
 	ResourceTypeFilterName          = "resource-type"
 	ResourceTypeFilterValueInstance = "instance"
+	awsTagPrefix                    = "aws:"
 )
 
 type Client interface {
@@ -87,10 +90,14 @@ func (c *ClientImpl) DescribeECSTagsForInstance(instanceID string) ([]*ecs.Tag, 
 	var tags []*ecs.Tag
 	// Convert ec2 tags to ecs tags
 	for _, ec2Tag := range res.Tags {
-		tags = append(tags, &ecs.Tag{
-			Key:   ec2Tag.Key,
-			Value: ec2Tag.Value,
-		})
+		// Filter out all tags "aws:" prefix
+		if !strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Key)), awsTagPrefix) &&
+			!strings.HasPrefix(strings.ToLower(aws.StringValue(ec2Tag.Value)), awsTagPrefix) {
+			tags = append(tags, &ecs.Tag{
+				Key:   ec2Tag.Key,
+				Value: ec2Tag.Value,
+			})
+		}
 	}
 	return tags, nil
 }

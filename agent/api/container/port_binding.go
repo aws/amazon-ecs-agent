@@ -17,7 +17,7 @@ import (
 	"strconv"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
@@ -41,11 +41,11 @@ type PortBinding struct {
 
 // PortBindingFromDockerPortBinding constructs a PortBinding slice from a docker
 // NetworkSettings.Ports map.
-func PortBindingFromDockerPortBinding(dockerPortBindings map[docker.Port][]docker.PortBinding) ([]PortBinding, apierrors.NamedError) {
+func PortBindingFromDockerPortBinding(dockerPortBindings nat.PortMap) ([]PortBinding, apierrors.NamedError) {
 	portBindings := make([]PortBinding, 0, len(dockerPortBindings))
 
 	for port, bindings := range dockerPortBindings {
-		containerPort, err := strconv.Atoi(port.Port())
+		containerPort, err := nat.ParsePort(port.Port())
 		if err != nil {
 			return nil, &apierrors.DefaultNamedError{Name: UnparseablePortErrorName, Err: "Error parsing docker port as int " + err.Error()}
 		}

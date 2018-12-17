@@ -27,7 +27,7 @@ const opCreateCluster = "CreateCluster"
 // CreateClusterRequest generates a "aws/request.Request" representing the
 // client's request for the CreateCluster operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -122,7 +122,7 @@ const opCreateService = "CreateService"
 // CreateServiceRequest generates a "aws/request.Request" representing the
 // client's request for the CreateService operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -286,7 +286,7 @@ const opDeleteAccountSetting = "DeleteAccountSetting"
 // DeleteAccountSettingRequest generates a "aws/request.Request" representing the
 // client's request for the DeleteAccountSetting operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -369,7 +369,7 @@ const opDeleteAttributes = "DeleteAttributes"
 // DeleteAttributesRequest generates a "aws/request.Request" representing the
 // client's request for the DeleteAttributes operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -455,7 +455,7 @@ const opDeleteCluster = "DeleteCluster"
 // DeleteClusterRequest generates a "aws/request.Request" representing the
 // client's request for the DeleteCluster operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -559,7 +559,7 @@ const opDeleteService = "DeleteService"
 // DeleteServiceRequest generates a "aws/request.Request" representing the
 // client's request for the DeleteService operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -665,7 +665,7 @@ const opDeregisterContainerInstance = "DeregisterContainerInstance"
 // DeregisterContainerInstanceRequest generates a "aws/request.Request" representing the
 // client's request for the DeregisterContainerInstance operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -768,7 +768,7 @@ const opDeregisterTaskDefinition = "DeregisterTaskDefinition"
 // DeregisterTaskDefinitionRequest generates a "aws/request.Request" representing the
 // client's request for the DeregisterTaskDefinition operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -867,7 +867,7 @@ const opDescribeClusters = "DescribeClusters"
 // DescribeClustersRequest generates a "aws/request.Request" representing the
 // client's request for the DescribeClusters operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -952,7 +952,7 @@ const opDescribeContainerInstances = "DescribeContainerInstances"
 // DescribeContainerInstancesRequest generates a "aws/request.Request" representing the
 // client's request for the DescribeContainerInstances operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1042,7 +1042,7 @@ const opDescribeServices = "DescribeServices"
 // DescribeServicesRequest generates a "aws/request.Request" representing the
 // client's request for the DescribeServices operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1131,7 +1131,7 @@ const opDescribeTaskDefinition = "DescribeTaskDefinition"
 // DescribeTaskDefinitionRequest generates a "aws/request.Request" representing the
 // client's request for the DescribeTaskDefinition operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1221,7 +1221,7 @@ const opDescribeTasks = "DescribeTasks"
 // DescribeTasksRequest generates a "aws/request.Request" representing the
 // client's request for the DescribeTasks operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1310,7 +1310,7 @@ const opDiscoverPollEndpoint = "DiscoverPollEndpoint"
 // DiscoverPollEndpointRequest generates a "aws/request.Request" representing the
 // client's request for the DiscoverPollEndpoint operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1394,7 +1394,7 @@ const opListAttributes = "ListAttributes"
 // ListAttributesRequest generates a "aws/request.Request" representing the
 // client's request for the ListAttributes operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1481,7 +1481,7 @@ const opListClusters = "ListClusters"
 // ListClustersRequest generates a "aws/request.Request" representing the
 // client's request for the ListClusters operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1622,7 +1622,7 @@ const opListContainerInstances = "ListContainerInstances"
 // ListContainerInstancesRequest generates a "aws/request.Request" representing the
 // client's request for the ListContainerInstances operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1771,7 +1771,7 @@ const opListServices = "ListServices"
 // ListServicesRequest generates a "aws/request.Request" representing the
 // client's request for the ListServices operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -1916,7 +1916,7 @@ const opListTagsForResource = "ListTagsForResource"
 // ListTagsForResourceRequest generates a "aws/request.Request" representing the
 // client's request for the ListTagsForResource operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2003,7 +2003,7 @@ const opListTaskDefinitionFamilies = "ListTaskDefinitionFamilies"
 // ListTaskDefinitionFamiliesRequest generates a "aws/request.Request" representing the
 // client's request for the ListTaskDefinitionFamilies operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2150,7 +2150,7 @@ const opListTaskDefinitions = "ListTaskDefinitions"
 // ListTaskDefinitionsRequest generates a "aws/request.Request" representing the
 // client's request for the ListTaskDefinitions operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2293,7 +2293,7 @@ const opListTasks = "ListTasks"
 // ListTasksRequest generates a "aws/request.Request" representing the
 // client's request for the ListTasks operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2447,7 +2447,7 @@ const opPutAccountSetting = "PutAccountSetting"
 // PutAccountSettingRequest generates a "aws/request.Request" representing the
 // client's request for the PutAccountSetting operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2530,7 +2530,7 @@ const opPutAttributes = "PutAttributes"
 // PutAttributesRequest generates a "aws/request.Request" representing the
 // client's request for the PutAttributes operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2625,7 +2625,7 @@ const opRegisterContainerInstance = "RegisterContainerInstance"
 // RegisterContainerInstanceRequest generates a "aws/request.Request" representing the
 // client's request for the RegisterContainerInstance operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2714,7 +2714,7 @@ const opRegisterTaskDefinition = "RegisterTaskDefinition"
 // RegisterTaskDefinitionRequest generates a "aws/request.Request" representing the
 // client's request for the RegisterTaskDefinition operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2819,7 +2819,7 @@ const opRunTask = "RunTask"
 // RunTaskRequest generates a "aws/request.Request" representing the
 // client's request for the RunTask operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -2954,7 +2954,7 @@ const opStartTask = "StartTask"
 // StartTaskRequest generates a "aws/request.Request" representing the
 // client's request for the StartTask operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3048,7 +3048,7 @@ const opStopTask = "StopTask"
 // StopTaskRequest generates a "aws/request.Request" representing the
 // client's request for the StopTask operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3148,7 +3148,7 @@ const opSubmitContainerStateChange = "SubmitContainerStateChange"
 // SubmitContainerStateChangeRequest generates a "aws/request.Request" representing the
 // client's request for the SubmitContainerStateChange operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3235,7 +3235,7 @@ const opSubmitTaskStateChange = "SubmitTaskStateChange"
 // SubmitTaskStateChangeRequest generates a "aws/request.Request" representing the
 // client's request for the SubmitTaskStateChange operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3322,7 +3322,7 @@ const opUpdateContainerAgent = "UpdateContainerAgent"
 // UpdateContainerAgentRequest generates a "aws/request.Request" representing the
 // client's request for the UpdateContainerAgent operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3439,7 +3439,7 @@ const opUpdateContainerInstancesState = "UpdateContainerInstancesState"
 // UpdateContainerInstancesStateRequest generates a "aws/request.Request" representing the
 // client's request for the UpdateContainerInstancesState operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -3571,7 +3571,7 @@ const opUpdateService = "UpdateService"
 // UpdateServiceRequest generates a "aws/request.Request" representing the
 // client's request for the UpdateService operation. The "output" return
 // value will be populated with the request's response once the request completes
-// successfuly.
+// successfully.
 //
 // Use "Send" method on the returned Request to send the API call to the service.
 // the "output" return value is not valid until after Send returns without error.
@@ -4566,6 +4566,8 @@ type ContainerDefinition struct {
 	// The private repository authentication credentials to use.
 	RepositoryCredentials *RepositoryCredentials `locationName:"repositoryCredentials" type:"structure"`
 
+	Secrets []*Secret `locationName:"secrets" type:"list"`
+
 	SystemControls []*SystemControl `locationName:"systemControls" type:"list"`
 
 	// A list of ulimits to set in the container. This parameter maps to Ulimits
@@ -4643,6 +4645,16 @@ func (s *ContainerDefinition) Validate() error {
 	if s.RepositoryCredentials != nil {
 		if err := s.RepositoryCredentials.Validate(); err != nil {
 			invalidParams.AddNested("RepositoryCredentials", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.Secrets != nil {
+		for i, v := range s.Secrets {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Secrets", i), err.(request.ErrInvalidParams))
+			}
 		}
 	}
 	if s.Ulimits != nil {
@@ -4824,6 +4836,12 @@ func (s *ContainerDefinition) SetRepositoryCredentials(v *RepositoryCredentials)
 	return s
 }
 
+// SetSecrets sets the Secrets field's value.
+func (s *ContainerDefinition) SetSecrets(v []*Secret) *ContainerDefinition {
+	s.Secrets = v
+	return s
+}
+
 // SetSystemControls sets the SystemControls field's value.
 func (s *ContainerDefinition) SetSystemControls(v []*SystemControl) *ContainerDefinition {
 	s.SystemControls = v
@@ -4875,6 +4893,8 @@ type ContainerInstance struct {
 	// agent at instance registration or manually with the PutAttributes operation.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
+	ClientToken *string `locationName:"clientToken" type:"string"`
+
 	// The Amazon Resource Name (ARN) of the container instance. The ARN contains
 	// the arn:aws:ecs namespace, followed by the Region of the container instance,
 	// the AWS account ID of the container instance owner, the container-instance
@@ -4888,7 +4908,7 @@ type ContainerInstance struct {
 	PendingTasksCount *int64 `locationName:"pendingTasksCount" type:"integer"`
 
 	// The Unix time stamp for when the container instance was registered.
-	RegisteredAt *time.Time `locationName:"registeredAt" type:"timestamp" timestampFormat:"unix"`
+	RegisteredAt *time.Time `locationName:"registeredAt" type:"timestamp"`
 
 	// For CPU and memory resource types, this parameter describes the amount of
 	// each resource that was available on the container instance when the container
@@ -4918,6 +4938,12 @@ type ContainerInstance struct {
 	// For more information, see Container Instance Draining (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html)
 	// in the Amazon Elastic Container Service Developer Guide.
 	Status *string `locationName:"status" type:"string"`
+
+	// The metadata that you apply to the container instance to help you categorize
+	// and organize them. Each tag consists of a key and an optional value, both
+	// of which you define. Tag keys can have a maximum character length of 128
+	// characters, and tag values can have a maximum length of 256 characters.
+	Tags []*Tag `locationName:"tags" type:"list"`
 
 	// The version counter for the container instance. Every time a container instance
 	// experiences a change that triggers a CloudWatch event, the version counter
@@ -4967,6 +4993,12 @@ func (s *ContainerInstance) SetAttributes(v []*Attribute) *ContainerInstance {
 	return s
 }
 
+// SetClientToken sets the ClientToken field's value.
+func (s *ContainerInstance) SetClientToken(v string) *ContainerInstance {
+	s.ClientToken = &v
+	return s
+}
+
 // SetContainerInstanceArn sets the ContainerInstanceArn field's value.
 func (s *ContainerInstance) SetContainerInstanceArn(v string) *ContainerInstance {
 	s.ContainerInstanceArn = &v
@@ -5012,6 +5044,12 @@ func (s *ContainerInstance) SetRunningTasksCount(v int64) *ContainerInstance {
 // SetStatus sets the Status field's value.
 func (s *ContainerInstance) SetStatus(v string) *ContainerInstance {
 	s.Status = &v
+	return s
+}
+
+// SetTags sets the Tags field's value.
+func (s *ContainerInstance) SetTags(v []*Tag) *ContainerInstance {
+	s.Tags = v
 	return s
 }
 
@@ -5812,7 +5850,7 @@ type Deployment struct {
 	_ struct{} `type:"structure"`
 
 	// The Unix time stamp for when the service was created.
-	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp"`
 
 	// The most recent desired count of tasks that was specified for the service
 	// to deploy or maintain.
@@ -5847,7 +5885,7 @@ type Deployment struct {
 	TaskDefinition *string `locationName:"taskDefinition" type:"string"`
 
 	// The Unix time stamp for when the service was last updated.
-	UpdatedAt *time.Time `locationName:"updatedAt" type:"timestamp" timestampFormat:"unix"`
+	UpdatedAt *time.Time `locationName:"updatedAt" type:"timestamp"`
 }
 
 // String returns the string representation
@@ -6652,6 +6690,10 @@ type DockerVolumeConfiguration struct {
 
 	Labels map[string]*string `locationName:"labels" type:"map"`
 
+	// The scope for the Docker volume that determines its lifecycle. Docker volumes
+	// that are scoped to a task are automatically provisioned when the task starts
+	// and destroyed when the task stops. Docker volumes that are scoped as shared
+	// persist after the task stops.
 	Scope *string `locationName:"scope" type:"string" enum:"Scope"`
 }
 
@@ -7571,6 +7613,10 @@ func (s *ListServicesOutput) SetServiceArns(v []*string) *ListServicesOutput {
 type ListTagsForResourceInput struct {
 	_ struct{} `type:"structure"`
 
+	// The Amazon Resource Name (ARN) that identifies the resource for which to
+	// list the tags. Currently, the supported resources are Amazon ECS tasks, services,
+	// task definitions, clusters, and container instances.
+	//
 	// ResourceArn is a required field
 	ResourceArn *string `locationName:"resourceArn" type:"string" required:"true"`
 }
@@ -7607,6 +7653,7 @@ func (s *ListTagsForResourceInput) SetResourceArn(v string) *ListTagsForResource
 type ListTagsForResourceOutput struct {
 	_ struct{} `type:"structure"`
 
+	// The tags for the resource.
 	Tags []*Tag `locationName:"tags" type:"list"`
 }
 
@@ -8674,6 +8721,8 @@ type RegisterContainerInstanceInput struct {
 	// The container instance attributes that this container instance supports.
 	Attributes []*Attribute `locationName:"attributes" type:"list"`
 
+	ClientToken *string `locationName:"clientToken" type:"string"`
+
 	// The short name or full Amazon Resource Name (ARN) of the cluster with which
 	// to register your container instance. If you do not specify a cluster, the
 	// default cluster is assumed.
@@ -8744,6 +8793,12 @@ func (s *RegisterContainerInstanceInput) Validate() error {
 // SetAttributes sets the Attributes field's value.
 func (s *RegisterContainerInstanceInput) SetAttributes(v []*Attribute) *RegisterContainerInstanceInput {
 	s.Attributes = v
+	return s
+}
+
+// SetClientToken sets the ClientToken field's value.
+func (s *RegisterContainerInstanceInput) SetClientToken(v string) *RegisterContainerInstanceInput {
+	s.ClientToken = &v
 	return s
 }
 
@@ -9409,6 +9464,54 @@ func (s *RunTaskOutput) SetTasks(v []*Task) *RunTaskOutput {
 	return s
 }
 
+type Secret struct {
+	_ struct{} `type:"structure"`
+
+	// Name is a required field
+	Name *string `locationName:"name" type:"string" required:"true"`
+
+	// ValueFrom is a required field
+	ValueFrom *string `locationName:"valueFrom" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s Secret) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s Secret) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *Secret) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "Secret"}
+	if s.Name == nil {
+		invalidParams.Add(request.NewErrParamRequired("Name"))
+	}
+	if s.ValueFrom == nil {
+		invalidParams.Add(request.NewErrParamRequired("ValueFrom"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetName sets the Name field's value.
+func (s *Secret) SetName(v string) *Secret {
+	s.Name = &v
+	return s
+}
+
+// SetValueFrom sets the ValueFrom field's value.
+func (s *Secret) SetValueFrom(v string) *Secret {
+	s.ValueFrom = &v
+	return s
+}
+
 // Details on a service within a cluster
 type Service struct {
 	_ struct{} `type:"structure"`
@@ -9417,7 +9520,7 @@ type Service struct {
 	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
 	// The Unix time stamp for when the service was created.
-	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp"`
 
 	// Optional deployment parameters that control how many tasks run during the
 	// deployment and the ordering of stopping and starting tasks.
@@ -9482,7 +9585,7 @@ type Service struct {
 	RunningCount *int64 `locationName:"runningCount" type:"integer"`
 
 	// The scheduling strategy to use for the service. For more information, see
-	// Services (http://docs.aws.amazon.com/AmazonECS/latest/developerguideecs_services.html).
+	// Services (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html).
 	//
 	// There are two service scheduler strategies available:
 	//
@@ -9492,8 +9595,8 @@ type Service struct {
 	//    and constraints to customize task placement decisions.
 	//
 	//    * DAEMON-The daemon scheduling strategy deploys exactly one task on each
-	//    container instance in your cluster. When using this strategy, do not specify
-	//    a desired number of tasks or any task placement strategies.
+	//    container instance in your cluster. When you are using this strategy,
+	//    do not specify a desired number of tasks or any task placement strategies.
 	//
 	// Fargate tasks do not support the DAEMON scheduling strategy.
 	SchedulingStrategy *string `locationName:"schedulingStrategy" type:"string" enum:"SchedulingStrategy"`
@@ -9667,7 +9770,7 @@ type ServiceEvent struct {
 	_ struct{} `type:"structure"`
 
 	// The Unix time stamp for when the event was triggered.
-	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp"`
 
 	// The ID string of the event.
 	Id *string `locationName:"id" type:"string"`
@@ -10167,13 +10270,13 @@ type SubmitTaskStateChangeInput struct {
 	Containers []*ContainerStateChange `locationName:"containers" type:"list"`
 
 	// The Unix time stamp for when the task execution stopped.
-	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp" timestampFormat:"unix"`
+	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp"`
 
 	// The Unix time stamp for when the container image pull began.
-	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp" timestampFormat:"unix"`
+	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp"`
 
 	// The Unix time stamp for when the container image pull completed.
-	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp" timestampFormat:"unix"`
+	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp"`
 
 	// The reason for the state change request.
 	Reason *string `locationName:"reason" type:"string"`
@@ -10380,7 +10483,7 @@ type Task struct {
 	Connectivity *string `locationName:"connectivity" type:"string" enum:"Connectivity"`
 
 	// The Unix time stamp for when the task last went into CONNECTED status.
-	ConnectivityAt *time.Time `locationName:"connectivityAt" type:"timestamp" timestampFormat:"unix"`
+	ConnectivityAt *time.Time `locationName:"connectivityAt" type:"timestamp"`
 
 	// The ARN of the container instances that host the task.
 	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
@@ -10418,13 +10521,13 @@ type Task struct {
 
 	// The Unix time stamp for when the task was created (the task entered the PENDING
 	// state).
-	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp" timestampFormat:"unix"`
+	CreatedAt *time.Time `locationName:"createdAt" type:"timestamp"`
 
 	// The desired status of the task.
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
 	// The Unix time stamp for when the task execution stopped.
-	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp" timestampFormat:"unix"`
+	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp"`
 
 	// The name of the task group associated with the task.
 	Group *string `locationName:"group" type:"string"`
@@ -10484,14 +10587,14 @@ type Task struct {
 	PlatformVersion *string `locationName:"platformVersion" type:"string"`
 
 	// The Unix time stamp for when the container image pull began.
-	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp" timestampFormat:"unix"`
+	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp"`
 
 	// The Unix time stamp for when the container image pull completed.
-	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp" timestampFormat:"unix"`
+	PullStoppedAt *time.Time `locationName:"pullStoppedAt" type:"timestamp"`
 
 	// The Unix time stamp for when the task started (the task transitioned from
 	// the PENDING state to the RUNNING state).
-	StartedAt *time.Time `locationName:"startedAt" type:"timestamp" timestampFormat:"unix"`
+	StartedAt *time.Time `locationName:"startedAt" type:"timestamp"`
 
 	// The tag specified when a task is started. If the task is started by an Amazon
 	// ECS service, then the startedBy parameter contains the deployment ID of the
@@ -10500,14 +10603,20 @@ type Task struct {
 
 	// The Unix time stamp for when the task was stopped (the task transitioned
 	// from the RUNNING state to the STOPPED state).
-	StoppedAt *time.Time `locationName:"stoppedAt" type:"timestamp" timestampFormat:"unix"`
+	StoppedAt *time.Time `locationName:"stoppedAt" type:"timestamp"`
 
 	// The reason the task was stopped.
 	StoppedReason *string `locationName:"stoppedReason" type:"string"`
 
 	// The Unix time stamp for when the task stops (transitions from the RUNNING
 	// state to STOPPED).
-	StoppingAt *time.Time `locationName:"stoppingAt" type:"timestamp" timestampFormat:"unix"`
+	StoppingAt *time.Time `locationName:"stoppingAt" type:"timestamp"`
+
+	// The metadata that you apply to the task to help you categorize and organize
+	// them. Each tag consists of a key and an optional value, both of which you
+	// define. Tag keys can have a maximum character length of 128 characters, and
+	// tag values can have a maximum length of 256 characters.
+	Tags []*Tag `locationName:"tags" type:"list"`
 
 	// The Amazon Resource Name (ARN) of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -10675,6 +10784,12 @@ func (s *Task) SetStoppedReason(v string) *Task {
 // SetStoppingAt sets the StoppingAt field's value.
 func (s *Task) SetStoppingAt(v time.Time) *Task {
 	s.StoppingAt = &v
+	return s
+}
+
+// SetTags sets the Tags field's value.
+func (s *Task) SetTags(v []*Tag) *Task {
+	s.Tags = v
 	return s
 }
 

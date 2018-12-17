@@ -21,7 +21,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 // ContainerNotFound is a type for a missing container
@@ -60,7 +60,7 @@ type DockerContainerMetadata struct {
 	// is unable to perform any of the required container transitions
 	Error apierrors.NamedError
 	// Volumes contains volume informaton for the container
-	Volumes []docker.Mount
+	Volumes []types.MountPoint
 	// Labels contains labels set for the container
 	Labels map[string]string
 	// CreatedAt is the timestamp of container creation
@@ -83,14 +83,21 @@ type ListContainersResponse struct {
 }
 
 // VolumeResponse wrapper for CreateVolume and InspectVolume
+// TODO Remove type when migration is complete
 type VolumeResponse struct {
-	DockerVolume *docker.Volume
+	DockerVolume *types.Volume
+	Error        error
+}
+
+// VolumeResponse wrapper for CreateVolume for SDK Clients
+type SDKVolumeResponse struct {
+	DockerVolume *types.Volume
 	Error        error
 }
 
 // ListPluginsResponse is a wrapper for ListPlugins api
 type ListPluginsResponse struct {
-	Plugins []docker.PluginDetail
+	Plugins []*types.Plugin
 	Error   error
 }
 

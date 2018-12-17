@@ -25,23 +25,25 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/fsouza/go-dockerclient"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 type configPair struct {
-	Container *Container
-	Config    *docker.Config
+	Container  *Container
+	Config     *dockercontainer.Config
+	HostConfig *dockercontainer.HostConfig
 }
 
 func (pair configPair) Equal() bool {
 	conf := pair.Config
 	cont := pair.Container
+	hostConf := pair.HostConfig
 
-	if (conf.Memory / 1024 / 1024) != int64(cont.Memory) {
+	if (hostConf.Memory / 1024 / 1024) != int64(cont.Memory) {
 		return false
 	}
-	if conf.CPUShares != int64(cont.CPU) {
+	if hostConf.CPUShares != int64(cont.CPU) {
 		return false
 	}
 	if conf.Image != cont.Image {
@@ -373,4 +375,83 @@ func TestMergeEnvironmentVariables(t *testing.T) {
 			assert.True(t, mapEq)
 		})
 	}
+}
+
+func TestShouldCreateWithASMSecret(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, true},
+		{Container{
+			Name:    "myName",
+			Image:   "image:tag",
+			Secrets: nil,
+		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "ssm",
+					Name:      "secret",
+					ValueFrom: "/test/secretName",
+				}},
+		}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithASMSecret())
+	}
+}
+
+func TestHasSecretAsEnv(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					Type:      "ENVIRONMENT_VARIABLE",
+					ValueFrom: "/test/secretName",
+				}},
+		}, true},
+		{Container{
+			Name:    "myName",
+			Image:   "image:tag",
+			Secrets: nil,
+		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "secret",
+					Type:      "MOUNT_POINT",
+					ValueFrom: "/test/secretName",
+				}},
+		}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.HasSecretAsEnv())
+	}
+
 }

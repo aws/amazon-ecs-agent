@@ -29,8 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -69,14 +69,18 @@ func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-	clientFactory := clientfactory.NewFactory(context.TODO(), dockerEndpoint)
-	dockerClient, err := dockerapi.NewDockerGoClient(clientFactory, cfg)
+
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
 	}

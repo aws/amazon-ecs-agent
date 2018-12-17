@@ -48,20 +48,20 @@ fi
 
 ECR_ROLE_IMAGE="executionrole"
 
-BUSYBOX_IMAGE="busybox@sha256:5551dbdfc48d66734d0f01cafee0952cb6e8eeecd1e2492240bf2fd9640c2279"
-NGINX_IMAGE="nginx@sha256:0324afc5c8191616576f7b23b297d001609726a2f1b6561c90e229e54ab701cf"
-PYTHON2_IMAGE="python@sha256:3a1e82d95d0e75677cdac237b0174425d8ae94dd11d1ef14db73075f1e34c06c"
-UBUNTU_IMAGE="ubuntu@sha256:1bea66e185d3464fec1abda32ffaf2a11de69833cfcf81bd2b9a5be147776814"
+BUSYBOX_IMAGE="busybox:1.29.3"
+NGINX_IMAGE="nginx:1.15"
+PYTHON2_IMAGE="python:2.7.15"
+UBUNTU_IMAGE="ubuntu:16.04"
 
 PARALLEL_PULL_FTS_BUSYBOX=${BUSYBOX_IMAGE}
 PARALLEL_PULL_FTS_UBUNTU=${UBUNTU_IMAGE}
 PARALLEL_PULL_FTS_NGINX=${NGINX_IMAGE}
-PARALLEL_PULL_FTS_CONSUL="consul@sha256:ce15f85417a0cf121d943563dedb873c7d6c26e9b1e8b47bc2f1b5a3e27498e1"
-PARALLEL_PULL_FTS_DEBIAN="debian@sha256:f7062cf040f67f0c26ff46b3b44fe036c29468a7e69d8170f37c57f2eec1261b"
-PARALLEL_PULL_FTS_HTTPD="httpd@sha256:0d817a924bed1a216f12a0f4947b5f8a2f173bd5a9cebfe1382d024287154c99"
-PARALLEL_PULL_FTS_MONGO="mongo@sha256:23e5cdbd9bc26a6d1ae4db8252a295d6bdba8332dec68483816d5b7bb2438d7d"
-PARALLEL_PULL_FTS_REDIS="redis@sha256:eed4da4937cb562e9005f3c66eb8c3abc14bb95ad497c03dc89d66bcd172fc7f"
-PARALLEL_PULL_FTS_REGISTRY="registry@sha256:946480a23b33480b8e7cdb89b82c1bd6accae91a8e66d017e21e8b56551f6209"
+PARALLEL_PULL_FTS_CONSUL="consul:1.3.0"
+PARALLEL_PULL_FTS_DEBIAN="debian:stable"
+PARALLEL_PULL_FTS_HTTPD="httpd:2.4"
+PARALLEL_PULL_FTS_MONGO="mongo:4.1"
+PARALLEL_PULL_FTS_REDIS="redis:5.0"
+
 
 
 $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
@@ -84,6 +84,13 @@ for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debia
   fi
 done
 
+REGISTRY_IMAGE_CONTAINER="test-ecs-registry-container:arm"
+REGISTRY_IMAGE="registry:2.6.2"
+
+docker build -t "${REGISTRY_IMAGE_CONTAINER}" "${REGISTRY_IMAGE}"
+
+mirror_local_image "${REGISTRY_IMAGE_CONTAINER}" "127.0.0.1:51670/registry:parallel-pull-fts"
+
 mirror_local_image "amazon/${ECR_ROLE_IMAGE}:fts" "${PREFIX}/${ECR_ROLE_IMAGE}:fts"
 mirror_image ${BUSYBOX_IMAGE} "${PREFIX}/busybox:latest"
 mirror_image ${NGINX_IMAGE} "${PREFIX}/nginx:latest"
@@ -97,7 +104,7 @@ mirror_image ${PARALLEL_PULL_FTS_HTTPD} "${PREFIX}/httpd:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_MONGO} "${PREFIX}/mongo:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_NGINX} "${PREFIX}/nginx:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_REDIS} "${PREFIX}/redis:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_REGISTRY} "${PREFIX}/registry:parallel-pull-fts"
+
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
 docker rmi amazon/image-cleanup-test-image1:make

@@ -16,19 +16,27 @@
 package util
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/go-connections/nat"
+
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	docker "github.com/docker/docker/client"
 )
 
 const (
@@ -81,6 +89,7 @@ func init() {
 // 'amazon/amazon-ecs-agent:make', the version created locally by running
 // 'make'
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
+	ctx := context.TODO()
 	agent := &TestAgent{t: t}
 	agentImage := "amazon/amazon-ecs-agent:make"
 	if envImage := os.Getenv("ECS_AGENT_IMAGE"); envImage != "" {
@@ -88,15 +97,15 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	}
 	agent.Image = agentImage
 
-	dockerClient, err := docker.NewClientFromEnv()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatal(err)
 	}
 	agent.DockerClient = dockerClient
 
-	_, err = dockerClient.InspectImage(agentImage)
+	_, _, err = dockerClient.ImageInspectWithRaw(ctx, agentImage)
 	if err != nil {
-		err = dockerClient.PullImage(docker.PullImageOptions{Repository: agentImage}, docker.AuthConfiguration{})
+		_, err = dockerClient.ImagePull(ctx, agentImage, types.ImagePullOptions{})
 		if err != nil {
 			t.Fatal("Could not launch agent", err)
 		}
@@ -127,14 +136,16 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 }
 
 func (agent *TestAgent) StopAgent() error {
-	return agent.DockerClient.StopContainer(agent.DockerID, 10)
+	ctx := context.TODO()
+	containerStopTimeout := 10 * time.Second
+	return agent.DockerClient.ContainerStop(ctx, agent.DockerID, &containerStopTimeout)
 }
 
 func (agent *TestAgent) StartAgent() error {
 	agent.t.Logf("Launching agent with image: %s\n", agent.Image)
-	dockerConfig := &docker.Config{
+	dockerConfig := &dockercontainer.Config{
 		Image: agent.Image,
-		ExposedPorts: map[docker.Port]struct{}{
+		ExposedPorts: map[nat.Port]struct{}{
 			"51678/tcp": {},
 		},
 		Env: []string{
@@ -159,9 +170,9 @@ func (agent *TestAgent) StartAgent() error {
 
 	binds := agent.getBindMounts()
 
-	hostConfig := &docker.HostConfig{
+	hostConfig := &dockercontainer.HostConfig{
 		Binds: binds,
-		PortBindings: map[docker.Port][]docker.PortBinding{
+		PortBindings: map[nat.Port][]nat.PortBinding{
 			"51678/tcp": {{HostIP: "0.0.0.0"}},
 		},
 		Links: agent.Options.ContainerLinks,
@@ -188,10 +199,11 @@ func (agent *TestAgent) StartAgent() error {
 		}
 
 		for key, value := range agent.Options.PortBindings {
-			hostConfig.PortBindings[key] = []docker.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
+			hostConfig.PortBindings[key] = []nat.PortBinding{{HostIP: value["HostIP"], HostPort: value["HostPort"]}}
 			dockerConfig.ExposedPorts[key] = struct{}{}
 		}
 
+		hostCofigInit := true
 		if agent.Options.EnableTaskENI {
 			dockerConfig.Env = append(dockerConfig.Env, "ECS_ENABLE_TASK_ENI=true")
 			hostConfig.Binds = append(hostConfig.Binds,
@@ -201,35 +213,37 @@ func (agent *TestAgent) StartAgent() error {
 				"/sbin:/sbin:ro",
 			)
 			hostConfig.CapAdd = []string{"NET_ADMIN", "SYS_ADMIN"}
-			hostConfig.Init = true
+			hostConfig.Init = &hostCofigInit
 			hostConfig.NetworkMode = "host"
 		}
 
 	}
 
-	agentContainer, err := agent.DockerClient.CreateContainer(docker.CreateContainerOptions{
-		Config:     dockerConfig,
-		HostConfig: hostConfig,
-	})
+	ctx := context.TODO()
+	agentContainer, err := agent.DockerClient.ContainerCreate(ctx,
+		dockerConfig,
+		hostConfig,
+		&network.NetworkingConfig{},
+		"")
 	if err != nil {
 		agent.t.Fatal("Could not create agent container", err)
 	}
 	agent.DockerID = agentContainer.ID
 	agent.t.Logf("Agent started as docker container: %s\n", agentContainer.ID)
 
-	err = agent.DockerClient.StartContainer(agentContainer.ID, nil)
+	err = agent.DockerClient.ContainerStart(ctx, agentContainer.ID, types.ContainerStartOptions{})
 	if err != nil {
 		return errors.New("Could not start agent container " + err.Error())
 	}
 
-	containerMetadata, err := agent.DockerClient.InspectContainer(agentContainer.ID)
+	containerJSON, err := agent.DockerClient.ContainerInspect(ctx, agentContainer.ID)
 	if err != nil {
 		return errors.New("Could not inspect agent container: " + err.Error())
 	}
-	if containerMetadata.HostConfig.NetworkMode == "host" {
+	if containerJSON.HostConfig.NetworkMode == "host" {
 		agent.IntrospectionURL = "http://localhost:51678"
 	} else {
-		agent.IntrospectionURL = "http://localhost:" + containerMetadata.NetworkSettings.Ports["51678/tcp"][0].HostPort
+		agent.IntrospectionURL = "http://localhost:" + containerJSON.NetworkSettings.Ports["51678/tcp"][0].HostPort
 	}
 
 	return agent.verifyIntrospectionAPI()

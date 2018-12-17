@@ -40,10 +40,10 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 
+	dockercontainer "github.com/docker/docker/api/types/container"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,7 +96,7 @@ func TestResourceContainerProgression(t *testing.T) {
 		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {

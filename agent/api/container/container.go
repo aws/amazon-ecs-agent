@@ -25,7 +25,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -57,6 +57,12 @@ const (
 
 	// SecretProviderSSM is to show secret provider being SSM
 	SecretProviderSSM = "ssm"
+
+	// SecretProviderASM is to show secret provider being ASM
+	SecretProviderASM = "asm"
+
+	// SecretTypeEnv is to show secret type being ENVIRONMENT_VARIABLE
+	SecretTypeEnv = "ENVIRONMENT_VARIABLE"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -206,7 +212,7 @@ type Container struct {
 	KnownPortBindingsUnsafe []PortBinding `json:"KnownPortBindings"`
 
 	// VolumesUnsafe is an array of volume mounts in the container.
-	VolumesUnsafe []docker.Mount `json:"-"`
+	VolumesUnsafe []types.MountPoint `json:"-"`
 
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
@@ -257,9 +263,9 @@ type Secret struct {
 	Provider      string `json:"provider"`
 }
 
-// GetSSMSecretResourceCacheKey returns the key required to access the secret
+// GetSecretResourceCacheKey returns the key required to access the secret
 // from the ssmsecret resource
-func (s *Secret) GetSSMSecretResourceCacheKey() string {
+func (s *Secret) GetSecretResourceCacheKey() string {
 	return s.ValueFrom + "_" + s.Region
 }
 
@@ -570,7 +576,7 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 }
 
 // SetVolumes sets the volumes mounted in a container
-func (c *Container) SetVolumes(volumes []docker.Mount) {
+func (c *Container) SetVolumes(volumes []types.MountPoint) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -578,7 +584,7 @@ func (c *Container) SetVolumes(volumes []docker.Mount) {
 }
 
 // GetVolumes returns the volumes mounted in a container
-func (c *Container) GetVolumes() []docker.Mount {
+func (c *Container) GetVolumes() []types.MountPoint {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -712,7 +718,7 @@ func (c *Container) ShouldPullWithASMAuth() bool {
 // SetASMDockerAuthConfig add the docker auth config data to the
 // RegistryAuthentication struct held by the container, this is then passed down
 // to the docker client to pull the image
-func (c *Container) SetASMDockerAuthConfig(dac docker.AuthConfiguration) {
+func (c *Container) SetASMDockerAuthConfig(dac types.AuthConfig) {
 	c.RegistryAuthentication.ASMAuthData.SetDockerAuthConfig(dac)
 }
 
@@ -752,13 +758,32 @@ func (c *Container) ShouldCreateWithSSMSecret() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	//Secrets field will be nil if there is no secrets for container
+	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
 
 	for _, secret := range c.Secrets {
 		if secret.Provider == SecretProviderSSM {
+			return true
+		}
+	}
+	return false
+}
+
+// ShouldCreateWithASMSecret returns true if this container needs to get secret
+// value from AWS Secrets Manager
+func (c *Container) ShouldCreateWithASMSecret() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+
+	for _, secret := range c.Secrets {
+		if secret.Provider == SecretProviderASM {
 			return true
 		}
 	}
@@ -775,8 +800,23 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	if c.Environment == nil {
 		c.Environment = make(map[string]string)
 	}
-
 	for k, v := range envVars {
 		c.Environment[k] = v
 	}
+}
+
+func (c *Container) HasSecretAsEnv() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	// Secrets field will be nil if there is no secrets for container
+	if c.Secrets == nil {
+		return false
+	}
+	for _, secret := range c.Secrets {
+		if secret.Type == SecretTypeEnv {
+			return true
+		}
+	}
+	return false
 }

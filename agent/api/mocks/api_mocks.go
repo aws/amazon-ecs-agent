@@ -74,6 +74,19 @@ func (mr *MockECSSDKMockRecorder) DiscoverPollEndpoint(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverPollEndpoint", reflect.TypeOf((*MockECSSDK)(nil).DiscoverPollEndpoint), arg0)
 }
 
+// ListTagsForResource mocks base method
+func (m *MockECSSDK) ListTagsForResource(arg0 *ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error) {
+	ret := m.ctrl.Call(m, "ListTagsForResource", arg0)
+	ret0, _ := ret[0].(*ecs.ListTagsForResourceOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTagsForResource indicates an expected call of ListTagsForResource
+func (mr *MockECSSDKMockRecorder) ListTagsForResource(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResource", reflect.TypeOf((*MockECSSDK)(nil).ListTagsForResource), arg0)
+}
+
 // RegisterContainerInstance mocks base method
 func (m *MockECSSDK) RegisterContainerInstance(arg0 *ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error) {
 	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0)
@@ -185,17 +198,31 @@ func (mr *MockECSClientMockRecorder) DiscoverTelemetryEndpoint(arg0 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverTelemetryEndpoint", reflect.TypeOf((*MockECSClient)(nil).DiscoverTelemetryEndpoint), arg0)
 }
 
-// RegisterContainerInstance mocks base method
-func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute, arg2 []*ecs.Tag) (string, error) {
-	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
+// GetResourceTags mocks base method
+func (m *MockECSClient) GetResourceTags(arg0 string) ([]*ecs.Tag, error) {
+	ret := m.ctrl.Call(m, "GetResourceTags", arg0)
+	ret0, _ := ret[0].([]*ecs.Tag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
+// GetResourceTags indicates an expected call of GetResourceTags
+func (mr *MockECSClientMockRecorder) GetResourceTags(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetResourceTags", reflect.TypeOf((*MockECSClient)(nil).GetResourceTags), arg0)
+}
+
+// RegisterContainerInstance mocks base method
+func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute, arg2 []*ecs.Tag, arg3 string) (string, string, error) {
+	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
 // RegisterContainerInstance indicates an expected call of RegisterContainerInstance
-func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSClient)(nil).RegisterContainerInstance), arg0, arg1, arg2)
+func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSClient)(nil).RegisterContainerInstance), arg0, arg1, arg2, arg3)
 }
 
 // SubmitContainerStateChange mocks base method

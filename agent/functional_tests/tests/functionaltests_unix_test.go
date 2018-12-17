@@ -16,12 +16,13 @@
 package functional_tests
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -35,7 +36,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -182,48 +188,51 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestSquidProxy(t *testing.T) {
+	ctx := context.TODO()
 	// Run a squid proxy manually, verify that the agent can connect through it
-	client, err := docker.NewVersionedClientFromEnv("1.17")
+	client, err := docker.NewClientWithOpts(docker.WithVersion("1.17"))
 	require.NoError(t, err)
 
 	squidImage := "127.0.0.1:51670/amazon/squid:latest"
-	dockerConfig := docker.Config{
+	dockerConfig := dockercontainer.Config{
 		Image: squidImage,
 	}
-	dockerHostConfig := docker.HostConfig{}
+	dockerHostConfig := dockercontainer.HostConfig{}
 
-	err = client.PullImage(docker.PullImageOptions{Repository: squidImage}, docker.AuthConfiguration{})
+	_, err = client.ImagePull(ctx, squidImage, types.ImagePullOptions{})
 	require.NoError(t, err)
+	// Squid pull time
+	time.Sleep(2 * time.Second)
 
-	squidContainer, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config:     &dockerConfig,
-		HostConfig: &dockerHostConfig,
-	})
+	squidContainer, err := client.ContainerCreate(ctx,
+		&dockerConfig,
+		&dockerHostConfig,
+		&network.NetworkingConfig{},
+		"") // containerName
 	require.NoError(t, err)
-	err = client.StartContainer(squidContainer.ID, &dockerHostConfig)
+	err = client.ContainerStart(ctx, squidContainer.ID, types.ContainerStartOptions{})
 	require.NoError(t, err)
 	defer func() {
-		client.RemoveContainer(docker.RemoveContainerOptions{
-			Force:         true,
-			ID:            squidContainer.ID,
+		client.ContainerRemove(ctx, squidContainer.ID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
+			Force:         true,
 		})
 	}()
 
 	// Resolve the name so we can use it in the link below; the create returns an ID only
-	squidContainer, err = client.InspectContainer(squidContainer.ID)
+	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainer.Name)
+	t.Logf("Started squid container: %v", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"HTTP_PROXY": "squid:3128",
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainer.Name + ":squid"},
+		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
@@ -250,30 +259,32 @@ func TestSquidProxy(t *testing.T) {
 	// Note, do a docker exec instead of bindmount the logs out because the logs
 	// will not be permissioned correctly in the bindmount. Once we have proper
 	// user namespacing we could revisit this
-	logExec, err := client.CreateExec(docker.CreateExecOptions{
-		AttachStdout: true,
-		AttachStdin:  false,
-		Container:    squidContainer.ID,
-		// Takes a second to flush the file sometimes, so slightly complicated command to wait for it to be written
-		Cmd: []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
-	})
+	idResponse, err := client.ContainerExecCreate(
+		ctx,
+		squidContainer.ID,
+		types.ExecConfig{
+			AttachStdout: true,
+			AttachStdin:  false,
+			Cmd:          []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
+		})
 	require.NoError(t, err)
 	t.Logf("Execing cat of /var/log/squid/access.log on %v", squidContainer.ID)
 
-	var squidLogs bytes.Buffer
-	err = client.StartExec(logExec.ID, docker.StartExecOptions{
-		OutputStream: &squidLogs,
-	})
+	hijackedResp, err := client.ContainerExecAttach(ctx, idResponse.ID, types.ExecStartCheck{})
+	defer hijackedResp.Close()
 	require.NoError(t, err)
 	for {
-		tmp, _ := client.InspectExec(logExec.ID)
-		if !tmp.Running {
+		inspect, _ := client.ContainerExecInspect(ctx, idResponse.ID)
+		if !inspect.Running {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	t.Logf("Squid logs: %v", squidLogs.String())
+	squidLogs, err := ioutil.ReadAll(hijackedResp.Reader)
+	require.NoError(t, err)
+	squildLogStr := string(squidLogs[:])
+	t.Logf("Squid logs: %v", squildLogStr)
 
 	// Of the format:
 	//    1445018173.730   3163 10.0.0.1 TCP_MISS/200 5706 CONNECT ecs.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.250.253 -
@@ -282,7 +293,7 @@ func TestSquidProxy(t *testing.T) {
 	//    1445018173.731   3086 10.0.0.1 TCP_MISS/200 3411 CONNECT ecs-t-1.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.254.59
 	allAddressesRegex := regexp.MustCompile("CONNECT [^ ]+ ")
 	// Match just the host+port it's proxying to
-	matches := allAddressesRegex.FindAllStringSubmatch(squidLogs.String(), -1)
+	matches := allAddressesRegex.FindAllStringSubmatch(squildLogStr, -1)
 	t.Logf("Proxy connections: %v", matches)
 	dedupedMatches := map[string]struct{}{}
 	for _, match := range matches {
@@ -372,7 +383,7 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -395,7 +406,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
+		PortBindings: map[nat.Port]map[string]string{
 			"51679/tcp": {
 				"HostIP":   "0.0.0.0",
 				"HostPort": "51679",
@@ -409,6 +420,7 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
+	ctx := context.TODO()
 	agent.RequireVersion(">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -431,7 +443,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
 	// TaskIAMRoles enabled container should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
 	if containerMetaData.Config != nil {
@@ -451,7 +463,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	err = task.WaitStopped(30 * time.Second)
 	require.NoError(t, err, "Waiting task to stop error")
 
-	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err = agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
@@ -473,8 +485,17 @@ func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
 	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
 }
 
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host")
+}
+
+func TestContainerMetadataFile(t *testing.T) {
+	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
+}
+
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
@@ -492,7 +513,7 @@ func TestMemoryOvercommit(t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, memoryReservation*1024*1024, containerMetaData.HostConfig.MemoryReservation,
@@ -535,6 +556,10 @@ func TestFluentdTag(t *testing.T) {
 	// tag was added in docker 1.9.0
 	RequireDockerVersion(t, ">=1.9.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-tag", t)
 }
 
@@ -545,10 +570,16 @@ func TestFluentdLogTag(t *testing.T) {
 	RequireDockerVersion(t, ">=1.8.0")
 	RequireDockerVersion(t, "<1.12.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-log-tag", t)
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
+	ctx := context.TODO()
+
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
@@ -575,7 +606,7 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
 	assert.NoError(t, err, "failed to resolve the container id from agent state")
 
-	container, err := agent.DockerClient.InspectContainer(dockerID)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerID)
 	assert.NoError(t, err, "failed to inspect the container")
 
 	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)
@@ -594,31 +625,6 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 
 	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
-}
-
-// TestMetadataServiceValidator tests that the metadata file can be accessed from the
-// container using the ECS_CONTAINER_METADATA_FILE environment variables
-func TestMetadataServiceValidator(t *testing.T) {
-	agentOptions := &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_CONTAINER_METADATA": "true",
-		},
-	}
-
-	agent := RunAgent(t, agentOptions)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.15.0")
-
-	task, err := agent.StartTask(t, "mdservice-validator-unix")
-	require.NoError(t, err, "Register task definition failed")
-	defer task.Stop()
-
-	// clean up
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
-	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
-
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
 // TestAgentIntrospectionValidator tests that the agent introspection endpoint can
@@ -660,6 +666,17 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	// Added to test presence of tags in metadata endpoint
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
 	// Best effort to create a log group. It should be safe to even not do this
 	// as the log group gets created in the TestAWSLogsDriver functional test.
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
@@ -669,7 +686,10 @@ func TestTaskMetadataValidator(t *testing.T) {
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
 		},
 	})
 	defer agent.Cleanup()
@@ -677,6 +697,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // Added to test presence of tags in metadata endpoint
 
 	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
 	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
@@ -692,6 +713,12 @@ func TestTaskMetadataValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
 }
 
 // TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
@@ -1069,4 +1096,165 @@ func TestTaskIPCNamespaceSharing(t *testing.T) {
 	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, sErr, "Error waiting for ipc-namespace-task-share task to stop")
 	assert.Equal(t, 2, rExitCode, "Container could see IPC resource, but shouldn't")
+}
+
+// TestSSMSecretsNonEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is a non encrypted parameter
+func TestSSMSecretsNonEncryptedParameterARN(t *testing.T) {
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	executionRole := os.Getenv("ECS_FTS_EXECUTION_ROLE")
+	// execution role arn is following the pattern arn:aws:iam::accountId:role/***
+	executionRoleArr := strings.Split(executionRole, ":")
+	partition := executionRoleArr[1]
+	accountId := executionRoleArr[4]
+
+	parameterName := "FunctionalTest-SSMSecretsString"
+	secretName := "SECRET_NAME"
+	region := *ECS.Config.Region
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsNonEncryptedParameter"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("secretValue"),
+		Type:        aws.String("String"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+
+	arn := fmt.Sprintf("arn:%s:ssm:%s:%s:parameter/%s", partition, region, accountId, parameterName)
+	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = arn
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = executionRole
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestSSMSecretsEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is an encrypted parameter
+func TestSSMSecretsEncryptedParameter(t *testing.T) {
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	parameterName := "FunctionalTest-SSMSecretsSecureString"
+	secretName := "SECRET_NAME"
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsEncryptedParameter"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("secretValue"),
+		Type:        aws.String("SecureString"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestSSMSecretsEncryptedASMSecrets tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is a secret in secrets manager passing through parameter store
+func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	parameterName := "/aws/reference/secretsmanager/FunctionalTest-SSMSecretsSecretFromASM"
+	secretName := "SECRET_NAME"
+	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &secretsmanager.CreateSecretInput{
+		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsEncryptedASMSecrets"),
+		Name:         aws.String("FunctionalTest-SSMSecretsSecretFromASM"),
+		SecretString: aws.String("secretValue"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := asmClient.CreateSecret(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case secretsmanager.ErrCodeResourceExistsException:
+				t.Logf("Secret FunctionalTest-SSMSecretsSecretFromASM already exists in AWS Secrets Manager")
+				break
+			default:
+				require.NoError(t, err, "Secrets Manager CreateSecret call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SSM_PARAMETER_NAME$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "ssmsecrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("ssmsecrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }

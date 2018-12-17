@@ -23,7 +23,7 @@ import (
 
 	config "github.com/aws/amazon-ecs-agent/agent/config"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
+	types "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -51,9 +51,9 @@ func (m *MockLoader) EXPECT() *MockLoaderMockRecorder {
 }
 
 // LoadImage mocks base method
-func (m *MockLoader) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 dockerapi.DockerClient) (*go_dockerclient.Image, error) {
+func (m *MockLoader) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 dockerapi.DockerClient) (*types.ImageInspect, error) {
 	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*go_dockerclient.Image)
+	ret0, _ := ret[0].(*types.ImageInspect)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

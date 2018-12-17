@@ -204,8 +204,17 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	config.Merge(userDataConfig(ec2client))
 
 	if config.AWSRegion == "" {
-		// Get it from metadata only if we need to (network io)
-		config.Merge(ec2MetadataConfig(ec2client))
+		if config.NoIID {
+			// get it from AWS SDK if we don't have instance identity document
+			awsRegion, err := ec2client.Region()
+			if err != nil {
+				errs = append(errs, err)
+			}
+			config.AWSRegion = awsRegion
+		} else {
+			// Get it from metadata only if we need to (network io)
+			config.Merge(ec2MetadataConfig(ec2client))
+		}
 	}
 
 	return config, config.mergeDefaultConfig(errs)
@@ -496,6 +505,7 @@ func environmentConfig() (Config, error) {
 		ImageCleanupInterval:               parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
 		NumImagesToDeletePerCycle:          parseNumImagesToDeletePerCycle(),
 		ImagePullBehavior:                  parseImagePullBehavior(),
+		ImageCleanupExclusionList:          parseImageCleanupExclusionList("ECS_IMAGE_CLEANUP_EXCLUDE"),
 		InstanceAttributes:                 instanceAttributes,
 		CNIPluginsPath:                     os.Getenv("ECS_CNI_PLUGINS_PATH"),
 		AWSVPCBlockInstanceMetdata:         utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),

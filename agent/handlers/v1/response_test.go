@@ -23,7 +23,7 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -101,7 +101,7 @@ func TestTaskResponse(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []docker.Mount{
+		VolumesUnsafe: []types.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
@@ -165,7 +165,7 @@ func TestContainerResponse(t *testing.T) {
 				Protocol:      apicontainer.TransportProtocolTCP,
 			},
 		},
-		VolumesUnsafe: []docker.Mount{
+		VolumesUnsafe: []types.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,
@@ -226,7 +226,7 @@ func TestPortBindingsResponse(t *testing.T) {
 func TestVolumesResponse(t *testing.T) {
 	container := &apicontainer.Container{
 		Name: containerName,
-		VolumesUnsafe: []docker.Mount{
+		VolumesUnsafe: []types.MountPoint{
 			{
 				Name:        volName,
 				Source:      volSource,

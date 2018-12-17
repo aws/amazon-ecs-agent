@@ -44,7 +44,7 @@ func (err *WSError) Error() string {
 	var typeStr = "Unknown type"
 	if val.IsValid() {
 		typeStr = val.Type().Name()
-		msg := val.FieldByName("Message")
+		msg := val.FieldByName("Message_")
 		if msg.IsValid() && msg.CanInterface() {
 			str, ok := msg.Interface().(*string)
 			if ok {

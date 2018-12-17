@@ -23,7 +23,8 @@ import (
 	time "time"
 
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
+	types "github.com/docker/docker/api/types"
+	container "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -63,7 +64,7 @@ func (mr *MockManagerMockRecorder) Clean(arg0 interface{}) *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockManager) Create(arg0 *go_dockerclient.Config, arg1 *go_dockerclient.HostConfig, arg2 *task.Task, arg3 string) error {
+func (m *MockManager) Create(arg0 *container.Config, arg1 *container.HostConfig, arg2 *task.Task, arg3 string) error {
 	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -74,6 +75,16 @@ func (mr *MockManagerMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManager)(nil).Create), arg0, arg1, arg2, arg3)
 }
 
+// SetAvailabilityZone mocks base method
+func (m *MockManager) SetAvailabilityZone(arg0 string) {
+	m.ctrl.Call(m, "SetAvailabilityZone", arg0)
+}
+
+// SetAvailabilityZone indicates an expected call of SetAvailabilityZone
+func (mr *MockManagerMockRecorder) SetAvailabilityZone(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAvailabilityZone", reflect.TypeOf((*MockManager)(nil).SetAvailabilityZone), arg0)
+}
+
 // SetContainerInstanceARN mocks base method
 func (m *MockManager) SetContainerInstanceARN(arg0 string) {
 	m.ctrl.Call(m, "SetContainerInstanceARN", arg0)
@@ -82,6 +93,16 @@ func (m *MockManager) SetContainerInstanceARN(arg0 string) {
 // SetContainerInstanceARN indicates an expected call of SetContainerInstanceARN
 func (mr *MockManagerMockRecorder) SetContainerInstanceARN(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerInstanceARN", reflect.TypeOf((*MockManager)(nil).SetContainerInstanceARN), arg0)
+}
+
+// SetHostPublicIPv4Address mocks base method
+func (m *MockManager) SetHostPublicIPv4Address(arg0 string) {
+	m.ctrl.Call(m, "SetHostPublicIPv4Address", arg0)
+}
+
+// SetHostPublicIPv4Address indicates an expected call of SetHostPublicIPv4Address
+func (mr *MockManagerMockRecorder) SetHostPublicIPv4Address(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostPublicIPv4Address", reflect.TypeOf((*MockManager)(nil).SetHostPublicIPv4Address), arg0)
 }
 
 // Update mocks base method
@@ -120,9 +141,9 @@ func (m *MockDockerMetadataClient) EXPECT() *MockDockerMetadataClientMockRecorde
 }
 
 // InspectContainer mocks base method
-func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*go_dockerclient.Container, error) {
+func (m *MockDockerMetadataClient) InspectContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerJSON, error) {
 	ret := m.ctrl.Call(m, "InspectContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*go_dockerclient.Container)
+	ret0, _ := ret[0].(*types.ContainerJSON)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

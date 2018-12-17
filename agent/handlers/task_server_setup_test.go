@@ -29,50 +29,55 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
-	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	clusterName           = "default"
-	remoteIP              = "169.254.170.3"
-	remotePort            = "32146"
-	taskARN               = "t1"
-	family                = "sleep"
-	version               = "1"
-	containerID           = "cid"
-	containerName         = "sleepy"
-	imageName             = "busybox"
-	imageID               = "bUsYbOx"
-	cpu                   = 1024
-	memory                = 512
-	statusRunning         = "RUNNING"
-	containerType         = "NORMAL"
-	containerPort         = 80
-	containerPortProtocol = "tcp"
-	eniIPv4Address        = "10.0.0.2"
-	roleArn               = "r1"
-	accessKeyID           = "ak"
-	secretAccessKey       = "sk"
-	credentialsID         = "credentialsId"
-	v2BaseStatsPath       = "/v2/stats"
-	v2BaseMetadataPath    = "/v2/metadata"
-	v3BasePath            = "/v3/"
-	v3EndpointID          = "v3eid"
+	clusterName                = "default"
+	remoteIP                   = "169.254.170.3"
+	remotePort                 = "32146"
+	taskARN                    = "t1"
+	family                     = "sleep"
+	version                    = "1"
+	containerID                = "cid"
+	containerName              = "sleepy"
+	imageName                  = "busybox"
+	imageID                    = "bUsYbOx"
+	cpu                        = 1024
+	memory                     = 512
+	statusRunning              = "RUNNING"
+	containerType              = "NORMAL"
+	containerPort              = 80
+	containerPortProtocol      = "tcp"
+	eniIPv4Address             = "10.0.0.2"
+	roleArn                    = "r1"
+	accessKeyID                = "ak"
+	secretAccessKey            = "sk"
+	credentialsID              = "credentialsId"
+	v2BaseStatsPath            = "/v2/stats"
+	v2BaseMetadataPath         = "/v2/metadata"
+	v2BaseMetadataWithTagsPath = "/v2/metadataWithTags"
+	v3BasePath                 = "/v3/"
+	v3EndpointID               = "v3eid"
+	availabilityzone           = "us-west-2b"
+	containerInstanceArn       = "containerInstanceArn-test"
 )
 
 var (
@@ -166,6 +171,7 @@ var (
 		PullStartedAt:      aws.Time(now.UTC()),
 		PullStoppedAt:      aws.Time(now.UTC()),
 		ExecutionStoppedAt: aws.Time(now.UTC()),
+		AvailabilityZone:   availabilityzone,
 	}
 )
 
@@ -310,8 +316,9 @@ func testErrorResponsesFromServer(t *testing.T, path string, expectedErrorMessag
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := taskServerSetup(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
-		config.DefaultTaskMetadataBurstRate)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	server := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil, config.DefaultTaskMetadataSteadyStateRate,
+		config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
@@ -344,8 +351,9 @@ func getResponseForCredentialsRequest(t *testing.T, expectedStatus int,
 	defer ctrl.Finish()
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
-	server := taskServerSetup(credentialsManager, auditLog, nil, "", nil, config.DefaultTaskMetadataSteadyStateRate,
-		config.DefaultTaskMetadataBurstRate)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	server := taskServerSetup(credentialsManager, auditLog, nil, ecsClient, "", nil, config.DefaultTaskMetadataSteadyStateRate,
+		config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 
 	creds, ok := getCredentials()
@@ -405,14 +413,15 @@ func TestV2TaskMetadata(t *testing.T) {
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			auditLog := mock_audit.NewMockAuditLogger(ctrl)
 			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
 
 			gomock.InOrder(
 				state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 				state.EXPECT().TaskByArn(taskARN).Return(task, true),
 				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 			)
-			server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
 			recorder := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", tc.path, nil)
 			req.RemoteAddr = remoteIP + ":" + remotePort
@@ -424,7 +433,91 @@ func TestV2TaskMetadata(t *testing.T) {
 			err = json.Unmarshal(res, &taskResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedTaskResponse, taskResponse)
+		})
+	}
+}
 
+func TestV2TaskWithTagsMetadata(t *testing.T) {
+	testCases := []struct {
+		path string
+	}{
+		{
+			v2BaseMetadataWithTagsPath,
+		},
+		{
+			v2BaseMetadataWithTagsPath + "/",
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Testing path: %s", tc.path), func(t *testing.T) {
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			auditLog := mock_audit.NewMockAuditLogger(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
+
+			expectedTaskResponseWithTags := expectedTaskResponse
+			expectedContainerInstanceTags := map[string]string{
+				"ContainerInstanceTag1": "firstTag",
+				"ContainerInstanceTag2": "secondTag",
+			}
+			expectedTaskResponseWithTags.ContainerInstanceTags = expectedContainerInstanceTags
+			expectedTaskTags := map[string]string{
+				"TaskTag1": "firstTag",
+				"TaskTag2": "secondTag",
+			}
+			expectedTaskResponseWithTags.TaskTags = expectedTaskTags
+
+			contInstTag1Key := "ContainerInstanceTag1"
+			contInstTag1Val := "firstTag"
+			contInstTag2Key := "ContainerInstanceTag2"
+			contInstTag2Val := "secondTag"
+			taskTag1Key := "TaskTag1"
+			taskTag1Val := "firstTag"
+			taskTag2Key := "TaskTag2"
+			taskTag2Val := "secondTag"
+
+			gomock.InOrder(
+				state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
+				state.EXPECT().TaskByArn(taskARN).Return(task, true),
+				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+				ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
+					&ecs.Tag{
+						Key:   &contInstTag1Key,
+						Value: &contInstTag1Val,
+					},
+					&ecs.Tag{
+						Key:   &contInstTag2Key,
+						Value: &contInstTag2Val,
+					},
+				}, nil),
+				ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
+					&ecs.Tag{
+						Key:   &taskTag1Key,
+						Value: &taskTag1Val,
+					},
+					&ecs.Tag{
+						Key:   &taskTag2Key,
+						Value: &taskTag2Val,
+					},
+				}, nil),
+			)
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", v2BaseMetadataWithTagsPath, nil)
+			req.RemoteAddr = remoteIP + ":" + remotePort
+			server.Handler.ServeHTTP(recorder, req)
+			res, err := ioutil.ReadAll(recorder.Body)
+			assert.NoError(t, err)
+			assert.Equal(t, http.StatusOK, recorder.Code)
+			var taskResponse v2.TaskResponse
+			err = json.Unmarshal(res, &taskResponse)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedTaskResponseWithTags, taskResponse)
 		})
 	}
 }
@@ -436,14 +529,15 @@ func TestV2ContainerMetadata(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v2BaseMetadataPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -464,14 +558,15 @@ func TestV2ContainerStats(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &docker.Stats{NumProcs: 2}
+	dockerStats := &types.Stats{NumProcs: 2}
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v2BaseStatsPath+"/"+containerID, nil)
 	req.RemoteAddr = remoteIP + ":" + remotePort
@@ -479,7 +574,7 @@ func TestV2ContainerStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult *docker.Stats
+	var statsFromResult *types.Stats
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
@@ -505,8 +600,9 @@ func TestV2TaskStats(t *testing.T) {
 			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 			auditLog := mock_audit.NewMockAuditLogger(ctrl)
 			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
 
-			dockerStats := &docker.Stats{NumProcs: 2}
+			dockerStats := &types.Stats{NumProcs: 2}
 			containerMap := map[string]*apicontainer.DockerContainer{
 				containerName: {
 					DockerID: containerID,
@@ -517,8 +613,8 @@ func TestV2TaskStats(t *testing.T) {
 				state.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true),
 				statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 			)
-			server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 			recorder := httptest.NewRecorder()
 			req, _ := http.NewRequest("GET", tc.path, nil)
 			req.RemoteAddr = remoteIP + ":" + remotePort
@@ -526,7 +622,7 @@ func TestV2TaskStats(t *testing.T) {
 			res, err := ioutil.ReadAll(recorder.Body)
 			assert.NoError(t, err)
 			assert.Equal(t, http.StatusOK, recorder.Code)
-			var statsFromResult map[string]*docker.Stats
+			var statsFromResult map[string]*types.Stats
 			err = json.Unmarshal(res, &statsFromResult)
 			assert.NoError(t, err)
 			containerStats, ok := statsFromResult[containerID]
@@ -543,14 +639,15 @@ func TestV3TaskMetadata(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -563,6 +660,76 @@ func TestV3TaskMetadata(t *testing.T) {
 	assert.Equal(t, expectedTaskResponse, taskResponse)
 }
 
+// Test API calls for propagating Tags to Task Metadata
+func TestV3TaskMetadataWithTags(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	expectedTaskResponseWithTags := expectedTaskResponse
+	expectedContainerInstanceTags := map[string]string{
+		"ContainerInstanceTag1": "firstTag",
+		"ContainerInstanceTag2": "secondTag",
+	}
+	expectedTaskResponseWithTags.ContainerInstanceTags = expectedContainerInstanceTags
+	expectedTaskTags := map[string]string{
+		"TaskTag1": "firstTag",
+		"TaskTag2": "secondTag",
+	}
+	expectedTaskResponseWithTags.TaskTags = expectedTaskTags
+
+	contInstTag1Key := "ContainerInstanceTag1"
+	contInstTag1Val := "firstTag"
+	contInstTag2Key := "ContainerInstanceTag2"
+	contInstTag2Val := "secondTag"
+	taskTag1Key := "TaskTag1"
+	taskTag1Val := "firstTag"
+	taskTag2Key := "TaskTag2"
+	taskTag2Val := "secondTag"
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
+			&ecs.Tag{
+				Key:   &contInstTag1Key,
+				Value: &contInstTag1Val,
+			},
+			&ecs.Tag{
+				Key:   &contInstTag2Key,
+				Value: &contInstTag2Val,
+			},
+		}, nil),
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
+			&ecs.Tag{
+				Key:   &taskTag1Key,
+				Value: &taskTag1Val,
+			},
+			&ecs.Tag{
+				Key:   &taskTag2Key,
+				Value: &taskTag2Val,
+			},
+		}, nil),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/taskWithTags", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v2.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedTaskResponseWithTags, taskResponse)
+}
+
 func TestV3ContainerMetadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -570,14 +737,15 @@ func TestV3ContainerMetadata(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	gomock.InOrder(
 		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID, nil)
 	server.Handler.ServeHTTP(recorder, req)
@@ -597,8 +765,9 @@ func TestV3TaskStats(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &docker.Stats{NumProcs: 2}
+	dockerStats := &types.Stats{NumProcs: 2}
 
 	containerMap := map[string]*apicontainer.DockerContainer{
 		containerName: {
@@ -611,15 +780,15 @@ func TestV3TaskStats(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task/stats", nil)
 	server.Handler.ServeHTTP(recorder, req)
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult map[string]*docker.Stats
+	var statsFromResult map[string]*types.Stats
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	containerStats, ok := statsFromResult[containerID]
@@ -634,23 +803,24 @@ func TestV3ContainerStats(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &docker.Stats{NumProcs: 2}
+	dockerStats := &types.Stats{NumProcs: 2}
 
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
 	)
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/stats", nil)
 	server.Handler.ServeHTTP(recorder, req)
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult *docker.Stats
+	var statsFromResult *types.Stats
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
@@ -676,9 +846,10 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 
 	for _, testPath := range testPaths {
 		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {
@@ -716,9 +887,10 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	auditLog := mock_audit.NewMockAuditLogger(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	server := taskServerSetup(credentials.NewManager(), auditLog, state, clusterName, statsEngine,
-		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
 
 	for _, testPath := range testPaths {
 		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {

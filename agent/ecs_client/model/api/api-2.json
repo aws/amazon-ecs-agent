@@ -734,6 +734,7 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "linuxParameters":{"shape":"LinuxParameters"},
+        "secrets":{"shape":"SecretList"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -773,7 +774,11 @@
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
         "registeredAt":{"shape":"Timestamp"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "clientToken":{
+          "shape":"String"
+        },
+        "tags":{"shape":"Tags"}
       }
     },
     "ContainerInstanceStatus":{
@@ -1557,7 +1562,10 @@
         "versionInfo":{"shape":"VersionInfo"},
         "containerInstanceArn":{"shape":"String"},
         "attributes":{"shape":"Attributes"},
-        "tags":{"shape":"Tags"}
+        "tags":{"shape":"Tags"},
+        "clientToken":{
+          "shape":"String"
+        }
       }
     },
     "RegisterContainerInstanceResponse":{
@@ -1616,6 +1624,12 @@
         "stringSetValue":{"shape":"StringList"}
       }
     },
+    "ResourceNotFoundException":{
+      "type":"structure",
+      "members":{
+      },
+      "exception":true
+    },
     "Resources":{
       "type":"list",
       "member":{"shape":"Resource"}
@@ -1657,6 +1671,28 @@
         "REPLICA",
         "DAEMON"
       ]
+    },
+    "Scope":{
+      "type":"string",
+      "enum":[
+        "task",
+        "shared"
+      ]
+    },
+    "Secret":{
+      "type":"structure",
+      "required":[
+        "name",
+        "valueFrom"
+      ],
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
     },
     "ServerException":{
       "type":"structure",
@@ -1918,7 +1954,8 @@
         "launchType":{"shape":"LaunchType"},
         "platformVersion":{"shape":"String"},
         "attachments":{"shape":"Attachments"},
-        "healthStatus":{"shape":"HealthStatus"}
+        "healthStatus":{"shape":"HealthStatus"},
+        "tags":{"shape":"Tags"}
       }
     },
     "TaskDefinition":{

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/cihub/seelog"
@@ -31,15 +32,21 @@ const (
 	// TaskMetadataPath specifies the relative URI path for serving task metadata.
 	TaskMetadataPath = "/v2/metadata"
 
+	// TaskWithTagsMetadataPath specifies the relative URI path for serving task metadata with Container Instance and Task Tags.
+	TaskWithTagsMetadataPath = "/v2/metadataWithTags"
+
 	// TaskMetadataPathWithSlash specifies the relative URI path for serving task metadata.
 	TaskMetadataPathWithSlash = TaskMetadataPath + "/"
+
+	// TaskWithTagsMetadataPath specifies the relative URI path for serving task metadata with Container Instance and Task Tags.
+	TaskWithTagsMetadataPathWithSlash = TaskWithTagsMetadataPath + "/"
 )
 
 // ContainerMetadataPath specifies the relative URI path for serving container metadata.
 var ContainerMetadataPath = TaskMetadataPathWithSlash + utils.ConstructMuxVar(metadataContainerIDMuxName, utils.AnythingButEmptyRegEx)
 
 // TaskContainerMetadataHandler returns the handler method for handling task and container metadata requests.
-func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster string) func(http.ResponseWriter, *http.Request) {
+func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
@@ -55,7 +62,7 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, cluster str
 		}
 
 		seelog.Infof("V2 task/container metadata handler: writing response for task '%s'", taskARN)
-		WriteTaskMetadataResponse(w, taskARN, cluster, state)
+		WriteTaskMetadataResponse(w, taskARN, cluster, state, ecsClient, az, containerInstanceArn, propagateTags)
 	}
 }
 
@@ -73,9 +80,9 @@ func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, s
 }
 
 // WriteTaskMetadataResponse writes the task metadata to response writer.
-func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState) {
+func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster string, state dockerstate.TaskEngineState, ecsClient api.ECSClient, az, containerInstanceArn string, propagateTags bool) {
 	// Generate a response for the task
-	taskResponse, err := NewTaskResponse(taskARN, state, cluster)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
 	if err != nil {
 		errResponseJSON, _ := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskMetadata)

@@ -16,6 +16,7 @@
 package functional_tests
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -116,6 +117,7 @@ func TestTaskIamRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
+	ctx := context.TODO()
 	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -146,7 +148,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 
 	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		t.Fatalf("Could not inspect container for task: %v", err)
 	}
@@ -170,7 +172,7 @@ func taskIamRolesTest(networkMode string, agent *TestAgent, t *testing.T) {
 		t.Fatalf("Waiting task to stop error : %v", err)
 	}
 
-	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err = agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		t.Fatalf("Could not inspect container for task: %v", err)
 	}
@@ -184,42 +186,11 @@ func TestV3TaskEndpointDefaultNetworkMode(t *testing.T) {
 	testV3TaskEndpoint(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "", "ecs-functional-tests-v3-task-endpoint-validator-windows")
 }
 
-// TestMetadataServiceValidator Tests that the metadata file can be accessed from the
-// container using the ECS_CONTAINER_METADATA_FILE environment variables
-func TestMetadataServiceValidator(t *testing.T) {
-	agentOptions := &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_CONTAINER_METADATA": "true",
-		},
-	}
-
-	agent := RunAgent(t, agentOptions)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.15.0")
-
-	tdOverride := make(map[string]string)
-	tdOverride["$$$TEST_REGION$$$"] = *ECS.Config.Region
-	tdOverride["$$$NETWORK_MODE$$$"] = ""
-
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "mdservice-validator-windows", tdOverride)
-	if err != nil {
-		t.Fatalf("Error starting mdservice-validator-windows: %v", err)
-	}
-
-	// clean up
-	err = task.WaitStopped(waitTaskStateChangeDuration)
-	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
-
-	containerID, err := agent.ResolveTaskDockerID(task, "mdservice-validator-windows")
-	if err != nil {
-		t.Fatalf("Error resolving docker id for container in task: %v", err)
-	}
-
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerID)
-	require.NoError(t, err, "Could not inspect container for task")
-
-	exitCode := containerMetaData.State.ExitCode
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator-windows", "v3-task-endpoint-validator-windows", "")
+}
+func TestContainerMetadataFile(t *testing.T) {
+	testContainerMetadataFile(t, "container-metadata-file-validator-windows", "ecs-functional-tests-container-metadata-file-validator-windows")
 }
 
 // TestTelemetry tests whether agent can send metrics to TACS

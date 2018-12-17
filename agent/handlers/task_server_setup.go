@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -46,10 +47,13 @@ const (
 func taskServerSetup(credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
 	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
 	cluster string,
 	statsEngine stats.Engine,
 	steadyStateRate int,
-	burstRate int) *http.Server {
+	burstRate int,
+	availabilityZone string,
+	containerInstanceArn string) *http.Server {
 	muxRouter := mux.NewRouter()
 
 	// Set this so that for request like "/v3//metadata/task", the Agent will pass
@@ -59,9 +63,9 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	muxRouter.HandleFunc(v1.CredentialsPath,
 		v1.CredentialsHandler(credentialsManager, auditLogger))
 
-	v2HandlersSetup(muxRouter, state, statsEngine, cluster, credentialsManager, auditLogger)
+	v2HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, credentialsManager, auditLogger, availabilityZone, containerInstanceArn)
 
-	v3HandlersSetup(muxRouter, state, statsEngine, cluster)
+	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
@@ -90,14 +94,19 @@ func taskServerSetup(credentialsManager credentials.Manager,
 // v2HandlersSetup adds all handlers in v2 package to the mux router.
 func v2HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
 	statsEngine stats.Engine,
 	cluster string,
 	credentialsManager credentials.Manager,
-	auditLogger audit.AuditLogger) {
+	auditLogger audit.AuditLogger,
+	availabilityZone string,
+	containerInstanceArn string) {
 	muxRouter.HandleFunc(v2.CredentialsPath, v2.CredentialsHandler(credentialsManager, auditLogger))
-	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, cluster))
-	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, cluster))
-	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, cluster))
+	muxRouter.HandleFunc(v2.ContainerMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPath, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
+	muxRouter.HandleFunc(v2.TaskMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
+	muxRouter.HandleFunc(v2.TaskWithTagsMetadataPathWithSlash, v2.TaskContainerMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
 	muxRouter.HandleFunc(v2.ContainerStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPath, v2.TaskContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v2.TaskStatsPathWithSlash, v2.TaskContainerStatsHandler(state, statsEngine))
@@ -106,10 +115,14 @@ func v2HandlersSetup(muxRouter *mux.Router,
 // v3HandlersSetup adds all handlers in v3 package to the mux router.
 func v3HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
 	statsEngine stats.Engine,
-	cluster string) {
+	cluster string,
+	availabilityZone string,
+	containerInstanceArn string) {
 	muxRouter.HandleFunc(v3.ContainerMetadataPath, v3.ContainerMetadataHandler(state))
-	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, cluster))
+	muxRouter.HandleFunc(v3.TaskMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, false))
+	muxRouter.HandleFunc(v3.TaskWithTagsMetadataPath, v3.TaskMetadataHandler(state, ecsClient, cluster, availabilityZone, containerInstanceArn, true))
 	muxRouter.HandleFunc(v3.ContainerStatsPath, v3.ContainerStatsHandler(state, statsEngine))
 	muxRouter.HandleFunc(v3.TaskStatsPath, v3.TaskStatsHandler(state, statsEngine))
 }
@@ -118,9 +131,11 @@ func v3HandlersSetup(muxRouter *mux.Router,
 // for tasks being managed by the agent.
 func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
 	containerInstanceArn string,
 	cfg *config.Config,
-	statsEngine stats.Engine) {
+	statsEngine stats.Engine,
+	availabilityZone string) {
 	// Create and initialize the audit log
 	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
@@ -132,8 +147,8 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 
 	auditLogger := audit.NewAuditLog(containerInstanceArn, cfg, logger)
 
-	server := taskServerSetup(credentialsManager, auditLogger, state, cfg.Cluster, statsEngine,
-		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate)
+	server := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, statsEngine,
+		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, containerInstanceArn)
 
 	for {
 		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {

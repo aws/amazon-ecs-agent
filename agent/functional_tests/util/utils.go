@@ -30,17 +30,21 @@ import (
 	"time"
 
 	"context"
+
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
+
 	"github.com/pkg/errors"
 )
 
@@ -118,7 +122,7 @@ type TestAgent struct {
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
-	PortBindings     map[docker.Port]map[string]string
+	PortBindings     map[nat.Port]map[string]string
 	EnableTaskENI    bool
 }
 
@@ -145,13 +149,14 @@ func (agent *TestAgent) verifyIntrospectionAPI() error {
 		}
 		time.Sleep(1 * time.Second)
 	}
+	ctx := context.TODO()
 	if localMetadata.ContainerInstanceArn == nil {
-		agent.DockerClient.StopContainer(agent.DockerID, 1)
+		stopTimeout := 1 * time.Second
+		agent.DockerClient.ContainerStop(ctx, agent.DockerID, &stopTimeout)
 		return errors.New("Could not get agent metadata after launching it")
 	}
 
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
-	fmt.Println("Container InstanceArn:", agent.ContainerInstanceArn)
 	agent.Cluster = localMetadata.Cluster
 	agent.Version = utils.ExtractVersion(localMetadata.Version)
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
@@ -594,46 +599,50 @@ func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
 }
 
 func RequireDockerVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
+	ctx := context.TODO()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}
-	dockerVersion, err := dockerClient.Version()
+	version, err := dockerClient.ServerVersion(ctx)
 	if err != nil {
 		t.Fatalf("Could not get docker version: %v", err)
 	}
+	dockerVersion := version.Version
 
-	version := dockerVersion.Get("Version")
-
-	match, err := utils.Version(version).Matches(selector)
+	match, err := utils.Version(dockerVersion).Matches(selector)
 	if err != nil {
 		t.Fatalf("Could not check docker version to match required: %v", err)
 	}
 
 	if !match {
-		t.Skipf("Skipping test; requires %v, but version is %v", selector, version)
+		t.Skipf("Skipping test; requires %v, but version is %v", selector, dockerVersion)
 	}
 }
 
 func RequireDockerAPIVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
+	ctx := context.TODO()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatalf("Could not get docker client to check version: %v", err)
 	}
-	dockerVersion, err := dockerClient.Version()
+	version, err := dockerClient.ServerVersion(ctx)
 	if err != nil {
 		t.Fatalf("Could not get docker version: %v", err)
 	}
+	apiVersion := version.APIVersion
+	// adding zero patch to use semver comparator
+	// TODO: Implement non-semver comparator
+	apiVersion += ".0"
+	selector += ".0"
 
-	version := dockerVersion.Get("ApiVersion")
-
-	match, err := dockerclient.DockerAPIVersion(version).Matches(selector)
+	match, err := utils.Version(apiVersion).Matches(selector)
 	if err != nil {
 		t.Fatalf("Could not check docker api version to match required: %v", err)
 	}
 
 	if !match {
-		t.Skipf("Skipping test; requires %v, but api version is %v", selector, version)
+		t.Skipf("Skipping test; requires %v, but api version is %v", selector, apiVersion)
 	}
 }
 
@@ -703,7 +712,8 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 
 // GetContainerNetworkMode gets the container network mode, given container id
 func (agent *TestAgent) GetContainerNetworkMode(containerId string) ([]string, error) {
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	ctx := context.TODO()
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		return nil, fmt.Errorf("Could not inspect container for task: %v", err)
 	}
@@ -735,11 +745,10 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 
 	for _, container := range taskResponse.Containers {
 		ctx, _ := context.WithTimeout(context.Background(), 1*time.Minute)
-		agent.DockerClient.RemoveContainer(docker.RemoveContainerOptions{
-			ID:            container.DockerID,
+		agent.DockerClient.ContainerRemove(ctx, container.DockerID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
-			Force:         true,
-			Context:       ctx,
+			RemoveLinks:   false,
+			Force:         false,
 		})
 	}
 

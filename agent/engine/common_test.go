@@ -35,7 +35,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
-	docker "github.com/fsouza/go-dockerclient"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -169,7 +169,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	dockerConfig.Labels["com.amazonaws.ecs.task-definition-version"] = task.Version
 	dockerConfig.Labels["com.amazonaws.ecs.cluster"] = ""
 	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx interface{}, config *docker.Config, y interface{}, containerName string, z time.Duration) {
+		func(ctx interface{}, config *dockercontainer.Config, y interface{}, containerName string, z time.Duration) {
 			checkDockerConfigsExceptEnv(t, dockerConfig, config)
 			checkDockerConfigsEnv(t, dockerConfig, config)
 			// sleep5 task contains only one container. Just assign
@@ -198,7 +198,7 @@ func validateContainerRunWorkflow(t *testing.T,
 // its container config to docker config, it iterates over the container's env map and
 // append them into docker config's env slice. So the sequence for the env slice is undetermined,
 // and it needs other logic to check equality.
-func checkDockerConfigsExceptEnv(t *testing.T, expectedConfig *docker.Config, config *docker.Config) {
+func checkDockerConfigsExceptEnv(t *testing.T, expectedConfig *dockercontainer.Config, config *dockercontainer.Config) {
 	expectedConfigEnvList := expectedConfig.Env
 	configEnvList := config.Env
 	expectedConfig.Env = nil
@@ -213,7 +213,7 @@ func checkDockerConfigsExceptEnv(t *testing.T, expectedConfig *docker.Config, co
 
 // checkDockerConfigsEnv checks whether two docker configs have same list of environment
 // variables and each has same value, ignoring the order.
-func checkDockerConfigsEnv(t *testing.T, expectedConfig *docker.Config, config *docker.Config) {
+func checkDockerConfigsEnv(t *testing.T, expectedConfig *dockercontainer.Config, config *dockercontainer.Config) {
 	expectedConfigEnvList := expectedConfig.Env
 	configEnvList := config.Env
 

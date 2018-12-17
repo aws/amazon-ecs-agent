@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/stretchr/testify/require"
 )
 
 var acsErr *acsError
@@ -31,70 +32,44 @@ func init() {
 
 func TestInvalidInstanceException(t *testing.T) {
 	errMsg := "Invalid instance"
-	err := acsErr.NewError(&ecsacs.InvalidInstanceException{Message: &errMsg})
+	err := acsErr.NewError(&ecsacs.InvalidInstanceException{Message_: &errMsg})
 
-	if err.Retry() {
-		t.Fatal("Expected InvalidInstanceException to not be retriable")
-	}
-
-	if err.Error() != "InvalidInstanceException: "+errMsg {
-		t.Fatal("Error string did not match expected: " + err.Error())
-	}
+	require.False(t, err.Retry(), "Expected InvalidInstanceException to not be retriable")
+	require.EqualError(t, err, "InvalidInstanceException: "+errMsg)
 }
 
 func TestInvalidClusterException(t *testing.T) {
 	errMsg := "Invalid cluster"
-	err := acsErr.NewError(&ecsacs.InvalidClusterException{Message: &errMsg})
+	err := acsErr.NewError(&ecsacs.InvalidClusterException{Message_: &errMsg})
 
-	if err.Retry() {
-		t.Fatal("Expected to not be retriable")
-	}
-
-	if err.Error() != "InvalidClusterException: "+errMsg {
-		t.Fatal("Error string did not match expected: " + err.Error())
-	}
+	require.False(t, err.Retry(), "Expected to not be retriable")
+	require.EqualError(t, err, "InvalidClusterException: "+errMsg)
 }
 
 func TestServerException(t *testing.T) {
-	err := acsErr.NewError(&ecsacs.ServerException{Message: nil})
+	err := acsErr.NewError(&ecsacs.ServerException{Message_: nil})
 
-	if !err.Retry() {
-		t.Fatal("Server exceptions are retriable")
-	}
-
-	if err.Error() != "ServerException: null" {
-		t.Fatal("Error string did not match expected: " + err.Error())
-	}
+	require.True(t, err.Retry(), "Server exceptions are retriable")
+	require.EqualError(t, err, "ServerException: null")
 }
 
 func TestGenericErrorConversion(t *testing.T) {
 	err := acsErr.NewError(errors.New("generic error"))
 
-	if !err.Retry() {
-		t.Error("Should default to retriable")
-	}
-
-	if err.Error() != "ACSError: generic error" {
-		t.Error("Did not match expected error: " + err.Error())
-	}
+	require.True(t, err.Retry(),"Should default to retriable")
+	require.EqualError(t, err,  "ACSError: generic error")
 }
 
 func TestSomeRandomTypeConversion(t *testing.T) {
 	// This is really just an 'it doesn't panic' check.
 	err := acsErr.NewError(t)
-	if !err.Retry() {
-		t.Error("Should default to retriable")
-	}
-	if !strings.HasPrefix(err.Error(), "ACSError: Unknown error") {
-		t.Error("Expected unknown error")
-	}
+	require.True(t, err.Retry(),"Should default to retriable")
+	require.True(t, strings.HasPrefix(err.Error(), "ACSError: Unknown error"))
 }
 
 func TestBadlyTypedMessage(t *testing.T) {
 	// Another 'does not panic' check
 	err := acsErr.NewError(struct{ Message int }{1})
-	if !err.Retry() {
-		t.Error("Should default to retriable")
-	}
-	_ = err.Error()
+	require.True(t, err.Retry(),"Should default to retriable")
+	require.NotNil(t, err.Error())
 }

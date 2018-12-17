@@ -27,10 +27,10 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	"github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -52,9 +52,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{},
 	}, nil)
-	mockStatsChannel := make(chan *docker.Stats)
+	mockStatsChannel := make(chan *types.Stats)
 	defer close(mockStatsChannel)
-	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineAddRemoveContainers"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -177,7 +177,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{},
 	}, nil)
-	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -194,7 +194,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 		{22400432, 1839104, ts1},
 		{116499979, 3649536, ts2},
 	}
-	dockerStats := []*docker.Stats{
+	dockerStats := []*types.Stats{
 		{
 			Read: ts1,
 		},
@@ -398,7 +398,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	containerID := "containerID"
-	statsChan := make(chan *docker.Stats)
+	statsChan := make(chan *types.Stats)
 	statsStarted := make(chan struct{})
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
@@ -412,7 +412,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	client.EXPECT().ListContainers(gomock.Any(), false, gomock.Any()).Return(dockerapi.ListContainersResponse{
 		DockerIDs: []string{containerID},
 	})
-	client.EXPECT().Stats(containerID, gomock.Any()).Do(func(id string, ctx context.Context) {
+	client.EXPECT().Stats(gomock.Any(), containerID, gomock.Any()).Do(func(ctx context.Context, id string, inactivityTimeout time.Duration) {
 		statsStarted <- struct{}{}
 	}).Return(statsChan, nil)
 
