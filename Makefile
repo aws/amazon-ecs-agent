@@ -193,7 +193,7 @@ test-in-docker:
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
-	. ./scripts/shared_env && go test -tags functional -timeout=32m -v ./agent/functional_tests/...
+	. ./scripts/shared_env && go test -tags functional -timeout=34m -v ./agent/functional_tests/...
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 

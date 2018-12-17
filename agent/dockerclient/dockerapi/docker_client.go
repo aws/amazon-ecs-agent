@@ -1307,6 +1307,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 		go func() {
 			defer cancelRequest()
 			defer close(statsChnl)
+			defer statPollTicker.Stop()
 
 			for range statPollTicker.C {
 				// ContainerStats outputs an io.ReadCloser and an OSType

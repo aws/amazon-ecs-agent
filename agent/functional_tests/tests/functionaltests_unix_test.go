@@ -368,9 +368,14 @@ func TestAWSLogsDriver(t *testing.T) {
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 }
 
-// TestTelemetry tests whether agent can send metrics to TACS
+// TestTelemetry tests whether agent can send metrics to TACS, through streaming docker stats
 func TestTelemetry(t *testing.T) {
 	telemetryTest(t, "telemetry")
+}
+
+// TestTelemetry tests whether agent can send metrics to TACS, through polling docker stats
+func TestTelemetryWithStatsPolling(t *testing.T) {
+	telemetryTestWithStatsPolling(t, "telemetry")
 }
 
 func TestTaskIAMRolesNetHostMode(t *testing.T) {
