@@ -983,7 +983,14 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			// Agent.
 			// 2. The task has already been cleaned up, in this case any stopped container
 			// will not be stopped by Agent when they come back.
-			if container.GetAppliedStatus() == apicontainerstatus.ContainerRunning {
+			//
+			// If the container's AppliedStatus is stopped, we shouldn't mark it as stopped
+			// for the same reason. This could happen when we failed to start container because of
+			// StartContainer times out, Agent will schedule a StopContainer API call, that API call
+			// could change the applied status to stopped, and we want to wait for the
+			// StopContainer API call to be finished.
+			if container.GetAppliedStatus() == apicontainerstatus.ContainerRunning ||
+				container.GetAppliedStatus() == apicontainerstatus.ContainerStopped {
 				nextState = apicontainerstatus.ContainerStatusNone
 			}
 
