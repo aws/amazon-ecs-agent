@@ -6,5 +6,6 @@
   "DockerVersion": ">=1.11.1",
   "Timeout": "1m",
   "Count": 4,
-  "Daemon": true
+  "Daemon": true,
+  "MinimumMemory": "1300"
 }

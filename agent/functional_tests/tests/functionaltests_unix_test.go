@@ -94,6 +94,9 @@ func TestRunManyTasks(t *testing.T) {
 
 // TestOOMContainer verifies that an OOM container returns an error
 func TestOOMContainer(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	RequireDockerVersion(t, "<1.9.0,>1.9.1") // https://github.com/docker/docker/issues/18510
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -106,6 +109,9 @@ func TestOOMContainer(t *testing.T) {
 
 // TestOOMTask verifies that a task with a memory limit returns an error
 func TestOOMTask(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
