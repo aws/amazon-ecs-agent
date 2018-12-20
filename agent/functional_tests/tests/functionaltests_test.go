@@ -54,6 +54,8 @@ const (
 	awsvpcTaskRequestTimeout = 5 * time.Second
 	cpuSharesPerCore         = 1024
 	bytePerMegabyte          = 1024 * 1024
+	minimumCPUShares         = 128
+	maximumCPUShares         = 10240
 )
 
 // TestPullInvalidImage verifies that an invalid image returns an error
@@ -314,7 +316,12 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 	if err != nil {
 		return fmt.Errorf("error starting task with network %v, err: %v", mode, err)
 	}
-	defer task.Stop()
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(waitTaskStateChangeDuration)
+	}()
 
 	err = task.WaitRunning(waitTaskStateChangeDuration)
 	if err != nil {
@@ -447,6 +454,19 @@ func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
 }
 
 func telemetryTest(t *testing.T, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	cpuNum := runtime.NumCPU()
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare := int(float64(cpuNum*cpuSharesPerCore) * 0.25)
+	if cpuShare < minimumCPUShares {
+		cpuShare = minimumCPUShares
+	} else if cpuShare > maximumCPUShares {
+		cpuShare = maximumCPUShares
+	}
+	expectedCPUPercentage := float64(cpuShare) / float64(cpuNum*cpuSharesPerCore)
+
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
 	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
@@ -491,11 +511,8 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	_, err = VerifyMetrics(cwclient, params, true)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
-	cpuNum := runtime.NumCPU()
-
 	tdOverrides := make(map[string]string)
-	// Set the container cpu percentage 25%
-	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(int(float64(cpuNum*cpuSharesPerCore) * 0.25))
+	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
@@ -509,8 +526,8 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	params.MetricName = aws.String("CPUUtilization")
 	metrics, err := VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around 25% +/- 5%
-	assert.InDelta(t, 25, *metrics.Average, 5)
+	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
+	assert.InDelta(t, expectedCPUPercentage * 100.0, *metrics.Average, 5)
 
 	params.MetricName = aws.String("MemoryUtilization")
 	metrics, err = VerifyMetrics(cwclient, params, false)
@@ -848,12 +865,6 @@ func TestContainerInstanceTags(t *testing.T) {
 		}
 	}
 	assert.Zero(t, len(expectedTagsMap))
-
-	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
-		Name: aws.String("containerInstanceLongArnFormat"),
-	}
-	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
-	assert.NoError(t, err)
 }
 
 func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode string) {

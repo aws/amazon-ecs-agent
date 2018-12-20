@@ -43,14 +43,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/docker/docker/api/types"
 	docker "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/nat"
-
 	"github.com/pkg/errors"
 )
 
 const (
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
+	bytePerMegabyte      = 1024 * 1024
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -617,6 +618,18 @@ func RequireDockerVersion(t *testing.T, selector string) {
 
 	if !match {
 		t.Skipf("Skipping test; requires %v, but version is %v", selector, dockerVersion)
+	}
+}
+
+func RequireMinimumMemory(t *testing.T, minimumMemoryInMegaBytes int) {
+	memInfo, err := system.ReadMemInfo()
+	if err != nil {
+		t.Fatalf("Could not check system memory info before checking minimum memory requirement: %v", err)
+	}
+
+	totalMemory := int(memInfo.MemTotal / bytePerMegabyte)
+	if totalMemory < minimumMemoryInMegaBytes {
+		t.Skipf("Skipping the test since it requires %d MB of memory. Total memory on the instance: %d MB", minimumMemoryInMegaBytes, totalMemory)
 	}
 }
 
