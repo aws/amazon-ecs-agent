@@ -336,7 +336,10 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 	var nonECSContainerRemoveAvailableIDs []string
 	for _, id := range nonECSContainersIDs {
 		response, _ := imageManager.client.InspectContainer(ctx, id, dockerclient.InspectContainerTimeout)
-		if response.State.Status == "exited" && time.Now().Sub(response.State.FinishedAt) > imageManager.nonECSContainerCleanupWaitDuration {
+
+		finishedTime, _ := time.Parse(time.Now().String(), response.State.FinishedAt)
+
+		if response.State.Status == "exited" && time.Now().Sub(finishedTime) > imageManager.nonECSContainerCleanupWaitDuration {
 			nonECSContainerRemoveAvailableIDs = append(nonECSContainerRemoveAvailableIDs, id)
 		}
 	}

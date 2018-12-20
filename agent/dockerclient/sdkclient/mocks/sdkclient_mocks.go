@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -193,6 +193,19 @@ func (m *MockClient) ImageInspectWithRaw(arg0 context.Context, arg1 string) (typ
 // ImageInspectWithRaw indicates an expected call of ImageInspectWithRaw
 func (mr *MockClientMockRecorder) ImageInspectWithRaw(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageInspectWithRaw", reflect.TypeOf((*MockClient)(nil).ImageInspectWithRaw), arg0, arg1)
+}
+
+// ImageList mocks base method
+func (m *MockClient) ImageList(arg0 context.Context, arg1 types.ImageListOptions) ([]types.ImageSummary, error) {
+	ret := m.ctrl.Call(m, "ImageList", arg0, arg1)
+	ret0, _ := ret[0].([]types.ImageSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ImageList indicates an expected call of ImageList
+func (mr *MockClientMockRecorder) ImageList(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ImageList", reflect.TypeOf((*MockClient)(nil).ImageList), arg0, arg1)
 }
 
 // ImageLoad mocks base method

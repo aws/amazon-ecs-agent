@@ -996,13 +996,17 @@ func TestNonECSImageAndContainersCleanupRemoveImage(t *testing.T) {
 	listContainersResponse := dockerapi.ListContainersResponse{
 		DockerIDs: []string{"1"},
 	}
-	inspectContainerResponse := &docker.Container{
-		ID: "1",
-		State: docker.State{
-			Status:     "exited",
-			FinishedAt: time.Now().AddDate(0, -2, 0),
+
+	inspectContainerResponse := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1",
+			State: &types.ContainerState{
+				Status:     "exited",
+				FinishedAt: time.Now().AddDate(0, -2, 0).String(),
+			},
 		},
 	}
+
 	listImagesResponse := dockerapi.ListImagesResponse{
 		ImageIDs: []string{"sha256:qwerty1"},
 	}

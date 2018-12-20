@@ -816,8 +816,8 @@ func TestListImages(t *testing.T) {
 	mockDocker, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	images := []docker.APIImages{{ID: "id"}}
-	mockDocker.EXPECT().ListImages(gomock.Any()).Return(images, nil)
+	images := []types.ImageSummary{{ID: "id"}}
+	mockDocker.EXPECT().ImageList(gomock.Any(), gomock.Any()).Return(images, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListImages(ctx, dockerclient.ListImagesTimeout)
@@ -841,7 +841,7 @@ func TestListImagesTimeout(t *testing.T) {
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
-	mockDocker.EXPECT().ListImages(gomock.Any()).Do(func(x interface{}) {
+	mockDocker.EXPECT().ImageList(gomock.Any(), gomock.Any()).Do(func(x, y interface{}) {
 		wait.Wait()
 		// Don't return, verify timeout happens
 	}).MaxTimes(1).Return(nil, errors.New("test error"))

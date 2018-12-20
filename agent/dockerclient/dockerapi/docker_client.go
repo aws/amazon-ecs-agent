@@ -1022,11 +1022,11 @@ func (dg *dockerGoClient) ListImages(ctx context.Context, timeout time.Duration)
 }
 
 func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
-	client, err := dg.dockerClient()
+	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
-	images, err := client.ListImages(docker.ListImagesOptions{
+	images, err := client.ImageList(ctx, types.ImageListOptions{
 		All: false,
 	})
 	if err != nil {
