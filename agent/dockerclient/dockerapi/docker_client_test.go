@@ -736,7 +736,7 @@ func TestContainerEventsStreamError(t *testing.T) {
 
 	eventsChan := make(chan events.Message, dockerEventBufferSize)
 	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).Times(2)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
 	require.NoError(t, err, "Could not get container events")
