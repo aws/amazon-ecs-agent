@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -1263,41 +1264,76 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	statsChnl := make(chan *types.Stats)
 	var resp types.ContainerStats
 
-	go func() {
-		defer cancelRequest()
-		defer close(statsChnl)
-		// ContainerStats outputs a io.ReadCloser and an OSType
-		stream := true
-		resp, err = client.ContainerStats(subCtx, id, stream)
-		if err != nil {
-			seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
-			return
-		}
-
-		// handle inactivity timeout
-		var canceled uint32
-		var ch chan<- struct{}
-		resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
-		defer resp.Body.Close()
-		defer close(ch)
-
-		// Returns a *Decoder and takes in a readCloser
-		decoder := json.NewDecoder(resp.Body)
-		data := new(types.Stats)
-		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+	if !dg.config.PollMetrics {
+		go func() {
+			defer cancelRequest()
+			defer close(statsChnl)
+			// ContainerStats outputs an io.ReadCloser and an OSType
+			stream := true
+			resp, err = client.ContainerStats(subCtx, id, stream)
 			if err != nil {
-				seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
-				return
-			}
-			if atomic.LoadUint32(&canceled) != 0 {
-				seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+				seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 				return
 			}
 
-			statsChnl <- data
-			data = new(types.Stats)
-		}
-	}()
+			// handle inactivity timeout
+			var canceled uint32
+			var ch chan<- struct{}
+			resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
+			defer resp.Body.Close()
+			defer close(ch)
+
+			// Returns a *Decoder and takes in a readCloser
+			decoder := json.NewDecoder(resp.Body)
+			data := new(types.Stats)
+			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					return
+				}
+				if atomic.LoadUint32(&canceled) != 0 {
+					seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+					return
+				}
+
+				statsChnl <- data
+				data = new(types.Stats)
+			}
+		}()
+	} else {
+		seelog.Infof("DockerGoClient: Starting to Poll for metrics for container %s", id)
+		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
+		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
+
+		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
+		go func() {
+			defer cancelRequest()
+			defer close(statsChnl)
+			defer statPollTicker.Stop()
+
+			for range statPollTicker.C {
+				// ContainerStats outputs an io.ReadCloser and an OSType
+				stream := false
+				resp, err = client.ContainerStats(subCtx, id, stream)
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+					return
+				}
+
+				// Returns a *Decoder and takes in a readCloser
+				decoder := json.NewDecoder(resp.Body)
+				data := new(types.Stats)
+				err := decoder.Decode(data)
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					return
+				}
+
+				statsChnl <- data
+				data = new(types.Stats)
+			}
+		}()
+	}
 
 	return statsChnl, nil
 }

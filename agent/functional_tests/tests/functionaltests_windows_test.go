@@ -193,9 +193,14 @@ func TestContainerMetadataFile(t *testing.T) {
 	testContainerMetadataFile(t, "container-metadata-file-validator-windows", "ecs-functional-tests-container-metadata-file-validator-windows")
 }
 
-// TestTelemetry tests whether agent can send metrics to TACS
+// TestTelemetry tests whether agent can send metrics to TACS, through streaming docker stats
 func TestTelemetry(t *testing.T) {
 	telemetryTest(t, "telemetry-windows")
+}
+
+// TestTelemetry tests whether agent can send metrics to TACS, through polling docker stats
+func TestTelemetryWithStatsPolling(t *testing.T) {
+	telemetryTestWithStatsPolling(t, "telemetry-windows")
 }
 
 // TestOOMContainer verifies that an OOM container returns an error

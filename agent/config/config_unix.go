@@ -66,6 +66,8 @@ func DefaultConfig() Config {
 		PauseContainerTarballPath:          pauseContainerTarballPath,
 		PauseContainerImageName:            DefaultPauseContainerImageName,
 		PauseContainerTag:                  DefaultPauseContainerTag,
+		PollMetrics:                        false,
+		PollingMetricsWaitDuration:         DefaultPollingMetricsWaitDuration,
 		AWSVPCBlockInstanceMetdata:         false,
 		ContainerMetadataEnabled:           false,
 		TaskCPUMemLimit:                    DefaultEnabled,
