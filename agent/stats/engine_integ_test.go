@@ -418,6 +418,10 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	// Should not contain any metrics after cleanup.
 	validateIdleContainerMetrics(t, engine)
 	validateEmptyTaskHealthMetrics(t, engine)
+
+	// reset cfg, currently cfg is shared by all tests.
+	cfg.PollMetrics = false
+	cfg.PollingMetricsWaitDuration = config.DefaultPollingMetricsWaitDuration
 }
 
 func TestStatsEngineWithDockerTaskEngine(t *testing.T) {

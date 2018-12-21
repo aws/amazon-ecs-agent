@@ -574,8 +574,6 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 			},
 		},
 	}
-	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.EndTime = aws.Time((*params.StartTime).Add(waitMetricsInCloudwatchDuration).UTC())
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	cpuNum := runtime.NumCPU()
