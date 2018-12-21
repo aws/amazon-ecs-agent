@@ -19,7 +19,6 @@ DRYRUN=true
 
 AWS_PROFILE=""
 AWS_REGION="us-east-1"
-AMI_ID="ami-053b2a8c2f3e87928" #amzn2-ami-hvm-2.0.20181020.0-aarch64-gp2
 ARTIFACT_BUCKET=""
 SOURCE_BUCKET=""
 KEY_NAME=""
@@ -161,6 +160,23 @@ echo "======================================================"
 echo "${userdata}"
 echo "======================================================"
 echo
+
+# Install jq
+add-apt-repository ppa:eugenesan/ppa
+apt-get update
+apt-get install jq
+
+# Fetch the Arm AMI Id
+AMI_ID=$(aws ec2 describe-images \
+    --region "${AWS_REGION}" \
+    --owners amazon \
+    --filters "Name=architecture,Values=arm64" \
+    "Name=root-device-type,Values=ebs" \
+    "Name=state,Values=available" \
+    "Name=name,Values=amzn2-ami-hvm-*" \
+    --query 'Images[].ImageId' | jq '.[0]' |  sed 's/"//g')
+
+echo "AMI ID: ${AMI_ID}"
 
 ec2_instance_id=$(dryval aws ${profile} "--region=${AWS_REGION}" \
 	ec2 run-instances \
