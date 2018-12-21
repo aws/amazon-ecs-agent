@@ -46,6 +46,7 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -602,19 +603,14 @@ func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
 func RequireDockerVersion(t *testing.T, selector string) {
 	ctx := context.TODO()
 	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-	if err != nil {
-		t.Fatalf("Could not get docker client to check version: %v", err)
-	}
-	version, err := dockerClient.ServerVersion(ctx)
-	if err != nil {
-		t.Fatalf("Could not get docker version: %v", err)
-	}
-	dockerVersion := version.Version
+	require.NoError(t, err, "Could not get docker client to check version")
 
+	version, err := dockerClient.ServerVersion(ctx)
+	require.NoError(t, err, "Could not get docker version")
+
+	dockerVersion := version.Version
 	match, err := utils.Version(dockerVersion).Matches(selector)
-	if err != nil {
-		t.Fatalf("Could not check docker version to match required: %v", err)
-	}
+	require.NoError(t, err, "Could not check docker version to match required")
 
 	if !match {
 		t.Skipf("Skipping test; requires %v, but version is %v", selector, dockerVersion)
@@ -623,9 +619,7 @@ func RequireDockerVersion(t *testing.T, selector string) {
 
 func RequireMinimumMemory(t *testing.T, minimumMemoryInMegaBytes int) {
 	memInfo, err := system.ReadMemInfo()
-	if err != nil {
-		t.Fatalf("Could not check system memory info before checking minimum memory requirement: %v", err)
-	}
+	require.NoError(t, err, "Could not check system memory info before checking minimum memory requirement")
 
 	totalMemory := int(memInfo.MemTotal / bytePerMegabyte)
 	if totalMemory < minimumMemoryInMegaBytes {
@@ -636,13 +630,11 @@ func RequireMinimumMemory(t *testing.T, minimumMemoryInMegaBytes int) {
 func RequireDockerAPIVersion(t *testing.T, selector string) {
 	ctx := context.TODO()
 	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-	if err != nil {
-		t.Fatalf("Could not get docker client to check version: %v", err)
-	}
+	require.NoError(t, err, "Could not get docker client to check version")
+
 	version, err := dockerClient.ServerVersion(ctx)
-	if err != nil {
-		t.Fatalf("Could not get docker version: %v", err)
-	}
+	require.NoError(t, err, "Could not get docker version")
+
 	apiVersion := version.APIVersion
 	// adding zero patch to use semver comparator
 	// TODO: Implement non-semver comparator

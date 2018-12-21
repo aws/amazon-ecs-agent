@@ -453,19 +453,26 @@ func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
 	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
 }
 
-func telemetryTest(t *testing.T, taskDefinition string) {
-	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
-	RequireMinimumMemory(t, 2200)
-
+func calculateCpuLimits(cpuPercentage float64) (int, float64) {
 	cpuNum := runtime.NumCPU()
 	// Try to let the container use 25% cpu, but bound it within valid range
-	cpuShare := int(float64(cpuNum*cpuSharesPerCore) * 0.25)
+	cpuShare := int(float64(cpuNum*cpuSharesPerCore) * cpuPercentage)
 	if cpuShare < minimumCPUShares {
 		cpuShare = minimumCPUShares
 	} else if cpuShare > maximumCPUShares {
 		cpuShare = maximumCPUShares
 	}
 	expectedCPUPercentage := float64(cpuShare) / float64(cpuNum*cpuSharesPerCore)
+
+	return cpuShare, expectedCPUPercentage
+}
+
+func telemetryTest(t *testing.T, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
 
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
@@ -527,7 +534,7 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	metrics, err := VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
-	assert.InDelta(t, expectedCPUPercentage * 100.0, *metrics.Average, 5)
+	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
 
 	params.MetricName = aws.String("MemoryUtilization")
 	metrics, err = VerifyMetrics(cwclient, params, false)
@@ -557,6 +564,9 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 }
 
 func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
+
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-polling-" + uuid.New()
 	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
@@ -593,11 +603,10 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	}
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	cpuNum := runtime.NumCPU()
 
 	tdOverrides := make(map[string]string)
 	// Set the container cpu percentage 25%
-	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(int(float64(cpuNum*cpuSharesPerCore) * 0.25))
+	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
@@ -611,8 +620,8 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	params.MetricName = aws.String("CPUUtilization")
 	metrics, err := VerifyMetrics(cwclient, params, false)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around 25% +/- 5%
-	assert.InDelta(t, 25, *metrics.Average, 5)
+	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
+	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
 
 	params.MetricName = aws.String("MemoryUtilization")
 	metrics, err = VerifyMetrics(cwclient, params, false)
