@@ -362,8 +362,12 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 	expectedAgentBinds += 1
 
 	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
 		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
 	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		return []string{"/dev/nvidia0", "/dev/nvidia1"}, nil
+	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
 	mockDocker := NewMockdockerclient(mockCtrl)
@@ -381,6 +385,49 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 		}
 		assert.True(t, found)
 
+		cfg := opts.Config
+
+		envVariables := make(map[string]struct{})
+		for _, envVar := range cfg.Env {
+			envVariables[envVar] = struct{}{}
+		}
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &Client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
+}
+
+func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	containerID := "container id"
+
+	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		// matches is nil
+		return nil, nil
+	}
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		validateCommonCreateContainerOptions(opts, t)
 		cfg := opts.Config
 
 		envVariables := make(map[string]struct{})

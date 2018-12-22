@@ -15,6 +15,7 @@ package docker
 
 import (
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -321,13 +322,34 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 
 	for key, val := range c.LoadEnvVars() {
 		if key == config.GPUSupportEnvVar && val == "true" {
-			// bind mount gpu info dir
-			binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+			if nvidiaGPUDevicesPresent() {
+				// bind mount gpu info dir
+				binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+			}
 		}
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
 	return createHostConfig(binds)
+}
+
+// nvidiaGPUDevicesPresent checks if nvidia GPU devices are present in the instance
+func nvidiaGPUDevicesPresent() bool {
+	matches, err := MatchFilePatternForGPU(gpu.NvidiaGPUDeviceFilePattern)
+	if err != nil {
+		log.Errorf("Detecting Nvidia GPU devices failed")
+		return false
+	}
+	if matches == nil {
+		return false
+	}
+	return true
+}
+
+var MatchFilePatternForGPU = FilePatternMatchForGPU
+
+func FilePatternMatchForGPU(pattern string) ([]string, error) {
+	return filepath.Glob(pattern)
 }
 
 func getDockerPluginDirBinds() []string {
