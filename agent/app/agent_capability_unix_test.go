@@ -217,3 +217,77 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
 	}
 }
+
+func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	conf := &config.Config{
+		PrivilegedDisabled: true,
+		GPUSupportEnabled:  true,
+	}
+
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	expectedCapabilityNames := []string{
+		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
+	}
+
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedCapabilityNames {
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
+	}
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{
+			// linux specific capabilities
+			{
+				Name: aws.String("ecs.capability.docker-plugin.local"),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
+			},
+		}...)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+		resourceFields: &taskresource.ResourceFields{
+			NvidiaGPUManager: &gpu.NvidiaGPUManager{
+				DriverVersion: "",
+			},
+		},
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	}
+}
