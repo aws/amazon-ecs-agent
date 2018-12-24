@@ -445,7 +445,7 @@ func userDataConfig(ec2Client ec2.EC2MetadataClient) Config {
 	// we'd need to add logic to decode the string here.
 	err = json.Unmarshal([]byte(userData), &parsedUserData)
 	if err != nil {
-		seelog.Infof("Unable to parse user data: %v", err)
+		seelog.Debugf("Non-json user data, skip merging into agent config: %v", err)
 		// Unable to parse userdata as a valid JSON. Return the
 		// empty config
 		return Config{}
