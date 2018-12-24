@@ -724,12 +724,6 @@ func TestTaskMetadataValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
-
-	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
-		Name: aws.String("containerInstanceLongArnFormat"),
-	}
-	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
-	assert.NoError(t, err)
 }
 
 // TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
