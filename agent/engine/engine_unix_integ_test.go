@@ -216,7 +216,7 @@ func createTestGPUTask() *apitask.Task {
 					Encoding: "base64",
 					Value:    "val",
 				},
-				Name: "1",
+				Name: "0",
 				Type: apitask.GPUAssociationType,
 			},
 		},
@@ -1433,14 +1433,14 @@ func TestGPUAssociationTask(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	verifyTaskIsRunning(stateChangeEvents, testTask)
-	assert.Equal(t, []string{"1"}, container.GPUIDs)
-	assert.Equal(t, "1", container.Environment[apitask.NvidiaVisibleDevicesEnvVar])
+	assert.Equal(t, []string{"0"}, container.GPUIDs)
+	assert.Equal(t, "0", container.Environment[apitask.NvidiaVisibleDevicesEnvVar])
 
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 	state, _ := client.ContainerInspect(ctx, cid)
 	assert.Equal(t, testTask.NvidiaRuntime, state.HostConfig.Runtime)
-	assert.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=1")
+	assert.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=0")
 
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
