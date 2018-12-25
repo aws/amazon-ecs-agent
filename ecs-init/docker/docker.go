@@ -253,6 +253,11 @@ func (c *Client) LoadEnvVars() map[string]string {
 	envVariables := make(map[string]string)
 	// merge in instance-specific environment variables
 	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
+		if envKey == config.GPUSupportEnvVar && envValue == "true" {
+			if !nvidiaGPUDevicesPresent() {
+				continue
+			}
+		}
 		envVariables[envKey] = envValue
 	}
 

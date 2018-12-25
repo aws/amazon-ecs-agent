@@ -482,6 +482,13 @@ func TestGetInstanceConfig(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		// GPU device present
+		return []string{"/dev/nvidia0"}, nil
+	}
 
 	mockFS := NewMockfileSystem(mockCtrl)
 
@@ -498,6 +505,38 @@ func TestGetInstanceConfig(t *testing.T) {
 		envVariables[envVar] = struct{}{}
 	}
 	expectKey("ECS_ENABLE_GPU_SUPPORT=true", envVariables, t)
+}
+
+func TestGetNonGPUInstanceConfig(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
+	defer func() {
+		MatchFilePatternForGPU = FilePatternMatchForGPU
+	}()
+	MatchFilePatternForGPU = func(pattern string) ([]string, error) {
+		// matches is nil
+		return nil, nil
+	}
+
+	mockFS := NewMockfileSystem(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return([]byte(envFile), nil)
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found"))
+
+	client := &Client{
+		fs: mockFS,
+	}
+	cfg := client.getContainerConfig()
+
+	envVariables := make(map[string]struct{})
+	for _, envVar := range cfg.Env {
+		envVariables[envVar] = struct{}{}
+	}
+	if _, ok := envVariables["ECS_ENABLE_GPU_SUPPORT=true"]; ok {
+		t.Errorf("Expected ECS_ENABLE_GPU_SUPPORT=true to be not present")
+	}
 }
 
 func TestGetConfigOverrides(t *testing.T) {
