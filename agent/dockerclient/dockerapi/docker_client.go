@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -946,8 +947,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status:                  status,
-			Type:                    eventType,
+			Status: status,
+			Type:   eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
@@ -1383,6 +1384,15 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageLoad(ctx, reader, false)
+	resp, err := client.ImageLoad(ctx, reader, false)
+	if err != nil {
+		return err
+	}
+
+	// flush and close response reader
+	if resp.Body != nil {
+		defer resp.Body.Close()
+		_, err = io.Copy(ioutil.Discard, resp.Body)
+	}
 	return err
 }

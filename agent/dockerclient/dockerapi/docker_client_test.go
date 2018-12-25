@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
+	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
@@ -1057,7 +1058,9 @@ func TestLoadImageHappyPath(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{}, nil)
+	mockDockerSDK.EXPECT().ImageLoad(gomock.Any(), gomock.Any(), false).Return(types.ImageLoadResponse{
+		Body: ioutil.NopCloser(strings.NewReader("dummy load message")),
+	}, nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
