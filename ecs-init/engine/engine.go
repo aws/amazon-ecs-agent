@@ -81,6 +81,7 @@ func (e *Engine) PreStart() error {
 		if val == "true" {
 			err := e.nvidiaGPUManager.Setup()
 			if err != nil {
+				log.Errorf("Nvidia GPU Manager: %v", err)
 				return engineError("Nvidia GPU Manager", err)
 			}
 		}
