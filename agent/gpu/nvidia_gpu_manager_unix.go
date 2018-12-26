@@ -23,6 +23,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -77,6 +78,8 @@ func (n *NvidiaGPUManager) Initialize() error {
 		nvidiaGPUInfo.lock.RUnlock()
 		n.SetGPUIDs(gpuIDs)
 		n.SetDevices()
+	} else {
+		seelog.Error("Config for GPU support is enabled, but GPU information is not found; continuing without it")
 	}
 	return nil
 }
