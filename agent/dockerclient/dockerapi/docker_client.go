@@ -1026,9 +1026,7 @@ func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
-	images, err := client.ImageList(ctx, types.ImageListOptions{
-		All: false,
-	})
+	images, err := client.ImageList(ctx, types.ImageListOptions{})
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}

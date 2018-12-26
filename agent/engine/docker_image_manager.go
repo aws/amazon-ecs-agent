@@ -329,7 +329,7 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 }
 
 func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Context) {
-	nonECSContainersIDs, err := imageManager.nonECSContainersIDs(ctx)
+	nonECSContainersIDs, err := imageManager.getNonECSContainerIDs(ctx)
 	if err != nil {
 		seelog.Errorf("Error getting non-ECS container IDs: %v", err)
 	}
@@ -360,7 +360,7 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 	}
 }
 
-func (imageManager *dockerImageManager) nonECSContainersIDs(ctx context.Context) ([]string, error) {
+func (imageManager *dockerImageManager) getNonECSContainerIDs(ctx context.Context) ([]string, error) {
 	var allContainersIDs []string
 	listContainersResponse := imageManager.client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
@@ -383,7 +383,7 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 	if nonECSImagesNumToDelete == 0 {
 		return
 	}
-	var nonECSImageNames = imageManager.nonECSImagesNames(ctx)
+	var nonECSImageNames = imageManager.getNonECSImageNames(ctx)
 	var nonECSImageNamesRemoveEligible []string
 	for _, nonECSImage := range nonECSImageNames {
 		if !isInExclusionList(nonECSImage, imageManager.imageCleanupExclusionList) {
@@ -419,7 +419,7 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 	}
 }
 
-func (imageManager *dockerImageManager) nonECSImagesNames(ctx context.Context) []string {
+func (imageManager *dockerImageManager) getNonECSImageNames(ctx context.Context) []string {
 	response := imageManager.client.ListImages(ctx, dockerclient.ListImagesTimeout)
 	var allImagesNames []string
 	for _, name := range response.RepoTags {

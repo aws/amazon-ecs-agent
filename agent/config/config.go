@@ -512,7 +512,7 @@ func environmentConfig() (Config, error) {
 		NumImagesToDeletePerCycle:           parseNumImagesToDeletePerCycle(),
 		NumNonECSContainersToDeletePerCycle: parseNumNonECSContainersToDeletePerCycle(),
 		ImagePullBehavior:                   parseImagePullBehavior(),
-		ImageCleanupExclusionList:           parseImageCleanupExclusionList("ECS_NONECS_IMAGE_CLEANUP_EXCLUDE"),
+		ImageCleanupExclusionList:           parseImageCleanupExclusionList("ECS_EXCLUDE_UNTRACKED_IMAGE"),
 		InstanceAttributes:                  instanceAttributes,
 		CNIPluginsPath:                      os.Getenv("ECS_CNI_PLUGINS_PATH"),
 		AWSVPCBlockInstanceMetdata:          utils.ParseBool(os.Getenv("ECS_AWSVPC_BLOCK_IMDS"), false),
