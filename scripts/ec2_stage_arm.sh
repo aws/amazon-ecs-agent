@@ -18,7 +18,7 @@ set -e
 DRYRUN=true
 
 AWS_PROFILE=""
-AWS_REGION="us-east-1"
+AWS_REGION=""
 ARTIFACT_BUCKET=""
 SOURCE_BUCKET=""
 KEY_NAME=""
@@ -102,6 +102,7 @@ while getopts ":d:p:a:t:k:s:i:r:h" opt; do
 done
 
 if [[ -z "${ARTIFACT_BUCKET}" ]] \
+    || [[ -z "${AWS_REGION}" ]] \
 	|| [[ -z "${KEY_NAME}" ]] \
 	|| [[ -z "${INSTANCE_PROFILE}" ]] \
 	|| [[ -z "${SOURCE_BUCKET}" ]]; then
@@ -161,11 +162,7 @@ echo "${userdata}"
 echo "======================================================"
 echo
 
-# Install jq
-add-apt-repository ppa:eugenesan/ppa
-apt-get update
-apt-get install jq
-
+# TODO Use SSM Parameters for querying when available for Arm instances
 # Fetch the Arm AMI Id
 AMI_ID=$(aws ec2 describe-images \
     --region "${AWS_REGION}" \
@@ -174,9 +171,30 @@ AMI_ID=$(aws ec2 describe-images \
     "Name=root-device-type,Values=ebs" \
     "Name=state,Values=available" \
     "Name=name,Values=amzn2-ami-hvm-*" \
-    --query 'Images[].ImageId' | jq '.[0]' |  sed 's/"//g')
+    --query 'sort_by(Images, &CreationDate)[-1].ImageId' |  sed 's/"//g')
 
-echo "AMI ID: ${AMI_ID}"
+echo "AMI ID found: ${AMI_ID}"
+
+if [[ -z ${AMI_ID} ]] || [[ ${AMI_ID} == "null" ]] ; then
+    echo "======================================================"
+    echo "Error: AMI ID not found"
+    echo "Query used for fetching AMI ID:"
+    echo "aws ec2 describe-images
+    --region "${AWS_REGION}"
+    --owners amazon
+    --filters "Name=architecture,Values=arm64"
+    "Name=root-device-type,Values=ebs"
+    "Name=state,Values=available"
+    "Name=name,Values=amzn2-ami-hvm-*""
+    echo ""
+    echo "Account:"
+    echo $(aws sts get-caller-identity --output text --query 'Arn')
+    echo ""
+    echo "Exiting"
+    echo "======================================================"
+
+    exit 1
+fi
 
 ec2_instance_id=$(dryval aws ${profile} "--region=${AWS_REGION}" \
 	ec2 run-instances \
