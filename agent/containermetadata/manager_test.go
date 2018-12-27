@@ -40,6 +40,7 @@ const (
 	containerName          = "container"
 	dataDir                = "ecs_mockdata"
 	availabilityZone       = "us-west-2b"
+	hostPublicIPv4Address  = "127.0.0.1"
 )
 
 func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
@@ -71,6 +72,15 @@ func TestSetAvailabilityZone(t *testing.T) {
 	newManager := &metadataManager{}
 	newManager.SetAvailabilityZone(mockAvailabilityZone)
 	assert.Equal(t, mockAvailabilityZone, newManager.availabilityZone)
+}
+
+// TestSetHostPublicIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
+func TestSetHostPublicIPv4Address(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	newManager := &metadataManager{}
+	newManager.SetHostPublicIPv4Address(hostPublicIPv4Address)
+	assert.Equal(t, hostPublicIPv4Address, newManager.hostPublicIPv4Address)
 }
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path

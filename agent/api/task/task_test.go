@@ -2554,6 +2554,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 	assert.Equal(t, "secretValue2", container.Environment["secret2"])
 	assert.Equal(t, 1, len(container.Environment))
 }
+
 func TestAddGPUResource(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:  "myName",
@@ -2737,3 +2738,4 @@ func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
 	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Error(t, err)
 }
+

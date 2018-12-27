@@ -47,6 +47,9 @@ const (
 	// AgentCredentialsPort is used to serve the credentials for tasks.
 	AgentCredentialsPort = 51679
 
+	// AgentPrometheusExpositionPort is used to expose Prometheus metrics that can be scraped by a Prometheus server
+	AgentPrometheusExpositionPort = 51680
+
 	// defaultConfigFileName is the default (json-formatted) config file
 	defaultConfigFileName = "/etc/ecs_container_agent/config.json"
 
@@ -56,6 +59,10 @@ const (
 	// DefaultTaskCleanupWaitDuration specifies the default value for task cleanup duration. It is used to
 	// clean up task's containers.
 	DefaultTaskCleanupWaitDuration = 3 * time.Hour
+
+	// DefaultPollingMetricsWaitDuration specifies the default value for polling metrics wait duration
+	// This is only used when PollMetrics is set to true
+	DefaultPollingMetricsWaitDuration = 15 * time.Second
 
 	// defaultDockerStopTimeout specifies the value for container stop timeout duration
 	defaultDockerStopTimeout = 30 * time.Second
@@ -79,6 +86,14 @@ const (
 	// minimumImagePullInactivityTimeout specifies the minimum amount of time for that an image can be
 	// 'stuck' in the pull / unpack step. Very small values are unsafe and lead to high failure rate.
 	minimumImagePullInactivityTimeout = 1 * time.Minute
+
+	// minimumPollingMetricsWaitDuration specifies the minimum duration to wait before polling for new stats
+	// from docker. This is only used when PollMetrics is set to true
+	minimumPollingMetricsWaitDuration = 1 * time.Second
+
+	// maximumPollingMetricsWaitDuration specifies the maximum duration to wait before polling for new stats
+	// from docker. This is only used when PollMetrics is set to true
+	maximumPollingMetricsWaitDuration = 20 * time.Second
 
 	// minimumDockerStopTimeout specifies the minimum value for docker StopContainer API
 	minimumDockerStopTimeout = 1 * time.Second
@@ -303,9 +318,26 @@ func (cfg *Config) validateAndOverrideBounds() error {
 		cfg.TaskMetadataBurstRate = DefaultTaskMetadataBurstRate
 	}
 
+	// check the PollMetrics specific configurations
+	cfg.pollMetricsOverrides()
+
 	cfg.platformOverrides()
 
 	return nil
+}
+
+func (cfg *Config) pollMetricsOverrides() {
+	if cfg.PollMetrics {
+		if cfg.PollingMetricsWaitDuration < minimumPollingMetricsWaitDuration {
+			seelog.Warnf("Invalid value for polling metrics wait duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultPollingMetricsWaitDuration.String(), cfg.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration)
+			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
+		}
+
+		if cfg.PollingMetricsWaitDuration > maximumPollingMetricsWaitDuration {
+			seelog.Warnf("Invalid value for polling metrics wait duration, will be overridden with the default value: %s. Parsed value: %v, maximum value: %v.", DefaultPollingMetricsWaitDuration.String(), cfg.PollingMetricsWaitDuration, maximumPollingMetricsWaitDuration)
+			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
+		}
+	}
 }
 
 // checkMissingAndDeprecated checks all zero-valued fields for tags of the form
@@ -416,7 +448,7 @@ func userDataConfig(ec2Client ec2.EC2MetadataClient) Config {
 	// we'd need to add logic to decode the string here.
 	err = json.Unmarshal([]byte(userData), &parsedUserData)
 	if err != nil {
-		seelog.Infof("Unable to parse user data: %v", err)
+		seelog.Debugf("Non-json user data, skip merging into agent config: %v", err)
 		// Unable to parse userdata as a valid JSON. Return the
 		// empty config
 		return Config{}
@@ -457,6 +489,8 @@ func environmentConfig() (Config, error) {
 		UpdatesEnabled:                     utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
 		UpdateDownloadDir:                  os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
 		DisableMetrics:                     utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
+		PollMetrics:                        utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), false),
+		PollingMetricsWaitDuration:         parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		ReservedMemory:                     parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
 		AvailableLoggingDrivers:            parseAvailableLoggingDrivers(),
 		PrivilegedDisabled:                 utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
@@ -516,6 +550,8 @@ func (cfg *Config) String() string {
 			"AuthType: %v, "+
 			"UpdatesEnabled: %v, "+
 			"DisableMetrics: %v, "+
+			"PollMetrics: %v, "+
+			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
 			"DockerStopTimeout: %v, "+
@@ -529,6 +565,8 @@ func (cfg *Config) String() string {
 		cfg.EngineAuthType,
 		cfg.UpdatesEnabled,
 		cfg.DisableMetrics,
+		cfg.PollMetrics,
+		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
 		cfg.TaskCleanupWaitDuration,
 		cfg.DockerStopTimeout,

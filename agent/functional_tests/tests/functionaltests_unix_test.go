@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -94,6 +95,9 @@ func TestRunManyTasks(t *testing.T) {
 
 // TestOOMContainer verifies that an OOM container returns an error
 func TestOOMContainer(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	RequireDockerVersion(t, "<1.9.0,>1.9.1") // https://github.com/docker/docker/issues/18510
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -106,6 +110,9 @@ func TestOOMContainer(t *testing.T) {
 
 // TestOOMTask verifies that a task with a memory limit returns an error
 func TestOOMTask(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
@@ -368,9 +375,14 @@ func TestAWSLogsDriver(t *testing.T) {
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 }
 
-// TestTelemetry tests whether agent can send metrics to TACS
+// TestTelemetry tests whether agent can send metrics to TACS, through streaming docker stats
 func TestTelemetry(t *testing.T) {
 	telemetryTest(t, "telemetry")
+}
+
+// TestTelemetry tests whether agent can send metrics to TACS, through polling docker stats
+func TestTelemetryWithStatsPolling(t *testing.T) {
+	telemetryTestWithStatsPolling(t, "telemetry")
 }
 
 func TestTaskIAMRolesNetHostMode(t *testing.T) {
@@ -485,6 +497,14 @@ func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
 	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
 }
 
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host")
+}
+
+func TestContainerMetadataFile(t *testing.T) {
+	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
+}
+
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
 	ctx := context.TODO()
@@ -548,6 +568,10 @@ func TestFluentdTag(t *testing.T) {
 	// tag was added in docker 1.9.0
 	RequireDockerVersion(t, ">=1.9.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-tag", t)
 }
 
@@ -558,11 +582,16 @@ func TestFluentdLogTag(t *testing.T) {
 	RequireDockerVersion(t, ">=1.8.0")
 	RequireDockerVersion(t, "<1.12.0")
 
+	if runtime.GOOS == "arm64" {
+		t.Skip()
+	}
+
 	fluentdDriverTest("fluentd-log-tag", t)
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	ctx := context.TODO()
+
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
@@ -610,31 +639,6 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
-// TestMetadataServiceValidator tests that the metadata file can be accessed from the
-// container using the ECS_CONTAINER_METADATA_FILE environment variables
-func TestMetadataServiceValidator(t *testing.T) {
-	agentOptions := &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_CONTAINER_METADATA": "true",
-		},
-	}
-
-	agent := RunAgent(t, agentOptions)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.15.0")
-
-	task, err := agent.StartTask(t, "mdservice-validator-unix")
-	require.NoError(t, err, "Register task definition failed")
-	defer task.Stop()
-
-	// clean up
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
-	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
-
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
-}
-
 // TestAgentIntrospectionValidator tests that the agent introspection endpoint can
 // be accessed from within the container.
 func TestAgentIntrospectionValidator(t *testing.T) {
@@ -674,6 +678,17 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	// Added to test presence of tags in metadata endpoint
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
 	// Best effort to create a log group. It should be safe to even not do this
 	// as the log group gets created in the TestAWSLogsDriver functional test.
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
@@ -683,7 +698,10 @@ func TestTaskMetadataValidator(t *testing.T) {
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
 		},
 	})
 	defer agent.Cleanup()
@@ -691,6 +709,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // Added to test presence of tags in metadata endpoint
 
 	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
 	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
@@ -706,6 +725,12 @@ func TestTaskMetadataValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("taskmetadata-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+
+	DeleteAccountSettingInput := ecsapi.DeleteAccountSettingInput{
+		Name: aws.String("containerInstanceLongArnFormat"),
+	}
+	_, err = ECS.DeleteAccountSetting(&DeleteAccountSettingInput)
+	assert.NoError(t, err)
 }
 
 // TestExecutionRole verifies that task can use the execution credentials to pull from ECR and

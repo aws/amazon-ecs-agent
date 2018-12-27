@@ -814,6 +814,9 @@ func TestNetworkLink(t *testing.T) {
 // TestParallelPull check docker pull in parallel works for docker >= 1.11.1
 func TestParallelPull(t *testing.T) {
 
+	// Test only available on instance with total memory more than 1300 MB
+	RequireMinimumMemory(t, 1300)
+
 	// Test only available for docker version >=1.11.1
 	RequireDockerVersion(t, ">=1.11.1")
 
@@ -1053,6 +1056,9 @@ func TestSecurityOptNoNewPrivileges(t *testing.T) {
 // TestShmSize checks that setting size of shared memory volume works
 func TestShmSize(t *testing.T) {
 
+	// Test only available on instance with total memory more than 650 MB
+	RequireMinimumMemory(t, 650)
+
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
@@ -1276,6 +1282,9 @@ func TestTaskLocalVolume(t *testing.T) {
 
 // TestTmpfs checks that adding tmpfs volume works
 func TestTmpfs(t *testing.T) {
+
+	// Test only available on instance with total memory more than 650 MB
+	RequireMinimumMemory(t, 650)
 
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances

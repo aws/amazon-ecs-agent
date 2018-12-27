@@ -16,9 +16,11 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const (
@@ -64,6 +66,8 @@ func DefaultConfig() Config {
 		PauseContainerTarballPath:          pauseContainerTarballPath,
 		PauseContainerImageName:            DefaultPauseContainerImageName,
 		PauseContainerTag:                  DefaultPauseContainerTag,
+		PollMetrics:                        false,
+		PollingMetricsWaitDuration:         DefaultPollingMetricsWaitDuration,
 		AWSVPCBlockInstanceMetdata:         false,
 		ContainerMetadataEnabled:           false,
 		TaskCPUMemLimit:                    DefaultEnabled,
@@ -74,10 +78,16 @@ func DefaultConfig() Config {
 		ImagePullInactivityTimeout:         defaultImagePullInactivityTimeout,
 		ContainerInstancePropagateTagsFrom: ContainerInstancePropagateTagsFromNoneType,
 		NvidiaRuntime:                      DefaultNvidiaRuntime,
+		PrometheusMetricsEnabled:           false,
 	}
 }
 
-func (cfg *Config) platformOverrides() {}
+func (cfg *Config) platformOverrides() {
+	cfg.PrometheusMetricsEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false)
+	if cfg.PrometheusMetricsEnabled {
+		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
+	}
+}
 
 // platformString returns platform-specific config data that can be serialized
 // to string for debugging

@@ -13,7 +13,7 @@
       "startPeriod": 1
     },
     "entryPoint": ["powershell"],
-    "command": [".\\application.ps1; $env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\v3-task-endpoint-validator-windows.exe; exit $LASTEXITCODE"],
+    "command": [".\\application.ps1; $env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\v3-task-endpoint-validator-windows.exe $$$CHECK_TAGS$$$; exit $LASTEXITCODE"],
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {

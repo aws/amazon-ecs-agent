@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -108,7 +111,7 @@ const (
 	StatsInactivityTimeout = 5 * time.Second
 
 	// retry settings for pulling images
-	maximumPullRetries        = 10
+	maximumPullRetries        = 5
 	minimumPullRetryDelay     = 250 * time.Millisecond
 	maximumPullRetryDelay     = 1 * time.Second
 	pullRetryDelayMultiplier  = 1.5
@@ -319,7 +322,7 @@ func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.Registr
 	timeout := dg.time().After(pullImageTimeout)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
 		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay,
@@ -482,6 +485,7 @@ func getRepository(image string) string {
 }
 
 func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_IMAGE")()
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
@@ -520,7 +524,7 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 	timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -564,7 +568,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -632,7 +636,7 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan inspectResponse, 1)
@@ -667,7 +671,7 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("STOP_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -709,7 +713,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) Do
 func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -1048,7 +1052,7 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 	timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1098,7 +1102,7 @@ func (dg *dockerGoClient) createVolume(ctx context.Context,
 func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeout time.Duration) SDKVolumeResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1140,7 +1144,7 @@ func (dg *dockerGoClient) inspectVolume(ctx context.Context, name string) SDKVol
 func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_VOLUME")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -1261,41 +1265,76 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	statsChnl := make(chan *types.Stats)
 	var resp types.ContainerStats
 
-	go func() {
-		defer cancelRequest()
-		defer close(statsChnl)
-		// ContainerStats outputs a io.ReadCloser and an OSType
-		stream := true
-		resp, err = client.ContainerStats(subCtx, id, stream)
-		if err != nil {
-			seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
-			return
-		}
-
-		// handle inactivity timeout
-		var canceled uint32
-		var ch chan<- struct{}
-		resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
-		defer resp.Body.Close()
-		defer close(ch)
-
-		// Returns a *Decoder and takes in a readCloser
-		decoder := json.NewDecoder(resp.Body)
-		data := new(types.Stats)
-		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+	if !dg.config.PollMetrics {
+		go func() {
+			defer cancelRequest()
+			defer close(statsChnl)
+			// ContainerStats outputs an io.ReadCloser and an OSType
+			stream := true
+			resp, err = client.ContainerStats(subCtx, id, stream)
 			if err != nil {
-				seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
-				return
-			}
-			if atomic.LoadUint32(&canceled) != 0 {
-				seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+				seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 				return
 			}
 
-			statsChnl <- data
-			data = new(types.Stats)
-		}
-	}()
+			// handle inactivity timeout
+			var canceled uint32
+			var ch chan<- struct{}
+			resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
+			defer resp.Body.Close()
+			defer close(ch)
+
+			// Returns a *Decoder and takes in a readCloser
+			decoder := json.NewDecoder(resp.Body)
+			data := new(types.Stats)
+			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					return
+				}
+				if atomic.LoadUint32(&canceled) != 0 {
+					seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+					return
+				}
+
+				statsChnl <- data
+				data = new(types.Stats)
+			}
+		}()
+	} else {
+		seelog.Infof("DockerGoClient: Starting to Poll for metrics for container %s", id)
+		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
+		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
+
+		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
+		go func() {
+			defer cancelRequest()
+			defer close(statsChnl)
+			defer statPollTicker.Stop()
+
+			for range statPollTicker.C {
+				// ContainerStats outputs an io.ReadCloser and an OSType
+				stream := false
+				resp, err = client.ContainerStats(subCtx, id, stream)
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+					return
+				}
+
+				// Returns a *Decoder and takes in a readCloser
+				decoder := json.NewDecoder(resp.Body)
+				data := new(types.Stats)
+				err := decoder.Decode(data)
+				if err != nil {
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					return
+				}
+
+				statsChnl <- data
+				data = new(types.Stats)
+			}
+		}()
+	}
 
 	return statsChnl, nil
 }
@@ -1327,7 +1366,7 @@ func (dg *dockerGoClient) removeImage(ctx context.Context, imageName string) err
 func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("LOAD_IMAGE")()
 	response := make(chan error, 1)
 	go func() {
 		response <- dg.loadImage(ctx, inputStream)
@@ -1345,6 +1384,15 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 	if err != nil {
 		return err
 	}
-	_, err = client.ImageLoad(ctx, reader, false)
+	resp, err := client.ImageLoad(ctx, reader, false)
+	if err != nil {
+		return err
+	}
+
+	// flush and close response reader
+	if resp.Body != nil {
+		defer resp.Body.Close()
+		_, err = io.Copy(ioutil.Discard, resp.Body)
+	}
 	return err
 }

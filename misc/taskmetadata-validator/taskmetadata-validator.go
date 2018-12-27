@@ -25,23 +25,26 @@ import (
 )
 
 const (
-	v2MetadataEndpoint     = "http://169.254.170.2/v2/metadata"
-	v2StatsEndpoint        = "http://169.254.170.2/v2/stats"
-	maxRetries             = 4
-	durationBetweenRetries = time.Second
+	v2MetadataEndpoint         = "http://169.254.170.2/v2/metadata"
+	v2MetadataWithTagsEndpoint = "http://169.254.170.2/v2/metadataWithTags"
+	v2StatsEndpoint            = "http://169.254.170.2/v2/stats"
+	maxRetries                 = 4
+	durationBetweenRetries     = time.Second
 )
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
-	Cluster          string
-	TaskARN          string
-	Family           string
-	Revision         string
-	DesiredStatus    string `json:",omitempty"`
-	KnownStatus      string
-	AvailabilityZone string
-	Containers       []ContainerResponse `json:",omitempty"`
-	Limits           LimitsResponse      `json:",omitempty"`
+	Cluster               string
+	TaskARN               string
+	Family                string
+	Revision              string
+	DesiredStatus         string `json:",omitempty"`
+	KnownStatus           string
+	AvailabilityZone      string
+	Containers            []ContainerResponse `json:",omitempty"`
+	Limits                LimitsResponse      `json:",omitempty"`
+	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
+	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
@@ -115,6 +118,23 @@ func taskMetadata(client *http.Client) (*TaskResponse, error) {
 	err = json.Unmarshal(body, &taskMetadata)
 	if err != nil {
 		return nil, fmt.Errorf("task metadata: unable to parse response body: %v", err)
+	}
+
+	return &taskMetadata, nil
+}
+
+func taskWithTagsMetadata(client *http.Client) (*TaskResponse, error) {
+	body, err := metadataResponse(client, v2MetadataWithTagsEndpoint, "task with tags metadata")
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Received task with tags metadata: %s \n", string(body))
+
+	var taskMetadata TaskResponse
+	err = json.Unmarshal(body, &taskMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("task with tags metadata: unable to parse response body: %v", err)
 	}
 
 	return &taskMetadata, nil
@@ -213,6 +233,21 @@ func main() {
 
 	// Wait for the Health information to be ready
 	time.Sleep(5 * time.Second)
+
+	// If the image is built with option to check Tags
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 && argsWithoutProg[0] == "CheckTags" {
+		taskWithTagsMetadata, err := taskWithTagsMetadata(client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to get task stats: %v", err)
+			os.Exit(1)
+		}
+
+		if len(taskWithTagsMetadata.ContainerInstanceTags) == 0 {
+			fmt.Fprintf(os.Stderr, "ContainerInstanceTags not found: %v", err)
+			os.Exit(1)
+		}
+	}
 
 	taskMetadata, err := taskMetadata(client)
 	if err != nil {

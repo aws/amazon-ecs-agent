@@ -12,6 +12,7 @@
         "retries": 2,
         "startPeriod": 1
     },
+    "command": ["$$$CHECK_TAGS$$$"],
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
