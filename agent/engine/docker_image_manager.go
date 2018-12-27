@@ -335,7 +335,11 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 	}
 	var nonECSContainerRemoveAvailableIDs []string
 	for _, id := range nonECSContainersIDs {
-		response, _ := imageManager.client.InspectContainer(ctx, id, dockerclient.InspectContainerTimeout)
+		response, icErr := imageManager.client.InspectContainer(ctx, id, dockerclient.InspectContainerTimeout)
+		if icErr != nil {
+			seelog.Errorf("Error inspecting non-ECS container id: %s - %v", id, icErr)
+			continue
+		}
 
 		finishedTime, _ := time.Parse(time.Now().String(), response.State.FinishedAt)
 
@@ -393,7 +397,11 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 
 	var imageWithSizeList []ImageWithSize
 	for _, imageName := range nonECSImageNamesRemoveEligible {
-		resp, _ := imageManager.client.InspectImage(imageName)
+		resp, iiErr := imageManager.client.InspectImage(imageName)
+		if iiErr != nil {
+			seelog.Errorf("Error inspecting non-ECS image name: %s - %v", imageName, iiErr)
+			continue
+		}
 		imageWithSizeList = append(imageWithSizeList, ImageWithSize{imageName, resp.Size})
 	}
 	// we want to sort images with size ascending
@@ -402,9 +410,9 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 	})
 
 	// we will remove the remaining nonECSImages in each performPeriodicImageCleanup call()
-	var numImagesAlreadyDelete = 0
+	var numImagesAlreadyDeleted = 0
 	for _, kv := range imageWithSizeList {
-		if numImagesAlreadyDelete == nonECSImagesNumToDelete {
+		if numImagesAlreadyDeleted == nonECSImagesNumToDelete {
 			break
 		}
 		seelog.Infof("Removing non-ECS Image: %s", kv.ImageName)
@@ -414,7 +422,7 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 			continue
 		} else {
 			seelog.Infof("Image removed: %s", kv.ImageName)
-			numImagesAlreadyDelete++
+			numImagesAlreadyDeleted++
 		}
 	}
 }

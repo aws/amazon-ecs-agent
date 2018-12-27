@@ -821,18 +821,11 @@ func TestListImages(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	response := client.ListImages(ctx, dockerclient.ListImagesTimeout)
-	if response.Error != nil {
-		t.Error("Did not expect error")
-	}
+	assert.NoError(t, response.Error, "Did not expect error")
 
 	imageIDs := response.ImageIDs
-	if len(imageIDs) != 1 {
-		t.Error("Unexpected number of images in list", len(imageIDs))
-	}
-
-	if imageIDs[0] != "id" {
-		t.Error("Unexpected image id in the list:", imageIDs[0])
-	}
+	assert.EqualValues(t, len(imageIDs), 1, "Unexpected number of images in list")
+	assert.EqualValues(t, imageIDs[0], "id", "Unexpected id in list of images")
 }
 
 func TestListImagesTimeout(t *testing.T) {
@@ -847,13 +840,11 @@ func TestListImagesTimeout(t *testing.T) {
 	}).MaxTimes(1).Return(nil, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
+
 	response := client.ListImages(ctx, xImageShortTimeout)
-	if response.Error == nil {
-		t.Error("Expected error for pull timeout")
-	}
-	if response.Error.(apierrors.NamedError).ErrorName() != "DockerTimeoutError" {
-		t.Error("Wrong error type")
-	}
+	assert.Error(t, response.Error, "Expected error for pull timeout")
+	assert.Equal(t, response.Error.(apierrors.NamedError).ErrorName(), "DockerTimeoutError", "Wrong error type")
+
 	wait.Done()
 }
 
