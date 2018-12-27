@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
+
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -246,6 +248,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	agent.initMetricsEngine()
+
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
 		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone)
@@ -293,6 +297,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	if agent.cfg.ContainerMetadataEnabled {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
+		agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -379,6 +384,20 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	agent.containerInstanceARN = previousContainerInstanceArn
 
 	return previousTaskEngine, currentEC2InstanceID, nil
+}
+
+func (agent *ecsAgent) initMetricsEngine() {
+	// In case of a panic during set-up, we will recover quietly and resume
+	// normal Agent execution.
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("MetricsEngine Set-up panicked. Recovering quietly: %s", r)
+		}
+	}()
+
+	// We init the global MetricsEngine before we publish metrics
+	metrics.MustInit(agent.cfg)
+	metrics.PublishMetrics()
 }
 
 // setClusterInConfig sets the cluster name in the config object based on
@@ -567,7 +586,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
-	go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
+	go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
@@ -669,4 +688,16 @@ func mergeTags(localTags []*ecs.Tag, ec2Tags []*ecs.Tag) []*ecs.Tag {
 	}
 
 	return utils.MapToTags(tagsMap)
+}
+
+// getHostPublicIPv4AddressFromEC2Metadata will retrieve the PublicIPAddress (IPv4) of this
+// instance through the EC2 API
+func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
+	// Get instance ID from ec2 metadata client.
+	hostPublicIPv4Address, err := agent.ec2MetadataClient.PublicIPv4Address()
+	if err != nil {
+		seelog.Errorf("Unable to retrieve Host Instance PublicIPv4 Address: %v", err)
+		return ""
+	}
+	return hostPublicIPv4Address
 }

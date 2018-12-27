@@ -64,6 +64,10 @@ import (
 
 // Test{{ $el.Name }} {{ $el.Description }}
 func Test{{ $el.Name }}(t *testing.T) {
+	{{if $el.MinimumMemory}}
+	// Test only available on instance with total memory more than {{ $el.MinimumMemory }} MB
+	RequireMinimumMemory(t, {{ $el.MinimumMemory }})
+	{{end}}
 	{{if $el.DockerVersion}}
 	// Test only available for docker version {{ $el.DockerVersion }}
 	RequireDockerVersion(t, "{{ $el.DockerVersion }}") 
@@ -153,6 +157,7 @@ func main() {
 		DockerVersion  string
 		Daemon         bool
 		AwsvpcMode     string
+		MinimumMemory  string
 	}
 
 	types := []struct {

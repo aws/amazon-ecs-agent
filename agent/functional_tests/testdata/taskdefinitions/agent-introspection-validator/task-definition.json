@@ -2,7 +2,7 @@
   "family": "ecsftest-agent-introspection-validator",
   "networkMode": "host",
   "containerDefinitions": [{
-    "image": "amazon/amazon-ecs-agent-introspection-validator:make",
+    "image": "127.0.0.1:51670/amazon/amazon-ecs-agent-introspection-validator:latest",
     "name": "agent-introspection-validator",
     "memory": 50,
     "logConfiguration": {

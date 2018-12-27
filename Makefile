@@ -15,6 +15,7 @@ USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
 .PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+BUILD_PLATFORM:=$(shell uname -m)
 
 all: docker
 
@@ -88,8 +89,13 @@ misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-test:
+ifeq (${BUILD_PLATFORM},aarch64)
+test::
+	. ./scripts/shared_env && go test -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+else
+test::
 	. ./scripts/shared_env && go test -race -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+endif
 
 test-silent:
 	. ./scripts/shared_env && go test -timeout=25s -cover $(shell go list ./agent/... | grep -v /vendor/)
@@ -123,7 +129,13 @@ endef
 
 # TODO: use `go list -f` to target the test files more directly
 ALL_GO_FILES = $(shell find . -name "*.go" -print | tr "\n" " ")
+
+ifeq (${BUILD_PLATFORM},aarch64)
+GO_INTEG_TEST = go test -tags integration -c -o
+else
 GO_INTEG_TEST = go test -race -tags integration -c -o
+endif
+
 out/test-artifacts/linux-engine-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
 	$(call dockerbuild,$(GO_INTEG_TEST) $@ ./agent/engine)
 
@@ -172,7 +184,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -181,7 +193,7 @@ test-in-docker:
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
-	. ./scripts/shared_env && go test -tags functional -timeout=30m -v ./agent/functional_tests/...
+	. ./scripts/shared_env && go test -tags functional -timeout=40m -v ./agent/functional_tests/...
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
@@ -234,11 +246,21 @@ cni-plugins: get-cni-sources .out-stamp
 		"amazon/amazon-ecs-build-cniplugins:make"
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
+ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=10m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && go test -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...agent
+else
+run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
+	. ./scripts/shared_env && go test -race -tags integration -timeout=12m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+endif
 
-run-sudo-tests:
+ifeq (${BUILD_PLATFORM},aarch64)
+run-sudo-tests::
+	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -tags sudo -timeout=10m -v ./agent/engine/...
+else
+run-sudo-tests::
 	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
+endif
 
 .PHONY: codebuild
 codebuild: test-artifacts .out-stamp
@@ -266,7 +288,7 @@ namespace-tests:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -293,6 +315,9 @@ taskmetadata-validator:
 
 v3-task-endpoint-validator:
 	$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS)
+
+container-metadata-file-validator:
+	$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS)
 
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
@@ -355,6 +380,7 @@ clean:
 	-$(MAKE) -C misc/agent-introspection-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
 	-rm -f .get-deps-stamp

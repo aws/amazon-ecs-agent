@@ -89,6 +89,14 @@ type Config struct {
 	// sent to the ECS telemetry endpoint
 	DisableMetrics bool
 
+	// PollMetrics configures whether metrics are constantly streamed for each container or
+	// polled on interval instead.
+	PollMetrics bool
+
+	// PollingMetricsWaitDuration configures how long a container should wait before polling metrics
+	// again when PollMetrics is set to true
+	PollingMetricsWaitDuration time.Duration
+
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
 	ReservedMemory uint16
@@ -188,6 +196,11 @@ type Config struct {
 	// Setting this value to be different from the default will disable loading
 	// the image from the tarball; the referenced image must already be loaded.
 	PauseContainerTag string
+
+	// PrometheusMetricsEnabled configures whether Agent metrics should be
+	// collected and published to the specified endpoint. This is disabled by
+	// default.
+	PrometheusMetricsEnabled bool
 
 	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
 	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true

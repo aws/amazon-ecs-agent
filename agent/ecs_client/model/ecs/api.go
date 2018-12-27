@@ -4947,6 +4947,12 @@ type ContainerInstance struct {
 	// in the Amazon Elastic Container Service Developer Guide.
 	Status *string `locationName:"status" type:"string"`
 
+	// The metadata that you apply to the container instance to help you categorize
+	// and organize them. Each tag consists of a key and an optional value, both
+	// of which you define. Tag keys can have a maximum character length of 128
+	// characters, and tag values can have a maximum length of 256 characters.
+	Tags []*Tag `locationName:"tags" type:"list"`
+
 	// The version counter for the container instance. Every time a container instance
 	// experiences a change that triggers a CloudWatch event, the version counter
 	// is incremented. If you are replicating your Amazon ECS container instance
@@ -5046,6 +5052,12 @@ func (s *ContainerInstance) SetRunningTasksCount(v int64) *ContainerInstance {
 // SetStatus sets the Status field's value.
 func (s *ContainerInstance) SetStatus(v string) *ContainerInstance {
 	s.Status = &v
+	return s
+}
+
+// SetTags sets the Tags field's value.
+func (s *ContainerInstance) SetTags(v []*Tag) *ContainerInstance {
+	s.Tags = v
 	return s
 }
 
@@ -6694,6 +6706,10 @@ type DockerVolumeConfiguration struct {
 
 	Labels map[string]*string `locationName:"labels" type:"map"`
 
+	// The scope for the Docker volume that determines its lifecycle. Docker volumes
+	// that are scoped to a task are automatically provisioned when the task starts
+	// and destroyed when the task stops. Docker volumes that are scoped as shared
+	// persist after the task stops.
 	Scope *string `locationName:"scope" type:"string" enum:"Scope"`
 }
 
@@ -7613,6 +7629,10 @@ func (s *ListServicesOutput) SetServiceArns(v []*string) *ListServicesOutput {
 type ListTagsForResourceInput struct {
 	_ struct{} `type:"structure"`
 
+	// The Amazon Resource Name (ARN) that identifies the resource for which to
+	// list the tags. Currently, the supported resources are Amazon ECS tasks, services,
+	// task definitions, clusters, and container instances.
+	//
 	// ResourceArn is a required field
 	ResourceArn *string `locationName:"resourceArn" type:"string" required:"true"`
 }
@@ -7649,6 +7669,7 @@ func (s *ListTagsForResourceInput) SetResourceArn(v string) *ListTagsForResource
 type ListTagsForResourceOutput struct {
 	_ struct{} `type:"structure"`
 
+	// The tags for the resource.
 	Tags []*Tag `locationName:"tags" type:"list"`
 }
 
@@ -9648,7 +9669,7 @@ type Service struct {
 	RunningCount *int64 `locationName:"runningCount" type:"integer"`
 
 	// The scheduling strategy to use for the service. For more information, see
-	// Services (http://docs.aws.amazon.com/AmazonECS/latest/developerguideecs_services.html).
+	// Services (http://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html).
 	//
 	// There are two service scheduler strategies available:
 	//
@@ -9658,8 +9679,8 @@ type Service struct {
 	//    and constraints to customize task placement decisions.
 	//
 	//    * DAEMON-The daemon scheduling strategy deploys exactly one task on each
-	//    container instance in your cluster. When using this strategy, do not specify
-	//    a desired number of tasks or any task placement strategies.
+	//    container instance in your cluster. When you are using this strategy,
+	//    do not specify a desired number of tasks or any task placement strategies.
 	//
 	// Fargate tasks do not support the DAEMON scheduling strategy.
 	SchedulingStrategy *string `locationName:"schedulingStrategy" type:"string" enum:"SchedulingStrategy"`
@@ -10675,6 +10696,12 @@ type Task struct {
 	// state to STOPPED).
 	StoppingAt *time.Time `locationName:"stoppingAt" type:"timestamp"`
 
+	// The metadata that you apply to the task to help you categorize and organize
+	// them. Each tag consists of a key and an optional value, both of which you
+	// define. Tag keys can have a maximum character length of 128 characters, and
+	// tag values can have a maximum length of 256 characters.
+	Tags []*Tag `locationName:"tags" type:"list"`
+
 	// The Amazon Resource Name (ARN) of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
 
@@ -10841,6 +10868,12 @@ func (s *Task) SetStoppedReason(v string) *Task {
 // SetStoppingAt sets the StoppingAt field's value.
 func (s *Task) SetStoppingAt(v time.Time) *Task {
 	s.StoppingAt = &v
+	return s
+}
+
+// SetTags sets the Tags field's value.
+func (s *Task) SetTags(v []*Tag) *Task {
+	s.Tags = v
 	return s
 }
 

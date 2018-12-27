@@ -41,8 +41,9 @@ const (
 // operations
 type Manager interface {
 	SetContainerInstanceARN(string)
-	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
 	SetAvailabilityZone(string)
+	SetHostPublicIPv4Address(string)
+	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
 }
@@ -68,6 +69,8 @@ type metadataManager struct {
 	ioutilWrap ioutilwrapper.IOUtil
 	// availabilityZone is the availabiltyZone where task is in
 	availabilityZone string
+	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance ID
+	hostPublicIPv4Address string
 }
 
 // NewManager creates a metadataManager for a given DockerTaskEngine settings.
@@ -92,6 +95,12 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetAvailabilityZone(availabilityZone string) {
 	manager.availabilityZone = availabilityZone
+}
+
+// SetHostPublicIPv4Address sets the metadataManager's hostPublicIPv4Address which is not available
+// at its creation as this information is not present immediately at the agent's startup
+func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
+	manager.hostPublicIPv4Address = ipv4address
 }
 
 // Create creates the metadata file and adds the metadata directory to
