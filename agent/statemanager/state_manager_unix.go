@@ -19,6 +19,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/cihub/seelog"
 )
 
 /*
@@ -62,17 +64,25 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 	// actually move it atomically; cross-device renaming will error out.
 	tmpfile, err := ioutil.TempFile(manager.statePath, "tmp_ecs_agent_data")
 	if err != nil {
-		log.Error("Error saving state; could not create temp file to save state", "err", err)
+		seelog.Errorf("Error saving state; could not create temp file to save state, err: %v", err)
 		return err
 	}
 	_, err = tmpfile.Write(data)
 	if err != nil {
-		log.Error("Error saving state; could not write to temp file to save state", "err", err)
+		seelog.Errorf("Error saving state; could not write to temp file to save state, err: %v", err)
 		return err
 	}
+
+	// flush temp state file to disk
+	err = tmpfile.Sync()
+	if err != nil {
+		seelog.Errorf("Error flusing state file, err: %v", err)
+		return err
+	}
+
 	err = os.Rename(tmpfile.Name(), filepath.Join(manager.statePath, ecsDataFile))
 	if err != nil {
-		log.Error("Error saving state; could not move to data file", "err", err)
+		seelog.Errorf("Error saving state; could not move to data file, err: %v", err)
 	}
 	return err
 }
