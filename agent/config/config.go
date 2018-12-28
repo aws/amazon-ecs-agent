@@ -126,6 +126,10 @@ const (
 
 	// DefaultTaskMetadataBurstRate is set to handle 60 burst requests at once
 	DefaultTaskMetadataBurstRate = 60
+
+	//Known cached image names
+	CachedImageNamePauseContainer = "amazon/amazon-ecs-pause:0.1.0"
+	CachedImageNameAgentContainer = "amazon/amazon-ecs-agent:latest"
 )
 
 const (

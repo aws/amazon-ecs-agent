@@ -298,6 +298,10 @@ func parseImageCleanupExclusionList(envVar string) []string {
 	} else {
 		imageCleanupExclusionList = strings.Split(imageEnv, ",")
 	}
+
+	// append known cached internal images to imageCleanupExclusionLis
+	imageCleanupExclusionList = append(imageCleanupExclusionList, CachedImageNameAgentContainer, CachedImageNamePauseContainer)
+
 	for _, image := range imageCleanupExclusionList {
 		seelog.Infof("Image excluded from cleanup: %s", image)
 	}
