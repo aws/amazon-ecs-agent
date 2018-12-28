@@ -413,6 +413,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 
 		decoder := json.NewDecoder(reader)
 		data := new(ImagePullResponse)
+		var statusDisplayed time.Time
 		for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 			if err != nil {
 				seelog.Warnf("DockerGoClient: Unable to decode pull event message for image %s: %v", image, err)
@@ -430,7 +431,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 				pullBegan <- true
 			})
 
-			dg.filterPullDebugOutput(data, image)
+			statusDisplayed = dg.filterPullDebugOutput(data, image, statusDisplayed)
 
 			data = new(ImagePullResponse)
 		}
@@ -460,15 +461,12 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 	return nil
 }
 
-func (dg *dockerGoClient) filterPullDebugOutput(data *ImagePullResponse, image string) {
-
-	var statusDisplayed time.Time
+func (dg *dockerGoClient) filterPullDebugOutput(data *ImagePullResponse, image string, statusDisplayed time.Time) time.Time {
 
 	now := time.Now()
 	if !strings.Contains(data.Progress, "[=") || now.After(statusDisplayed.Add(pullStatusSuppressDelay)) {
-		// skip most of the progress bar lines, but retain enough for debugging
-		seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, data.Progress)
-		statusDisplayed = now
+		// data.Progress shows the progress bar lines for Status=downlaoding or Extracting, logging data.Status to retain enough for debugging
+		seelog.Debugf("DockerGoClient: pulling image %s, status %s", image, data.Status)
 	}
 
 	if strings.Contains(data.Status, "already being pulled by another client. Waiting.") {
@@ -476,6 +474,7 @@ func (dg *dockerGoClient) filterPullDebugOutput(data *ImagePullResponse, image s
 		seelog.Errorf("DockerGoClient: image 'pull' status marked as already being pulled for image %s, status %s",
 			image, data.Status)
 	}
+	return now
 }
 
 func getRepository(image string) string {
