@@ -2,6 +2,7 @@
 
 ## 1.24.0-dev
 * Feature - Configurable poll duration for container stats [@jcbowman](https://github.com/jcbowman) [#1646](https://github.com/aws/amazon-ecs-agent/pull/1646)
+* Feature - Add support to remove containers and images that are not part of ECS tasks [#1752](https://github.com/aws/amazon-ecs-agent/pull/1752)
 
 ## 1.23.0
 * Feature - Add support for ECS Secrets integrating with AWS Secrets Manager [#1713](https://github.com/aws/amazon-ecs-agent/pull/1713)
