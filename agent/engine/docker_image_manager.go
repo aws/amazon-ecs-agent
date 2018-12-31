@@ -71,8 +71,8 @@ type ImageStatesForDeletion []*image.ImageState
 // NewImageManager returns a new ImageManager
 func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state dockerstate.TaskEngineState) ImageManager {
 	return &dockerImageManager{
-		client:                             client,
-		state:                              state,
+		client: client,
+		state:  state,
 		minimumAgeBeforeDeletion:           cfg.MinimumImageDeletionAge,
 		numImagesToDelete:                  cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval:           cfg.ImageCleanupInterval,
