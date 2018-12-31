@@ -91,14 +91,14 @@ misc/certs/ca-certificates.crt:
 
 ifeq (${BUILD_PLATFORM},aarch64)
 test::
-	. ./scripts/shared_env && go test -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 else
 test::
-	. ./scripts/shared_env && go test -race -tags unit -timeout=25s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 endif
 
 test-silent:
-	. ./scripts/shared_env && go test -timeout=25s -cover $(shell go list ./agent/... | grep -v /vendor/)
+	. ./scripts/shared_env && go test -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
 
 benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
