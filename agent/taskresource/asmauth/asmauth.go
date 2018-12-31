@@ -27,8 +27,8 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 	"github.com/docker/docker/api/types"
+	"github.com/pkg/errors"
 )
 
 const (

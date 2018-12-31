@@ -13,7 +13,7 @@
 
 package dockerclient
 
-import   (
+import (
 	"fmt"
 	"strconv"
 	"strings"
@@ -22,8 +22,8 @@ import   (
 type DockerAPIVersion string
 
 type dockerVersion struct {
-	major             int
-	minor             int
+	major int
+	minor int
 }
 
 // Matches returns whether or not a version matches a given selector.
@@ -112,14 +112,14 @@ func parseDockerVersions(version string) (dockerVersion, error) {
 // than rhs, 0 if they are equal, and 1 if lhs is greater than rhs
 func compareDockerVersions(lhs, rhs dockerVersion) int {
 	switch {
-		case lhs.major < rhs.major:
-			return -1
-		case lhs.major > rhs.major:
-			return 1
-		case lhs.minor < rhs.minor:
-			return -1
-		case lhs.minor > rhs.minor:
-			return 1
+	case lhs.major < rhs.major:
+		return -1
+	case lhs.major > rhs.major:
+		return 1
+	case lhs.minor < rhs.minor:
+		return -1
+	case lhs.minor > rhs.minor:
+		return 1
 	}
 	return 0
 }

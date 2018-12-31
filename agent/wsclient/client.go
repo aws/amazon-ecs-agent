@@ -33,16 +33,17 @@ import (
 	"sync"
 	"time"
 
+	"crypto/tls"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
-	"github.com/aws/amazon-ecs-agent/agent/utils/cipher"
-	"crypto/tls"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const (

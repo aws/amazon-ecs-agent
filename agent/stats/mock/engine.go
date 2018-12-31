@@ -21,8 +21,8 @@ import (
 	reflect "reflect"
 
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	gomock "github.com/golang/mock/gomock"
 	"github.com/docker/docker/api/types"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockEngine is a mock of Engine interface
