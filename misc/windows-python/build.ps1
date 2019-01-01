@@ -11,5 +11,5 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-docker pull python:3-windowsservercore
-docker tag python:3-windowsservercore amazon/amazon-ecs-windows-python:make
+docker pull python:3-windowsservercore-ltsc2016
+docker tag python:3-windowsservercore-ltsc2016 amazon/amazon-ecs-windows-python:make
