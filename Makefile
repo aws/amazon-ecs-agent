@@ -339,7 +339,7 @@ gocyclo:
 .PHONY: fmtcheck
 fmtcheck:
 	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
-	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; fi
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
 	
 
 #TODO, create and add go vet target
