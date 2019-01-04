@@ -1,3 +1,9 @@
+amazon-ecs-init (1.24.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.24.0
+
+  -- Eric Sun <yuzhusun@amazon.com>  Fri, 4 Jan 2018 10:16:18 -0800
+
 amazon-ecs-init (1.22.0-2) trusty; urgency=medium
 
   * Cache Agent version 1.22.0
