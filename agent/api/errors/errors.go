@@ -24,12 +24,21 @@ import (
 // instance type changed error when registering a container instance
 const InstanceTypeChangedErrorMessage = "Container instance type changes are not supported."
 
+const ClusterNotFoundErrorMessage = "Cluster not found."
+
 // IsInstanceTypeChangedError returns true if the error when
 // registering the container instance is because of instance type being
 // changed
 func IsInstanceTypeChangedError(err error) bool {
 	if awserr, ok := err.(awserr.Error); ok {
 		return strings.Contains(awserr.Message(), InstanceTypeChangedErrorMessage)
+	}
+	return false
+}
+
+func IsClusterNotFoundError(err error) bool {
+	if awserr, ok := err.(awserr.Error); ok {
+		return strings.Contains(awserr.Message(), ClusterNotFoundErrorMessage)
 	}
 	return false
 }

@@ -124,13 +124,17 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		if err == nil {
 			return containerInstanceArn, availabilityzone, nil
 		}
-		// If trying to register fails, try to create the cluster before calling
+
+		// If trying to register fails because the default cluster doesn't exist, try to create the cluster before calling
 		// register again
-		clusterRef, err = client.CreateCluster(clusterRef)
-		if err != nil {
-			return "", "", err
+		if apierrors.IsClusterNotFoundError(err) {
+			clusterRef, err = client.CreateCluster(clusterRef)
+			if err != nil {
+				return "", "", err
+			}
 		}
 	}
+
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken)
 }
 
