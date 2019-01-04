@@ -611,7 +611,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
-		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "No such cluster", errors.New("No such cluster"))),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "Cluster not found.", errors.New("Cluster not found."))),
 		mc.EXPECT().CreateCluster(&ecs.CreateClusterInput{ClusterName: &defaultCluster}).Return(&ecs.CreateClusterOutput{Cluster: &ecs.Cluster{ClusterName: &defaultCluster}}, nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
@@ -642,6 +642,53 @@ func TestRegisterBlankCluster(t *testing.T) {
 	if availabilityzone != "" {
 		t.Errorf("wrong availability zone: %v", availabilityzone)
 	}
+}
+
+func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+
+	// Test the special 'empty cluster' behavior of creating 'default'
+	client := NewECSClient(credentials.AnonymousCredentials,
+		&config.Config{
+			Cluster:   "",
+			AWSRegion: "us-east-1",
+		},
+		mockEC2Metadata)
+	mc := mock_api.NewMockECSSDK(mockCtrl)
+	client.(*APIECSClient).SetSDK(mc)
+
+	expectedAttributes := map[string]string{
+		"ecs.os-type": config.OSType,
+	}
+
+	gomock.InOrder(
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "Invalid request.", errors.New("Invalid request."))),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
+		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+			if *req.Cluster != config.DefaultClusterName {
+				t.Errorf("Wrong cluster: %v", *req.Cluster)
+			}
+			if *req.InstanceIdentityDocument != iid {
+				t.Errorf("Wrong IID: %v", *req.InstanceIdentityDocument)
+			}
+			if *req.InstanceIdentityDocumentSignature != iidSignature {
+				t.Errorf("Wrong IID sig: %v", *req.InstanceIdentityDocumentSignature)
+			}
+		}).Return(&ecs.RegisterContainerInstanceOutput{
+			ContainerInstance: &ecs.ContainerInstance{
+				ContainerInstanceArn: aws.String("registerArn"),
+				Attributes:           buildAttributeList(nil, expectedAttributes)}},
+			nil),
+	)
+
+	arn, _, err := client.RegisterContainerInstance("", nil, nil, "")
+	assert.NoError(t, err, "Should not return error")
+	assert.Equal(t, "registerArn", arn, "Wrong arn")
 }
 
 func TestDiscoverTelemetryEndpoint(t *testing.T) {
