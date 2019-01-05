@@ -8,4 +8,4 @@ install: make get-deps
 script:
   - make test
   - make static-check
-  
+  - make xplatform-build
