@@ -14,7 +14,7 @@
 USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 all: docker
@@ -32,6 +32,11 @@ gobuild:
 # Basic go build
 static:
 	./scripts/build
+
+# Cross-platform build target for travis
+xplatform-build:
+	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
+	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
