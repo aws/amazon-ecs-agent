@@ -380,7 +380,7 @@ func TestCreateContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, nil, hostConfig, name, 1*time.Second)
+	metadata := client.CreateContainer(ctx, nil, hostConfig, name, dockerclient.CreateContainerTimeout)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
@@ -1091,7 +1091,7 @@ func TestRemoveImage(t *testing.T) {
 	mockDockerSDK.EXPECT().ImageRemove(gomock.Any(), "image", types.ImageRemoveOptions{}).Return([]types.ImageDeleteResponseItem{}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.RemoveImage(ctx, "image", 2*time.Millisecond)
+	err := client.RemoveImage(ctx, "image", dockerclient.RemoveImageTimeout)
 	assert.NoError(t, err, "Did not expect error, err: %v", err)
 }
 
@@ -1105,7 +1105,7 @@ func TestLoadImageHappyPath(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.LoadImage(ctx, nil, time.Second)
+	err := client.LoadImage(ctx, nil, dockerclient.LoadImageTimeout)
 	assert.NoError(t, err)
 }
 
