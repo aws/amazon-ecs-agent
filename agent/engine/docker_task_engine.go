@@ -676,7 +676,7 @@ func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *api
 			task.SetPullStoppedAt(timestamp)
 		}()
 
-		seelog.Infof("Task engine [%s]: pulling container %s concurrently", task.Arn, container.Name)
+		seelog.Infof("Task engine [%s]: pulling image %s for container %s concurrently", task.Arn, container.Image, container.Name)
 		return engine.concurrentPull(task, container)
 
 	}
@@ -700,8 +700,8 @@ func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.Image
 		// (the image can be prepopulated with the AMI and never be pulled).
 		imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
 		if ok && imageState.GetPullSucceeded() {
-			seelog.Infof("Task engine [%s]: image %s has been pulled once, not pulling it again",
-				taskArn, container.Image)
+			seelog.Infof("Task engine [%s]: image %s for container %s has been pulled once, not pulling it again",
+				taskArn, container.Image, container.Name)
 			return false
 		}
 		return true
@@ -722,29 +722,29 @@ func (engine *DockerTaskEngine) imagePullRequired(imagePullBehavior config.Image
 }
 
 func (engine *DockerTaskEngine) concurrentPull(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
-	seelog.Debugf("Task engine [%s]: attempting to obtain ImagePullDeleteLock to pull image - %s",
-		task.Arn, container.Image)
+	seelog.Debugf("Task engine [%s]: attempting to obtain ImagePullDeleteLock to pull image %s for container %s",
+		task.Arn, container.Image, container.Name)
 	ImagePullDeleteLock.RLock()
-	seelog.Debugf("Task engine [%s]: Acquired ImagePullDeleteLock, start pulling image - %s",
-		task.Arn, container.Image)
-	defer seelog.Debugf("Task engine [%s]: Released ImagePullDeleteLock after pulling image - %s",
-		task.Arn, container.Image)
+	seelog.Debugf("Task engine [%s]: acquired ImagePullDeleteLock, start pulling image %s for container %s",
+		task.Arn, container.Image, container.Name)
+	defer seelog.Debugf("Task engine [%s]: released ImagePullDeleteLock after pulling image %s for container %s",
+		task.Arn, container.Image, container.Name)
 	defer ImagePullDeleteLock.RUnlock()
 
 	// Record the task pull_started_at timestamp
 	pullStart := engine.time().Now()
 	ok := task.SetPullStartedAt(pullStart)
 	if ok {
-		seelog.Infof("Task engine [%s]: Recording timestamp for starting image pulltime: %s",
+		seelog.Infof("Task engine [%s]: recording timestamp for starting image pulltime: %s",
 			task.Arn, pullStart)
 	}
 	metadata := engine.pullAndUpdateContainerReference(task, container)
 	if metadata.Error == nil {
-		seelog.Infof("Task engine [%s]: Finished pulling container %s in %s",
-			task.Arn, container.Image, time.Since(pullStart).String())
+		seelog.Infof("Task engine [%s]: finished pulling image %s for container %s in %s",
+			task.Arn, container.Image, container.Name, time.Since(pullStart).String())
 	} else {
-		seelog.Errorf("Task engine [%s]: Failed to pull container %s: %v",
-			task.Arn, container.Image, metadata.Error)
+		seelog.Errorf("Task engine [%s]: failed to pull image %s for container %s: %v",
+			task.Arn, container.Image, container.Name, metadata.Error)
 	}
 	return metadata
 }
@@ -753,8 +753,8 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	// If a task is blocked here for some time, and before it starts pulling image,
 	// the task's desired status is set to stopped, then don't pull the image
 	if task.GetDesiredStatus() == apitaskstatus.TaskStopped {
-		seelog.Infof("Task engine [%s]: task's desired status is stopped, skipping container [%s] pull",
-			task.Arn, container.Name)
+		seelog.Infof("Task engine [%s]: task's desired status is stopped, skipping pulling image %s for container %s",
+			task.Arn, container.Image, container.Name)
 		container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 		return dockerapi.DockerContainerMetadata{Error: TaskStoppedBeforePullBeginError{task.Arn}}
 	}
@@ -763,8 +763,8 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	if container.ShouldPullWithExecutionRole() {
 		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
 		if !ok {
-			seelog.Errorf("Task engine [%s]: unable to acquire ECR credentials for container [%s]",
-				task.Arn, container.Name)
+			seelog.Errorf("Task engine [%s]: unable to acquire ECR credentials for image %s for container %s",
+				task.Arn, container.Image, container.Name)
 			return dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullECRContainerError{
 					FromError: errors.New("engine ecr credentials: not found"),
@@ -781,8 +781,8 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 	// Apply registry auth data from ASM if required
 	if container.ShouldPullWithASMAuth() {
 		if err := task.PopulateASMAuthData(container); err != nil {
-			seelog.Errorf("Task engine [%s]: unable to acquire Docker registry credentials for container [%s]",
-				task.Arn, container.Name)
+			seelog.Errorf("Task engine [%s]: unable to acquire Docker registry credentials for image %s for container %s",
+				task.Arn, container.Image, container.Name)
 			return dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullContainerAuthError{
 					FromError: errors.New("engine docker private registry credentials: not found"),
@@ -806,7 +806,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *apicontainer.Container, taskArn string) {
 	err := engine.imageManager.RecordContainerReference(container)
 	if err != nil {
-		seelog.Errorf("Task engine [%s]: Unable to add container reference to image state: %v",
+		seelog.Errorf("Task engine [%s]: unable to add container reference to image state: %v",
 			taskArn, err)
 	}
 	imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
