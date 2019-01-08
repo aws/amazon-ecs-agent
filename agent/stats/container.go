@@ -18,6 +18,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 	"github.com/cihub/seelog"
@@ -100,7 +101,7 @@ func (container *StatsContainer) processStatsStream() error {
 	if container.client == nil {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
-	dockerStats, err := container.client.Stats(container.ctx, dockerID, dockerapi.StatsInactivityTimeout)
+	dockerStats, err := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
 	if err != nil {
 		return err
 	}

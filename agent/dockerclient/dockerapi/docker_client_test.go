@@ -112,8 +112,8 @@ func TestPullImageOutputTimeout(t *testing.T) {
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time)
-	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout).MinTimes(1)
-	testTime.EXPECT().After(pullImageTimeout).MinTimes(1)
+	testTime.EXPECT().After(dockerclient.DockerPullBeginTimeout).Return(pullBeginTimeout).MinTimes(1)
+	testTime.EXPECT().After(dockerclient.PullImageTimeout).MinTimes(1)
 
 	// multiple invocations will happen due to retries, but all should timeout
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
@@ -136,9 +136,9 @@ func TestImagePullGlobalTimeout(t *testing.T) {
 	defer done()
 
 	pullBeginTimeout := make(chan time.Time, 1)
-	testTime.EXPECT().After(dockerPullBeginTimeout).Return(pullBeginTimeout)
+	testTime.EXPECT().After(dockerclient.DockerPullBeginTimeout).Return(pullBeginTimeout)
 	pullTimeout := make(chan time.Time, 1)
-	testTime.EXPECT().After(pullImageTimeout).Return(pullTimeout)
+	testTime.EXPECT().After(dockerclient.PullImageTimeout).Return(pullTimeout)
 
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
 		func(x, y, z interface{}) (io.ReadCloser, error) {
@@ -933,7 +933,7 @@ func TestStatsNormalExit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
+	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.NoError(t, err)
 	newStat := <-stats
 	waitForStats(t, newStat)
@@ -952,7 +952,7 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
+	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.NoError(t, err)
 	assert.Nil(t, <-stats)
 }
@@ -968,7 +968,7 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
+	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.NoError(t, err)
 	assert.Nil(t, <-stats)
 }
@@ -983,7 +983,7 @@ func TestStatsClientError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, err := client.Stats(ctx, "foo", StatsInactivityTimeout)
+	_, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	if err == nil {
 		t.Fatal("Expected error with nil docker client")
 	}
@@ -1451,7 +1451,7 @@ func TestCreateVolumeError(t *testing.T) {
 	mockDockerSDK.EXPECT().VolumeCreate(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, CreateVolumeTimeout)
+	volumeResponse := client.CreateVolume(ctx, "name", "driver", nil, nil, dockerclient.CreateVolumeTimeout)
 	assert.Equal(t, "CannotCreateVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1476,7 +1476,7 @@ func TestCreateVolume(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	// This function eventually makes an API call, is that not possible in testing
-	volumeResponse := client.CreateVolume(ctx, volumeName, driver, driverOptions, nil, CreateVolumeTimeout)
+	volumeResponse := client.CreateVolume(ctx, volumeName, driver, driverOptions, nil, dockerclient.CreateVolumeTimeout)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeResponse.DockerVolume.Name, volumeName)
 	assert.Equal(t, volumeResponse.DockerVolume.Driver, driver)
@@ -1508,7 +1508,7 @@ func TestInspectVolumeError(t *testing.T) {
 	mockDockerSDK.EXPECT().VolumeInspect(gomock.Any(), gomock.Any()).Return(types.Volume{}, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volumeResponse := client.InspectVolume(ctx, "name", InspectVolumeTimeout)
+	volumeResponse := client.InspectVolume(ctx, "name", dockerclient.InspectVolumeTimeout)
 	assert.Equal(t, "CannotInspectVolumeError", volumeResponse.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1532,7 +1532,7 @@ func TestInspectVolume(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volumeResponse := client.InspectVolume(ctx, volumeName, InspectVolumeTimeout)
+	volumeResponse := client.InspectVolume(ctx, volumeName, dockerclient.InspectVolumeTimeout)
 	assert.NoError(t, volumeResponse.Error)
 	assert.Equal(t, volumeOutput.Driver, volumeResponse.DockerVolume.Driver)
 	assert.Equal(t, volumeOutput.Mountpoint, volumeResponse.DockerVolume.Mountpoint)
@@ -1564,7 +1564,7 @@ func TestRemoveVolumeError(t *testing.T) {
 	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), "name", false).Return(errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.RemoveVolume(ctx, "name", RemoveVolumeTimeout)
+	err := client.RemoveVolume(ctx, "name", dockerclient.RemoveVolumeTimeout)
 	assert.Equal(t, "CannotRemoveVolumeError", err.(apierrors.NamedError).ErrorName())
 }
 
@@ -1577,7 +1577,7 @@ func TestRemoveVolume(t *testing.T) {
 	mockDockerSDK.EXPECT().VolumeRemove(gomock.Any(), volumeName, false).Return(nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.RemoveVolume(ctx, volumeName, RemoveVolumeTimeout)
+	err := client.RemoveVolume(ctx, volumeName, dockerclient.RemoveVolumeTimeout)
 	assert.NoError(t, err)
 }
 
@@ -1605,7 +1605,7 @@ func TestListPluginsError(t *testing.T) {
 	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return(nil, errors.New("some docker error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, ListPluginsTimeout, filters.Args{})
+	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, filters.Args{})
 	assert.Equal(t, "CannotListPluginsError", response.Error.(apierrors.NamedError).ErrorName())
 }
 
@@ -1624,7 +1624,7 @@ func TestListPlugins(t *testing.T) {
 	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filters.Args{}).Return([]*types.Plugin{plugin}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	response := client.ListPlugins(ctx, ListPluginsTimeout, filters.Args{})
+	response := client.ListPlugins(ctx, dockerclient.ListPluginsTimeout, filters.Args{})
 	assert.NoError(t, response.Error)
 	assert.Equal(t, plugin, response.Plugins[0])
 }
@@ -1674,7 +1674,7 @@ func TestListPluginsWithFilter(t *testing.T) {
 	mockDockerSDK.EXPECT().PluginList(gomock.Any(), filterList).Return([]*types.Plugin{plugins[1]}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	pluginNames, error := client.ListPluginsWithFilters(ctx, true, []string{VolumeDriverType}, ListPluginsTimeout)
+	pluginNames, error := client.ListPluginsWithFilters(ctx, true, []string{VolumeDriverType}, dockerclient.ListPluginsTimeout)
 	assert.NoError(t, error)
 	assert.Equal(t, 1, len(pluginNames))
 	assert.Equal(t, "name2", pluginNames[0])

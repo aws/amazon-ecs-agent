@@ -380,7 +380,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 	// if autoprovision == true, we will auto-provision the volume if it does not exist already
 	// else the named volume must exist
 	if !volumeConfig.Autoprovision {
-		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerapi.InspectVolumeTimeout)
+		volumeMetadata := dockerClient.InspectVolume(ctx, vol.Name, dockerclient.InspectVolumeTimeout)
 		if volumeMetadata.Error != nil {
 			return errors.Wrapf(volumeMetadata.Error, "initialize volume: volume detection failed, volume '%s' does not exist and autoprovision is set to false", vol.Name)
 		}
@@ -389,7 +389,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 
 	// at this point we know autoprovision = true
 	// check if the volume configuration matches the one exists on the instance
-	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerapi.InspectVolumeTimeout)
+	volumeMetadata := dockerClient.InspectVolume(ctx, volumeConfig.DockerVolumeName, dockerclient.InspectVolumeTimeout)
 	if volumeMetadata.Error != nil {
 		// Inspect the volume timed out, fail the task
 		if _, ok := volumeMetadata.Error.(*dockerapi.DockerTimeoutError); ok {

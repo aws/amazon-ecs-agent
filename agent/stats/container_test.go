@@ -16,18 +16,16 @@
 package stats
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-
-	"context"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 	"github.com/docker/docker/api/types"
@@ -59,7 +57,7 @@ func TestContainerStatsCollection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *types.Stats)
-	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(statChan, nil)
+	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, nil)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
@@ -148,11 +146,11 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(nil, statErr),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(nil, statErr),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, nil),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(statChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, nil),
 	)
 
 	container := &StatsContainer{
@@ -189,7 +187,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerapi.StatsInactivityTimeout).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, nil),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, statsErr),
 	)
 
