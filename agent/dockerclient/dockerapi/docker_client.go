@@ -73,42 +73,14 @@ const (
 // Timelimits for docker operations enforced above docker
 // TODO: Make these limits configurable.
 const (
-	pullImageTimeout = 2 * time.Hour
-	// CreateContainerTimeout is the timeout for the CreateContainer API.
-	CreateContainerTimeout = 4 * time.Minute
-	// StopContainerTimeout is the timeout for the StopContainer API.
-	StopContainerTimeout = 30 * time.Second
-	// RemoveContainerTimeout is the timeout for the RemoveContainer API.
-	RemoveContainerTimeout = 5 * time.Minute
-	// InspectContainerTimeout is the timeout for the InspectContainer API.
-	InspectContainerTimeout = 30 * time.Second
-	// RemoveImageTimeout is the timeout for the RemoveImage API.
-	RemoveImageTimeout = 3 * time.Minute
-	// ListPluginsTimeout is the timout for ListPlugins API.
-	ListPluginsTimeout = 1 * time.Minute
-	// CreateVolumeTimeout is the timout for CreateVolume API.
-	CreateVolumeTimeout = 5 * time.Minute
-	// InspectVolumeTimeout is the timout for InspectVolume API.
-	InspectVolumeTimeout = 5 * time.Minute
-	// RemoveVolumeTimeout is the timout for RemoveVolume API.
-	RemoveVolumeTimeout = 5 * time.Minute
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
 	// tokenCacheTTL is the default ttl of the docker auth for ECR
 	tokenCacheTTL = 12 * time.Hour
 
-	// dockerPullBeginTimeout is the timeout from when a 'pull' is called to when
-	// we expect to see output on the pull progress stream. This is to work
-	// around a docker bug which sometimes results in pulls not progressing.
-	dockerPullBeginTimeout = 5 * time.Minute
-
 	// pullStatusSuppressDelay controls the time where pull status progress bar
 	// output will be suppressed in debug mode
 	pullStatusSuppressDelay = 2 * time.Second
-
-	// StatsInactivityTimeout controls the amount of time we hold open a
-	// connection to the Docker daemon waiting for stats data
-	StatsInactivityTimeout = 5 * time.Second
 
 	// retry settings for pulling images
 	maximumPullRetries        = 5
@@ -323,7 +295,7 @@ func (dg *dockerGoClient) time() ttime.Time {
 
 func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata {
 	// TODO Switch to just using context.WithDeadline and get rid of this funky code
-	timeout := dg.time().After(pullImageTimeout)
+	timeout := dg.time().After(dockerclient.PullImageTimeout)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
@@ -346,7 +318,7 @@ func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.Registr
 		return resp
 	case <-timeout:
 		cancel()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{pullImageTimeout, "pulled"}}
+		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerclient.PullImageTimeout, "pulled"}}
 	}
 }
 
@@ -386,7 +358,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 
 	repository := getRepository(image)
 
-	timeout := dg.time().After(dockerPullBeginTimeout)
+	timeout := dg.time().After(dockerclient.DockerPullBeginTimeout)
 	// pullBegan is a channel indicating that we have seen at least one line of data on the 'OutputStream' above.
 	// It is here to guard against a bug wherein Docker never writes anything to that channel and hangs in pulling forever.
 	pullBegan := make(chan bool, 1)
@@ -448,7 +420,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 		seelog.Debugf("DockerGoClient: pulling image complete: %s", image)
 		return nil
 	case <-timeout:
-		return &DockerTimeoutError{dockerPullBeginTimeout, "pullBegin"}
+		return &DockerTimeoutError{dockerclient.DockerPullBeginTimeout, "pullBegin"}
 	}
 	seelog.Debugf("DockerGoClient: pull began for image: %s", image)
 
@@ -625,7 +597,7 @@ func DockerStateToState(state *types.ContainerState) apicontainerstatus.Containe
 }
 
 func (dg *dockerGoClient) DescribeContainer(ctx context.Context, dockerID string) (apicontainerstatus.ContainerStatus, DockerContainerMetadata) {
-	dockerContainer, err := dg.InspectContainer(ctx, dockerID, InspectContainerTimeout)
+	dockerContainer, err := dg.InspectContainer(ctx, dockerID, dockerclient.InspectContainerTimeout)
 	if err != nil {
 		return apicontainerstatus.ContainerStatusNone, DockerContainerMetadata{Error: CannotDescribeContainerError{err}}
 	}

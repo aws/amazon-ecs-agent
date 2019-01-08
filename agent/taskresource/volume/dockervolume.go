@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -285,7 +286,7 @@ func (vol *VolumeResource) Create() error {
 		vol.VolumeConfig.Driver,
 		vol.VolumeConfig.DriverOpts,
 		vol.VolumeConfig.Labels,
-		dockerapi.CreateVolumeTimeout)
+		dockerclient.CreateVolumeTimeout)
 
 	if volumeResponse.Error != nil {
 		return volumeResponse.Error
@@ -305,7 +306,7 @@ func (vol *VolumeResource) Cleanup() error {
 	}
 
 	seelog.Debugf("Removing volume with name %s", vol.Name)
-	err := vol.client.RemoveVolume(vol.ctx, vol.VolumeConfig.DockerVolumeName, dockerapi.RemoveVolumeTimeout)
+	err := vol.client.RemoveVolume(vol.ctx, vol.VolumeConfig.DockerVolumeName, dockerclient.RemoveVolumeTimeout)
 
 	if err != nil {
 		return err

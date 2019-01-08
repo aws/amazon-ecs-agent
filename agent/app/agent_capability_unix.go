@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -45,7 +46,7 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 	// for standardized plugins, call docker's plugin ls API
 	pluginEnabled := true
 	volumeDriverType := []string{dockerapi.VolumeDriverType}
-	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(agent.ctx, pluginEnabled, volumeDriverType, dockerapi.ListPluginsTimeout)
+	standardizedPlugins, err := agent.dockerClient.ListPluginsWithFilters(agent.ctx, pluginEnabled, volumeDriverType, dockerclient.ListPluginsTimeout)
 	if err != nil {
 		seelog.Warnf("Listing plugins with filters enabled=%t, capabilities=%v failed: %v", pluginEnabled, volumeDriverType, err)
 		return capabilities

@@ -41,8 +41,7 @@ import (
 
 const (
 	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
-	listContainersTimeout  = 10 * time.Minute
-	queueResetThreshold    = 2 * dockerapi.StatsInactivityTimeout
+	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
 )
 
 var (

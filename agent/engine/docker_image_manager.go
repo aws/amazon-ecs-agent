@@ -416,7 +416,7 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 			break
 		}
 		seelog.Infof("Removing non-ECS Image: %s", kv.ImageName)
-		err := imageManager.client.RemoveImage(ctx, kv.ImageName, dockerapi.RemoveImageTimeout)
+		err := imageManager.client.RemoveImage(ctx, kv.ImageName, dockerclient.RemoveImageTimeout)
 		if err != nil {
 			seelog.Errorf("Error removing Image %s - %v", kv.ImageName, err)
 			continue
