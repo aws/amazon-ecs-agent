@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -314,7 +314,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
 	// Hence, do not enforce the order of invocation of these calls
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(sleepContainer.Image, nil).Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
 
@@ -507,7 +507,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-		client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{})
+		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 
 		imageManager.EXPECT().RecordContainerReference(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
@@ -645,7 +645,7 @@ func TestStopWithPendingStops(t *testing.T) {
 
 	pullDone := make(chan bool)
 	pullInvoked := make(chan bool)
-	client.EXPECT().PullImage(gomock.Any(), nil).Do(func(x, y interface{}) {
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Do(func(w, x, y, z interface{}) {
 		pullInvoked <- true
 		<-pullDone
 	}).MaxTimes(2)
@@ -803,7 +803,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	dockerEventSent := make(chan int)
 	for _, container := range sleepTask.Containers {
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-		client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{})
+		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 		imageManager.EXPECT().RecordContainerReference(container)
 		imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
@@ -893,7 +893,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
-			client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -965,7 +965,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	for _, container := range sleepTask.Containers {
 		gomock.InOrder(
 			imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
-			client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
+			client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 			imageManager.EXPECT().RecordContainerReference(container),
 			imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false),
 			// Simulate successful create container
@@ -1083,7 +1083,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 
 	// For the other container
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().PullImage(gomock.Any(), nil).Return(dockerapi.DockerContainerMetadata{})
+	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
@@ -1370,7 +1370,7 @@ func TestPullNormalImage(t *testing.T) {
 		Image: &image.Image{ImageID: "id"},
 	}
 
-	client.EXPECT().PullImage(imageName, nil)
+	client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
 	saver.EXPECT().Save()
@@ -1416,7 +1416,7 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 				PullSucceeded: tc.pullSucceeded,
 			}
 			if !tc.pullSucceeded {
-				client.EXPECT().PullImage(imageName, nil)
+				client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any())
 			}
 			imageManager.EXPECT().RecordContainerReference(container)
 			imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true).Times(2)
@@ -1476,7 +1476,7 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing
 		Image: &image.Image{ImageID: "id"},
 	}
 	client.EXPECT().InspectImage(imageName).Return(nil, errors.New("error"))
-	client.EXPECT().PullImage(imageName, nil)
+	client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
 	saver.EXPECT().Save()
@@ -1602,8 +1602,8 @@ func TestTaskUseExecutionRolePullECRImage(t *testing.T) {
 		ARN:                "",
 		IAMRoleCredentials: executionRoleCredentials,
 	}, true)
-	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
-		func(image string, auth *apicontainer.RegistryAuthenticationData) {
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx interface{}, image string, auth *apicontainer.RegistryAuthenticationData, timeout interface{}) {
 			assert.Equal(t, container.Image, image)
 			assert.Equal(t, auth.ECRAuthData.GetPullCredentials(), executionRoleCredentials)
 		}).Return(dockerapi.DockerContainerMetadata{})
@@ -1673,8 +1673,8 @@ func TestTaskUseExecutionRolePullPrivateRegistryImage(t *testing.T) {
 	container := testTask.Containers[0]
 
 	mockTime.EXPECT().Now().AnyTimes()
-	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Do(
-		func(image string, auth *apicontainer.RegistryAuthenticationData) {
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx interface{}, image string, auth *apicontainer.RegistryAuthenticationData, timeout interface{}) {
 			assert.Equal(t, container.Image, image)
 			dac := auth.ASMAuthData.GetDockerAuthConfig()
 			assert.Equal(t, username, dac.Username)
@@ -1845,7 +1845,7 @@ func TestPullStartedStoppedAtWasSetCorrectly(t *testing.T) {
 	stopTime2 := stopTime1.Add(time.Second)
 	stopTime3 := stopTime2.Add(time.Second)
 
-	client.EXPECT().PullImage(gomock.Any(), gomock.Any()).Times(3)
+	client.EXPECT().PullImage(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(3)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).Times(3)
 
@@ -1894,9 +1894,9 @@ func TestPullStoppedAtWasSetCorrectlyWhenPullFail(t *testing.T) {
 	stopTime3 := stopTime2.Add(time.Second)
 
 	gomock.InOrder(
-		client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
-		client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
-		client.EXPECT().PullImage(container.Image, nil).Return(
+		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
+		client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(
 			dockerapi.DockerContainerMetadata{Error: dockerapi.CannotPullContainerError{fmt.Errorf("error")}}),
 	)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
@@ -2149,9 +2149,9 @@ func TestContainerProgressParallize(t *testing.T) {
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil).AnyTimes()
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false).AnyTimes()
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-	client.EXPECT().PullImage(fastPullImage, gomock.Any())
-	client.EXPECT().PullImage(slowPullImage, gomock.Any()).Do(
-		func(image interface{}, auth interface{}) {
+	client.EXPECT().PullImage(gomock.Any(), fastPullImage, gomock.Any(), gomock.Any())
+	client.EXPECT().PullImage(gomock.Any(), slowPullImage, gomock.Any(), gomock.Any()).Do(
+		func(ctx interface{}, image interface{}, auth interface{}, timeout interface{}) {
 			waitForFastPullContainer.Wait()
 		})
 	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(

@@ -231,15 +231,15 @@ func (mr *MockDockerClientMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) 
 }
 
 // PullImage mocks base method
-func (m *MockDockerClient) PullImage(arg0 string, arg1 *container.RegistryAuthenticationData) dockerapi.DockerContainerMetadata {
-	ret := m.ctrl.Call(m, "PullImage", arg0, arg1)
+func (m *MockDockerClient) PullImage(arg0 context.Context, arg1 string, arg2 *container.RegistryAuthenticationData, arg3 time.Duration) dockerapi.DockerContainerMetadata {
+	ret := m.ctrl.Call(m, "PullImage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(dockerapi.DockerContainerMetadata)
 	return ret0
 }
 
 // PullImage indicates an expected call of PullImage
-func (mr *MockDockerClientMockRecorder) PullImage(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PullImage", reflect.TypeOf((*MockDockerClient)(nil).PullImage), arg0, arg1)
+func (mr *MockDockerClientMockRecorder) PullImage(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PullImage", reflect.TypeOf((*MockDockerClient)(nil).PullImage), arg0, arg1, arg2, arg3)
 }
 
 // RemoveContainer mocks base method

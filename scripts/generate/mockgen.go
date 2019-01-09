@@ -64,7 +64,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 }
 
 func generateMocks(packageName string, interfaces string, outputPath string) error {
