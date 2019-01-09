@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,13 +18,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -32,7 +31,6 @@ const (
 	// metadataEnvironmentVariable is the environment variable passed to the
 	// container for the metadata file path.
 	metadataEnvironmentVariable = "ECS_CONTAINER_METADATA_FILE"
-	inspectContainerTimeout     = 30 * time.Second
 	metadataFile                = "ecs-container-metadata.json"
 	metadataPerm                = 0644
 )
@@ -137,7 +135,7 @@ func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfi
 // Update updates the metadata file after container starts and dynamic metadata is available
 func (manager *metadataManager) Update(ctx context.Context, dockerID string, task *apitask.Task, containerName string) error {
 	// Get docker container information through api call
-	dockerContainer, err := manager.client.InspectContainer(ctx, dockerID, inspectContainerTimeout)
+	dockerContainer, err := manager.client.InspectContainer(ctx, dockerID, dockerclient.InspectContainerTimeout)
 	if err != nil {
 		return err
 	}

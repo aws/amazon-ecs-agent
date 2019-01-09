@@ -20,12 +20,12 @@ import (
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/docker/docker/api/types/network"
 )
 
 // TestCreate is the mainline case for metadata create
@@ -77,7 +77,7 @@ func TestUpdate(t *testing.T) {
 
 	mockContainer := types.ContainerJSON{
 		ContainerJSONBase: &types.ContainerJSONBase{
-			State:           &mockState,
+			State: &mockState,
 		},
 		Config:          mockConfig,
 		NetworkSettings: &mockNetworkSettings,
@@ -89,7 +89,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(&mockContainer, nil),
+		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(&mockContainer, nil),
 		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
 		mockFile.EXPECT().Sync().Return(nil),

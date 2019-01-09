@@ -1,5 +1,5 @@
 // +build integration
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -296,15 +296,15 @@ func TestImageWithSameNameAndDifferentID(t *testing.T) {
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test3Image1Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(test3Image1Name, nil)
+		metadata := dockerClient.PullImage(ctx, test3Image1Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image1Name)
 	}
 	if _, err = dockerClient.InspectImage(test3Image2Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(test3Image2Name, nil)
+		metadata := dockerClient.PullImage(ctx, test3Image2Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image2Name)
 	}
 	if _, err = dockerClient.InspectImage(test3Image3Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(test3Image3Name, nil)
+		metadata := dockerClient.PullImage(ctx, test3Image3Name, nil, dockerclient.LoadImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test3Image3Name)
 	}
 
@@ -444,7 +444,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test4Image1Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(test4Image1Name, nil)
+		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, dockerclient.PullImageTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
 
