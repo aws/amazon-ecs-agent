@@ -56,6 +56,15 @@ func createdContainer(name string, links, volumes []string, steadyState apiconta
 	return container
 }
 
+func stoppingContainer(name string, links, volumes []string) *apicontainer.Container {
+	container := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerRunning)
+	container.Name = name
+	container.Links = links
+	container.VolumesFrom = volumeStrToVol(volumes)
+	container.DesiredStatusUnsafe = apicontainerstatus.ContainerStopped
+	return container
+}
+
 func TestValidDependencies(t *testing.T) {
 	// Empty task
 	task := &apitask.Task{}
@@ -163,6 +172,47 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 
 	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "Php should resolve")
+}
+
+func TestDependenciesAreResolvedWhenStopping(t *testing.T) {
+	task := &apitask.Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name:                "redis",
+				DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+			},
+		},
+	}
+	err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil)
+	assert.NoError(t, err, "One container should resolve trivially")
+
+	// Webserver stack
+	php := stoppingContainer("php", []string{"db"}, []string{})
+	db := stoppingContainer("db", []string{}, []string{"dbdatavolume"})
+	dbdata := stoppingContainer("dbdatavolume", []string{}, []string{})
+	webserver := stoppingContainer("webserver", []string{"php"}, []string{"htmldata"})
+	htmldata := stoppingContainer("htmldata", []string{}, []string{"sharedcssfiles"})
+	sharedcssfiles := stoppingContainer("sharedcssfiles", []string{}, []string{})
+
+	task = &apitask.Task{
+		Containers: []*apicontainer.Container{
+			php, db, dbdata, webserver, htmldata, sharedcssfiles,
+		},
+	}
+
+	err = DependenciesAreResolved(webserver, task.Containers, "", nil, nil)
+	assert.NoError(t, err, "webserver with no deps should be resovled")
+
+	err = DependenciesAreResolved(htmldata, task.Containers, "", nil, nil)
+	assert.NoError(t, err, "Htmldata should be resolved, even though webserver volumes from htmldata")
+
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	assert.Error(t, err, "Php shouldn't be resolved, webserver linking to php")
+	
+	webserver.KnownStatusUnsafe = apicontainerstatus.ContainerStopped
+
+	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	assert.NoError(t, err, "Php should be resolved, webserver (link to php) is stopped")
 }
 
 func TestRunDependencies(t *testing.T) {
@@ -387,6 +437,101 @@ func TestVolumeIsResolved(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeKnown.String()),
 			assertResolved(volumeIsResolved, tc.TargetDesired, tc.VolumeKnown, tc.Resolved))
+	}
+}
+func TestLinkIsResolved(t *testing.T) {
+	testcases := []struct {
+		TargetDesired apicontainerstatus.ContainerStatus
+		VolumeKnown   apicontainerstatus.ContainerStatus
+		Resolved      bool
+	}{
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			VolumeKnown:   apicontainerstatus.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			VolumeKnown:   apicontainerstatus.ContainerCreated,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			VolumeKnown:   apicontainerstatus.ContainerRunning,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			VolumeKnown:   apicontainerstatus.ContainerStopped,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			VolumeKnown:   apicontainerstatus.ContainerZombie,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			VolumeKnown:   apicontainerstatus.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			VolumeKnown:   apicontainerstatus.ContainerCreated,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			VolumeKnown:   apicontainerstatus.ContainerRunning,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			VolumeKnown:   apicontainerstatus.ContainerStopped,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			VolumeKnown:   apicontainerstatus.ContainerZombie,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStopped,
+			VolumeKnown:   apicontainerstatus.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStopped,
+			VolumeKnown:   apicontainerstatus.ContainerCreated,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStopped,
+			VolumeKnown:   apicontainerstatus.ContainerRunning,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStopped,
+			VolumeKnown:   apicontainerstatus.ContainerStopped,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStopped,
+			VolumeKnown:   apicontainerstatus.ContainerZombie,
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStatusNone,
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerZombie,
+			Resolved:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeKnown.String()),
+			assertResolved(linkIsResolved, tc.TargetDesired, tc.VolumeKnown, tc.Resolved))
 	}
 }
 

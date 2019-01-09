@@ -120,9 +120,37 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
-	neededVolumeContainers := make([]string, len(target.VolumesFrom))
-	for i, volume := range target.VolumesFrom {
-		neededVolumeContainers[i] = volume.SourceContainer
+
+	if target.GetDesiredStatus() != apicontainerstatus.ContainerStopped {
+		neededVolumeContainers := make([]string, len(target.VolumesFrom))
+		for i, volume := range target.VolumesFrom {
+			neededVolumeContainers[i] = volume.SourceContainer
+		}
+		if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
+			return volumeUnresolvedErr
+		}
+		if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
+			return DependentContainerNotResolvedErr
+		}
+	}
+
+	var linkedContainers []string
+	if target.GetDesiredStatus() == apicontainerstatus.ContainerStopped {
+		// build reverse dependencies in stopping
+		for _, cont := range by {
+			for _, link := range cont.Links {
+				link = strings.Split(link, ":")[0]
+				if link == target.Name {
+					linkedContainers = append(linkedContainers, cont.Name)
+				}
+			}
+		}
+	} else {
+		linkedContainers = linksToContainerNames(target.Links)
+	}
+
+	if !verifyStatusResolvable(target, nameMap, linkedContainers, linkIsResolved) {
+		return linkUnresolvedErr
 	}
 
 	resourcesMap := make(map[string]taskresource.TaskResource)
@@ -130,17 +158,6 @@ func DependenciesAreResolved(target *apicontainer.Container,
 		resourcesMap[resource.GetName()] = resource
 	}
 
-	if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
-		return volumeUnresolvedErr
-	}
-
-	if !verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) {
-		return linkUnresolvedErr
-	}
-
-	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
-		return DependentContainerNotResolvedErr
-	}
 	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
 		return err
 	}
@@ -175,9 +192,7 @@ func executionCredentialsResolved(target *apicontainer.Container, id string, man
 func verifyStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
 	dependencies []string, resolves func(*apicontainer.Container, *apicontainer.Container) bool) bool {
 	targetGoal := target.GetDesiredStatus()
-	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
-		// A container can always stop, die, or reach whatever other state it
-		// wants regardless of what dependencies it has
+	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated && targetGoal != apicontainerstatus.ContainerStopped {
 		return true
 	}
 
@@ -261,6 +276,11 @@ func linkIsResolved(target *apicontainer.Container, link *apicontainer.Container
 		// 'Created' or if the linked container is in 'steady state'
 		linkKnownStatus := link.GetKnownStatus()
 		return linkKnownStatus == apicontainerstatus.ContainerCreated || link.IsKnownSteadyState()
+	} else if targetDesiredStatus == apicontainerstatus.ContainerStopped {
+		// The 'target' container desires to be moved to 'Stopped' state.
+		// Allow this only if the known status of the linking container is 'Stopped'
+		linkKnownStatus := link.GetKnownStatus()
+		return linkKnownStatus >= apicontainerstatus.ContainerStopped
 	} else if targetDesiredStatus == target.GetSteadyStateStatus() {
 		// The 'target' container desires to be moved to its 'steady' state.
 		// Allow this only if the linked container is in 'steady state' as well
