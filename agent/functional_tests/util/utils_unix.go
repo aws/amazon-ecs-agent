@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -274,6 +275,13 @@ func (agent *TestAgent) getBindMounts() []string {
 	binds = append(binds, dockerEndpoint+":"+dockerEndpoint)
 	binds = append(binds, hostConfigDir+":"+configDirectory)
 	binds = append(binds, hostCacheDir+":"+cacheDirectory)
+
+	if agent.Options != nil {
+		if agent.Options.GPUEnabled {
+			// bind mount the GPU info directory on the instance created by init
+			binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+		}
+	}
 
 	return binds
 }

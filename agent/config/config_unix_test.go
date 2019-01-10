@@ -201,3 +201,11 @@ func setupFileConfiguration(t *testing.T, configContent string) string {
 
 	return file.Name()
 }
+
+func TestEmptyNvidiaRuntime(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
+}

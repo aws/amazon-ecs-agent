@@ -273,6 +273,11 @@ type Config struct {
 	// API call will be overridden.
 	ContainerInstanceTags map[string]string
 
+	// GPUSupportEnabled specifies if the Agent is capable of launching GPU tasks
+	GPUSupportEnabled bool
 	// ImageCleanupExclusionList is the list of image names customers want to keep for their own use and delete automatically
 	ImageCleanupExclusionList []string
+
+	// NvidiaRuntime is the runtime to be used for passing Nvidia GPU devices to containers
+	NvidiaRuntime string `trim:"true"`
 }

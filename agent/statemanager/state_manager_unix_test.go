@@ -130,3 +130,49 @@ func TestLoadsDataForAWSVPCTask(t *testing.T) {
 	assert.Equal(t, 1, len(ipv4Addresses))
 	assert.Equal(t, "172.31.10.246", ipv4Addresses[0])
 }
+
+// verify that the state manager correctly loads gpu related fields in state file
+func TestLoadsDataForGPU(t *testing.T) {
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v18", "gpu")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "gpu-state", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+	assert.Equal(t, 2, len(task.Associations))
+
+	association1 := task.Associations[0]
+	assert.Equal(t, "container_1", association1.Containers[0])
+	assert.Equal(t, "gpu", association1.Type)
+	assert.Equal(t, "0", association1.Name)
+
+	association2 := task.Associations[1]
+	assert.Equal(t, "container_1", association2.Containers[0])
+	assert.Equal(t, "gpu", association2.Type)
+	assert.Equal(t, "1", association2.Name)
+
+	container := task.Containers[0]
+	assert.Equal(t, "container_1", container.Name)
+	assert.Equal(t, []string{"0","1"}, container.GPUIDs)
+	assert.Equal(t, "0,1", container.Environment["NVIDIA_VISIBLE_DEVICES"])
+}
