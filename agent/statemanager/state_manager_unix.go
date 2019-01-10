@@ -83,6 +83,19 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 	err = os.Rename(tmpfile.Name(), filepath.Join(manager.statePath, ecsDataFile))
 	if err != nil {
 		seelog.Errorf("Error saving state; could not move to data file, err: %v", err)
+		return err
+	}
+
+	stateDir, err := os.Open(manager.statePath)
+	if err != nil {
+		seelog.Errorf("Error opening state path, err: %v", err)
+		return err
+	}
+
+	// sync directory entry of the new state file to disk
+	err = stateDir.Sync()
+	if err != nil {
+		seelog.Errorf("Error syncing state file directory entry, err: %v", err)
 	}
 	return err
 }
