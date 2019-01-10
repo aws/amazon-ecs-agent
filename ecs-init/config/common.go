@@ -67,6 +67,8 @@ const (
 	// be used to override the default value used of
 	// dockerJSONLogMaxFiles for managed containers.
 	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
+	// GPUSupportEnvVar indicates that the AMI has support for GPU
+	GPUSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -220,6 +222,16 @@ func AgentDockerLogDriverConfiguration() godocker.LogConfig {
 			"max-file": maxFiles,
 		},
 	}
+}
+
+// InstanceConfigDirectory returns the location on disk for custom instance configuration
+func InstanceConfigDirectory() string {
+	return directoryPrefix + "/var/lib/ecs"
+}
+
+// InstanceConfigFile returns the location of a file of custom environment variables
+func InstanceConfigFile() string {
+	return InstanceConfigDirectory() + "/ecs.config"
 }
 
 func agentArtifactName(version string, arch string) (string, error) {

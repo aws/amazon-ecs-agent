@@ -207,6 +207,18 @@ func (mr *MockdockerClientMockRecorder) StopAgent() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopAgent", reflect.TypeOf((*MockdockerClient)(nil).StopAgent))
 }
 
+// LoadEnvVars mocks base method
+func (m *MockdockerClient) LoadEnvVars() map[string]string {
+	ret := m.ctrl.Call(m, "LoadEnvVars")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// LoadEnvVars indicates an expected call of LoadEnvVars
+func (mr *MockdockerClientMockRecorder) LoadEnvVars() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadEnvVars", reflect.TypeOf((*MockdockerClient)(nil).LoadEnvVars))
+}
+
 // MockloopbackRouting is a mock of loopbackRouting interface
 type MockloopbackRouting struct {
 	ctrl     *gomock.Controller

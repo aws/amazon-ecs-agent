@@ -19,10 +19,12 @@ import (
 	"io"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/cache"
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/aws/amazon-ecs-init/ecs-init/docker"
 	"github.com/aws/amazon-ecs-init/ecs-init/exec"
 	"github.com/aws/amazon-ecs-init/ecs-init/exec/iptables"
 	"github.com/aws/amazon-ecs-init/ecs-init/exec/sysctl"
+	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 )
@@ -39,6 +41,7 @@ type Engine struct {
 	docker                dockerClient
 	loopbackRouting       loopbackRouting
 	credentialsProxyRoute credentialsProxyRoute
+	nvidiaGPUManager      gpu.GPUManager
 }
 
 // New creates an instance of Engine
@@ -65,6 +68,7 @@ func New() (*Engine, error) {
 		docker:                docker,
 		loopbackRouting:       loopbackRouting,
 		credentialsProxyRoute: credentialsProxyRoute,
+		nvidiaGPUManager:      gpu.NewNvidiaGPUManager(),
 	}, nil
 }
 
@@ -72,6 +76,16 @@ func New() (*Engine, error) {
 // to handle credentials requests from containers by rerouting these requests to
 // to the ECS Agent's credentials endpoint
 func (e *Engine) PreStart() error {
+	envVariables := e.docker.LoadEnvVars()
+	if val, ok := envVariables[config.GPUSupportEnvVar]; ok {
+		if val == "true" {
+			err := e.nvidiaGPUManager.Setup()
+			if err != nil {
+				log.Errorf("Nvidia GPU Manager: %v", err)
+				return engineError("Nvidia GPU Manager", err)
+			}
+		}
+	}
 	// Enable use of loopback addresses for local routing purposes
 	err := e.loopbackRouting.Enable()
 	if err != nil {

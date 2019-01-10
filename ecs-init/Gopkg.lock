@@ -21,6 +21,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:36d1549972d1ebac59f3b15708485666761d8051f675776193ccb1be3cb6ea84"
+  name = "github.com/NVIDIA/gpu-monitoring-tools"
+  packages = ["bindings/go/nvml"]
+  pruneopts = "UT"
+  revision = "86f2a9fac6c5b597dc494420005144b8ef7ec9fb"
+
+[[projects]]
+  branch = "master"
   digest = "1:3721a10686511b80c052323423f0de17a8c06d417dbdd3b392b1578432a33aae"
   name = "github.com/Nvveen/Gotty"
   packages = ["."]
@@ -85,6 +93,14 @@
   ]
   pruneopts = "UT"
   revision = "f561c5e57575bb1e0a2167028b7339b3a8d16fb4"
+
+[[projects]]
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "UT"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
   digest = "1:7a090db604ac52cc70279f8a787d7bfba4cc9b3a924bd634d149b9c67c78e223"
@@ -199,6 +215,22 @@
   revision = "c605e284fe17294bda444b34710735b29d1a9d90"
 
 [[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:18752d0b95816a1b777505a97f71c7467a8445b8ffb55631a7bf779f6ba4fa83"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = "UT"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
+
+[[projects]]
   digest = "1:ac7dc2013947eefefab215bf868e0120a3d1eb9ca1866cb77b9fd820973cc739"
   name = "golang.org/x/net"
   packages = [
@@ -222,6 +254,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml",
     "github.com/aws/aws-sdk-go/aws",
     "github.com/aws/aws-sdk-go/aws/credentials",
     "github.com/aws/aws-sdk-go/aws/ec2metadata",
@@ -233,6 +266,7 @@
     "github.com/fsouza/go-dockerclient",
     "github.com/golang/mock/gomock",
     "github.com/pkg/errors",
+    "github.com/stretchr/testify/assert",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
