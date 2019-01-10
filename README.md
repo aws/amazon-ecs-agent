@@ -210,6 +210,10 @@ The following scripts are available to help develop the Amazon ECS Container Age
 Contributions and feedback are welcome! Proposals and pull requests will be considered and responded to. For more
 information, see the [CONTRIBUTING.md](https://github.com/aws/amazon-ecs-agent/blob/master/CONTRIBUTING.md) file.
 
+If you have a bug/and issue around the behavior of the ECS agent, please open it here.
+
+If you have a feature request, please open it over at the [AWS Containers Roadmap](https://github.com/aws/containers-roadmap).
+
 Amazon Web Services does not currently provide support for modified copies of this software.
 
 
