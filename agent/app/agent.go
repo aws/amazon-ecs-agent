@@ -233,6 +233,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitTerminal
 		}
 	}
+	if agent.cfg.GPUSupportEnabled {
+		err := agent.initializeGPUManager()
+		if err != nil {
+			seelog.Criticalf("Could not initialize Nvidia GPU Manager: %v", err)
+			return exitcodes.ExitError
+		}
+	}
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
@@ -498,13 +505,15 @@ func (agent *ecsAgent) registerContainerInstance(
 		tags = mergeTags(tags, ec2Tags)
 	}
 
+	platformDevices := agent.getPlatformDevices()
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New())
+		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New())
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -532,8 +541,8 @@ func (agent *ecsAgent) registerContainerInstance(
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
 func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string) error {
-	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken)
+	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) error {
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken, platformDevices)
 	//set az to agent
 	agent.availabilityZone = availabilityZone
 

@@ -28,8 +28,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -42,6 +44,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1331,4 +1334,46 @@ func TestASMSecretsARN(t *testing.T) {
 	require.NoError(t, err)
 	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// Note: This functional test requires ECS GPU instance which has atleast 2 GPUs
+func TestRunGPUTask(t *testing.T) {
+	gpuInstances := []string{"p2", "p3", "g3"}
+	var isGPUInstance bool
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+	for _, gpuInstance := range gpuInstances {
+		if strings.HasPrefix(iid.InstanceType, gpuInstance) {
+			// GPU test should only run on p2/p3/g3 ECS instances
+			isGPUInstance = true
+			break
+		}
+	}
+	if !isGPUInstance {
+		t.Skip("Skipped because the instance type is not a supported GPU instance type")
+	}
+	if _, err := os.Stat(gpu.NvidiaGPUInfoFilePath); os.IsNotExist(err) {
+		t.Skip("Skipped because GPU information file does not exist")
+	}
+	agent := RunAgent(t, &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			// required environment variable to register with GPU devices
+			"ECS_ENABLE_GPU_SUPPORT": "true",
+		},
+		GPUEnabled: true,
+	})
+	defer agent.Cleanup()
+	// TODO: after release, change it to 1.24.0
+	agent.RequireVersion(">=1.22.0")
+
+	testTask, err := agent.StartTask(t, "nvidia-gpu")
+	require.NoError(t, err)
+
+	err = testTask.WaitStopped(2 * time.Minute)
+	require.NoError(t, err)
+
+	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	}
+
+	defer agent.SweepTask(testTask)
 }

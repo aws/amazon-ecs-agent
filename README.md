@@ -139,6 +139,7 @@ additional details on each available environment variable.
 | `ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP` | `true` | Whether to allow the ECS agent to delete containers and images that are not part of ECS tasks. | `false` | `false` |
 | `ECS_EXCLUDE_UNTRACKED_IMAGE` | `alpine:latest` | Comma seperated list of `imageName:tag` of images that should not be deleted by the ECS agent if `ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP` is enabled. | | |
 | `ECS_DISABLE_DOCKER_HEALTH_CHECK` | `false` | Whether to disable the Docker Container health check for the ECS Agent. | `false` | `false` |
+| `ECS_NVIDIA_RUNTIME` | nvidia | The Nvidia Runtime to be used to pass Nvidia GPU devices to containers. | nvidia | Not Applicable |
 
 ### Persistence
 

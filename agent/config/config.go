@@ -130,6 +130,9 @@ const (
 	//Known cached image names
 	CachedImageNamePauseContainer = "amazon/amazon-ecs-pause:0.1.0"
 	CachedImageNameAgentContainer = "amazon/amazon-ecs-agent:latest"
+
+	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers
+	DefaultNvidiaRuntime = "nvidia"
 )
 
 const (
@@ -533,6 +536,8 @@ func environmentConfig() (Config, error) {
 		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), false),
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		DisableDockerHealthCheck:            utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
+		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
+		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 	}, err
 }
 

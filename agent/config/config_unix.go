@@ -79,6 +79,7 @@ func DefaultConfig() Config {
 		PrometheusMetricsEnabled:            false,
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
+		NvidiaRuntime:                       DefaultNvidiaRuntime,
 	}
 }
 

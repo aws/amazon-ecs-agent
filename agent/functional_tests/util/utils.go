@@ -136,6 +136,7 @@ type AgentOptions struct {
 	ContainerLinks   []string
 	PortBindings     map[nat.Port]map[string]string
 	EnableTaskENI    bool
+	GPUEnabled       bool
 }
 
 // verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
