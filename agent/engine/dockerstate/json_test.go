@@ -135,7 +135,18 @@ const (
             ],
             "IPV6Addresses": null,
             "MacAddress": "0a:1b:2c:3d:4e:5f"
-          }
+          },
+          "associations": [
+            {
+              "containers": ["foo"],
+              "content": {
+                "encoding": "base64",
+                "value": "val"
+              },
+              "name": "dev1",
+              "type": "elastic-inference"
+            }
+          ]
         }
       ],
       "IdToContainer": {

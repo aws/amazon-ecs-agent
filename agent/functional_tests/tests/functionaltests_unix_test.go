@@ -1377,3 +1377,39 @@ func TestRunGPUTask(t *testing.T) {
 
 	defer agent.SweepTask(testTask)
 }
+
+// TestElasticInferenceValidator tests the workflow of an elastic inference task
+func TestElasticInferenceValidator(t *testing.T) {
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+
+	agentOptions := &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = "ecs-functional-tests-elastic-inference-validator"
+
+	var task *TestTask
+	var err error
+
+	task, err = agent.StartAWSVPCTask("task-elastic-inference", tdOverrides)
+	require.NoError(t, err, "Error starting elastic inference task")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode("container_1")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42 for container; got %d", exitCode))
+}

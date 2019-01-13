@@ -138,7 +138,8 @@
     "AssociationType":{
       "type":"string",
       "enum":[
-        "gpu"
+        "gpu",
+        "elastic-inference"
       ]
     },
     "Associations":{

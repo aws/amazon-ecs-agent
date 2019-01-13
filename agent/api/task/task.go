@@ -1818,3 +1818,37 @@ func (task *Task) getIPCMode() string {
 
 	return task.IPCMode
 }
+
+// AssociationByTypeAndContainer gets a list of names of all the associations associated with a container and of a
+// certain type
+func (task *Task) AssociationsByTypeAndContainer(associationType, containerName string) []string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	var associationNames []string
+	for _, association := range task.Associations {
+		if association.Type == associationType {
+			for _, associatedContainerName := range association.Containers {
+				if associatedContainerName == containerName {
+					associationNames = append(associationNames, association.Name)
+				}
+			}
+		}
+	}
+
+	return associationNames
+}
+
+// AssociationByTypeAndName gets an association of a certain type and name
+func (task *Task) AssociationByTypeAndName(associationType, associationName string) (*Association, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	for _, association := range task.Associations {
+		if association.Type == associationType && association.Name == associationName {
+			return &association, true
+		}
+	}
+
+	return nil, false
+}

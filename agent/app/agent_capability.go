@@ -42,6 +42,7 @@ const (
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
 	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
 	capabilityECREndpoint                       = "ecr-endpoint"
+	taskEIAAttributeSuffix                      = "task-eia"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -74,7 +75,7 @@ const (
 //    ecs.capability.pid-ipc-namespace-sharing
 //    ecs.capability.ecr-endpoint
 //    ecs.capability.secrets.asm.environment-variables
-
+//    ecs.capability.task-eia
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -136,6 +137,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvASM)
+
+	// support elastic inference in agent
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
 
 	return capabilities, nil
 }

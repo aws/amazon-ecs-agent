@@ -735,6 +735,7 @@
         "volumesFrom":{"shape":"VolumeFromList"},
         "linuxParameters":{"shape":"LinuxParameters"},
         "secrets":{"shape":"SecretList"},
+        "inferenceDevices":{"shape":"StringList"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -1170,6 +1171,21 @@
       "members":{
         "sourcePath":{"shape":"String"}
       }
+    },
+    "InferenceAccelerator":{
+      "type":"structure",
+      "required":[
+        "deviceName",
+        "deviceType"
+      ],
+      "members":{
+        "deviceName":{"shape":"String"},
+        "deviceType":{"shape":"String"}
+      }
+    },
+    "InferenceAccelerators":{
+      "type":"list",
+      "member":{"shape":"InferenceAccelerator"}
     },
     "Integer":{"type":"integer"},
     "InvalidParameterException":{
@@ -1611,7 +1627,8 @@
         "memory":{"shape":"String"},
         "pidMode":{"shape":"PidMode"},
         "ipcMode":{"shape":"IpcMode"},
-        "tags":{"shape":"Tags"}
+        "tags":{"shape":"Tags"},
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"}
       }
     },
     "RegisterTaskDefinitionResponse":{
@@ -2010,7 +2027,8 @@
         "cpu":{"shape":"String"},
         "memory":{"shape":"String"},
         "pidMode":{"shape":"PidMode"},
-        "ipcMode":{"shape":"IpcMode"}
+        "ipcMode":{"shape":"IpcMode"},
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"}
       }
     },
     "TaskDefinitionFamilyStatus":{

@@ -41,7 +41,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
-	"github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -78,12 +79,26 @@ const (
 	v3EndpointID               = "v3eid"
 	availabilityzone           = "us-west-2b"
 	containerInstanceArn       = "containerInstanceArn-test"
+	associationType            = "elastic-inference"
+	associationName            = "dev1"
+	associationEncoding        = "base64"
+	associationValue           = "val"
 )
 
 var (
-	now  = time.Now()
+	now         = time.Now()
+	association = apitask.Association{
+		Containers: []string{containerName},
+		Content: apitask.EncodedString{
+			Encoding: associationEncoding,
+			Value:    associationValue,
+		},
+		Name: associationName,
+		Type: associationType,
+	}
 	task = &apitask.Task{
 		Arn:                 taskARN,
+		Associations:        []apitask.Association{association},
 		Family:              family,
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
@@ -173,6 +188,10 @@ var (
 		ExecutionStoppedAt: aws.Time(now.UTC()),
 		AvailabilityZone:   availabilityzone,
 	}
+	expectedAssociationsResponse = v3.AssociationsResponse{
+		Associations: []string{associationName},
+	}
+	expectedAssociationResponse = associationValue
 )
 
 func init() {
@@ -826,6 +845,61 @@ func TestV3ContainerStats(t *testing.T) {
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
 }
 
+func TestV3ContainerAssociations(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType, nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	var associationsResponse v3.AssociationsResponse
+	err = json.Unmarshal(res, &associationsResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedAssociationsResponse, associationsResponse)
+}
+
+func TestV3ContainerAssociation(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/associations/"+associationType+"/"+associationName, nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	assert.Equal(t, expectedAssociationResponse, string(res))
+}
+
 func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	testPaths := []string{
 		"/",
@@ -838,6 +912,7 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 		"/v3///task/",
 		"/v3/v3-endpoint-id/task/stats/",
 		"/v3/v3-endpoint-id/task/stats/wrong-path",
+		"/v3/v3-endpoint-id/associtions-with-typo/elastic-inference/dev1",
 	}
 
 	ctrl := gomock.NewController(t)
@@ -879,6 +954,8 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 		"/v3//task",
 		"/v3/wrong-v3-endpoint-id/task/stats",
 		"/v3//task/stats",
+		"/v3/wrong-v3-endpoint-id/associations/elastic-inference",
+		"/v3/wrong-v3-endpoint-id/associations/elastic-inference/dev1",
 	}
 
 	ctrl := gomock.NewController(t)

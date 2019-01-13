@@ -44,6 +44,12 @@ const (
 	// RequestTypeAgentMetadata specifies the Agent metadata request type of AgentMetadataHandler.
 	RequestTypeAgentMetadata = "agent metadata"
 
+	// RequestTypeContainerAssociations specifies the container associations request type of ContainerAssociationsHandler.
+	RequestTypeContainerAssociations = "container associations"
+
+	// RequestTypeContainerAssociation specifies the container association request type of ContainerAssociationHandler.
+	RequestTypeContainerAssociation = "container association"
+
 	// AnythingButSlashRegEx is a regex pattern that matches any string without slash.
 	AnythingButSlashRegEx = "[^/]*"
 

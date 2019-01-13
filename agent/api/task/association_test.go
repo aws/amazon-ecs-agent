@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestAssociationMarshal(t *testing.T) {
+func TestGPUAssociationMarshal(t *testing.T) {
 	expectedAssociationMap := map[string]interface{}{
 		"containers": []interface{}{"container1"},
 		"content": map[string]interface{}{
@@ -41,6 +41,35 @@ func TestAssociationMarshal(t *testing.T) {
 		},
 		Name: "gpu1",
 		Type: "gpu",
+	}
+
+	associationJSON, err := json.Marshal(association)
+	assert.NoError(t, err)
+
+	associationMap := make(map[string]interface{})
+	json.Unmarshal(associationJSON, &associationMap)
+	assert.Equal(t, expectedAssociationMap, associationMap)
+}
+
+func TestEIAssociationMarshal(t *testing.T) {
+	expectedAssociationMap := map[string]interface{}{
+		"containers": []interface{}{"container1"},
+		"content": map[string]interface{}{
+			"encoding": "base64",
+			"value": "val",
+		},
+		"name": "dev1",
+		"type": "elastic-inference",
+	}
+
+	association := Association{
+		Containers: []string{"container1"},
+		Content: EncodedString{
+			Encoding: "base64",
+			Value:    "val",
+		},
+		Name: "dev1",
+		Type: "elastic-inference",
 	}
 
 	associationJSON, err := json.Marshal(association)
