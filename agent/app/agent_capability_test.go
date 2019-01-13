@@ -123,6 +123,9 @@ func TestCapabilities(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + capabilitySecretEnvASM),
 			},
+			{
+				Name: aws.String(attributePrefix + taskEIAAttributeSuffix),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())

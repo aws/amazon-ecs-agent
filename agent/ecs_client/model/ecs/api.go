@@ -3296,6 +3296,10 @@ func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (r
 //   * ErrCodeAccessDeniedException "AccessDeniedException"
 //   You do not have authorization to perform the requested action.
 //
+//   * ErrCodeInvalidParameterException "InvalidParameterException"
+//   The specified parameter is invalid. Review the available parameters for the
+//   API request.
+//
 func (c *ECS) SubmitTaskStateChange(input *SubmitTaskStateChangeInput) (*SubmitTaskStateChangeOutput, error) {
 	req, out := c.SubmitTaskStateChangeRequest(input)
 	return out, req.Send()
@@ -3937,6 +3941,10 @@ type AwsVpcConfiguration struct {
 	// Whether the task's elastic network interface receives a public IP address.
 	AssignPublicIp *string `locationName:"assignPublicIp" type:"string" enum:"AssignPublicIp"`
 
+	NetworkInterfaceCredential *string `locationName:"networkInterfaceCredential" type:"string"`
+
+	NetworkInterfaceOwner *string `locationName:"networkInterfaceOwner" type:"string"`
+
 	// The security groups associated with the task or service. If you do not specify
 	// a security group, the default security group for the VPC is used. There is
 	// a limit of 5 security groups able to be specified per AwsVpcConfiguration.
@@ -3982,6 +3990,18 @@ func (s *AwsVpcConfiguration) SetAssignPublicIp(v string) *AwsVpcConfiguration {
 	return s
 }
 
+// SetNetworkInterfaceCredential sets the NetworkInterfaceCredential field's value.
+func (s *AwsVpcConfiguration) SetNetworkInterfaceCredential(v string) *AwsVpcConfiguration {
+	s.NetworkInterfaceCredential = &v
+	return s
+}
+
+// SetNetworkInterfaceOwner sets the NetworkInterfaceOwner field's value.
+func (s *AwsVpcConfiguration) SetNetworkInterfaceOwner(v string) *AwsVpcConfiguration {
+	s.NetworkInterfaceOwner = &v
+	return s
+}
+
 // SetSecurityGroups sets the SecurityGroups field's value.
 func (s *AwsVpcConfiguration) SetSecurityGroups(v []*string) *AwsVpcConfiguration {
 	s.SecurityGroups = v
@@ -4022,6 +4042,8 @@ type Cluster struct {
 
 	// The number of tasks in the cluster that are in the RUNNING state.
 	RunningTasksCount *int64 `locationName:"runningTasksCount" type:"integer"`
+
+	Statistics []*KeyValuePair `locationName:"statistics" type:"list"`
 
 	// The status of the cluster. The valid values are ACTIVE or INACTIVE. ACTIVE
 	// indicates that you can register container instances with the cluster and
@@ -4072,6 +4094,12 @@ func (s *Cluster) SetRegisteredContainerInstancesCount(v int64) *Cluster {
 // SetRunningTasksCount sets the RunningTasksCount field's value.
 func (s *Cluster) SetRunningTasksCount(v int64) *Cluster {
 	s.RunningTasksCount = &v
+	return s
+}
+
+// SetStatistics sets the Statistics field's value.
+func (s *Cluster) SetStatistics(v []*KeyValuePair) *Cluster {
+	s.Statistics = v
 	return s
 }
 
@@ -4390,6 +4418,8 @@ type ContainerDefinition struct {
 	Image *string `locationName:"image" type:"string"`
 
 	Interactive *bool `locationName:"interactive" type:"boolean"`
+
+	InferenceDevices []*string `locationName:"inferenceDevices" type:"list"`
 
 	// The link parameter allows containers to communicate with each other without
 	// the need for port mappings. Only supported if the network mode of a task
@@ -4760,9 +4790,16 @@ func (s *ContainerDefinition) SetImage(v string) *ContainerDefinition {
 	return s
 }
 
+
 // SetInteractive sets the Interactive field's value.
 func (s *ContainerDefinition) SetInteractive(v bool) *ContainerDefinition {
 	s.Interactive = &v
+	return s
+}
+
+// SetInferenceDevices sets the InferenceDevices field's value.
+func (s *ContainerDefinition) SetInferenceDevices(v []*string) *ContainerDefinition {
+	s.InferenceDevices = v
 	return s
 }
 
@@ -6972,6 +7009,54 @@ func (s *HostVolumeProperties) SetSourcePath(v string) *HostVolumeProperties {
 	return s
 }
 
+type InferenceAccelerator struct {
+	_ struct{} `type:"structure"`
+
+	// DeviceName is a required field
+	DeviceName *string `locationName:"deviceName" type:"string" required:"true"`
+
+	// DeviceType is a required field
+	DeviceType *string `locationName:"deviceType" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s InferenceAccelerator) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InferenceAccelerator) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *InferenceAccelerator) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "InferenceAccelerator"}
+	if s.DeviceName == nil {
+		invalidParams.Add(request.NewErrParamRequired("DeviceName"))
+	}
+	if s.DeviceType == nil {
+		invalidParams.Add(request.NewErrParamRequired("DeviceType"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetDeviceName sets the DeviceName field's value.
+func (s *InferenceAccelerator) SetDeviceName(v string) *InferenceAccelerator {
+	s.DeviceName = &v
+	return s
+}
+
+// SetDeviceType sets the DeviceType field's value.
+func (s *InferenceAccelerator) SetDeviceType(v string) *InferenceAccelerator {
+	s.DeviceType = &v
+	return s
+}
+
 // The Linux capabilities for the container that are added to or dropped from
 // the default configuration provided by Docker. For more information on the
 // default capabilities and the non-default available capabilities, see Runtime
@@ -8975,6 +9060,8 @@ type RegisterTaskDefinitionInput struct {
 
 	IpcMode *string `locationName:"ipcMode" type:"string" enum:"IpcMode"`
 
+	InferenceAccelerators []*InferenceAccelerator `locationName:"inferenceAccelerators" type:"list"`
+
 	// The amount of memory (in MiB) used by the task. It can be expressed as an
 	// integer using MiB, for example 1024, or as a string using GB, for example
 	// 1GB or 1 GB, in a task definition. String values are converted to an integer
@@ -9091,6 +9178,7 @@ func (s *RegisterTaskDefinitionInput) Validate() error {
 			}
 		}
 	}
+
 	if s.Tags != nil {
 		for i, v := range s.Tags {
 			if v == nil {
@@ -9098,6 +9186,17 @@ func (s *RegisterTaskDefinitionInput) Validate() error {
 			}
 			if err := v.Validate(); err != nil {
 				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Tags", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if s.InferenceAccelerators != nil {
+		for i, v := range s.InferenceAccelerators {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "InferenceAccelerators", i), err.(request.ErrInvalidParams))
 			}
 		}
 	}
@@ -9135,6 +9234,12 @@ func (s *RegisterTaskDefinitionInput) SetFamily(v string) *RegisterTaskDefinitio
 // SetIpcMode sets the IpcMode field's value.
 func (s *RegisterTaskDefinitionInput) SetIpcMode(v string) *RegisterTaskDefinitionInput {
 	s.IpcMode = &v
+	return s
+}
+
+// SetInferenceAccelerators sets the InferenceAccelerators field's value.
+func (s *RegisterTaskDefinitionInput) SetInferenceAccelerators(v []*InferenceAccelerator) *RegisterTaskDefinitionInput {
+	s.InferenceAccelerators = v
 	return s
 }
 
@@ -10031,6 +10136,8 @@ type StartTaskInput struct {
 	// the JSON formatting characters of the override structure.
 	Overrides *TaskOverride `locationName:"overrides" type:"structure"`
 
+	Properties []*KeyValuePair `locationName:"properties" type:"list"`
+
 	// An optional tag specified when a task is started. For example if you automatically
 	// trigger a task to run a batch process job, you could apply a unique identifier
 	// for that job to your task with the startedBy parameter. You can then identify
@@ -10107,6 +10214,12 @@ func (s *StartTaskInput) SetNetworkConfiguration(v *NetworkConfiguration) *Start
 // SetOverrides sets the Overrides field's value.
 func (s *StartTaskInput) SetOverrides(v *TaskOverride) *StartTaskInput {
 	s.Overrides = v
+	return s
+}
+
+// SetProperties sets the Properties field's value.
+func (s *StartTaskInput) SetProperties(v []*KeyValuePair) *StartTaskInput {
+	s.Properties = v
 	return s
 }
 
@@ -10940,6 +11053,8 @@ type TaskDefinition struct {
 
 	IpcMode *string `locationName:"ipcMode" type:"string" enum:"IpcMode"`
 
+	InferenceAccelerators []*InferenceAccelerator `locationName:"inferenceAccelerators" type:"list"`
+
 	// The amount (in MiB) of memory used by the task. If using the EC2 launch type,
 	// this field is optional and any value can be used. If using the Fargate launch
 	// type, this field is required and you must use one of the following values,
@@ -11088,6 +11203,12 @@ func (s *TaskDefinition) SetFamily(v string) *TaskDefinition {
 // SetIpcMode sets the IpcMode field's value.
 func (s *TaskDefinition) SetIpcMode(v string) *TaskDefinition {
 	s.IpcMode = &v
+	return s
+}
+
+// SetInferenceAccelerators sets the InferenceAccelerators field's value.
+func (s *TaskDefinition) SetInferenceAccelerators(v []*InferenceAccelerator) *TaskDefinition {
+	s.InferenceAccelerators = v
 	return s
 }
 
@@ -11602,6 +11723,8 @@ type UpdateServiceInput struct {
 	// Service is a required field
 	Service *string `locationName:"service" type:"string" required:"true"`
 
+	ServiceRegistries []*ServiceRegistry `locationName:"serviceRegistries" type:"list"`
+
 	// The family and revision (family:revision) or full ARN of the task definition
 	// to run in your service. If a revision is not specified, the latest ACTIVE
 	// revision is used. If you modify the task definition with UpdateService, Amazon
@@ -11683,6 +11806,12 @@ func (s *UpdateServiceInput) SetPlatformVersion(v string) *UpdateServiceInput {
 // SetService sets the Service field's value.
 func (s *UpdateServiceInput) SetService(v string) *UpdateServiceInput {
 	s.Service = &v
+	return s
+}
+
+// SetServiceRegistries sets the ServiceRegistries field's value.
+func (s *UpdateServiceInput) SetServiceRegistries(v []*ServiceRegistry) *UpdateServiceInput {
+	s.ServiceRegistries = v
 	return s
 }
 

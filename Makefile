@@ -189,7 +189,7 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -293,7 +293,7 @@ namespace-tests:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -323,6 +323,9 @@ v3-task-endpoint-validator:
 
 container-metadata-file-validator:
 	$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS)
+
+elastic-inference-validator:
+	$(MAKE) -C misc/elastic-inference-validator $(MFLAGS)
 
 ecr-execution-role-image:
 	$(MAKE) -C misc/ecr $(MFLAGS)
@@ -394,6 +397,7 @@ clean:
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/elastic-inference-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
 	-rm -f .get-deps-stamp

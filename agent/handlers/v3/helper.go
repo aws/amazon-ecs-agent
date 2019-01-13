@@ -24,7 +24,7 @@ import (
 func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
 	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
 	if !ok {
-		return "", errors.Errorf("unable to get v3 endpoint ID from request")
+		return "", errors.New("unable to get v3 endpoint ID from request")
 	}
 
 	// Get task Arn from the v3 endpoint ID.
@@ -39,7 +39,7 @@ func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (st
 func getContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
 	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
 	if !ok {
-		return "", errors.Errorf("unable to get v3 endpoint ID from request")
+		return "", errors.New("unable to get v3 endpoint ID from request")
 	}
 
 	// Get docker ID from the v3 endpoint ID.
@@ -49,4 +49,22 @@ func getContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState)
 	}
 
 	return dockerID, nil
+}
+
+func getAssociationTypeByRequest(r *http.Request) (string, error) {
+	associationType, ok := utils.GetMuxValueFromRequest(r, associationTypeMuxName)
+	if !ok {
+		return "", errors.New("unable to get association type from request")
+	}
+
+	return associationType, nil
+}
+
+func getAssociationNameByRequest(r *http.Request) (string, error) {
+	associationType, ok := utils.GetMuxValueFromRequest(r, associationNameMuxName)
+	if !ok {
+		return "", errors.New("unable to get association name from request")
+	}
+
+	return associationType, nil
 }
