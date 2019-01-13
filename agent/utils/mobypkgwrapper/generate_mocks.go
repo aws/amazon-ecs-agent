@@ -13,4 +13,4 @@
 
 package mobypkgwrapper
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper Plugins mocks/pluginsWrapper_mocks.go
+//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper Plugins mocks/pluginswrapper_mocks.go
