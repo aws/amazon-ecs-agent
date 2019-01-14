@@ -572,7 +572,7 @@ func TestFluentdTag(t *testing.T) {
 
 	// Skipping the test for arm as they do not have official support for Arm images
 	if runtime.GOARCH == "arm64" {
-		t.Skip()
+		t.Skip("Skipping test, unsupported image for arm64")
 	}
 
 	fluentdDriverTest("fluentd-tag", t)
@@ -587,7 +587,7 @@ func TestFluentdLogTag(t *testing.T) {
 
 	// Skipping the test for arm as they do not have official support for Arm images
 	if runtime.GOARCH == "arm64" {
-		t.Skip()
+		t.Skip("Skipping test, unsupported image for arm64")
 	}
 
 	fluentdDriverTest("fluentd-log-tag", t)
@@ -760,7 +760,14 @@ func TestExecutionRole(t *testing.T) {
 	agent.RequireVersion(">=1.16.0")
 
 	tdOverrides := make(map[string]string)
-	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+
+	testImage := ""
+
+	if runtime.GOARCH == "arm64" {
+		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:arm-fts", accountID, *ECS.Config.Region)
+	} else {
+		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+	}
 
 	tdOverrides["$$$$TEST_REGION$$$$"] = aws.StringValue(ECS.Config.Region)
 	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
