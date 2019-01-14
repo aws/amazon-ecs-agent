@@ -55,7 +55,6 @@ Requires:       upstart
 Requires:       iptables
 Requires:       docker >= 17.06.2ce
 Requires:       procps
-Requires:       dhclient
 
 # The following 'Provides' lists the vendored dependencies bundled in
 # and used to produce the ecs-init package. As dependencies are added
@@ -172,7 +171,7 @@ echo 2 > %{buildroot}%{_cachedir}/ecs/state
 # Add a bundled ECS container agent image
 install %{agent_image} %{buildroot}%{_cachedir}/ecs/
 
-mkdir -p %{buildroot}%{_sharedstatedir}/ecs/{data,dhclient}
+mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 
 %if %{with systemd}
 install -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
@@ -189,7 +188,6 @@ install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 %{_cachedir}/ecs/%{basename:%{agent_image}}
 %{_cachedir}/ecs/state
 %dir %{_sharedstatedir}/ecs/data
-%ghost %{_sharedstatedir}/ecs/dhclient
 
 %if %{with systemd}
 %{_unitdir}/ecs.service

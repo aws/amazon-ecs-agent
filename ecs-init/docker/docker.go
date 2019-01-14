@@ -44,16 +44,6 @@ const (
 	// defaultDockerEndpoint is set to /var/run instead of /var/run/docker.sock
 	// in case /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint = "/var/run"
-	// dhclientLeasesLocation specifies the location where dhclient leases
-	// information is tracked in the Agent container
-	dhclientLeasesLocation = "/var/lib/dhclient"
-	// dhclientLibDir specifies the location of shared libraries on the
-	// host and in the Agent container required for the execution of the dhclient
-	// executable
-	dhclientLibDir = "/lib64"
-	// dhclientExecutableDir specifies the location of the dhclient
-	// executable on the  host and in the Agent container
-	dhclientExecutableDir = "/sbin"
 	// networkMode specifies the networkmode to create the agent container
 	networkMode = "host"
 	// usernsMode specifies the userns mode to create the agent container

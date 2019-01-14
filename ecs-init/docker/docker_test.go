@@ -28,8 +28,8 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	expectedAgentBindsUnspecifiedPlatform = 15
-	expectedAgentBindsSuseUbuntuPlatform  = 13
+	expectedAgentBindsUnspecifiedPlatform = 12
+	expectedAgentBindsSuseUbuntuPlatform  = 10
 )
 
 var expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
@@ -272,9 +272,6 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
 	expectKey(config.ProcFS+":"+hostProcDir+":ro", binds, t)
-	expectKey(config.AgentDHClientLeasesDirectory()+":"+dhclientLeasesLocation, binds, t)
-	expectKey(dhclientLibDir+":"+dhclientLibDir+":ro", binds, t)
-	expectKey(dhclientExecutableDir+":"+dhclientExecutableDir+":ro", binds, t)
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}
