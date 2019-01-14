@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,11 +15,13 @@ package docker
 
 import (
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -230,9 +232,10 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		envVariables[envKey] = envValue
 	}
 
-	// merge in user-supplied environment variables
-	for envKey, envValue := range c.loadEnvVariables() {
-		envVariables[envKey] = envValue
+	envVars := c.LoadEnvVars()
+
+	for key, val := range envVars {
+		envVariables[key] = val
 	}
 
 	var env []string
@@ -246,10 +249,42 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	}
 }
 
-func (c *Client) loadEnvVariables() map[string]string {
+func (c *Client) LoadEnvVars() map[string]string {
+	envVariables := make(map[string]string)
+	// merge in instance-specific environment variables
+	for envKey, envValue := range c.loadCustomInstanceEnvVars() {
+		if envKey == config.GPUSupportEnvVar && envValue == "true" {
+			if !nvidiaGPUDevicesPresent() {
+				continue
+			}
+		}
+		envVariables[envKey] = envValue
+	}
+
+	// merge in user-supplied environment variables
+	for envKey, envValue := range c.loadUsrEnvVars() {
+		if val, ok := envVariables[envKey]; ok {
+			log.Debugf("Overriding instance config %s of value %s to %s", envKey, val, envValue)
+		}
+		envVariables[envKey] = envValue
+	}
+	return envVariables
+}
+
+// loadUsrEnvVars gets user-supplied environment variables
+func (c *Client) loadUsrEnvVars() map[string]string {
+	return c.getEnvVars(config.AgentConfigFile())
+}
+
+// loadCustomInstanceEnvVars gets custom config set in the instance by Amazon
+func (c *Client) loadCustomInstanceEnvVars() map[string]string {
+	return c.getEnvVars(config.InstanceConfigFile())
+}
+
+func (c *Client) getEnvVars(filename string) map[string]string {
 	envVariables := make(map[string]string)
 
-	file, err := c.fs.ReadFile(config.AgentConfigFile())
+	file, err := c.fs.ReadFile(filename)
 	if err != nil {
 		return envVariables
 	}
@@ -280,6 +315,8 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		config.AgentConfigDirectory() + ":" + config.AgentConfigDirectory(),
 		config.CacheDirectory() + ":" + config.CacheDirectory(),
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
+		// bind mount instance config dir
+		config.InstanceConfigDirectory() + ":" + config.InstanceConfigDirectory(),
 	}
 
 	// for al, al2 add host ssl cert directory mounts
@@ -288,8 +325,36 @@ func (c *Client) getHostConfig() *godocker.HostConfig {
 		binds = append(binds, certsPath)
 	}
 
+	for key, val := range c.LoadEnvVars() {
+		if key == config.GPUSupportEnvVar && val == "true" {
+			if nvidiaGPUDevicesPresent() {
+				// bind mount gpu info dir
+				binds = append(binds, gpu.GPUInfoDirPath+":"+gpu.GPUInfoDirPath)
+			}
+		}
+	}
+
 	binds = append(binds, getDockerPluginDirBinds()...)
 	return createHostConfig(binds)
+}
+
+// nvidiaGPUDevicesPresent checks if nvidia GPU devices are present in the instance
+func nvidiaGPUDevicesPresent() bool {
+	matches, err := MatchFilePatternForGPU(gpu.NvidiaGPUDeviceFilePattern)
+	if err != nil {
+		log.Errorf("Detecting Nvidia GPU devices failed")
+		return false
+	}
+	if matches == nil {
+		return false
+	}
+	return true
+}
+
+var MatchFilePatternForGPU = FilePatternMatchForGPU
+
+func FilePatternMatchForGPU(pattern string) ([]string, error) {
+	return filepath.Glob(pattern)
 }
 
 func getDockerPluginDirBinds() []string {
