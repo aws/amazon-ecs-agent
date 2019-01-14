@@ -662,6 +662,19 @@ func RequireDockerAPIVersion(t *testing.T, selector string) {
 	}
 }
 
+func RequireRegions(t *testing.T, supportedRegions []string, region string) {
+	skipTest := true
+	for _, supportedRegion := range supportedRegions {
+		if region == supportedRegion {
+			skipTest = false
+		}
+	}
+
+	if skipTest {
+		t.Skipf("Skipping the test in unsupported region: %s", *ECS.Config.Region)
+	}
+}
+
 // GetInstanceProfileName gets the instance profile name
 func GetInstanceMetadata(path string) (string, error) {
 	ec2MetadataClient := ec2metadata.New(session.New())
