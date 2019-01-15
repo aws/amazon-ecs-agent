@@ -67,8 +67,6 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 	default:
 		return errors.Errorf("invalid Volume: type must be docker or host, got %q", tv.Type)
 	}
-
-	return errors.New("unrecognized volume type; try updating me")
 }
 
 // MarshalJSON overrides the logic for JSON-encoding a  TaskVolume object

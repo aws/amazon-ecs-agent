@@ -44,7 +44,7 @@ type NvidiaGPUManager struct {
 	DriverVersion string                `json:"DriverVersion"`
 	GPUIDs        []string              `json:"GPUIDs"`
 	GPUDevices    []*ecs.PlatformDevice `json:"-"`
-	lock          sync.RWMutex          `json:"-"`
+	lock          sync.RWMutex
 }
 
 const (

@@ -26,7 +26,8 @@ const (
 )
 
 func TestTickerHappyCase(t *testing.T) {
-	ctx, _ := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
+	defer cancel()
 	mTicker := NewJitteredTicker(ctx, 10*time.Millisecond, 100*time.Millisecond)
 
 	times := 0
