@@ -312,6 +312,25 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	assert.Error(t, metadata.Error, "expected pull to fail")
 }
 
+func TestPullImageError(t *testing.T) {
+	mockDockerSDK, client, testTime, _, _, _ := dockerClientSetup(t)
+
+	testTime.EXPECT().After(gomock.Any()).AnyTimes()
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
+		func(x, y, z interface{}) (io.ReadCloser, error) {
+
+			reader := mockReadCloser{
+				reader: strings.NewReader(`{"error":"toomanyrequests: Rate exceeded"}`),
+				delay:  300 * time.Millisecond,
+			}
+			return reader, nil
+		}).Times(maximumPullRetries) // expected number of retries
+
+	metadata := client.PullImage("image", nil)
+	assert.Error(t, metadata.Error, "toomanyrequests: Rate exceeded")
+	assert.Equal(t, "CannotPullContainerError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
+}
+
 type mockReadCloser struct {
 	reader io.Reader
 	delay  time.Duration
