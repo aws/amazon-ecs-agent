@@ -113,7 +113,7 @@ type ENIConfig struct {
 	// IPV4Address is the ipv4 of eni
 	IPV4Address string `json:"ipv4-address"`
 	// IPV6Address is the ipv6 of eni
-	IPV6Address string `json:"ipv6-address, omitempty"`
+	IPV6Address string `json:"ipv6-address,omitempty"`
 	// MacAddress is the mac address of eni
 	MACAddress string `json:"mac"`
 	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be

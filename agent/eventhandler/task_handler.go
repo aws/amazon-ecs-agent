@@ -157,7 +157,8 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 // startDrainEventsTicker starts a ticker that periodically drains the events queue
 // by submitting state change events to the ECS backend
 func (handler *TaskHandler) startDrainEventsTicker() {
-	derivedCtx, _ := context.WithCancel(handler.ctx)
+	derivedCtx, cancel := context.WithCancel(handler.ctx)
+	defer cancel()
 	ticker := utils.NewJitteredTicker(derivedCtx, handler.minDrainEventsFrequency, handler.maxDrainEventsFrequency)
 	for {
 		select {

@@ -71,8 +71,8 @@ type ImageStatesForDeletion []*image.ImageState
 // NewImageManager returns a new ImageManager
 func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state dockerstate.TaskEngineState) ImageManager {
 	return &dockerImageManager{
-		client: client,
-		state:  state,
+		client:                             client,
+		state:                              state,
 		minimumAgeBeforeDeletion:           cfg.MinimumImageDeletionAge,
 		numImagesToDelete:                  cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval:           cfg.ImageCleanupInterval,
@@ -368,7 +368,7 @@ func (imageManager *dockerImageManager) getNonECSContainerIDs(ctx context.Contex
 	var allContainersIDs []string
 	listContainersResponse := imageManager.client.ListContainers(ctx, true, dockerclient.ListContainersTimeout)
 	if listContainersResponse.Error != nil {
-		fmt.Errorf("error listing containers: %v", listContainersResponse.Error)
+		return nil, fmt.Errorf("Error listing containers: %v", listContainersResponse.Error)
 	}
 	for _, dockerID := range listContainersResponse.DockerIDs {
 		allContainersIDs = append(allContainersIDs, dockerID)
