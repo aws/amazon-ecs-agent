@@ -1,8 +1,12 @@
 # Changelog
 
-## 1.24.0-dev
+## 1.24.0
 * Feature - Configurable poll duration for container stats [@jcbowman](https://github.com/jcbowman) [#1646](https://github.com/aws/amazon-ecs-agent/pull/1646)
 * Feature - Add support to remove containers and images that are not part of ECS tasks [#1752](https://github.com/aws/amazon-ecs-agent/pull/1752)
+* Feature - Introduce prometheus support for agent metrics [#1745](https://github.com/aws/amazon-ecs-agent/pull/1745)
+* Feature - Add Host EC2 instance Public IPv4 address to container metadata file [#1730](https://github.com/aws/amazon-ecs-agent/pull/1730)
+* Enhancement - Docker SDK migration replacing go-dockerclient [#1743](https://github.com/aws/amazon-ecs-agent/pull/1743)
+* Enhancement - Propagating Container Instance and Task Tags to Task Metadata endpoint [#1720](https://github.com/aws/amazon-ecs-agent/pull/1720)
 
 ## 1.23.0
 * Feature - Add support for ECS Secrets integrating with AWS Secrets Manager [#1713](https://github.com/aws/amazon-ecs-agent/pull/1713)
