@@ -221,10 +221,7 @@ type ImagePullResponse struct {
 		Total   int64 `json:"total,omitempty"`
 	} `json:"progressDetail,omitempty"`
 	Progress string `json:"progress,omitempty"`
-	Error    struct {
-		Code    int    `json:"code,omitempty"`
-		Message string `json:"message,omitempty"`
-	} `json:"errorDetail,omitempty"`
+	Error    string `json:"error,omitempty"`
 }
 
 func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) DockerClient {
@@ -382,7 +379,6 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 		reader, ch = handleInactivityTimeout(reader, dg.config.ImagePullInactivityTimeout, cancelRequest, &canceled)
 		defer reader.Close()
 		defer close(ch)
-
 		decoder := json.NewDecoder(reader)
 		data := new(ImagePullResponse)
 		var statusDisplayed time.Time
@@ -391,6 +387,10 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData 
 				seelog.Warnf("DockerGoClient: Unable to decode pull event message for image %s: %v", image, err)
 				pullFinished <- err
 				return
+			}
+			if data.Error != "" {
+				seelog.Warnf("DockerGoClient: Error while pulling image %s: %v", image, data.Error)
+				pullFinished <- errors.New(data.Error)
 			}
 			if atomic.LoadUint32(&canceled) != 0 {
 				seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while pulling image %s", image)
@@ -922,8 +922,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status: status,
-			Type:   eventType,
+			Status:                  status,
+			Type:                    eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
