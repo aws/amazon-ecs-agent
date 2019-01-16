@@ -53,6 +53,10 @@ const (
 	NvidiaGPUInfoFilePath = GPUInfoDirPath + "/nvidia-gpu-info.json"
 	// FilePerm is the file permissions for gpu info json file
 	FilePerm = 0700
+	// nvidiaEULAAgreementInfo is the EULA agreement that we want to show to the customers when using
+	// Nvidia products
+	nvidiaEULAAgreementInfo = "By using the GPU Optimized AMI, you agree to Nvidia’s End User License Agreement: " +
+		"https://www.nvidia.com/en-us/about-nvidia/eula-agreement/"
 )
 
 // ErrNoGPUDeviceFound is thrown when it is not a ECS GPU instance
@@ -65,6 +69,8 @@ func NewNvidiaGPUManager() GPUManager {
 
 // Setup is used for setting up gpu information in the instance
 func (n *NvidiaGPUManager) Setup() error {
+	seelog.Info(nvidiaEULAAgreementInfo)
+
 	err := n.DetectGPUDevices()
 	if err != nil {
 		if err == ErrNoGPUDeviceFound {
