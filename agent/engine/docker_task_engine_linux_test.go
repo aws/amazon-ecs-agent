@@ -115,7 +115,7 @@ func TestResourceContainerProgression(t *testing.T) {
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 	)
 
-	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
@@ -280,7 +280,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 
 			for _, container := range sleepTask.Containers {
 				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
-					client, &roleCredentials, containerEventsWG,
+					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
 							gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
@@ -289,7 +289,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 					})
 			}
 
-			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
