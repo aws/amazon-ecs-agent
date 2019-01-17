@@ -1,3 +1,10 @@
+amazon-ecs-init (1.25.0-1) trusty; urgency=medium
+
+   * Cache Agent version 1.25.0
+   * Add Nvidia GPU support for p2 and p3 instances
+
+   -- Eric Sun <yuzhusun@amazon.com>  Thu, 17 Jan 2018 10:32:18 -0800
+
 amazon-ecs-init (1.24.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.24.0
