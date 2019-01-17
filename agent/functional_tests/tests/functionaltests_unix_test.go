@@ -1409,6 +1409,8 @@ func TestElasticInferenceValidator(t *testing.T) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
+	agent.RequireVersion(">=1.25.0")
+
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = "ecs-functional-tests-elastic-inference-validator"
