@@ -603,7 +603,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	}
 
 	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(telemetrySessionParams)
+	go tcshandler.StartMetricsSession(&telemetrySessionParams)
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This

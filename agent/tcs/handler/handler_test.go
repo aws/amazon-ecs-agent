@@ -83,7 +83,7 @@ func TestDisableMetrics(t *testing.T) {
 		},
 	}
 
-	StartMetricsSession(params)
+	StartMetricsSession(&params)
 }
 
 func TestFormatURL(t *testing.T) {
@@ -254,7 +254,7 @@ func TestDiscoverEndpointAndStartSession(t *testing.T) {
 	mockEcs := mock_api.NewMockECSClient(ctrl)
 	mockEcs.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return("", errors.New("error"))
 
-	err := startTelemetrySession(TelemetrySessionParams{ECSClient: mockEcs}, nil)
+	err := startTelemetrySession(&TelemetrySessionParams{ECSClient: mockEcs}, nil)
 	if err == nil {
 		t.Error("Expected error from startTelemetrySession when DiscoverTelemetryEndpoint returns error")
 	}

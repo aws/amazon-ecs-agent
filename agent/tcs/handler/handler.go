@@ -46,7 +46,7 @@ const (
 
 // StartMetricsSession starts a metric session. It initializes the stats engine
 // and invokes StartSession.
-func StartMetricsSession(params TelemetrySessionParams) {
+func StartMetricsSession(params *TelemetrySessionParams) {
 	ok, err := params.isContainerHealthMetricsDisabled()
 	if err != nil {
 		seelog.Warnf("Error starting metrics session: %v", err)
@@ -74,7 +74,7 @@ func StartMetricsSession(params TelemetrySessionParams) {
 // using the passed in arguments.
 // The engine is expected to initialized and gathering container metrics by
 // the time the websocket client starts using it.
-func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error {
+func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
 	backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
 		tcsError := startTelemetrySession(params, statsEngine)
@@ -88,7 +88,7 @@ func StartSession(params TelemetrySessionParams, statsEngine stats.Engine) error
 	}
 }
 
-func startTelemetrySession(params TelemetrySessionParams, statsEngine stats.Engine) error {
+func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
 	tcsEndpoint, err := params.ECSClient.DiscoverTelemetryEndpoint(params.ContainerInstanceArn)
 	if err != nil {
 		seelog.Errorf("tcs: unable to discover poll endpoint: %v", err)
