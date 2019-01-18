@@ -212,7 +212,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 
 			for _, container := range sleepTask.Containers {
 				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
-					client, &roleCredentials, containerEventsWG,
+					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
 							gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
@@ -221,7 +221,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					})
 			}
 
-			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
@@ -387,7 +387,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 	)
 
-	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 	taskARNByIP, ok := taskEngine.(*DockerTaskEngine).state.GetTaskByIPAddress(taskIP)
 	assert.True(t, ok)
 	assert.Equal(t, sleepTask.Arn, taskARNByIP)
@@ -439,12 +439,12 @@ func TestRemoveEvents(t *testing.T) {
 
 	for _, container := range sleepTask.Containers {
 		validateContainerRunWorkflow(t, container, sleepTask, imageManager,
-			client, nil, containerEventsWG,
+			client, nil, &containerEventsWG,
 			eventStream, containerName, func() {
 			})
 	}
 
-	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 	cleanup := make(chan time.Time, 1)
 	defer close(cleanup)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
@@ -567,7 +567,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	// set up expectations for each container in the task calling create + start
 	for _, container := range sleepTask.Containers {
 		validateContainerRunWorkflow(t, container, sleepTask, imageManager,
-			client, nil, containerEventsWG,
+			client, nil, &containerEventsWG,
 			eventStream, containerName, func() {
 			})
 	}
@@ -730,7 +730,7 @@ func TestCreateContainerMergesLabels(t *testing.T) {
 		"com.amazonaws.ecs.task-definition-family":  "myFamily",
 		"com.amazonaws.ecs.task-definition-version": "1",
 		"com.amazonaws.ecs.cluster":                 "",
-		"key": "value",
+		"key":                                       "value",
 	}
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 	client.EXPECT().CreateContainer(gomock.Any(), expectedConfig, gomock.Any(), gomock.Any(), gomock.Any())

@@ -133,7 +133,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	imageManager *mock_engine.MockImageManager,
 	client *mock_dockerapi.MockDockerClient,
 	roleCredentials *credentials.TaskIAMRoleCredentials,
-	containerEventsWG sync.WaitGroup,
+	containerEventsWG *sync.WaitGroup,
 	eventStream chan dockerapi.DockerContainerChangeEvent,
 	createdContainerName chan<- string,
 	assertions func(),
@@ -229,7 +229,7 @@ func addTaskToEngine(t *testing.T,
 	taskEngine TaskEngine,
 	sleepTask *apitask.Task,
 	mockTime *mock_ttime.MockTime,
-	createStartEventsReported sync.WaitGroup) {
+	createStartEventsReported *sync.WaitGroup) {
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
 	// has been invoked at least once
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
