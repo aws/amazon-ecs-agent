@@ -214,15 +214,31 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 
 	// We found an ENI, which has the expiration time set in future and
 	// needs to be acknowledged as having been 'attached' to the Instance
-	go func(eni *apieni.ENIAttachment) {
-		eni.Status = apieni.ENIAttached
-		log.Infof("Emitting ENI change event for: %s", eni.String())
-		udevWatcher.eniChangeEvent <- api.TaskStateChange{
-			TaskARN:    eni.TaskARN,
-			Attachment: eni,
-		}
-	}(eni)
+	if eni.AttachmentType == apieni.ENIAttachmentTypeInstanceENI {
+		go udevWatcher.emitInstanceENIAttachedEvent(eni)
+	} else {
+		go udevWatcher.emitTaskENIAttachedEvent(eni)
+	}
 	return nil
+}
+
+// emitTaskENIChangeEvent sends a state change event for a task ENI attachment to the event channel with eni status as
+// attached
+func (udevWatcher *UdevWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment) {
+	eni.Status = apieni.ENIAttached
+	log.Infof("Emitting task ENI attached event for: %s", eni.String())
+	udevWatcher.eniChangeEvent <- api.TaskStateChange{
+		TaskARN:    eni.TaskARN,
+		Attachment: eni,
+	}
+}
+
+// emitInstanceENIChangeEvent sends a state change event for an instance ENI attachment to the event channel with eni
+// status as attached
+func (udevWatcher *UdevWatcher) emitInstanceENIAttachedEvent(eni *apieni.ENIAttachment) {
+	eni.Status = apieni.ENIAttached
+	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
+	udevWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }
 
 // buildState is used to build a state of the system for reconciliation

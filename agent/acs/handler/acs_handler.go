@@ -265,8 +265,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
-	// Add handler to ack ENI attach message
-	eniAttachHandler := newAttachENIHandler(
+	// Add handler to ack task ENI attach message
+	eniAttachHandler := newAttachTaskENIHandler(
 		acsSession.ctx,
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
@@ -278,6 +278,20 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	defer eniAttachHandler.stop()
 
 	client.AddRequestHandler(eniAttachHandler.handlerFunc())
+
+	// Add handler to ack instance ENI attach message
+	instanceENIAttachHandler := newAttachInstanceENIHandler(
+		acsSession.ctx,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.state,
+		acsSession.stateManager,
+	)
+	instanceENIAttachHandler.start()
+	defer instanceENIAttachHandler.stop()
+
+	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
 
 	// Add request handler for handling payload messages from ACS
 	payloadHandler := newPayloadRequestHandler(
