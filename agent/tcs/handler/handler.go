@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
@@ -75,7 +75,7 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 // The engine is expected to initialized and gathering container metrics by
 // the time the websocket client starts using it.
 func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) error {
-	backoff := utils.NewSimpleBackoff(time.Second, 1*time.Minute, 0.2, 2)
+	backoff := retry.NewExponentialBackoff(time.Second, 1*time.Minute, 0.2, 2)
 	for {
 		tcsError := startTelemetrySession(params, statsEngine)
 		if tcsError == nil || tcsError == io.EOF {
@@ -126,7 +126,7 @@ func startSession(url string,
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a publish metrics message
 	// is acked.
-	timer := time.AfterFunc(utils.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
+	timer := time.AfterFunc(retry.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
 		// Close the connection if there haven't been any messages received from backend
 		// for a long time.
 		seelog.Info("TCS Connection hasn't had any activity for too long; disconnecting")
@@ -144,7 +144,7 @@ func startSession(url string,
 func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 	return func(*ecstcs.HeartbeatMessage) {
 		seelog.Debug("Received HeartbeatMessage from tcs")
-		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
 
@@ -153,7 +153,7 @@ func heartbeatHandler(timer *time.Timer) func(*ecstcs.HeartbeatMessage) {
 func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 	return func(*ecstcs.AckPublishMetric) {
 		seelog.Debug("Received AckPublishMetric from tcs")
-		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
 
@@ -162,7 +162,7 @@ func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 func ackPublishHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishHealth) {
 	return func(*ecstcs.AckPublishHealth) {
 		seelog.Debug("Received ACKPublishHealth from tcs")
-		timer.Reset(utils.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
 

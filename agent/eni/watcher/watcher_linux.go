@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 )
 
 const (
@@ -300,12 +300,12 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.Context,
 	macAddress string,
 	timeout time.Duration) error {
-	backoff := utils.NewSimpleBackoff(sendENIStateChangeBackoffMin, sendENIStateChangeBackoffMax,
+	backoff := retry.NewExponentialBackoff(sendENIStateChangeBackoffMin, sendENIStateChangeBackoffMax,
 		sendENIStateChangeBackoffJitter, sendENIStateChangeBackoffMultiple)
 	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 
-	err := utils.RetryWithBackoffCtx(ctx, backoff, func() error {
+	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
 		sendErr := udevWatcher.sendENIStateChange(macAddress)
 		if sendErr != nil {
 			if _, ok := sendErr.(*unmanagedENIError); ok {

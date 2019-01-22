@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
 
@@ -145,7 +145,7 @@ func (event *sendableEvent) send(
 	client api.ECSClient,
 	eventToSubmit *list.Element,
 	stateSaver statemanager.Saver,
-	backoff utils.Backoff,
+	backoff retry.Backoff,
 	taskEvents *taskSendableEvents) error {
 
 	seelog.Infof("TaskHandler: Sending %s change: %s", eventType, event.toString())

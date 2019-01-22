@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
+	"github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -34,7 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
@@ -88,7 +88,7 @@ type session struct {
 	taskHandler                     *eventhandler.TaskHandler
 	ctx                             context.Context
 	cancel                          context.CancelFunc
-	backoff                         utils.Backoff
+	backoff                         retry.Backoff
 	resources                       sessionResources
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
@@ -145,7 +145,7 @@ func NewSession(ctx context.Context,
 	credentialsManager rolecredentials.Manager,
 	taskHandler *eventhandler.TaskHandler) Session {
 	resources := newSessionResources(credentialsProvider)
-	backoff := utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax,
+	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
 	derivedContext, cancel := context.WithCancel(ctx)
 
@@ -318,7 +318,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	acsSession.resources.connectedToACS()
 
 	backoffResetTimer := time.AfterFunc(
-		utils.AddJitter(acsSession.heartbeatTimeout(), acsSession.heartbeatJitter()), func() {
+		retry.AddJitter(acsSession.heartbeatTimeout(), acsSession.heartbeatJitter()), func() {
 			// If we do not have an error connecting and remain connected for at
 			// least 1 or so minutes, reset the backoff. This prevents disconnect
 			// errors that only happen infrequently from damaging the reconnect
@@ -423,7 +423,7 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 // newDisconnectionTimer creates a new time object, with a callback to
 // disconnect from ACS on inactivity
 func newDisconnectionTimer(client wsclient.ClientServer, timeout time.Duration, jitter time.Duration) ttime.Timer {
-	timer := time.AfterFunc(utils.AddJitter(timeout, jitter), func() {
+	timer := time.AfterFunc(retry.AddJitter(timeout, jitter), func() {
 		seelog.Warn("ACS Connection hasn't had any activity for too long; closing connection")
 		if err := client.Close(); err != nil {
 			seelog.Warnf("Error disconnecting: %v", err)
@@ -445,7 +445,7 @@ func anyMessageHandler(timer ttime.Timer, client wsclient.ClientServer) func(int
 		}
 
 		// Reset heartbeat timer
-		timer.Reset(utils.AddJitter(heartbeatTimeout, heartbeatJitter))
+		timer.Reset(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 	"github.com/didip/tollbooth"
 	"github.com/gorilla/mux"
@@ -154,7 +154,7 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, containerInstanceArn)
 
 	for {
-		utils.RetryWithBackoff(utils.NewSimpleBackoff(time.Second, time.Minute, 0.2, 2), func() error {
+		retry.RetryWithBackoff(retry.NewExponentialBackoff(time.Second, time.Minute, 0.2, 2), func() error {
 			// TODO, make this cancellable and use the passed in context;
 			err := server.ListenAndServe()
 			if err != nil {
