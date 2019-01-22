@@ -17,7 +17,7 @@ package credentials
 // instance of the credentials manager is created in the agent, and shared
 // between the task engine, acs and credentials handlers
 type Manager interface {
-	SetTaskCredentials(TaskIAMRoleCredentials) error
+	SetTaskCredentials(*TaskIAMRoleCredentials) error
 	GetTaskCredentials(string) (TaskIAMRoleCredentials, bool)
 	RemoveCredentials(string)
 }

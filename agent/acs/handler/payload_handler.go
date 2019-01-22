@@ -199,10 +199,10 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// credentials id for the task as well
 			taskIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType)
 			err = payloadHandler.credentialsManager.SetTaskCredentials(
-				credentials.TaskIAMRoleCredentials{
+				&(credentials.TaskIAMRoleCredentials{
 					ARN:                aws.StringValue(task.Arn),
 					IAMRoleCredentials: taskIAMRoleCredentials,
-				})
+				}))
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
@@ -228,10 +228,10 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// task executionCredentials id.
 			taskExecutionIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType)
 			err = payloadHandler.credentialsManager.SetTaskCredentials(
-				credentials.TaskIAMRoleCredentials{
+				&(credentials.TaskIAMRoleCredentials{
 					ARN:                aws.StringValue(task.Arn),
 					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
-				})
+				}))
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
