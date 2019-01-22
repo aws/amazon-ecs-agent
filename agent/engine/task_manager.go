@@ -163,21 +163,21 @@ type managedTask struct {
 func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		Task:                     task,
-		acsMessages:              make(chan acsTransition),
-		dockerMessages:           make(chan dockerContainerChange),
-		resourceStateChangeEvent: make(chan resourceStateChange),
+		ctx:                        ctx,
+		cancel:                     cancel,
+		Task:                       task,
+		acsMessages:                make(chan acsTransition),
+		dockerMessages:             make(chan dockerContainerChange),
+		resourceStateChangeEvent:   make(chan resourceStateChange),
 		engine:                     engine,
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:                   engine.saver,
-		credentialsManager:      engine.credentialsManager,
-		cniClient:               engine.cniClient,
-		taskStopWG:              engine.taskStopGroup,
-		steadyStatePollInterval: engine.taskSteadyStatePollInterval,
+		saver:                      engine.saver,
+		credentialsManager:         engine.credentialsManager,
+		cniClient:                  engine.cniClient,
+		taskStopWG:                 engine.taskStopGroup,
+		steadyStatePollInterval:    engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t

@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,8 +23,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// ENIAttachmentTypeTaskENI represents the type of a task level eni
+	ENIAttachmentTypeTaskENI = "task-eni"
+	// ENIAttachmentTypeInstanceENI represents the type of an instance level eni
+	ENIAttachmentTypeInstanceENI = "instance-eni"
+)
+
 // ENIAttachment contains the information of the eni attachment
 type ENIAttachment struct {
+	// AttachmentType is the type of the eni attachment, can either be "task-eni" or "instance-eni"
+	AttachmentType string `json:"attachmentType"`
 	// TaskARN is the task identifier from ecs
 	TaskARN string `json:"taskArn"`
 	// AttachmentARN is the identifier for the eni attachment
@@ -109,7 +118,14 @@ func (eni *ENIAttachment) String() string {
 
 // stringUnsafe returns a string representation of the ENI Attachment
 func (eni *ENIAttachment) stringUnsafe() string {
+	// skip TaskArn field for instance level eni attachment since it won't have a task arn
+	if eni.AttachmentType == ENIAttachmentTypeInstanceENI {
+		return fmt.Sprintf(
+			"ENI Attachment: attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
+			eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+	}
+
 	return fmt.Sprintf(
-		"ENI Attachment: task=%s;attachment=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
-		eni.TaskARN, eni.AttachmentARN, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+		"ENI Attachment: task=%s;attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
+		eni.TaskARN, eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
 }

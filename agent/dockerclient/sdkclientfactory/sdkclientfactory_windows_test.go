@@ -22,9 +22,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	docker "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	docker "github.com/docker/docker/api/types"
 )
 
 func TestGetClientMinimumVersion(t *testing.T) {

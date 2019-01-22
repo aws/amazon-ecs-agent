@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	taskARN       = "t1"
-	attachmentARN = "att1"
-	mac           = "mac1"
-	attachSent    = true
+	taskARN        = "t1"
+	attachmentARN  = "att1"
+	mac            = "mac1"
+	attachSent     = true
+	attachmentType = "eni"
 )
 
 func TestMarshalUnmarshal(t *testing.T) {
@@ -45,6 +46,36 @@ func TestMarshalUnmarshal(t *testing.T) {
 	var unmarshalledAttachment ENIAttachment
 	err = json.Unmarshal(bytes, &unmarshalledAttachment)
 	assert.NoError(t, err)
+	assert.Equal(t, attachment.TaskARN, unmarshalledAttachment.TaskARN)
+	assert.Equal(t, attachment.AttachmentARN, unmarshalledAttachment.AttachmentARN)
+	assert.Equal(t, attachment.AttachStatusSent, unmarshalledAttachment.AttachStatusSent)
+	assert.Equal(t, attachment.MACAddress, unmarshalledAttachment.MACAddress)
+	assert.Equal(t, attachment.Status, unmarshalledAttachment.Status)
+
+	expectedExpiresAtUTC, err := time.Parse(time.RFC3339, attachment.ExpiresAt.Format(time.RFC3339))
+	assert.NoError(t, err)
+	unmarshalledExpiresAtUTC, err := time.Parse(time.RFC3339, unmarshalledAttachment.ExpiresAt.Format(time.RFC3339))
+	assert.NoError(t, err)
+	assert.Equal(t, expectedExpiresAtUTC, unmarshalledExpiresAtUTC)
+}
+
+func TestMarshalUnmarshalWithAttachmentType(t *testing.T) {
+	expiresAt := time.Now()
+	attachment := &ENIAttachment{
+		AttachmentType:   attachmentType,
+		TaskARN:          taskARN,
+		AttachmentARN:    attachmentARN,
+		AttachStatusSent: attachSent,
+		MACAddress:       mac,
+		Status:           ENIAttachmentNone,
+		ExpiresAt:        expiresAt,
+	}
+	bytes, err := json.Marshal(attachment)
+	assert.NoError(t, err)
+	var unmarshalledAttachment ENIAttachment
+	err = json.Unmarshal(bytes, &unmarshalledAttachment)
+	assert.NoError(t, err)
+	assert.Equal(t, attachment.AttachmentType, unmarshalledAttachment.AttachmentType)
 	assert.Equal(t, attachment.TaskARN, unmarshalledAttachment.TaskARN)
 	assert.Equal(t, attachment.AttachmentARN, unmarshalledAttachment.AttachmentARN)
 	assert.Equal(t, attachment.AttachStatusSent, unmarshalledAttachment.AttachStatusSent)

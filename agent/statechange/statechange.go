@@ -21,6 +21,10 @@ const (
 	// TaskEvent is used to define the task state transition events emitted by
 	// the engine
 	TaskEvent
+
+	// AttachmentEvent is used to define the attachment state transition events
+	// emitted by ENI watcher
+	AttachmentEvent
 )
 
 // Event defines the type of state change event

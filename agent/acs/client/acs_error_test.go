@@ -56,20 +56,20 @@ func TestServerException(t *testing.T) {
 func TestGenericErrorConversion(t *testing.T) {
 	err := acsErr.NewError(errors.New("generic error"))
 
-	require.True(t, err.Retry(),"Should default to retriable")
-	require.EqualError(t, err,  "ACSError: generic error")
+	require.True(t, err.Retry(), "Should default to retriable")
+	require.EqualError(t, err, "ACSError: generic error")
 }
 
 func TestSomeRandomTypeConversion(t *testing.T) {
 	// This is really just an 'it doesn't panic' check.
 	err := acsErr.NewError(t)
-	require.True(t, err.Retry(),"Should default to retriable")
+	require.True(t, err.Retry(), "Should default to retriable")
 	require.True(t, strings.HasPrefix(err.Error(), "ACSError: Unknown error"))
 }
 
 func TestBadlyTypedMessage(t *testing.T) {
 	// Another 'does not panic' check
 	err := acsErr.NewError(struct{ Message int }{1})
-	require.True(t, err.Retry(),"Should default to retriable")
+	require.True(t, err.Retry(), "Should default to retriable")
 	require.NotNil(t, err.Error())
 }
