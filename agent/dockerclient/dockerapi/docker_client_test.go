@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -64,6 +65,15 @@ const xContainerShortTimeout = 1 * time.Millisecond
 // docker client APIs that test if the underlying context gets canceled
 // upon the expiration of the timeout duration.
 const xImageShortTimeout = 1 * time.Millisecond
+
+const (
+	// retry settings for pulling images mock backoff
+	xMaximumPullRetries        = 5
+	xMinimumPullRetryDelay     = 25 * time.Millisecond
+	xMaximumPullRetryDelay     = 100 * time.Microsecond
+	xPullRetryDelayMultiplier  = 2
+	xPullRetryJitterMultiplier = 0.2
+)
 
 func defaultTestConfig() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -104,6 +114,8 @@ func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	goClient.ecrClientFactory = ecrClientFactory
 	goClient._time = mockTime
+	goClient.imagePullBackoff = retry.NewExponentialBackoff(xMinimumPullRetryDelay, xMaximumPullRetryDelay,
+		xPullRetryJitterMultiplier, xPullRetryDelayMultiplier)
 	return mockDockerSDK, goClient, mockTime, ctrl, ecrClientFactory, ctrl.Finish
 }
 

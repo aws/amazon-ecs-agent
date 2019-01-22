@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
@@ -84,9 +85,9 @@ const (
 
 	// retry settings for pulling images
 	maximumPullRetries        = 5
-	minimumPullRetryDelay     = 250 * time.Millisecond
-	maximumPullRetryDelay     = 1 * time.Second
-	pullRetryDelayMultiplier  = 1.5
+	minimumPullRetryDelay     = 1100 * time.Millisecond
+	maximumPullRetryDelay     = 5 * time.Second
+	pullRetryDelayMultiplier  = 2
 	pullRetryJitterMultiplier = 0.2
 )
 
@@ -205,6 +206,7 @@ type dockerGoClient struct {
 	ecrTokenCache    async.Cache
 	config           *config.Config
 	context          context.Context
+	imagePullBackoff retry.Backoff
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -270,6 +272,8 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 		config:           cfg,
 		context:          ctx,
+		imagePullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
+			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
 	}, nil
 }
 
@@ -297,9 +301,7 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
-		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay,
-			maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
-		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries,
+		err := retry.RetryNWithBackoffCtx(ctx, dg.imagePullBackoff, maximumPullRetries,
 			func() error {
 				err := dg.pullImage(ctx, image, authData)
 				if err != nil {
