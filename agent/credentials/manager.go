@@ -116,7 +116,7 @@ func NewManager() Manager {
 }
 
 // SetTaskCredentials adds or updates credentials in the credentials manager
-func (manager *credentialsManager) SetTaskCredentials(taskCredentials TaskIAMRoleCredentials) error {
+func (manager *credentialsManager) SetTaskCredentials(taskCredentials *TaskIAMRoleCredentials) error {
 	manager.taskCredentialsLock.Lock()
 	defer manager.taskCredentialsLock.Unlock()
 

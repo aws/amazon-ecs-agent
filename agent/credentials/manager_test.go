@@ -65,7 +65,7 @@ func TestGetTaskCredentialsUnknownId(t *testing.T) {
 // error when invalid credentials are used to set credentials
 func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 	manager := NewManager()
-	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{})
+	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{})
 	assert.Error(t, err, "Expected error adding empty task credentials")
 }
 
@@ -73,7 +73,7 @@ func TestSetTaskCredentialsEmptyTaskCredentials(t *testing.T) {
 // error when credentials object with no credentials id is used to set credentials
 func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 	manager := NewManager()
-	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
+	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
 	assert.Error(t, err, "Expected error adding credentials payload without credential ID")
 }
 
@@ -81,7 +81,7 @@ func TestSetTaskCredentialsNoCredentialsId(t *testing.T) {
 // error when credentials object with no task arn used to set credentials
 func TestSetTaskCredentialsNoTaskArn(t *testing.T) {
 	manager := NewManager()
-	err := manager.SetTaskCredentials(TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
+	err := manager.SetTaskCredentials(&TaskIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
 	assert.Error(t, err, "Expected error adding credentials payload without task ARN")
 }
 
@@ -101,7 +101,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 		},
 	}
 
-	err := manager.SetTaskCredentials(credentials)
+	err := manager.SetTaskCredentials(&credentials)
 	assert.NoError(t, err, "Error adding credentials")
 
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")
@@ -119,7 +119,7 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 			CredentialsID:   "cid1",
 		},
 	}
-	err = manager.SetTaskCredentials(updatedCredentials)
+	err = manager.SetTaskCredentials(&updatedCredentials)
 	assert.NoError(t, err, "Error updating credentials")
 	credentialsFromManager, ok = manager.GetTaskCredentials("cid1")
 
@@ -158,7 +158,7 @@ func TestRemoveExistingCredentials(t *testing.T) {
 			CredentialsID:   "cid1",
 		},
 	}
-	err := manager.SetTaskCredentials(credentials)
+	err := manager.SetTaskCredentials(&credentials)
 	assert.NoError(t, err, "Error adding credentials")
 
 	credentialsFromManager, ok := manager.GetTaskCredentials("cid1")

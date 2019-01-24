@@ -133,10 +133,10 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 		seelog.Errorf("Unknown RoleType for task in credentials message, roleType: %s arn: %s, messageId: %s", roleType, taskArn, messageId)
 	} else {
 		err = refreshHandler.credentialsManager.SetTaskCredentials(
-			credentials.TaskIAMRoleCredentials{
+			&(credentials.TaskIAMRoleCredentials{
 				ARN:                taskArn,
 				IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
-			})
+			}))
 		if err != nil {
 			seelog.Errorf("Unable to update credentials for task, err: %v messageId: %s", err, messageId)
 			return fmt.Errorf("unable to update credentials %v", err)

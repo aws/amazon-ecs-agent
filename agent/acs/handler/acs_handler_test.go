@@ -962,8 +962,8 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 		// The last invocation of SetCredentials is to update
 		// credentials when a refresh message is received by the handler
-		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds rolecredentials.TaskIAMRoleCredentials) {
-			updatedCredentials = creds
+		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds *rolecredentials.TaskIAMRoleCredentials) {
+			updatedCredentials = *creds
 			// Validate parsed credentials after the update
 			expectedCreds := rolecredentials.TaskIAMRoleCredentials{
 				ARN: "t1",
