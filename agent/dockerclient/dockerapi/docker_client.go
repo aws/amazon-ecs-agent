@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
@@ -84,9 +85,9 @@ const (
 
 	// retry settings for pulling images
 	maximumPullRetries        = 5
-	minimumPullRetryDelay     = 250 * time.Millisecond
-	maximumPullRetryDelay     = 1 * time.Second
-	pullRetryDelayMultiplier  = 1.5
+	minimumPullRetryDelay     = 1100 * time.Millisecond
+	maximumPullRetryDelay     = 5 * time.Second
+	pullRetryDelayMultiplier  = 2
 	pullRetryJitterMultiplier = 0.2
 )
 
@@ -104,10 +105,10 @@ type DockerClient interface {
 
 	// ContainerEvents returns a channel of DockerContainerChangeEvents. Events are placed into the channel and should
 	// be processed by the listener.
-	ContainerEvents(ctx context.Context) (<-chan DockerContainerChangeEvent, error)
+	ContainerEvents(context.Context) (<-chan DockerContainerChangeEvent, error)
 
 	// PullImage pulls an image. authData should contain authentication data provided by the ECS backend.
-	PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata
+	PullImage(context.Context, string, *apicontainer.RegistryAuthenticationData, time.Duration) DockerContainerMetadata
 
 	// CreateContainer creates a container with the provided Config, HostConfig, and name. A timeout value
 	// and a context should be provided for the request.
@@ -205,6 +206,7 @@ type dockerGoClient struct {
 	ecrTokenCache    async.Cache
 	config           *config.Config
 	context          context.Context
+	imagePullBackoff retry.Backoff
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -270,6 +272,8 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 		ecrTokenCache:    async.NewLRUCache(tokenCacheSize, tokenCacheTTL),
 		config:           cfg,
 		context:          ctx,
+		imagePullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
+			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
 	}, nil
 }
 
@@ -290,17 +294,14 @@ func (dg *dockerGoClient) time() ttime.Time {
 	return dg._time
 }
 
-func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.RegistryAuthenticationData) DockerContainerMetadata {
-	// TODO Switch to just using context.WithDeadline and get rid of this funky code
-	timeout := dg.time().After(dockerclient.PullImageTimeout)
-	ctx, cancel := context.WithCancel(context.TODO())
+func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
+	authData *apicontainer.RegistryAuthenticationData, timeout time.Duration) DockerContainerMetadata {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
-		imagePullBackoff := utils.NewSimpleBackoff(minimumPullRetryDelay,
-			maximumPullRetryDelay, pullRetryJitterMultiplier, pullRetryDelayMultiplier)
-		err := utils.RetryNWithBackoffCtx(ctx, imagePullBackoff, maximumPullRetries,
+		err := retry.RetryNWithBackoffCtx(ctx, dg.imagePullBackoff, maximumPullRetries,
 			func() error {
 				err := dg.pullImage(ctx, image, authData)
 				if err != nil {
@@ -310,12 +311,20 @@ func (dg *dockerGoClient) PullImage(image string, authData *apicontainer.Registr
 			})
 		response <- DockerContainerMetadata{Error: wrapPullErrorAsNamedError(err)}
 	}()
+
 	select {
 	case resp := <-response:
 		return resp
-	case <-timeout:
-		cancel()
-		return DockerContainerMetadata{Error: &DockerTimeoutError{dockerclient.PullImageTimeout, "pulled"}}
+	case <-ctx.Done():
+		// Context has either expired or canceled. If it has timed out,
+		// send back the DockerTimeoutError
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "pulled"}}
+		}
+		// Context was canceled even though there was no timeout. Send
+		// back an error.
+		return DockerContainerMetadata{Error: &CannotPullContainerError{err}}
 	}
 }
 
@@ -331,7 +340,8 @@ func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
 	return retErr
 }
 
-func (dg *dockerGoClient) pullImage(ctx context.Context, image string, authData *apicontainer.RegistryAuthenticationData) apierrors.NamedError {
+func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
+	authData *apicontainer.RegistryAuthenticationData) apierrors.NamedError {
 	seelog.Debugf("DockerGoClient: pulling image: %s", image)
 	client, err := dg.sdkDockerClient()
 	if err != nil {

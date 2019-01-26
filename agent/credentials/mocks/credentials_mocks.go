@@ -71,7 +71,7 @@ func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.C
 }
 
 // SetTaskCredentials mocks base method
-func (m *MockManager) SetTaskCredentials(arg0 credentials.TaskIAMRoleCredentials) error {
+func (m *MockManager) SetTaskCredentials(arg0 *credentials.TaskIAMRoleCredentials) error {
 	ret := m.ctrl.Call(m, "SetTaskCredentials", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

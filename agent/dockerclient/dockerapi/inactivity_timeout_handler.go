@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -34,8 +34,8 @@ func (p *proxyReader) Read(data []byte) (int, error) {
 }
 
 // When pulling an image, the docker api will pull and then subsequently unzip the downloaded artifacts. Docker does
-// not seperate the "pull" from the "unpack" step. What this means is that this timeout doesn't 'tick' while unpacking
-// the downloaded files. This only causes noticable impact with large files, but we should investigate improving this.
+// not separate the "pull" from the "unpack" step. What this means is that this timeout doesn't 'tick' while unpacking
+// the downloaded files. This only causes noticeable impact with large files, but we should investigate improving this.
 func handleInactivityTimeout(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
 	done := make(chan struct{})
 	proxyReader := &proxyReader{ReadCloser: reader}

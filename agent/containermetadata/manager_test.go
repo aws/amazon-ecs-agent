@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,6 +22,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
@@ -131,7 +132,7 @@ func TestUpdateInspectFail(t *testing.T) {
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)
@@ -161,7 +162,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(&mockContainer, nil)
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(&mockContainer, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)

@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -41,8 +41,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -234,7 +234,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         stateManager,
 		taskHandler:          taskHandler,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
@@ -501,7 +501,7 @@ func TestHandlerGeneratesDeregisteredInstanceEvent(t *testing.T) {
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		stateManager:                    stateManager,
 		taskHandler:                     taskHandler,
-		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:                         retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                             ctx,
 		cancel:                          cancel,
 		resources:                       &mockSessionResources{mockWsClient},
@@ -570,7 +570,7 @@ func TestHandlerReconnectDelayForInactiveInstanceError(t *testing.T) {
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
 		stateManager:                    stateManager,
 		taskHandler:                     taskHandler,
-		backoff:                         utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:                         retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                             ctx,
 		cancel:                          cancel,
 		resources:                       &mockSessionResources{mockWsClient},
@@ -627,7 +627,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         stateManager,
 		taskHandler:          taskHandler,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
@@ -678,7 +678,7 @@ func TestHandlerStopsWhenContextIsCancelled(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         stateManager,
 		taskHandler:          taskHandler,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
@@ -732,7 +732,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 		ecsClient:            ecsClient,
 		stateManager:         stateManager,
 		taskHandler:          taskHandler,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		ctx:                  ctx,
 		cancel:               cancel,
 		resources:            &mockSessionResources{mockWsClient},
@@ -806,7 +806,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 		stateManager:         stateManager,
 		taskHandler:          taskHandler,
 		ctx:                  context.Background(),
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		resources:            &mockSessionResources{},
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
@@ -861,7 +861,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			taskHandler:          taskHandler,
 			ctx:                  ctx,
 			_heartbeatTimeout:    1 * time.Second,
-			backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+			backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 			resources:            newSessionResources(testCreds),
 			credentialsManager:   rolecredentials.NewManager(),
 		}
@@ -962,8 +962,8 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 		taskEngine.EXPECT().GetTaskByArn("t1").Return(taskFromEngine, true),
 		// The last invocation of SetCredentials is to update
 		// credentials when a refresh message is received by the handler
-		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds rolecredentials.TaskIAMRoleCredentials) {
-			updatedCredentials = creds
+		credentialsManager.EXPECT().SetTaskCredentials(gomock.Any()).Do(func(creds *rolecredentials.TaskIAMRoleCredentials) {
+			updatedCredentials = *creds
 			// Validate parsed credentials after the update
 			expectedCreds := rolecredentials.TaskIAMRoleCredentials{
 				ARN: "t1",
@@ -1062,7 +1062,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		taskHandler:          taskHandler,
 		ctx:                  ctx,
 		resources:            resources,
-		backoff:              utils.NewSimpleBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+		backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
 		_heartbeatTimeout:    20 * time.Millisecond,
 		_heartbeatJitter:     10 * time.Millisecond,
 	}

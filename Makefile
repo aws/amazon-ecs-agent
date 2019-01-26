@@ -24,6 +24,7 @@ all: docker
 gobuild:
 	./scripts/build false
 
+
 # create output directories
 .out-stamp:
 	mkdir -p ./out/test-artifacts ./out/cni-plugins
@@ -344,15 +345,19 @@ gocyclo:
 	# Run gocyclo over all .go files
 	gocyclo -over 15 ${GOFILES}
 
+# same as gofiles above, but without the `-f`
+.PHONY: govet
+govet:
+	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model) 
+
 .PHONY: fmtcheck
 fmtcheck:
 	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
 	
 
-#TODO, create and add go vet target
 .PHONY: static-check
-static-check: gocyclo fmtcheck
+static-check: gocyclo fmtcheck govet
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover

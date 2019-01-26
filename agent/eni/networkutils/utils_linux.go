@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,7 +24,7 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/pkg/errors"
 
 	"github.com/cihub/seelog"
@@ -79,12 +79,12 @@ func GetMACAddress(ctx context.Context,
 // address is empty, it retries the operation with a timeout specified by the
 // caller
 func (retriever *macAddressRetriever) retrieve() (string, error) {
-	backoff := utils.NewSimpleBackoff(macAddressBackoffMin, macAddressBackoffMax,
+	backoff := retry.NewExponentialBackoff(macAddressBackoffMin, macAddressBackoffMax,
 		macAddressBackoffJitter, macAddressBackoffMultiple)
 	ctx, cancel := context.WithTimeout(retriever.ctx, retriever.timeout)
 	defer cancel()
 
-	err := utils.RetryWithBackoffCtx(ctx, backoff, func() error {
+	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
 		retErr := retriever.retrieveOnce()
 		if retErr != nil {
 			seelog.Warnf("Unable to retrieve mac address for device '%s': %v",

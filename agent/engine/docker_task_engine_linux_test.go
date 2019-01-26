@@ -91,7 +91,7 @@ func TestResourceContainerProgression(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
 		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
-		client.EXPECT().PullImage(sleepContainer.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
+		client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 		imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),

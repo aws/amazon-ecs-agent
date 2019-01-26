@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,7 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
@@ -182,7 +182,7 @@ func (authProvider *ecrAuthProvider) IsTokenValid(authData *ecrapi.Authorization
 	}
 
 	refreshTime := aws.TimeValue(authData.ExpiresAt).
-		Add(-1 * utils.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
+		Add(-1 * retry.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
 
 	return time.Now().Before(refreshTime)
 }

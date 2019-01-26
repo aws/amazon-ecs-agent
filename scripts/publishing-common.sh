@@ -19,6 +19,14 @@ export IMAGE_TAG_LATEST="latest"
 export IMAGE_TAG_SHA=$(git rev-parse --short=8 HEAD)
 export IMAGE_TAG_VERSION="v${VERSION}"
 
+export IMAGE_TAG_LATEST_ARM="arm64-latest"
+export IMAGE_TAG_SHA_ARM="arm64-$(git rev-parse --short=8 HEAD)"
+export IMAGE_TAG_VERSION_ARM="arm64-v${VERSION}"
+
+export IMAGE_TAG_LATEST_AMD="amd64-latest"
+export IMAGE_TAG_SHA_AMD="amd64-$(git rev-parse --short=8 HEAD)"
+export IMAGE_TAG_VERSION_AMD="amd64-v${VERSION}"
+
 SUPPORTED_OSES=("linux" "windows")
 
 supported_os() {
@@ -51,19 +59,24 @@ check_md5() {
 		echo "Computed md5sum ${test_md5} did not match expected md5sum ${expected_md5}"
 		return $(false)
 	fi
+
 	return $(true)
 }
 
+
+
 tag_and_push_docker() {
-	if [[ -z "${IMAGE_NAME}" ]]; then
+	if [[ -z "${1}" ]] || [[ -z "${2}" ]]; then
 		return
 	fi
-	for tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
-		echo "Tagging as ${IMAGE_NAME}:${tag}"
-		docker tag amazon/amazon-ecs-agent:latest "${IMAGE_NAME}:${tag}"
-		echo "Pushing ${IMAGE_NAME}:${tag}"
-		dryval docker push "${IMAGE_NAME}:${tag}"
-	done
+
+	IMAGE_NAME=${1}
+	IMAGE_TAG=${2}
+
+	echo "Tagging as ${IMAGE_NAME}:${IMAGE_TAG}"
+	docker tag amazon/amazon-ecs-agent:latest "${IMAGE_NAME}:${IMAGE_TAG}"
+	echo "Pushing ${IMAGE_NAME}:${IMAGE_TAG}"
+	dryval docker push "${IMAGE_NAME}:${IMAGE_TAG}"
 }
 
 s3_ls() {

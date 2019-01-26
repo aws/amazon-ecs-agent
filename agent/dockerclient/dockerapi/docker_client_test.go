@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -64,6 +65,15 @@ const xContainerShortTimeout = 1 * time.Millisecond
 // docker client APIs that test if the underlying context gets canceled
 // upon the expiration of the timeout duration.
 const xImageShortTimeout = 1 * time.Millisecond
+
+const (
+	// retry settings for pulling images mock backoff
+	xMaximumPullRetries        = 5
+	xMinimumPullRetryDelay     = 25 * time.Millisecond
+	xMaximumPullRetryDelay     = 100 * time.Microsecond
+	xPullRetryDelayMultiplier  = 2
+	xPullRetryJitterMultiplier = 0.2
+)
 
 func defaultTestConfig() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
@@ -104,6 +114,8 @@ func dockerClientSetupWithConfig(t *testing.T, conf config.Config) (
 	ecrClientFactory := mock_ecr.NewMockECRFactory(ctrl)
 	goClient.ecrClientFactory = ecrClientFactory
 	goClient._time = mockTime
+	goClient.imagePullBackoff = retry.NewExponentialBackoff(xMinimumPullRetryDelay, xMaximumPullRetryDelay,
+		xPullRetryJitterMultiplier, xPullRetryDelayMultiplier)
 	return mockDockerSDK, goClient, mockTime, ctrl, ecrClientFactory, ctrl.Finish
 }
 
@@ -113,7 +125,6 @@ func TestPullImageOutputTimeout(t *testing.T) {
 
 	pullBeginTimeout := make(chan time.Time)
 	testTime.EXPECT().After(dockerclient.DockerPullBeginTimeout).Return(pullBeginTimeout).MinTimes(1)
-	testTime.EXPECT().After(dockerclient.PullImageTimeout).MinTimes(1)
 
 	// multiple invocations will happen due to retries, but all should timeout
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
@@ -126,7 +137,9 @@ func TestPullImageOutputTimeout(t *testing.T) {
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
 
-	metadata := client.PullImage("image", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image", nil, dockerclient.PullImageTimeout)
 	assert.Error(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 }
@@ -135,25 +148,21 @@ func TestImagePullGlobalTimeout(t *testing.T) {
 	mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
 	pullBeginTimeout := make(chan time.Time, 1)
 	testTime.EXPECT().After(dockerclient.DockerPullBeginTimeout).Return(pullBeginTimeout)
-	pullTimeout := make(chan time.Time, 1)
-	testTime.EXPECT().After(dockerclient.PullImageTimeout).Return(pullTimeout)
 
-	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
-		func(x, y, z interface{}) (io.ReadCloser, error) {
-			pullBeginTimeout <- time.Now()
-			pullTimeout <- time.Now()
+	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).Do(func(x, y, z interface{}) {
+		wait.Wait()
+	}).Return(mockReadCloser{reader: strings.NewReader(`{"status":"pull in progress"}`)}, nil).MaxTimes(1)
 
-			reader := mockReadCloser{
-				reader: strings.NewReader(`{"status":"pull in progress"}`),
-			}
-			return reader, nil
-		})
-
-	metadata := client.PullImage("image", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image", nil, xContainerShortTimeout)
 	assert.Error(t, metadata.Error, "Expected error for pull timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
+	wait.Done()
 }
 
 func TestPullImageInactivityTimeout(t *testing.T) {
@@ -173,7 +182,9 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
 
-	metadata := client.PullImage("image", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image", nil, dockerclient.PullImageTimeout)
 	assert.Error(t, metadata.Error, "Expected error for pull inactivity timeout")
 	assert.Equal(t, "CannotPullContainerError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
 }
@@ -189,7 +200,9 @@ func TestImagePull(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil)
 
-	metadata := client.PullImage("image", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image", nil, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -205,7 +218,9 @@ func TestImagePullTag(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil)
 
-	metadata := client.PullImage("image:mytag", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image:mytag", nil, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -219,7 +234,9 @@ func TestImagePullDigest(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil)
 
-	metadata := client.PullImage("image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", nil, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -263,7 +280,9 @@ func TestPullImageECRSuccess(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil)
 
-	metadata := client.PullImage(image, authData)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -308,7 +327,7 @@ func TestPullImageECRAuthFail(t *testing.T) {
 	ecrClientFactory.EXPECT().GetClient(authData.ECRAuthData).Return(ecrClient, nil)
 	ecrClient.EXPECT().GetAuthorizationToken(gomock.Any()).Return(nil, errors.New("test error"))
 
-	metadata := client.PullImage(image, authData)
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.Error(t, metadata.Error, "expected pull to fail")
 }
 
@@ -326,7 +345,9 @@ func TestPullImageError(t *testing.T) {
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
 
-	metadata := client.PullImage("image", nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, "image", nil, dockerclient.PullImageTimeout)
 	assert.Error(t, metadata.Error, "toomanyrequests: Rate exceeded")
 	assert.Equal(t, "CannotPullContainerError", metadata.Error.(apierrors.NamedError).ErrorName(), "Wrong error type")
 }
@@ -1186,19 +1207,21 @@ func TestECRAuthCacheWithoutExecutionRole(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil).Times(4)
 
-	metadata := client.PullImage(image, authData)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage(image+"2", authData)
+	metadata = client.PullImage(ctx, image+"2", authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage(image+"3", authData)
+	metadata = client.PullImage(ctx, image+"3", authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage(image+"4", authData)
+	metadata = client.PullImage(ctx, image+"4", authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -1240,7 +1263,9 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil).Times(2)
 
-	metadata := client.PullImage(image, authData)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the different registry should expect ECR client call
@@ -1252,7 +1277,7 @@ func TestECRAuthCacheForDifferentRegistry(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	metadata = client.PullImage(image, authData)
+	metadata = client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -1297,15 +1322,17 @@ func TestECRAuthCacheWithSameExecutionRole(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil).Times(3)
 
-	metadata := client.PullImage(image, authData)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage(image+"2", authData)
+	metadata = client.PullImage(ctx, image+"2", authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry shouldn't expect ecr client call
-	metadata = client.PullImage(image+"3", authData)
+	metadata = client.PullImage(ctx, image+"3", authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 
@@ -1350,7 +1377,9 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 			reader: strings.NewReader(`{"status":"pull complete"}`),
 		}, nil).Times(2)
 
-	metadata := client.PullImage(image, authData)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	metadata := client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 
 	// Pull from the same registry but with different role
@@ -1364,7 +1393,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 			AuthorizationToken: aws.String(base64.StdEncoding.EncodeToString([]byte(username + ":" + password))),
 			ExpiresAt:          aws.Time(time.Now().Add(10 * time.Hour)),
 		}, nil).Times(1)
-	metadata = client.PullImage(image, authData)
+	metadata = client.PullImage(ctx, image, authData, dockerclient.PullImageTimeout)
 	assert.NoError(t, metadata.Error, "Expected pull to succeed")
 }
 

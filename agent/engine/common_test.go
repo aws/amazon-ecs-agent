@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -139,7 +139,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	assertions func(),
 ) {
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(container.Image, nil).Return(dockerapi.DockerContainerMetadata{})
+	client.EXPECT().PullImage(gomock.Any(), container.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)

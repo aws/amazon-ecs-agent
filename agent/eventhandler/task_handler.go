@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
 
@@ -272,7 +273,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 	defer metrics.MetricsEngineGlobal.RecordECSClientMetric("SUBMIT_TASK_EVENTS")()
 	defer handler.removeTaskEvents(taskARN)
 
-	backoff := utils.NewSimpleBackoff(submitStateBackoffMin, submitStateBackoffMax,
+	backoff := retry.NewExponentialBackoff(submitStateBackoffMin, submitStateBackoffMax,
 		submitStateBackoffJitterMultiple, submitStateBackoffMultiple)
 
 	// Mirror events.sending, but without the need to lock since this is local
@@ -283,7 +284,7 @@ func (handler *TaskHandler) submitTaskEvents(taskEvents *taskSendableEvents, cli
 		// If we looped back up here, we successfully submitted an event, but
 		// we haven't emptied the list so we should keep submitting
 		backoff.Reset()
-		utils.RetryWithBackoff(backoff, func() error {
+		retry.RetryWithBackoff(backoff, func() error {
 			// Lock and unlock within this function, allowing the list to be added
 			// to while we're not actively sending an event
 			seelog.Debug("TaskHandler: Waiting on semaphore to send events...")
@@ -335,7 +336,7 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 // false. An error is returned if there was an error with submitting the state change
 // to ECS. The error is used by the backoff handler to backoff before retrying the
 // state change submission for the first event
-func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, backoff utils.Backoff) (bool, error) {
+func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, backoff retry.Backoff) (bool, error) {
 	seelog.Debug("TaskHandler: Acquiring lock for sending event...")
 	taskEvents.lock.Lock()
 	defer taskEvents.lock.Unlock()

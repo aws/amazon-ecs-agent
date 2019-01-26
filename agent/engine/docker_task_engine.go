@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -53,20 +54,19 @@ const (
 	//DockerEndpointEnvVariable is the environment variable that can override the Docker endpoint
 	DockerEndpointEnvVariable = "DOCKER_HOST"
 	// DockerDefaultEndpoint is the default value for the Docker endpoint
-	DockerDefaultEndpoint        = "unix:///var/run/docker.sock"
-	capabilityPrefix             = "com.amazonaws.ecs.capability."
-	capabilityTaskIAMRole        = "task-iam-role"
-	capabilityTaskIAMRoleNetHost = "task-iam-role-network-host"
-	capabilityTaskCPUMemLimit    = "task-cpu-mem-limit"
-	attributePrefix              = "ecs.capability."
-	labelPrefix                  = "com.amazonaws.ecs."
-	labelTaskARN                 = labelPrefix + "task-arn"
-	labelContainerName           = labelPrefix + "container-name"
-	labelTaskDefinitionFamily    = labelPrefix + "task-definition-family"
-	labelTaskDefinitionVersion   = labelPrefix + "task-definition-version"
-	labelCluster                 = labelPrefix + "cluster"
-	cniSetupTimeout              = 1 * time.Minute
-	cniCleanupTimeout            = 30 * time.Second
+	DockerDefaultEndpoint              = "unix:///var/run/docker.sock"
+	labelPrefix                        = "com.amazonaws.ecs."
+	labelTaskARN                       = labelPrefix + "task-arn"
+	labelContainerName                 = labelPrefix + "container-name"
+	labelTaskDefinitionFamily          = labelPrefix + "task-definition-family"
+	labelTaskDefinitionVersion         = labelPrefix + "task-definition-version"
+	labelCluster                       = labelPrefix + "cluster"
+	cniSetupTimeout                    = 1 * time.Minute
+	cniCleanupTimeout                  = 30 * time.Second
+	minEngineConnectRetryDelay         = 200 * time.Second
+	maxEngineConnectRetryDelay         = 2 * time.Second
+	engineConnectRetryJitterMultiplier = 0.20
+	engineConnectRetryDelayMultiplier  = 1.5
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -229,8 +229,9 @@ func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	defer engine.mustInitLock.Unlock()
 
 	errorOnce := sync.Once{}
-	taskEngineConnectBackoff := utils.NewSimpleBackoff(200*time.Millisecond, 2*time.Second, 0.20, 1.5)
-	utils.RetryWithBackoff(taskEngineConnectBackoff, func() error {
+	taskEngineConnectBackoff := retry.NewExponentialBackoff(minEngineConnectRetryDelay, maxEngineConnectRetryDelay,
+		engineConnectRetryJitterMultiplier, engineConnectRetryDelayMultiplier)
+	retry.RetryWithBackoff(taskEngineConnectBackoff, func() error {
 		if engine.initialized {
 			return nil
 		}
@@ -792,7 +793,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		defer container.SetASMDockerAuthConfig(types.AuthConfig{})
 	}
 
-	metadata := engine.client.PullImage(container.Image, container.RegistryAuthentication)
+	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, dockerclient.PullImageTimeout)
 
 	// Don't add internal images(created by ecs-agent) into imagemanger state
 	if container.IsInternal() {
