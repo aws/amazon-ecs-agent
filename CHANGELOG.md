@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.25.1-dev
+## 1.25.1
 * Bug - Update ecr models for private link support
 
 ## 1.25.0
