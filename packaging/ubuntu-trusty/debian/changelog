@@ -1,3 +1,10 @@
+amazon-ecs-init (1.25.1-1) trusty; urgency=medium
+
+   * Cache Agent version 1.25.1
+   * Update ecr models for private link support
+
+   -- Adnan Khan <adnkha@amazon.com>  Fri, 25 Jan 2019 20:39:00 -0800
+
 amazon-ecs-init (1.25.0-1) trusty; urgency=medium
 
    * Cache Agent version 1.25.0

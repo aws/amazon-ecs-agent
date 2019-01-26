@@ -31,7 +31,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.25.0
+Version:        1.25.1
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -254,6 +254,10 @@ fi
 %endif
 
 %changelog
+* Fri Jan 25 2019 Adnan Khan <adnkha@amazon.com> - 1.25.1-1
+- Cache Agent version 1.25.1
+- Update ecr models for private link support
+
 * Thu Jan 17 2019 Eric Sun <yuzhusun@amazon.com> - 1.25.0-1
 - Cache Agent version 1.25.0
 - Add Nvidia GPU support for p2 and p3 instances
