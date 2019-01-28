@@ -93,6 +93,8 @@ type HealthStatus struct {
 type Container struct {
 	// Name is the name of the container specified in the task definition
 	Name string
+	// DependsOn is the field which specifies the ordering for container startup and shutdown.
+	DependsOn []DependsOn `json:"dependsOn"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -228,6 +230,11 @@ type Container struct {
 	finishedAt time.Time
 
 	labels map[string]string
+}
+
+type DependsOn struct {
+	Container string `json:"container"`
+	Condition string `json:"condition"`
 }
 
 // DockerContainer is a mapping between containers-as-docker-knows-them and
