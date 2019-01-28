@@ -203,9 +203,11 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 	if eni.IsSent() {
 		return errors.Errorf("udev watcher send ENI state change: eni status already sent: %s", eni.String())
 	}
+
 	if eni.HasExpired() {
 		// Agent is aware of the ENI, but we decide not to ack it
 		// as it's ack timeout has expired
+		// TODO don't remove eni attachment for branch/trunk awsvpc task
 		udevWatcher.agentState.RemoveENIAttachment(eni.MACAddress)
 		return errors.Errorf(
 			"udev watcher send ENI state change: eni status expired, no longer tracking it: %s",

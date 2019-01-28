@@ -26,6 +26,8 @@ import (
 type ENI struct {
 	// ID is the id of eni
 	ID string `json:"ec2Id"`
+	// ENIType is the type of ENI, valid value: "eni", "branch-eni"
+	ENIType string `json:",omitempty"`
 	// IPV4Addresses is the ipv4 address associated with the eni
 	IPV4Addresses []*ENIIPV4Address
 	// IPV6Addresses is the ipv6 address associated with the eni

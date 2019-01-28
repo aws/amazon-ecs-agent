@@ -41,6 +41,8 @@ const (
 	ECSBridgePluginName = "ecs-bridge"
 	// ECSENIPluginName is the binary of the eni plugin
 	ECSENIPluginName = "ecs-eni"
+	// ECSCNIBranchPluginName is the binary of the branch eni plugin
+	ECSBranchENIPluginName = "vpc-branch-eni"
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
@@ -124,6 +126,32 @@ type ENIConfig struct {
 	SubnetGatewayIPV4Address string `json:"subnetgateway-ipv4-address"`
 }
 
+// BranchENIConfig contains all the information needed to invoke the branch eni plugin
+type BranchENIConfig struct {
+	// CNIVersion is the CNI spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// Name is the CNI network name
+	Name string `json:"name,omitempty"`
+	// Type is the CNI plugin name
+	Type string `json:"type,omitempty"`
+
+	// TrunkName is the local interface name of the trunk ENI
+	TrunkName string `json:"trunkName,omitempty"`
+	// TrunkMACAddress is the MAC address of the trunk ENI
+	TrunkMACAddress string `json:"trunkMACAddress,omitempty"`
+	// BranchVlanID is the VLAN ID of the branch ENI
+	BranchVlanID string `json:"branchVlanID,omitempty"`
+	// BranchMacAddress is the MAC address of the branch ENI
+	BranchMACAddress string `json:"branchMACAddress"`
+	// BranchIPAddress is the IP address of the branch ENI
+	BranchIPAddress string `json:"branchIPAddress"`
+	// BranchGatewayIPAddress is the IP address of the branch ENI's default gateway.
+	BranchGatewayIPAddress string `json:"branchGatewayIPAddress"`
+	// InterfaceType is the type of the interface to connect the branch ENI to
+	InterfaceType string `json:"interfaceType,omitempty"`
+}
+
+
 // Config contains all the information to set up the container namespace using
 // the plugins
 type Config struct {
@@ -133,6 +161,12 @@ type Config struct {
 	MinSupportedCNIVersion string
 	//  ENIID is the id of ec2 eni
 	ENIID string
+	// ENIType is the type of eni, can be "eni" or "branch-eni"
+	ENIType string
+	// TrunkName is the local interface name of the Trunk ENI
+	TrunkName string `json:"trunkName,omitempty"`
+	// TrunkMACAddress is the MAC address of the Trunk ENI
+	TrunkMACAddress string `json:"trunkMACAddress,omitempty"`
 	// ContainerID is the id of container of which to set up the network namespace
 	ContainerID string
 	// ContainerPID is the pid of the container

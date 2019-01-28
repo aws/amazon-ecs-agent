@@ -222,6 +222,9 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 			apiTask.SetTaskENI(eni)
 		}
+
+		// TODO handle invalid cases here
+
 		if task.ExecutionRoleCredentials != nil {
 			// The payload message contains execution credentials for the task.
 			// Add the credentials to the credentials manager and set the

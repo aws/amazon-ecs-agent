@@ -13,7 +13,10 @@
 
 package ecsacs
 
-import "github.com/aws/aws-sdk-go/aws/awsutil"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+)
 
 type ASMAuthData struct {
 	_ struct{} `type:"structure"`
@@ -317,6 +320,8 @@ func (s ECRAuthData) GoString() string {
 
 type ElasticNetworkInterface struct {
 	_ struct{} `type:"structure"`
+
+	NetworkInterfaceType *string `locationName:"networkInterfaceType" type:"string" enum:"NetworkInterfaceType"`
 
 	AttachmentArn *string `locationName:"attachmentArn" type:"string"`
 
@@ -1069,6 +1074,9 @@ type Task struct {
 	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
 
 	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	// Trunk ENI is the elastic network interface used in ENI trunking
+	TrunkENI *eni.ENI `locationName:"ENI" type:"structure"`
 
 	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
 

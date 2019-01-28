@@ -238,9 +238,19 @@
         "useExecutionRole":{"shape":"Boolean"}
       }
     },
+    "NetworkInterfaceType": {
+      "type": "string",
+      "enum": [
+        "eni",
+        "branch-eni",
+        "trunk-eni"
+      ]
+    },
+
     "ElasticNetworkInterface":{
       "type":"structure",
       "members":{
+        "interfaceType": {"shape": "NetworkInterfaceType"},
         "macAddress":{"shape":"String"},
         "attachmentArn":{"shape":"String"},
         "ec2Id":{"shape":"String"},
