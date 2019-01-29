@@ -664,6 +664,7 @@ func TestV3TaskMetadata(t *testing.T) {
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
@@ -734,6 +735,7 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 				Value: &taskTag2Val,
 			},
 		}, nil),
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)

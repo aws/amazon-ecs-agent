@@ -71,6 +71,10 @@ type DockerContainerMetadata struct {
 	FinishedAt time.Time
 	// Health contains the result of a container health check
 	Health apicontainer.HealthStatus
+	// NetworkMode denotes the network mode in which the container is started
+	NetworkMode string
+	// NetworksUnsafe denotes the Docker Network Settings in the container
+	NetworkSettings *types.NetworkSettings
 }
 
 // ListContainersResponse encapsulates the response from the docker client for the
