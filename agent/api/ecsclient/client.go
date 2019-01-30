@@ -537,3 +537,4 @@ func (client *APIECSClient) GetResourceTags(resourceArn string) ([]*ecs.Tag, err
 	}
 	return output.Tags, nil
 }
+

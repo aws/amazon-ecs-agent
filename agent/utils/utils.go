@@ -160,3 +160,7 @@ func MapToTags(tagsMap map[string]string) []*ecs.Tag {
 
 	return tags
 }
+
+func RemoveIndex(s []int, index int) []int {
+	return append(s[:index], s[index+1:]...)
+}

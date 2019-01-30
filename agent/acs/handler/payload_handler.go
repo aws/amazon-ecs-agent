@@ -14,6 +14,7 @@ package handler
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 
 	"context"
 
@@ -173,6 +174,45 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	return nil
 }
 
+// Checks for the invalid cases for the branch eni and trunk eni
+func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
+	if len(acsenis) != 0 {
+		trunkENI := 0
+		branchENI := 0
+		regularENI := 0
+
+		for _, eni := range acsenis {
+			print(aws.StringValue(eni.InterfaceType))
+
+			if aws.StringValue(eni.InterfaceType) == regularENIName {
+				regularENI++
+
+			} else if aws.StringValue(eni.InterfaceType) == branchENIName {
+				branchENI++
+
+			} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
+				trunkENI++
+			}
+		}
+
+		if branchENI >= 1 && trunkENI == 0 {
+			return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+		}
+
+		if trunkENI > 1 {
+			return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+
+		}
+
+		if branchENI == 0 && regularENI == 0 {
+			return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+
+		}
+
+	}
+	return nil
+}
+
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests
@@ -223,7 +263,12 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			apiTask.SetTaskENI(eni)
 		}
 
-		// TODO handle invalid cases here
+		err = validateENITrunking(task.ElasticNetworkInterfaces)
+		if err != nil {
+			payloadHandler.handleUnrecognizedTask(task, err, payload)
+			allTasksOK = false
+			continue
+		}
 
 		if task.ExecutionRoleCredentials != nil {
 			// The payload message contains execution credentials for the task.
@@ -314,12 +359,12 @@ func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, c
 // and returns the boolean comparison result
 type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 
-// isTaskStatusStopped returns true if the task status == STOPPTED
+// isTaskStatusStopped returns true if the task status == STOPPED
 func isTaskStatusStopped(status apitaskstatus.TaskStatus) bool {
 	return status == apitaskstatus.TaskStopped
 }
 
-// isTaskStatusNotStopped returns true if the task status != STOPPTED
+// isTaskStatusNotStopped returns true if the task status != STOPPED
 func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
 	return status != apitaskstatus.TaskStopped
 }
