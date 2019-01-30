@@ -72,6 +72,8 @@ const (
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
 
+	ContainerOrderingStartCondition = "START"
+
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
@@ -250,6 +252,18 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
+	err := task.initializeContainerOrderingForVolumes()
+	if err != nil {
+		seelog.Errorf("Task [%s]: could not initialize volumes for DependsOn field of container: %v", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+
+	err = task.initializeContainerOrderingForLinks()
+	if err != nil {
+		seelog.Errorf("Task [%s]: could not initialize links for DependsOn field of container: %v", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	
 	if task.requiresASMDockerAuthData() {
 		task.initializeASMAuthResource(credentialsManager, resourceFields)
 	}
@@ -262,7 +276,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -1239,6 +1253,46 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 	default:
 		return false, ""
 	}
+}
+
+
+func (task *Task) initializeContainerOrderingForVolumes() error{
+	for _, container := range task.Containers {
+		if len(container.VolumesFrom) > 0 {
+			for _, volume := range container.VolumesFrom {
+				_, ok := task.ContainerByName(volume.SourceContainer)
+				if !ok {
+					return fmt.Errorf("could not find container with name %s", volume.SourceContainer)
+				} else {
+					dependOn := apicontainer.DependsOn{Container: volume.SourceContainer, Condition: ContainerOrderingStartCondition}
+					container.DependsOn = append(container.DependsOn, dependOn);
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (task *Task) initializeContainerOrderingForLinks() error{
+	for _, container := range task.Containers {
+  		if len(container.Links) > 0 {
+  			for _, link := range container.Links {
+				linkParts := strings.Split(link, ":")
+				if len(linkParts) > 2 {
+					return fmt.Errorf("Invalid link format")
+				}
+				linkName := linkParts[0]
+				_, ok := task.ContainerByName(linkName)
+				if !ok {
+					return fmt.Errorf("could not find container with name %s", linkName)
+				} else {
+					dependOn := apicontainer.DependsOn{Container: linkName, Condition: ContainerOrderingStartCondition}
+					container.DependsOn = append(container.DependsOn, dependOn)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer) ([]string, error) {
