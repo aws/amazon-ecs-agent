@@ -630,7 +630,6 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 				Arn: aws.String("arn"),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
-						InterfaceType: aws.String(regularENIName),
 						AttachmentArn: aws.String("arn"),
 						Ec2Id:         aws.String("ec2id"),
 						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -782,4 +781,3 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	tester.payloadHandler.handleUnrecognizedTask(ecsacsTask, errors.New("test error"), payloadMessage)
 	wait.Wait()
 }
-

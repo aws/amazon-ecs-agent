@@ -46,14 +46,12 @@ type ENI struct {
 	// SubnetGatewayIPV4Address is the address to the subnet gateway for
 	// the eni
 	SubnetGatewayIPV4Address string `json:",omitempty"`
-
 }
 
 const (
 	regularENIName = "eni"
-	branchENIName = "branch-eni"
-	trunkENIName = "trunk-eni"
-
+	branchENIName  = "branch-eni"
+	trunkENIName   = "trunk-eni"
 )
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
@@ -142,6 +140,15 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		})
 	}
 
+	enitype := ""
+	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
+
+	if regularENI == 1 {
+		enitype = regularENIName
+	} else if branchENI == 1 && trunkENI == 1 {
+		enitype = branchENIName
+	}
+
 	eni := &ENI{
 		ID:                       aws.StringValue(acsenis[0].Ec2Id),
 		IPV4Addresses:            ipv4,
@@ -149,7 +156,9 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		MacAddress:               aws.StringValue(acsenis[0].MacAddress),
 		PrivateDNSName:           aws.StringValue(acsenis[0].PrivateDnsName),
 		SubnetGatewayIPV4Address: aws.StringValue(acsenis[0].SubnetGatewayIpv4Address),
+		ENIType:                  enitype,
 	}
+
 	for _, nameserverIP := range acsenis[0].DomainNameServers {
 		eni.DomainNameServers = append(eni.DomainNameServers, aws.StringValue(nameserverIP))
 	}
@@ -165,9 +174,7 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	// Only one eni should be associated with the task
 	// Only one ipv4 should be associated with the eni
 	// No more than one ipv6 should be associated with the eni
-	if len(acsenis) != 1 {
-		return errors.Errorf("eni message validation: more than one ENIs in the message(%d)", len(acsenis))
-	} else if len(acsenis[0].Ipv4Addresses) != 1 {
+	if len(acsenis[0].Ipv4Addresses) != 1 {
 		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)", len(acsenis[0].Ipv4Addresses))
 	} else if len(acsenis[0].Ipv6Addresses) > 1 {
 		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
@@ -185,41 +192,47 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	return err
 }
 
+func getENITypeCount(acsenis []*ecsacs.ElasticNetworkInterface) (int, int, int) {
+	trunkENI := 0
+	branchENI := 0
+	regularENI := 0
+
+	for _, eni := range acsenis {
+
+		if aws.StringValue(eni.InterfaceType) == regularENIName {
+			regularENI++
+
+		} else if aws.StringValue(eni.InterfaceType) == branchENIName {
+			branchENI++
+
+		} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
+			trunkENI++
+		}
+	}
+	return regularENI, branchENI, trunkENI
+}
 
 // Checks for the invalid cases for the branch eni and trunk eni
 func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
-	if len(acsenis) != 0 {
-		trunkENI := 0
-		branchENI := 0
-		regularENI := 0
+	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
 
-		for _, eni := range acsenis {
+	if branchENI >= 1 && trunkENI == 0 {
+		return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+	}
 
-			if aws.StringValue(eni.InterfaceType) == regularENIName {
-				regularENI++
-
-			} else if aws.StringValue(eni.InterfaceType) == branchENIName {
-				branchENI++
-
-			} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
-				trunkENI++
-			}
-		}
-
-		if branchENI >= 1 && trunkENI == 0 {
-			return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-		}
-
-		if trunkENI > 1 {
-			return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-		}
-
-		if branchENI == 0 && regularENI == 0 {
-			return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-		}
+	if trunkENI > 1 {
+		return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
 
 	}
+
+	if branchENI == 0 && regularENI == 0 {
+		return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+
+	}
+
+	if regularENI > 1 {
+		return errors.Errorf("eni message validation: more than one regular ENIs in the message(%d) Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+	}
+
 	return nil
 }

@@ -13,10 +13,8 @@
 package handler
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
-
 	"context"
+	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -174,7 +172,6 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	return nil
 }
 
-
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every
 // task to the taskEngine and a slice of credential ack requests
@@ -223,13 +220,6 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 
 			apiTask.SetTaskENI(eni)
-		}
-
-		err = validateENITrunking(task.ElasticNetworkInterfaces)
-		if err != nil {
-			payloadHandler.handleUnrecognizedTask(task, err, payload)
-			allTasksOK = false
-			continue
 		}
 
 		if task.ExecutionRoleCredentials != nil {

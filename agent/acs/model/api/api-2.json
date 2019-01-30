@@ -536,7 +536,6 @@
         "roleCredentials":{"shape":"IAMRoleCredentials"},
         "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
-        "trunkElasticNetworkInterfaces": {"shape": "ElasticNetworkInterfaceList"},
         "cpu":{"shape":"Double"},
         "memory":{"shape":"Integer"},
         "associations":{"shape":"Associations"},

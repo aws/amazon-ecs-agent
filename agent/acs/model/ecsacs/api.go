@@ -1088,8 +1088,6 @@ type Task struct {
 
 	TaskDefinitionAccountId *string `locationName:"taskDefinitionAccountId" type:"string"`
 
-	TrunkElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"trunkElasticNetworkInterfaces" type:"list"`
-
 	Version *string `locationName:"version" type:"string"`
 
 	Volumes []*Volume `locationName:"volumes" type:"list"`
