@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.25.2-dev
+* Bug - Update pull image retry to longer interval to mitigate being throttled by ECR [#1808](https://github.com/aws/amazon-ecs-agent/pull/1808)
+
 ## 1.25.1
 * Bug - Update ecr models for private link support
 
