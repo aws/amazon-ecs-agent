@@ -114,19 +114,19 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
 	// Invoke eni plugin ADD command based on the type of eni plugin
-	if cfg.ENIType == "eni" {
+	if cfg.ENIType == "branch-eni" {
+		result, err := client.add(runtimeConfig, cfg, client.createBranchENINetworkConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "cni setup: invoke branch eni plugin failed")
+		}
+		seelog.Debugf("[ECSCNI] Branch ENI setup done: %s", result.String())
+	} else {
 		result, err := client.add(runtimeConfig, cfg, client.createENINetworkConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "cni setup: invoke eni plugin failed")
 		}
 		seelog.Debugf("[ECSCNI] ENI setup done: %s", result.String())
 
-	} else if cfg.ENIType == "branch-eni" {
-		result, err := client.add(runtimeConfig, cfg, client.createBranchENINetworkConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "cni setup: invoke branch eni plugin failed")
-		}
-		seelog.Debugf("[ECSCNI] Branch ENI setup done: %s", result.String())
 	}
 
 	// Invoke bridge plugin ADD command
@@ -190,17 +190,18 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 	}
 	seelog.Debugf("[ECSCNI] bridge cleanup done: %s", cfg.ContainerID)
 
-	if cfg.ENIType == "eni" {
-		err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
-		if err != nil {
-			return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
-		}
-	} else if cfg.ENIType == "branch-eni" {
+	if cfg.ENIType == "branch-eni" {
 		err = client.del(runtimeConfig, cfg, client.createBranchENINetworkConfig)
 		if err != nil {
 			return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
 		}
+	} else {
+		err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
+		if err != nil {
+			return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
+		}
 	}
+
 	seelog.Debugf("[ECSCNI] container namespace cleanup done: %s", cfg.ContainerID)
 	return nil
 }
@@ -311,7 +312,7 @@ func (client *cniClient) constructNetworkConfig(cfg interface{}, plugin string) 
 
 func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
 	eniConf := ENIConfig{
-		Type:                     cfg.ENIType,
+		Type:                     ECSENIPluginName,
 		CNIVersion:               client.cniVersion,
 		ENIID:                    cfg.ENIID,
 		IPV4Address:              cfg.ENIIPV4Address,
@@ -320,7 +321,7 @@ func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.Ne
 		BlockInstanceMetdata:     cfg.BlockInstanceMetdata,
 		SubnetGatewayIPV4Address: cfg.SubnetGatewayIPV4Address,
 	}
-	networkConfig, err := client.constructNetworkConfig(eniConf, cfg.ENIType)
+	networkConfig, err := client.constructNetworkConfig(eniConf, ECSENIPluginName)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "createENINetworkConfig: construct the eni network configuration failed")
 	}

@@ -665,6 +665,138 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
 }
 
+func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+					{
+						InterfaceType: aws.String("branch-eni"),
+						AttachmentArn: aws.String("arn"),
+						Ec2Id:         aws.String("ec2id"),
+						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+							{
+								Primary:        aws.Bool(true),
+								PrivateAddress: aws.String("ipv4"),
+							},
+						},
+						Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+							{
+								Address: aws.String("ipv6"),
+							},
+						},
+						MacAddress: aws.String("mac"),
+					},
+					{
+						InterfaceType: aws.String("trunk-eni"),
+						AttachmentArn: aws.String("arn"),
+						Ec2Id:         aws.String("ec2id"),
+						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+							{
+								Primary:        aws.Bool(true),
+								PrivateAddress: aws.String("ipv4"),
+							},
+						},
+						Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+							{
+								Address: aws.String("ipv6"),
+							},
+						},
+						MacAddress: aws.String("mac"),
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	taskeni := addedTask.GetTaskENI()
+	tasktrunkeni := addedTask.GetTrunkENI()
+
+	assert.Equal(t, taskeni.ENIType, "branch-eni")
+	assert.Equal(t, tasktrunkeni.ENIType, "eni")
+
+}
+
+func TestPayloadHandlerAddedENITrunkOppoToTask(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+					{
+						InterfaceType: aws.String("trunk-eni"),
+						AttachmentArn: aws.String("arn"),
+						Ec2Id:         aws.String("ec2id-trunk"),
+						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+							{
+								Primary:        aws.Bool(true),
+								PrivateAddress: aws.String("ipv4"),
+							},
+						},
+						Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+							{
+								Address: aws.String("ipv6"),
+							},
+						},
+						MacAddress: aws.String("mac"),
+					},
+					{
+						InterfaceType: aws.String("branch-eni"),
+						AttachmentArn: aws.String("arn"),
+						Ec2Id:         aws.String("ec2id-branch"),
+						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+							{
+								Primary:        aws.Bool(true),
+								PrivateAddress: aws.String("ipv4"),
+							},
+						},
+						Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+							{
+								Address: aws.String("ipv6"),
+							},
+						},
+						MacAddress: aws.String("mac"),
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	taskeni := addedTask.GetTaskENI()
+	tasktrunkeni := addedTask.GetTrunkENI()
+
+	assert.Equal(t, taskeni.ENIType, "branch-eni")
+	assert.Equal(t, tasktrunkeni.ENIType, "eni")
+
+}
+
 func TestPayloadHandlerAddedECRAuthData(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()

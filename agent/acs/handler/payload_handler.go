@@ -212,14 +212,56 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 		// Adding the eni information to the task struct
 		if len(task.ElasticNetworkInterfaces) != 0 {
-			eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces)
-			if err != nil {
-				payloadHandler.handleUnrecognizedTask(task, err, payload)
-				allTasksOK = false
-				continue
-			}
+			enitype := apieni.GetENIType(task.ElasticNetworkInterfaces)
+			if enitype == "eni" {
+				eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, enitype)
+				if err != nil {
+					payloadHandler.handleUnrecognizedTask(task, err, payload)
+					allTasksOK = false
+					continue
+				}
 
-			apiTask.SetTaskENI(eni)
+				apiTask.SetTaskENI(eni)
+			} else {
+				if aws.StringValue(task.ElasticNetworkInterfaces[0].InterfaceType) == "branch-eni" {
+					eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "branch-eni")
+					if err != nil {
+						payloadHandler.handleUnrecognizedTask(task, err, payload)
+						allTasksOK = false
+						continue
+					}
+
+					apiTask.SetTaskENI(eni)
+
+					eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "eni")
+					if err != nil {
+						payloadHandler.handleUnrecognizedTask(task, err, payload)
+						allTasksOK = false
+						continue
+					}
+
+					apiTask.SetTrunkENI(eni)
+
+				} else {
+					eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "branch-eni")
+					if err != nil {
+						payloadHandler.handleUnrecognizedTask(task, err, payload)
+						allTasksOK = false
+						continue
+					}
+
+					apiTask.SetTaskENI(eni)
+
+					eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "eni")
+					if err != nil {
+						payloadHandler.handleUnrecognizedTask(task, err, payload)
+						allTasksOK = false
+						continue
+					}
+
+					apiTask.SetTrunkENI(eni)
+				}
+			}
 		}
 
 		if task.ExecutionRoleCredentials != nil {

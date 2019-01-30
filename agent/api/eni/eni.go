@@ -115,8 +115,9 @@ type ENIIPV6Address struct {
 	Address string
 }
 
+
 // ENIFromACS validates the information from acs message and create the ENI object
-func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
+func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype string) (*ENI, error) {
 	err := ValidateTaskENI(acsenis)
 	if err != nil {
 		return nil, err
@@ -126,7 +127,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	var ipv6 []*ENIIPV6Address
 
 	// Read ipv4 address information of the eni
-	for _, ec2Ipv4 := range acsenis[0].Ipv4Addresses {
+	for _, ec2Ipv4 := range acsenis[index].Ipv4Addresses {
 		ipv4 = append(ipv4, &ENIIPV4Address{
 			Primary: aws.BoolValue(ec2Ipv4.Primary),
 			Address: aws.StringValue(ec2Ipv4.PrivateAddress),
@@ -134,19 +135,10 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	}
 
 	// Read ipv6 address information of the eni
-	for _, ec2Ipv6 := range acsenis[0].Ipv6Addresses {
+	for _, ec2Ipv6 := range acsenis[index].Ipv6Addresses {
 		ipv6 = append(ipv6, &ENIIPV6Address{
 			Address: aws.StringValue(ec2Ipv6.Address),
 		})
-	}
-
-	enitype := ""
-	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
-
-	if regularENI == 1 {
-		enitype = regularENIName
-	} else if branchENI == 1 && trunkENI == 1 {
-		enitype = branchENIName
 	}
 
 	eni := &ENI{
@@ -167,6 +159,18 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	}
 
 	return eni, nil
+}
+
+func GetENIType(acsenis []*ecsacs.ElasticNetworkInterface) (string) {
+	enitype := ""
+	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
+
+	if regularENI == 1 {
+		enitype = regularENIName
+	} else if branchENI == 1 && trunkENI == 1 {
+		enitype = branchENIName
+	}
+	return enitype
 }
 
 // ValidateTaskENI validates the eni informaiton sent from acs

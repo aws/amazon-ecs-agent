@@ -232,12 +232,11 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 
-	//for _, acseni := range acsTask.El {
-	//	if aws.StringValue(acseni.Interfacetype) == "trunk-eni" {
-	//
-	//	}
-	//}
-	// initialize resources map for task
+	//taskeni, err := eni.ENIFromACS(acsTask.ElasticNetworkInterfaces )
+
+	//task.TrunkENI = taskeni
+
+	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	return task, nil
 }
@@ -1529,6 +1528,13 @@ func (task *Task) GetTaskENI() *apieni.ENI {
 	defer task.lock.RUnlock()
 
 	return task.ENI
+}
+
+func (task *Task) SetTrunkENI(eni *apieni.ENI) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.TrunkENI = eni
 }
 
 func (task *Task) GetTrunkENI() *apieni.ENI {
