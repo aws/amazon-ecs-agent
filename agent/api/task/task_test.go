@@ -2816,3 +2816,100 @@ func TestAssociationByTypeAndName(t *testing.T) {
 	association, ok = task.AssociationByTypeAndName("other-type", "dev1")
 	assert.False(t, ok)
 }
+
+func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
+	containerWithOnlyVolume := &apicontainer.Container{
+		Name:   "myName",
+		Image:  "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName1"}},
+	}
+
+	containerWithOnlyLink := &apicontainer.Container{
+		Name:  "myName1",
+		Image: "image:tag",
+		Links:  []string{"myName"},
+	}
+
+	containerWithBothVolumeAndLink := &apicontainer.Container{
+		Name:   "myName2",
+		Image:  "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName"}},
+		Links:  []string{"myName1"},
+	}
+
+	containerWithNoVolumeOrLink := &apicontainer.Container{
+		Name:  "myName3",
+		Image: "image:tag",
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithOnlyVolume, containerWithOnlyLink,
+		                                              containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
+	}
+
+	err := task.initializeContainerOrderingForVolumes()
+	assert.NoError(t, err)
+	err = task.initializeContainerOrderingForLinks()
+	assert.NoError(t, err)
+
+	containerResultWithVolume := task.Containers[0]
+	assert.Equal(t,  "myName1", containerResultWithVolume.DependsOn[0].Container)
+	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithVolume.DependsOn[0].Condition)
+
+	containerResultWithLink := task.Containers[1]
+	assert.Equal(t,  "myName", containerResultWithLink.DependsOn[0].Container)
+	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithLink.DependsOn[0].Condition)
+
+	containerResultWithBothVolumeAndLink := task.Containers[2]
+	assert.Equal(t,  "myName", containerResultWithBothVolumeAndLink.DependsOn[0].Container)
+	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
+	assert.Equal(t,  "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].Container)
+	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
+
+	containerResultWithNoVolumeOrLink := task.Containers[3]
+	assert.Equal(t,  0, len(containerResultWithNoVolumeOrLink.DependsOn))
+}
+
+func TestInitializeContainerOrderingWithError(t *testing.T) {
+	containerWithVolumeError := &apicontainer.Container{
+		Name:   "myName",
+		Image:  "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "dummyContainer"}},
+	}
+
+	containerWithLinkError1 := &apicontainer.Container{
+		Name:  "myName1",
+		Image: "image:tag",
+		Links: []string{"dummyContainer"},
+	}
+
+	containerWithLinkError2 := &apicontainer.Container{
+		Name:  "myName2",
+		Image: "image:tag",
+		Links: []string{"myName:link1:link2"},
+	}
+
+	task1 := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError1},
+	}
+
+	task2 := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError2},
+	}
+
+	errVolume1 := task1.initializeContainerOrderingForVolumes()
+	assert.Error(t, errVolume1)
+	errLink1 := task1.initializeContainerOrderingForLinks()
+	assert.Error(t, errLink1)
+
+	errVolume2 := task2.initializeContainerOrderingForVolumes()
+	assert.Error(t, errVolume2)
+	errLink2 := task2.initializeContainerOrderingForLinks()
+	assert.Error(t, errLink2)
+}

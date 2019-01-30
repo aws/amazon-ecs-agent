@@ -42,6 +42,7 @@ const (
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
 	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
 	capabilityECREndpoint                       = "ecr-endpoint"
+	capabilityContainerOrdering                 = "container-ordering"
 	taskEIAAttributeSuffix                      = "task-eia"
 )
 
@@ -140,6 +141,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support elastic inference in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
+
+	// support container ordering in agent
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
 
 	return capabilities, nil
 }
