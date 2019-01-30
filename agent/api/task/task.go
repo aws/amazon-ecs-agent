@@ -176,6 +176,9 @@ type Task struct {
 	// ENI is the elastic network interface specified by this task
 	ENI *apieni.ENI
 
+	// Trunk ENI is the elastic network interface used in ENI trunking
+	TrunkENI *apieni.ENI
+
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
 

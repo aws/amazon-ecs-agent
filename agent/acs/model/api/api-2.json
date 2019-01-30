@@ -242,8 +242,7 @@
       "type": "string",
       "enum": [
         "eni",
-        "branch-eni",
-        "trunk-eni"
+        "branch-eni"
       ]
     },
 

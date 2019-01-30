@@ -65,10 +65,6 @@ const (
 	// credentials for all tasks on establishing the connection
 	sendCredentialsURLParameterName = "sendCredentials"
 	inactiveInstanceExceptionPrefix = "InactiveInstanceException:"
-
-	regularENIName = "eni"
-	branchENIName = "branch-eni"
-	trunkENIName = "trunk-eni"
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.

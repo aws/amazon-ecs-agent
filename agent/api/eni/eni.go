@@ -46,7 +46,15 @@ type ENI struct {
 	// SubnetGatewayIPV4Address is the address to the subnet gateway for
 	// the eni
 	SubnetGatewayIPV4Address string `json:",omitempty"`
+
 }
+
+const (
+	regularENIName = "eni"
+	branchENIName = "branch-eni"
+	trunkENIName = "trunk-eni"
+
+)
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
 func (eni *ENI) GetIPV4Addresses() []string {
@@ -173,5 +181,45 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 		return errors.Errorf("eni message validation: empty eni id in the message")
 	}
 
+	err := validateENITrunking(acsenis)
+	return err
+}
+
+
+// Checks for the invalid cases for the branch eni and trunk eni
+func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
+	if len(acsenis) != 0 {
+		trunkENI := 0
+		branchENI := 0
+		regularENI := 0
+
+		for _, eni := range acsenis {
+
+			if aws.StringValue(eni.InterfaceType) == regularENIName {
+				regularENI++
+
+			} else if aws.StringValue(eni.InterfaceType) == branchENIName {
+				branchENI++
+
+			} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
+				trunkENI++
+			}
+		}
+
+		if branchENI >= 1 && trunkENI == 0 {
+			return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+		}
+
+		if trunkENI > 1 {
+			return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+
+		}
+
+		if branchENI == 0 && regularENI == 0 {
+			return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+
+		}
+
+	}
 	return nil
 }

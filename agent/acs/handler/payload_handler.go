@@ -174,44 +174,6 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	return nil
 }
 
-// Checks for the invalid cases for the branch eni and trunk eni
-func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
-	if len(acsenis) != 0 {
-		trunkENI := 0
-		branchENI := 0
-		regularENI := 0
-
-		for _, eni := range acsenis {
-			print(aws.StringValue(eni.InterfaceType))
-
-			if aws.StringValue(eni.InterfaceType) == regularENIName {
-				regularENI++
-
-			} else if aws.StringValue(eni.InterfaceType) == branchENIName {
-				branchENI++
-
-			} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
-				trunkENI++
-			}
-		}
-
-		if branchENI >= 1 && trunkENI == 0 {
-			return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-		}
-
-		if trunkENI > 1 {
-			return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-		}
-
-		if branchENI == 0 && regularENI == 0 {
-			return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-		}
-
-	}
-	return nil
-}
 
 // addPayloadTasks does validation on each task and, for all valid ones, adds
 // it to the task engine. It returns a bool indicating if it could add every

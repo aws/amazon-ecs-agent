@@ -107,3 +107,100 @@ func TestValidateENIFromACS(t *testing.T) {
 	err = ValidateTaskENI(acsenis)
 	assert.Error(t, err)
 }
+
+func TestInvalidENItrunkingTask(t *testing.T) {
+
+	acseni := []*ecsacs.ElasticNetworkInterface{
+		{
+			InterfaceType: aws.String(branchENIName),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+	}
+
+	err := ValidateTaskENI(acseni)
+	assert.Error(t, err)
+
+}
+
+func TestInvalidENItrunking2Task(t *testing.T) {
+
+	acseni := []*ecsacs.ElasticNetworkInterface{
+		{
+			InterfaceType: aws.String(trunkENIName),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+		{
+			InterfaceType: aws.String(trunkENIName),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+	}
+
+	err := ValidateTaskENI(acseni)
+	assert.Error(t, err)
+
+}
+
+func TestInvalidENItrunking3Task(t *testing.T) {
+
+	acseni := []*ecsacs.ElasticNetworkInterface{
+		{
+			InterfaceType: aws.String("no-eni"),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+	}
+
+	err := ValidateTaskENI(acseni)
+	assert.Error(t, err)
+}
