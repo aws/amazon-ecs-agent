@@ -280,4 +280,7 @@ type Config struct {
 
 	// NvidiaRuntime is the runtime to be used for passing Nvidia GPU devices to containers
 	NvidiaRuntime string `trim:"true"`
+
+	// TaskMetadataAZDisabled specifies if availability zone should be disabled in Task Metadata endpoint
+	TaskMetadataAZDisabled bool
 }
