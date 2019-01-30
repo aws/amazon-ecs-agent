@@ -113,6 +113,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_TASK_METADATA_RPS_LIMIT", "1000,1100")()
 	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
 	defer setTestEnv("ECS_ENABLE_GPU_SUPPORT", "true")()
+	defer setTestEnv("ECS_DISABLE_TASK_METADATA_AZ", "true")()
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "nvidia")()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
@@ -161,6 +162,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
+	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -742,6 +744,14 @@ func TestGPUSupportEnabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
+}
+
+func TestTaskMetadataAZDisabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_DISABLE_TASK_METADATA_AZ", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 }
 
 func setTestRegion() func() {
