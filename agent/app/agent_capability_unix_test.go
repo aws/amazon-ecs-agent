@@ -254,6 +254,7 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	expectedCapabilities = append(expectedCapabilities,
 		[]*ecs.Attribute{
 			// linux specific capabilities
+
 			{
 				Name: aws.String("ecs.capability.docker-plugin.local"),
 			},
@@ -282,6 +283,170 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 				DriverVersion: "",
 			},
 		},
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	}
+}
+
+func TestENITrunkingCapabilitiesUnix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	conf := &config.Config{
+		PrivilegedDisabled: true,
+		TaskENIEnabled:     true,
+		ENITrunkingEnabled: true,
+	}
+
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.ECSBranchENIPluginName).Return("v2", nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	expectedCapabilityNames := []string{
+		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
+		attributePrefix + taskENIAttributeSuffix,
+	}
+
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedCapabilityNames {
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
+	}
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{
+			// linux specific capabilities
+			{
+				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+				Value: aws.String("v1"),
+			},
+			{
+				Name:  aws.String(attributePrefix + taskENITrunkingAttributeSuffix),
+			},
+			{
+				Name:  aws.String(attributePrefix + branchCNIPluginVersionSuffix),
+				Value: aws.String("v2"),
+			},
+			{
+				Name: aws.String("ecs.capability.docker-plugin.local"),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
+			},
+		}...)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		cniClient:          cniClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	}
+}
+
+func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	conf := &config.Config{
+		PrivilegedDisabled: true,
+		TaskENIEnabled:     true,
+		ENITrunkingEnabled: false,
+	}
+
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	expectedCapabilityNames := []string{
+		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
+		attributePrefix + taskENIAttributeSuffix,
+	}
+
+	var expectedCapabilities []*ecs.Attribute
+	for _, name := range expectedCapabilityNames {
+		expectedCapabilities = append(expectedCapabilities,
+			&ecs.Attribute{Name: aws.String(name)})
+	}
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{
+			// linux specific capabilities
+			{
+				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+				Value: aws.String("v1"),
+			},
+			{
+				Name: aws.String("ecs.capability.docker-plugin.local"),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
+			},
+		}...)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		cniClient:          cniClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)

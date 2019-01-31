@@ -18,4 +18,4 @@ RUN mkdir -p /go/src/github.com/aws/
 
 WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
 
-CMD ["make", "aws-appmesh"]
+CMD ["make", "aws-appmesh", "vpc-branch-eni"]

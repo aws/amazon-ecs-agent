@@ -45,6 +45,8 @@ const (
 	capabilityECREndpoint                       = "ecr-endpoint"
 	capabilityContainerOrdering                 = "container-ordering"
 	taskEIAAttributeSuffix                      = "task-eia"
+	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
+	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -79,6 +81,7 @@ const (
 //    ecs.capability.secrets.asm.environment-variables
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
+//    ecs.capability.task-eni-trunking
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -111,6 +114,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
+	capabilities = agent.appendENITrunkingCapabilities(capabilities)
+
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
 
 	// TODO: gate this on docker api version when ecs supported docker includes
@@ -236,6 +241,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 			return capabilities
 		}
 		capabilities = append(capabilities, taskENIVersionAttribute)
+
 		// We only care about AWSVPCBlockInstanceMetdata if Task ENI is enabled
 		if agent.cfg.AWSVPCBlockInstanceMetdata {
 			// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
@@ -245,6 +251,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 			})
 		}
 	}
+
 	return capabilities
 }
 
