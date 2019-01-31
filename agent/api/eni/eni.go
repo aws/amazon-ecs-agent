@@ -115,7 +115,6 @@ type ENIIPV6Address struct {
 	Address string
 }
 
-
 // ENIFromACS validates the information from acs message and create the ENI object
 func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype string) (*ENI, error) {
 	err := ValidateTaskENI(acsenis)
@@ -161,6 +160,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype st
 	return eni, nil
 }
 
+// Get the type of eni based on interfaces received in ACS payload
 func GetENIType(acsenis []*ecsacs.ElasticNetworkInterface) (string) {
 	enitype := ""
 	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
@@ -196,6 +196,7 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	return err
 }
 
+// Get the count of each type of ENI in ACS payload
 func getENITypeCount(acsenis []*ecsacs.ElasticNetworkInterface) (int, int, int) {
 	trunkENI := 0
 	branchENI := 0
@@ -220,23 +221,9 @@ func getENITypeCount(acsenis []*ecsacs.ElasticNetworkInterface) (int, int, int) 
 func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
 	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
 
-	if branchENI >= 1 && trunkENI == 0 {
-		return errors.Errorf("Branch ENI is presented but no Trunk eni is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+	if (branchENI == 1 && trunkENI == 1) || (regularENI == 1) {
+		return nil
 	}
 
-	if trunkENI > 1 {
-		return errors.Errorf("Multiple trunk ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-	}
-
-	if branchENI == 0 && regularENI == 0 {
-		return errors.Errorf("Neither branch ENI nor regular ENI is presented. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-
-	}
-
-	if regularENI > 1 {
-		return errors.Errorf("eni message validation: more than one regular ENIs in the message(%d) Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
-	}
-
-	return nil
+	return errors.Errorf("Invalid ENIs. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
 }

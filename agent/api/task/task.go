@@ -232,10 +232,6 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
 
-	//taskeni, err := eni.ENIFromACS(acsTask.ElasticNetworkInterfaces )
-
-	//task.TrunkENI = taskeni
-
 	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	return task, nil
@@ -803,7 +799,7 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 		containerPath := getCanonicalPath(mountPoint.ContainerPath)
 		for _, vol := range vols {
 			if strings.Compare(vol.Destination, containerPath) == 0 ||
-			// /path/ -> /path or \path\ -> \path
+				// /path/ -> /path or \path\ -> \path
 				strings.Compare(vol.Destination, strings.TrimRight(containerPath, string(filepath.Separator))) == 0 {
 				if hostVolume, exists := task.HostVolumeByName(mountPoint.SourceVolume); exists {
 					if empty, ok := hostVolume.(*taskresourcevolume.LocalDockerVolume); ok {

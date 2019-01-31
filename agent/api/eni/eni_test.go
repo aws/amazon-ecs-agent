@@ -33,6 +33,7 @@ const (
 func TestENIFromACS(t *testing.T) {
 	acsenis := []*ecsacs.ElasticNetworkInterface{
 		{
+			InterfaceType: aws.String(regularENIName),
 			AttachmentArn: aws.String("arn"),
 			Ec2Id:         aws.String("ec2id"),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -52,7 +53,7 @@ func TestENIFromACS(t *testing.T) {
 		},
 	}
 
-	eni, err := ENIFromACS(acsenis)
+	eni, err := ENIFromACS(acsenis, 0, "eni")
 	assert.NoError(t, err)
 	assert.NotNil(t, eni)
 	assert.Equal(t, aws.StringValue(acsenis[0].Ec2Id), eni.ID)
@@ -76,6 +77,7 @@ func TestENIFromACS(t *testing.T) {
 func TestValidateENIFromACS(t *testing.T) {
 	acsenis := []*ecsacs.ElasticNetworkInterface{
 		{
+			InterfaceType: aws.String(regularENIName),
 			AttachmentArn: aws.String("arn"),
 			Ec2Id:         aws.String("ec2id"),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -108,7 +110,7 @@ func TestValidateENIFromACS(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInvalidENItrunkingTask(t *testing.T) {
+func TestInvalidENItrunkingOneBranchTask(t *testing.T) {
 
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
@@ -135,7 +137,7 @@ func TestInvalidENItrunkingTask(t *testing.T) {
 
 }
 
-func TestInvalidENItrunking2Task(t *testing.T) {
+func TestInvalidENItrunkingMultipleTrunkTask(t *testing.T) {
 
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
@@ -179,7 +181,7 @@ func TestInvalidENItrunking2Task(t *testing.T) {
 
 }
 
-func TestInvalidENItrunking3Task(t *testing.T) {
+func TestInvalidENItrunkingRandomTrunkTask(t *testing.T) {
 
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{

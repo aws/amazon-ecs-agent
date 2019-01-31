@@ -223,44 +223,27 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 				apiTask.SetTaskENI(eni)
 			} else {
-				if aws.StringValue(task.ElasticNetworkInterfaces[0].InterfaceType) == "branch-eni" {
-					eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "branch-eni")
-					if err != nil {
-						payloadHandler.handleUnrecognizedTask(task, err, payload)
-						allTasksOK = false
-						continue
-					}
 
-					apiTask.SetTaskENI(eni)
-
-					eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "eni")
-					if err != nil {
-						payloadHandler.handleUnrecognizedTask(task, err, payload)
-						allTasksOK = false
-						continue
-					}
-
-					apiTask.SetTrunkENI(eni)
-
-				} else {
-					eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "branch-eni")
-					if err != nil {
-						payloadHandler.handleUnrecognizedTask(task, err, payload)
-						allTasksOK = false
-						continue
-					}
-
-					apiTask.SetTaskENI(eni)
-
-					eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "eni")
-					if err != nil {
-						payloadHandler.handleUnrecognizedTask(task, err, payload)
-						allTasksOK = false
-						continue
-					}
-
-					apiTask.SetTrunkENI(eni)
+				// Under the assumption that branch-eni will the first and trunk-eni will second in the list.
+				// Subject to change after the model is decided
+				eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "branch-eni")
+				if err != nil {
+					payloadHandler.handleUnrecognizedTask(task, err, payload)
+					allTasksOK = false
+					continue
 				}
+
+				apiTask.SetTaskENI(eni)
+
+				eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "eni")
+				if err != nil {
+					payloadHandler.handleUnrecognizedTask(task, err, payload)
+					allTasksOK = false
+					continue
+				}
+
+				apiTask.SetTrunkENI(eni)
+
 			}
 		}
 

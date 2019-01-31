@@ -136,9 +136,8 @@ func TestCleanupNS(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	//This will be called for both bridge and eni plugin
+	// This will be called for both bridge and eni plugin
 	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
