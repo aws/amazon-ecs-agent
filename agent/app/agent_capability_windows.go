@@ -28,3 +28,7 @@ func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attrib
 func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}

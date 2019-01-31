@@ -191,6 +191,29 @@ func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 	assert.Equal(t, 6, len(cfg.ReservedPorts), "Reserved ports should have added Prometheus endpoint")
 }
 
+// TestENITrunkingEnabled tests that when task networking is enabled, eni trunking is enabled by default
+func TestENITrunkingEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	cfg.platformOverrides()
+	assert.True(t, cfg.ENITrunkingEnabled, "ENI trunking should be enabled")
+}
+
+// TestENITrunkingDisabled tests that when task networking is enabled, eni trunking can be disabled
+func TestENITrunkingDisabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
+	cfg.platformOverrides()
+	assert.False(t, cfg.ENITrunkingEnabled, "ENI trunking should be disabled")
+}
+
 // setupFileConfiguration create a temp file store the configuration
 func setupFileConfiguration(t *testing.T, configContent string) string {
 	file, err := ioutil.TempFile("", "ecs-test")

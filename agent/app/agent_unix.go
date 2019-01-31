@@ -49,6 +49,7 @@ var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
 	ecscni.ECSBridgePluginName,
 	ecscni.ECSIPAMPluginName,
 	ecscni.ECSAppMeshPluginName,
+	ecscni.ECSBranchENIPluginName,
 }
 
 // startWindowsService is not supported on Linux
@@ -150,9 +151,15 @@ func isInstanceLaunchedInVPC(err error) bool {
 // b. ecs-bridge
 // c. ecs-ipam
 // d. aws-appmesh
+// e. vpc-branch-eni
 func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
+		// skip verifying branch cni plugin if eni trunking is not enabled
+		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled {
+			continue
+		}
+
 		capabilities, err := agent.cniClient.Capabilities(plugin)
 		if err != nil {
 			return err

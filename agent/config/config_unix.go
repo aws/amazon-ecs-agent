@@ -88,6 +88,10 @@ func (cfg *Config) platformOverrides() {
 	if cfg.PrometheusMetricsEnabled {
 		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
 	}
+
+	if cfg.TaskENIEnabled { // when task networking is enabled, eni trunking is enabled by default
+		cfg.ENITrunkingEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_HIGH_DENSITY_ENI"), true)
+	}
 }
 
 // platformString returns platform-specific config data that can be serialized

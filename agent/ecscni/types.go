@@ -46,6 +46,8 @@ const (
 	ECSENIPluginName = "ecs-eni"
 	// ECSAppMeshPluginName is the binary of aws-appmesh plugin
 	ECSAppMeshPluginName = "aws-appmesh"
+	// ECSBranchENIPluginName is the binary of the branch-eni plugin
+	ECSBranchENIPluginName = "vpc-branch-eni"
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
