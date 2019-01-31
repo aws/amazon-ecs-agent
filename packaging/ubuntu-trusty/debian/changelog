@@ -1,3 +1,9 @@
+amazon-ecs-init (1.25.2-1) trusty; urgency=medium
+
+   * Cache Agent version 1.25.2
+
+   -- Shaobo Han <obo@amazon.com>  Thu, 31 Jan 2019 11:53:00 -0800
+
 amazon-ecs-init (1.25.1-1) trusty; urgency=medium
 
    * Cache Agent version 1.25.1
