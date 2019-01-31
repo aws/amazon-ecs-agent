@@ -813,7 +813,6 @@ func TestNetworkLink(t *testing.T) {
 
 // TestParallelPull check docker pull in parallel works for docker >= 1.11.1
 func TestParallelPull(t *testing.T) {
-
 	// Test only available on instance with total memory more than 1300 MB
 	RequireMinimumMemory(t, 1300)
 
