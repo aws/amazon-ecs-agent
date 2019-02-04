@@ -1425,6 +1425,9 @@ func TestMetadataFromContainer(t *testing.T) {
 			NetworkSettingsBase: types.NetworkSettingsBase{
 				Ports: ports,
 			},
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: "17.0.0.3",
+			},
 		},
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:      "1234",
@@ -1433,6 +1436,9 @@ func TestMetadataFromContainer(t *testing.T) {
 				Running:    true,
 				StartedAt:  started,
 				FinishedAt: finished,
+			},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: dockercontainer.NetworkMode("bridge"),
 			},
 		},
 		Config: &dockercontainer.Config{
@@ -1446,6 +1452,9 @@ func TestMetadataFromContainer(t *testing.T) {
 	assert.Equal(t, volumes, metadata.Volumes)
 	assert.Equal(t, labels, metadata.Labels)
 	assert.Len(t, metadata.PortBindings, 1)
+	assert.Equal(t, "bridge", metadata.NetworkMode)
+	assert.NotNil(t, metadata.NetworkSettings)
+	assert.Equal(t, "17.0.0.3", metadata.NetworkSettings.IPAddress)
 
 	// Need to convert both strings to same format to be able to compare. Parse and Format are not inverses.
 	createdTimeSDK, _ := time.Parse(time.RFC3339, dockerContainer.Created)

@@ -83,6 +83,8 @@ const (
 	associationName            = "dev1"
 	associationEncoding        = "base64"
 	associationValue           = "val"
+	bridgeMode                 = "bridge"
+	bridgeIPAddr               = "17.0.0.3"
 )
 
 var (
@@ -192,10 +194,99 @@ var (
 		Associations: []string{associationName},
 	}
 	expectedAssociationResponse = associationValue
+
+	bridgeTask = &apitask.Task{
+		Arn:                      taskARN,
+		Associations:             []apitask.Association{association},
+		Family:                   family,
+		Version:                  version,
+		DesiredStatusUnsafe:      apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:        apitaskstatus.TaskRunning,
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
+	}
+	container1 = &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: containerPort,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		NetworkModeUnsafe: bridgeMode,
+		NetworkSettingsUnsafe: &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: bridgeIPAddr,
+			},
+		},
+	}
+	bridgeContainer = &apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: containerName,
+		Container:  container1,
+	}
+	containerNameToBridgeContainer = map[string]*apicontainer.DockerContainer{
+		taskARN: bridgeContainer,
+	}
+	expectedBridgeContainerResponse = v2.ContainerResponse{
+		ID:            containerID,
+		Name:          containerName,
+		DockerName:    containerName,
+		Image:         imageName,
+		ImageID:       imageID,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Limits: v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		Type:   containerType,
+		Labels: labels,
+		Ports: []v1.PortResponse{
+			{
+				ContainerPort: containerPort,
+				Protocol:      containerPortProtocol,
+			},
+		},
+		Networks: []containermetadata.Network{
+			{
+				NetworkMode:   bridgeMode,
+				IPv4Addresses: []string{bridgeIPAddr},
+			},
+		},
+	}
+	expectedBridgeTaskResponse = v2.TaskResponse{
+		Cluster:       clusterName,
+		TaskARN:       taskARN,
+		Family:        family,
+		Revision:      version,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusRunning,
+		Containers:    []v2.ContainerResponse{expectedBridgeContainerResponse},
+		Limits: &v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		PullStartedAt:      aws.Time(now.UTC()),
+		PullStoppedAt:      aws.Time(now.UTC()),
+		ExecutionStoppedAt: aws.Time(now.UTC()),
+		AvailabilityZone:   availabilityzone,
+	}
 )
 
 func init() {
 	container.SetLabels(labels)
+	container1.SetLabels(labels)
 }
 
 // TestInvalidPath tests if HTTP status code 404 is returned when invalid path is queried.
@@ -678,6 +769,65 @@ func TestV3TaskMetadata(t *testing.T) {
 	err = json.Unmarshal(res, &taskResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTaskResponse, taskResponse)
+}
+
+func TestV3BridgeTaskMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID+"/task", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v2.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedBridgeTaskResponse, taskResponse)
+}
+
+func TestV3BridgeContainerMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+		state.EXPECT().TaskByID(containerID).Return(bridgeTask, true),
+		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v3BasePath+v3EndpointID, nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var containerResponse v2.ContainerResponse
+	err = json.Unmarshal(res, &containerResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedBridgeContainerResponse, containerResponse)
 }
 
 // Test API calls for propagating Tags to Task Metadata
