@@ -1,6 +1,6 @@
 // +build linux,unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -267,7 +267,7 @@ func TestCNIPluginVersion(t *testing.T) {
 // Asserts that CNI plugin version matches the expected version
 func TestCNIPluginVersionNumber(t *testing.T) {
 	versionStr := getCNIVersionString(t)
-	assert.Equal(t, currentCNIVersion, versionStr)
+	assert.Equal(t, currentECSCNIVersion, versionStr)
 }
 
 // Asserts that CNI plugin version is upgraded when new commits are made to CNI plugin submodule
@@ -276,10 +276,13 @@ func TestCNIPluginVersionUpgrade(t *testing.T) {
 	cmd := exec.Command("git", "submodule")
 	versionInfo, err := cmd.Output()
 	assert.NoError(t, err, "Error running the command: git submodule")
-	versionInfoStr := string(versionInfo)
+	versionInfoStrList := strings.Split(string(versionInfo), "\n")
 	// If a new commit is added, version should be upgraded
-	if currentCNIGitHash != strings.Split(versionInfoStr, " ")[1] {
-		assert.NotEqual(t, currentCNIVersion, versionStr)
+	if currentECSCNIGitHash != strings.Split(versionInfoStrList[0], " ")[1] {
+		assert.NotEqual(t, currentECSCNIVersion, versionStr)
+	}
+	if currentVPCCNIGitHash != strings.Split(versionInfoStrList[1], " ")[1] {
+		assert.NotEqual(t, currentVPCCNIGitHash, versionStr)
 	}
 }
 
