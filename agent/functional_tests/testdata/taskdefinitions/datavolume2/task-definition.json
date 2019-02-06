@@ -7,7 +7,7 @@
   "containerDefinitions": [{
     "name": "datavolume",
     "image": "127.0.0.1:51670/busybox:latest",
-    "memory": 20,
+    "memory": 64,
     "mountPoints": [{
       "sourceVolume": "vol",
       "containerPath": "/data"
@@ -16,7 +16,7 @@
   }, {
     "name": "a",
     "image": "127.0.0.1:51670/busybox:latest",
-    "memory": 20,
+    "memory": 64,
     "command": ["sh", "-c", "echo 42 | nc -l -p 9000"],
     "volumesFrom": [{
       "sourceContainer": "datavolume"
@@ -24,7 +24,7 @@
   }, {
     "name": "exit",
     "image": "127.0.0.1:51670/busybox:latest",
-    "memory": 20,
+    "memory": 64,
     "portMappings": [{
       "containerPort": 80
     }],
