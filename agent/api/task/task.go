@@ -72,7 +72,8 @@ const (
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
 
-	ContainerOrderingStartCondition = "START"
+	ContainerOrderingStartCondition   = "START"
+	ContainerOrderingRunningCondition = "RUNNING"
 
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
@@ -1282,7 +1283,7 @@ func (task *Task) initializeContainerOrderingForLinks() error {
 				if _, ok := task.ContainerByName(linkName); !ok {
 					return fmt.Errorf("could not find container with name %s", linkName)
 				}
-				dependOn := apicontainer.DependsOn{Container: linkName, Condition: ContainerOrderingStartCondition}
+				dependOn := apicontainer.DependsOn{Container: linkName, Condition: ContainerOrderingRunningCondition}
 				container.DependsOn = append(container.DependsOn, dependOn)
 			}
 		}
