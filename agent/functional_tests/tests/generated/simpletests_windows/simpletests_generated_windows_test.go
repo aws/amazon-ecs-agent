@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 	"time"
+
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 )
 
@@ -43,16 +44,13 @@ func TestContainerOrderingTimedout(t *testing.T) {
 	agent.RequireVersion(">=1.25.0")
 
 	td, err := GetTaskDefinition("container-ordering-timedout-windows")
-
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
 	var testTasks []*TestTask
 	if "" == "true" {
 		for i := 0; i < 1; i++ {
-
 			tmpTask, err := agent.StartAWSVPCTask("container-ordering-timedout-windows", nil)
-
 			if err != nil {
 				t.Fatalf("Could not start task in awsvpc mode: %v", err)
 			}
@@ -98,7 +96,6 @@ func TestContainerOrdering(t *testing.T) {
 	agent.RequireVersion(">=1.25.0")
 
 	td, err := GetTaskDefinition("container-ordering-windows")
-
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
@@ -106,7 +103,6 @@ func TestContainerOrdering(t *testing.T) {
 	if "" == "true" {
 		for i := 0; i < 1; i++ {
 			tmpTask, err := agent.StartAWSVPCTask("container-ordering-windows", nil)
-
 			if err != nil {
 				t.Fatalf("Could not start task in awsvpc mode: %v", err)
 			}

@@ -59,6 +59,7 @@ func StartMetricsSession(params *TelemetrySessionParams) {
 
 	err = params.StatsEngine.MustInit(params.Ctx, params.TaskEngine, params.Cfg.Cluster,
 		params.ContainerInstanceArn)
+
 	if err != nil {
 		seelog.Warnf("Error initializing metrics engine: %v", err)
 		return

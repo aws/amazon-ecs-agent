@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -491,12 +492,19 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	// Now remove ourselves from the global state and cleanup channels
 	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
-	eni := task.GetTaskENI()
-	if eni == nil {
+	eniTask := task.GetTaskENI()
+	if eniTask == nil {
 		seelog.Debugf("Task engine [%s]: no eni associated with task", task.Arn)
 	} else {
-		seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
-		engine.state.RemoveENIAttachment(eni.MacAddress)
+		// A Trunk/Branch awsvpc task doesn't have an ENI attachment corresponds to the task's ENI,
+		// so such deletion should be skipped
+		if eniTask.ENIType != eni.BranchENIType {
+			seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
+			engine.state.RemoveENIAttachment(eniTask.MacAddress)
+		} else {
+			seelog.Debugf("Task engine [%s]: Not removing the eni from agent state as it is a "+
+				"trunk ENI", task.Arn)
+		}
 	}
 	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
@@ -1064,6 +1072,13 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *apitask.Ta
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
 	cfg.BlockInstanceMetdata = engine.cfg.AWSVPCBlockInstanceMetdata
+
+	// Populate Trunk ENI fields
+	if task.ENI.ENIType == eni.BranchENIType {
+		cfg.ENIType = eni.BranchENIType
+		cfg.TrunkMACAddress = task.ENI.InterfaceVlanProperties.TrunkInterfaceMacAddress
+		cfg.BranchVlanID = task.ENI.InterfaceVlanProperties.VlanID
+	}
 
 	return cfg, nil
 }

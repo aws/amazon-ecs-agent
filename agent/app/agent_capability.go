@@ -114,7 +114,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
-	capabilities = agent.appendENITrunkingCapabilities(capabilities)
 
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
 
