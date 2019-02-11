@@ -27,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
@@ -66,6 +67,41 @@ func TestSetupNS(t *testing.T) {
 	)
 
 	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestSetupNSTrunk(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+
+	gomock.InOrder(
+		// ENI plugin was called first
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBranchENIPluginName, net.Network.Type, "second plugin should be eni")
+			}),
+		// Bridge plugin was called last
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "first plugin should be bridge")
+				var bridgeConfig BridgeConfig
+				err := json.Unmarshal(net.Bytes, &bridgeConfig)
+				assert.NoError(t, err, "unmarshal BridgeConfig")
+				assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+			}),
+	)
+
+	_, err = ecscniClient.SetupNS(context.TODO(), &Config{ENIType: eni.BranchENIType,
+		AdditionalLocalRoutes: additionalRoutes, SubnetGatewayIPV4Address: "172.31.1.1/20"}, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -144,12 +180,45 @@ func TestCleanupNS(t *testing.T) {
 
 	// This will be called for both bridge and eni plugin
 	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Times(2)
-
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
 	err = ecscniClient.CleanupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestCleanupNSTrunk(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	gomock.InOrder(
+		// Bridge plugin was called last
+		libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "first plugin should be bridge")
+				var bridgeConfig BridgeConfig
+				err := json.Unmarshal(net.Bytes, &bridgeConfig)
+				assert.NoError(t, err, "unmarshal BridgeConfig")
+			}),
+		// ENI plugin was called first
+		libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBranchENIPluginName, net.Network.Type, "second plugin should be eni")
+			}),
+
+	)
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+	err = ecscniClient.CleanupNS(context.TODO(), &Config{ENIType: eni.BranchENIType,
+		AdditionalLocalRoutes: additionalRoutes, SubnetGatewayIPV4Address: "172.31.1.1/20"}, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -242,6 +311,34 @@ func TestConstructENINetworkConfig(t *testing.T) {
 	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
 	assert.True(t, eniConfig.BlockInstanceMetdata)
 	assert.Equal(t, config.SubnetGatewayIPV4Address, eniConfig.SubnetGatewayIPV4Address)
+}
+
+// TestConstructBranchENINetworkConfig tests createBranchENINetworkConfig creates the correct
+// configuration for eni plugin
+func TestConstructBranchENINetworkConfig(t *testing.T) {
+	ecscniClient := NewClient(&Config{})
+
+	config := &Config{
+		ENIID:                    "eni-12345678",
+		ContainerID:              "containerid12",
+		ContainerPID:             "pid",
+		ENIIPV4Address:           "172.31.21.40",
+		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		ENIMACAddress:            "02:7b:64:49:b1:40",
+		BlockInstanceMetdata:     true,
+		SubnetGatewayIPV4Address: "172.31.1.1/20",
+	}
+
+	_, eniNetworkConfig, err := ecscniClient.(*cniClient).createBranchENINetworkConfig(config)
+	assert.NoError(t, err, "construct eni network config failed")
+	branchENIConfig := &BranchENIConfig{}
+	err = json.Unmarshal(eniNetworkConfig.Bytes, branchENIConfig)
+	assert.NoError(t, err, "unmarshal config from bytes failed")
+
+	assert.Equal(t, config.BranchVlanID, branchENIConfig.BranchVlanID)
+	assert.Equal(t, "172.31.21.40/20", branchENIConfig.BranchIPAddress)
+	assert.Equal(t, config.ENIMACAddress, branchENIConfig.BranchMACAddress)
+	assert.Equal(t, "172.31.1.1", branchENIConfig.BranchGatewayIPAddress)
 }
 
 // TestConstructBridgeNetworkConfigWithoutIPAM tests createBridgeNetworkConfigWithoutIPAM creates the right configuration for bridge plugin

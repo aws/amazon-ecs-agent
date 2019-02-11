@@ -3183,13 +3183,13 @@ func (c *ECS) SubmitAttachmentStateChangesRequest(input *SubmitAttachmentStateCh
 	return
 }
 
-// SubmitAttachmentStateChanges API operation for Amazon EC2 Container Service.
+// SubmitAttachmentStateChanges API operation for Amazon Elastic Container Service.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation SubmitAttachmentStateChanges for usage and error information.
 //
 // Returned Error Codes:

@@ -24,6 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -594,8 +595,7 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 // validateTaskAndCredentials compares a task and a credentials ack object
 // against expected values. It returns an error if either of the the
 // comparisons fail
-func validateTaskAndCredentials(taskCredentialsAck,
-	expectedCredentialsAckForTask *ecsacs.IAMRoleCredentialsAckRequest,
+func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *ecsacs.IAMRoleCredentialsAckRequest,
 	addedTask *apitask.Task,
 	expectedTaskArn string,
 	expectedTaskCredentials credentials.IAMRoleCredentials) error {
@@ -736,6 +736,57 @@ func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
 	assert.Equal(t, 2, len(appMesh.EgressIgnoredPorts))
 	assert.Equal(t, mockEgressIgnoredPort1, appMesh.EgressIgnoredPorts[0])
 	assert.Equal(t, mockEgressIgnoredPort2, appMesh.EgressIgnoredPorts[1])
+}
+
+func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+					{
+						InterfaceAssociationProtocol: aws.String(eni.BranchENIType),
+						AttachmentArn: aws.String("arn"),
+						Ec2Id:         aws.String("ec2id"),
+						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+							{
+								Primary:        aws.Bool(true),
+								PrivateAddress: aws.String("ipv4"),
+							},
+						},
+						Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+							{
+								Address: aws.String("ipv6"),
+							},
+						},
+						MacAddress: aws.String("mac"),
+						InterfaceVlanProperties: &ecsacs.NetworkInterfaceVlanProperties{
+							VlanId:                   aws.String("12345"),
+							TrunkInterfaceMacAddress: aws.String("mac"),
+						},
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	taskeni := addedTask.GetTaskENI()
+
+	assert.Equal(t, taskeni.ENIType, eni.BranchENIType)
+	assert.Equal(t, taskeni.InterfaceVlanProperties.TrunkInterfaceMacAddress, "mac")
 }
 
 func TestPayloadHandlerAddedECRAuthData(t *testing.T) {
