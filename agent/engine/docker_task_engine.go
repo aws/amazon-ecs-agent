@@ -667,8 +667,8 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
-	case apicontainer.ContainerCNIPause:
-		// ContainerCNIPause image are managed at startup
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
+		// pause images are managed at startup
 		return dockerapi.DockerContainerMetadata{}
 	}
 
