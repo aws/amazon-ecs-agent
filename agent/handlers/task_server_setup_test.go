@@ -1052,6 +1052,34 @@ func TestV3ContainerAssociation(t *testing.T) {
 	assert.Equal(t, expectedAssociationResponse, string(res))
 }
 
+func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
+	testPathsMap := map[string]string{
+		"http://127.0.0.1/v3///task/": "http://127.0.0.1/v3/task/",
+		"http://127.0.0.1//v2/credentials/test": "http://127.0.0.1/v2/credentials/test",
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
+
+	for testPath, expectedPath := range testPathsMap {
+		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", testPath, nil)
+			server.Handler.ServeHTTP(recorder, req)
+			assert.Equal(t, http.StatusMovedPermanently, recorder.Code)
+			assert.Equal(t, expectedPath, recorder.Header().Get("Location"))
+		})
+	}
+}
+
 func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 	testPaths := []string{
 		"/",
@@ -1061,7 +1089,6 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 		"/v3/v3-endpoint-id/",
 		"/v3/v3-endpoint-id/wrong-path",
 		"/v3/v3-endpoint-id/task/",
-		"/v3///task/",
 		"/v3/v3-endpoint-id/task/stats/",
 		"/v3/v3-endpoint-id/task/stats/wrong-path",
 		"/v3/v3-endpoint-id/associtions-with-typo/elastic-inference/dev1",
@@ -1101,11 +1128,11 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 		"/v3/wrong-v3-endpoint-id",
 		"/v3/",
 		"/v3/wrong-v3-endpoint-id/stats",
-		"/v3//stats",
+		"/v3/stats",
 		"/v3/wrong-v3-endpoint-id/task",
-		"/v3//task",
+		"/v3/task",
 		"/v3/wrong-v3-endpoint-id/task/stats",
-		"/v3//task/stats",
+		"/v3/task/stats",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference/dev1",
 	}
