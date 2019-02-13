@@ -56,9 +56,9 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	containerInstanceArn string) *http.Server {
 	muxRouter := mux.NewRouter()
 
-	// Set this so that for request like "/v3//metadata/task", the Agent will pass
-	// it to task metadata handler instead of returning a 301 error.
-	muxRouter.SkipClean(true)
+	// Set this to false so that for request like "//v3//metadata/task"
+	// to permanently redirect(301) to "/v3/metadata/task" handler
+	muxRouter.SkipClean(false)
 
 	muxRouter.HandleFunc(v1.CredentialsPath,
 		v1.CredentialsHandler(credentialsManager, auditLogger))
@@ -79,7 +79,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	loggingMuxRouter.Handle(rootPath, tollbooth.LimitHandler(
 		limiter, NewLoggingHandler(muxRouter)))
 
-	loggingMuxRouter.SkipClean(true)
+	loggingMuxRouter.SkipClean(false)
 
 	server := http.Server{
 		Addr:         ":" + strconv.Itoa(config.AgentCredentialsPort),
