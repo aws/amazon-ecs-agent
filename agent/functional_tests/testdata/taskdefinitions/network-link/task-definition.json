@@ -10,7 +10,7 @@
     "name": "exit",
     "image": "127.0.0.1:51670/busybox:latest",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "links": ["nginx:nginx"],
     "command": ["sh", "-c", "sleep 1; wget -O- http://nginx && exit 42; exit -1"]
   }]

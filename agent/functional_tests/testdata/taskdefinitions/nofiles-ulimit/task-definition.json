@@ -4,7 +4,7 @@
     "image": "busybox:latest",
     "name": "exit",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "ulimits": [{"name":"nofile", "softLimit": 123, "hardLimit": 234}],
     "command": ["sh", "-c", "[ \"$(cat /proc/self/limits  | grep \"^Max open files\" | awk '{print $4\" \"$5}')\" == \"123 234\" ] && exit 42 || exit 1"]
   }]
