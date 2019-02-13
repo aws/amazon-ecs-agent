@@ -25,7 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -112,7 +112,6 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 	assert.False(t, resolveable, "Nonexistent reference shouldn't resolve")
 }
 
-
 func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
@@ -187,7 +186,6 @@ func TestRunDependencies(t *testing.T) {
 	task.Containers[1].SetDesiredStatus(apicontainerstatus.ContainerCreated)
 	assert.NoError(t, DependenciesAreResolved(c1, task.Containers, "", nil, nil), "Dependencies should be resolved")
 }
-
 
 func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *testing.T) {
 	// Webserver stack
@@ -568,194 +566,316 @@ func TestTransitionDependencyResourceNotFound(t *testing.T) {
 
 func TestContainerOrderingCanResolve(t *testing.T) {
 	testcases := []struct {
-		TargetDesired apicontainerstatus.ContainerStatus
-		DependencyDesired apicontainerstatus.ContainerStatus
+		TargetDesired       apicontainerstatus.ContainerStatus
+		DependencyDesired   apicontainerstatus.ContainerStatus
+		DependencyKnown     apicontainerstatus.ContainerStatus
 		DependencyCondition string
-		Resolvable    bool
+		ExitCode            int
+		Resolvable          bool
 	}{
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyDesired: apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: "START",
-			Resolvable:    false,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyDesired:   apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolvable:          false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyDesired: apicontainerstatus.ContainerStopped,
-			DependencyCondition: "START",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyDesired:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyDesired: apicontainerstatus.ContainerZombie,
-			DependencyCondition: "START",
-			Resolvable:    false,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyDesired:   apicontainerstatus.ContainerZombie,
+			DependencyCondition: startCondition,
+			Resolvable:          false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: "START",
-			Resolvable:    false,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolvable:          false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerCreated,
-			DependencyCondition: "START",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerCreated,
+			DependencyCondition: startCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerRunning,
-			DependencyCondition: "START",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: startCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerStopped,
-			DependencyCondition: "START",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyDesired: apicontainerstatus.ContainerCreated,
-			DependencyCondition: "RUNNING",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyDesired:   apicontainerstatus.ContainerCreated,
+			DependencyCondition: runningCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerRunning,
-			DependencyCondition: "RUNNING",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: runningCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyDesired: apicontainerstatus.ContainerRunning,
-			DependencyCondition: "RUNNING",
-			Resolvable:    true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyDesired:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: runningCondition,
+			Resolvable:          true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyDesired: apicontainerstatus.ContainerZombie,
-			DependencyCondition: "RUNNING",
-			Resolvable:    false,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerZombie,
+			DependencyCondition: runningCondition,
+			Resolvable:          false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerStatusNone,
-			DependencyDesired: apicontainerstatus.ContainerStopped,
-			DependencyCondition: "RUNNING",
-			Resolvable:    false,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: successCondition,
+			Resolvable:          true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: successCondition,
+			Resolvable:          true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			ExitCode:            0,
+			DependencyCondition: successCondition,
+			Resolvable:          true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			ExitCode:            1,
+			DependencyCondition: successCondition,
+			Resolvable:          false,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: completeCondition,
+			Resolvable:          true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: completeCondition,
+			Resolvable:          true,
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyDesired.String()),
-			assertContainerOrderingCanResolve(containerOrderingDependenciesCanResolve, tc.TargetDesired,
-												tc.DependencyDesired, tc.DependencyCondition, tc.Resolvable))
+			assertContainerOrderingCanResolve(containerOrderingDependenciesCanResolve, tc.TargetDesired, tc.DependencyDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolvable))
 	}
 }
 
 func TestContainerOrderingIsResolved(t *testing.T) {
 	testcases := []struct {
-		TargetDesired apicontainerstatus.ContainerStatus
-		DependencyKnown   apicontainerstatus.ContainerStatus
+		TargetDesired       apicontainerstatus.ContainerStatus
+		DependencyKnown     apicontainerstatus.ContainerStatus
 		DependencyCondition string
-		Resolved      bool
+		Resolved            bool
+		ExitCode            int
 	}{
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: "START",
-			Resolved:      false,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolved:            false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerCreated,
-			DependencyCondition: "START",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: startCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyKnown:   apicontainerstatus.ContainerStopped,
-			DependencyCondition: "START",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerStopped,
-			DependencyCondition: "START",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyKnown:   apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: "START",
-			Resolved:      false,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolved:            false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyKnown:   apicontainerstatus.ContainerCreated,
-			DependencyCondition: "START",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: startCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerCreated,
-			DependencyCondition: "RUNNING",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: runningCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerRunning,
-			DependencyCondition: "RUNNING",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyCondition: runningCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			DependencyKnown:   apicontainerstatus.ContainerZombie,
-			DependencyCondition: "RUNNING",
-			Resolved:      false,
+			TargetDesired:       apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerZombie,
+			DependencyCondition: runningCondition,
+			Resolved:            false,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyKnown:   apicontainerstatus.ContainerRunning,
-			DependencyCondition: "RUNNING",
-			Resolved:      true,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyCondition: runningCondition,
+			Resolved:            true,
 		},
 		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			DependencyKnown:   apicontainerstatus.ContainerZombie,
-			DependencyCondition: "RUNNING",
-			Resolved:      false,
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerZombie,
+			DependencyCondition: runningCondition,
+			Resolved:            false,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: successCondition,
+			ExitCode:            0,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: successCondition,
+			ExitCode:            1,
+			Resolved:            false,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: completeCondition,
+			ExitCode:            0,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: completeCondition,
+			ExitCode:            1,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyCondition: completeCondition,
+			Resolved:            false,
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyKnown.String()),
-			assertContainerOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnown, tc.DependencyCondition, tc.Resolved))
+			assertContainerOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolved))
 	}
 }
 
-func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, expectedResolvable bool) func(t *testing.T) {
+func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolvable bool) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
 			DesiredStatusUnsafe: targetDesired,
 		}
 		dep := &apicontainer.Container{
-			DesiredStatusUnsafe: depKnown,
+			DesiredStatusUnsafe: depDesired,
+			KnownStatusUnsafe:   depKnown,
+			KnownExitCodeUnsafe: aws.Int(exitcode),
 		}
 		resolvable := f(target, dep, depCond)
 		assert.Equal(t, expectedResolvable, resolvable)
 	}
 }
 
-func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, expectedResolved bool) func(t *testing.T) {
+func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolved bool) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
 			DesiredStatusUnsafe: targetDesired,
 		}
 		dep := &apicontainer.Container{
-			KnownStatusUnsafe: depKnown,
+			KnownStatusUnsafe:   depKnown,
+			KnownExitCodeUnsafe: aws.Int(exitcode),
 		}
 		resolved := f(target, dep, depCond)
 		assert.Equal(t, expectedResolved, resolved)
 	}
 }
 
+func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
+	testcases := []struct {
+		TargetDesired                 apicontainerstatus.ContainerStatus
+		DependencyKnownHealthStatus   apicontainerstatus.ContainerHealthStatus
+		HealthCheckType               string
+		DependencyKnownHealthExitCode int
+		DependencyCondition           string
+		Resolved                      bool
+	}{
+		{
+			TargetDesired:               apicontainerstatus.ContainerCreated,
+			DependencyKnownHealthStatus: apicontainerstatus.ContainerHealthy,
+			HealthCheckType:             "docker",
+			DependencyCondition:         healthyCondition,
+			Resolved:                    true,
+		},
+		{
+			TargetDesired:                 apicontainerstatus.ContainerCreated,
+			DependencyKnownHealthStatus:   apicontainerstatus.ContainerUnhealthy,
+			HealthCheckType:               "docker",
+			DependencyKnownHealthExitCode: 1,
+			DependencyCondition:           healthyCondition,
+			Resolved:                      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			Resolved:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyKnownHealthStatus.String()),
+			assertContainerOrderingHealthyConditionResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnownHealthStatus, tc.HealthCheckType, tc.DependencyKnownHealthExitCode, tc.DependencyCondition, tc.Resolved))
+	}
+}
+
+func assertContainerOrderingHealthyConditionResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired apicontainerstatus.ContainerStatus, depHealthKnown apicontainerstatus.ContainerHealthStatus, healthCheckEnabled string, depHealthKnownExitCode int, depCond string, expectedResolved bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &apicontainer.Container{
+			DesiredStatusUnsafe: targetDesired,
+		}
+		dep := &apicontainer.Container{
+			Health: apicontainer.HealthStatus{
+				Status:   depHealthKnown,
+				ExitCode: depHealthKnownExitCode,
+			},
+			HealthCheckType: healthCheckEnabled,
+		}
+		resolved := f(target, dep, depCond)
+		assert.Equal(t, expectedResolved, resolved)
+	}
+}
