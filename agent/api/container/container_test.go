@@ -179,7 +179,7 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 	}
 }
 
-func TestSetHealtStatus(t *testing.T) {
+func TestSetHealthStatus(t *testing.T) {
 	container := Container{}
 
 	// set the container status to be healthy

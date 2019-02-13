@@ -132,7 +132,7 @@ type Container struct {
 	DockerConfig DockerConfig `json:"dockerConfig"`
 	// RegistryAuthentication is the auth data used to pull image
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
-	// HealthCheckType is the mechnism to use for the container health check
+	// HealthCheckType is the mechanism to use for the container health check
 	// currently it only supports 'DOCKER'
 	HealthCheckType string `json:"healthCheckType,omitempty"`
 	// Health contains the health check information of container health check
