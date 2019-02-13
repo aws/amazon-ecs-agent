@@ -218,6 +218,12 @@ type Container struct {
 	// VolumesUnsafe is an array of volume mounts in the container.
 	VolumesUnsafe []types.MountPoint `json:"-"`
 
+	// NetworkModeUnsafe is the network mode in which the container is started
+	NetworkModeUnsafe string `json:"-"`
+
+	// NetworksUnsafe denotes the Docker Network Settings in the container.
+	NetworkSettingsUnsafe *types.NetworkSettings `json:"-"`
+
 	// SteadyStateStatusUnsafe specifies the steady state status for the container
 	// If uninitialized, it's assumed to be set to 'ContainerRunning'. Even though
 	// it's not only supposed to be set when the container is being created, it's
@@ -598,6 +604,38 @@ func (c *Container) GetVolumes() []types.MountPoint {
 	defer c.lock.RUnlock()
 
 	return c.VolumesUnsafe
+}
+
+// SetNetworkSettings sets the networks field in a container
+func (c *Container) SetNetworkSettings(networks *types.NetworkSettings) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.NetworkSettingsUnsafe = networks
+}
+
+// GetNetworkSettings returns the networks field in a container
+func (c *Container) GetNetworkSettings() *types.NetworkSettings {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.NetworkSettingsUnsafe
+}
+
+// SetNetworkMode sets the network mode of the container
+func (c *Container) SetNetworkMode(networkMode string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.NetworkModeUnsafe = networkMode
+}
+
+// GetNetworkMode returns the network mode of the container
+func (c *Container) GetNetworkMode() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.NetworkModeUnsafe
 }
 
 // HealthStatusShouldBeReported returns true if the health check is defined in

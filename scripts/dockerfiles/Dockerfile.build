@@ -15,7 +15,7 @@ FROM golang:1.9
 MAINTAINER Amazon Web Services, Inc.
 
 RUN apt-get update && \
-    apt-get install -y gcc-mingw-w64
+    apt-get install -y --no-install-recommends gcc-mingw-w64
 
 RUN mkdir -p /go/src/github.com/aws/
 

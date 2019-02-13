@@ -2,7 +2,7 @@
   "family": "ecsftest-oom-container",
   "containerDefinitions": [{
     "essential": true,
-    "memory": 10,
+    "memory": 64,
     "name": "error",
     "cpu": 1,
     "image": "127.0.0.1:51670/python:2",

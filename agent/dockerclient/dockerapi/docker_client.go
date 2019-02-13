@@ -771,6 +771,15 @@ func MetadataFromContainer(dockerContainer *types.ContainerJSON) DockerContainer
 		StartedAt:    startedTime,
 		FinishedAt:   finishedTime,
 	}
+
+	if dockerContainer.NetworkSettings != nil {
+		metadata.NetworkSettings = dockerContainer.NetworkSettings
+	}
+
+	if dockerContainer.HostConfig != nil {
+		metadata.NetworkMode = string(dockerContainer.HostConfig.NetworkMode)
+	}
+
 	if dockerContainer.Config != nil {
 		metadata.Labels = dockerContainer.Config.Labels
 	}

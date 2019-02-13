@@ -7,7 +7,7 @@
     "repositoryCredentials": {"credentialsParameter": "$$$REPOSITORY_CREDENTIALS$$$"},
     "name": "private-registry-auth-asm-validator",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "essential": true,
     "command": ["sh", "-c", "exit 42"]
   }]

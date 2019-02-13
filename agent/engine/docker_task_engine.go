@@ -355,6 +355,8 @@ func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, contai
 	if container.HealthStatusShouldBeReported() {
 		container.SetHealthStatus(metadata.Health)
 	}
+	container.SetNetworkMode(metadata.NetworkMode)
+	container.SetNetworkSettings(metadata.NetworkSettings)
 }
 
 // synchronizeContainerStatus checks and updates the container status with docker

@@ -2,7 +2,7 @@
   "family": "ecs-awslogs-datetime-test",
   "containerDefinitions": [{
     "essential": true,
-    "memory": 10,
+    "memory": 64,
     "name": "awslogs-datetime",
     "cpu": 10,
     "image": "busybox:latest",

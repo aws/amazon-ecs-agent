@@ -48,7 +48,29 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		seelog.Infof("V3 task metadata handler: writing response for task '%s'", taskARN)
 
-		// v3 handler shares the same task metadata response format with v2 handler.
-		v2.WriteTaskMetadataResponse(w, taskARN, cluster, state, ecsClient, az, containerInstanceArn, propagateTags)
+		taskResponse, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
+		if err != nil {
+			errResponseJSON, _ := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
+			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskMetadata)
+			return
+		}
+		task, _ := state.TaskByArn(taskARN)
+		if task.GetTaskENI() == nil {
+			// fill in non-awsvpc network details for container responses here
+			responses := make([]v2.ContainerResponse, 0)
+			for _, containerResponse := range taskResponse.Containers {
+				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
+				if err != nil {
+					errResponseJSON, _ := json.Marshal(err.Error())
+					utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
+					return
+				}
+				containerResponse.Networks = networks
+				responses = append(responses, containerResponse)
+			}
+			taskResponse.Containers = responses
+		}
+		responseJSON, _ := json.Marshal(taskResponse)
+		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskMetadata)
 	}
 }
