@@ -91,6 +91,78 @@ func (s Association) GoString() string {
 	return s.String()
 }
 
+type AttachInstanceNetworkInterfacesInput struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s AttachInstanceNetworkInterfacesInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachInstanceNetworkInterfacesInput) GoString() string {
+	return s.String()
+}
+
+type AttachInstanceNetworkInterfacesMessage struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	ElasticNetworkInterfaces []*ElasticNetworkInterface `locationName:"elasticNetworkInterfaces" type:"list"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	WaitTimeoutMs *int64 `locationName:"waitTimeoutMs" type:"long"`
+}
+
+// String returns the string representation
+func (s AttachInstanceNetworkInterfacesMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachInstanceNetworkInterfacesMessage) GoString() string {
+	return s.String()
+}
+
+type AttachInstanceNetworkInterfacesOutput struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s AttachInstanceNetworkInterfacesOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AttachInstanceNetworkInterfacesOutput) GoString() string {
+	return s.String()
+}
+
 type AttachTaskNetworkInterfacesInput struct {
 	_ struct{} `type:"structure"`
 
