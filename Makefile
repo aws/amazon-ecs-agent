@@ -14,7 +14,7 @@
 USERID=$(shell id -u)
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-submodules cni-plugins vpc-cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 all: docker
@@ -27,7 +27,7 @@ gobuild:
 
 # create output directories
 .out-stamp:
-	mkdir -p ./out/test-artifacts ./out/cni-plugins
+	mkdir -p ./out/test-artifacts ./out/cni-plugins ./out/vpc-cni-plugins
 	touch .out-stamp
 
 # Basic go build
@@ -60,7 +60,7 @@ build-in-docker: .builder-image-stamp .out-stamp
 
 # 'docker' builds the agent dockerfile from the current sourcecode tree, dirty
 # or not
-docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
+docker: certs build-in-docker pause-container-release cni-plugins vpc-cni-plugins .out-stamp
 	@cd scripts && ./create-amazon-ecs-scratch
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
@@ -68,7 +68,7 @@ docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
 # TODO: make this idempotent
-docker-release: pause-container-release cni-plugins .out-stamp
+docker-release: pause-container-release cni-plugins vpc-cni-plugins .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
 	@docker run --net=none \
 		--env TARGET_OS="${TARGET_OS}" \
@@ -238,10 +238,24 @@ ECS_CNI_REPOSITORY_REVISION=master
 # Variable to override cni repository location
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 
-get-cni-sources:
+# Variable to override VPC cni repository location
+ECS_VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
+
+get-submodules:
 	git submodule update --init --checkout
 
-cni-plugins: get-cni-sources .out-stamp
+vpc-cni-plugins: get-submodules .out-stamp
+	@docker build -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cniplugins:make" .
+	docker run --rm --net=none \
+		-e GIT_SHORT_HASH=$(shell cd $(ECS_VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
+		-e GIT_PORCELAIN=$(shell cd $(ECS_VPC_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l | sed 's/^ *//') \
+		--user "$(USERID)" \
+		--volume "$(PWD)/out/vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/linux_amd64" \
+		--volume "$(ECS_VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
+		"amazon/amazon-ecs-build-vpc-cniplugins:make"
+	@echo "Built amazon-ecs-build-vpc-cniplugins successfully."
+
+cni-plugins: get-submodules .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
