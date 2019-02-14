@@ -12,6 +12,16 @@
     "uid":"ecsacs-2014-11-13"
   },
   "operations":{
+    "AttachInstanceNetworkInterfaces":{
+      "name":"AttachInstanceNetworkInterfaces",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"AttachInstanceNetworkInterfacesMessage"},
+      "output":{"shape":"AckRequest"},
+      "documentation":"AttachNetworkInterface requests that the Agent look for and confirm the attachment of a network interface by the control plane that is not bound to a specific task."
+    },
     "AttachTaskNetworkInterfaces":{
       "name":"AttachTaskNetworkInterfaces",
       "http":{
@@ -138,13 +148,24 @@
     "AssociationType":{
       "type":"string",
       "enum":[
-        "gpu",
-        "elastic-inference"
+        "elastic-inference",
+        "gpu"
       ]
     },
     "Associations":{
       "type":"list",
       "member":{"shape":"Association"}
+    },
+    "AttachInstanceNetworkInterfacesMessage":{
+      "type":"structure",
+      "members":{
+        "containerInstanceArn":{"shape":"String"},
+        "clusterArn":{"shape":"String"},
+        "generatedAt":{"shape":"Long"},
+        "messageId":{"shape":"String"},
+        "waitTimeoutMs":{"shape":"Long"},
+        "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"}
+      }
     },
     "AttachTaskNetworkInterfacesMessage":{
       "type":"structure",
