@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 
 var isAWSVPCNetworkMode bool
 var checkContainerInstanceTags bool
+var networkModes map[string]bool
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
@@ -264,7 +266,7 @@ func verifyContainerMetadataResponse(containerMetadataRawMsg json.RawMessage) er
 		"Type":          "NORMAL",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"DockerId", "DockerName", "ImageID", "Limits", "CreatedAt", "StartedAt", "Health"}
+	taskExpectedFieldNotEmptyArray := []string{"DockerId", "DockerName", "ImageID", "Limits", "CreatedAt", "StartedAt", "Health", "Networks"}
 
 	for fieldName, fieldVal := range containerExpectedFieldEqualMap {
 		if err = fieldEqual(containerMetadataResponseMap, fieldName, fieldVal); err != nil {
@@ -308,10 +310,6 @@ func verifyLimitResponse(limitRawMsg json.RawMessage) error {
 }
 
 func verifyNetworksResponse(networksRawMsg json.RawMessage) error {
-	// host and bridge network mode
-	if networksRawMsg == nil {
-		return nil
-	}
 
 	var err error
 
@@ -322,23 +320,28 @@ func verifyNetworksResponse(networksRawMsg json.RawMessage) error {
 		networkResponseMap := make(map[string]json.RawMessage)
 		json.Unmarshal(networksResponseArray[0], &networkResponseMap)
 
-		if err = fieldEqual(networkResponseMap, "NetworkMode", "awsvpc"); err != nil {
-			return err
+		var actualFieldVal interface{}
+		json.Unmarshal(networkResponseMap["NetworkMode"], &actualFieldVal)
+
+		if _, ok := networkModes[actualFieldVal.(string)]; !ok {
+			return errors.Errorf("network mode is incorrect: %s", actualFieldVal)
 		}
+		if actualFieldVal != "host" {
+			if err = fieldNotEmpty(networkResponseMap, "IPv4Addresses"); err != nil {
+				return err
+			}
 
-		if err = fieldNotEmpty(networkResponseMap, "IPv4Addresses"); err != nil {
-			return err
+			var ipv4AddressesResponseArray []json.RawMessage
+			json.Unmarshal(networkResponseMap["IPv4Addresses"], &ipv4AddressesResponseArray)
+
+			if len(ipv4AddressesResponseArray) != 1 {
+				return fmt.Errorf("incorrect number of IPv4Addresses, expected 1, received %d",
+					len(ipv4AddressesResponseArray))
+			}
 		}
-
-		var ipv4AddressesResponseArray []json.RawMessage
-		json.Unmarshal(networkResponseMap["IPv4Addresses"], &ipv4AddressesResponseArray)
-
-		if len(ipv4AddressesResponseArray) != 1 {
-			return fmt.Errorf("incorrect number of IPv4Addresses, expected 1, received %d",
-				len(ipv4AddressesResponseArray))
+		if actualFieldVal == "awsvpc" {
+			isAWSVPCNetworkMode = true
 		}
-
-		isAWSVPCNetworkMode = true
 	} else {
 		return fmt.Errorf("incorrect number of networks, expected 1, received %d",
 			len(networksResponseArray))
@@ -414,6 +417,8 @@ func main() {
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
+
+	networkModes = map[string]bool{"awsvpc": true, "bridge": true, "host": true, "default": true}
 
 	// If the image is built with option to check Tags
 	argsWithoutProg := os.Args[1:]

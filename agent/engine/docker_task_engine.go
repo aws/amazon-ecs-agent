@@ -355,6 +355,8 @@ func updateContainerMetadata(metadata *dockerapi.DockerContainerMetadata, contai
 	if container.HealthStatusShouldBeReported() {
 		container.SetHealthStatus(metadata.Health)
 	}
+	container.SetNetworkMode(metadata.NetworkMode)
+	container.SetNetworkSettings(metadata.NetworkSettings)
 }
 
 // synchronizeContainerStatus checks and updates the container status with docker
@@ -665,8 +667,8 @@ func (engine *DockerTaskEngine) GetTaskByArn(arn string) (*apitask.Task, bool) {
 
 func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	switch container.Type {
-	case apicontainer.ContainerCNIPause:
-		// ContainerCNIPause image are managed at startup
+	case apicontainer.ContainerCNIPause, apicontainer.ContainerNamespacePause:
+		// pause images are managed at startup
 		return dockerapi.DockerContainerMetadata{}
 	}
 

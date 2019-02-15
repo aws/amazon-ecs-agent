@@ -6,7 +6,7 @@
          "image":"127.0.0.1:51670/ubuntu:latest",
          "essential":true,
          "cpu":10,
-         "memory":10,
+         "memory": 64,
          "command":[
             "sh",
             "-c",

@@ -29,6 +29,6 @@ func NewLoggingHandler(handler http.Handler) LoggingHandler {
 
 // ServeHTTP logs the method and remote address of the request.
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seelog.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr)
+	seelog.Debug("Handling http request", "method", r.Method, "from", r.RemoteAddr)
 	lh.h.ServeHTTP(w, r)
 }

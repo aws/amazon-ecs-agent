@@ -2816,3 +2816,35 @@ func TestAssociationByTypeAndName(t *testing.T) {
 	association, ok = task.AssociationByTypeAndName("other-type", "dev1")
 	assert.False(t, ok)
 }
+
+func TestTaskGPUEnabled(t *testing.T) {
+	testTask := &Task{
+		Associations: []Association{
+			{
+				Containers: []string{
+					"myName1",
+				},
+				Content: EncodedString{
+					Encoding: "base64",
+					Value:    "val",
+				},
+				Name: "gpu1",
+				Type: "gpu",
+			},
+		},
+	}
+
+	assert.True(t, testTask.isGPUEnabled())
+}
+
+func TestTaskGPUDisabled(t *testing.T) {
+	testTask := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "myName1",
+			},
+		},
+	}
+
+	assert.False(t, testTask.isGPUEnabled())
+}
