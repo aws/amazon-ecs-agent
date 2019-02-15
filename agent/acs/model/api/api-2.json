@@ -203,12 +203,33 @@
         "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"},
-        "secrets":{"shape":"SecretList"}
+        "secrets":{"shape":"SecretList"},
+        "dependsOn":{"shape": "DependsOnList"}
       }
     },
     "ContainerList":{
       "type":"list",
       "member":{"shape":"Container"}
+    },
+    "DependsOn":{
+      "type":"structure",
+      "members":{
+        "container":{"shape":"String"},
+        "condition":{"shape":"ConditionType"}
+      }
+    },
+    "ConditionType":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
+    "DependsOnList":{
+      "type":"list",
+      "member":{"shape":"DependsOn"}
     },
     "DockerConfig":{
       "type":"structure",

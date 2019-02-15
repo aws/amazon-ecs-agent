@@ -38,20 +38,18 @@ func volumeStrToVol(vols []string) []apicontainer.VolumeFrom {
 	return ret
 }
 
-func steadyStateContainer(name string, links, volumes []string, desiredState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
+func steadyStateContainer(name string, dependsOn []apicontainer.DependsOn, desiredState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
 	container := apicontainer.NewContainerWithSteadyState(steadyState)
 	container.Name = name
-	container.Links = links
-	container.VolumesFrom = volumeStrToVol(volumes)
+	container.DependsOn = dependsOn
 	container.DesiredStatusUnsafe = desiredState
 	return container
 }
 
-func createdContainer(name string, links, volumes []string, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
+func createdContainer(name string, dependsOn []apicontainer.DependsOn, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
 	container := apicontainer.NewContainerWithSteadyState(steadyState)
 	container.Name = name
-	container.Links = links
-	container.VolumesFrom = volumeStrToVol(volumes)
+	container.DependsOn = dependsOn
 	container.DesiredStatusUnsafe = apicontainerstatus.ContainerCreated
 	return container
 }
@@ -74,12 +72,12 @@ func TestValidDependencies(t *testing.T) {
 	assert.True(t, resolveable, "One container should resolve trivially")
 
 	// Webserver stack
-	php := steadyStateContainer("php", []string{"db"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []string{}, []string{"dbdatavolume"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	dbdata := createdContainer("dbdatavolume", []string{}, []string{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []string{"php"}, []string{"htmldata"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []string{}, []string{"sharedcssfiles"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{}, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "RUNNING"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "RUNNING"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 
 	task = &apitask.Task{
 		Containers: []*apicontainer.Container{
@@ -95,8 +93,8 @@ func TestValidDependenciesWithCycles(t *testing.T) {
 	// Unresolveable: cycle
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
-			steadyStateContainer("a", []string{"b"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
-			steadyStateContainer("b", []string{"a"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("a", []apicontainer.DependsOn{{Container: "b", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("b", []apicontainer.DependsOn{{Container: "a", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
 	resolveable := ValidDependencies(task)
@@ -107,12 +105,13 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 	// Unresolveable, reference doesn't exist
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
-			steadyStateContainer("php", []string{"db"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
 	resolveable := ValidDependencies(task)
 	assert.False(t, resolveable, "Nonexistent reference shouldn't resolve")
 }
+
 
 func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	task := &apitask.Task{
@@ -127,12 +126,12 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
-	php := steadyStateContainer("php", []string{"db"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []string{}, []string{"dbdatavolume"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	dbdata := createdContainer("dbdatavolume", []string{}, []string{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []string{"php"}, []string{"htmldata"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []string{}, []string{"sharedcssfiles"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{}, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "RUNNING"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "RUNNING"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 
 	task = &apitask.Task{
 		Containers: []*apicontainer.Container{
@@ -149,17 +148,17 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "data volume with no deps should resolve")
 
-	dbdata.KnownStatusUnsafe = apicontainerstatus.ContainerCreated
+	dbdata.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Php shouldn't run, db is not created")
 
-	db.KnownStatusUnsafe = apicontainerstatus.ContainerCreated
+	db.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.Error(t, err, "Php shouldn't run, db is not running")
 
 	err = DependenciesAreResolved(db, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "db should be resolved, dbdata volume is Created")
-	db.KnownStatusUnsafe = apicontainerstatus.ContainerRunning
+	db.SetKnownStatus(apicontainerstatus.ContainerRunning)
 
 	err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
 	assert.NoError(t, err, "Php should resolve")
@@ -182,23 +181,24 @@ func TestRunDependencies(t *testing.T) {
 	task.Containers[1].SetDesiredStatus(apicontainerstatus.ContainerRunning)
 	assert.Error(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should not be resolved")
 
-	task.Containers[0].KnownStatusUnsafe = apicontainerstatus.ContainerRunning
+	task.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
 	assert.NoError(t, DependenciesAreResolved(c2, task.Containers, "", nil, nil), "Dependencies should be resolved")
 
 	task.Containers[1].SetDesiredStatus(apicontainerstatus.ContainerCreated)
 	assert.NoError(t, DependenciesAreResolved(c1, task.Containers, "", nil, nil), "Dependencies should be resolved")
 }
 
+
 func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *testing.T) {
 	// Webserver stack
-	php := steadyStateContainer("php", []string{"db"}, []string{}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []string{}, []string{"dbdatavolume"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	dbdata := createdContainer("dbdatavolume", []string{}, []string{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []string{"php"}, []string{"htmldata"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []string{}, []string{"sharedcssfiles"}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	sharedcssfiles := createdContainer("sharedcssfiles", []string{}, []string{}, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "START"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 	// The Pause container, being added to the webserver stack
-	pause := steadyStateContainer("pause", []string{}, []string{}, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerResourcesProvisioned)
+	pause := steadyStateContainer("pause", []apicontainer.DependsOn{}, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerResourcesProvisioned)
 
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
@@ -240,156 +240,6 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 	assert.NoError(t, err, "Php should resolve")
 }
 
-func TestVolumeCanResolve(t *testing.T) {
-	testcases := []struct {
-		TargetDesired apicontainerstatus.ContainerStatus
-		VolumeDesired apicontainerstatus.ContainerStatus
-		Resolvable    bool
-	}{
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeDesired: apicontainerstatus.ContainerStatusNone,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeDesired: apicontainerstatus.ContainerCreated,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeDesired: apicontainerstatus.ContainerRunning,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeDesired: apicontainerstatus.ContainerStopped,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeDesired: apicontainerstatus.ContainerZombie,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeDesired: apicontainerstatus.ContainerStatusNone,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeDesired: apicontainerstatus.ContainerCreated,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeDesired: apicontainerstatus.ContainerRunning,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeDesired: apicontainerstatus.ContainerStopped,
-			Resolvable:    true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeDesired: apicontainerstatus.ContainerZombie,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerStatusNone,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerStopped,
-			Resolvable:    false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerZombie,
-			Resolvable:    false,
-		},
-	}
-	for _, tc := range testcases {
-		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeDesired.String()),
-			assertCanResolve(volumeCanResolve, tc.TargetDesired, tc.VolumeDesired, tc.Resolvable))
-	}
-}
-
-func TestVolumeIsResolved(t *testing.T) {
-	testcases := []struct {
-		TargetDesired apicontainerstatus.ContainerStatus
-		VolumeKnown   apicontainerstatus.ContainerStatus
-		Resolved      bool
-	}{
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeKnown:   apicontainerstatus.ContainerStatusNone,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeKnown:   apicontainerstatus.ContainerCreated,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeKnown:   apicontainerstatus.ContainerRunning,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeKnown:   apicontainerstatus.ContainerStopped,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerCreated,
-			VolumeKnown:   apicontainerstatus.ContainerZombie,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeKnown:   apicontainerstatus.ContainerStatusNone,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeKnown:   apicontainerstatus.ContainerCreated,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeKnown:   apicontainerstatus.ContainerRunning,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeKnown:   apicontainerstatus.ContainerStopped,
-			Resolved:      true,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerRunning,
-			VolumeKnown:   apicontainerstatus.ContainerZombie,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerStatusNone,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerStopped,
-			Resolved:      false,
-		},
-		{
-			TargetDesired: apicontainerstatus.ContainerZombie,
-			Resolved:      false,
-		},
-	}
-	for _, tc := range testcases {
-		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.VolumeKnown.String()),
-			assertResolved(volumeIsResolved, tc.TargetDesired, tc.VolumeKnown, tc.Resolved))
-	}
-}
-
 func TestOnSteadyStateIsResolved(t *testing.T) {
 	testcases := []struct {
 		TargetDesired apicontainerstatus.ContainerStatus
@@ -423,19 +273,6 @@ func TestOnSteadyStateIsResolved(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+R:%s", tc.TargetDesired.String(), tc.RunKnown.String()),
 			assertResolved(onSteadyStateIsResolved, tc.TargetDesired, tc.RunKnown, tc.Resolved))
-	}
-}
-
-func assertCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, expectedResolvable bool) func(t *testing.T) {
-	return func(t *testing.T) {
-		target := &apicontainer.Container{
-			DesiredStatusUnsafe: targetDesired,
-		}
-		dep := &apicontainer.Container{
-			DesiredStatusUnsafe: depKnown,
-		}
-		resolvable := f(target, dep)
-		assert.Equal(t, expectedResolvable, resolvable)
 	}
 }
 
@@ -728,3 +565,197 @@ func TestTransitionDependencyResourceNotFound(t *testing.T) {
 	resolved := verifyTransitionDependenciesResolved(target, nil, resources)
 	assert.Equal(t, ErrResourceDependencyNotResolved, resolved)
 }
+
+func TestContainerOrderingCanResolve(t *testing.T) {
+	testcases := []struct {
+		TargetDesired apicontainerstatus.ContainerStatus
+		DependencyDesired apicontainerstatus.ContainerStatus
+		DependencyCondition string
+		Resolvable    bool
+	}{
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyDesired: apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: "START",
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyDesired: apicontainerstatus.ContainerStopped,
+			DependencyCondition: "START",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyDesired: apicontainerstatus.ContainerZombie,
+			DependencyCondition: "START",
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: "START",
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerCreated,
+			DependencyCondition: "START",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerRunning,
+			DependencyCondition: "START",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerStopped,
+			DependencyCondition: "START",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyDesired: apicontainerstatus.ContainerCreated,
+			DependencyCondition: "RUNNING",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerRunning,
+			DependencyCondition: "RUNNING",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyDesired: apicontainerstatus.ContainerRunning,
+			DependencyCondition: "RUNNING",
+			Resolvable:    true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyDesired: apicontainerstatus.ContainerZombie,
+			DependencyCondition: "RUNNING",
+			Resolvable:    false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerStatusNone,
+			DependencyDesired: apicontainerstatus.ContainerStopped,
+			DependencyCondition: "RUNNING",
+			Resolvable:    false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyDesired.String()),
+			assertContainerOrderingCanResolve(containerOrderingDependenciesCanResolve, tc.TargetDesired,
+												tc.DependencyDesired, tc.DependencyCondition, tc.Resolvable))
+	}
+}
+
+func TestContainerOrderingIsResolved(t *testing.T) {
+	testcases := []struct {
+		TargetDesired apicontainerstatus.ContainerStatus
+		DependencyKnown   apicontainerstatus.ContainerStatus
+		DependencyCondition string
+		Resolved      bool
+	}{
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: "START",
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerCreated,
+			DependencyCondition: "START",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyKnown:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: "START",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerStopped,
+			DependencyCondition: "START",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyKnown:   apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: "START",
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyKnown:   apicontainerstatus.ContainerCreated,
+			DependencyCondition: "START",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerCreated,
+			DependencyCondition: "RUNNING",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: "RUNNING",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerCreated,
+			DependencyKnown:   apicontainerstatus.ContainerZombie,
+			DependencyCondition: "RUNNING",
+			Resolved:      false,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyKnown:   apicontainerstatus.ContainerRunning,
+			DependencyCondition: "RUNNING",
+			Resolved:      true,
+		},
+		{
+			TargetDesired: apicontainerstatus.ContainerRunning,
+			DependencyKnown:   apicontainerstatus.ContainerZombie,
+			DependencyCondition: "RUNNING",
+			Resolved:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyKnown.String()),
+			assertContainerOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnown, tc.DependencyCondition, tc.Resolved))
+	}
+}
+
+func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, expectedResolvable bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &apicontainer.Container{
+			DesiredStatusUnsafe: targetDesired,
+		}
+		dep := &apicontainer.Container{
+			DesiredStatusUnsafe: depKnown,
+		}
+		resolvable := f(target, dep, depCond)
+		assert.Equal(t, expectedResolvable, resolvable)
+	}
+}
+
+func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, expectedResolved bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &apicontainer.Container{
+			DesiredStatusUnsafe: targetDesired,
+		}
+		dep := &apicontainer.Container{
+			KnownStatusUnsafe: depKnown,
+		}
+		resolved := f(target, dep, depCond)
+		assert.Equal(t, expectedResolved, resolved)
+	}
+}
+
