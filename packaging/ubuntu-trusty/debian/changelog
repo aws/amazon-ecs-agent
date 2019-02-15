@@ -1,3 +1,9 @@
+amazon-ecs-init (1.25.3-1) trusty; urgency=medium
+
+   * Cache Agent version 1.25.3
+
+   -- Ray Allan <fierlion@amazon.com> Fri, 15 Feb 2019 11:30:00 -0800
+
 amazon-ecs-init (1.25.2-1) trusty; urgency=medium
 
    * Cache Agent version 1.25.2
