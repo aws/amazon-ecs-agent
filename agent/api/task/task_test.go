@@ -2945,7 +2945,7 @@ func TestInitializeContainerOrderingWithError(t *testing.T) {
 	assert.Error(t, errLink2)
 }
 
-func TestPostUnmarshalPerContainerTimeouts(t *testing.T) {
+func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
 	modelTimeout := int64(10)
 	expectedTimeout := uint(modelTimeout)
 

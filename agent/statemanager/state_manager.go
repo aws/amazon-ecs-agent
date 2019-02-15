@@ -78,7 +78,10 @@ const (
 	//   a) Add 'Associations' field to 'api.task.task'
 	//   b) Add 'GPUIDs' field to 'apicontainer.Container'
 	//   c) Add 'NvidiaRuntime' field to 'api.task.task'
-	// 20) Add 'DependsOn' field to 'apicontainer.Container'
+	// 20)
+	//   a) Add 'DependsOn' field to 'apicontainer.Container'
+	//   b) Add 'StartTime' field to 'api.container.Container'
+	//   c) Add 'StopTime' field to 'api.container.Container'
 	ECSDataVersion = 20
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
