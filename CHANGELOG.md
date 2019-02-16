@@ -1,6 +1,17 @@
 # Changelog
 
-## 1.25.0 -dev
+## 1.25.3
+* Bug - Fixed a bug where agent no longer redirected malformed credentials or metadata http requests [#1844](https://github.com/aws/amazon-ecs-agent/pull/1844)
+* Bug - Populate v3 metadata networks response for non-awsvpc tasks [#1833](https://github.com/aws/amazon-ecs-agent/pull/1833)
+* Bug - Avoid image pull behavior type check for container namespaces pause image [#1840](https://github.com/aws/amazon-ecs-agent/pull/1840)
+
+## 1.25.2
+* Bug - Update pull image retry to longer interval to mitigate being throttled by ECR [#1808](https://github.com/aws/amazon-ecs-agent/pull/1808)
+
+## 1.25.1
+* Bug - Update ecr models for private link support
+
+## 1.25.0
 * Feature - Add Nvidia GPU support for p2 and p3 instances
 * Feature - Introduce `ECS_DISABLE_DOCKER_HEALTH_CHECK` to make docker health check configurable [#1624](https://github.com/aws/amazon-ecs-agent/pull/1624)
 

@@ -123,7 +123,7 @@ push_multi-arch_manifest_docker_hub() {
 		# Replace the tags in multi-arch.yaml
 		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
 		# Generate the manifest list and push to docker hub
-		./manifest-tool push from-spec multi-arch-temp.yaml
+		dryval ./manifest-tool push from-spec multi-arch-temp.yaml
 		rm multi-arch-temp.yaml
 	done
 

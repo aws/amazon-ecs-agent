@@ -1427,3 +1427,45 @@ func TestElasticInferenceValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("container_1")
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42 for container; got %d", exitCode))
 }
+
+// TestServerEndpointValidator tests the workflow of task server endpoint
+func TestServerEndpointValidator(t *testing.T) {
+	// The test runs only when the environment TEST_IAM_ROLE was set
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE_NET_HOST") == "true" {
+		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_DISABLE_TASK_IAM_ROLE_NET_HOST is set true")
+	}
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
+			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
+		},
+		PortBindings: map[nat.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		require.NoError(t, err, "Error getting IAM Roles from instance profile")
+		roleArn = *role.Arn
+	}
+	tdOverride := make(map[string]string)
+	tdOverride["$$$TASK_ROLE$$$"] = roleArn
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "task-server-endpoint-validator", tdOverride)
+	require.NoError(t, err, "Error start task-server-endpoint-validator task")
+
+	err = task.WaitStopped(10 * time.Minute)
+	assert.NoError(t, err)
+	code, ok := task.ContainerExitcode("task_server_endpoint_validator_container")
+	assert.True(t, ok, "Get exit code failed")
+	assert.Equal(t, 42, code, "Wrong exit code")
+}

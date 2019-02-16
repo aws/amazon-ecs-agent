@@ -324,6 +324,15 @@ func (task *Task) addGPUResource() error {
 	return nil
 }
 
+func (task *Task) isGPUEnabled() bool {
+	for _, association := range task.Associations {
+		if association.Type == GPUAssociationType {
+			return true
+		}
+	}
+	return false
+}
+
 func (task *Task) populateGPUEnvironmentVariables() {
 	for _, container := range task.Containers {
 		if len(container.GPUIDs) > 0 {
@@ -997,7 +1006,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		Resources:    resources,
 	}
 
-	if task.shouldRequireNvidiaRuntime(container) {
+	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
 		if task.NvidiaRuntime == "" {
 			return nil, &apierrors.HostConfigError{"Runtime is not set for GPU containers"}
 		}

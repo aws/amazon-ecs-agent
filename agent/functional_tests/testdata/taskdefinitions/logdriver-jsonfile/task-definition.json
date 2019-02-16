@@ -3,7 +3,7 @@
   "containerDefinitions": [{
     "image": "busybox:latest",
     "name": "exit",
-    "memory": 10,
+    "memory": 64,
     "cpu": 10,
     "logConfiguration": {
       "logDriver": "json-file",

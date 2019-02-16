@@ -24,8 +24,8 @@ import (
 
 func TestGetClientConfigEndpointOverride(t *testing.T) {
 	testAuthData := &apicontainer.ECRAuthData{
-		EndpointOverride: "ecr.us-west-2.amazonaws.com",
-		Region: "us-west-2",
+		EndpointOverride: "api.ecr.us-west-2.amazonaws.com",
+		Region:           "us-west-2",
 		UseExecutionRole: false,
 	}
 
@@ -34,4 +34,3 @@ func TestGetClientConfigEndpointOverride(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, testAuthData.EndpointOverride, *cfg.Endpoint)
 }
-
