@@ -14,7 +14,6 @@ package handler
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -213,7 +212,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 		// Adding the eni information to the task struct
 		if len(task.ElasticNetworkInterfaces) != 0 {
 			eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces)
-			trunceni, _ := apieni.TruncENIfromACS(task.ElasticNetworkInterfaces)
+			trunkeni, _ := apieni.TruncENIfromACS(task.ElasticNetworkInterfaces)
 
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
@@ -222,7 +221,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 
 			apiTask.SetTaskENI(eni)
-			apiTask.SetTrunkENI(trunceni)
+			apiTask.SetTrunkENI(trunkeni)
 		}
 
 		if task.ExecutionRoleCredentials != nil {

@@ -698,7 +698,6 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 
 	cfg := &ecscni.Config{}
 	eni := task.GetTaskENI()
-	trunceni := task.GetTrunkENI()
 
 	cfg.ENIID = eni.ID
 	cfg.ID = eni.MacAddress
