@@ -114,7 +114,7 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
 	// Invoke eni plugin ADD command based on the type of eni plugin
-	if cfg.ENIType == "branch-eni" {
+	if cfg.ENIType == "vlan-tagged" {
 		result, err := client.add(runtimeConfig, cfg, client.createBranchENINetworkConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "cni setup: invoke branch eni plugin failed")
@@ -330,12 +330,17 @@ func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.Ne
 
 func (client *cniClient) createBranchENINetworkConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
 	eniConf := BranchENIConfig{
-		Type:            cfg.ENIType,
-		CNIVersion:      client.cniVersion,
-		TrunkName:       cfg.TrunkName,
-		TrunkMACAddress: cfg.TrunkMACAddress,
+		TrunkName:                cfg.TrunkName,
+		TrunkMACAddress:          cfg.TrunkMACAddress,
+		Type:                     ECSBranchENIPluginName,
+		CNIVersion:               client.cniVersion,
+		BranchVlanID:             cfg.ENIID,
+		BranchIPAddress:          cfg.ENIIPV4Address,
+		BranchMACAddress:         cfg.ENIMACAddress,
+		BlockInstanceMetdata:     cfg.BlockInstanceMetdata,
+		SubnetGatewayIPV4Address: cfg.SubnetGatewayIPV4Address,
 	}
-	networkConfig, err := client.constructNetworkConfig(eniConf, cfg.ENIType)
+	networkConfig, err := client.constructNetworkConfig(eniConf, ECSBranchENIPluginName)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "createENINetworkConfig: construct the eni network configuration failed")
 	}

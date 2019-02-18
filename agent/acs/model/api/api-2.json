@@ -238,18 +238,28 @@
         "useExecutionRole":{"shape":"Boolean"}
       }
     },
-    "NetworkInterfaceType": {
+
+    "ElasticNetworkInterfaceType": {
       "type": "string",
       "enum": [
-        "eni",
-        "branch-eni"
+        "standard",
+        "vlan-tagged"
       ]
+    },
+
+    "NetworkInterfaceVlanProperties": {
+      "type": "structure",
+      "members": {
+        "vlanId":{"shape":"String"},
+        "trunkInterfaceMacAddress":{"shape":"String"}
+      }
     },
 
     "ElasticNetworkInterface":{
       "type":"structure",
       "members":{
-        "interfaceType": {"shape": "NetworkInterfaceType"},
+        "interfaceType": {"shape": "ElasticNetworkInterfaceType"},
+        "interfaceVlanProperties": {"shape": "NetworkInterfaceVlanProperties"},
         "macAddress":{"shape":"String"},
         "attachmentArn":{"shape":"String"},
         "ec2Id":{"shape":"String"},

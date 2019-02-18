@@ -149,6 +149,12 @@ type BranchENIConfig struct {
 	BranchGatewayIPAddress string `json:"branchGatewayIPAddress"`
 	// InterfaceType is the type of the interface to connect the branch ENI to
 	InterfaceType string `json:"interfaceType,omitempty"`
+	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
+	// blocked
+	BlockInstanceMetdata bool `json:"block-instance-metadata"`
+	// SubnetGatewayIPV4Address specifies the ipv4 address of the subnet gateway
+	// for the ENI
+	SubnetGatewayIPV4Address string `json:"subnetgateway-ipv4-address"`
 }
 
 

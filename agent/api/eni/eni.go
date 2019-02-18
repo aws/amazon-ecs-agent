@@ -26,7 +26,7 @@ import (
 type ENI struct {
 	// ID is the id of eni
 	ID string `json:"ec2Id"`
-	// ENIType is the type of ENI, valid value: "eni", "branch-eni"
+	// ENIType is the type of ENI, valid value: "standard", "vlan-tagged"
 	ENIType string `json:",omitempty"`
 	// IPV4Addresses is the ipv4 address associated with the eni
 	IPV4Addresses []*ENIIPV4Address
@@ -49,9 +49,8 @@ type ENI struct {
 }
 
 const (
-	regularENIName = "eni"
-	branchENIName  = "branch-eni"
-	trunkENIName   = "trunk-eni"
+	regularENIName = "standard"
+	branchENIName  = "vlan-tagged"
 )
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
@@ -116,7 +115,7 @@ type ENIIPV6Address struct {
 }
 
 // ENIFromACS validates the information from acs message and create the ENI object
-func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype string) (*ENI, error) {
+func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 	err := ValidateTaskENI(acsenis)
 	if err != nil {
 		return nil, err
@@ -126,7 +125,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype st
 	var ipv6 []*ENIIPV6Address
 
 	// Read ipv4 address information of the eni
-	for _, ec2Ipv4 := range acsenis[index].Ipv4Addresses {
+	for _, ec2Ipv4 := range acsenis[0].Ipv4Addresses {
 		ipv4 = append(ipv4, &ENIIPV4Address{
 			Primary: aws.BoolValue(ec2Ipv4.Primary),
 			Address: aws.StringValue(ec2Ipv4.PrivateAddress),
@@ -134,7 +133,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype st
 	}
 
 	// Read ipv6 address information of the eni
-	for _, ec2Ipv6 := range acsenis[index].Ipv6Addresses {
+	for _, ec2Ipv6 := range acsenis[0].Ipv6Addresses {
 		ipv6 = append(ipv6, &ENIIPV6Address{
 			Address: aws.StringValue(ec2Ipv6.Address),
 		})
@@ -147,7 +146,7 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype st
 		MacAddress:               aws.StringValue(acsenis[0].MacAddress),
 		PrivateDNSName:           aws.StringValue(acsenis[0].PrivateDnsName),
 		SubnetGatewayIPV4Address: aws.StringValue(acsenis[0].SubnetGatewayIpv4Address),
-		ENIType:                  enitype,
+		ENIType:                  aws.StringValue(acsenis[0].InterfaceType),
 	}
 
 	for _, nameserverIP := range acsenis[0].DomainNameServers {
@@ -160,17 +159,17 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface, index int, enitype st
 	return eni, nil
 }
 
-// Get the type of eni based on interfaces received in ACS payload
-func GetENIType(acsenis []*ecsacs.ElasticNetworkInterface) (string) {
-	enitype := ""
-	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
-
-	if regularENI == 1 {
-		enitype = regularENIName
-	} else if branchENI == 1 && trunkENI == 1 {
-		enitype = branchENIName
+func TruncENIfromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
+	if aws.StringValue(acsenis[0].InterfaceType) == "vlan-tagged" {
+		truncENI := &ENI{
+			ID:         aws.StringValue(acsenis[0].InterfaceVlanProperties.VlanId),
+			MacAddress: aws.StringValue(acsenis[0].InterfaceVlanProperties.TrunkInterfaceMacAddress),
+			ENIType:    branchENIName,
+		}
+		return truncENI, nil
 	}
-	return enitype
+
+	return nil, nil
 }
 
 // ValidateTaskENI validates the eni informaiton sent from acs
@@ -178,7 +177,9 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	// Only one eni should be associated with the task
 	// Only one ipv4 should be associated with the eni
 	// No more than one ipv6 should be associated with the eni
-	if len(acsenis[0].Ipv4Addresses) != 1 {
+	if len(acsenis) != 1 {
+		return errors.Errorf("eni message validation: more than one ENIs in the message(%d)", len(acsenis))
+	} else if len(acsenis[0].Ipv4Addresses) != 1 {
 		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)", len(acsenis[0].Ipv4Addresses))
 	} else if len(acsenis[0].Ipv6Addresses) > 1 {
 		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
@@ -192,38 +193,5 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 		return errors.Errorf("eni message validation: empty eni id in the message")
 	}
 
-	err := validateENITrunking(acsenis)
-	return err
-}
-
-// Get the count of each type of ENI in ACS payload
-func getENITypeCount(acsenis []*ecsacs.ElasticNetworkInterface) (int, int, int) {
-	trunkENI := 0
-	branchENI := 0
-	regularENI := 0
-
-	for _, eni := range acsenis {
-
-		if aws.StringValue(eni.InterfaceType) == regularENIName {
-			regularENI++
-
-		} else if aws.StringValue(eni.InterfaceType) == branchENIName {
-			branchENI++
-
-		} else if aws.StringValue(eni.InterfaceType) == trunkENIName {
-			trunkENI++
-		}
-	}
-	return regularENI, branchENI, trunkENI
-}
-
-// Checks for the invalid cases for the branch eni and trunk eni
-func validateENITrunking(acsenis []*ecsacs.ElasticNetworkInterface) (error) {
-	regularENI, branchENI, trunkENI := getENITypeCount(acsenis)
-
-	if (branchENI == 1 && trunkENI == 1) || (regularENI == 1) {
-		return nil
-	}
-
-	return errors.Errorf("Invalid ENIs. Branch: %d, Trunk: %d, Regular: %d", branchENI, trunkENI, regularENI)
+	return nil
 }

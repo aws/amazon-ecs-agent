@@ -212,39 +212,17 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 		// Adding the eni information to the task struct
 		if len(task.ElasticNetworkInterfaces) != 0 {
-			enitype := apieni.GetENIType(task.ElasticNetworkInterfaces)
-			if enitype == "eni" {
-				eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, enitype)
-				if err != nil {
-					payloadHandler.handleUnrecognizedTask(task, err, payload)
-					allTasksOK = false
-					continue
-				}
+			eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces)
+			trunceni, _ := apieni.TruncENIfromACS(task.ElasticNetworkInterfaces)
 
-				apiTask.SetTaskENI(eni)
-			} else {
-
-				// Under the assumption that branch-eni will the first and trunk-eni will second in the list.
-				// Subject to change after the model is decided
-				eni, err := apieni.ENIFromACS(task.ElasticNetworkInterfaces, 0, "branch-eni")
-				if err != nil {
-					payloadHandler.handleUnrecognizedTask(task, err, payload)
-					allTasksOK = false
-					continue
-				}
-
-				apiTask.SetTaskENI(eni)
-
-				eni, err = apieni.ENIFromACS(task.ElasticNetworkInterfaces, 1, "eni")
-				if err != nil {
-					payloadHandler.handleUnrecognizedTask(task, err, payload)
-					allTasksOK = false
-					continue
-				}
-
-				apiTask.SetTrunkENI(eni)
-
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
 			}
+
+			apiTask.SetTaskENI(eni)
+			apiTask.SetTrunkENI(trunceni)
 		}
 
 		if task.ExecutionRoleCredentials != nil {
