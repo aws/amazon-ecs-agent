@@ -57,16 +57,9 @@ var (
 	ErrResourceDependencyNotResolved = errors.New("dependency graph: dependency on resources not resolved")
 )
 
-// Because a container may depend on another container being created
-// (volumes-from) or running (links) it makes sense to abstract it out
-// to each container having dependencies on another container being in any
-// particular state set. For now, these are resolved here and support only
-// volume/link (created/run)
-
 // ValidDependencies takes a task and verifies that it is possible to allow all
 // containers within it to reach the desired status by proceeding in some
-// order.  ValidDependencies is called during DockerTaskEngine.AddTask to
-// verify that a startup order can exist.
+// order.
 func ValidDependencies(task *apitask.Task) bool {
 	unresolved := make([]*apicontainer.Container, len(task.Containers))
 	resolved := make([]*apicontainer.Container, 0, len(task.Containers))
@@ -150,6 +143,14 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	}
 	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
 		return nil, err
+	}
+
+	// If the target is desired terminal and isn't stopped, we should validate that it doesn't have any containers
+	// that are dependent on it that need to shut down first.
+	if target.DesiredTerminal() && !target.KnownTerminal() {
+		if err := verifyShutdownOrder(target, nameMap); err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
@@ -375,6 +376,31 @@ func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) b
 	return dependsOnContainerDesiredStatus == apicontainerstatus.ContainerCreated ||
 		dependsOnContainerDesiredStatus == apicontainerstatus.ContainerStopped ||
 		dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
+}
+
+func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container) error {
+	// We considered adding this to the task state, but this will be at most 45 loops,
+	// so we err'd on the side of having less state.
+	missingShutdownDependencies := []string{}
+
+	for _, existingContainer := range existingContainers {
+		for _, dependency := range existingContainer.DependsOn {
+			// If another container declares a dependency on our target, we will want to verify that the container is
+			// stopped.
+			if dependency.Container == target.Name {
+				if !existingContainer.KnownTerminal() {
+					missingShutdownDependencies = append(missingShutdownDependencies, existingContainer.Name)
+				}
+			}
+		}
+	}
+
+	if len(missingShutdownDependencies) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("dependency graph: target %s needs other containers stopped before it can stop: [%s]",
+		target.Name, strings.Join(missingShutdownDependencies, "], ["))
 }
 
 func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.Container) bool {

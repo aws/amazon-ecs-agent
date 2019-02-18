@@ -883,3 +883,85 @@ func assertContainerOrderingHealthyConditionResolved(f func(target *apicontainer
 		assert.Equal(t, expectedResolved, resolved)
 	}
 }
+
+func dependsOn(vals ...string) []apicontainer.DependsOn {
+	d := make([]apicontainer.DependsOn, len(vals))
+	for i, val := range vals {
+		d[i] = apicontainer.DependsOn{Container: val}
+	}
+	return d
+}
+
+// TestVerifyShutdownOrder validates that the shutdown graph works in the inverse order of the startup graph
+// This test always uses a running target
+func TestVerifyShutdownOrder(t *testing.T) {
+
+	// dependencies aren't transitive, so we can check multiple levels within here
+	others := map[string]*apicontainer.Container{
+		"A": {
+			Name:              "A",
+			DependsOn:         dependsOn("B"),
+			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+		},
+		"B": {
+			Name:              "B",
+			DependsOn:         dependsOn("C", "D"),
+			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+		},
+		"C": {
+			Name:              "C",
+			DependsOn:         dependsOn("E", "F"),
+			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+		},
+		"D": {
+			Name:              "D",
+			DependsOn:         dependsOn("E"),
+			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+		},
+	}
+
+	testCases := []struct {
+		TestName      string
+		TargetName    string
+		ShouldResolve bool
+	}{
+		{
+			TestName:      "Dependency is already stopped",
+			TargetName:    "F",
+			ShouldResolve: true,
+		},
+		{
+			TestName:      "Running with a running dependency",
+			TargetName:    "D",
+			ShouldResolve: false,
+		},
+		{
+			TestName:      "One dependency running, one stopped",
+			TargetName:    "E",
+			ShouldResolve: false,
+		},
+		{
+			TestName:      "No dependencies declared",
+			TargetName:    "Z",
+			ShouldResolve: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.TestName, func(t *testing.T) {
+			// create a target container
+			target := &apicontainer.Container{
+				Name:                tc.TargetName,
+				KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+				DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+			}
+
+			// Validation
+			if tc.ShouldResolve {
+				assert.NoError(t, verifyShutdownOrder(target, others))
+			} else {
+				assert.Error(t, verifyShutdownOrder(target, others))
+			}
+		})
+	}
+}
