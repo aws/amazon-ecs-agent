@@ -961,6 +961,8 @@ type Secret struct {
 	Type *string `locationName:"type" type:"string" enum:"SecretType"`
 
 	ValueFrom *string `locationName:"valueFrom" type:"string"`
+
+	Target string `locationName:"target" type:"string"`
 }
 
 // String returns the string representation
