@@ -1271,7 +1271,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().StopContainer(gomock.Any(),
 			containerID,
-			defaultConfig.DockerStopTimeout+dockerclient.StopContainerTimeout,
+			defaultConfig.DockerStopTimeout,
 		).Return(dockerapi.DockerContainerMetadata{}),
 	)
 

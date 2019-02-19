@@ -204,7 +204,9 @@
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"},
         "secrets":{"shape":"SecretList"},
-        "dependsOn":{"shape": "DependsOnList"}
+        "dependsOn":{"shape": "DependsOnList"},
+        "startTimeout":{"shape":"Integer"},
+        "stopTimeout":{"shape":"Integer"}
       }
     },
     "ContainerList":{

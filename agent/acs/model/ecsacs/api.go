@@ -238,6 +238,10 @@ type Container struct {
 
 	Secrets []*Secret `locationName:"secrets" type:"list"`
 
+	StartTimeout *int64 `locationName:"startTimeout" type:"integer"`
+
+	StopTimeout *int64 `locationName:"stopTimeout" type:"integer"`
+
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 }
 

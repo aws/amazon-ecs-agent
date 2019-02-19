@@ -955,7 +955,13 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 		}
 	}
 	startContainerBegin := time.Now()
-	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
+
+	ctxTimeoutStartContainer := container.GetStartTimeout()
+	if ctxTimeoutStartContainer <= 0 {
+		ctxTimeoutStartContainer = engine.cfg.ContainerStartTimeout
+	}
+
+	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, ctxTimeoutStartContainer)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
@@ -1095,9 +1101,13 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 		}
 		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
-	// timeout is defined by the const 'stopContainerTimeout' and the 'DockerStopTimeout' in the config
-	timeout := engine.cfg.DockerStopTimeout + dockerclient.StopContainerTimeout
-	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, timeout)
+
+	apiTimeoutStopContainer := container.GetStopTimeout()
+	if apiTimeoutStopContainer <= 0 {
+		apiTimeoutStopContainer = engine.cfg.DockerStopTimeout
+	}
+
+	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, apiTimeoutStopContainer)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *apicontainer.Container) error {

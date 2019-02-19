@@ -140,6 +140,12 @@ type Container struct {
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
+	// StartTimeout specifies the time the agent waits for StartContainer api call
+	// before timing out
+	StartTimeout uint
+	// StopTimeout specifies the time value to be passed as StopContainer api call
+	StopTimeout uint
+
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 
@@ -866,4 +872,18 @@ func (c *Container) HasSecretAsEnv() bool {
 		}
 	}
 	return false
+}
+
+func (c *Container) GetStartTimeout() time.Duration {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return time.Duration(c.StartTimeout) * time.Second
+}
+
+func (c *Container) GetStopTimeout() time.Duration {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return time.Duration(c.StopTimeout) * time.Second
 }

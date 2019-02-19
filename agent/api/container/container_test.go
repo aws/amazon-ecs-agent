@@ -327,7 +327,7 @@ func TestMergeEnvironmentVariables(t *testing.T) {
 		},
 
 		{
-			Name: "merge single item to nil container env var map",
+			Name:                   "merge single item to nil container env var map",
 			InContainerEnvironment: nil,
 			InEnvVarMap: map[string]string{
 				"SECRET1": "secret1"},
@@ -357,7 +357,7 @@ func TestMergeEnvironmentVariables(t *testing.T) {
 		},
 
 		{
-			Name: "merge nil to nil container env var map",
+			Name:                   "merge nil to nil container env var map",
 			InContainerEnvironment: nil,
 			InEnvVarMap:            nil,
 			OutEnvVarMap:           map[string]string{},
@@ -454,4 +454,17 @@ func TestHasSecretAsEnv(t *testing.T) {
 		assert.Equal(t, test.out, container.HasSecretAsEnv())
 	}
 
+}
+
+func TestPerContainerTimeouts(t *testing.T) {
+	timeout := uint(10)
+	expectedTimeout := time.Duration(timeout) * time.Second
+
+	container := Container{
+		StartTimeout: timeout,
+		StopTimeout:  timeout,
+	}
+
+	assert.Equal(t, container.GetStartTimeout(), expectedTimeout)
+	assert.Equal(t, container.GetStopTimeout(), expectedTimeout)
 }

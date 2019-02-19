@@ -2845,28 +2845,27 @@ func TestTaskGPUDisabled(t *testing.T) {
 			},
 		},
 	}
-
 	assert.False(t, testTask.isGPUEnabled())
 }
 
 func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 	containerWithOnlyVolume := &apicontainer.Container{
-		Name:   "myName",
-		Image:  "image:tag",
+		Name:        "myName",
+		Image:       "image:tag",
 		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName1"}},
 	}
 
 	containerWithOnlyLink := &apicontainer.Container{
 		Name:  "myName1",
 		Image: "image:tag",
-		Links:  []string{"myName"},
+		Links: []string{"myName"},
 	}
 
 	containerWithBothVolumeAndLink := &apicontainer.Container{
-		Name:   "myName2",
-		Image:  "image:tag",
+		Name:        "myName2",
+		Image:       "image:tag",
 		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName"}},
-		Links:  []string{"myName1"},
+		Links:       []string{"myName1"},
 	}
 
 	containerWithNoVolumeOrLink := &apicontainer.Container{
@@ -2877,8 +2876,8 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 	task := &Task{
 		Arn:                "test",
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers:         []*apicontainer.Container{containerWithOnlyVolume, containerWithOnlyLink,
-		                                              containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
+		Containers: []*apicontainer.Container{containerWithOnlyVolume, containerWithOnlyLink,
+			containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
 	}
 
 	err := task.initializeContainerOrderingForVolumes()
@@ -2887,27 +2886,27 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 	assert.NoError(t, err)
 
 	containerResultWithVolume := task.Containers[0]
-	assert.Equal(t,  "myName1", containerResultWithVolume.DependsOn[0].Container)
-	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithVolume.DependsOn[0].Condition)
+	assert.Equal(t, "myName1", containerResultWithVolume.DependsOn[0].Container)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithVolume.DependsOn[0].Condition)
 
 	containerResultWithLink := task.Containers[1]
-	assert.Equal(t,  "myName", containerResultWithLink.DependsOn[0].Container)
-	assert.Equal(t,  ContainerOrderingRunningCondition, containerResultWithLink.DependsOn[0].Condition)
+	assert.Equal(t, "myName", containerResultWithLink.DependsOn[0].Container)
+	assert.Equal(t, ContainerOrderingRunningCondition, containerResultWithLink.DependsOn[0].Condition)
 
 	containerResultWithBothVolumeAndLink := task.Containers[2]
-	assert.Equal(t,  "myName", containerResultWithBothVolumeAndLink.DependsOn[0].Container)
-	assert.Equal(t,  ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
-	assert.Equal(t,  "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].Container)
-	assert.Equal(t,  ContainerOrderingRunningCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
+	assert.Equal(t, "myName", containerResultWithBothVolumeAndLink.DependsOn[0].Container)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
+	assert.Equal(t, "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].Container)
+	assert.Equal(t, ContainerOrderingRunningCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
 
 	containerResultWithNoVolumeOrLink := task.Containers[3]
-	assert.Equal(t,  0, len(containerResultWithNoVolumeOrLink.DependsOn))
+	assert.Equal(t, 0, len(containerResultWithNoVolumeOrLink.DependsOn))
 }
 
 func TestInitializeContainerOrderingWithError(t *testing.T) {
 	containerWithVolumeError := &apicontainer.Container{
-		Name:   "myName",
-		Image:  "image:tag",
+		Name:        "myName",
+		Image:       "image:tag",
 		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "dummyContainer"}},
 	}
 
@@ -2944,4 +2943,24 @@ func TestInitializeContainerOrderingWithError(t *testing.T) {
 	assert.Error(t, errVolume2)
 	errLink2 := task2.initializeContainerOrderingForLinks()
 	assert.Error(t, errLink2)
+}
+
+func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
+	modelTimeout := int64(10)
+	expectedTimeout := uint(modelTimeout)
+
+	taskFromACS := ecsacs.Task{
+		Containers: []*ecsacs.Container{
+			{
+				StartTimeout: aws.Int64(modelTimeout),
+				StopTimeout:  aws.Int64(modelTimeout),
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+
+	assert.Equal(t, task.Containers[0].StartTimeout, expectedTimeout)
+	assert.Equal(t, task.Containers[0].StopTimeout, expectedTimeout)
 }

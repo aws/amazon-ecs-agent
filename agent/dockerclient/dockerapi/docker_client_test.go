@@ -468,6 +468,7 @@ func TestStopContainerTimeout(t *testing.T) {
 	cfg.DockerStopTimeout = xContainerShortTimeout
 	mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
+	ctxTimeoutStopContainer = xContainerShortTimeout
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
