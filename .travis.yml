@@ -1,20 +1,17 @@
 language: go
+go_import_path: github.com/aws/amazon-ecs-agent
 sudo: false
 go:
-  - 1.9
-os:
-  - windows
-  - linux
-go_import_path: github.com/aws/amazon-ecs-agent
-script:
-  - |
-    (
-      if [ "$TRAVIS_OS_NAME" = 'windows' ]; then
-        go test -race -tags unit -timeout 40s ./agent/...
-      else
-        make get-deps
-        make test
-        make static-check
-        make xplatform-build
-      fi
-    )
+  - 1.11
+
+matrix:
+  include:
+    - os: linux
+      script:
+        - make get-deps
+        - make test
+        - make static-check
+        - make xplatform-build
+    - os: windows
+      script:
+        - go test -v -race -tags unit -timeout 40s ./agent/...
