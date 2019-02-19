@@ -3,7 +3,7 @@
   "Description": "Tests that the dependency graph of task definitions is resolved correctly",
   "TaskDefinition": "network-link-2",
   "Version": ">=1.0.0",
-  "Timeout": "2m",
+  "Timeout": "5m",
   "ExitCodes": {
     "exit": 42
   }
