@@ -63,9 +63,6 @@ const (
 
 	// SecretTypeEnv is to show secret type being ENVIRONMENT_VARIABLE
 	SecretTypeEnv = "ENVIRONMENT_VARIABLE"
-
-	// TargetLogDriver is to show secret target being "LOG_DRIVER", the default will be "CONTAINER"
-	SecretTargetLogDriver = "LOG_DRIVER"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -272,7 +269,6 @@ type Secret struct {
 	ContainerPath string `json:"containerPath"`
 	Type          string `json:"type"`
 	Provider      string `json:"provider"`
-	Target        string `json:"target"`
 }
 
 // GetSecretResourceCacheKey returns the key required to access the secret
@@ -849,7 +845,7 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	}
 }
 
-func (c *Container) HasSecretAsEnvOrLogDriver() bool {
+func (c *Container) HasSecretAsEnv() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -858,7 +854,7 @@ func (c *Container) HasSecretAsEnvOrLogDriver() bool {
 		return false
 	}
 	for _, secret := range c.Secrets {
-		if secret.Type == SecretTypeEnv || secret.Target == SecretTargetLogDriver {
+		if secret.Type == SecretTypeEnv {
 			return true
 		}
 	}
