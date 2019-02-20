@@ -885,6 +885,26 @@ func (s PortMapping) GoString() string {
 	return s.String()
 }
 
+type ProxyConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	Properties map[string]*string `locationName:"properties" type:"map"`
+
+	Type *string `locationName:"type" type:"string" enum:"ProxyConfigurationType"`
+}
+
+// String returns the string representation
+func (s ProxyConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ProxyConfiguration) GoString() string {
+	return s.String()
+}
+
 type RefreshTaskIAMRoleCredentialsInput struct {
 	_ struct{} `type:"structure"`
 
@@ -1079,6 +1099,8 @@ type Task struct {
 	Overrides *string `locationName:"overrides" type:"string"`
 
 	PidMode *string `locationName:"pidMode" type:"string"`
+
+	ProxyConfiguration *ProxyConfiguration `locationName:"proxyConfiguration" type:"structure"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 
