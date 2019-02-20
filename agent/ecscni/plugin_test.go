@@ -52,12 +52,12 @@ func TestSetupNS(t *testing.T) {
 		// ENI plugin was called first
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
 			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-				assert.Equal(t, ECSENIPluginName, net.Network.Type, "second plugin should be eni")
+				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
 			}),
-		// Bridge plugin was called last
+		// Bridge plugin was called second
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
 			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "first plugin should be bridge")
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "second plugin should be bridge")
 				var bridgeConfig BridgeConfig
 				err := json.Unmarshal(net.Bytes, &bridgeConfig)
 				assert.NoError(t, err, "unmarshal BridgeConfig")
@@ -66,6 +66,45 @@ func TestSetupNS(t *testing.T) {
 	)
 
 	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
+	assert.NoError(t, err)
+}
+
+func TestSetupNSAppMeshEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+
+	gomock.InOrder(
+		// ENI plugin was called first
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSENIPluginName, net.Network.Type, "first plugin should be eni")
+			}),
+		// Bridge plugin was called second
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSBridgePluginName, net.Network.Type, "second plugin should be bridge")
+				var bridgeConfig BridgeConfig
+				err := json.Unmarshal(net.Bytes, &bridgeConfig)
+				assert.NoError(t, err, "unmarshal BridgeConfig")
+				assert.Len(t, bridgeConfig.IPAM.IPV4Routes, 3, "default route plus two extra routes")
+			}),
+		// AppMesh plugin was called third
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSAppMeshPluginName, net.Network.Type, "third plugin should be app mesh")
+			}),
+	)
+
+	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes, AppMeshCNIEnabled: true}, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -86,6 +125,7 @@ func TestSetupNSTimeout(t *testing.T) {
 			func(net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 				wg.Wait()
 			}).MaxTimes(1),
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).MaxTimes(1),
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).MaxTimes(1),
 	)
 
@@ -113,6 +153,25 @@ func TestCleanupNS(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCleanupNSAppMeshEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient(&Config{})
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	// This will be called for both bridge and eni plugin
+	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Return(nil).Times(3)
+
+	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
+	var additionalRoutes []cnitypes.IPNet
+	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
+	assert.NoError(t, err)
+	err = ecscniClient.CleanupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes, AppMeshCNIEnabled: true}, time.Second)
+	assert.NoError(t, err)
+}
+
 func TestCleanupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -128,7 +187,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any()).Do(
 		func(x interface{}, y interface{}) {
 			wg.Wait()
-		}).Return(nil).MaxTimes(2)
+		}).Return(nil).MaxTimes(3)
 
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
@@ -203,6 +262,45 @@ func TestConstructBridgeNetworkConfigWithoutIPAM(t *testing.T) {
 	assert.NoError(t, err, "unmarshal bridge config from bytes failed")
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
 	assert.Equal(t, IPAMConfig{}, bridgeConfig.IPAM)
+}
+
+// TestConstructAppMeshNetworkConfig tests createAppMeshConfig creates the correct
+// configuration for app mesh plugin
+func TestConstructAppMeshNetworkConfig(t *testing.T) {
+	ecscniClient := NewClient(&Config{})
+
+	config := &Config{
+		AppMeshCNIEnabled: true,
+		IgnoredUID:        "1337",
+		IgnoredGID:        "1448",
+		ProxyIngressPort:  "15000",
+		ProxyEgressPort:   "15001",
+		AppPorts: []string{
+			"9000",
+		},
+		EgressIgnoredPorts: []string{
+			"9001",
+		},
+		EgressIgnoredIPs: []string{
+			"169.254.169.254",
+		},
+	}
+
+	_, appMeshNetworkConfig, err := ecscniClient.(*cniClient).createAppMeshConfig(config)
+
+	assert.NoError(t, err, "construct eni network config failed")
+	appMeshConfig := &AppMeshConfig{}
+	err = json.Unmarshal(appMeshNetworkConfig.Bytes, appMeshConfig)
+	assert.NoError(t, err, "unmarshal config from bytes failed")
+
+	assert.Equal(t, config.IgnoredUID, appMeshConfig.IgnoredUID)
+	assert.Equal(t, config.IgnoredGID, appMeshConfig.IgnoredGID)
+	assert.Equal(t, config.ProxyIngressPort, appMeshConfig.ProxyIngressPort)
+	assert.Equal(t, config.ProxyEgressPort, appMeshConfig.ProxyEgressPort)
+	assert.Equal(t, len(config.ProxyEgressPort), len(appMeshConfig.ProxyEgressPort))
+	assert.Equal(t, config.ProxyEgressPort[0], appMeshConfig.ProxyEgressPort[0])
+	assert.Equal(t, len(config.EgressIgnoredIPs), len(appMeshConfig.EgressIgnoredIPs))
+	assert.Equal(t, config.EgressIgnoredIPs[0], appMeshConfig.EgressIgnoredIPs[0])
 }
 
 // TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM

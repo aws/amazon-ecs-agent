@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -221,6 +222,16 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			}
 
 			apiTask.SetTaskENI(eni)
+		}
+		// Add the app mesh information to task struct
+		if task.ProxyConfiguration != nil {
+			appmesh, err := apiappmesh.AppMeshFromACS(task.ProxyConfiguration)
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
+			}
+			apiTask.SetAppMesh(appmesh)
 		}
 		if task.ExecutionRoleCredentials != nil {
 			// The payload message contains execution credentials for the task.

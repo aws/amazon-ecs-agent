@@ -30,6 +30,9 @@ const (
 	// defaultBridgeName is the default name of bridge created for container to
 	// communicate with ecs-agent
 	defaultBridgeName = "ecs-bridge"
+	// defaultAppMeshIfName is the default name of app mesh to setup iptable rules
+	// for app mesh container. IfName is mandatory field to invoke CNI plugin.
+	defaultAppMeshIfName = "aws-appmesh"
 	// netnsFormat is used to construct the path to cotainer network namespace
 	netnsFormat = "/host/proc/%s/ns/net"
 	// ecsSubnet is the available ip addresses to use for task networking
@@ -41,6 +44,8 @@ const (
 	ECSBridgePluginName = "ecs-bridge"
 	// ECSENIPluginName is the binary of the eni plugin
 	ECSENIPluginName = "ecs-eni"
+	// ECSAppMeshPluginName is the binary of aws-appmesh plugin
+	ECSAppMeshPluginName = "aws-appmesh"
 	// TaskIAMRoleEndpoint is the endpoint of ecs-agent exposes credentials for
 	// task IAM role
 	TaskIAMRoleEndpoint = "169.254.170.2/32"
@@ -124,6 +129,28 @@ type ENIConfig struct {
 	SubnetGatewayIPV4Address string `json:"subnetgateway-ipv4-address"`
 }
 
+// AppMeshConfig contains all the information needed to invoke the app mesh plugin
+type AppMeshConfig struct {
+	// Type is the cni plugin name
+	Type string `json:"type,omitempty"`
+	// CNIVersion is the cni spec version to use
+	CNIVersion string `json:"cniVersion,omitempty"`
+	// IgnoredUID specifies egress traffic from the processes owned by the UID will be ignored
+	IgnoredUID string `json:"ignoredUID,omitempty"`
+	// IgnoredGID specifies egress traffic from the processes owned by the GID will be ignored
+	IgnoredGID string `json:"ignoredGID,omitempty"`
+	// ProxyIngressPort is the ingress port number that proxy is listening on
+	ProxyIngressPort string `json:"proxyIngressPort"`
+	// ProxyEgressPort is the egress port number that proxy is listening on
+	ProxyEgressPort string `json:"proxyEgressPort"`
+	// AppPorts specifies port numbers that application is listening on
+	AppPorts []string `json:"appPorts"`
+	// EgressIgnoredPorts is the list of ports for which egress traffic will be ignored
+	EgressIgnoredPorts []string `json:"egressIgnoredPorts,omitempty"`
+	// EgressIgnoredIPs is the list of IPs for which egress traffic will be ignored
+	EgressIgnoredIPs []string `json:"egressIgnoredIPs,omitempty"`
+}
+
 // Config contains all the information to set up the container namespace using
 // the plugins
 type Config struct {
@@ -156,4 +183,23 @@ type Config struct {
 	AdditionalLocalRoutes []cnitypes.IPNet
 	// SubnetGatewayIPV4Address is the address to the subnet gate for the eni
 	SubnetGatewayIPV4Address string
+	// AppMeshCNIEnabled specifies if app mesh cni plugin is enabled
+	AppMeshCNIEnabled bool
+	// IgnoredUID specifies egress traffic from the processes owned
+	// by the UID will be ignored
+	IgnoredUID string
+	// IgnoredGID specifies egress traffic from the processes owned
+	// by the GID will be ignored
+	IgnoredGID string
+	// ProxyIngressPort is the ingress port number that proxy is listening on
+	ProxyIngressPort string
+	// ProxyEgressPort is the egress port number that proxy is listening on
+	ProxyEgressPort string
+	// AppPorts specifies port numbers that application is listening on
+	AppPorts []string
+	// EgressIgnoredPorts is the list of ports for which egress traffic
+	// will be ignored
+	EgressIgnoredPorts []string
+	// EgressIgnoredIPs is the list of IPs for which egress traffic will be ignored
+	EgressIgnoredIPs []string
 }
