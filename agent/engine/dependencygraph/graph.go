@@ -328,9 +328,7 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
 		// Allow this only if the known status of the dependency container state is already started
 		// i.e it's state is any of 'Created', 'steady state' or 'Stopped'
-		return dependsOnContainerKnownStatus == apicontainerstatus.ContainerCreated ||
-			dependsOnContainerKnownStatus == apicontainerstatus.ContainerStopped ||
-			dependsOnContainerKnownStatus == dependsOnContainer.GetSteadyStateStatus()
+		return dependsOnContainerKnownStatus >= apicontainerstatus.ContainerCreated
 
 	case runningCondition:
 		if targetDesiredStatus == apicontainerstatus.ContainerCreated {
