@@ -18,6 +18,7 @@ package dependencygraph
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -963,5 +964,52 @@ func TestVerifyShutdownOrder(t *testing.T) {
 				assert.Error(t, verifyShutdownOrder(target, others))
 			}
 		})
+	}
+}
+
+func TestStartTimeoutForContainerOrdering(t *testing.T) {
+	testcases := []struct {
+		DependencyStartedAt    time.Time
+		DependencyStartTimeout uint
+		DependencyCondition    string
+		ExpectedTimedOut       bool
+	}{
+		{
+			DependencyStartedAt:    time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+			DependencyStartTimeout: 10,
+			DependencyCondition:    healthyCondition,
+			ExpectedTimedOut:       true,
+		},
+		{
+			DependencyStartedAt:    time.Date(4000, 1, 1, 0, 0, 0, 0, time.UTC),
+			DependencyStartTimeout: 10,
+			DependencyCondition:    successCondition,
+			ExpectedTimedOut:       false,
+		},
+		{
+			DependencyStartedAt:    time.Time{},
+			DependencyStartTimeout: 10,
+			DependencyCondition:    successCondition,
+			ExpectedTimedOut:       false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("T:dependency time out: %v", tc.ExpectedTimedOut),
+			assertContainerOrderingNotTimedOut(hasDependencyTimedOut, tc.DependencyStartedAt, tc.DependencyStartTimeout, tc.DependencyCondition, tc.ExpectedTimedOut))
+	}
+}
+
+func assertContainerOrderingNotTimedOut(f func(dep *apicontainer.Container, depCond string) bool, startedAt time.Time, timeout uint, depCond string, expectedTimedOut bool) func(t *testing.T) {
+	return func(t *testing.T) {
+		dep := &apicontainer.Container{
+			Name:         "dep",
+			StartTimeout: timeout,
+		}
+
+		dep.SetStartedAt(startedAt)
+
+		timedOut := f(dep, depCond)
+		assert.Equal(t, expectedTimedOut, timedOut)
 	}
 }
