@@ -47,6 +47,7 @@ const (
 	// and start processing the task or start another round of waiting
 	waitForPullCredentialsTimeout         = 1 * time.Minute
 	defaultTaskSteadyStatePollInterval    = 5 * time.Minute
+	transitionPollTime                    = 5 * time.Second
 	stoppedSentWaitInterval               = 30 * time.Second
 	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
 	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
@@ -83,6 +84,7 @@ type acsTransition struct {
 type containerTransition struct {
 	nextState      apicontainerstatus.ContainerStatus
 	actionRequired bool
+	blockedOn      *apicontainer.DependsOn
 	reason         error
 }
 
@@ -163,21 +165,21 @@ type managedTask struct {
 func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                      ctx,
-		cancel:                   cancel,
-		Task:                     task,
-		acsMessages:              make(chan acsTransition),
-		dockerMessages:           make(chan dockerContainerChange),
-		resourceStateChangeEvent: make(chan resourceStateChange),
+		ctx:                        ctx,
+		cancel:                     cancel,
+		Task:                       task,
+		acsMessages:                make(chan acsTransition),
+		dockerMessages:             make(chan dockerContainerChange),
+		resourceStateChangeEvent:   make(chan resourceStateChange),
 		engine:                     engine,
 		cfg:                        engine.cfg,
 		stateChangeEvents:          engine.stateChangeEvents,
 		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:                   engine.saver,
-		credentialsManager:      engine.credentialsManager,
-		cniClient:               engine.cniClient,
-		taskStopWG:              engine.taskStopGroup,
-		steadyStatePollInterval: engine.taskSteadyStatePollInterval,
+		saver:                      engine.saver,
+		credentialsManager:         engine.credentialsManager,
+		cniClient:                  engine.cniClient,
+		taskStopWG:                 engine.taskStopGroup,
+		steadyStatePollInterval:    engine.taskSteadyStatePollInterval,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -740,16 +742,36 @@ func (mtask *managedTask) progressTask() {
 			transitionChangeEntity <- resource.GetName()
 		})
 
-	anyContainerTransition, contTransitions, reasons := mtask.startContainerTransitions(
+	anyContainerTransition, blockedDependencies, contTransitions, reasons := mtask.startContainerTransitions(
 		func(container *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			mtask.engine.transitionContainer(mtask.Task, container, nextStatus)
 			transitionChange <- struct{}{}
 			transitionChangeEntity <- container.Name
 		})
 
-	if !anyContainerTransition && !anyResourceTransition {
-		if !mtask.waitForExecutionCredentialsFromACS(reasons) {
-			mtask.onContainersUnableToTransitionState()
+	atLeastOneTransitionStarted := anyResourceTransition || anyContainerTransition
+
+	blockedByOrderingDependencies := len(blockedDependencies) > 0
+
+	// If no transitions happened and we aren't blocked by ordering dependencies, then we are possibly in a state where
+	// its impossible for containers to move forward. We will do an additional check to see if we are waiting for ACS
+	// execution credentials. If not, then we will abort the task progression.
+	if !atLeastOneTransitionStarted && !blockedByOrderingDependencies {
+		if !mtask.isWaitingForACSExecutionCredentials(reasons) {
+			mtask.handleContainersUnableToTransitionState()
+		}
+		return
+	}
+
+	// If no containers are starting and we are blocked on ordering dependencies, we should watch for the task to change
+	// over time. This will update the containers if they become healthy or stop, which makes it possible for the
+	// conditions "HEALTHY" and "SUCCESS" to succeed.
+	if !atLeastOneTransitionStarted && blockedByOrderingDependencies {
+		go mtask.engine.checkTaskState(mtask.Task)
+		ctx, cancel := context.WithTimeout(context.Background(), transitionPollTime)
+		defer cancel()
+		for timeout := mtask.waitEvent(ctx.Done()); !timeout; {
+			timeout = mtask.waitEvent(ctx.Done())
 		}
 		return
 	}
@@ -781,9 +803,9 @@ func (mtask *managedTask) progressTask() {
 	}
 }
 
-// waitForExecutionCredentialsFromACS checks if the container that can't be transitioned
+// isWaitingForACSExecutionCredentials checks if the container that can't be transitioned
 // was caused by waiting for credentials and start waiting
-func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bool {
+func (mtask *managedTask) isWaitingForACSExecutionCredentials(reasons []error) bool {
 	for _, reason := range reasons {
 		if reason == dependencygraph.CredentialsNotResolvedErr {
 			seelog.Debugf("Managed task [%s]: waiting for credentials to pull from ECR", mtask.Arn)
@@ -803,15 +825,19 @@ func (mtask *managedTask) waitForExecutionCredentialsFromACS(reasons []error) bo
 
 // startContainerTransitions steps through each container in the task and calls
 // the passed transition function when a transition should occur.
-func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]apicontainerstatus.ContainerStatus, []error) {
+func (mtask *managedTask) startContainerTransitions(transitionFunc containerTransitionFunc) (bool, map[string]apicontainer.DependsOn, map[string]apicontainerstatus.ContainerStatus, []error) {
 	anyCanTransition := false
 	var reasons []error
+	blocked := make(map[string]apicontainer.DependsOn)
 	transitions := make(map[string]apicontainerstatus.ContainerStatus)
 	for _, cont := range mtask.Containers {
 		transition := mtask.containerNextState(cont)
 		if transition.reason != nil {
 			// container can't be transitioned
 			reasons = append(reasons, transition.reason)
+			if transition.blockedOn != nil {
+				blocked[cont.Name] = *transition.blockedOn
+			}
 			continue
 		}
 
@@ -844,7 +870,7 @@ func (mtask *managedTask) startContainerTransitions(transitionFunc containerTran
 		go transitionFunc(cont, transition.nextState)
 	}
 
-	return anyCanTransition, transitions, reasons
+	return anyCanTransition, blocked, transitions, reasons
 }
 
 // startResourceTransitions steps through each resource in the task and calls
@@ -956,7 +982,7 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			reason:         dependencygraph.ContainerPastDesiredStatusErr,
 		}
 	}
-	if err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
+	if blocked, err := dependencygraph.DependenciesAreResolved(container, mtask.Containers,
 		mtask.Task.GetExecutionCredentialsID(), mtask.credentialsManager, mtask.GetResources()); err != nil {
 		seelog.Debugf("Managed task [%s]: can't apply state to container [%s] yet due to unresolved dependencies: %v",
 			mtask.Arn, container.Name, err)
@@ -964,6 +990,7 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 			nextState:      apicontainerstatus.ContainerStatusNone,
 			actionRequired: false,
 			reason:         err,
+			blockedOn:      blocked,
 		}
 	}
 
@@ -1018,7 +1045,7 @@ func (mtask *managedTask) resourceNextState(resource taskresource.TaskResource) 
 	}
 }
 
-func (mtask *managedTask) onContainersUnableToTransitionState() {
+func (mtask *managedTask) handleContainersUnableToTransitionState() {
 	seelog.Criticalf("Managed task [%s]: task in a bad state; it's not steadystate but no containers want to transition",
 		mtask.Arn)
 	if mtask.GetDesiredStatus().Terminal() {

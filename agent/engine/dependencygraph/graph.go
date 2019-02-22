@@ -105,7 +105,7 @@ func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontaine
 		nameMap[cont.Name] = cont
 	}
 
-	if err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesCanResolve); err != nil {
+	if _, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesCanResolve); err != nil {
 		return false
 	}
 	return verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
@@ -122,9 +122,9 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	by []*apicontainer.Container,
 	id string,
 	manager credentials.Manager,
-	resources []taskresource.TaskResource) error {
+	resources []taskresource.TaskResource) (*apicontainer.DependsOn, error) {
 	if !executionCredentialsResolved(target, id, manager) {
-		return CredentialsNotResolvedErr
+		return nil, CredentialsNotResolvedErr
 	}
 
 	nameMap := make(map[string]*apicontainer.Container)
@@ -141,18 +141,18 @@ func DependenciesAreResolved(target *apicontainer.Container,
 		resourcesMap[resource.GetName()] = resource
 	}
 
-	if err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesIsResolved); err != nil {
-		return err
+	if blocked, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesIsResolved); err != nil {
+		return blocked, err
 	}
 
 	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
-		return DependentContainerNotResolvedErr
+		return nil, DependentContainerNotResolvedErr
 	}
 	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return nil, nil
 }
 
 func linksToContainerNames(links []string) []string {
@@ -205,25 +205,25 @@ func verifyStatusResolvable(target *apicontainer.Container, existingContainers m
 // (map from name to container). The `resolves` function passed should return true if the named container is resolved.
 
 func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
-	resolves func(*apicontainer.Container, *apicontainer.Container, string) bool) error {
+	resolves func(*apicontainer.Container, *apicontainer.Container, string) bool) (*apicontainer.DependsOn, error) {
 
 	targetGoal := target.GetDesiredStatus()
 	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
-		return nil
+		return nil, nil
 	}
 
 	for _, dependency := range target.DependsOn {
 		dependencyContainer, ok := existingContainers[dependency.Container]
 		if !ok {
-			return fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
+			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
 		}
 		if !resolves(target, dependencyContainer, dependency.Condition) {
-			return fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
+			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func verifyTransitionDependenciesResolved(target *apicontainer.Container,
