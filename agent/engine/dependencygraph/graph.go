@@ -23,6 +23,7 @@ import (
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 	"strings"
+	"time"
 )
 
 const (
@@ -208,6 +209,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 	resolves func(*apicontainer.Container, *apicontainer.Container, string) bool) (*apicontainer.DependsOn, error) {
 
 	targetGoal := target.GetDesiredStatus()
+	targetKnown := target.GetKnownStatus()
 	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
 		// A container can always stop, die, or reach whatever other state it
 		// wants regardless of what dependencies it has
@@ -219,8 +221,26 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		if !ok {
 			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
 		}
+
 		if !resolves(target, dependencyContainer, dependency.Condition) {
 			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
+		}
+
+		// We want to check whether the dependency container has timed out only if target has not been created yet.
+		// If the target is already created, then everything is normal and dependency can be and is resolved.
+		// However, if dependency container has already stopped, then it cannot time out.
+		if targetKnown < apicontainerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != apicontainerstatus.ContainerStopped {
+			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
+				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
+			}
+		}
+
+		// We want to fail fast if the dependency container did not exit successfully' because target container
+		// can then never progress to its desired state when the dependency condition is 'SUCCESS'
+		if dependency.Condition == successCondition && dependencyContainer.GetKnownExitCode() != nil {
+			if !hasDependencyStoppedSuccessfully(dependencyContainer, dependency.Condition) {
+				return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
+			}
 		}
 	}
 	return nil, nil
@@ -365,6 +385,24 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 	default:
 		return false
 	}
+}
+
+func hasDependencyTimedOut(dependOnContainer *apicontainer.Container, dependencyCondition string) bool {
+	if dependOnContainer.GetStartedAt().IsZero() || dependOnContainer.GetStartTimeout() <= 0 {
+		return false
+	}
+	switch dependencyCondition {
+	case successCondition, completeCondition, healthyCondition:
+		return time.Now().After(dependOnContainer.GetStartedAt().Add(dependOnContainer.GetStartTimeout()))
+	default:
+		return false
+	}
+}
+
+func hasDependencyStoppedSuccessfully(dependency *apicontainer.Container, condition string) bool {
+	isDependencyStoppedSuccessfully := dependency.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+		*dependency.GetKnownExitCode() == 0
+	return isDependencyStoppedSuccessfully
 }
 
 func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) bool {
