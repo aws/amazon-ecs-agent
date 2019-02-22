@@ -34,6 +34,6 @@
       "sourceVolume": "test",
       "containerPath": "C:/data/"
     }],
-    "command": ["data volumes shouldn't need to run"]
+    "command": ["powershell", "-c", "exit"]
   }]
 }

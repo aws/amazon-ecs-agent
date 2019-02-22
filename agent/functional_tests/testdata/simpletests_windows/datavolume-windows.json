@@ -3,7 +3,7 @@
   "Description": "Check that basic data volumes work",
   "TaskDefinition": "datavolume-windows",
   "Version": ">=1.0.0",
-  "Timeout": "2m",
+  "Timeout": "5m",
   "ExitCodes": {
     "exit": 42
   }
