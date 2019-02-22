@@ -955,13 +955,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 		}
 	}
 	startContainerBegin := time.Now()
-
-	ctxTimeoutStartContainer := container.GetStartTimeout()
-	if ctxTimeoutStartContainer <= 0 {
-		ctxTimeoutStartContainer = engine.cfg.ContainerStartTimeout
-	}
-
-	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, ctxTimeoutStartContainer)
+	dockerContainerMD := client.StartContainer(engine.ctx, dockerContainer.DockerID, engine.cfg.ContainerStartTimeout)
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start

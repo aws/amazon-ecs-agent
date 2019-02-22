@@ -552,8 +552,8 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 	return dg.containerMetadata(ctx, dockerContainer.ID)
 }
 
-func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, ctxTimeout time.Duration) DockerContainerMetadata {
-	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
+func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout time.Duration) DockerContainerMetadata {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
@@ -568,7 +568,7 @@ func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, ctxTime
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return DockerContainerMetadata{Error: &DockerTimeoutError{ctxTimeout, "started"}}
+			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "started"}}
 		}
 		return DockerContainerMetadata{Error: CannotStartContainerError{err}}
 	}

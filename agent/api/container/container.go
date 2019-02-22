@@ -140,8 +140,9 @@ type Container struct {
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
-	// StartTimeout specifies the time the agent waits for StartContainer api call
-	// before timing out
+	// StartTimeout specifies the time value after which if a container has a dependency
+	// on another container and the dependency conditions are 'SUCCESS', 'COMPLETE', 'HEALTHY',
+	// then that dependency will not be resolved.
 	StartTimeout uint
 	// StopTimeout specifies the time value to be passed as StopContainer api call
 	StopTimeout uint
