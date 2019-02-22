@@ -94,14 +94,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
-		Config: aws.String(`{
-			"HealthCheck":{
-				"Test":["CMD-SHELL", "echo hello"],
-				"Interval":100000000,
-				"Timeout":100000000,
-				"StartPeriod":100000000,
-				"Retries":3}
-		}`),
+		Config: aws.String(alwaysHealthyHealthCheckConfig),
 	}
 	return testTask
 }
