@@ -14,23 +14,7 @@
 $oldPref = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
 
-Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
-
 # Create amazon/amazon-ecs-v3-task-endpoint-validator-windows for tests
-$buildscript = @"
-mkdir C:\V3
-cp C:\ecs\v3-task-endpoint-validator-windows.go C:\V3
-go build -o C:\V3\v3-task-endpoint-validator-windows.exe C:\V3\v3-task-endpoint-validator-windows.go
-cp C:\V3\v3-task-endpoint-validator-windows.exe C:\ecs
-"@
-
-$buildimage="golang:1.7-windowsservercore"
-docker pull $buildimage
-
-docker run `
-  --volume ${PSScriptRoot}:C:\ecs `
-  $buildimage `
-  powershell ${buildscript}
-
+Invoke-Expression "go build -o ${PSScriptRoot}\v3-task-endpoint-validator-windows.exe ${PSScriptRoot}\v3-task-endpoint-validator-windows.go" 
 Invoke-Expression "docker build -t amazon/amazon-ecs-v3-task-endpoint-validator-windows --file ${PSScriptRoot}\v3-task-endpoint-validator-windows.dockerfile ${PSScriptRoot}"
 $ErrorActionPreference = $oldPref
