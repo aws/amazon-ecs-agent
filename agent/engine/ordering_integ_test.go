@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+const orderingTimeout = 60 * time.Second
+
 // TestDependencyHealthCheck is a happy-case integration test that considers a workflow with a HEALTHY dependency
 // condition. We ensure that the task can be both started and stopped.
 func TestDependencyHealthCheck(t *testing.T) {
@@ -72,7 +74,7 @@ func TestDependencyHealthCheck(t *testing.T) {
 		close(finished)
 	}()
 
-	waitFinished(t, finished, 90*time.Second)
+	waitFinished(t, finished, orderingTimeout)
 
 }
 
@@ -111,7 +113,6 @@ func TestDependencyComplete(t *testing.T) {
 	go taskEngine.AddTask(testTask)
 
 	finished := make(chan interface{})
-
 	go func() {
 		// First container should run to completion and then exit
 		verifyContainerRunningStateChange(t, taskEngine)
@@ -124,9 +125,10 @@ func TestDependencyComplete(t *testing.T) {
 		// Last container stops and then the task stops
 		verifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
 	}()
 
-	waitFinished(t, finished, 90*time.Second)
+	waitFinished(t, finished, orderingTimeout)
 }
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will resolve when the child container exits
@@ -176,9 +178,10 @@ func TestDependencySuccess(t *testing.T) {
 		// Last container stops and then the task stops
 		verifyContainerStoppedStateChange(t, taskEngine)
 		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
 	}()
 
-	waitFinished(t, finished, 90*time.Second)
+	waitFinished(t, finished, orderingTimeout)
 }
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will fail when the child exits 1. This is a
@@ -215,12 +218,18 @@ func TestDependencySuccessErrored(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// First container should run to completion
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	finished := make(chan interface{})
+	go func() {
+		// First container should run to completion
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
 
-	// task should transition to stopped
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// task should transition to stopped
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
 }
 
 // TestDependencySuccessTimeout
@@ -259,12 +268,18 @@ func TestDependencySuccessTimeout(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// First container should run to completion
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	finished := make(chan interface{})
+	go func() {
+		// First container should run to completion
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
 
-	// task should transition to stopped
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// task should transition to stopped
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
 }
 
 // TestDependencyHealthyTimeout
@@ -310,12 +325,18 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// First container should run to completion
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	finished := make(chan interface{})
+	go func() {
+		// First container should run to completion
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
 
-	// task should transition to stopped
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// task should transition to stopped
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
 }
 
 func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
