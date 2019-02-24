@@ -223,10 +223,6 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
 		}
 
-		if !resolves(target, dependencyContainer, dependency.Condition) {
-			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
-		}
-
 		// We want to check whether the dependency container has timed out only if target has not been created yet.
 		// If the target is already created, then everything is normal and dependency can be and is resolved.
 		// However, if dependency container has already stopped, then it cannot time out.
@@ -242,6 +238,10 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			if !hasDependencyStoppedSuccessfully(dependencyContainer, dependency.Condition) {
 				return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 			}
+		}
+
+		if !resolves(target, dependencyContainer, dependency.Condition) {
+			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
 		}
 	}
 	return nil, nil

@@ -184,7 +184,6 @@ func TestDependencySuccess(t *testing.T) {
 // TestDependencySuccess validates that the SUCCESS dependency condition will fail when the child exits 1. This is a
 // contrast to how COMPLETE behaves. Instead of starting the parent, the task should simply exit.
 func TestDependencySuccessErrored(t *testing.T) {
-	t.Skip("TODO: this test exposes a bug. Fix the bug and then remove this skip.")
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
@@ -226,7 +225,6 @@ func TestDependencySuccessErrored(t *testing.T) {
 
 // TestDependencySuccessTimeout
 func TestDependencySuccessTimeout(t *testing.T) {
-	t.Skip("TODO: this test exposes a bug. Fix the bug and then remove this skip.")
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
@@ -271,7 +269,6 @@ func TestDependencySuccessTimeout(t *testing.T) {
 
 // TestDependencyHealthyTimeout
 func TestDependencyHealthyTimeout(t *testing.T) {
-	t.Skip("TODO: this test exposes a bug. Fix the bug and then remove this skip.")
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
