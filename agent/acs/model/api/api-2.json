@@ -455,18 +455,6 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
-    "ProxyConfiguration":{
-      "type":"structure",
-      "members":{
-        "type":{"shape":"ProxyConfigurationType"},
-        "containerName":{"shape":"String"},
-        "properties":{"shape":"StringMap"}
-      }
-    },
-    "ProxyConfigurationType":{
-      "type":"string",
-      "enum":["APPMESH"]
-    },
     "RegistryAuthenticationData":{
       "type":"structure",
       "members":{
@@ -497,8 +485,7 @@
         "containerPath":{"shape":"String"},
         "type":{"shape":"SecretType"},
         "region":{"shape":"String"},
-        "provider":{"shape":"SecretProvider"},
-        "target":{"shape":"SecretTarget"}
+        "provider":{"shape":"SecretProvider"}
       }
     },
     "SecretList":{
@@ -512,19 +499,10 @@
         "asm"
       ]
     },
-    "SecretTarget":{
-      "type":"string",
-      "enum":[
-        "CONTAINER",
-        "LOG_DRIVER"
-      ]
-    },
     "SecretType":{
       "type":"string",
       "enum":[
-        "ENVIRONMENT_VARIABLE",
-        "MOUNT_POINT",
-        "BOOTSTRAP"
+        "ENVIRONMENT_VARIABLE"
       ]
     },
     "SensitiveString":{
@@ -575,8 +553,7 @@
         "memory":{"shape":"Integer"},
         "associations":{"shape":"Associations"},
         "pidMode":{"shape":"String"},
-        "ipcMode":{"shape":"String"},
-        "proxyConfiguration":{"shape":"ProxyConfiguration"}
+        "ipcMode":{"shape":"String"}
       }
     },
     "TaskList":{
