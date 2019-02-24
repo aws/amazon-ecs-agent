@@ -2887,17 +2887,17 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 
 	containerResultWithVolume := task.Containers[0]
 	assert.Equal(t, "myName1", containerResultWithVolume.DependsOn[0].Container)
-	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithVolume.DependsOn[0].Condition)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithVolume.DependsOn[0].Condition)
 
 	containerResultWithLink := task.Containers[1]
 	assert.Equal(t, "myName", containerResultWithLink.DependsOn[0].Container)
-	assert.Equal(t, ContainerOrderingRunningCondition, containerResultWithLink.DependsOn[0].Condition)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithLink.DependsOn[0].Condition)
 
 	containerResultWithBothVolumeAndLink := task.Containers[2]
 	assert.Equal(t, "myName", containerResultWithBothVolumeAndLink.DependsOn[0].Container)
-	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
 	assert.Equal(t, "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].Container)
-	assert.Equal(t, ContainerOrderingRunningCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
 
 	containerResultWithNoVolumeOrLink := task.Containers[3]
 	assert.Equal(t, 0, len(containerResultWithNoVolumeOrLink.DependsOn))

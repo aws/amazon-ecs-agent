@@ -73,11 +73,11 @@ func TestValidDependencies(t *testing.T) {
 	assert.True(t, resolveable, "One container should resolve trivially")
 
 	// Webserver stack
-	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "RUNNING"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: startCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "RUNNING"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: startCondition}, {Container: "htmldata", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 
 	task = &apitask.Task{
@@ -94,8 +94,8 @@ func TestValidDependenciesWithCycles(t *testing.T) {
 	// Unresolveable: cycle
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
-			steadyStateContainer("a", []apicontainer.DependsOn{{Container: "b", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
-			steadyStateContainer("b", []apicontainer.DependsOn{{Container: "a", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("a", []apicontainer.DependsOn{{Container: "b", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("b", []apicontainer.DependsOn{{Container: "a", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
 	resolveable := ValidDependencies(task)
@@ -106,7 +106,7 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 	// Unresolveable, reference doesn't exist
 	task := &apitask.Task{
 		Containers: []*apicontainer.Container{
-			steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
+			steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
 	resolveable := ValidDependencies(task)
@@ -126,11 +126,11 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
-	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "RUNNING"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: startCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "RUNNING"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: startCondition}, {Container: "htmldata", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 
 	task = &apitask.Task{
@@ -194,11 +194,11 @@ func TestRunDependencies(t *testing.T) {
 
 func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *testing.T) {
 	// Webserver stack
-	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	php := steadyStateContainer("php", []apicontainer.DependsOn{{Container: "db", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	db := steadyStateContainer("db", []apicontainer.DependsOn{{Container: "dbdatavolume", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	dbdata := createdContainer("dbdatavolume", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
-	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: "START"}, {Container: "htmldata", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
-	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: "START"}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	webserver := steadyStateContainer("webserver", []apicontainer.DependsOn{{Container: "php", Condition: createCondition}, {Container: "htmldata", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
+	htmldata := steadyStateContainer("htmldata", []apicontainer.DependsOn{{Container: "sharedcssfiles", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning)
 	sharedcssfiles := createdContainer("sharedcssfiles", []apicontainer.DependsOn{}, apicontainerstatus.ContainerRunning)
 	// The Pause container, being added to the webserver stack
 	pause := steadyStateContainer("pause", []apicontainer.DependsOn{}, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerResourcesProvisioned)
@@ -581,67 +581,67 @@ func TestContainerOrderingCanResolve(t *testing.T) {
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyDesired:   apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyDesired:   apicontainerstatus.ContainerStopped,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyDesired:   apicontainerstatus.ContainerZombie,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerCreated,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerRunning,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerStopped,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyDesired:   apicontainerstatus.ContainerCreated,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerRunning,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyDesired:   apicontainerstatus.ContainerRunning,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolvable:          true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyDesired:   apicontainerstatus.ContainerZombie,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolvable:          false,
 		},
 		{
@@ -700,67 +700,67 @@ func TestContainerOrderingIsResolved(t *testing.T) {
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolved:            false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerCreated,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerStopped,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerStopped,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
-			DependencyCondition: startCondition,
+			DependencyCondition: createCondition,
 			Resolved:            false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: createCondition,
+			Resolved:            true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerCreated,
 			DependencyCondition: startCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
-			DependencyKnown:     apicontainerstatus.ContainerCreated,
-			DependencyCondition: runningCondition,
-			Resolved:            true,
-		},
-		{
-			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerRunning,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerCreated,
 			DependencyKnown:     apicontainerstatus.ContainerZombie,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolved:            false,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerRunning,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolved:            true,
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerZombie,
-			DependencyCondition: runningCondition,
+			DependencyCondition: startCondition,
 			Resolved:            false,
 		},
 		{
