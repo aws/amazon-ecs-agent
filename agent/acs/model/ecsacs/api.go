@@ -206,7 +206,7 @@ type Container struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
-	DependsOn []*DependsOn `locationName:"dependsOn" type:"list"`
+	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
 
 	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
 
@@ -255,21 +255,21 @@ func (s Container) GoString() string {
 	return s.String()
 }
 
-type DependsOn struct {
+type ContainerDependency struct {
 	_ struct{} `type:"structure"`
 
-	Condition *string `locationName:"condition" type:"string" enum:"ConditionType"`
+	Condition *string `locationName:"condition" type:"string" enum:"ContainerCondition"`
 
-	Container *string `locationName:"container" type:"string"`
+	ContainerName *string `locationName:"containerName" type:"string"`
 }
 
 // String returns the string representation
-func (s DependsOn) String() string {
+func (s ContainerDependency) String() string {
 	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
-func (s DependsOn) GoString() string {
+func (s ContainerDependency) GoString() string {
 	return s.String()
 }
 
@@ -909,6 +909,26 @@ func (s PortMapping) GoString() string {
 	return s.String()
 }
 
+type ProxyConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	Properties map[string]*string `locationName:"properties" type:"map"`
+
+	Type *string `locationName:"type" type:"string" enum:"ProxyConfigurationType"`
+}
+
+// String returns the string representation
+func (s ProxyConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ProxyConfiguration) GoString() string {
+	return s.String()
+}
+
 type RefreshTaskIAMRoleCredentialsInput struct {
 	_ struct{} `type:"structure"`
 
@@ -981,6 +1001,8 @@ type Secret struct {
 	Provider *string `locationName:"provider" type:"string" enum:"SecretProvider"`
 
 	Region *string `locationName:"region" type:"string"`
+
+	Target *string `locationName:"target" type:"string" enum:"SecretTarget"`
 
 	Type *string `locationName:"type" type:"string" enum:"SecretType"`
 
@@ -1103,6 +1125,8 @@ type Task struct {
 	Overrides *string `locationName:"overrides" type:"string"`
 
 	PidMode *string `locationName:"pidMode" type:"string"`
+
+	ProxyConfiguration *ProxyConfiguration `locationName:"proxyConfiguration" type:"structure"`
 
 	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 
