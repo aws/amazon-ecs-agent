@@ -58,7 +58,7 @@ func isDockerRunning() bool { return true }
 func createTestContainer() *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "windows",
-		Image:               "microsoft/windowsservercore:latest",
+		Image:               "microsoft/windowsservercore",
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 512,
@@ -96,7 +96,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
-	testTask.Containers[0].Image = "microsoft/nanoserver:latest"
+	testTask.Containers[0].Image = "microsoft/nanoserver"
 	testTask.Containers[0].Name = "test-health-check"
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"powershell", "-command", "Start-Sleep -s 300"}

@@ -11,16 +11,5 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-$buildscript = @"
-mkdir C:\nk
-cp C:\netkitten\netkitten.go C:\nk
-go build -o C:\nk\netkitten.exe C:\nk\netkitten.go
-cp C:\nk\netkitten.exe C:\netkitten
-"@
-
-docker run `
-  --volume ${PSScriptRoot}:C:\netkitten `
-  golang:1.7-windowsservercore `
-  powershell ${buildscript}
-
+Invoke-Expression "go build -o ${PSScriptRoot}\netkitten.exe ${PSScriptRoot}\netkitten.go"
 docker build -t "amazon/amazon-ecs-netkitten:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}

@@ -1,7 +1,7 @@
 {
   "family": "ecsftest-labels-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "labeled",
     "cpu": 1024,
     "memory": 512,

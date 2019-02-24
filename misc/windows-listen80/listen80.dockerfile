@@ -11,5 +11,5 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM microsoft/windowsservercore:latest
+FROM microsoft/windowsservercore
 ADD listen80.exe listen80.exe

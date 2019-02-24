@@ -20,6 +20,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/aws-sdk-go/aws"
+	"time"
 )
 
 // TestDependencyHealthCheck is a happy-case integration test that considers a workflow with a HEALTHY dependency
@@ -57,15 +58,21 @@ func TestDependencyHealthCheck(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// Both containers should start
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
 
-	// Task should stop all at once
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// Task should stop all at once
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, 90*time.Second)
 
 }
 
@@ -103,17 +110,23 @@ func TestDependencyComplete(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// First container should run to completion and then exit
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	finished := make(chan interface{})
 
-	// Second container starts after the first stops, task becomes running
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	go func() {
+		// First container should run to completion and then exit
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
 
-	// Last container stops and then the task stops
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// Second container starts after the first stops, task becomes running
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// Last container stops and then the task stops
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+	}()
+
+	waitFinished(t, finished, 90*time.Second)
 }
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will resolve when the child container exits
@@ -150,17 +163,22 @@ func TestDependencySuccess(t *testing.T) {
 
 	go taskEngine.AddTask(testTask)
 
-	// First container should run to completion
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyContainerStoppedStateChange(t, taskEngine)
+	finished := make(chan interface{})
+	go func() {
+		// First container should run to completion
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
 
-	// Second container starts after the first stops, task becomes running
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+		// Second container starts after the first stops, task becomes running
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
 
-	// Last container stops and then the task stops
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+		// Last container stops and then the task stops
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+	}()
+
+	waitFinished(t, finished, 90*time.Second)
 }
 
 // TestDependencySuccess validates that the SUCCESS dependency condition will fail when the child exits 1. This is a
@@ -301,4 +319,15 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 
 	// task should transition to stopped
 	verifyTaskIsStopped(stateChangeEvents, testTask)
+}
+
+func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
+	select {
+	case <-finished:
+		t.Log("Finished successfully.")
+		return
+	case <-time.After(90 * time.Second):
+		t.Error("timed out after: ", duration)
+		t.FailNow()
+	}
 }

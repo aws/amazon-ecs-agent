@@ -10,11 +10,8 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM golang:nanoserver
+FROM microsoft/windowsservercore
 
-WORKDIR /gopath
-COPY main.go .
-
-RUN go build -o stress main.go
-ENTRYPOINT ["./stress"]
+ADD stress.exe stress.exe
+ENTRYPOINT ["./stress.exe"]
 CMD [ "-concurrency", "1000", "-memory", "1024"]

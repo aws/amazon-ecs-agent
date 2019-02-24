@@ -1,7 +1,7 @@
 {
   "family": "ecsftest-savedstate-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "savedstate-windows",
     "cpu": 1024,
     "memory": 512,

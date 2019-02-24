@@ -20,5 +20,5 @@ const (
 )
 
 var (
-	entryPointForOS = []string{"pwsh", "-c"}
+	entryPointForOS = []string{"powershell"}
 )
