@@ -43,8 +43,6 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -397,13 +395,8 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
-		PortBindings: map[nat.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -420,13 +413,8 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
-		PortBindings: map[nat.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -699,6 +687,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(awslogsLogGroupName),
 	})
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -1405,6 +1394,7 @@ func TestElasticInferenceValidator(t *testing.T) {
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
 	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
@@ -1439,14 +1429,9 @@ func TestServerEndpointValidator(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 		},
-		PortBindings: map[nat.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
 
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 

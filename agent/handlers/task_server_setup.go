@@ -82,7 +82,7 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	loggingMuxRouter.SkipClean(false)
 
 	server := http.Server{
-		Addr:         ":" + strconv.Itoa(config.AgentCredentialsPort),
+		Addr:         "127.0.0.1:" + strconv.Itoa(config.AgentCredentialsPort),
 		Handler:      loggingMuxRouter,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
