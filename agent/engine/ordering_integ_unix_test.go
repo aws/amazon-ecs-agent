@@ -15,6 +15,13 @@
 
 package engine
 
+import (
+	"testing"
+
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/stretchr/testify/assert"
+)
+
 const (
 	baseImageForOS = testRegistryHost + "/" + "busybox"
 )
@@ -22,3 +29,70 @@ const (
 var (
 	entryPointForOS = []string{"sh", "-c"}
 )
+
+func TestGranularStopTimeout(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "TestGranularStopTimeout"
+	testTask := createTestTask(taskArn)
+
+	parent := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	dependency1 := createTestContainerWithImageAndName(baseImageForOS, "dependency1")
+	dependency2 := createTestContainerWithImageAndName(baseImageForOS, "dependency2")
+
+	parent.EntryPoint = &entryPointForOS
+	parent.Command = []string{"sleep 30"}
+	parent.Essential = true
+	parent.DependsOn = []apicontainer.DependsOn{
+		{
+			ContainerName: "dependency1",
+			Condition: "START",
+		},
+		{
+			ContainerName: "dependency2",
+			Condition: "START",
+		},
+	}
+
+	dependency1.EntryPoint = &entryPointForOS
+	dependency1.Command = []string{"trap 'echo caught' SIGTERM; sleep 60"}
+	dependency1.StopTimeout = 5
+
+	dependency2.EntryPoint = &entryPointForOS
+	dependency2.Command = []string{"trap 'echo caught' SIGTERM; sleep 60"}
+	dependency2.StopTimeout = 50
+
+	testTask.Containers = []*apicontainer.Container{
+		dependency1,
+		dependency2,
+		parent,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+
+		assert.Equal(t, 137, *testTask.Containers[0].GetKnownExitCode(), "Dependency1 should exit with code 137")
+		assert.Equal(t, 0, *testTask.Containers[1].GetKnownExitCode(), "Dependency2 should exit with code 0")
+
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
+}

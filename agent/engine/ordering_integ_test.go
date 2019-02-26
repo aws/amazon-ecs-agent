@@ -78,7 +78,6 @@ func TestDependencyHealthCheck(t *testing.T) {
 	}()
 
 	waitFinished(t, finished, orderingTimeout)
-
 }
 
 // TestDependencyComplete validates that the COMPLETE dependency condition will resolve when the child container exits
@@ -96,7 +95,7 @@ func TestDependencyComplete(t *testing.T) {
 	dependency := createTestContainerWithImageAndName(baseImageForOS, "dependency")
 
 	parent.EntryPoint = &entryPointForOS
-	parent.Command = []string{"sleep 5 && exit 0"}
+	parent.Command = []string{"sleep 5"}
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
@@ -158,7 +157,7 @@ func TestDependencySuccess(t *testing.T) {
 	}
 
 	dependency.EntryPoint = &entryPointForOS
-	dependency.Command = []string{"sleep 10 && exit 0"}
+	dependency.Command = []string{"sleep 10"}
 	dependency.Essential = false
 
 	testTask.Containers = []*apicontainer.Container{
@@ -258,7 +257,7 @@ func TestDependencySuccessTimeout(t *testing.T) {
 	}
 
 	dependency.EntryPoint = &entryPointForOS
-	dependency.Command = []string{"sleep 15 && exit 0"}
+	dependency.Command = []string{"sleep 15"}
 	dependency.Essential = false
 
 	// set the timeout to be shorter than the amount of time it takes to stop
@@ -340,17 +339,6 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 	}()
 
 	waitFinished(t, finished, orderingTimeout)
-}
-
-func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
-	select {
-	case <-finished:
-		t.Log("Finished successfully.")
-		return
-	case <-time.After(90 * time.Second):
-		t.Error("timed out after: ", duration)
-		t.FailNow()
-	}
 }
 
 // TestShutdownOrder
@@ -447,4 +435,17 @@ func TestShutdownOrder(t *testing.T) {
 		close(finished)
 	}()
 
+	waitFinished(t, finished, orderingTimeout)
+}
+
+
+func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
+	select {
+	case <-finished:
+		t.Log("Finished successfully.")
+		return
+	case <-time.After(90 * time.Second):
+		t.Error("timed out after: ", duration)
+		t.FailNow()
+	}
 }
