@@ -55,6 +55,31 @@ func TestAppMeshFromACS(t *testing.T) {
 	assert.Equal(t, mockAppPort2, appMesh.AppPorts[1])
 	assert.Equal(t, mockEgressIgnoredIP1, appMesh.EgressIgnoredIPs[0])
 	assert.Equal(t, mockEgressIgnoredIP2, appMesh.EgressIgnoredIPs[1])
+	assert.Equal(t, taskMetadataEndpointIP, appMesh.EgressIgnoredIPs[2])
+	assert.Equal(t, instanceMetadataEndpointIP, appMesh.EgressIgnoredIPs[3])
+	assert.Equal(t, mockEgressIgnoredPort1, appMesh.EgressIgnoredPorts[0])
+	assert.Equal(t, mockEgressIgnoredPort2, appMesh.EgressIgnoredPorts[1])
+}
+
+func TestAppMeshFromACSContainsDefaultEgressIgnoredIP(t *testing.T) {
+	testProxyConfig := prepareProxyConfig()
+	egressIgnoredIPs := mockEgressIgnoredIPs + splitter + taskMetadataEndpointIP + splitter + instanceMetadataEndpointIP
+	testProxyConfig.Properties[egressIgnoredIPs] = aws.String(egressIgnoredIPs)
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, appMesh)
+	assert.Equal(t, mockIgnoredUID, appMesh.IgnoredUID)
+	assert.Equal(t, mockIgnoredGID, appMesh.IgnoredGID)
+	assert.Equal(t, mockProxyEgressPort, appMesh.ProxyEgressPort)
+	assert.Equal(t, mockProxyIngressPort, appMesh.ProxyIngressPort)
+	assert.Equal(t, mockAppPort1, appMesh.AppPorts[0])
+	assert.Equal(t, mockAppPort2, appMesh.AppPorts[1])
+	assert.Equal(t, mockEgressIgnoredIP1, appMesh.EgressIgnoredIPs[0])
+	assert.Equal(t, mockEgressIgnoredIP2, appMesh.EgressIgnoredIPs[1])
+	assert.Equal(t, taskMetadataEndpointIP, appMesh.EgressIgnoredIPs[2])
+	assert.Equal(t, instanceMetadataEndpointIP, appMesh.EgressIgnoredIPs[3])
 	assert.Equal(t, mockEgressIgnoredPort1, appMesh.EgressIgnoredPorts[0])
 	assert.Equal(t, mockEgressIgnoredPort2, appMesh.EgressIgnoredPorts[1])
 }
@@ -72,8 +97,8 @@ func TestAppMeshFromACSNonAppMeshProxyInput(t *testing.T) {
 func prepareProxyConfig() ecsacs.ProxyConfiguration {
 
 	return ecsacs.ProxyConfiguration{
-		Type:          aws.String(appMesh),
-		Properties:    map[string]*string{
+		Type: aws.String(appMesh),
+		Properties: map[string]*string{
 			ignoredUID:         aws.String(mockIgnoredUID),
 			ignoredGID:         aws.String(mockIgnoredGID),
 			proxyIngressPort:   aws.String(mockProxyIngressPort),
