@@ -682,6 +682,8 @@ func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
 	mockEgressIgnoredIPs := mockEgressIgnoredIP1 + "," + mockEgressIgnoredIP2
 	mockEgressIgnoredPorts := mockEgressIgnoredPort1 + "," + mockEgressIgnoredPort2
 	mockContainerName := "testEnvoyContainer"
+	taskMetadataEndpointIP     := "169.254.170.2"
+	instanceMetadataEndpointIP := "169.254.169.254"
 	tester := setup(t)
 	defer tester.ctrl.Finish()
 
@@ -726,9 +728,11 @@ func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
 	assert.Equal(t, 2, len(appMesh.AppPorts))
 	assert.Equal(t, mockAppPort1, appMesh.AppPorts[0])
 	assert.Equal(t, mockAppPort2, appMesh.AppPorts[1])
-	assert.Equal(t, 2, len(appMesh.EgressIgnoredIPs))
+	assert.Equal(t, 4, len(appMesh.EgressIgnoredIPs))
 	assert.Equal(t, mockEgressIgnoredIP1, appMesh.EgressIgnoredIPs[0])
 	assert.Equal(t, mockEgressIgnoredIP2, appMesh.EgressIgnoredIPs[1])
+	assert.Equal(t, taskMetadataEndpointIP, appMesh.EgressIgnoredIPs[2])
+	assert.Equal(t, instanceMetadataEndpointIP, appMesh.EgressIgnoredIPs[3])
 	assert.Equal(t, 2, len(appMesh.EgressIgnoredPorts))
 	assert.Equal(t, mockEgressIgnoredPort1, appMesh.EgressIgnoredPorts[0])
 	assert.Equal(t, mockEgressIgnoredPort2, appMesh.EgressIgnoredPorts[1])
