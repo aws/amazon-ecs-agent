@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
-
 )
 
 // TestAddAndDropCapabilities checks that adding and dropping Linux capabilities work
@@ -184,10 +183,6 @@ func TestContainerOrderingTimeout(t *testing.T) {
 		err = testTask.WaitStopped(timeout)
 		if err != nil {
 			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
-		}
-
-		if exit, ok := testTask.ContainerExitcode("success-timeout-dependency"); !ok || exit != 137 {
-			t.Errorf("Expected success-timeout-dependency to exit with 137; actually exited (%v) with %v", ok, exit)
 		}
 
 		defer agent.SweepTask(testTask)

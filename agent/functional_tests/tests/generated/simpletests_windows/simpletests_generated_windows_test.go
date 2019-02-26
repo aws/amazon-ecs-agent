@@ -24,7 +24,6 @@ import (
 	"testing"
 	"time"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
-
 )
 
 // TestContainerOrderingTimedout Check that container ordering has timed out
@@ -43,14 +42,17 @@ func TestContainerOrderingTimedout(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.25.0")
 
-	td, err := GetTaskDefinition("container-ordering")
+	td, err := GetTaskDefinition("container-ordering-timedout-windows")
+
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
 	var testTasks []*TestTask
 	if "" == "true" {
 		for i := 0; i < 1; i++ {
-			tmpTask, err := agent.StartAWSVPCTask("container-ordering", nil)
+
+			tmpTask, err := agent.StartAWSVPCTask("container-ordering-timedout-windows", nil)
+
 			if err != nil {
 				t.Fatalf("Could not start task in awsvpc mode: %v", err)
 			}
@@ -74,10 +76,6 @@ func TestContainerOrderingTimedout(t *testing.T) {
 			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
 		}
 
-		if exit, ok := testTask.ContainerExitcode("success-timeout-dependency"); !ok || exit != 137 {
-			t.Errorf("Expected success-timeout-dependency to exit with 137; actually exited (%v) with %v", ok, exit)
-		}
-
 		defer agent.SweepTask(testTask)
 	}
 
@@ -99,14 +97,16 @@ func TestContainerOrdering(t *testing.T) {
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.25.0")
 
-	td, err := GetTaskDefinition("container-ordering")
+	td, err := GetTaskDefinition("container-ordering-windows")
+
 	if err != nil {
 		t.Fatalf("Could not register task definition: %v", err)
 	}
 	var testTasks []*TestTask
 	if "" == "true" {
 		for i := 0; i < 1; i++ {
-			tmpTask, err := agent.StartAWSVPCTask("container-ordering", nil)
+			tmpTask, err := agent.StartAWSVPCTask("container-ordering-windows", nil)
+
 			if err != nil {
 				t.Fatalf("Could not start task in awsvpc mode: %v", err)
 			}
