@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-const orderingTimeout = 60 * time.Second
+const orderingTimeout = 90 * time.Second
 
 // TestDependencyHealthCheck is a happy-case integration test that considers a workflow with a HEALTHY dependency
 // condition. We ensure that the task can be both started and stopped.
@@ -40,16 +40,16 @@ func TestDependencyHealthCheck(t *testing.T) {
 	dependency := createTestContainerWithImageAndName(baseImageForOS, "dependency")
 
 	parent.EntryPoint = &entryPointForOS
-	parent.Command = []string{"exit 1"}
+	parent.Command = []string{"sleep 5 && exit 1"}
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "HEALTHY",
+			Condition:     "HEALTHY",
 		},
 	}
 
 	dependency.EntryPoint = &entryPointForOS
-	dependency.Command = []string{"sleep 30"}
+	dependency.Command = []string{"sleep 60 && exit 0"}
 	dependency.HealthCheckType = apicontainer.DockerHealthCheckType
 	dependency.DockerConfig.Config = aws.String(alwaysHealthyHealthCheckConfig)
 
@@ -97,7 +97,7 @@ func TestDependencyComplete(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "COMPLETE",
+			Condition:     "COMPLETE",
 		},
 	}
 
@@ -150,7 +150,7 @@ func TestDependencySuccess(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "SUCCESS",
+			Condition:     "SUCCESS",
 		},
 	}
 
@@ -203,7 +203,7 @@ func TestDependencySuccessErrored(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "SUCCESS",
+			Condition:     "SUCCESS",
 		},
 	}
 
@@ -250,7 +250,7 @@ func TestDependencySuccessTimeout(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "SUCCESS",
+			Condition:     "SUCCESS",
 		},
 	}
 
@@ -300,7 +300,7 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
-			Condition: "HEALTHY",
+			Condition:     "HEALTHY",
 		},
 	}
 
