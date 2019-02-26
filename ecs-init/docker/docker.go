@@ -84,6 +84,17 @@ const (
 	// pluginSpecFilesUsrDir specifies one of the locations of spec or json files
 	// of Docker plugins
 	pluginSpecFilesUsrDir = "/usr/lib/docker/plugins"
+	// iptablesExecutableDir specifies the location of the iptable
+	// executable on the host and in the Agent container
+	iptablesExecutableDir = "/sbin"
+	// iptablesLibDir specifies the location of shared libraries on the
+	// host and in the Agent container required for the execution of the iptables
+	// executable
+	iptablesLibDir = "/lib64"
+	// iptablesUsrLibDir specifies the location of shared libraries on the
+	// host and in the Agent container required for the execution of the iptables
+	// executable. Some OS like AL2 moved lib64 to /usr/lib64
+	iptablesUsrLibDir = "/usr/lib64"
 )
 
 var pluginDirs = []string{
