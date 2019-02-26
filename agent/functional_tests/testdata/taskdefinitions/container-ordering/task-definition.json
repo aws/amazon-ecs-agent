@@ -1,0 +1,77 @@
+{
+  "family": "ecsftest-container-ordering",
+  "containerDefinitions": [
+    {
+      "name": "success",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["sh", "-c", "sleep 50"],
+      "dependsOn": [
+        {
+          "containerName": "success-dependency",
+          "condition": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "name": "success-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 1"]
+    },
+    {
+      "name": "complete",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 1"],
+      "dependsOn": [
+        {
+          "containerName": "complete-dependency",
+          "condition": "COMPLETE"
+        }
+      ]
+    },
+    {
+      "name": "complete-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 1"]
+    },
+    {
+      "name": "healthy",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 1"],
+      "dependsOn": [
+        {
+          "containerName": "healthy-dependency",
+          "condition": "HEALTHY"
+        }
+      ]
+    },
+    {
+      "name": "healthy-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "healthCheck": {
+        "command": ["CMD-SHELL", "echo hello"],
+        "interval": 5,
+        "timeout": 50,
+        "retries": 3
+      },
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 15"]
+    }
+  ]
+}

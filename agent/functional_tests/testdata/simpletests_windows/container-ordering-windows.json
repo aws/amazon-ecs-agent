@@ -1,0 +1,7 @@
+{
+  "Name": "ContainerOrdering",
+  "Description": "Check that container ordering works fine",
+  "TaskDefinition": "container-ordering",
+  "Version": ">=1.25.0",
+  "Timeout": "3m"
+}
