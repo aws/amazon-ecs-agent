@@ -17,10 +17,13 @@ package engine
 
 import (
 	"testing"
-
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/aws-sdk-go/aws"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/stretchr/testify/assert"
 )
 
 const orderingTimeout = 90 * time.Second
@@ -348,4 +351,100 @@ func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Durat
 		t.Error("timed out after: ", duration)
 		t.FailNow()
 	}
+}
+
+// TestShutdownOrder
+func TestShutdownOrder(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testShutdownOrder"
+	testTask := createTestTask(taskArn)
+
+	parent := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	A := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	B := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	C := createTestContainerWithImageAndName(baseImageForOS, "parent")
+
+	parent.EntryPoint = &entryPointForOS
+	parent.Command = []string{"exit 0"}
+	parent.Essential = true
+	parent.DependsOn = []apicontainer.DependsOn{
+		{
+			ContainerName: "A",
+			Condition:     "START",
+		},
+		{
+			ContainerName: "B",
+			Condition:     "START",
+		},
+		{
+			ContainerName: "C",
+			Condition:     "START",
+		},
+	}
+
+	A.EntryPoint = &entryPointForOS
+	A.Command = []string{"sleep 1000"}
+	A.DependsOn = []apicontainer.DependsOn{
+		{
+			ContainerName: "B",
+			Condition:     "START",
+		},
+	}
+
+	B.EntryPoint = &entryPointForOS
+	B.Command = []string{"sleep 1000"}
+	B.DependsOn = []apicontainer.DependsOn{
+		{
+			ContainerName: "C",
+			Condition:     "START",
+		},
+	}
+
+	C.EntryPoint = &entryPointForOS
+	C.Command = []string{"sleep 1000"}
+
+	testTask.Containers = []*apicontainer.Container{
+		parent,
+		A,
+		B,
+		C,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Everything should first progress to running
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// The shutdown order will now proceed. Parent will exit first since it has an explicit exit command.
+		event := <-stateChangeEvents
+		assert.Equal(t, event.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "parent")
+
+		// The dependency chain is A -> B -> C. We expect the inverse order to be followed for shutdown:
+		// C shuts down, then B, then A
+		expectedC := <-stateChangeEvents
+		assert.Equal(t, expectedC.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedC.(api.ContainerStateChange).ContainerName, "C")
+
+		expectedB := <-stateChangeEvents
+		assert.Equal(t, expectedB.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedB.(api.ContainerStateChange).ContainerName, "B")
+
+		expectedA := <-stateChangeEvents
+		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "A")
+
+		close(finished)
+	}()
+
 }
