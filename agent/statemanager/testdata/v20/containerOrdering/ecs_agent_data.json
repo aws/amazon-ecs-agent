@@ -69,7 +69,7 @@
               "Name": "container_2",
               "DependsOn": [
                 {
-                  "Container":"container_1",
+                  "ContainerName":"container_1",
                   "Condition":"START"
                 }
               ],

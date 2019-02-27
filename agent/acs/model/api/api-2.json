@@ -138,8 +138,8 @@
     "AssociationType":{
       "type":"string",
       "enum":[
-        "gpu",
-        "elastic-inference"
+        "elastic-inference",
+        "gpu"
       ]
     },
     "Associations":{
@@ -204,23 +204,12 @@
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"},
         "secrets":{"shape":"SecretList"},
-        "dependsOn":{"shape": "DependsOnList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"}
       }
     },
-    "ContainerList":{
-      "type":"list",
-      "member":{"shape":"Container"}
-    },
-    "DependsOn":{
-      "type":"structure",
-      "members":{
-        "container":{"shape":"String"},
-        "condition":{"shape":"ConditionType"}
-      }
-    },
-    "ConditionType":{
+    "ContainerCondition":{
       "type":"string",
       "enum":[
         "START",
@@ -229,9 +218,20 @@
         "HEALTHY"
       ]
     },
-    "DependsOnList":{
+    "ContainerDependencies":{
       "type":"list",
-      "member":{"shape":"DependsOn"}
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
+      }
+    },
+    "ContainerList":{
+      "type":"list",
+      "member":{"shape":"Container"}
     },
     "DockerConfig":{
       "type":"structure",
@@ -502,8 +502,7 @@
     "SecretType":{
       "type":"string",
       "enum":[
-        "ENVIRONMENT_VARIABLE",
-        "MOUNT_POINT"
+        "ENVIRONMENT_VARIABLE"
       ]
     },
     "SensitiveString":{

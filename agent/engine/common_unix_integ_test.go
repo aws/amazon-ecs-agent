@@ -32,8 +32,6 @@ func createTestContainer() *apicontainer.Container {
 }
 
 func isDockerRunning() bool {
-	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
-		return false
-	}
-	return true
+	_, err := os.Stat("/var/run/docker.sock")
+	return err == nil
 }

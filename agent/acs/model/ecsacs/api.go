@@ -206,7 +206,7 @@ type Container struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
-	DependsOn []*DependsOn `locationName:"dependsOn" type:"list"`
+	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
 
 	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
 
@@ -255,21 +255,21 @@ func (s Container) GoString() string {
 	return s.String()
 }
 
-type DependsOn struct {
+type ContainerDependency struct {
 	_ struct{} `type:"structure"`
 
-	Condition *string `locationName:"condition" type:"string" enum:"ConditionType"`
+	Condition *string `locationName:"condition" type:"string" enum:"ContainerCondition"`
 
-	Container *string `locationName:"container" type:"string"`
+	ContainerName *string `locationName:"containerName" type:"string"`
 }
 
 // String returns the string representation
-func (s DependsOn) String() string {
+func (s ContainerDependency) String() string {
 	return awsutil.Prettify(s)
 }
 
 // GoString returns the string representation
-func (s DependsOn) GoString() string {
+func (s ContainerDependency) GoString() string {
 	return s.String()
 }
 

@@ -63,6 +63,7 @@ var (
 
 func init() {
 	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte{})
+	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 }
 
 // eventStream returns the event stream used to receive container change events

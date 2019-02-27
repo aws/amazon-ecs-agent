@@ -246,7 +246,7 @@ type Container struct {
 }
 
 type DependsOn struct {
-	Container string `json:"container"`
+	ContainerName string `json:"containerName"`
 	Condition string `json:"condition"`
 }
 

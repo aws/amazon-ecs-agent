@@ -359,7 +359,7 @@ func TestLoadsDataForContainerOrdering(t *testing.T) {
 	assert.Equal(t, 2, len(task.Containers))
 
 	dependsOn := task.Containers[1].DependsOn
-	assert.Equal(t, "container_1", dependsOn[0].Container)
+	assert.Equal(t, "container_1", dependsOn[0].ContainerName)
 	assert.Equal(t, "START", dependsOn[0].Condition)
 }
 
