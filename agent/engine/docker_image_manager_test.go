@@ -1064,7 +1064,9 @@ func TestDeleteImage(t *testing.T) {
 	}
 }
 
-func TestDeleteImageNotFoundError(t *testing.T) {
+// This test tests that we detect correctly in agent when the agent is trying to delete image that
+// does not exist for older version of docker. 
+func TestDeleteImageNotFoundOldDockerMessageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -1085,6 +1087,38 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 	imageState, _ := imageManager.getImageState(imageInspected.ID)
 	client.EXPECT().RemoveImage(gomock.Any(), container.Image, dockerclient.RemoveImageTimeout).Return(
 		errors.New("no such image"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	imageManager.deleteImage(ctx, container.Image, imageState)
+	if len(imageState.Image.Names) != 0 {
+		t.Error("Error removing Image name from image state")
+	}
+	if len(imageManager.getAllImageStates()) != 0 {
+		t.Error("Error removing image state from image manager")
+	}
+}
+
+func TestDeleteImageNotFoundError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	container := &apicontainer.Container{
+		Name:  "testContainer",
+		Image: "testContainerImage",
+	}
+	imageInspected := &types.ImageInspect{
+		ID: "sha256:qwerty",
+	}
+	client.EXPECT().InspectImage(container.Image).Return(imageInspected, nil).AnyTimes()
+	err := imageManager.RecordContainerReference(container)
+	if err != nil {
+		t.Error("Error in adding container to an existing image state")
+	}
+	imageState, _ := imageManager.getImageState(imageInspected.ID)
+	client.EXPECT().RemoveImage(gomock.Any(), container.Image, dockerclient.RemoveImageTimeout).Return(
+		errors.New("no such image: " + container.Image))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	imageManager.deleteImage(ctx, container.Image, imageState)
