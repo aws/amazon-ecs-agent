@@ -343,6 +343,7 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 
 // TestShutdownOrder
 func TestShutdownOrder(t *testing.T) {
+	shutdownOrderingTimeout := 120 * time.Second
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
@@ -352,30 +353,22 @@ func TestShutdownOrder(t *testing.T) {
 	testTask := createTestTask(taskArn)
 
 	parent := createTestContainerWithImageAndName(baseImageForOS, "parent")
-	A := createTestContainerWithImageAndName(baseImageForOS, "parent")
-	B := createTestContainerWithImageAndName(baseImageForOS, "parent")
-	C := createTestContainerWithImageAndName(baseImageForOS, "parent")
+	A := createTestContainerWithImageAndName(baseImageForOS, "A")
+	B := createTestContainerWithImageAndName(baseImageForOS, "B")
+	C := createTestContainerWithImageAndName(baseImageForOS, "C")
 
 	parent.EntryPoint = &entryPointForOS
-	parent.Command = []string{"exit 0"}
+	parent.Command = []string{"echo hi"}
 	parent.Essential = true
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "A",
 			Condition:     "START",
 		},
-		{
-			ContainerName: "B",
-			Condition:     "START",
-		},
-		{
-			ContainerName: "C",
-			Condition:     "START",
-		},
 	}
 
 	A.EntryPoint = &entryPointForOS
-	A.Command = []string{"sleep 1000"}
+	A.Command = []string{"sleep 100"}
 	A.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "B",
@@ -384,7 +377,7 @@ func TestShutdownOrder(t *testing.T) {
 	}
 
 	B.EntryPoint = &entryPointForOS
-	B.Command = []string{"sleep 1000"}
+	B.Command = []string{"sleep 100"}
 	B.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "C",
@@ -393,7 +386,7 @@ func TestShutdownOrder(t *testing.T) {
 	}
 
 	C.EntryPoint = &entryPointForOS
-	C.Command = []string{"sleep 1000"}
+	C.Command = []string{"sleep 100"}
 
 	testTask.Containers = []*apicontainer.Container{
 		parent,
@@ -419,10 +412,10 @@ func TestShutdownOrder(t *testing.T) {
 		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "parent")
 
 		// The dependency chain is A -> B -> C. We expect the inverse order to be followed for shutdown:
-		// C shuts down, then B, then A
+		// A shuts down, then B, then C
 		expectedC := <-stateChangeEvents
 		assert.Equal(t, expectedC.(api.ContainerStateChange).Status, status.ContainerStopped)
-		assert.Equal(t, expectedC.(api.ContainerStateChange).ContainerName, "C")
+		assert.Equal(t, expectedC.(api.ContainerStateChange).ContainerName, "A")
 
 		expectedB := <-stateChangeEvents
 		assert.Equal(t, expectedB.(api.ContainerStateChange).Status, status.ContainerStopped)
@@ -430,12 +423,12 @@ func TestShutdownOrder(t *testing.T) {
 
 		expectedA := <-stateChangeEvents
 		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, status.ContainerStopped)
-		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "A")
+		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "C")
 
 		close(finished)
 	}()
 
-	waitFinished(t, finished, orderingTimeout)
+	waitFinished(t, finished, shutdownOrderingTimeout)
 }
 
 
@@ -444,7 +437,7 @@ func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Durat
 	case <-finished:
 		t.Log("Finished successfully.")
 		return
-	case <-time.After(90 * time.Second):
+	case <-time.After(duration):
 		t.Error("timed out after: ", duration)
 		t.FailNow()
 	}
