@@ -379,9 +379,7 @@ func TestCNIPluginVersionUpgrade(t *testing.T) {
 	if currentECSCNIGitHash != strings.Split(versionInfoStrList[0], " ")[1] {
 		assert.NotEqual(t, currentECSCNIVersion, versionStr)
 	}
-	if currentVPCCNIGitHash != strings.Split(versionInfoStrList[1], " ")[1] {
-		assert.NotEqual(t, currentVPCCNIGitHash, versionStr)
-	}
+	assert.Equal(t, currentVPCCNIGitHash, strings.Split(versionInfoStrList[1], " ")[1])
 }
 
 // Returns the version in CNI plugin VERSION file as a string
