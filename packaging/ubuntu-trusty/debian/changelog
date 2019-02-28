@@ -1,3 +1,10 @@
+amazon-ecs-init (1.26.0-1) trusty; urgency=medium
+
+   * Cache Agent version 1.26.0
+   * Add support for running iptables within agent container
+
+   -- Derek Petersen <petderek@amazon.com> Thu, 28 Feb 2019 13:30:00 -0800
+
 amazon-ecs-init (1.25.3-1) trusty; urgency=medium
 
    * Cache Agent version 1.25.3
