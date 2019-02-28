@@ -3,7 +3,6 @@
 ![Amazon ECS logo](doc/ecs.png "Amazon ECS")
 
 [![Build Status](https://travis-ci.org/aws/amazon-ecs-agent.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-agent)
-[![Build status](https://ci.appveyor.com/api/projects/status/upkhbwf2oc0srglt?svg=true)](https://ci.appveyor.com/project/AmazonECS/amazon-ecs-agent)
 
 
 The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
