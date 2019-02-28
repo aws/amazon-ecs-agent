@@ -18,7 +18,7 @@ set -e
 
 REGISTRY_IMAGE="registry:2.7.0"
 
-NGINX_IMAGE="nginx:1.15"
+NGINX_IMAGE="nginx:1.15.8"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -56,7 +56,7 @@ docker rmi amazon/image-cleanup-test-image2:make
 docker rmi amazon/image-cleanup-test-image3:make
 
 BUSYBOX_IMAGE="busybox:1.29.3"
-NGINX_IMAGE="nginx:1.15"
+NGINX_IMAGE="nginx:1.15.8"
 PYTHON2_IMAGE="python:2.7.15"
 UBUNTU_IMAGE="ubuntu:16.04"
 
