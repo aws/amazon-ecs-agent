@@ -666,6 +666,78 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expectedENI.Ipv6Addresses[0].Address), taskeni.IPV6Addresses[0].Address)
 }
 
+func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
+	appMeshType := "APPMESH"
+	mockEgressIgnoredIP1 := "128.0.0.1"
+	mockEgressIgnoredIP2 := "171.1.3.24"
+	mockAppPort1 := "8000"
+	mockAppPort2 := "8001"
+	mockEgressIgnoredPort1 := "13000"
+	mockEgressIgnoredPort2 := "13001"
+	mockIgnoredUID := "1337"
+	mockIgnoredGID := "2339"
+	mockProxyIngressPort := "9000"
+	mockProxyEgressPort := "9001"
+	mockAppPorts := mockAppPort1 + "," + mockAppPort2
+	mockEgressIgnoredIPs := mockEgressIgnoredIP1 + "," + mockEgressIgnoredIP2
+	mockEgressIgnoredPorts := mockEgressIgnoredPort1 + "," + mockEgressIgnoredPort2
+	mockContainerName := "testEnvoyContainer"
+	taskMetadataEndpointIP     := "169.254.170.2"
+	instanceMetadataEndpointIP := "169.254.169.254"
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				ProxyConfiguration: &ecsacs.ProxyConfiguration{
+					Type: aws.String(appMeshType),
+					Properties: map[string]*string{
+						"IgnoredUID":         aws.String(mockIgnoredUID),
+						"IgnoredGID":         aws.String(mockIgnoredGID),
+						"ProxyIngressPort":   aws.String(mockProxyIngressPort),
+						"ProxyEgressPort":    aws.String(mockProxyEgressPort),
+						"AppPorts":           aws.String(mockAppPorts),
+						"EgressIgnoredIPs":   aws.String(mockEgressIgnoredIPs),
+						"EgressIgnoredPorts": aws.String(mockEgressIgnoredPorts),
+					},
+					ContainerName: aws.String(mockContainerName),
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	// Validate the added task has the eni information as expected
+	appMesh := addedTask.GetAppMesh()
+	assert.NotNil(t, appMesh)
+	assert.Equal(t, mockIgnoredUID, appMesh.IgnoredUID)
+	assert.Equal(t, mockIgnoredGID, appMesh.IgnoredGID)
+	assert.Equal(t, mockProxyIngressPort, appMesh.ProxyIngressPort)
+	assert.Equal(t, mockProxyEgressPort, appMesh.ProxyEgressPort)
+	assert.Equal(t, 2, len(appMesh.AppPorts))
+	assert.Equal(t, mockAppPort1, appMesh.AppPorts[0])
+	assert.Equal(t, mockAppPort2, appMesh.AppPorts[1])
+	assert.Equal(t, 4, len(appMesh.EgressIgnoredIPs))
+	assert.Equal(t, mockEgressIgnoredIP1, appMesh.EgressIgnoredIPs[0])
+	assert.Equal(t, mockEgressIgnoredIP2, appMesh.EgressIgnoredIPs[1])
+	assert.Equal(t, taskMetadataEndpointIP, appMesh.EgressIgnoredIPs[2])
+	assert.Equal(t, instanceMetadataEndpointIP, appMesh.EgressIgnoredIPs[3])
+	assert.Equal(t, 2, len(appMesh.EgressIgnoredPorts))
+	assert.Equal(t, mockEgressIgnoredPort1, appMesh.EgressIgnoredPorts[0])
+	assert.Equal(t, mockEgressIgnoredPort2, appMesh.EgressIgnoredPorts[1])
+}
+
 func TestPayloadHandlerAddedECRAuthData(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()

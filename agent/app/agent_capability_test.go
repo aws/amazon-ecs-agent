@@ -124,6 +124,9 @@ func TestCapabilities(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilitySecretEnvASM),
 			},
 			{
+				Name: aws.String(attributePrefix + appMeshAttributeSuffix),
+			},
+			{
 				Name: aws.String(attributePrefix + taskEIAAttributeSuffix),
 			},
 			{

@@ -455,6 +455,18 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "ProxyConfiguration":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"ProxyConfigurationType"},
+        "containerName":{"shape":"String"},
+        "properties":{"shape":"StringMap"}
+      }
+    },
+    "ProxyConfigurationType":{
+      "type":"string",
+      "enum":["APPMESH"]
+    },
     "RegistryAuthenticationData":{
       "type":"structure",
       "members":{
@@ -553,7 +565,8 @@
         "memory":{"shape":"Integer"},
         "associations":{"shape":"Associations"},
         "pidMode":{"shape":"String"},
-        "ipcMode":{"shape":"String"}
+        "ipcMode":{"shape":"String"},
+        "proxyConfiguration":{"shape":"ProxyConfiguration"}
       }
     },
     "TaskList":{

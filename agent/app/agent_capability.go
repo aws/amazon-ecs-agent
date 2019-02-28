@@ -32,6 +32,7 @@ const (
 	capabilityTaskIAMRoleNetHost                = "task-iam-role-network-host"
 	taskENIAttributeSuffix                      = "task-eni"
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
+	appMeshAttributeSuffix                      = "aws-appmesh"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
 	capabilityDockerPluginInfix                 = "docker-plugin."
@@ -76,6 +77,7 @@ const (
 //    ecs.capability.pid-ipc-namespace-sharing
 //    ecs.capability.ecr-endpoint
 //    ecs.capability.secrets.asm.environment-variables
+//    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
@@ -138,6 +140,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvASM)
+
+	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+appMeshAttributeSuffix)
 
 	// support elastic inference in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
@@ -220,7 +225,7 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Att
 
 func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.TaskENIEnabled {
-		// The assumption here is that all of the dependecies for supporting the
+		// The assumption here is that all of the dependencies for supporting the
 		// Task ENI in the Agent have already been validated prior to the invocation of
 		// the `agent.capabilities()` call
 		capabilities = append(capabilities, &ecs.Attribute{

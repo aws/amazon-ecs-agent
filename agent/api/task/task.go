@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -178,6 +179,9 @@ type Task struct {
 
 	// ENI is the elastic network interface specified by this task
 	ENI *apieni.ENI
+
+	// AppMesh is the service mesh specified by the task
+	AppMesh *apiappmesh.AppMesh
 
 	// MemoryCPULimitsEnabled to determine if task supports CPU, memory limits
 	MemoryCPULimitsEnabled bool `json:"MemoryCPULimitsEnabled,omitempty"`
@@ -708,8 +712,16 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 	}
 
 	cfg := &ecscni.Config{}
-	eni := task.GetTaskENI()
+	convertENIToCNIConfig(task.GetTaskENI(), cfg)
+	if task.GetAppMesh() != nil {
+		convertAppMeshToCNIConfig(task.GetAppMesh(), cfg)
+	}
 
+	return cfg, nil
+}
+
+// convertENIToCNIConfig converts input eni config into cni config
+func convertENIToCNIConfig(eni *apieni.ENI, cfg *ecscni.Config) {
 	cfg.ENIID = eni.ID
 	cfg.ID = eni.MacAddress
 	cfg.ENIMACAddress = eni.MacAddress
@@ -720,13 +732,23 @@ func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
 			break
 		}
 	}
-
 	// If there is ipv6 assigned to eni then set it
 	if len(eni.IPV6Addresses) > 0 {
 		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
 	}
+}
 
-	return cfg, nil
+// convertAppMeshToCNIConfig converts input app mesh config into cni config
+func convertAppMeshToCNIConfig(appMesh *apiappmesh.AppMesh, cfg *ecscni.Config) {
+	cfg.AppMeshCNIEnabled = true
+	cfg.IgnoredUID = appMesh.IgnoredUID
+	cfg.IgnoredGID = appMesh.IgnoredGID
+	cfg.ProxyIngressPort = appMesh.ProxyIngressPort
+	cfg.ProxyEgressPort = appMesh.ProxyEgressPort
+	cfg.AppPorts = appMesh.AppPorts
+	cfg.EgressIgnoredIPs = appMesh.EgressIgnoredIPs
+	cfg.EgressIgnoredPorts = appMesh.EgressIgnoredPorts
+
 }
 
 // isNetworkModeVPC checks if the task is configured to use task-networking feature
@@ -1570,6 +1592,22 @@ func (task *Task) GetTaskENI() *apieni.ENI {
 	defer task.lock.RUnlock()
 
 	return task.ENI
+}
+
+// SetAppMesh sets the app mesh config of the task
+func (task *Task) SetAppMesh(appMesh *apiappmesh.AppMesh) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.AppMesh = appMesh
+}
+
+// GetAppMesh returns the app mesh config of the task
+func (task *Task) GetAppMesh() *apiappmesh.AppMesh {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.AppMesh
 }
 
 // GetStopSequenceNumber returns the stop sequence number of a task
