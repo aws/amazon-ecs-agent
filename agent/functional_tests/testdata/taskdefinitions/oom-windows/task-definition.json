@@ -4,7 +4,7 @@
     "essential": true,
     "memory": 256,
     "name": "memory-overcommit",
-    "cpu": 512,
+    "cpu": 1024,
     "image": "amazon/amazon-ecs-windows-telemetry-test:make",
     "command": ["-concurrency", "10", "-memory", "1024"]
   }]

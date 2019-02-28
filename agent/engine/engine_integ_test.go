@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	testDockerStopTimeout  = 2 * time.Second
+	testDockerStopTimeout  = 5 * time.Second
 	credentialsIDIntegTest = "credsid"
 	containerPortOne       = 24751
 	containerPortTwo       = 24752
