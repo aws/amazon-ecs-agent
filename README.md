@@ -148,7 +148,7 @@ additional details on each available environment variable.
 | `ECS_SELINUX_CAPABLE` | `true` | Whether SELinux is available on the container instance. | `false` | `false` |
 | `ECS_APPARMOR_CAPABLE` | `true` | Whether AppArmor is available on the container instance. | `false` | `false` |
 | `ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION` | 10m | Time to wait to delete containers for a stopped task. If set to less than 1 minute, the value is ignored.  | 3h | 3h |
-| `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Time to wait for the container to exit normally before being forcibly killed. | 30s | 30s |
+| `ECS_CONTAINER_STOP_TIMEOUT` | 10m | Instance scoped configuration for time to wait for the container to exit normally before being forcibly killed. | 30s | 30s |
 | `ECS_CONTAINER_START_TIMEOUT` | 10m | Timeout before giving up on starting a container. | 3m | 8m |
 | `ECS_ENABLE_TASK_IAM_ROLE` | `true` | Whether to enable IAM Roles for Tasks on the Container Instance | `false` | `false` |
 | `ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST` | `true` | Whether to enable IAM Roles for Tasks when launched with `host` network mode on the Container Instance | `false` | `false` |

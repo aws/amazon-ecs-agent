@@ -103,7 +103,7 @@ func processCredentialsRequest(credentialsManager credentials.Manager, r *http.R
 		return nil, "", "", msg, errors.New(errText)
 	}
 
-	if utils.ZeroOrNil(credentials) {
+	if utils.ZeroOrNil(credentials.ARN) && utils.ZeroOrNil(credentials.IAMRoleCredentials) {
 		// This can happen when the agent is restarted and is reconciling its state.
 		errText := errPrefix + "Credentials uninitialized for ID"
 		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)

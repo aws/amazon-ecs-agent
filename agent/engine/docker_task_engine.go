@@ -1082,7 +1082,7 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return dockerapi.DockerContainerMetadata{
-			Error: dockerapi.CannotStopContainerError{errors.Errorf("Container not recorded as created")},
+			Error: dockerapi.CannotStopContainerError{FromError: errors.Errorf("Container not recorded as created")},
 		}
 	}
 

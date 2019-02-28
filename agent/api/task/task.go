@@ -920,12 +920,12 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	if container.DockerConfig.Config != nil {
 		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
 		if err != nil {
-			return nil, &apierrors.DockerClientConfigError{"Unable decode given docker config: " + err.Error()}
+			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
 	if container.HealthCheckType == apicontainer.DockerHealthCheckType && containerConfig.Healthcheck == nil {
 		return nil, &apierrors.DockerClientConfigError{
-			"docker health check is nil while container health check type is DOCKER"}
+			Msg: "docker health check is nil while container health check type is DOCKER"}
 	}
 
 	if containerConfig.Labels == nil {
@@ -961,7 +961,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 	id := task.GetExecutionCredentialsID()
 	if id == "" {
 		// No execution credentials set for the task. Do not inject the endpoint environment variable.
-		return &apierrors.HostConfigError{"No execution credentials set for the task"}
+		return &apierrors.HostConfigError{Msg: "No execution credentials set for the task"}
 	}
 
 	executionRoleCredentials, ok := credentialsManager.GetTaskCredentials(id)
@@ -970,7 +970,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 		// the id. This should never happen as the payload handler sets
 		// credentialsId for the task after adding credentials to the
 		// credentials manager
-		return &apierrors.HostConfigError{"Unable to get execution role credentials for task"}
+		return &apierrors.HostConfigError{Msg: "Unable to get execution role credentials for task"}
 	}
 	credentialsEndpointRelativeURI := executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 	hostConfig.LogConfig.Config[awslogsCredsEndpointOpt] = credentialsEndpointRelativeURI
@@ -980,19 +980,19 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
-		return nil, &apierrors.HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
 	dockerPortMap := task.dockerPortMap(container)
 
 	volumesFrom, err := task.dockerVolumesFrom(container, dockerContainerMap)
 	if err != nil {
-		return nil, &apierrors.HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
 	binds, err := task.dockerHostBinds(container)
 	if err != nil {
-		return nil, &apierrors.HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
 	resources := task.getDockerResources(container)
@@ -1008,7 +1008,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 
 	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
 		if task.NvidiaRuntime == "" {
-			return nil, &apierrors.HostConfigError{"Runtime is not set for GPU containers"}
+			return nil, &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
 		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 		hostConfig.Runtime = task.NvidiaRuntime
@@ -1017,13 +1017,13 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	if container.DockerConfig.HostConfig != nil {
 		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
 		if err != nil {
-			return nil, &apierrors.HostConfigError{"Unable to decode given host config: " + err.Error()}
+			return nil, &apierrors.HostConfigError{Msg: "Unable to decode given host config: " + err.Error()}
 		}
 	}
 
 	err = task.platformHostConfigOverride(hostConfig)
 	if err != nil {
-		return nil, &apierrors.HostConfigError{err.Error()}
+		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
 	// Determine if network mode should be overridden and override it if needed
@@ -1804,7 +1804,7 @@ func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apier
 	if container.ShouldCreateWithSSMSecret() {
 		resource, ok := task.getSSMSecretsResource()
 		if !ok {
-			return &apierrors.DockerClientConfigError{"task secret data: unable to fetch SSM Secrets resource"}
+			return &apierrors.DockerClientConfigError{Msg: "task secret data: unable to fetch SSM Secrets resource"}
 		}
 		ssmRes = resource[0].(*ssmsecret.SSMSecretResource)
 	}
@@ -1812,7 +1812,7 @@ func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apier
 	if container.ShouldCreateWithASMSecret() {
 		resource, ok := task.getASMSecretsResource()
 		if !ok {
-			return &apierrors.DockerClientConfigError{"task secret data: unable to fetch ASM Secrets resource"}
+			return &apierrors.DockerClientConfigError{Msg: "task secret data: unable to fetch ASM Secrets resource"}
 		}
 		asmRes = resource[0].(*asmsecret.ASMSecretResource)
 	}

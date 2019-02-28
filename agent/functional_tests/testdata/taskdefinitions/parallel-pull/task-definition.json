@@ -47,17 +47,10 @@
         "essential": true
     },
     {
-        "name": "mongo",
-        "image": "127.0.0.1:51670/mongo:parallel-pull-fts",
+        "name": "redis-2",
+        "image": "127.0.0.1:51670/redis:parallel-pull-fts",
         "cpu": 10,
         "memory": 100,
-        "essential": true
-    },
-    {
-        "name": "nginx",
-        "image": "127.0.0.1:51670/nginx:parallel-pull-fts",
-        "cpu": 10,
-        "memory": 50,
         "essential": true
     },
     {
@@ -65,6 +58,13 @@
         "image": "127.0.0.1:51670/redis:parallel-pull-fts",
         "cpu": 10,
         "memory": 64,
+        "essential": true
+    },
+    {
+        "name": "nginx",
+        "image": "127.0.0.1:51670/nginx:parallel-pull-fts",
+        "cpu": 10,
+        "memory": 50,
         "essential": true
     },
     {
