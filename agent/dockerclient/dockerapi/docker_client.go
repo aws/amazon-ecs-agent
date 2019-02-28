@@ -91,6 +91,8 @@ const (
 	pullRetryJitterMultiplier = 0.2
 )
 
+var ctxTimeoutStopContainer = dockerclient.StopContainerTimeout
+
 // DockerClient interface to make testing it easier
 type DockerClient interface {
 	// SupportedVersions returns a slice of the supported docker versions (or at least supposedly supported).
@@ -654,13 +656,16 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	// ctxTimeout is sum of timeout(applied to the StopContainer api call) and a fixed constant dockerclient.StopContainerTimeout
+	// the context's timeout should be greater than the sigkill timout for the StopContainer call
+	ctxTimeout := timeout + ctxTimeoutStopContainer
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("STOP_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
-	go func() { response <- dg.stopContainer(ctx, dockerID) }()
+	go func() { response <- dg.stopContainer(ctx, dockerID, timeout) }()
 	select {
 	case resp := <-response:
 		return resp
@@ -669,19 +674,18 @@ func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, ti
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
-			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "stopped"}}
+			return DockerContainerMetadata{Error: &DockerTimeoutError{ctxTimeout, "stopped"}}
 		}
 		return DockerContainerMetadata{Error: CannotStopContainerError{err}}
 	}
 }
 
-func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string) DockerContainerMetadata {
+func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
-
-	err = client.ContainerStop(ctx, dockerID, &dg.config.DockerStopTimeout)
+	err = client.ContainerStop(ctx, dockerID, &timeout)
 	metadata := dg.containerMetadata(ctx, dockerID)
 	if err != nil {
 		seelog.Infof("DockerGoClient: error stopping container %s: %v", dockerID, err)

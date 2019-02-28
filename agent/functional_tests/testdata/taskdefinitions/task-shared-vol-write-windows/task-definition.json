@@ -2,7 +2,7 @@
     "family": "ecsftest-task-local-volume",
     "containerDefinitions": [
         {
-            "image": "microsoft/windowsservercore:latest",
+            "image": "microsoft/windowsservercore",
             "name": "task-shared-vol-write-windows",
             "cpu": 512,
             "memory": 256,

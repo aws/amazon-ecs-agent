@@ -179,7 +179,7 @@ func TestSetupExecutionRoleFlag(t *testing.T) {
 	}
 }
 
-func TestSetHealtStatus(t *testing.T) {
+func TestSetHealthStatus(t *testing.T) {
 	container := Container{}
 
 	// set the container status to be healthy
@@ -454,4 +454,17 @@ func TestHasSecretAsEnv(t *testing.T) {
 		assert.Equal(t, test.out, container.HasSecretAsEnv())
 	}
 
+}
+
+func TestPerContainerTimeouts(t *testing.T) {
+	timeout := uint(10)
+	expectedTimeout := time.Duration(timeout) * time.Second
+
+	container := Container{
+		StartTimeout: timeout,
+		StopTimeout:  timeout,
+	}
+
+	assert.Equal(t, container.GetStartTimeout(), expectedTimeout)
+	assert.Equal(t, container.GetStopTimeout(), expectedTimeout)
 }

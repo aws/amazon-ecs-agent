@@ -10,10 +10,9 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM microsoft/windowsservercore:latest
+FROM microsoft/windowsservercore
 
 MAINTAINER Amazon Web Services, Inc.
 
 ADD netkitten.exe C:/netkitten.exe
-
 ENTRYPOINT ["C:\\netkitten.exe"]
