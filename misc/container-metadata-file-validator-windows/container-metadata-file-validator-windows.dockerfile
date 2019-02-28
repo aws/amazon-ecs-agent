@@ -11,6 +11,6 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM microsoft/nanoserver:latest
+FROM microsoft/windowsservercore
 
 ADD container-metadata-file-validator-windows.exe container-metadata-file-validator-windows.exe

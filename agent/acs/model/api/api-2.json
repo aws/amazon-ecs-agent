@@ -138,8 +138,8 @@
     "AssociationType":{
       "type":"string",
       "enum":[
-        "gpu",
-        "elastic-inference"
+        "elastic-inference",
+        "gpu"
       ]
     },
     "Associations":{
@@ -203,7 +203,30 @@
         "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"},
-        "secrets":{"shape":"SecretList"}
+        "secrets":{"shape":"SecretList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
+        "startTimeout":{"shape":"Integer"},
+        "stopTimeout":{"shape":"Integer"}
+      }
+    },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
       }
     },
     "ContainerList":{
@@ -479,8 +502,7 @@
     "SecretType":{
       "type":"string",
       "enum":[
-        "ENVIRONMENT_VARIABLE",
-        "MOUNT_POINT"
+        "ENVIRONMENT_VARIABLE"
       ]
     },
     "SensitiveString":{

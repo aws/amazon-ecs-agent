@@ -16,22 +16,10 @@ $ErrorActionPreference = 'Stop'
 
 # Create amazon/amazon-ecs-iamrolecontainer for tests
 
-$buildscript = @"
-mkdir C:\IAM
-cp C:\ecs\ec2.go C:\IAM
-go get -u  github.com/aws/aws-sdk-go
-go get -u  github.com/aws/aws-sdk-go/aws
-go build -o C:\IAM\ec2.exe C:\IAM\ec2.go
-cp C:\IAM\ec2.exe C:\ecs
-"@
+Invoke-Expression "go get -u  github.com/aws/aws-sdk-go'
+Invoke-Expression "go get -u  github.com/aws/aws-sdk-go/aws"
+Invoke-Expression "go build -o ${PSScriptRoot}\ec2.exe ${PSScriptRoot}\ec2.go"
 
-$buildimage="golang:1.7-windowsservercore"
-docker pull $buildimage
-
-docker run `
-  --volume ${PSScriptRoot}:C:\ecs `
-  $buildimage `
-  powershell ${buildscript}
 
 Invoke-Expression "docker build -t amazon/amazon-ecs-iamrolecontainer --file ${PSScriptRoot}\iamroles.dockerfile ${PSScriptRoot}"
 $ErrorActionPreference = $oldPref

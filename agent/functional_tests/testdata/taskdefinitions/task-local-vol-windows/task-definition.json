@@ -2,7 +2,7 @@
     "family": "ecsftest-task-local-volume",
     "containerDefinitions": [
         {
-            "image": "microsoft/windowsservercore:latest",
+            "image": "microsoft/windowsservercore",
             "name": "exit",
             "cpu": 512,
             "memory": 256,

@@ -735,7 +735,7 @@ func TestLinkVolumeDependencies(t *testing.T) {
 		}
 	}
 
-	timeout, err := time.ParseDuration("2m")
+	timeout, err := time.ParseDuration("5m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
 	}

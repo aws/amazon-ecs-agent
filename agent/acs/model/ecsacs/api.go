@@ -206,6 +206,8 @@ type Container struct {
 
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
+	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
+
 	DockerConfig *DockerConfig `locationName:"dockerConfig" type:"structure"`
 
 	EntryPoint []*string `locationName:"entryPoint" type:"list"`
@@ -236,6 +238,10 @@ type Container struct {
 
 	Secrets []*Secret `locationName:"secrets" type:"list"`
 
+	StartTimeout *int64 `locationName:"startTimeout" type:"integer"`
+
+	StopTimeout *int64 `locationName:"stopTimeout" type:"integer"`
+
 	VolumesFrom []*VolumeFrom `locationName:"volumesFrom" type:"list"`
 }
 
@@ -246,6 +252,24 @@ func (s Container) String() string {
 
 // GoString returns the string representation
 func (s Container) GoString() string {
+	return s.String()
+}
+
+type ContainerDependency struct {
+	_ struct{} `type:"structure"`
+
+	Condition *string `locationName:"condition" type:"string" enum:"ContainerCondition"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+}
+
+// String returns the string representation
+func (s ContainerDependency) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ContainerDependency) GoString() string {
 	return s.String()
 }
 
