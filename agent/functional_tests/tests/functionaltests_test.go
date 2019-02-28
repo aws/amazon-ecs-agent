@@ -686,14 +686,9 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
-		PortBindings: map[nat.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
 
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
