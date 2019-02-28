@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.26.0
+* Feature - Container Ordering [#1904](https://github.com/aws/amazon-ecs-agent/pull/1904)
+* Feature - Container level timeouts [#1904](https://github.com/aws/amazon-ecs-agent/pull/1904)
+* Feature - AWS Appmesh CNI plugin support [#1898](https://github.com/aws/amazon-ecs-agent/pull/1898)
+* Enhancement - Shutdown order is now observed [#1904](https://github.com/aws/amazon-ecs-agent/pull/1904)
+* Bug - Image cleanup errors fixed [#1897](https://github.com/aws/amazon-ecs-agent/pull/1897)
+
 ## 1.25.3
 * Bug - Fixed a bug where agent no longer redirected malformed credentials or metadata http requests [#1844](https://github.com/aws/amazon-ecs-agent/pull/1844)
 * Bug - Populate v3 metadata networks response for non-awsvpc tasks [#1833](https://github.com/aws/amazon-ecs-agent/pull/1833)
