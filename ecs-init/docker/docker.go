@@ -87,14 +87,14 @@ const (
 	// iptablesExecutableDir specifies the location of the iptable
 	// executable on the host and in the Agent container
 	iptablesExecutableDir = "/sbin"
-	// iptablesLibDir specifies the location of shared libraries on the
+
+	// the following libDirs  specify the location of shared libraries on the
 	// host and in the Agent container required for the execution of the iptables
-	// executable
-	iptablesLibDir = "/lib64"
-	// iptablesUsrLibDir specifies the location of shared libraries on the
-	// host and in the Agent container required for the execution of the iptables
-	// executable. Some OS like AL2 moved lib64 to /usr/lib64
-	iptablesUsrLibDir = "/usr/lib64"
+	// executable. Some OS like AL2 moved lib64 to /usr/lib64 (and lib to /usr/lib)
+	iptablesLibDir = "/lib"
+	iptablesUsrLibDir = "/usr/lib"
+	iptablesLib64Dir = "/lib64"
+	iptablesUsrLib64Dir = "/usr/lib64"
 )
 
 var pluginDirs = []string{

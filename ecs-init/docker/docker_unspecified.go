@@ -37,6 +37,8 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		config.ProcFS+":"+hostProcDir+readOnly,
 		iptablesUsrLibDir+":"+iptablesUsrLibDir+readOnly,
 		iptablesLibDir+":"+iptablesLibDir+readOnly,
+		iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+readOnly,
+		iptablesLib64Dir+":"+iptablesLib64Dir+readOnly,
 		iptablesExecutableDir+":"+iptablesExecutableDir+readOnly,
 	)
 
