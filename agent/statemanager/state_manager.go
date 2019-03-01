@@ -82,7 +82,8 @@ const (
 	//   a) Add 'DependsOn' field to 'apicontainer.Container'
 	//   b) Add 'StartTime' field to 'api.container.Container'
 	//   c) Add 'StopTime' field to 'api.container.Container'
-	ECSDataVersion = 20
+	// 21)  Add 'target' field to the Secret struct
+	ECSDataVersion = 21
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

@@ -87,7 +87,6 @@ const (
 	// awslogsCredsEndpointOpt is the awslogs option that is used to pass in an
 	// http endpoint for authentication
 	awslogsCredsEndpointOpt = "awslogs-credentials-endpoint"
-
 	// These contants identify the docker flag options
 	pidModeHost     = "host"
 	pidModeTask     = "task"
@@ -1877,8 +1876,8 @@ func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
 	return res, ok
 }
 
-// PopulateSecretsAsEnv appends the container's env var map with secrets
-func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+// PopulateSecrets appends secrets to container's env var map and hostconfig section
+func (task *Task) PopulateSecrets(hostConfig *dockercontainer.HostConfig, container *apicontainer.Container) *apierrors.DockerClientConfigError {
 	var ssmRes *ssmsecret.SSMSecretResource
 	var asmRes *asmsecret.ASMSecretResource
 
@@ -1900,18 +1899,38 @@ func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apier
 
 	envVars := make(map[string]string)
 
+	logDriverTokenName := ""
+	logDriverTokenSecretValue := ""
+
 	for _, secret := range container.Secrets {
-		if secret.Provider == apicontainer.SecretProviderSSM && secret.Type == apicontainer.SecretTypeEnv {
+		secretVal := ""
+
+		if secret.Provider == apicontainer.SecretProviderSSM {
 			k := secret.GetSecretResourceCacheKey()
 			if secretValue, ok := ssmRes.GetCachedSecretValue(k); ok {
-				envVars[secret.Name] = secretValue
+				secretVal = secretValue
 			}
 		}
 
-		if secret.Provider == apicontainer.SecretProviderASM && secret.Type == apicontainer.SecretTypeEnv {
+		if secret.Provider == apicontainer.SecretProviderASM {
 			k := secret.GetSecretResourceCacheKey()
 			if secretValue, ok := asmRes.GetCachedSecretValue(k); ok {
-				envVars[secret.Name] = secretValue
+				secretVal = secretValue
+			}
+		}
+
+		if secret.Type == apicontainer.SecretTypeEnv {
+			envVars[secret.Name] = secretVal
+			continue
+		}
+		if secret.Target == apicontainer.SecretTargetLogDriver {
+			logDriverTokenName = secret.Name
+			logDriverTokenSecretValue = secretVal
+
+			// Check if all the name and secret value for the log driver do exist
+			// And add the secret value for this log driver into container's HostConfig
+			if hostConfig.LogConfig.Type != "" && logDriverTokenName != "" && logDriverTokenSecretValue != "" {
+				hostConfig.LogConfig.Config[logDriverTokenName] = logDriverTokenSecretValue
 			}
 		}
 	}
