@@ -186,6 +186,9 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
 			},
 			{
+				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
+			},
+			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
 			},
 			// nvidia driver version capability
@@ -262,6 +265,9 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),

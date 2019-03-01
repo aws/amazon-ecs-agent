@@ -849,7 +849,6 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	if versionErr != nil {
 		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
 	}
-
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
@@ -862,9 +861,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	// apply secrets to container.Environment
-	if container.HasSecretAsEnv() {
-		err := task.PopulateSecretsAsEnv(container)
+	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
+	if container.HasSecretAsEnvOrLogDriver() {
+		//splunkToken, ok := hostConfig.LogConfig.Config["splunk-token"]
+		err := task.PopulateSecrets(hostConfig, container)
+
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
