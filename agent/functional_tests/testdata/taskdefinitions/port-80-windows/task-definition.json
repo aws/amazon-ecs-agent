@@ -8,7 +8,7 @@
       "hostPort": 5180
     }],
     "memory": 256,
-    "cpu": 512,
+    "cpu": 1024,
     "command": ["powershell", "\\listen80.exe"]
   }]
 }

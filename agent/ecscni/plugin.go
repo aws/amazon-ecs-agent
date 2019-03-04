@@ -33,9 +33,10 @@ import (
 
 const (
 	currentCNISpec = "0.3.1"
-	// CNIVersion and CNIGitHash needs to be updated every time CNI plugin is updated
-	currentCNIVersion = "2018.10.0"
-	currentCNIGitHash = "93f4377604504bff92e7555da73b0cba732a4fbb"
+	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated
+	currentECSCNIVersion = "2018.10.0"
+	currentECSCNIGitHash = "93f4377604504bff92e7555da73b0cba732a4fbb"
+	currentVPCCNIGitHash = "76973f587f9dfb0b40092a78fb5623c9547bc647"
 )
 
 // CNIClient defines the method of setting/cleaning up container namespace
@@ -125,6 +126,15 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "cni setup: invoke bridge plugin failed")
 	}
+	if cfg.AppMeshCNIEnabled {
+		// Invoke app mesh plugin ADD command
+		seelog.Debug("[APPMESH] Starting aws-appmesh setup")
+		_, err = client.add(runtimeConfig, cfg, client.createAppMeshConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "cni setup: invoke app mesh plugin failed")
+		}
+		seelog.Debug("[APPMESH] Set up aws-appmesh done")
+	}
 	seelog.Debugf("[ECSCNI] Set up container namespace done: %s", result.String())
 	if _, err = result.GetAsVersion(currentCNISpec); err != nil {
 		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
@@ -180,10 +190,19 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 		return errors.Wrap(err, "cni cleanup: invoke bridge plugin failed")
 	}
 	seelog.Debugf("[ECSCNI] bridge cleanup done: %s", cfg.ContainerID)
-
+	// clean up eni network namespace
 	err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
 	if err != nil {
 		return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")
+	}
+	if cfg.AppMeshCNIEnabled {
+		// clean up app mesh network namespace
+		seelog.Debug("[APPMESH] Starting clean up aws-appmesh namespace")
+		err = client.del(runtimeConfig, cfg, client.createAppMeshConfig)
+		if err != nil {
+			return errors.Wrap(err, "cni cleanup: invoke app mesh plugin failed")
+		}
+		seelog.Debug("[APPMESH] Clean up aws-appmesh namespace done")
 	}
 	seelog.Debugf("[ECSCNI] container namespace cleanup done: %s", cfg.ContainerID)
 	return nil
@@ -309,6 +328,25 @@ func (client *cniClient) createENINetworkConfig(cfg *Config) (string, *libcni.Ne
 		return "", nil, errors.Wrap(err, "createENINetworkConfig: construct the eni network configuration failed")
 	}
 	return defaultENIName, networkConfig, nil
+}
+
+func (client *cniClient) createAppMeshConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
+	appMeshConfig := AppMeshConfig{
+		Type:               ECSAppMeshPluginName,
+		CNIVersion:         client.cniVersion,
+		IgnoredUID:         cfg.IgnoredUID,
+		IgnoredGID:         cfg.IgnoredGID,
+		ProxyIngressPort:   cfg.ProxyIngressPort,
+		ProxyEgressPort:    cfg.ProxyEgressPort,
+		AppPorts:           cfg.AppPorts,
+		EgressIgnoredPorts: cfg.EgressIgnoredPorts,
+		EgressIgnoredIPs:   cfg.EgressIgnoredIPs,
+	}
+	networkConfig, err := client.constructNetworkConfig(appMeshConfig, ECSAppMeshPluginName)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "createAppMeshNetworkConfig: construct the app mesh network configuration failed")
+	}
+	return defaultAppMeshIfName, networkConfig, nil
 }
 
 // createIPAMNetworkConfig constructs the ipam configuration accepted by libcni

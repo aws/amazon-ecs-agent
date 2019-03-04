@@ -41,6 +41,7 @@ import (
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 	return cfg
 }
 
@@ -107,8 +108,8 @@ func createTestContainerWithImageAndName(image string, name string) *apicontaine
 		Command:             []string{},
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		CPU:                 100,
-		Memory:              80,
+		CPU:                 1024,
+		Memory:              128,
 	}
 }
 

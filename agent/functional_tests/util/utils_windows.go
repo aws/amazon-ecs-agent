@@ -93,6 +93,10 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	os.Setenv("ECS_AUDIT_LOGFILE", logdir+"/audit.log")
 	os.Setenv("ECS_LOGLEVEL", "debug")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", `["json-file","awslogs"]`)
+	os.Setenv("ECS_IMAGE_PULL_BEHAVIOR", "prefer-cached")
+
+	// Some tests use 0 cpu, this won't impact the other ones
+	os.Setenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND", "true")
 
 	t.Log("datadir", datadir)
 	os.Mkdir(logdir, 0755)

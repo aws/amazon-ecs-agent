@@ -1,7 +1,7 @@
 {
   "family": "ecsinteg-json-file-rollover",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "exit",
     "memory": 512,
     "cpu": 1024,

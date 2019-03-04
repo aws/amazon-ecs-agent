@@ -170,6 +170,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 		mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil),
 		state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).AnyTimes(),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
@@ -320,6 +321,7 @@ func TestQueryCNIPluginsCapabilitiesHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 	)
 	agent := &ecsAgent{
 		cniClient: cniClient,
@@ -338,6 +340,26 @@ func TestQueryCNIPluginsCapabilitiesEmptyCapabilityListFromPlugin(t *testing.T) 
 		cniClient: cniClient,
 	}
 
+	assert.Error(t, agent.verifyCNIPluginsCapabilities())
+}
+
+func TestQueryCNIPluginsCapabilitiesMissAppMesh(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	gomock.InOrder(
+		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
+		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(nil, errors.New("error")),
+	)
+	cfg := getTestConfig()
+	agent := &ecsAgent{
+		cniClient: cniClient,
+		cfg:       &cfg,
+	}
 	assert.Error(t, agent.verifyCNIPluginsCapabilities())
 }
 
@@ -446,6 +468,7 @@ func TestInitializeTaskENIDependenciesPauseLoaderError(t *testing.T) {
 				cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return(cniCapabilities, nil),
 				cniClient.EXPECT().Capabilities(ecscni.ECSBridgePluginName).Return(cniCapabilities, nil),
 				cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
+				cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 				mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, loadErr),
 			)
 			cfg := getTestConfig()

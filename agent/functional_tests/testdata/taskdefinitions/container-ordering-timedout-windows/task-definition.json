@@ -1,0 +1,28 @@
+{
+  "family": "ecsftest-container-ordering-timeout",
+  "containerDefinitions": [
+    {
+      "name": "success-timeout",
+      "image": "microsoft/windowsservercore",
+      "cpu": 0,
+      "memory": 128,
+      "essential": true,
+      "command": ["powershell", "-c", "sleep 1"],
+      "dependsOn": [
+        {
+          "containerName": "success-timeout-dependency",
+          "condition": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "name": "success-timeout-dependency",
+      "image": "microsoft/windowsservercore",
+      "cpu": 0,
+      "memory": 128,
+      "essential": false,
+      "command": ["powershell", "-c", "sleep 70"],
+      "startTimeout": 5
+    }
+  ]
+}

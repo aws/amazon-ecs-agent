@@ -27,7 +27,7 @@ gobuild:
 
 # create output directories
 .out-stamp:
-	mkdir -p ./out/test-artifacts ./out/cni-plugins
+	mkdir -p ./out/test-artifacts ./out/cni-plugins ./out/amazon-ecs-cni-plugins ./out/amazon-vpc-cni-plugins
 	touch .out-stamp
 
 # Basic go build
@@ -237,27 +237,43 @@ ECS_CNI_REPOSITORY_REVISION=master
 
 # Variable to override cni repository location
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
+VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
 
 get-cni-sources:
-	git submodule update --init --checkout
+	git submodule update --init --recursive --remote
 
-cni-plugins: get-cni-sources .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.buildCNIPlugins -t "amazon/amazon-ecs-build-cniplugins:make" .
+build-ecs-cni-plugins:
+	@docker build -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-e GIT_PORCELAIN=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l | sed 's/^ *//') \
 		-u "$(USERID)" \
-		-v "$(PWD)/out/cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
+		-v "$(PWD)/out/amazon-ecs-cni-plugins:/go/src/github.com/aws/amazon-ecs-cni-plugins/bin/plugins" \
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
-		"amazon/amazon-ecs-build-cniplugins:make"
+		"amazon/amazon-ecs-build-ecs-cni-plugins:make"
 	@echo "Built amazon-ecs-cni-plugins successfully."
+
+build-vpc-cni-plugins:
+	@docker build -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
+	docker run --rm --net=none \
+		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
+		-u "$(USERID)" \
+		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/linux_amd64" \
+		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
+		"amazon/amazon-ecs-build-vpc-cni-plugins:make"
+	@echo "Built amazon-vpc-cni-plugins successfully."
+
+cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plugins
+	mv $(PWD)/out/amazon-ecs-cni-plugins/* $(PWD)/out/cni-plugins
+	mv $(PWD)/out/amazon-vpc-cni-plugins/* $(PWD)/out/cni-plugins
+	@echo "Built all cni plugins successfully."
 
 ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	. ./scripts/shared_env && go test -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 else
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=12m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && go test -race -tags integration -timeout=20m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 endif
 
 ifeq (${BUILD_PLATFORM},aarch64)

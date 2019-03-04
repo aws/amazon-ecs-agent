@@ -14,8 +14,7 @@
 package dependencygraph
 
 import (
-	"strings"
-
+	"fmt"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -23,6 +22,24 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
+	"strings"
+	"time"
+)
+
+const (
+	// CreateCondition ensures that a container progresses to next state only when dependency container has started
+	createCondition = "CREATE"
+	// StartCondition ensures that a container progresses to next state only when dependency container is running
+	startCondition = "START"
+	// SuccessCondition ensures that a container progresses to next state only when
+	// dependency container has successfully completed with exit code 0
+	successCondition = "SUCCESS"
+	// CompleteCondition ensures that a container progresses to next state only when dependency container has completed
+	completeCondition = "COMPLETE"
+	// HealthyCondition ensures that a container progresses to next state only when dependency container is healthy
+	healthyCondition = "HEALTHY"
+	// 0 is the standard exit code for success.
+	successExitCode = 0
 )
 
 var (
@@ -33,8 +50,6 @@ var (
 	DependentContainerNotResolvedErr = errors.New("dependency graph: dependent container not in expected state")
 	// ContainerPastDesiredStatusErr is the error where the container status is bigger than desired status
 	ContainerPastDesiredStatusErr = errors.New("container transition: container status is equal or greater than desired status")
-	volumeUnresolvedErr           = errors.New("dependency graph: container volume dependency not resolved")
-	linkUnresolvedErr             = errors.New("dependency graph: container links dependency not resolved")
 	// ErrContainerDependencyNotResolved is when the container's dependencies
 	// on other containers are not resolved
 	ErrContainerDependencyNotResolved = errors.New("dependency graph: dependency on containers not resolved")
@@ -43,16 +58,9 @@ var (
 	ErrResourceDependencyNotResolved = errors.New("dependency graph: dependency on resources not resolved")
 )
 
-// Because a container may depend on another container being created
-// (volumes-from) or running (links) it makes sense to abstract it out
-// to each container having dependencies on another container being in any
-// particular state set. For now, these are resolved here and support only
-// volume/link (created/run)
-
 // ValidDependencies takes a task and verifies that it is possible to allow all
 // containers within it to reach the desired status by proceeding in some
-// order.  ValidDependencies is called during DockerTaskEngine.AddTask to
-// verify that a startup order can exist.
+// order.
 func ValidDependencies(task *apitask.Task) bool {
 	unresolved := make([]*apicontainer.Container, len(task.Containers))
 	resolved := make([]*apicontainer.Container, 0, len(task.Containers))
@@ -90,14 +98,11 @@ func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontaine
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
-	neededVolumeContainers := make([]string, len(target.VolumesFrom))
-	for i, volume := range target.VolumesFrom {
-		neededVolumeContainers[i] = volume.SourceContainer
-	}
 
-	return verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeCanResolve) &&
-		verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkCanResolve) &&
-		verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
+	if _, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesCanResolve); err != nil {
+		return false
+	}
+	return verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
 }
 
 // DependenciesAreResolved validates that the `target` container can be
@@ -111,9 +116,9 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	by []*apicontainer.Container,
 	id string,
 	manager credentials.Manager,
-	resources []taskresource.TaskResource) error {
+	resources []taskresource.TaskResource) (*apicontainer.DependsOn, error) {
 	if !executionCredentialsResolved(target, id, manager) {
-		return CredentialsNotResolvedErr
+		return nil, CredentialsNotResolvedErr
 	}
 
 	nameMap := make(map[string]*apicontainer.Container)
@@ -130,22 +135,26 @@ func DependenciesAreResolved(target *apicontainer.Container,
 		resourcesMap[resource.GetName()] = resource
 	}
 
-	if !verifyStatusResolvable(target, nameMap, neededVolumeContainers, volumeIsResolved) {
-		return volumeUnresolvedErr
-	}
-
-	if !verifyStatusResolvable(target, nameMap, linksToContainerNames(target.Links), linkIsResolved) {
-		return linkUnresolvedErr
+	if blocked, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesIsResolved); err != nil {
+		return blocked, err
 	}
 
 	if !verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateIsResolved) {
-		return DependentContainerNotResolvedErr
+		return nil, DependentContainerNotResolvedErr
 	}
 	if err := verifyTransitionDependenciesResolved(target, nameMap, resourcesMap); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// If the target is desired terminal and isn't stopped, we should validate that it doesn't have any containers
+	// that are dependent on it that need to shut down first.
+	if target.DesiredTerminal() && !target.KnownTerminal() {
+		if err := verifyShutdownOrder(target, nameMap); err != nil {
+			return nil, err
+		}
+	}
+
+	return nil, nil
 }
 
 func linksToContainerNames(links []string) []string {
@@ -193,6 +202,51 @@ func verifyStatusResolvable(target *apicontainer.Container, existingContainers m
 	return true
 }
 
+// verifyContainerOrderingStatusResolvable validates that `target` can be resolved given that
+// the dependsOn containers are resolved and there are `existingContainers`
+// (map from name to container). The `resolves` function passed should return true if the named container is resolved.
+
+func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
+	resolves func(*apicontainer.Container, *apicontainer.Container, string) bool) (*apicontainer.DependsOn, error) {
+
+	targetGoal := target.GetDesiredStatus()
+	targetKnown := target.GetKnownStatus()
+	if targetGoal != target.GetSteadyStateStatus() && targetGoal != apicontainerstatus.ContainerCreated {
+		// A container can always stop, die, or reach whatever other state it
+		// wants regardless of what dependencies it has
+		return nil, nil
+	}
+
+	for _, dependency := range target.DependsOn {
+		dependencyContainer, ok := existingContainers[dependency.ContainerName]
+		if !ok {
+			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
+		}
+
+		// We want to check whether the dependency container has timed out only if target has not been created yet.
+		// If the target is already created, then everything is normal and dependency can be and is resolved.
+		// However, if dependency container has already stopped, then it cannot time out.
+		if targetKnown < apicontainerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != apicontainerstatus.ContainerStopped {
+			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
+				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
+			}
+		}
+
+		// We want to fail fast if the dependency container did not exit successfully' because target container
+		// can then never progress to its desired state when the dependency condition is 'SUCCESS'
+		if dependency.Condition == successCondition && dependencyContainer.GetKnownExitCode() != nil {
+			if !hasDependencyStoppedSuccessfully(dependencyContainer, dependency.Condition) {
+				return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
+			}
+		}
+
+		if !resolves(target, dependencyContainer, dependency.Condition) {
+			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
+		}
+	}
+	return nil, nil
+}
+
 func verifyTransitionDependenciesResolved(target *apicontainer.Container,
 	existingContainers map[string]*apicontainer.Container,
 	existingResources map[string]taskresource.TaskResource) error {
@@ -236,74 +290,153 @@ func verifyResourceDependenciesResolved(target *apicontainer.Container, existing
 	return true
 }
 
-func linkCanResolve(target *apicontainer.Container, link *apicontainer.Container) bool {
-	targetDesiredStatus := target.GetDesiredStatus()
-	linkDesiredStatus := link.GetDesiredStatus()
-	if targetDesiredStatus == apicontainerstatus.ContainerCreated {
-		// The 'target' container desires to be moved to 'Created' state.
-		// Allow this only if the desired status of the linked container is
-		// 'Created' or if the linked container is in 'steady state'
-		return linkDesiredStatus == apicontainerstatus.ContainerCreated || linkDesiredStatus == link.GetSteadyStateStatus()
-	} else if targetDesiredStatus == target.GetSteadyStateStatus() {
-		// The 'target' container desires to be moved to its 'steady' state.
-		// Allow this only if the linked container is in 'steady state' as well
-		return linkDesiredStatus == link.GetSteadyStateStatus()
-	}
-	log.Errorf("Failed to resolve the desired status of the link [%v] for the target [%v]", link, target)
-	return false
-}
+func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
+	dependsOnContainer *apicontainer.Container,
+	dependsOnStatus string) bool {
 
-func linkIsResolved(target *apicontainer.Container, link *apicontainer.Container) bool {
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus == apicontainerstatus.ContainerCreated {
-		// The 'target' container desires to be moved to 'Created' state.
-		// Allow this only if the known status of the linked container is
-		// 'Created' or if the linked container is in 'steady state'
-		linkKnownStatus := link.GetKnownStatus()
-		return linkKnownStatus == apicontainerstatus.ContainerCreated || link.IsKnownSteadyState()
-	} else if targetDesiredStatus == target.GetSteadyStateStatus() {
-		// The 'target' container desires to be moved to its 'steady' state.
-		// Allow this only if the linked container is in 'steady state' as well
-		return link.IsKnownSteadyState()
-	}
-	log.Errorf("Failed to resolve if the link [%v] has been resolved for the target [%v]", link, target)
-	return false
-}
+	dependsOnContainerDesiredStatus := dependsOnContainer.GetDesiredStatus()
 
-func volumeCanResolve(target *apicontainer.Container, volume *apicontainer.Container) bool {
-	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus != apicontainerstatus.ContainerCreated && targetDesiredStatus != target.GetSteadyStateStatus() {
-		// The 'target' container doesn't desire to move to either 'Created' or the 'steady' state,
-		// which is not allowed
-		log.Errorf("Failed to resolve the desired status of the volume [%v] for the target [%v]", volume, target)
+	switch dependsOnStatus {
+	case createCondition:
+		return verifyContainerOrderingStatus(dependsOnContainer)
+
+	case startCondition:
+		if targetDesiredStatus == apicontainerstatus.ContainerCreated {
+			// The 'target' container desires to be moved to 'Created' state.
+			// Allow this only if the desired status of the dependency container is
+			// 'Created' or if the linked container is in 'steady state'
+			return dependsOnContainerDesiredStatus == apicontainerstatus.ContainerCreated ||
+				dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
+
+		} else if targetDesiredStatus == target.GetSteadyStateStatus() {
+			// The 'target' container desires to be moved to its 'steady' state.
+			// Allow this only if the dependency container also desires to be in 'steady state'
+			return dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
+		}
+		return false
+
+	case successCondition:
+		var dependencyStoppedSuccessfully bool
+
+		if dependsOnContainer.GetKnownExitCode() != nil {
+			dependencyStoppedSuccessfully = dependsOnContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+				*dependsOnContainer.GetKnownExitCode() == successExitCode
+		}
+		return verifyContainerOrderingStatus(dependsOnContainer) || dependencyStoppedSuccessfully
+
+	case completeCondition:
+		return verifyContainerOrderingStatus(dependsOnContainer)
+
+	case healthyCondition:
+		return verifyContainerOrderingStatus(dependsOnContainer) && dependsOnContainer.HealthStatusShouldBeReported()
+
+	default:
 		return false
 	}
-
-	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
-	// Allow this only if the known status of the source volume container is
-	// any of 'Created', 'steady state' or 'Stopped'
-	volumeDesiredStatus := volume.GetDesiredStatus()
-	return volumeDesiredStatus == apicontainerstatus.ContainerCreated ||
-		volumeDesiredStatus == volume.GetSteadyStateStatus() ||
-		volumeDesiredStatus == apicontainerstatus.ContainerStopped
 }
 
-func volumeIsResolved(target *apicontainer.Container, volume *apicontainer.Container) bool {
+func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
+	dependsOnContainer *apicontainer.Container,
+	dependsOnStatus string) bool {
+
 	targetDesiredStatus := target.GetDesiredStatus()
-	if targetDesiredStatus != apicontainerstatus.ContainerCreated && targetDesiredStatus != apicontainerstatus.ContainerRunning {
-		// The 'target' container doesn't desire to be moved to 'Created' or the 'steady' state.
-		// Do not allow it.
-		log.Errorf("Failed to resolve if the volume [%v] has been resolved for the target [%v]", volume, target)
+	dependsOnContainerKnownStatus := dependsOnContainer.GetKnownStatus()
+
+	switch dependsOnStatus {
+	case createCondition:
+		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+		// Allow this only if the known status of the dependency container state is already started
+		// i.e it's state is any of 'Created', 'steady state' or 'Stopped'
+		return dependsOnContainerKnownStatus >= apicontainerstatus.ContainerCreated
+
+	case startCondition:
+		if targetDesiredStatus == apicontainerstatus.ContainerCreated {
+			// The 'target' container desires to be moved to 'Created' state.
+			// Allow this only if the known status of the linked container is
+			// 'Created' or if the dependency container is in 'steady state'
+			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerCreated || dependsOnContainer.IsKnownSteadyState()
+		} else if targetDesiredStatus == target.GetSteadyStateStatus() {
+			// The 'target' container desires to be moved to its 'steady' state.
+			// Allow this only if the dependency container is in 'steady state' as well
+			return dependsOnContainer.IsKnownSteadyState()
+		}
+		return false
+
+	case successCondition:
+		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+		// Allow this only if the known status of the dependency container state is stopped with an exit code of 0
+		if dependsOnContainer.GetKnownExitCode() != nil {
+			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerStopped &&
+				*dependsOnContainer.GetKnownExitCode() == successExitCode
+		}
+		return false
+
+	case completeCondition:
+		// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+		// Allow this only if the known status of the dependency container state is stopped with any exit code
+		return dependsOnContainerKnownStatus == apicontainerstatus.ContainerStopped && dependsOnContainer.GetKnownExitCode() != nil
+
+	case healthyCondition:
+		return dependsOnContainer.HealthStatusShouldBeReported() &&
+			dependsOnContainer.GetHealthStatus().Status == apicontainerstatus.ContainerHealthy
+
+	default:
 		return false
 	}
+}
 
+func hasDependencyTimedOut(dependOnContainer *apicontainer.Container, dependencyCondition string) bool {
+	if dependOnContainer.GetStartedAt().IsZero() || dependOnContainer.GetStartTimeout() <= 0 {
+		return false
+	}
+	switch dependencyCondition {
+	case successCondition, completeCondition, healthyCondition:
+		return time.Now().After(dependOnContainer.GetStartedAt().Add(dependOnContainer.GetStartTimeout()))
+	default:
+		return false
+	}
+}
+
+func hasDependencyStoppedSuccessfully(dependency *apicontainer.Container, condition string) bool {
+	isDependencyStoppedSuccessfully := dependency.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+		*dependency.GetKnownExitCode() == 0
+	return isDependencyStoppedSuccessfully
+}
+
+func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) bool {
+	dependsOnContainerDesiredStatus := dependsOnContainer.GetDesiredStatus()
 	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
-	// Allow this only if the known status of the source volume container is
-	// any of 'Created', 'steady state' or 'Stopped'
-	knownStatus := volume.GetKnownStatus()
-	return knownStatus == apicontainerstatus.ContainerCreated ||
-		knownStatus == volume.GetSteadyStateStatus() ||
-		knownStatus == apicontainerstatus.ContainerStopped
+	// Allow this only if the dependency container also desires to be started
+	// i.e it's status is any of 'Created', 'steady state' or 'Stopped'
+	return dependsOnContainerDesiredStatus == apicontainerstatus.ContainerCreated ||
+		dependsOnContainerDesiredStatus == apicontainerstatus.ContainerStopped ||
+		dependsOnContainerDesiredStatus == dependsOnContainer.GetSteadyStateStatus()
+}
+
+func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container) error {
+	// We considered adding this to the task state, but this will be at most 45 loops,
+	// so we err'd on the side of having less state.
+	missingShutdownDependencies := []string{}
+
+	for _, existingContainer := range existingContainers {
+		for _, dependency := range existingContainer.DependsOn {
+			// If another container declares a dependency on our target, we will want to verify that the container is
+			// stopped.
+			if dependency.ContainerName == target.Name {
+				if !existingContainer.KnownTerminal() {
+					missingShutdownDependencies = append(missingShutdownDependencies, existingContainer.Name)
+				}
+			}
+		}
+	}
+
+	if len(missingShutdownDependencies) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("dependency graph: target %s needs other containers stopped before it can stop: [%s]",
+		target.Name, strings.Join(missingShutdownDependencies, "], ["))
 }
 
 func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.Container) bool {

@@ -48,6 +48,7 @@ const initPID = 1
 var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
 	ecscni.ECSBridgePluginName,
 	ecscni.ECSIPAMPluginName,
+	ecscni.ECSAppMeshPluginName,
 }
 
 // startWindowsService is not supported on Linux
@@ -148,12 +149,17 @@ func isInstanceLaunchedInVPC(err error) bool {
 // a. ecs-eni
 // b. ecs-bridge
 // c. ecs-ipam
+// d. aws-appmesh
 func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
 		capabilities, err := agent.cniClient.Capabilities(plugin)
 		if err != nil {
 			return err
+		}
+		// appmesh plugin is not needed for awsvpc networking capability
+		if plugin == ecscni.ECSAppMeshPluginName {
+			continue
 		}
 		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
 			return errors.Errorf("plugin '%s' doesn't support the capability: %s",

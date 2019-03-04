@@ -210,8 +210,6 @@ func TestOOMContainer(t *testing.T) {
 
 	testTask, err := agent.StartTask(t, "oom-windows")
 	require.NoError(t, err, "Expected to start invalid-image task")
-	err = testTask.WaitRunning(waitTaskStateChangeDuration)
-	assert.NoError(t, err, "Expect task to be running")
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	assert.NoError(t, err, "Expect task to be stopped")
 	assert.NotEqual(t, 0, testTask.Containers[0].ExitCode, "container should fail with memory error")

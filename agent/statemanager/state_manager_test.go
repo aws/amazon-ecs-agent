@@ -326,3 +326,74 @@ func TestLoadsDataForASMSecretsTask(t *testing.T) {
 	assert.Equal(t, "secret-value-from", secret.ValueFrom)
 	assert.Equal(t, "asm", secret.Provider)
 }
+
+// verify that the state manager correctly loads container ordering related fields in state file
+func TestLoadsDataForContainerOrdering(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v20", "containerOrdering", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v20", "containerOrdering")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "container-ordering-state", task.Family)
+	assert.Equal(t, 2, len(task.Containers))
+
+	dependsOn := task.Containers[1].DependsOn
+	assert.Equal(t, "container_1", dependsOn[0].ContainerName)
+	assert.Equal(t, "START", dependsOn[0].Condition)
+}
+
+func TestLoadsDataForPerContainerTimeouts(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v20", "perContainerTimeouts", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v20", "perContainerTimeouts")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "per-container-timeouts", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+
+	c1 := task.Containers[0]
+	assert.Equal(t, uint(10), c1.StartTimeout)
+	assert.Equal(t, uint(10), c1.StopTimeout)
+}

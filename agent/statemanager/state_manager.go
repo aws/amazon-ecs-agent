@@ -78,9 +78,13 @@ const (
 	//   a) Add 'Associations' field to 'api.task.task'
 	//   b) Add 'GPUIDs' field to 'apicontainer.Container'
 	//   c) Add 'NvidiaRuntime' field to 'api.task.task'
-	// 20)  Add 'target' field to the Secret struct
-	// 21) Add 'attachmentType' field to 'api.ENIAttachment'
-	ECSDataVersion = 21
+	// 20)
+	//   a) Add 'DependsOn' field to 'apicontainer.Container'
+	//   b) Add 'StartTime' field to 'api.container.Container'
+	//   c) Add 'StopTime' field to 'api.container.Container'
+	// 21) Add 'target' field to the Secret struct
+	// 22) Add 'attachmentType' field to 'api.ENIAttachment'
+	ECSDataVersion = 22
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

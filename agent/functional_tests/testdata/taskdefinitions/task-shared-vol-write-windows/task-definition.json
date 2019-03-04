@@ -2,9 +2,9 @@
     "family": "ecsftest-task-local-volume",
     "containerDefinitions": [
         {
-            "image": "microsoft/windowsservercore:latest",
+            "image": "microsoft/windowsservercore",
             "name": "task-shared-vol-write-windows",
-            "cpu": 512,
+            "cpu": 1024,
             "memory": 256,
             "essential": true,
             "command": ["powershell", "-c", "$contents = \"can you read me\"; $contents | Out-File C:/ecs/success; if (test-path C:/ecs/success) { exit 42 }; exit 1"],

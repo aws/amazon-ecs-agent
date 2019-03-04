@@ -32,6 +32,7 @@ const (
 	capabilityTaskIAMRoleNetHost                = "task-iam-role-network-host"
 	taskENIAttributeSuffix                      = "task-eni"
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
+	appMeshAttributeSuffix                      = "aws-appmesh"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
 	capabilityTaskCPUMemLimit                   = "task-cpu-mem-limit"
 	capabilityDockerPluginInfix                 = "docker-plugin."
@@ -39,11 +40,10 @@ const (
 	capabilityPrivateRegistryAuthASM            = "private-registry-authentication.secretsmanager"
 	capabilitySecretEnvSSM                      = "secrets.ssm.environment-variables"
 	capabilitySecretEnvASM                      = "secrets.asm.environment-variables"
-	capabilitySecretLogDriverSSM                = "secrets.ssm.bootstrap.log-driver"
-	capabilitySecretLogDriverASM                = "secrets.asm.bootstrap.log-driver"
 	capabiltyPIDAndIPCNamespaceSharing          = "pid-ipc-namespace-sharing"
 	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
 	capabilityECREndpoint                       = "ecr-endpoint"
+	capabilityContainerOrdering                 = "container-ordering"
 	taskEIAAttributeSuffix                      = "task-eia"
 )
 
@@ -74,11 +74,10 @@ const (
 //    ecs.capability.container-health-check
 //    ecs.capability.private-registry-authentication.secretsmanager
 //    ecs.capability.secrets.ssm.environment-variables
-//    ecs.capability.secrets.ssm.bootstrap.log-driver
 //    ecs.capability.pid-ipc-namespace-sharing
 //    ecs.capability.ecr-endpoint
 //    ecs.capability.secrets.asm.environment-variables
-//    ecs.capability.secrets.asm.bootstrap.log-driver
+//    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
@@ -129,9 +128,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvSSM)
 
-	// ecs agent version 1.26.0 supports ecs secrets for logging drivers
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverSSM)
-
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
@@ -145,11 +141,14 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvASM)
 
-	// ecs agent version 1.26.0 supports ecs secrets for logging drivers
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverASM)
+	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+appMeshAttributeSuffix)
 
 	// support elastic inference in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
+
+	// support container ordering in agent
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
 
 	return capabilities, nil
 }
@@ -226,7 +225,7 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Att
 
 func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.TaskENIEnabled {
-		// The assumption here is that all of the dependecies for supporting the
+		// The assumption here is that all of the dependencies for supporting the
 		// Task ENI in the Agent have already been validated prior to the invocation of
 		// the `agent.capabilities()` call
 		capabilities = append(capabilities, &ecs.Attribute{

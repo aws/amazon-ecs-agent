@@ -49,7 +49,7 @@ fi
 ECR_ROLE_IMAGE="executionrole"
 
 BUSYBOX_IMAGE="busybox:1.29.3"
-NGINX_IMAGE="nginx:1.15"
+NGINX_IMAGE="nginx:1.15.8"
 PYTHON2_IMAGE="python:2.7.15"
 UBUNTU_IMAGE="ubuntu:16.04"
 
@@ -59,7 +59,6 @@ PARALLEL_PULL_FTS_NGINX=${NGINX_IMAGE}
 PARALLEL_PULL_FTS_CONSUL="consul:1.3.0"
 PARALLEL_PULL_FTS_DEBIAN="debian:stable"
 PARALLEL_PULL_FTS_HTTPD="httpd:2.4"
-PARALLEL_PULL_FTS_MONGO="mongo:4.1"
 PARALLEL_PULL_FTS_REDIS="redis:5.0"
 
 
@@ -76,7 +75,7 @@ for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "squid" "awscli" "
 done
 
 
-for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debian" "httpd" "mongo" "redis" "registry"; do
+for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debian" "httpd" "redis" "registry"; do
   # Create the repository if it does not exist
   if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
   then
@@ -99,7 +98,6 @@ mirror_image ${PARALLEL_PULL_FTS_UBUNTU} "${PREFIX}/ubuntu:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_CONSUL} "${PREFIX}/consul:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_DEBIAN} "${PREFIX}/debian:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_HTTPD} "${PREFIX}/httpd:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_MONGO} "${PREFIX}/mongo:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_NGINX} "${PREFIX}/nginx:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_REDIS} "${PREFIX}/redis:parallel-pull-fts"
 

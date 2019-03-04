@@ -23,7 +23,7 @@ import (
 )
 
 // ECS provides the API operation methods for making requests to
-// Amazon EC2 Container Service. See this package's package overview docs
+// Amazon Elastic Container Service. See this package's package overview docs
 // for details on the service.
 //
 // ECS methods are safe to use concurrently. It is not safe to

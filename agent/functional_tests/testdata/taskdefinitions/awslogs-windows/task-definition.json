@@ -5,7 +5,7 @@
     "memory": 512,
     "name": "awslogs",
     "cpu": 1024,
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

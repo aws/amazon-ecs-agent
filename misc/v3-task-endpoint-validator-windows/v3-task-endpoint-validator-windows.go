@@ -170,7 +170,7 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 		"KnownStatus":   "RUNNING",
 	}
 
-	taskExpectedFieldNotEmptyArray := []string{"Cluster", "TaskARN", "Family", "Revision", "PullStartedAt", "PullStoppedAt", "Containers", "AvailabilityZone"}
+	taskExpectedFieldNotEmptyArray := []string{"Cluster", "TaskARN", "Family", "Revision", "Containers", "AvailabilityZone"}
 	if checkContainerInstanceTags {
 		taskExpectedFieldNotEmptyArray = append(taskExpectedFieldNotEmptyArray, "ContainerInstanceTags")
 	}
@@ -184,6 +184,14 @@ func verifyTaskMetadataResponse(taskMetadataRawMsg json.RawMessage) error {
 	for _, fieldName := range taskExpectedFieldNotEmptyArray {
 		if err = fieldNotEmpty(taskMetadataResponseMap, fieldName); err != nil {
 			return err
+		}
+	}
+
+	// When pull behavior is set to 'prefer-cached', the pull values are unset
+	// TODO: figure out how to test both conditions on windows.
+	for _, fieldName := range []string{"PullStartedAt", "PullStoppedAt"} {
+		if err = fieldNotEmpty(taskMetadataResponseMap, fieldName); err != nil {
+			fmt.Printf("WARN: '%s' is not set, but this value isn't expected when pull is disabled.", fieldName)
 		}
 	}
 

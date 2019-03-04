@@ -11,4 +11,6 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+
+Invoke-Expression "go build -o ${PSScriptRoot}\stress.exe ${PSScriptRoot}\main.go"
 docker build -t "amazon/amazon-ecs-windows-telemetry-test:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}

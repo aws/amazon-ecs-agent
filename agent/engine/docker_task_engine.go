@@ -849,6 +849,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	if versionErr != nil {
 		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
 	}
+
 	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
@@ -861,9 +862,9 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
-	if container.HasSecretAsEnvOrLogDriver() {
-		err := task.PopulateSecrets(hostConfig, container)
+	// apply secrets to container.Environment
+	if container.HasSecretAsEnv() {
+		err := task.PopulateSecretsAsEnv(container)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
@@ -1081,7 +1082,7 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 	dockerContainer, ok := containerMap[container.Name]
 	if !ok {
 		return dockerapi.DockerContainerMetadata{
-			Error: dockerapi.CannotStopContainerError{errors.Errorf("Container not recorded as created")},
+			Error: dockerapi.CannotStopContainerError{FromError: errors.Errorf("Container not recorded as created")},
 		}
 	}
 
@@ -1094,9 +1095,13 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 		}
 		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
-	// timeout is defined by the const 'stopContainerTimeout' and the 'DockerStopTimeout' in the config
-	timeout := engine.cfg.DockerStopTimeout + dockerclient.StopContainerTimeout
-	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, timeout)
+
+	apiTimeoutStopContainer := container.GetStopTimeout()
+	if apiTimeoutStopContainer <= 0 {
+		apiTimeoutStopContainer = engine.cfg.DockerStopTimeout
+	}
+
+	return engine.client.StopContainer(engine.ctx, dockerContainer.DockerID, apiTimeoutStopContainer)
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *apicontainer.Container) error {

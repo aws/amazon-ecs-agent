@@ -94,14 +94,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
-		Config: aws.String(`{
-			"HealthCheck":{
-				"Test":["CMD-SHELL", "echo hello"],
-				"Interval":100000000,
-				"Timeout":100000000,
-				"StartPeriod":100000000,
-				"Retries":3}
-		}`),
+		Config: aws.String(alwaysHealthyHealthCheckConfig),
 	}
 	return testTask
 }
@@ -1446,4 +1439,43 @@ func TestGPUAssociationTask(t *testing.T) {
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
+}
+
+func TestPerContainerStopTimeout(t *testing.T) {
+	// set the global stop timemout, but this should be ignored since the per container value is set
+	globalStopContainerTimeout := 1000 * time.Second
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", globalStopContainerTimeout.String())
+	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
+	cfg := defaultTestConfigIntegTest()
+
+	taskEngine, _, _ := setup(cfg, nil, t)
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+
+	if dockerTaskEngine.cfg.DockerStopTimeout != globalStopContainerTimeout {
+		t.Errorf("Expect ECS_CONTAINER_STOP_TIMEOUT to be set to , %v", dockerTaskEngine.cfg.DockerStopTimeout)
+	}
+
+	testTask := createTestTask("TestDockerStopTimeout")
+	testTask.Containers[0].Command = []string{"sh", "-c", "trap 'echo hello' SIGTERM; while true; do echo `date +%T`; sleep 1s; done;"}
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Name = "test-docker-timeout"
+	testTask.Containers[0].StopTimeout = uint(testDockerStopTimeout.Seconds())
+
+	go dockerTaskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	startTime := ttime.Now()
+	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+
+	if ttime.Since(startTime) < testDockerStopTimeout {
+		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
+	}
+	if ttime.Since(startTime) > testDockerStopTimeout+1*time.Second {
+		t.Errorf("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
+	}
 }

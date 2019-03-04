@@ -63,9 +63,6 @@ const (
 
 	// SecretTypeEnv is to show secret type being ENVIRONMENT_VARIABLE
 	SecretTypeEnv = "ENVIRONMENT_VARIABLE"
-
-	// TargetLogDriver is to show secret target being "LOG_DRIVER", the default will be "CONTAINER"
-	SecretTargetLogDriver = "LOG_DRIVER"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -96,6 +93,8 @@ type HealthStatus struct {
 type Container struct {
 	// Name is the name of the container specified in the task definition
 	Name string
+	// DependsOn is the field which specifies the ordering for container startup and shutdown.
+	DependsOn []DependsOn `json:"dependsOn,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -133,7 +132,7 @@ type Container struct {
 	DockerConfig DockerConfig `json:"dockerConfig"`
 	// RegistryAuthentication is the auth data used to pull image
 	RegistryAuthentication *RegistryAuthenticationData `json:"registryAuthentication"`
-	// HealthCheckType is the mechnism to use for the container health check
+	// HealthCheckType is the mechanism to use for the container health check
 	// currently it only supports 'DOCKER'
 	HealthCheckType string `json:"healthCheckType,omitempty"`
 	// Health contains the health check information of container health check
@@ -141,6 +140,13 @@ type Container struct {
 	// LogsAuthStrategy specifies how the logs driver for the container will be
 	// authenticated
 	LogsAuthStrategy string
+	// StartTimeout specifies the time value after which if a container has a dependency
+	// on another container and the dependency conditions are 'SUCCESS', 'COMPLETE', 'HEALTHY',
+	// then that dependency will not be resolved.
+	StartTimeout uint
+	// StopTimeout specifies the time value to be passed as StopContainer api call
+	StopTimeout uint
+
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 
@@ -239,6 +245,11 @@ type Container struct {
 	labels map[string]string
 }
 
+type DependsOn struct {
+	ContainerName string `json:"containerName"`
+	Condition     string `json:"condition"`
+}
+
 // DockerContainer is a mapping between containers-as-docker-knows-them and
 // containers-as-we-know-them.
 // This is primarily used in DockerState, but lives here such that tasks and
@@ -272,7 +283,6 @@ type Secret struct {
 	ContainerPath string `json:"containerPath"`
 	Type          string `json:"type"`
 	Provider      string `json:"provider"`
-	Target        string `json:"target"`
 }
 
 // GetSecretResourceCacheKey returns the key required to access the secret
@@ -849,7 +859,7 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	}
 }
 
-func (c *Container) HasSecretAsEnvOrLogDriver() bool {
+func (c *Container) HasSecretAsEnv() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -858,9 +868,23 @@ func (c *Container) HasSecretAsEnvOrLogDriver() bool {
 		return false
 	}
 	for _, secret := range c.Secrets {
-		if secret.Type == SecretTypeEnv || secret.Target == SecretTargetLogDriver {
+		if secret.Type == SecretTypeEnv {
 			return true
 		}
 	}
 	return false
+}
+
+func (c *Container) GetStartTimeout() time.Duration {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return time.Duration(c.StartTimeout) * time.Second
+}
+
+func (c *Container) GetStopTimeout() time.Duration {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	return time.Duration(c.StopTimeout) * time.Second
 }

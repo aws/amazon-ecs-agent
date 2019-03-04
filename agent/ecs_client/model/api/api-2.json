@@ -6,7 +6,7 @@
     "jsonVersion":"1.1",
     "protocol":"json",
     "serviceAbbreviation":"Amazon ECS",
-    "serviceFullName":"Amazon EC2 Container Service",
+    "serviceFullName":"Amazon Elastic Container Service",
     "serviceId":"ECS",
     "signatureVersion":"v4",
     "targetPrefix":"AmazonEC2ContainerServiceV20141113",
@@ -1568,6 +1568,23 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "ProxyConfiguration":{
+      "type":"structure",
+      "required":["containerName"],
+      "members":{
+        "type":{"shape":"ProxyConfigurationType"},
+        "containerName":{"shape":"String"},
+        "properties":{"shape":"ProxyConfigurationProperties"}
+      }
+    },
+    "ProxyConfigurationProperties":{
+      "type":"list",
+      "member":{"shape":"KeyValuePair"}
+    },
+    "ProxyConfigurationType":{
+      "type":"string",
+      "enum":["APPMESH"]
+    },
     "PutAccountSettingRequest":{
       "type":"structure",
       "required":[
@@ -1614,7 +1631,7 @@
         "clientToken":{
           "shape":"String"
         },
-	"platformDevices":{"shape":"PlatformDevices"}
+       "platformDevices":{"shape":"PlatformDevices"}
       }
     },
     "RegisterContainerInstanceResponse":{
@@ -1643,7 +1660,10 @@
         "pidMode":{"shape":"PidMode"},
         "ipcMode":{"shape":"IpcMode"},
         "tags":{"shape":"Tags"},
-        "inferenceAccelerators":{"shape":"InferenceAccelerators"}
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"},
+        "proxyConfiguration":{
+          "shape":"ProxyConfiguration"
+        }
       }
     },
     "RegisterTaskDefinitionResponse":{
@@ -1960,8 +1980,8 @@
     "SystemControl":{
       "type":"structure",
       "members":{
-       "namespace":{"shape":"String"},
-       "value":{"shape":"String"}
+        "namespace":{"shape":"String"},
+        "value":{"shape":"String"}
       }
     },
     "SystemControls":{
@@ -2056,7 +2076,10 @@
         "memory":{"shape":"String"},
         "pidMode":{"shape":"PidMode"},
         "ipcMode":{"shape":"IpcMode"},
-        "inferenceAccelerators":{"shape":"InferenceAccelerators"}
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"},
+        "proxyConfiguration":{
+          "shape":"ProxyConfiguration"
+        }
       }
     },
     "TaskDefinitionFamilyStatus":{
