@@ -18,7 +18,7 @@ set -e
 
 REGISTRY_IMAGE="registry:2.7.0"
 
-NGINX_IMAGE="nginx:1.15"
+NGINX_IMAGE="nginx:1.15.8"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -56,7 +56,7 @@ docker rmi amazon/image-cleanup-test-image2:make
 docker rmi amazon/image-cleanup-test-image3:make
 
 BUSYBOX_IMAGE="busybox:1.29.3"
-NGINX_IMAGE="nginx:1.15"
+NGINX_IMAGE="nginx:1.15.8"
 PYTHON2_IMAGE="python:2.7.15"
 UBUNTU_IMAGE="ubuntu:16.04"
 
@@ -74,7 +74,7 @@ else
     PARALLEL_PULL_FTS_HTTPD="httpd@sha256:0d817a924bed1a216f12a0f4947b5f8a2f173bd5a9cebfe1382d024287154c99"
 fi
 
-PARALLEL_PULL_FTS_MONGO="mongo:4.1"
+PARALLEL_PULL_FTS_CRUX="crux:3.0"
 PARALLEL_PULL_FTS_REDIS="redis:5.0"
 PARALLEL_PULL_FTS_REGISTRY=${REGISTRY_IMAGE}
 
@@ -87,7 +87,7 @@ mirror_image ${PARALLEL_PULL_FTS_UBUNTU} "127.0.0.1:51670/ubuntu:parallel-pull-f
 mirror_image ${PARALLEL_PULL_FTS_CONSUL} "127.0.0.1:51670/consul:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_DEBIAN} "127.0.0.1:51670/debian:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_HTTPD} "127.0.0.1:51670/httpd:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_MONGO} "127.0.0.1:51670/mongo:parallel-pull-fts"
+mirror_image ${PARALLEL_PULL_FTS_CRUX} "127.0.0.1:51670/crux:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_NGINX} "127.0.0.1:51670/nginx:parallel-pull-fts"
 mirror_image ${PARALLEL_PULL_FTS_REDIS} "127.0.0.1:51670/redis:parallel-pull-fts"
 mirror_local_image ${PARALLEL_PULL_FTS_REGISTRY} "127.0.0.1:51670/registry:parallel-pull-fts"

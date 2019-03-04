@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM microsoft/windowsservercore:latest
+FROM microsoft/windowsservercore
 
 ADD application.ps1 application.ps1
 ADD v3-task-endpoint-validator-windows.exe v3-task-endpoint-validator-windows.exe

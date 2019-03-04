@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -87,6 +88,11 @@ const (
 	region                      = "us-west-2"
 	username                    = "irene"
 	password                    = "sher"
+	ignoredUID                  = "1337"
+	proxyIngressPort            = "15000"
+	proxyEgressPort             = "15001"
+	appPort                     = "9000"
+	egressIgnoredIP             = "169.254.169.254"
 )
 
 var (
@@ -336,6 +342,17 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 						{
 							Address: ipv6,
 						},
+					},
+				})
+				sleepTask.SetAppMesh(&appmesh.AppMesh{
+					IgnoredUID:       ignoredUID,
+					ProxyIngressPort: proxyIngressPort,
+					ProxyEgressPort:  proxyEgressPort,
+					AppPorts: []string{
+						appPort,
+					},
+					EgressIgnoredIPs: []string{
+						egressIgnoredIP,
 					},
 				})
 				assert.Equal(t, "none", string(hostConfig.NetworkMode))
@@ -1056,6 +1073,18 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		},
 	})
 
+	sleepTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+
 	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 
 	pauseContainerID := "pauseContainerID"
@@ -1173,6 +1202,17 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 					},
 				},
 			})
+			testTask.SetAppMesh(&appmesh.AppMesh{
+				IgnoredUID:       ignoredUID,
+				ProxyIngressPort: proxyIngressPort,
+				ProxyEgressPort:  proxyEgressPort,
+				AppPorts: []string{
+					appPort,
+				},
+				EgressIgnoredIPs: []string{
+					egressIgnoredIP,
+				},
+			})
 			container := &apicontainer.Container{
 				Name: "container",
 			}
@@ -1196,6 +1236,11 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 			assert.Equal(t, mac, cniConfig.ENIMACAddress)
 			assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
 			assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
+			assert.Equal(t, ignoredUID, cniConfig.IgnoredUID)
+			assert.Equal(t, proxyIngressPort, cniConfig.ProxyIngressPort)
+			assert.Equal(t, proxyEgressPort, cniConfig.ProxyEgressPort)
+			assert.Equal(t, appPort, cniConfig.AppPorts[0])
+			assert.Equal(t, egressIgnoredIP, cniConfig.EgressIgnoredIPs[0])
 			assert.Equal(t, blockIMDS, cniConfig.BlockInstanceMetdata)
 		})
 	}
@@ -1209,6 +1254,7 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 
 	testTask := testdata.LoadTask("sleep5")
 	testTask.SetTaskENI(&apieni.ENI{})
+	testTask.SetAppMesh(&appmesh.AppMesh{})
 	container := &apicontainer.Container{
 		Name: "container",
 	}
@@ -1254,6 +1300,17 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 			},
 		},
 	})
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
 		DockerID:   containerID,
@@ -1271,7 +1328,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().StopContainer(gomock.Any(),
 			containerID,
-			defaultConfig.DockerStopTimeout+dockerclient.StopContainerTimeout,
+			defaultConfig.DockerStopTimeout,
 		).Return(dockerapi.DockerContainerMetadata{}),
 	)
 
@@ -2327,7 +2384,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 					Name:      ssmSecretName,
 					ValueFrom: ssmSecretValueFrom,
 					Region:    ssmSecretRegion,
-					Target:    "LOG_DRIVER",
+					Type:      "MOUNT_POINT",
 					Provider:  "ssm",
 				},
 				{
@@ -2342,7 +2399,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				Name:      ssmSecretName,
 				ValueFrom: ssmSecretValueFrom,
 				Region:    ssmSecretRegion,
-				Target:    "LOG_DRIVER",
+				Type:      "MOUNT_POINT",
 				Provider:  "ssm",
 			},
 			asmSecret: apicontainer.Secret{
@@ -2368,7 +2425,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 					Name:      asmSecretName,
 					ValueFrom: asmSecretValueFrom,
 					Region:    asmSecretRegion,
-					Target:    "LOG_DRIVER",
+					Type:      "MOUNT_POINT",
 					Provider:  "asm",
 				},
 			},
@@ -2383,7 +2440,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 				Name:      asmSecretName,
 				ValueFrom: asmSecretValueFrom,
 				Region:    asmSecretRegion,
-				Target:    "LOG_DRIVER",
+				Type:      "MOUNT_POINT",
 				Provider:  "asm",
 			},
 			expectedEnv: []string{ssmExpectedEnvVar},

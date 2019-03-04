@@ -5,9 +5,9 @@
     "host": {}
   }],
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "exit",
-    "cpu": 512,
+    "cpu": 1024,
     "memory": 256,
     "essential": true,
     "volumesFrom": [{
@@ -15,9 +15,9 @@
     }],
     "command": ["powershell", "-c", "while (1) { sleep 1; if (test-path \"C:/data/success\") { exit 42 }}; done"]
   }, {
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "dataSource",
-    "cpu": 512,
+    "cpu": 1024,
     "memory": 256,
     "essential": false,
     "volumesFrom": [{
@@ -25,15 +25,15 @@
     }],
     "command": ["powershell", "-c", "New-Item -ItemType file C:/data/success"]
   }, {
-    "image": "microsoft/windowsservercore:latest",
+    "image": "microsoft/windowsservercore",
     "name": "data-volume-source",
-    "cpu": 512,
+    "cpu": 1024,
     "memory": 256,
     "essential": false,
     "mountPoints": [{
       "sourceVolume": "test",
       "containerPath": "C:/data/"
     }],
-    "command": ["data volumes shouldn't need to run"]
+    "command": ["powershell", "-c", "exit"]
   }]
 }

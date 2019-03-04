@@ -60,7 +60,6 @@ import (
 const (
 	dockerIDPrefix    = "dockerid-"
 	secretKeyWest1    = "/test/secretName_us-west-2"
-	secKeyLogDriver   = "/test/secretName1_us-west-1"
 	asmSecretKeyWest1 = "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName_us-west-2"
 )
 
@@ -2490,7 +2489,7 @@ func TestInitializeAndGetASMSecretResource(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestPopulateSecrets(t *testing.T) {
+func TestPopulateSecretsAsEnv(t *testing.T) {
 	secret1 := apicontainer.Secret{
 		Provider:  "ssm",
 		Name:      "secret1",
@@ -2507,18 +2506,10 @@ func TestPopulateSecrets(t *testing.T) {
 		ValueFrom: "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName",
 	}
 
-	secret3 := apicontainer.Secret{
-		Provider:  "ssm",
-		Name:      "splunk-token",
-		Region:    "us-west-1",
-		Target:    "LOG_DRIVER",
-		ValueFrom: "/test/secretName1",
-	}
-
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3},
+		Secrets:                   []apicontainer.Secret{secret1, secret2},
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 	}
 
@@ -2528,28 +2519,18 @@ func TestPopulateSecrets(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 	}
 
-	hostConfig := &dockercontainer.HostConfig{}
-	logDriverName := "splunk"
-	hostConfig.LogConfig.Type = logDriverName
-	configMap := map[string]string{}
-	hostConfig.LogConfig.Config = configMap
-
 	ssmRes := &ssmsecret.SSMSecretResource{}
 	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue1")
 
 	asmRes := &asmsecret.ASMSecretResource{}
 	asmRes.SetCachedSecretValue(asmSecretKeyWest1, "secretValue2")
 
-	ssmRes.SetCachedSecretValue(secKeyLogDriver, "secretValue3")
-
 	task.AddResource(ssmsecret.ResourceName, ssmRes)
 	task.AddResource(asmsecret.ResourceName, asmRes)
 
-	task.PopulateSecrets(hostConfig, container)
+	task.PopulateSecretsAsEnv(container)
 	assert.Equal(t, "secretValue1", container.Environment["secret1"])
 	assert.Equal(t, "secretValue2", container.Environment["secret2"])
-	assert.Equal(t, "", container.Environment["secret3"])
-	assert.Equal(t, "secretValue3", hostConfig.LogConfig.Config["splunk-token"])
 }
 
 func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
@@ -2562,16 +2543,8 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 	}
 
 	secret2 := apicontainer.Secret{
-		Provider:  "asm",
-		Name:      "secret2",
-		Region:    "us-west-1",
-		ValueFrom: "/test/secretName1",
-		Target:    "LOG_DRIVER",
-	}
-
-	secret3 := apicontainer.Secret{
 		Provider:  "ssm",
-		Name:      "secret3",
+		Name:      "secret2",
 		Region:    "us-west-2",
 		Type:      "ENVIRONMENT_VARIABLE",
 		ValueFrom: "/test/secretName",
@@ -2580,7 +2553,7 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 	container := &apicontainer.Container{
 		Name:                      "myName",
 		Image:                     "image:tag",
-		Secrets:                   []apicontainer.Secret{secret1, secret2, secret3},
+		Secrets:                   []apicontainer.Secret{secret1, secret2},
 		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 	}
 
@@ -2592,18 +2565,15 @@ func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {
 
 	asmRes := &asmsecret.ASMSecretResource{}
 	asmRes.SetCachedSecretValue(asmSecretKeyWest1, "secretValue1")
-	asmRes.SetCachedSecretValue(secKeyLogDriver, "secretValue2")
 
 	ssmRes := &ssmsecret.SSMSecretResource{}
-	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue3")
+	ssmRes.SetCachedSecretValue(secretKeyWest1, "secretValue2")
 
 	task.AddResource(ssmsecret.ResourceName, ssmRes)
 	task.AddResource(asmsecret.ResourceName, asmRes)
 
-	hostConfig := &dockercontainer.HostConfig{}
-
-	task.PopulateSecrets(hostConfig, container)
-	assert.Equal(t, "secretValue3", container.Environment["secret3"])
+	task.PopulateSecretsAsEnv(container)
+	assert.Equal(t, "secretValue2", container.Environment["secret2"])
 	assert.Equal(t, 1, len(container.Environment))
 }
 
@@ -2875,6 +2845,122 @@ func TestTaskGPUDisabled(t *testing.T) {
 			},
 		},
 	}
-
 	assert.False(t, testTask.isGPUEnabled())
+}
+
+func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
+	containerWithOnlyVolume := &apicontainer.Container{
+		Name:        "myName",
+		Image:       "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName1"}},
+	}
+
+	containerWithOnlyLink := &apicontainer.Container{
+		Name:  "myName1",
+		Image: "image:tag",
+		Links: []string{"myName"},
+	}
+
+	containerWithBothVolumeAndLink := &apicontainer.Container{
+		Name:        "myName2",
+		Image:       "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "myName"}},
+		Links:       []string{"myName1"},
+	}
+
+	containerWithNoVolumeOrLink := &apicontainer.Container{
+		Name:  "myName3",
+		Image: "image:tag",
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{containerWithOnlyVolume, containerWithOnlyLink,
+			containerWithBothVolumeAndLink, containerWithNoVolumeOrLink},
+	}
+
+	err := task.initializeContainerOrderingForVolumes()
+	assert.NoError(t, err)
+	err = task.initializeContainerOrderingForLinks()
+	assert.NoError(t, err)
+
+	containerResultWithVolume := task.Containers[0]
+	assert.Equal(t, "myName1", containerResultWithVolume.DependsOn[0].ContainerName)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithVolume.DependsOn[0].Condition)
+
+	containerResultWithLink := task.Containers[1]
+	assert.Equal(t, "myName", containerResultWithLink.DependsOn[0].ContainerName)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithLink.DependsOn[0].Condition)
+
+	containerResultWithBothVolumeAndLink := task.Containers[2]
+	assert.Equal(t, "myName", containerResultWithBothVolumeAndLink.DependsOn[0].ContainerName)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
+	assert.Equal(t, "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].ContainerName)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
+
+	containerResultWithNoVolumeOrLink := task.Containers[3]
+	assert.Equal(t, 0, len(containerResultWithNoVolumeOrLink.DependsOn))
+}
+
+func TestInitializeContainerOrderingWithError(t *testing.T) {
+	containerWithVolumeError := &apicontainer.Container{
+		Name:        "myName",
+		Image:       "image:tag",
+		VolumesFrom: []apicontainer.VolumeFrom{{SourceContainer: "dummyContainer"}},
+	}
+
+	containerWithLinkError1 := &apicontainer.Container{
+		Name:  "myName1",
+		Image: "image:tag",
+		Links: []string{"dummyContainer"},
+	}
+
+	containerWithLinkError2 := &apicontainer.Container{
+		Name:  "myName2",
+		Image: "image:tag",
+		Links: []string{"myName:link1:link2"},
+	}
+
+	task1 := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError1},
+	}
+
+	task2 := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{containerWithVolumeError, containerWithLinkError2},
+	}
+
+	errVolume1 := task1.initializeContainerOrderingForVolumes()
+	assert.Error(t, errVolume1)
+	errLink1 := task1.initializeContainerOrderingForLinks()
+	assert.Error(t, errLink1)
+
+	errVolume2 := task2.initializeContainerOrderingForVolumes()
+	assert.Error(t, errVolume2)
+	errLink2 := task2.initializeContainerOrderingForLinks()
+	assert.Error(t, errLink2)
+}
+
+func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
+	modelTimeout := int64(10)
+	expectedTimeout := uint(modelTimeout)
+
+	taskFromACS := ecsacs.Task{
+		Containers: []*ecsacs.Container{
+			{
+				StartTimeout: aws.Int64(modelTimeout),
+				StopTimeout:  aws.Int64(modelTimeout),
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+
+	assert.Equal(t, task.Containers[0].StartTimeout, expectedTimeout)
+	assert.Equal(t, task.Containers[0].StopTimeout, expectedTimeout)
 }

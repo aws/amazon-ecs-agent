@@ -635,7 +635,7 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 			}
 
 			waitForAssertions.Add(2)
-			canTransition, transitions, _ := task.startContainerTransitions(
+			canTransition, _, transitions, _ := task.startContainerTransitions(
 				func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 					if cont.Name == firstContainerName {
 						assert.Equal(t, nextStatus, apicontainerstatus.ContainerRunning, "Mismatch for first container next status")
@@ -697,7 +697,7 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 		engine: &DockerTaskEngine{},
 	}
 
-	canTransition, transitions, _ := task.startContainerTransitions(
+	canTransition, _, transitions, _ := task.startContainerTransitions(
 		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			t.Error("Transition function should not be called when no transitions are possible")
 		})
@@ -765,7 +765,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 	}()
 
 	go task.waitEvent(nil)
-	canTransition, transitions, _ := task.startContainerTransitions(
+	canTransition, _, transitions, _ := task.startContainerTransitions(
 		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
 			t.Error("Invalid code path. The transition function should not be invoked when transitioning container from CREATED -> STOPPED")
 		})
@@ -875,7 +875,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 		eventsGenerated.Done()
 	}()
 
-	task.onContainersUnableToTransitionState()
+	task.handleContainersUnableToTransitionState()
 	eventsGenerated.Wait()
 
 	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
@@ -897,7 +897,7 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 		},
 	}
 
-	task.onContainersUnableToTransitionState()
+	task.handleContainersUnableToTransitionState()
 	assert.Equal(t, task.GetDesiredStatus(), apitaskstatus.TaskStopped)
 	assert.Equal(t, task.Containers[0].GetDesiredStatus(), apicontainerstatus.ContainerStopped)
 }
@@ -1314,7 +1314,7 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 				go func() { task.acsMessages <- acsTransition{desiredStatus: apitaskstatus.TaskRunning} }()
 			}
 
-			assert.Equal(t, tc.result, task.waitForExecutionCredentialsFromACS(tc.errs), tc.msg)
+			assert.Equal(t, tc.result, task.isWaitingForACSExecutionCredentials(tc.errs), tc.msg)
 		})
 	}
 }

@@ -4,9 +4,9 @@
     "essential": true,
     "memory": 256,
     "name": "memory-overcommit",
-    "cpu": 512,
-    "image": "amazon/amazon-ecs-windows-python:make",
-    "command": ["python", "-c", "import time; time.sleep(30); foo=' '*1024*1024*1024;"]
+    "cpu": 1024,
+    "image": "amazon/amazon-ecs-windows-telemetry-test:make",
+    "command": ["-concurrency", "10", "-memory", "1024"]
   }]
 }
 

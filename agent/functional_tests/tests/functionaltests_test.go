@@ -566,7 +566,7 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
 	RequireMinimumMemory(t, 2200)
-	
+
 	// Try to let the container use 25% cpu, but bound it within valid range
 	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
 
@@ -686,14 +686,9 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
-		PortBindings: map[nat.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
 
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 

@@ -224,7 +224,30 @@
         "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
         "logsAuthStrategy":{"shape":"AuthStrategy"},
-        "secrets":{"shape":"SecretList"}
+        "secrets":{"shape":"SecretList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
+        "startTimeout":{"shape":"Integer"},
+        "stopTimeout":{"shape":"Integer"}
+      }
+    },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
       }
     },
     "ContainerList":{
@@ -453,6 +476,18 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "ProxyConfiguration":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"ProxyConfigurationType"},
+        "containerName":{"shape":"String"},
+        "properties":{"shape":"StringMap"}
+      }
+    },
+    "ProxyConfigurationType":{
+      "type":"string",
+      "enum":["APPMESH"]
+    },
     "RegistryAuthenticationData":{
       "type":"structure",
       "members":{
@@ -500,8 +535,7 @@
     "SecretType":{
       "type":"string",
       "enum":[
-        "ENVIRONMENT_VARIABLE",
-        "MOUNT_POINT"
+        "ENVIRONMENT_VARIABLE"
       ]
     },
     "SensitiveString":{
@@ -552,7 +586,8 @@
         "memory":{"shape":"Integer"},
         "associations":{"shape":"Associations"},
         "pidMode":{"shape":"String"},
-        "ipcMode":{"shape":"String"}
+        "ipcMode":{"shape":"String"},
+        "proxyConfiguration":{"shape":"ProxyConfiguration"}
       }
     },
     "TaskList":{

@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	testDockerStopTimeout  = 2 * time.Second
+	testDockerStopTimeout  = 5 * time.Second
 	credentialsIDIntegTest = "credsid"
 	containerPortOne       = 24751
 	containerPortTwo       = 24752
@@ -51,6 +51,15 @@ const (
 	localhost              = "127.0.0.1"
 	waitForDockerDuration  = 50 * time.Millisecond
 	removeVolumeTimeout    = 5 * time.Second
+
+	alwaysHealthyHealthCheckConfig = `{
+			"HealthCheck":{
+				"Test":["CMD-SHELL", "echo hello"],
+				"Interval":100000000,
+				"Timeout":100000000,
+				"StartPeriod":100000000,
+				"Retries":3}
+		}`
 )
 
 func init() {

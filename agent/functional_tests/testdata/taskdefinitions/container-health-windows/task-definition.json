@@ -4,7 +4,7 @@
     {
         "name": "healthcontainer",
         "image": "amazon/amazon-ecs-containerhealthcheck:make",
-        "cpu": 500,
+        "cpu": 1024,
         "command":  [ "powershell", "-command", "Start-Sleep -s 300" ],
         "memory": 500,
         "healthCheck": {

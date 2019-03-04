@@ -62,7 +62,7 @@ func (c *ECS) CreateClusterRequest(input *CreateClusterInput) (req *request.Requ
 	return
 }
 
-// CreateCluster API operation for Amazon EC2 Container Service.
+// CreateCluster API operation for Amazon Elastic Container Service.
 //
 // Creates a new Amazon ECS cluster. By default, your account receives a default
 // cluster when you launch your first container instance. However, you can create
@@ -80,7 +80,7 @@ func (c *ECS) CreateClusterRequest(input *CreateClusterInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation CreateCluster for usage and error information.
 //
 // Returned Error Codes:
@@ -157,7 +157,7 @@ func (c *ECS) CreateServiceRequest(input *CreateServiceInput) (req *request.Requ
 	return
 }
 
-// CreateService API operation for Amazon EC2 Container Service.
+// CreateService API operation for Amazon Elastic Container Service.
 //
 // Runs and maintains a desired number of tasks from a specified task definition.
 // If the number of tasks running in a service drops below desiredCount, Amazon
@@ -227,7 +227,7 @@ func (c *ECS) CreateServiceRequest(input *CreateServiceInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation CreateService for usage and error information.
 //
 // Returned Error Codes:
@@ -321,13 +321,13 @@ func (c *ECS) DeleteAccountSettingRequest(input *DeleteAccountSettingInput) (req
 	return
 }
 
-// DeleteAccountSetting API operation for Amazon EC2 Container Service.
+// DeleteAccountSetting API operation for Amazon Elastic Container Service.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeleteAccountSetting for usage and error information.
 //
 // Returned Error Codes:
@@ -404,7 +404,7 @@ func (c *ECS) DeleteAttributesRequest(input *DeleteAttributesInput) (req *reques
 	return
 }
 
-// DeleteAttributes API operation for Amazon EC2 Container Service.
+// DeleteAttributes API operation for Amazon Elastic Container Service.
 //
 // Deletes one or more custom attributes from an Amazon ECS resource.
 //
@@ -412,7 +412,7 @@ func (c *ECS) DeleteAttributesRequest(input *DeleteAttributesInput) (req *reques
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeleteAttributes for usage and error information.
 //
 // Returned Error Codes:
@@ -490,7 +490,7 @@ func (c *ECS) DeleteClusterRequest(input *DeleteClusterInput) (req *request.Requ
 	return
 }
 
-// DeleteCluster API operation for Amazon EC2 Container Service.
+// DeleteCluster API operation for Amazon Elastic Container Service.
 //
 // Deletes the specified cluster. You must deregister all container instances
 // from this cluster before you may delete it. You can list the container instances
@@ -500,7 +500,7 @@ func (c *ECS) DeleteClusterRequest(input *DeleteClusterInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeleteCluster for usage and error information.
 //
 // Returned Error Codes:
@@ -594,7 +594,7 @@ func (c *ECS) DeleteServiceRequest(input *DeleteServiceInput) (req *request.Requ
 	return
 }
 
-// DeleteService API operation for Amazon EC2 Container Service.
+// DeleteService API operation for Amazon Elastic Container Service.
 //
 // Deletes a specified service within a cluster. You can delete a service if
 // you have no running tasks in it and the desired task count is zero. If the
@@ -615,7 +615,7 @@ func (c *ECS) DeleteServiceRequest(input *DeleteServiceInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeleteService for usage and error information.
 //
 // Returned Error Codes:
@@ -700,7 +700,7 @@ func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInsta
 	return
 }
 
-// DeregisterContainerInstance API operation for Amazon EC2 Container Service.
+// DeregisterContainerInstance API operation for Amazon Elastic Container Service.
 //
 // Deregisters an Amazon ECS container instance from the specified cluster.
 // This instance is no longer available to run tasks.
@@ -722,7 +722,7 @@ func (c *ECS) DeregisterContainerInstanceRequest(input *DeregisterContainerInsta
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeregisterContainerInstance for usage and error information.
 //
 // Returned Error Codes:
@@ -803,7 +803,7 @@ func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInp
 	return
 }
 
-// DeregisterTaskDefinition API operation for Amazon EC2 Container Service.
+// DeregisterTaskDefinition API operation for Amazon Elastic Container Service.
 //
 // Deregisters the specified task definition by family and revision. Upon deregistration,
 // the task definition is marked as INACTIVE. Existing tasks and services that
@@ -825,7 +825,7 @@ func (c *ECS) DeregisterTaskDefinitionRequest(input *DeregisterTaskDefinitionInp
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DeregisterTaskDefinition for usage and error information.
 //
 // Returned Error Codes:
@@ -902,7 +902,7 @@ func (c *ECS) DescribeClustersRequest(input *DescribeClustersInput) (req *reques
 	return
 }
 
-// DescribeClusters API operation for Amazon EC2 Container Service.
+// DescribeClusters API operation for Amazon Elastic Container Service.
 //
 // Describes one or more of your clusters.
 //
@@ -910,7 +910,7 @@ func (c *ECS) DescribeClustersRequest(input *DescribeClustersInput) (req *reques
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DescribeClusters for usage and error information.
 //
 // Returned Error Codes:
@@ -987,7 +987,7 @@ func (c *ECS) DescribeContainerInstancesRequest(input *DescribeContainerInstance
 	return
 }
 
-// DescribeContainerInstances API operation for Amazon EC2 Container Service.
+// DescribeContainerInstances API operation for Amazon Elastic Container Service.
 //
 // Describes Amazon Elastic Container Service container instances. Returns metadata
 // about registered and remaining resources on each container instance requested.
@@ -996,7 +996,7 @@ func (c *ECS) DescribeContainerInstancesRequest(input *DescribeContainerInstance
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DescribeContainerInstances for usage and error information.
 //
 // Returned Error Codes:
@@ -1077,7 +1077,7 @@ func (c *ECS) DescribeServicesRequest(input *DescribeServicesInput) (req *reques
 	return
 }
 
-// DescribeServices API operation for Amazon EC2 Container Service.
+// DescribeServices API operation for Amazon Elastic Container Service.
 //
 // Describes the specified services running in your cluster.
 //
@@ -1085,7 +1085,7 @@ func (c *ECS) DescribeServicesRequest(input *DescribeServicesInput) (req *reques
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DescribeServices for usage and error information.
 //
 // Returned Error Codes:
@@ -1166,7 +1166,7 @@ func (c *ECS) DescribeTaskDefinitionRequest(input *DescribeTaskDefinitionInput) 
 	return
 }
 
-// DescribeTaskDefinition API operation for Amazon EC2 Container Service.
+// DescribeTaskDefinition API operation for Amazon Elastic Container Service.
 //
 // Describes a task definition. You can specify a family and revision to find
 // information about a specific task definition, or you can simply specify the
@@ -1179,7 +1179,7 @@ func (c *ECS) DescribeTaskDefinitionRequest(input *DescribeTaskDefinitionInput) 
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DescribeTaskDefinition for usage and error information.
 //
 // Returned Error Codes:
@@ -1256,7 +1256,7 @@ func (c *ECS) DescribeTasksRequest(input *DescribeTasksInput) (req *request.Requ
 	return
 }
 
-// DescribeTasks API operation for Amazon EC2 Container Service.
+// DescribeTasks API operation for Amazon Elastic Container Service.
 //
 // Describes a specified task or tasks.
 //
@@ -1264,7 +1264,7 @@ func (c *ECS) DescribeTasksRequest(input *DescribeTasksInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DescribeTasks for usage and error information.
 //
 // Returned Error Codes:
@@ -1345,7 +1345,7 @@ func (c *ECS) DiscoverPollEndpointRequest(input *DiscoverPollEndpointInput) (req
 	return
 }
 
-// DiscoverPollEndpoint API operation for Amazon EC2 Container Service.
+// DiscoverPollEndpoint API operation for Amazon Elastic Container Service.
 //
 // This action is only used by the Amazon ECS agent, and it is not intended
 // for use outside of the agent.
@@ -1356,7 +1356,7 @@ func (c *ECS) DiscoverPollEndpointRequest(input *DiscoverPollEndpointInput) (req
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation DiscoverPollEndpoint for usage and error information.
 //
 // Returned Error Codes:
@@ -1429,7 +1429,7 @@ func (c *ECS) ListAttributesRequest(input *ListAttributesInput) (req *request.Re
 	return
 }
 
-// ListAttributes API operation for Amazon EC2 Container Service.
+// ListAttributes API operation for Amazon Elastic Container Service.
 //
 // Lists the attributes for Amazon ECS resources within a specified target type
 // and cluster. When you specify a target type and cluster, ListAttributes returns
@@ -1443,7 +1443,7 @@ func (c *ECS) ListAttributesRequest(input *ListAttributesInput) (req *request.Re
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListAttributes for usage and error information.
 //
 // Returned Error Codes:
@@ -1522,7 +1522,7 @@ func (c *ECS) ListClustersRequest(input *ListClustersInput) (req *request.Reques
 	return
 }
 
-// ListClusters API operation for Amazon EC2 Container Service.
+// ListClusters API operation for Amazon Elastic Container Service.
 //
 // Returns a list of existing clusters.
 //
@@ -1530,7 +1530,7 @@ func (c *ECS) ListClustersRequest(input *ListClustersInput) (req *request.Reques
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListClusters for usage and error information.
 //
 // Returned Error Codes:
@@ -1663,7 +1663,7 @@ func (c *ECS) ListContainerInstancesRequest(input *ListContainerInstancesInput) 
 	return
 }
 
-// ListContainerInstances API operation for Amazon EC2 Container Service.
+// ListContainerInstances API operation for Amazon Elastic Container Service.
 //
 // Returns a list of container instances in a specified cluster. You can filter
 // the results of a ListContainerInstances operation with cluster query language
@@ -1675,7 +1675,7 @@ func (c *ECS) ListContainerInstancesRequest(input *ListContainerInstancesInput) 
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListContainerInstances for usage and error information.
 //
 // Returned Error Codes:
@@ -1812,7 +1812,7 @@ func (c *ECS) ListServicesRequest(input *ListServicesInput) (req *request.Reques
 	return
 }
 
-// ListServices API operation for Amazon EC2 Container Service.
+// ListServices API operation for Amazon Elastic Container Service.
 //
 // Lists the services that are running in a specified cluster.
 //
@@ -1820,7 +1820,7 @@ func (c *ECS) ListServicesRequest(input *ListServicesInput) (req *request.Reques
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListServices for usage and error information.
 //
 // Returned Error Codes:
@@ -1951,13 +1951,13 @@ func (c *ECS) ListTagsForResourceRequest(input *ListTagsForResourceInput) (req *
 	return
 }
 
-// ListTagsForResource API operation for Amazon EC2 Container Service.
+// ListTagsForResource API operation for Amazon Elastic Container Service.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListTagsForResource for usage and error information.
 //
 // Returned Error Codes:
@@ -2044,7 +2044,7 @@ func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamilie
 	return
 }
 
-// ListTaskDefinitionFamilies API operation for Amazon EC2 Container Service.
+// ListTaskDefinitionFamilies API operation for Amazon Elastic Container Service.
 //
 // Returns a list of task definition families that are registered to your account
 // (which may include task definition families that no longer have any ACTIVE
@@ -2058,7 +2058,7 @@ func (c *ECS) ListTaskDefinitionFamiliesRequest(input *ListTaskDefinitionFamilie
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListTaskDefinitionFamilies for usage and error information.
 //
 // Returned Error Codes:
@@ -2191,7 +2191,7 @@ func (c *ECS) ListTaskDefinitionsRequest(input *ListTaskDefinitionsInput) (req *
 	return
 }
 
-// ListTaskDefinitions API operation for Amazon EC2 Container Service.
+// ListTaskDefinitions API operation for Amazon Elastic Container Service.
 //
 // Returns a list of task definitions that are registered to your account. You
 // can filter the results by family name with the familyPrefix parameter or
@@ -2201,7 +2201,7 @@ func (c *ECS) ListTaskDefinitionsRequest(input *ListTaskDefinitionsInput) (req *
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListTaskDefinitions for usage and error information.
 //
 // Returned Error Codes:
@@ -2334,7 +2334,7 @@ func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *request.Request, out
 	return
 }
 
-// ListTasks API operation for Amazon EC2 Container Service.
+// ListTasks API operation for Amazon Elastic Container Service.
 //
 // Returns a list of tasks for a specified cluster. You can filter the results
 // by family name, by a particular container instance, or by the desired status
@@ -2347,7 +2347,7 @@ func (c *ECS) ListTasksRequest(input *ListTasksInput) (req *request.Request, out
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation ListTasks for usage and error information.
 //
 // Returned Error Codes:
@@ -2482,13 +2482,13 @@ func (c *ECS) PutAccountSettingRequest(input *PutAccountSettingInput) (req *requ
 	return
 }
 
-// PutAccountSetting API operation for Amazon EC2 Container Service.
+// PutAccountSetting API operation for Amazon Elastic Container Service.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation PutAccountSetting for usage and error information.
 //
 // Returned Error Codes:
@@ -2565,7 +2565,7 @@ func (c *ECS) PutAttributesRequest(input *PutAttributesInput) (req *request.Requ
 	return
 }
 
-// PutAttributes API operation for Amazon EC2 Container Service.
+// PutAttributes API operation for Amazon Elastic Container Service.
 //
 // Create or update an attribute on an Amazon ECS resource. If the attribute
 // does not exist, it is created. If the attribute exists, its value is replaced
@@ -2577,7 +2577,7 @@ func (c *ECS) PutAttributesRequest(input *PutAttributesInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation PutAttributes for usage and error information.
 //
 // Returned Error Codes:
@@ -2660,7 +2660,7 @@ func (c *ECS) RegisterContainerInstanceRequest(input *RegisterContainerInstanceI
 	return
 }
 
-// RegisterContainerInstance API operation for Amazon EC2 Container Service.
+// RegisterContainerInstance API operation for Amazon Elastic Container Service.
 //
 // This action is only used by the Amazon ECS agent, and it is not intended
 // for use outside of the agent.
@@ -2672,7 +2672,7 @@ func (c *ECS) RegisterContainerInstanceRequest(input *RegisterContainerInstanceI
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation RegisterContainerInstance for usage and error information.
 //
 // Returned Error Codes:
@@ -2749,7 +2749,7 @@ func (c *ECS) RegisterTaskDefinitionRequest(input *RegisterTaskDefinitionInput) 
 	return
 }
 
-// RegisterTaskDefinition API operation for Amazon EC2 Container Service.
+// RegisterTaskDefinition API operation for Amazon Elastic Container Service.
 //
 // Registers a new task definition from the supplied family and containerDefinitions.
 // Optionally, you can add data volumes to your containers with the volumes
@@ -2777,7 +2777,7 @@ func (c *ECS) RegisterTaskDefinitionRequest(input *RegisterTaskDefinitionInput) 
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation RegisterTaskDefinition for usage and error information.
 //
 // Returned Error Codes:
@@ -2854,7 +2854,7 @@ func (c *ECS) RunTaskRequest(input *RunTaskInput) (req *request.Request, output 
 	return
 }
 
-// RunTask API operation for Amazon EC2 Container Service.
+// RunTask API operation for Amazon Elastic Container Service.
 //
 // Starts a new task using the specified task definition.
 //
@@ -2891,7 +2891,7 @@ func (c *ECS) RunTaskRequest(input *RunTaskInput) (req *request.Request, output 
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation RunTask for usage and error information.
 //
 // Returned Error Codes:
@@ -2989,7 +2989,7 @@ func (c *ECS) StartTaskRequest(input *StartTaskInput) (req *request.Request, out
 	return
 }
 
-// StartTask API operation for Amazon EC2 Container Service.
+// StartTask API operation for Amazon Elastic Container Service.
 //
 // Starts a new task from the specified task definition on the specified container
 // instance or instances.
@@ -3002,7 +3002,7 @@ func (c *ECS) StartTaskRequest(input *StartTaskInput) (req *request.Request, out
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation StartTask for usage and error information.
 //
 // Returned Error Codes:
@@ -3083,7 +3083,7 @@ func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *request.Request, outpu
 	return
 }
 
-// StopTask API operation for Amazon EC2 Container Service.
+// StopTask API operation for Amazon Elastic Container Service.
 //
 // Stops a running task.
 //
@@ -3102,7 +3102,7 @@ func (c *ECS) StopTaskRequest(input *StopTaskInput) (req *request.Request, outpu
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation StopTask for usage and error information.
 //
 // Returned Error Codes:
@@ -3269,7 +3269,7 @@ func (c *ECS) SubmitContainerStateChangeRequest(input *SubmitContainerStateChang
 	return
 }
 
-// SubmitContainerStateChange API operation for Amazon EC2 Container Service.
+// SubmitContainerStateChange API operation for Amazon Elastic Container Service.
 //
 // This action is only used by the Amazon ECS agent, and it is not intended
 // for use outside of the agent.
@@ -3280,7 +3280,7 @@ func (c *ECS) SubmitContainerStateChangeRequest(input *SubmitContainerStateChang
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation SubmitContainerStateChange for usage and error information.
 //
 // Returned Error Codes:
@@ -3356,7 +3356,7 @@ func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (r
 	return
 }
 
-// SubmitTaskStateChange API operation for Amazon EC2 Container Service.
+// SubmitTaskStateChange API operation for Amazon Elastic Container Service.
 //
 // This action is only used by the Amazon ECS agent, and it is not intended
 // for use outside of the agent.
@@ -3367,7 +3367,7 @@ func (c *ECS) SubmitTaskStateChangeRequest(input *SubmitTaskStateChangeInput) (r
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation SubmitTaskStateChange for usage and error information.
 //
 // Returned Error Codes:
@@ -3443,7 +3443,7 @@ func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req
 	return
 }
 
-// UpdateContainerAgent API operation for Amazon EC2 Container Service.
+// UpdateContainerAgent API operation for Amazon Elastic Container Service.
 //
 // Updates the Amazon ECS container agent on a specified container instance.
 // Updating the Amazon ECS container agent does not interrupt running tasks
@@ -3461,7 +3461,7 @@ func (c *ECS) UpdateContainerAgentRequest(input *UpdateContainerAgentInput) (req
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation UpdateContainerAgent for usage and error information.
 //
 // Returned Error Codes:
@@ -3560,7 +3560,7 @@ func (c *ECS) UpdateContainerInstancesStateRequest(input *UpdateContainerInstanc
 	return
 }
 
-// UpdateContainerInstancesState API operation for Amazon EC2 Container Service.
+// UpdateContainerInstancesState API operation for Amazon Elastic Container Service.
 //
 // Modifies the status of an Amazon ECS container instance.
 //
@@ -3611,7 +3611,7 @@ func (c *ECS) UpdateContainerInstancesStateRequest(input *UpdateContainerInstanc
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation UpdateContainerInstancesState for usage and error information.
 //
 // Returned Error Codes:
@@ -3692,7 +3692,7 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Requ
 	return
 }
 
-// UpdateService API operation for Amazon EC2 Container Service.
+// UpdateService API operation for Amazon Elastic Container Service.
 //
 // Modifies the desired count, deployment configuration, network configuration,
 // or task definition used in a service.
@@ -3775,7 +3775,7 @@ func (c *ECS) UpdateServiceRequest(input *UpdateServiceInput) (req *request.Requ
 // with awserr.Error's Code and Message methods to get detailed information about
 // the error.
 //
-// See the AWS API reference guide for Amazon EC2 Container Service's
+// See the AWS API reference guide for Amazon Elastic Container Service's
 // API operation UpdateService for usage and error information.
 //
 // Returned Error Codes:
@@ -8741,6 +8741,58 @@ func (s *PortMapping) SetProtocol(v string) *PortMapping {
 	return s
 }
 
+type ProxyConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// ContainerName is a required field
+	ContainerName *string `locationName:"containerName" type:"string" required:"true"`
+
+	Properties []*KeyValuePair `locationName:"properties" type:"list"`
+
+	Type *string `locationName:"type" type:"string" enum:"ProxyConfigurationType"`
+}
+
+// String returns the string representation
+func (s ProxyConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ProxyConfiguration) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ProxyConfiguration) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ProxyConfiguration"}
+	if s.ContainerName == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerName"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *ProxyConfiguration) SetContainerName(v string) *ProxyConfiguration {
+	s.ContainerName = &v
+	return s
+}
+
+// SetProperties sets the Properties field's value.
+func (s *ProxyConfiguration) SetProperties(v []*KeyValuePair) *ProxyConfiguration {
+	s.Properties = v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *ProxyConfiguration) SetType(v string) *ProxyConfiguration {
+	s.Type = &v
+	return s
+}
+
 type PutAccountSettingInput struct {
 	_ struct{} `type:"structure"`
 
@@ -9188,6 +9240,8 @@ type RegisterTaskDefinitionInput struct {
 	// the task definition and those specified at run time).
 	PlacementConstraints []*TaskDefinitionPlacementConstraint `locationName:"placementConstraints" type:"list"`
 
+	ProxyConfiguration *ProxyConfiguration `locationName:"proxyConfiguration" type:"structure"`
+
 	// The launch type required by the task. If no value is specified, it defaults
 	// to EC2.
 	RequiresCompatibilities []*string `locationName:"requiresCompatibilities" type:"list"`
@@ -9243,6 +9297,11 @@ func (s *RegisterTaskDefinitionInput) Validate() error {
 			if err := v.Validate(); err != nil {
 				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "InferenceAccelerators", i), err.(request.ErrInvalidParams))
 			}
+		}
+	}
+	if s.ProxyConfiguration != nil {
+		if err := s.ProxyConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("ProxyConfiguration", err.(request.ErrInvalidParams))
 		}
 	}
 	if s.Tags != nil {
@@ -9319,6 +9378,12 @@ func (s *RegisterTaskDefinitionInput) SetPidMode(v string) *RegisterTaskDefiniti
 // SetPlacementConstraints sets the PlacementConstraints field's value.
 func (s *RegisterTaskDefinitionInput) SetPlacementConstraints(v []*TaskDefinitionPlacementConstraint) *RegisterTaskDefinitionInput {
 	s.PlacementConstraints = v
+	return s
+}
+
+// SetProxyConfiguration sets the ProxyConfiguration field's value.
+func (s *RegisterTaskDefinitionInput) SetProxyConfiguration(v *ProxyConfiguration) *RegisterTaskDefinitionInput {
+	s.ProxyConfiguration = v
 	return s
 }
 
@@ -11238,6 +11303,8 @@ type TaskDefinition struct {
 	// not valid if using the Fargate launch type for your task.
 	PlacementConstraints []*TaskDefinitionPlacementConstraint `locationName:"placementConstraints" type:"list"`
 
+	ProxyConfiguration *ProxyConfiguration `locationName:"proxyConfiguration" type:"structure"`
+
 	// The container instance attributes required by your task. This field is not
 	// valid if using the Fargate launch type for your task.
 	RequiresAttributes []*Attribute `locationName:"requiresAttributes" type:"list"`
@@ -11352,6 +11419,12 @@ func (s *TaskDefinition) SetPidMode(v string) *TaskDefinition {
 // SetPlacementConstraints sets the PlacementConstraints field's value.
 func (s *TaskDefinition) SetPlacementConstraints(v []*TaskDefinitionPlacementConstraint) *TaskDefinition {
 	s.PlacementConstraints = v
+	return s
+}
+
+// SetProxyConfiguration sets the ProxyConfiguration field's value.
+func (s *TaskDefinition) SetProxyConfiguration(v *ProxyConfiguration) *TaskDefinition {
+	s.ProxyConfiguration = v
 	return s
 }
 
@@ -12263,6 +12336,11 @@ const (
 const (
 	// PlatformDeviceTypeGpu is a PlatformDeviceType enum value
 	PlatformDeviceTypeGpu = "GPU"
+)
+
+const (
+	// ProxyConfigurationTypeAppmesh is a ProxyConfigurationType enum value
+	ProxyConfigurationTypeAppmesh = "APPMESH"
 )
 
 const (
