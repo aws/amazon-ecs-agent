@@ -353,13 +353,14 @@ func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetric
 		return nil, fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
 	}
 
+	// idleCluster cloudWatch average may have intermittent jumps above 0,
 	if idleCluster {
-		if *datapoint.Average != 0.0 {
-			return nil, fmt.Errorf("non-zero utilization for idle cluster")
+		if *datapoint.Average >= 5.0 {
+			return nil, fmt.Errorf("utilization is >= five percent for idle cluster")
 		}
 	} else {
-		if *datapoint.Average == 0.0 {
-			return nil, fmt.Errorf("utilization is zero for non-idle cluster")
+		if *datapoint.Average < 5.0 {
+			return nil, fmt.Errorf("utilization is < five percent for non-idle cluster")
 		}
 	}
 	return datapoint, nil
