@@ -1378,6 +1378,8 @@ func TestRunGPUTask(t *testing.T) {
 
 // TestElasticInferenceValidator tests the workflow of an elastic inference task
 func TestElasticInferenceValidator(t *testing.T) {
+	t.Skip("Skipping the test until EI is fully supported in all AZs of some regions")
+
 	supportedRegions := []string{"us-west-2", "us-east-1", "ap-northeast-2"}
 	RequireRegions(t, supportedRegions, *ECS.Config.Region)
 
