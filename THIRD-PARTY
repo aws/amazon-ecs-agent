@@ -2,6 +2,7 @@
 ** github.com/containerd/cgroups; version c3fc2b77b568af2406f3931cf3d3f17d76736886 -- https://github.com/containerd/cgroups
 ** github.com/containerd/continuity; version 1bed1ecb1dc42d8f4d2ac8c23e5cac64749e82c9 -- https://github.com/containerd/continuity
 ** github.com/containernetworking/cni; version v0.5.2 -- https://github.com/containernetworking/cni
+** github.com/coreos/go-iptables; version v0.1.0 -- https://github.com/coreos/go-iptables
 ** github.com/coreos/go-systemd; version 24036eb3df68550d24a2736c5d013f4e83366866 -- https://github.com/coreos/go-systemd
 ** github.com/docker/distribution; version 749f6afb4572201e3c37325d0ffedb6f32be8950 -- https://www.docker.com
 ** github.com/docker/docker; version e4d0fe84f9ea88b0e0cfd847412c9f29442cc62d -- https://github.com/moby/moby
@@ -19,48 +20,71 @@
 ** github.com/vishvananda/netns; version be1fbeda19366dea804f00efff2dd73a1642fdcc -- https://github.com/vishvananda/netns
 
 Apache License
-Version 2.0, January 2004
-http://www.apache.org/licenses/
 
-TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+Version 2.0, January 2004
+
+http://www.apache.org/licenses/ TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND
+DISTRIBUTION
 
 1. Definitions.
 
+
+
 "License" shall mean the terms and conditions for use, reproduction, and
-distribution as defined by Sections 1 through 9 of this document.
+distribution as defined by Sections 1 through 9 of this
+document.
+
+
 
 "Licensor" shall mean the copyright owner or entity authorized by the copyright
 owner that is granting the License.
+
+
 
 "Legal Entity" shall mean the union of the acting entity and all other entities
 that control, are controlled by, or are under common control with that entity.
 For the purposes of this definition, "control" means (i) the power, direct or
 indirect, to cause the direction or management of such entity, whether by
 contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the
-outstanding shares, or (iii) beneficial ownership of such entity.
+outstanding shares, or (iii) beneficial ownership of such
+entity.
+
+
 
 "You" (or "Your") shall mean an individual or Legal Entity exercising
 permissions granted by this License.
+
+
 
 "Source" form shall mean the preferred form for making modifications, including
 but not limited to software source code, documentation source, and
 configuration files.
 
+
+
 "Object" form shall mean any form resulting from mechanical transformation or
 translation of a Source form, including but not limited to compiled object
-code, generated documentation, and conversions to other media types.
+code, generated documentation, and conversions to other media
+types.
+
+
 
 "Work" shall mean the work of authorship, whether in Source or Object form,
 made available under the License, as indicated by a copyright notice that is
 included in or attached to the work (an example is provided in the Appendix
 below).
 
+
+
 "Derivative Works" shall mean any work, whether in Source or Object form, that
 is based on (or derived from) the Work and for which the editorial revisions,
 annotations, elaborations, or other modifications represent, as a whole, an
 original work of authorship. For the purposes of this License, Derivative Works
 shall not include works that remain separable from, or merely link (or bind by
-name) to the interfaces of, the Work and Derivative Works thereof.
+name) to the interfaces of, the Work and Derivative Works
+thereof.
+
+
 
 "Contribution" shall mean any work of authorship, including the original
 version of the Work and any modifications or additions to that Work or
@@ -74,6 +98,8 @@ control systems, and issue tracking systems that are managed by, or on behalf
 of, the Licensor for the purpose of discussing and improving the Work, but
 excluding communication that is conspicuously marked or otherwise designated in
 writing by the copyright owner as "Not a Contribution."
+
+
 
 "Contributor" shall mean Licensor and any individual or Legal Entity on behalf
 of whom a Contribution has been received by Licensor and subsequently
@@ -175,15 +201,14 @@ obligations, You may act only on Your own behalf and on Your sole
 responsibility, not on behalf of any other Contributor, and only if You agree
 to indemnify, defend, and hold each Contributor harmless for any liability
 incurred by, or claims asserted against, such Contributor by reason of your
-accepting any such warranty or additional liability.
-
-END OF TERMS AND CONDITIONS
+accepting any such warranty or additional liability. END OF TERMS AND
+CONDITIONS
 
 APPENDIX: How to apply the Apache License to your work.
 
 To apply the Apache License to your work, attach the following boilerplate
 notice, with the fields enclosed by brackets "[]" replaced with your own
-identifying information. (Don't include the brackets!)  The text should be
+identifying information. (Don't include the brackets!) The text should be
 enclosed in the appropriate comment syntax for the file format. We also
 recommend that a file or class name and description of purpose be included on
 the same "printed page" as the copyright notice for easier identification
@@ -192,20 +217,26 @@ within third-party archives.
 Copyright [yyyy] [name of copyright owner]
 
 Licensed under the Apache License, Version 2.0 (the "License");
+
 you may not use this file except in compliance with the License.
+
 You may obtain a copy of the License at
 
 http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
+
 distributed under the License is distributed on an "AS IS" BASIS,
+
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
 See the License for the specific language governing permissions and
+
 limitations under the License.
 
 * For github.com/aws/aws-sdk-go see also this required NOTICE:
 AWS SDK for Go
-Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved. 
+Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 Copyright 2014-2015 Stripe, Inc.
 * For github.com/containerd/cgroups see also this required NOTICE:
 Copyright (c) 2016-2017 the containerd authors
@@ -213,6 +244,12 @@ Copyright (c) 2016-2017 the containerd authors
 Copyright (c) 2016-2017 the containerd authors
 * For github.com/containernetworking/cni see also this required NOTICE:
 Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+* For github.com/coreos/go-iptables see also this required NOTICE:
+CoreOS Project
+Copyright 2018 CoreOS, Inc
+
+This product includes software developed at CoreOS, Inc.
+(http://www.coreos.com/).
 * For github.com/coreos/go-systemd see also this required NOTICE:
 Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
 * For github.com/docker/distribution see also this required NOTICE:
@@ -288,7 +325,7 @@ Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer. 
+list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
@@ -313,7 +350,7 @@ Copyright (c) 2009 The Go Authors. All rights reserved.
 Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
  met:
- 
+
     * Redistributions of source code must retain the above copyright
  notice, this list of conditions and the following disclaimer.
     * Redistributions in binary form must reproduce the above
@@ -323,7 +360,7 @@ Redistribution and use in source and binary forms, with or without
     * Neither the name of Google Inc. nor the names of its
  contributors may be used to endorse or promote products derived from
  this software without specific prior written permission.
- 
+
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -479,11 +516,11 @@ Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
 1. Redistributions of source code must retain the above copyright notice, this
-list of conditions and the following disclaimer. 
+list of conditions and the following disclaimer.
 
 2. Redistributions in binary form must reproduce the above copyright notice,
 this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution. 
+and/or other materials provided with the distribution.
 
 3. Neither the name of the copyright holder nor the names of its contributors
 may be used to endorse or promote products derived from this software without
@@ -498,19 +535,20 @@ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
 SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 -----
 
 ** github.com/davecgh/go-spew; version v1.1.0 -- https://github.com/davecgh/go-spew
 Copyright (c) 2012-2016 Dave Collins <dave@davec.name>
 
-ISC License:
+ISC License
 
 Copyright (c) 2004-2010 by Internet Systems Consortium, Inc. ("ISC")
+
 Copyright (c) 1995-2003 by Internet Software Consortium
 
-Permission to use, copy, modify, and/or distribute this software for any
+Permission to use, copy, modify, and /or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
 copyright notice and this permission notice appear in all copies.
 

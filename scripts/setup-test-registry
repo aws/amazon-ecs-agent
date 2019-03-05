@@ -45,7 +45,7 @@ mirror_local_image() {
   docker rmi $2
 }
 
-for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" "amazon/amazon-ecs-ipc-namespace-test" "amazon/squid" "amazon/awscli" "amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" "amazon/image-cleanup-test-image3" "amazon/fluentd" "amazon/amazon-ecs-agent-introspection-validator" "amazon/amazon-ecs-taskmetadata-validator" "amazon/amazon-ecs-v3-task-endpoint-validator" "amazon/amazon-ecs-container-metadata-file-validator" "amazon/amazon-ecs-elastic-inference-validator"; do
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" "amazon/amazon-ecs-ipc-namespace-test" "amazon/squid" "amazon/awscli" "amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" "amazon/image-cleanup-test-image3" "amazon/fluentd" "amazon/amazon-ecs-agent-introspection-validator" "amazon/amazon-ecs-taskmetadata-validator" "amazon/amazon-ecs-v3-task-endpoint-validator" "amazon/amazon-ecs-container-metadata-file-validator" "amazon/amazon-ecs-elastic-inference-validator" "amazon/amazon-appmesh-plugin-validator"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 

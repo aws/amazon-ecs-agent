@@ -212,7 +212,11 @@ func (agent *TestAgent) StartAgent() error {
 				"/proc:/host/proc:ro",
 				"/var/lib/ecs/dhclient:/var/lib/ecs/dhclient",
 				"/sbin:/sbin:ro",
+				"/lib:/lib:ro",
+				"/usr/lib:/usr/lib:ro",
+				"/usr/lib64:/usr/lib64:ro",
 			)
+
 			hostConfig.CapAdd = []string{"NET_ADMIN", "SYS_ADMIN"}
 			hostConfig.Init = &hostCofigInit
 			hostConfig.NetworkMode = "host"

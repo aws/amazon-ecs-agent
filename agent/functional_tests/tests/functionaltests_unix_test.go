@@ -1456,3 +1456,49 @@ func TestServerEndpointValidator(t *testing.T) {
 	assert.True(t, ok, "Get exit code failed")
 	assert.Equal(t, 42, code, "Wrong exit code")
 }
+
+// TestAppMeshCNIPlugin validates the functionality of appmesh cni plugin.
+func TestAppMeshCNIPlugin(t *testing.T) {
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	// Test whether the log group exists or not
+	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
+	})
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
+	logGroupExists := false
+	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
+		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
+			logGroupExists = true
+			break
+		}
+	}
+
+	if !logGroupExists {
+		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(awslogsLogGroupName),
+		})
+		require.NoError(t, err, fmt.Sprintf("Failed to create log group %s", awslogsLogGroupName))
+	}
+
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+	defer agent.Cleanup()
+	// TODO: after release, change it to 1.26.0
+	agent.RequireVersion(">=1.25.3")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartAWSVPCTask("appmesh-plugin-validator", tdOverrides)
+	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("app-mesh")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
