@@ -66,6 +66,12 @@ func createTestContainer() *apicontainer.Container {
 	}
 }
 
+// getLongRunningCommand returns the command that keeps the container running for the container
+// that uses the default integ test image (microsoft/windowsservercore for windows)
+func getLongRunningCommand() []string {
+	return []string{"ping", "-t", "localhost"}
+}
+
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	testTask := createTestTask("testHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
