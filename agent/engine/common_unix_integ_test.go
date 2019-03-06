@@ -31,6 +31,12 @@ func createTestContainer() *apicontainer.Container {
 	return createTestContainerWithImageAndName(testRegistryImage, "netcat")
 }
 
+// getLongRunningCommand returns the command that keeps the container running for the container
+// that uses the default integ test image (amazon/amazon-ecs-netkitten for unix)
+func getLongRunningCommand() []string {
+	return []string{"-loop=true"}
+}
+
 func isDockerRunning() bool {
 	_, err := os.Stat("/var/run/docker.sock")
 	return err == nil
