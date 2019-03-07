@@ -35,7 +35,7 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 				}
 			}
 		}`, 100)
-	dockerStat := &types.Stats{}
+	dockerStat := &types.StatsJSON{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	_, err := dockerStatsToContainerStats(dockerStat)
 	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
@@ -57,7 +57,7 @@ func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 				}
 			}
 		}`, 1, 2, 3, 4, 100)
-	dockerStat := &types.Stats{}
+	dockerStat := &types.StatsJSON{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	assert.NoError(t, err, "converting container stats failed")

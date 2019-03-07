@@ -32,6 +32,7 @@ const (
 )
 
 var isAWSVPCNetworkMode bool
+var isBridgeNetworkMode bool
 var checkContainerInstanceTags bool
 var networkModes map[string]bool
 
@@ -151,10 +152,17 @@ func verifyContainerStats(client *http.Client, containerStatsEndpoint string) er
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats types.Stats
+	var containerStats types.StatsJSON
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return fmt.Errorf("container stats: unable to parse response body: %v", err)
+	}
+
+	if isBridgeNetworkMode {
+		// networks field should be populated in bridge mode
+		if containerStats.Networks == nil {
+			return errors.New("container stats: field networks should not be empty")
+		}
 	}
 
 	return nil
@@ -168,10 +176,19 @@ func verifyTaskStats(client *http.Client, taskStatsEndpoint string) error {
 
 	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*types.Stats
+	var taskStats map[string]*types.StatsJSON
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return fmt.Errorf("task stats: unable to parse response body: %v", err)
+	}
+
+	if isBridgeNetworkMode {
+		for container, containerStats := range taskStats {
+			// networks field should be populated in bridge mode
+			if containerStats.Networks == nil {
+				return fmt.Errorf("task stats: field networks for container %s should not be empty", container)
+			}
+		}
 	}
 
 	return nil
@@ -341,6 +358,8 @@ func verifyNetworksResponse(networksRawMsg json.RawMessage) error {
 		}
 		if actualFieldVal == "awsvpc" {
 			isAWSVPCNetworkMode = true
+		} else if actualFieldVal == "bridge" {
+			isBridgeNetworkMode = true
 		}
 	} else {
 		return fmt.Errorf("incorrect number of networks, expected 1, received %d",
@@ -432,6 +451,7 @@ func main() {
 	time.Sleep(5 * time.Second)
 
 	isAWSVPCNetworkMode = false
+	isBridgeNetworkMode = false
 	v3BaseEndpoint := os.Getenv(containerMetadataEnvVar)
 	containerMetadataPath := v3BaseEndpoint
 	taskMetadataPath := v3BaseEndpoint

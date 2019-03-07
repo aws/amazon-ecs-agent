@@ -52,7 +52,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
 		Container: &apicontainer.Container{},
 	}, nil)
-	mockStatsChannel := make(chan *types.Stats)
+	mockStatsChannel := make(chan *types.StatsJSON)
 	defer close(mockStatsChannel)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockStatsChannel, nil).AnyTimes()
 
@@ -194,14 +194,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 		{22400432, 1839104, ts1},
 		{116499979, 3649536, ts2},
 	}
-	dockerStats := []*types.Stats{
-		{
-			Read: ts1,
-		},
-		{
-			Read: ts2,
-		},
-	}
+	dockerStats := []*types.StatsJSON{{}, {},}
+	dockerStats[0].Read = ts1
+	dockerStats[1].Read = ts2
 	containers, _ := engine.tasksToContainers["t1"]
 	for _, statsContainer := range containers {
 		for i := 0; i < 2; i++ {
@@ -398,7 +393,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	containerID := "containerID"
-	statsChan := make(chan *types.Stats)
+	statsChan := make(chan *types.StatsJSON)
 	statsStarted := make(chan struct{})
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)

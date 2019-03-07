@@ -157,7 +157,7 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 	return &containerMetadata, nil
 }
 
-func taskStats(client *http.Client) (map[string]*types.Stats, error) {
+func taskStats(client *http.Client) (map[string]*types.StatsJSON, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint, "task stats")
 	if err != nil {
 		return nil, err
@@ -165,7 +165,7 @@ func taskStats(client *http.Client) (map[string]*types.Stats, error) {
 
 	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*types.Stats
+	var taskStats map[string]*types.StatsJSON
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return nil, fmt.Errorf("task stats: unable to parse response body: %v", err)
@@ -174,7 +174,7 @@ func taskStats(client *http.Client) (map[string]*types.Stats, error) {
 	return taskStats, nil
 }
 
-func containerStats(client *http.Client, id string) (*types.Stats, error) {
+func containerStats(client *http.Client, id string) (*types.StatsJSON, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint+"/"+id, "container stats")
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func containerStats(client *http.Client, id string) (*types.Stats, error) {
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats types.Stats
+	var containerStats types.StatsJSON
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return nil, fmt.Errorf("container stats: unable to parse response body: %v", err)

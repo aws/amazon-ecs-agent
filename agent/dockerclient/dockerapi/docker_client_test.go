@@ -1049,7 +1049,7 @@ func (ms mockStream) Read(data []byte) (n int, err error) {
 func (ms mockStream) Close() error {
 	return nil
 }
-func waitForStats(t *testing.T, stat *types.Stats) {
+func waitForStats(t *testing.T, stat *types.StatsJSON) {
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 	for {
