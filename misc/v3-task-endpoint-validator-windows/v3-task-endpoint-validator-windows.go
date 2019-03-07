@@ -20,6 +20,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -146,6 +149,17 @@ func verifyContainerStats(client *http.Client, containerStatsEndpoint string) er
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
+	var containerStats types.StatsJSON
+	err = json.Unmarshal(body, &containerStats)
+	if err != nil {
+		return fmt.Errorf("container stats: unable to parse response body: %v", err)
+	}
+
+	// networks field should be populated
+	if containerStats.Networks == nil {
+		return errors.New("container stats: field networks should not be empty")
+	}
+
 	return nil
 }
 
@@ -156,6 +170,19 @@ func verifyTaskStats(client *http.Client, taskStatsEndpoint string) error {
 	}
 
 	fmt.Printf("Received task stats: %s \n", string(body))
+
+	var taskStats map[string]*types.StatsJSON
+	err = json.Unmarshal(body, &taskStats)
+	if err != nil {
+		return fmt.Errorf("task stats: unable to parse response body: %v", err)
+	}
+
+	for container, containerStats := range taskStats {
+		// networks field should be populated
+		if containerStats.Networks == nil {
+			return fmt.Errorf("task stats: field networks for container %s should not be empty", container)
+		}
+	}
 
 	return nil
 }

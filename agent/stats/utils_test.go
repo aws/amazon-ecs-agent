@@ -56,7 +56,7 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 				"privateworkingset": %d
 			}
 		}`, 1, 2, 3, 4, 100, 30, 100, 20, 10, 10)
-	dockerStat := &types.Stats{}
+	dockerStat := &types.StatsJSON{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {

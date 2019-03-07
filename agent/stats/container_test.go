@@ -56,12 +56,12 @@ func TestContainerStatsCollection(t *testing.T) {
 
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
-	statChan := make(chan *types.Stats)
+	statChan := make(chan *types.StatsJSON)
 	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, nil)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
-			// deal with the types.Stats.MemoryStats inner struct
+			// deal with the types.StatsJSON.MemoryStats inner struct
 			jsonStat := fmt.Sprintf(`
 				{
 					"memory_stats": {"usage":%d, "privateworkingset":%d},
@@ -72,7 +72,7 @@ func TestContainerStatsCollection(t *testing.T) {
 						}
 					}
 				}`, stat.memBytes, stat.memBytes, stat.cpuTime, stat.cpuTime)
-			dockerStat := &types.Stats{}
+			dockerStat := &types.StatsJSON{}
 			json.Unmarshal([]byte(jsonStat), dockerStat)
 			dockerStat.Read = stat.timestamp
 			statChan <- dockerStat
@@ -134,9 +134,9 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	statChan := make(chan *types.Stats)
+	statChan := make(chan *types.StatsJSON)
 	statErr := fmt.Errorf("test error")
-	closedChan := make(chan *types.Stats)
+	closedChan := make(chan *types.StatsJSON)
 	close(closedChan)
 
 	mockContainer := &apicontainer.DockerContainer{
@@ -176,7 +176,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 
-	closedChan := make(chan *types.Stats)
+	closedChan := make(chan *types.StatsJSON)
 	close(closedChan)
 
 	statsErr := fmt.Errorf("test error")

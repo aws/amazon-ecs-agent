@@ -33,7 +33,8 @@ func TestTaskStatsResponseSuccess(t *testing.T) {
 	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 
-	dockerStats := &types.Stats{NumProcs: 2}
+	dockerStats := &types.StatsJSON{}
+	dockerStats.NumProcs = 2
 	containerMap := map[string]*apicontainer.DockerContainer{
 		containerName: {
 			DockerID: containerID,
