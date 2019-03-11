@@ -17,6 +17,12 @@ GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 .PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
+ifeq (${BUILD_PLATFORM},aarch64)
+	GOARCH=arm64
+else
+	GOARCH=amd64
+endif
+
 all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
@@ -254,11 +260,11 @@ build-ecs-cni-plugins:
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 build-vpc-cni-plugins:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
+	@docker build --build-arg GOARCH=$(GOARCH) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-u "$(USERID)" \
-		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/linux_amd64" \
+		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/linux_$(GOARCH)" \
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
 		"amazon/amazon-ecs-build-vpc-cni-plugins:make"
 	@echo "Built amazon-vpc-cni-plugins successfully."

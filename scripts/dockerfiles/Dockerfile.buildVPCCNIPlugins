@@ -14,6 +14,10 @@
 FROM golang:1.10
 MAINTAINER Amazon Web Services, Inc.
 
+ARG GOARCH
+
+ENV GOARCH ${GOARCH}
+
 RUN mkdir -p /go/src/github.com/aws/
 
 WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
