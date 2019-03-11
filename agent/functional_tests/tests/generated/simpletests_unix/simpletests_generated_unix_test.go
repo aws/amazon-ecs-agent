@@ -23,6 +23,7 @@ import (
 	"os"
 	"testing"
 	"time"
+
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 )
 
@@ -138,6 +139,182 @@ func TestHostNameAwsvpc(t *testing.T) {
 
 }
 
+// TestContainerOrderingComplete Check that container ordering for complete condition works fine
+func TestContainerOrderingComplete(t *testing.T) {
+
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.25.0")
+
+	td, err := GetTaskDefinition("container-ordering-complete")
+	if err != nil {
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("container-ordering-complete", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
+	}
+
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatalf("Could not parse timeout: %#v", err)
+	}
+
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("complete"); !ok || exit != 0 {
+			t.Errorf("Expected complete to exit with 0; actually exited (%v) with %v", ok, exit)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("complete-dependency"); !ok || exit != 1 {
+			t.Errorf("Expected complete-dependency to exit with 1; actually exited (%v) with %v", ok, exit)
+		}
+
+		defer agent.SweepTask(testTask)
+	}
+
+}
+
+// TestContainerOrderingHealthy Check that container ordering for healthy condition works fine
+func TestContainerOrderingHealthy(t *testing.T) {
+
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.25.0")
+
+	td, err := GetTaskDefinition("container-ordering-healthy")
+	if err != nil {
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("container-ordering-healthy", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
+	}
+
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatalf("Could not parse timeout: %#v", err)
+	}
+
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("healthy"); !ok || exit != 0 {
+			t.Errorf("Expected healthy to exit with 0; actually exited (%v) with %v", ok, exit)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("healthy-dependency"); !ok || exit != 0 {
+			t.Errorf("Expected healthy-dependency to exit with 0; actually exited (%v) with %v", ok, exit)
+		}
+
+		defer agent.SweepTask(testTask)
+	}
+
+}
+
+// TestContainerOrderingSuccess Check that container ordering for success condition works fine
+func TestContainerOrderingSuccess(t *testing.T) {
+
+	// Parallel is opt in because resource constraints could cause test failures
+	// on smaller instances
+	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
+		t.Parallel()
+	}
+	var options *AgentOptions
+	if "" == "true" {
+		options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.25.0")
+
+	td, err := GetTaskDefinition("container-ordering-success")
+	if err != nil {
+		t.Fatalf("Could not register task definition: %v", err)
+	}
+	var testTasks []*TestTask
+	if "" == "true" {
+		for i := 0; i < 1; i++ {
+			tmpTask, err := agent.StartAWSVPCTask("container-ordering-success", nil)
+			if err != nil {
+				t.Fatalf("Could not start task in awsvpc mode: %v", err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	} else {
+		testTasks, err = agent.StartMultipleTasks(t, td, 1)
+		if err != nil {
+			t.Fatalf("Could not start task: %v", err)
+		}
+	}
+
+	timeout, err := time.ParseDuration("2m")
+	if err != nil {
+		t.Fatalf("Could not parse timeout: %#v", err)
+	}
+
+	for _, testTask := range testTasks {
+		err = testTask.WaitStopped(timeout)
+		if err != nil {
+			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
+		}
+
+		if exit, ok := testTask.ContainerExitcode("success"); !ok || exit != 0 {
+			t.Errorf("Expected success to exit with 0; actually exited (%v) with %v", ok, exit)
+		}
+
+		defer agent.SweepTask(testTask)
+	}
+
+}
+
 // TestContainerOrderingTimeout Check that container ordering has timed out
 func TestContainerOrderingTimeout(t *testing.T) {
 
@@ -175,58 +352,6 @@ func TestContainerOrderingTimeout(t *testing.T) {
 	}
 
 	timeout, err := time.ParseDuration("2m")
-	if err != nil {
-		t.Fatalf("Could not parse timeout: %#v", err)
-	}
-
-	for _, testTask := range testTasks {
-		err = testTask.WaitStopped(timeout)
-		if err != nil {
-			t.Fatalf("Timed out waiting for task to reach stopped. Error %#v, task %#v", err, testTask)
-		}
-
-		defer agent.SweepTask(testTask)
-	}
-
-}
-
-// TestContainerOrdering Check that container ordering works fine
-func TestContainerOrdering(t *testing.T) {
-
-	// Parallel is opt in because resource constraints could cause test failures
-	// on smaller instances
-	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" {
-		t.Parallel()
-	}
-	var options *AgentOptions
-	if "" == "true" {
-		options = &AgentOptions{EnableTaskENI: true}
-	}
-	agent := RunAgent(t, options)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.25.0")
-
-	td, err := GetTaskDefinition("container-ordering")
-	if err != nil {
-		t.Fatalf("Could not register task definition: %v", err)
-	}
-	var testTasks []*TestTask
-	if "" == "true" {
-		for i := 0; i < 1; i++ {
-			tmpTask, err := agent.StartAWSVPCTask("container-ordering", nil)
-			if err != nil {
-				t.Fatalf("Could not start task in awsvpc mode: %v", err)
-			}
-			testTasks = append(testTasks, tmpTask)
-		}
-	} else {
-		testTasks, err = agent.StartMultipleTasks(t, td, 1)
-		if err != nil {
-			t.Fatalf("Could not start task: %v", err)
-		}
-	}
-
-	timeout, err := time.ParseDuration("3m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
 	}
@@ -916,7 +1041,7 @@ func TestNetworkLink(t *testing.T) {
 
 // TestParallelPull check docker pull in parallel works for docker >= 1.11.1
 func TestParallelPull(t *testing.T) {
-	
+
 	// Test only available on instance with total memory more than 1300 MB
 	RequireMinimumMemory(t, 1300)
 

@@ -1,0 +1,10 @@
+{
+  "Name": "ContainerOrderingSuccess",
+  "Description": "Check that container ordering for success condition works fine",
+  "TaskDefinition": "container-ordering-success",
+  "Version": ">=1.25.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "success": 0
+  }
+}

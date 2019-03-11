@@ -1,0 +1,46 @@
+{
+  "family": "ecsftest-container-ordering-complete-condition",
+  "containerDefinitions": [
+    {
+      "name": "complete",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "workingDirectory" : "/test",
+      "command": ["sh", "-c", "cat test.txt"],
+      "dependsOn": [
+        {
+          "containerName": "complete-dependency",
+          "condition": "COMPLETE"
+        }
+      ],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ]
+    },
+    {
+      "name": "complete-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "touch test.txt && echo hi >> test.txt && exit 1"],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ],
+      "workingDirectory" : "/test"
+    }
+  ],
+  "volumes" : [
+    {
+      "name" : "volume1"
+    }
+  ]
+}
