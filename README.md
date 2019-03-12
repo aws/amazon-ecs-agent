@@ -64,10 +64,11 @@ $ /usr/bin/docker run --name ecs-agent \
 --volume=/var/log/ecs/:/log:Z \
 --volume=/var/lib/ecs/data:/data:Z \
 --volume=/etc/ecs:/etc/ecs \
---volume=/lib:/lib \
 --volume=/sbin:/sbin \
+--volume=/lib:/lib \
 --volume=/lib64:/lib64 \
 --volume=/usr/lib:/usr/lib \
+--volume=/usr/lib64:/usr/lib64 \
 --volume=/proc:/host/proc \
 --volume=/sys/fs/cgroup:/sys/fs/cgroup \
 --net=host \
