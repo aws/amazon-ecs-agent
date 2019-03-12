@@ -716,6 +716,15 @@
         "healthStatus":{"shape":"HealthStatus"}
       }
     },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
     "ContainerDefinition":{
       "type":"structure",
       "members":{
@@ -736,6 +745,9 @@
         "linuxParameters":{"shape":"LinuxParameters"},
         "secrets":{"shape":"SecretList"},
         "inferenceDevices":{"shape":"StringList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
+        "startTimeout":{"shape":"BoxedInteger"},
+        "stopTimeout":{"shape":"BoxedInteger"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -759,6 +771,21 @@
     "ContainerDefinitions":{
       "type":"list",
       "member":{"shape":"ContainerDefinition"}
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "required":[
+        "containerName",
+        "condition"
+      ],
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
+      }
     },
     "ContainerInstance":{
       "type":"structure",

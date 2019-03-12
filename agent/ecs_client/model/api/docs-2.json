@@ -258,6 +258,12 @@
         "Containers$member": null
       }
     },
+    "ContainerCondition": {
+      "base": null,
+      "refs": {
+        "ContainerDependency$condition": null
+      }
+    },
     "ContainerDefinition": {
       "base": "<p>Container definitions are used in task definitions to describe the different containers that are launched as part of a task.</p>",
       "refs": {
@@ -269,6 +275,18 @@
       "refs": {
         "RegisterTaskDefinitionRequest$containerDefinitions": "<p>A list of container definitions in JSON format that describe the different containers that make up your task.</p>",
         "TaskDefinition$containerDefinitions": "<p>A list of container definitions in JSON format that describe the different containers that make up your task. For more information about container definition parameters and defaults, see <a href=\"http://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_defintions.html\">Amazon ECS Task Definitions</a> in the <i>Amazon Elastic Container Service Developer Guide</i>.</p>"
+      }
+    },
+    "ContainerDependencies": {
+      "base": null,
+      "refs": {
+        "ContainerDefinition$dependsOn": null
+      }
+    },
+    "ContainerDependency": {
+      "base": null,
+      "refs": {
+        "ContainerDependencies$member": null
       }
     },
     "ContainerInstance": {
