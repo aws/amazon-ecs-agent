@@ -931,6 +931,16 @@
         }
       }
     },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ],
+      "internalonly":true
+    },
     "ContainerDefinition":{
       "type":"structure",
       "members":{
@@ -954,6 +964,18 @@
           "internalonly":true
         },
         "secrets":{"shape":"SecretList"},
+        "dependsOn":{
+          "shape":"ContainerDependencies",
+          "internalonly":true
+        },
+        "startTimeout":{
+          "shape":"BoxedInteger",
+          "internalonly":true
+        },
+        "stopTimeout":{
+          "shape":"BoxedInteger",
+          "internalonly":true
+        },
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -989,6 +1011,23 @@
     "ContainerDefinitions":{
       "type":"list",
       "member":{"shape":"ContainerDefinition"}
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"},
+      "internalonly":true
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "required":[
+        "containerName",
+        "condition"
+      ],
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
+      },
+      "internalonly":true
     },
     "ContainerInstance":{
       "type":"structure",

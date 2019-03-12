@@ -282,6 +282,12 @@
         "Containers$member": null
       }
     },
+    "ContainerCondition": {
+      "base": null,
+      "refs": {
+        "ContainerDependency$condition": null
+      }
+    },
     "ContainerDefinition": {
       "base": null,
       "refs": {
@@ -293,6 +299,18 @@
       "refs": {
         "RegisterTaskDefinitionRequest$containerDefinitions": null,
         "TaskDefinition$containerDefinitions": null
+      }
+    },
+    "ContainerDependencies": {
+      "base": null,
+      "refs": {
+        "ContainerDefinition$dependsOn": null
+      }
+    },
+    "ContainerDependency": {
+      "base": null,
+      "refs": {
+        "ContainerDependencies$member": null
       }
     },
     "ContainerInstance": {
@@ -1402,6 +1420,7 @@
         "ContainerDefinition$hostname": null,
         "ContainerDefinition$user": null,
         "ContainerDefinition$workingDirectory": null,
+        "ContainerDependency$containerName": null,
         "ContainerInstance$containerInstanceArn": null,
         "ContainerInstance$ec2InstanceId": null,
         "ContainerInstance$status": null,
