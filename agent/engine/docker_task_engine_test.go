@@ -1258,9 +1258,9 @@ func TestBuildTrunkCNIConfigFromTaskContainer(t *testing.T) {
 
 			testTask := testdata.LoadTask("sleep5")
 			testTask.SetTaskENI(&apieni.ENI{
-				ID: "TestBuildCNIConfigFromTaskContainer",
-				MacAddress: mac,
-				ENIType: apieni.BranchENIType,
+				ID:                           "TestBuildCNIConfigFromTaskContainer",
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
 				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
 					VlanID:                   "1234",
 					TrunkInterfaceMacAddress: "macTrunk",
@@ -1285,7 +1285,7 @@ func TestBuildTrunkCNIConfigFromTaskContainer(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, "macTrunk", cniConfig.TrunkMACAddress)
 			assert.Equal(t, "1234", cniConfig.BranchVlanID)
-			assert.Equal(t, apieni.BranchENIType, cniConfig.ENIType)
+			assert.Equal(t, apieni.VLANInterfaceAssociationProtocol, cniConfig.InterfaceAssociationProtocol)
 		})
 	}
 }

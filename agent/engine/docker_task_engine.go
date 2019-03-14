@@ -498,12 +498,12 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	} else {
 		// A Trunk/Branch awsvpc task doesn't have an ENI attachment corresponds to the task's ENI,
 		// so such deletion should be skipped
-		if eniTask.ENIType != eni.BranchENIType {
+		if eniTask.InterfaceAssociationProtocol != eni.VLANInterfaceAssociationProtocol {
 			seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
 			engine.state.RemoveENIAttachment(eniTask.MacAddress)
 		} else {
 			seelog.Debugf("Task engine [%s]: Not removing the eni from agent state as it is a "+
-				"trunk ENI", task.Arn)
+				"branch ENI", task.Arn)
 		}
 	}
 	seelog.Debugf("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
@@ -1072,13 +1072,6 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *apitask.Ta
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
 	cfg.BlockInstanceMetdata = engine.cfg.AWSVPCBlockInstanceMetdata
-
-	// Populate Trunk ENI fields
-	if task.ENI.ENIType == eni.BranchENIType {
-		cfg.ENIType = eni.BranchENIType
-		cfg.TrunkMACAddress = task.ENI.InterfaceVlanProperties.TrunkInterfaceMacAddress
-		cfg.BranchVlanID = task.ENI.InterfaceVlanProperties.VlanID
-	}
 
 	return cfg, nil
 }

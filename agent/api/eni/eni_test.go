@@ -108,11 +108,11 @@ func TestValidateENIFromACS(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestInvalidENItrunkingInterfaceMissing(t *testing.T) {
+func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
 
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
-			InterfaceAssociationProtocol: aws.String(BranchENIType),
+			InterfaceAssociationProtocol: aws.String(VLANInterfaceAssociationProtocol),
 			AttachmentArn: aws.String("arn"),
 			Ec2Id:         aws.String("ec2id"),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -135,7 +135,7 @@ func TestInvalidENItrunkingInterfaceMissing(t *testing.T) {
 
 }
 
-func TestInvalidENItrunkingRandomTrunkTask(t *testing.T) {
+func TestInvalidENIInvalidInterfaceAssociationProtocol(t *testing.T) {
 
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
