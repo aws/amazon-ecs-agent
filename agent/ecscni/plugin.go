@@ -36,7 +36,7 @@ const (
 	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated
 	currentECSCNIVersion = "2018.10.0"
 	currentECSCNIGitHash = "93f4377604504bff92e7555da73b0cba732a4fbb"
-	currentVPCCNIGitHash = "76973f587f9dfb0b40092a78fb5623c9547bc647"
+	currentVPCCNIGitHash = "8b5e552209b0009aecf3c60568b5a5041c6342c0"
 )
 
 // CNIClient defines the method of setting/cleaning up container namespace
