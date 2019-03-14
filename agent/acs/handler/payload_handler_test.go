@@ -754,7 +754,7 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 				Arn: aws.String("arn"),
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
-						InterfaceAssociationProtocol: aws.String(eni.BranchENIType),
+						InterfaceAssociationProtocol: aws.String(eni.VLANInterfaceAssociationProtocol),
 						AttachmentArn: aws.String("arn"),
 						Ec2Id:         aws.String("ec2id"),
 						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
@@ -785,8 +785,9 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 
 	taskeni := addedTask.GetTaskENI()
 
-	assert.Equal(t, taskeni.ENIType, eni.BranchENIType)
+	assert.Equal(t, taskeni.InterfaceAssociationProtocol, eni.VLANInterfaceAssociationProtocol)
 	assert.Equal(t, taskeni.InterfaceVlanProperties.TrunkInterfaceMacAddress, "mac")
+	assert.Equal(t, taskeni.InterfaceVlanProperties.VlanID, "12345")
 }
 
 func TestPayloadHandlerAddedECRAuthData(t *testing.T) {

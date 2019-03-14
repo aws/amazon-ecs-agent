@@ -83,7 +83,13 @@ const (
 	//   b) Add 'StartTime' field to 'api.container.Container'
 	//   c) Add 'StopTime' field to 'api.container.Container'
 	// 21) Add 'target' field to the Secret struct
-	// 22) Add 'attachmentType' field to 'api.ENIAttachment'
+	// 22)
+	// 	 a) Add 'attachmentType' field to 'api.ENIAttachment'
+	//	 b) Add 'InterfaceAssociationProtocol' field to 'api.ENI'
+	//	 c) Add 'InterfaceVlanProperties' field to 'api.ENI'
+	//	 d) Add 'NetworkInterfaceVlanProperties' struct
+	//	 e) Add 'NetworkInterfaceAssociationProtocol' struct
+
 	ECSDataVersion = 22
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR

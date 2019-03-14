@@ -188,12 +188,12 @@ type Config struct {
 	MinSupportedCNIVersion string
 	//  ENIID is the id of ec2 eni
 	ENIID string
-	// ENIType is the type of eni, can be "standard" or "vlan-tagged"
-	ENIType string
-	// BranchVlanID is the VLAN ID to be used by a "vlan-tagged" ENI
+	// InterfaceAssociationProtocol is the type of eni, can be "default" or "vlan"
+	InterfaceAssociationProtocol string
+	// BranchVlanID is the VLAN ID to be used by a "vlan" ENI
 	BranchVlanID string `json:"branchVlandID,omitempty"`
 	// TrunkMACAddress is the MAC address of the associated Trunk ENI
-	// for an ENI of type "vlan-tagged"
+	// for an ENI of type "vlan"
 	TrunkMACAddress string `json:"trunkMACAddress,omitempty"`
 	// ContainerID is the id of container of which to set up the network namespace
 	ContainerID string

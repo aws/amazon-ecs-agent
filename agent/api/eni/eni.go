@@ -26,8 +26,8 @@ import (
 type ENI struct {
 	// ID is the id of eni
 	ID string `json:"ec2Id"`
-	// ENIType is the type of ENI, valid value: "default", "vlan"
-	ENIType string `json:",omitempty"`
+	// InterfaceAssociationProtocol is the type of ENI, valid value: "default", "vlan"
+	InterfaceAssociationProtocol string `json:",omitempty"`
 	// IPV4Addresses is the ipv4 address associated with the eni
 	IPV4Addresses []*ENIIPV4Address
 	// IPV6Addresses is the ipv6 address associated with the eni
@@ -58,11 +58,11 @@ type InterfaceVlanProperties struct {
 }
 
 const (
-	// RegularENIType represents the standard ENI type.
-	RegularENIType = "default"
+	// DefaultInterfaceAssociationProtocol represents the standard ENI type.
+	DefaultInterfaceAssociationProtocol = "default"
 
-	// BranchENIType represents the ENI with trunking enabled.
-	BranchENIType = "vlan"
+	// VLANInterfaceAssociationProtocol represents the ENI with trunking enabled.
+	VLANInterfaceAssociationProtocol = "vlan"
 )
 
 // GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
@@ -109,8 +109,8 @@ func (eni *ENI) String() string {
 
 	eniString := ""
 
-	if len(eni.ENIType) == 0 {
-		eniString += fmt.Sprintf(" ,ENI type: [%s]", eni.ENIType)
+	if len(eni.InterfaceAssociationProtocol) == 0 {
+		eniString += fmt.Sprintf(" ,ENI type: [%s]", eni.InterfaceAssociationProtocol)
 	}
 
 	if eni.InterfaceVlanProperties != nil {
@@ -166,20 +166,20 @@ func ENIFromACS(acsenis []*ecsacs.ElasticNetworkInterface) (*ENI, error) {
 
 	var interfaceVlanProperties InterfaceVlanProperties
 
-	if aws.StringValue(acsenis[0].InterfaceAssociationProtocol) == BranchENIType {
+	if aws.StringValue(acsenis[0].InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		interfaceVlanProperties.TrunkInterfaceMacAddress = aws.StringValue(acsenis[0].InterfaceVlanProperties.TrunkInterfaceMacAddress)
 		interfaceVlanProperties.VlanID = aws.StringValue(acsenis[0].InterfaceVlanProperties.VlanId)
 	}
 
 	eni := &ENI{
-		ID:                       aws.StringValue(acsenis[0].Ec2Id),
-		IPV4Addresses:            ipv4,
-		IPV6Addresses:            ipv6,
-		MacAddress:               aws.StringValue(acsenis[0].MacAddress),
-		PrivateDNSName:           aws.StringValue(acsenis[0].PrivateDnsName),
-		SubnetGatewayIPV4Address: aws.StringValue(acsenis[0].SubnetGatewayIpv4Address),
-		ENIType:                  aws.StringValue(acsenis[0].InterfaceAssociationProtocol),
-		InterfaceVlanProperties:  &interfaceVlanProperties,
+		ID:                           aws.StringValue(acsenis[0].Ec2Id),
+		IPV4Addresses:                ipv4,
+		IPV6Addresses:                ipv6,
+		MacAddress:                   aws.StringValue(acsenis[0].MacAddress),
+		PrivateDNSName:               aws.StringValue(acsenis[0].PrivateDnsName),
+		SubnetGatewayIPV4Address:     aws.StringValue(acsenis[0].SubnetGatewayIpv4Address),
+		InterfaceAssociationProtocol: aws.StringValue(acsenis[0].InterfaceAssociationProtocol),
+		InterfaceVlanProperties:      &interfaceVlanProperties,
 	}
 
 	for _, nameserverIP := range acsenis[0].DomainNameServers {
@@ -214,12 +214,12 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	}
 
 	if (acsenis[0].InterfaceAssociationProtocol != nil) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) !=
-		BranchENIType) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) != RegularENIType) {
+		VLANInterfaceAssociationProtocol) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) != DefaultInterfaceAssociationProtocol) {
 		return errors.Errorf("Invalid ENI interface type: %s", aws.StringValue(acsenis[0].InterfaceAssociationProtocol))
 	}
 
 	// If ENI type is vlan, InterfaceVlanProperties must be not nil.
-	if aws.StringValue(acsenis[0].InterfaceAssociationProtocol) == BranchENIType {
+	if aws.StringValue(acsenis[0].InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
 		if acsenis[0].InterfaceVlanProperties == nil || len(aws.StringValue(acsenis[0].InterfaceVlanProperties.VlanId)) == 0 || len(aws.StringValue(acsenis[0].InterfaceVlanProperties.TrunkInterfaceMacAddress)) == 0 {
 			return errors.Errorf("vlan interface properties missing.")
 		}

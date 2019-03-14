@@ -113,8 +113,13 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
 	}
 
+	seelog.Debugf("[ECSCNI] Starting ENI (%s) setup in the the container namespace: %s", cfg.ENIID, cfg.ContainerID)
+
+	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
+	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
+
 	// Invoke eni plugin ADD command based on the type of eni plugin
-	if cfg.ENIType == apieni.BranchENIType {
+	if cfg.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
 		seelog.Debugf("[ECSVPCCNI] Starting VPC ENI (%s) setup in the the container namespace: %s", cfg.ENIID, cfg.ContainerID)
 
 		os.Setenv("VPC_CNI_LOG_LEVEL", logger.GetLevel())
@@ -129,10 +134,6 @@ func (client *cniClient) setupNS(cfg *Config) (*current.Result, error) {
 		}
 		seelog.Debugf("[ECSVPCCNI] Branch ENI setup done: %s", result.String())
 	} else {
-		seelog.Debugf("[ECSCNI] Starting ENI (%s) setup in the the container namespace: %s", cfg.ENIID, cfg.ContainerID)
-
-		os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
-		defer os.Unsetenv("ECS_CNI_LOGLEVEL")
 
 		result, err := client.add(runtimeConfig, cfg, client.createENINetworkConfig)
 		if err != nil {
@@ -202,6 +203,9 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 	}
 
 	seelog.Debugf("[ECSCNI] Starting clean up the container namespace: %s", cfg.ContainerID)
+	os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
+	defer os.Unsetenv("ECS_CNI_LOGLEVEL")
+
 	// clean up the network namespace is separate from releasing the IP from IPAM
 	err := client.del(runtimeConfig, cfg, client.createBridgeNetworkConfigWithoutIPAM)
 	if err != nil {
@@ -210,7 +214,7 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 	seelog.Debugf("[ECSCNI] bridge cleanup done: %s", cfg.ContainerID)
 
 	// clean up eni network namespace
-	if cfg.ENIType == apieni.BranchENIType {
+	if cfg.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
 		os.Setenv("VPC_CNI_LOG_LEVEL", logger.GetLevel())
 		os.Setenv("VPC_CNI_LOG_FILE", vpcCNIPluginPath)
 
@@ -223,9 +227,6 @@ func (client *cniClient) cleanupNS(cfg *Config) error {
 		}
 		seelog.Debugf("[ECSVPCCNI] container namespace cleanup done: %s", cfg.ContainerID)
 	} else {
-		os.Setenv("ECS_CNI_LOGLEVEL", logger.GetLevel())
-		defer os.Unsetenv("ECS_CNI_LOGLEVEL")
-
 		err = client.del(runtimeConfig, cfg, client.createENINetworkConfig)
 		if err != nil {
 			return errors.Wrap(err, "cni cleanup: invoke eni plugin failed")

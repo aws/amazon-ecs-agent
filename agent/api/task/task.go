@@ -737,6 +737,12 @@ func convertENIToCNIConfig(eni *apieni.ENI, cfg *ecscni.Config) {
 	if len(eni.IPV6Addresses) > 0 {
 		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
 	}
+
+	// Populate Trunk ENI fields
+	if eni.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
+		cfg.TrunkMACAddress = eni.InterfaceVlanProperties.TrunkInterfaceMacAddress
+		cfg.BranchVlanID = eni.InterfaceVlanProperties.VlanID
+	}
 }
 
 // convertAppMeshToCNIConfig converts input app mesh config into cni config
