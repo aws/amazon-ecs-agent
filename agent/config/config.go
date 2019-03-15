@@ -133,6 +133,9 @@ const (
 
 	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers
 	DefaultNvidiaRuntime = "nvidia"
+
+	// ec2MetadataDomainPath is the path of the domain in EC2 metadata
+	ec2MetadataDomainPath = "services/domain"
 )
 
 const (
@@ -227,7 +230,11 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 			config.AWSRegion = awsRegion
 		} else {
 			// Get it from metadata only if we need to (network io)
-			config.Merge(ec2MetadataConfig(ec2client))
+			config.Merge(ec2MetadataRegionConfig(ec2client))
+		}
+
+		if config.AWSDomain == "" {
+			config.Merge(ec2MetadataDomainConfig(ec2client))
 		}
 	}
 
@@ -539,10 +546,11 @@ func environmentConfig() (Config, error) {
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
 		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),
+		EndpointCompositionEnabled:          utils.ParseBool(os.Getenv("ECS_ENABLE_ENDPOINT_COMPOSITION"), false),
 	}, err
 }
 
-func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
+func ec2MetadataRegionConfig(ec2client ec2.EC2MetadataClient) Config {
 	iid, err := ec2client.InstanceIdentityDocument()
 	if err != nil {
 		seelog.Criticalf("Unable to communicate with EC2 Metadata service to infer region: %v", err.Error())
@@ -551,14 +559,24 @@ func ec2MetadataConfig(ec2client ec2.EC2MetadataClient) Config {
 	return Config{AWSRegion: iid.Region}
 }
 
+func ec2MetadataDomainConfig(ec2client ec2.EC2MetadataClient) Config {
+	domain, err := ec2client.GetMetadata(ec2MetadataDomainPath)
+	if err != nil {
+		seelog.Warnf("Unable to communicate with EC2 Metadata service to infer domain: %v", err.Error())
+		return Config{}
+	}
+	return Config{AWSDomain: domain}
+}
+
 // String returns a lossy string representation of the config suitable for human readable display.
 // Consequently, it *should not* return any sensitive information.
 func (cfg *Config) String() string {
 	return fmt.Sprintf(
 		"Cluster: %v, "+
-			" Region: %v, "+
-			" DataDir: %v,"+
-			" Checkpoint: %v, "+
+			"Region: %v, "+
+			"Domain: %v, "+
+			"DataDir: %v, "+
+			"Checkpoint: %v, "+
 			"AuthType: %v, "+
 			"UpdatesEnabled: %v, "+
 			"DisableMetrics: %v, "+
@@ -572,6 +590,7 @@ func (cfg *Config) String() string {
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
+		cfg.AWSDomain,
 		cfg.DataDir,
 		cfg.Checkpoint,
 		cfg.EngineAuthType,

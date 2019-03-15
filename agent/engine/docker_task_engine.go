@@ -845,14 +845,20 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// we have to do this in create, not start, because docker no longer handles
 	// merging create config with start hostconfig the same; e.g. memory limits
 	// get lost
-	dockerClientVersion, versionErr := client.APIVersion()
-	if versionErr != nil {
-		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
+	dockerClientVersion, dcvErr := client.APIVersion()
+	if dcvErr != nil {
+		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{dcvErr}}
 	}
 
-	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
-	if hcerr != nil {
-		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
+	dockerVersion, dvErr := engine.Version()
+
+	if dvErr != nil {
+		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerVersionError{dvErr}}
+	}
+
+	hostConfig, hcErr := task.DockerHostConfig(engine.cfg, container, containerMap, dockerClientVersion, dockerVersion)
+	if hcErr != nil {
+		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcErr)}
 	}
 
 	if container.AWSLogAuthExecutionRole() {

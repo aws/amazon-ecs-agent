@@ -51,6 +51,10 @@ type Config struct {
 	// will be fatal.
 	AWSRegion string `missing:"fatal" trim:"true"`
 
+	// AWSDomain is the domain to run in (such as "amazonaws.com"). This value will
+	// be inferred from the EC2 metadata service.
+	AWSDomain string `trim:"true"`
+
 	// ReservedPorts is an array of ports which should be registered as
 	// unavailable. If not set, they default to [22,2375,2376,51678].
 	ReservedPorts []uint16
@@ -283,4 +287,10 @@ type Config struct {
 
 	// TaskMetadataAZDisabled specifies if availability zone should be disabled in Task Metadata endpoint
 	TaskMetadataAZDisabled bool
+
+	// EndpointCompositionEnable specifies if the Agent is capable of composing
+	// endpoint URL for all the clients (like EC2, SSM clients). This will make
+	// Agent work for isolate regions where client endpoint UR are not supported
+	// by public AWS GO SDK.
+	EndpointCompositionEnabled bool
 }

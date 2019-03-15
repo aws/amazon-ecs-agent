@@ -16,7 +16,9 @@ package ec2
 import (
 	"strings"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -49,10 +51,14 @@ type ClientImpl struct {
 	client ClientSDK
 }
 
-func NewClientImpl(awsRegion string) Client {
+func NewClientImpl(config *config.Config) Client {
 	var ec2Config aws.Config
-	ec2Config.Region = aws.String(awsRegion)
-	client := ec2sdk.New(session.New(&ec2Config), aws.NewConfig().WithMaxRetries(clientRetriesNum))
+	ec2Config.Region = aws.String(config.AWSRegion)
+	if config.EndpointCompositionEnabled {
+		ec2Config.Endpoint = aws.String(utils.ComposeEndpointURL(ec2sdk.ServiceName, config.AWSRegion, config.AWSDomain))
+	}
+	ec2Config.MaxRetries = aws.Int(clientRetriesNum)
+	client := ec2sdk.New(session.New(&ec2Config))
 	return &ClientImpl{
 		client: client,
 	}

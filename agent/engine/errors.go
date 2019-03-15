@@ -97,3 +97,15 @@ func (err CannotGetDockerClientVersionError) ErrorName() string {
 func (err CannotGetDockerClientVersionError) Error() string {
 	return err.fromError.Error()
 }
+
+// CannotGetDockerVersionError indicates error when trying to get docker version
+type CannotGetDockerVersionError struct {
+	fromError error
+}
+
+func (err CannotGetDockerVersionError) ErrorName() string {
+	return "CannotGetDockerVersionError"
+}
+func (err CannotGetDockerVersionError) Error() string {
+	return err.fromError.Error()
+}

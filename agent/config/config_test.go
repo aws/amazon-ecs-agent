@@ -43,13 +43,32 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, conf1.AWSRegion, "us-west-2", "Incorrect region")
 }
 
+func TestEC2MetadataHappyPath(t *testing.T) {
+	mockDomain := "mock domain"
+	mockRegion := "mock region"
+	ctrl := gomock.NewController(t)
+	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
+	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{Region: mockRegion}, nil)
+	mockEc2Metadata.EXPECT().GetUserData()
+	mockEc2Metadata.EXPECT().GetMetadata(ec2MetadataDomainPath).Return(mockDomain, nil)
+
+	config, err := NewConfig(mockEc2Metadata)
+	assert.Equal(t, mockDomain, config.AWSDomain, "Wrong domain")
+	assert.Equal(t, mockRegion, config.AWSRegion, "Wrong region")
+	assert.NoError(t, err)
+}
+
 func TestBrokenEC2Metadata(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
+	mockEc2Metadata.EXPECT().GetMetadata(ec2MetadataDomainPath).Return("", errors.New("err"))
 
-	_, err := NewConfig(mockEc2Metadata)
+	config, err := NewConfig(mockEc2Metadata)
+	assert.Zero(t, config.AWSDomain, "AWS domain should be blank")
+	assert.Zero(t, config.AWSRegion, "AWS region should be blank")
 	assert.Error(t, err, "Expected error when region isn't set and metadata doesn't work")
 }
 
@@ -59,11 +78,13 @@ func TestBrokenEC2MetadataEndpoint(t *testing.T) {
 	mockEc2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 
 	mockEc2Metadata.EXPECT().InstanceIdentityDocument().Return(ec2metadata.EC2InstanceIdentityDocument{}, errors.New("err"))
+	mockEc2Metadata.EXPECT().GetMetadata(ec2MetadataDomainPath).Return("", errors.New("err"))
 	mockEc2Metadata.EXPECT().GetUserData()
 
 	config, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
 	assert.Equal(t, config.AWSRegion, "us-west-2", "Wrong region")
+	assert.Zero(t, config.AWSDomain, "AWS domain should be blank")
 	assert.Zero(t, config.APIEndpoint, "Endpoint env variable not set; endpoint should be blank")
 }
 
@@ -79,6 +100,7 @@ func TestGetRegionWithNoIID(t *testing.T) {
 	}}`
 	mockEc2Metadata.EXPECT().GetUserData().Return(userDataResponse, nil)
 	mockEc2Metadata.EXPECT().Region().Return("us-east-1", nil)
+	mockEc2Metadata.EXPECT().GetMetadata(ec2MetadataDomainPath).Return("amazonaws.com", errors.New("err"))
 
 	config, err := NewConfig(mockEc2Metadata)
 	assert.NoError(t, err)
@@ -117,6 +139,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "nvidia")()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
+	defer setTestEnv("ECS_ENABLE_ENDPOINT_COMPOSITION", "true")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -163,6 +186,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
+	assert.True(t, conf.EndpointCompositionEnabled, "Wrong value for EndpointCompositionEnabled")
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -752,6 +776,14 @@ func TestTaskMetadataAZDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
+}
+
+func TestEndpointCompositionEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_ENDPOINT_COMPOSITION", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.EndpointCompositionEnabled, "Wrong value for EndpointCompositionEnabled")
 }
 
 func setTestRegion() func() {

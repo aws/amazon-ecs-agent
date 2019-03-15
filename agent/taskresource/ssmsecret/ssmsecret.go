@@ -16,13 +16,15 @@ package ssmsecret
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
 
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
 	"github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -41,6 +43,7 @@ const (
 // SSMSecretResource represents secrets as a task resource.
 // The secrets are stored in SSM Parameter Store.
 type SSMSecretResource struct {
+	cfg                 *config.Config
 	taskARN             string
 	createdAt           time.Time
 	desiredStatusUnsafe resourcestatus.ResourceStatus
@@ -73,13 +76,15 @@ type SSMSecretResource struct {
 }
 
 // NewSSMSecretResource creates a new SSMSecretResource object
-func NewSSMSecretResource(taskARN string,
+func NewSSMSecretResource(cfg *config.Config,
+	taskARN string,
 	ssmSecrets map[string][]apicontainer.Secret,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator factory.SSMClientCreator) *SSMSecretResource {
 
 	s := &SSMSecretResource{
+		cfg:                    cfg,
 		taskARN:                taskARN,
 		requiredSecrets:        ssmSecrets,
 		credentialsManager:     credentialsManager,

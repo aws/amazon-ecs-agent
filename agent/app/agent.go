@@ -139,7 +139,7 @@ func newAgent(
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
-	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
+	ec2Client := ec2.NewClientImpl(cfg)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 
 	if err != nil {

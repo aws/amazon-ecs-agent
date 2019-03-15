@@ -64,6 +64,9 @@ func NewECSClient(
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
 	ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
+	if config.EndpointCompositionEnabled {
+		ecsConfig.Endpoint = aws.String(utils.ComposeEndpointURL(ecs.ServiceName, config.AWSRegion, config.AWSDomain))
+	}
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}

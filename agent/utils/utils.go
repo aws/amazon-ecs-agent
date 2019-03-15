@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
@@ -159,4 +161,8 @@ func MapToTags(tagsMap map[string]string) []*ecs.Tag {
 	}
 
 	return tags
+}
+
+func ComposeEndpointURL(serviceName, region, domain string) string {
+	return fmt.Sprintf("%s.%s.%s", serviceName, region, domain)
 }

@@ -143,6 +143,7 @@ func validateContainerRunWorkflow(t *testing.T,
 	imageManager.EXPECT().RecordContainerReference(container).Return(nil)
 	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).Return(defaultDockerVersion, nil)
 	dockerConfig, err := task.DockerConfig(container, defaultDockerClientAPIVersion)
 	if err != nil {
 		t.Fatal(err)
@@ -229,10 +230,12 @@ func addTaskToEngine(t *testing.T,
 	taskEngine TaskEngine,
 	sleepTask *apitask.Task,
 	mockTime *mock_ttime.MockTime,
+	mockDockerClient *mock_dockerapi.MockDockerClient,
 	createStartEventsReported *sync.WaitGroup) {
 	// steadyStateCheckWait is used to force the test to wait until the steady-state check
 	// has been invoked at least once
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
+	mockDockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).Return(defaultDockerVersion, nil).AnyTimes()
 
 	err := taskEngine.Init(ctx)
 	assert.NoError(t, err)

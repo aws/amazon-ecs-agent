@@ -91,6 +91,21 @@ const (
 	ipcModeTask     = "task"
 	ipcModeSharable = "shareable"
 	ipcModeNone     = "none"
+
+	// awslogsType is the type of AWS logs specified in the log configuration
+	awslogsType = "awslogs"
+	// awslogsRegionOpt is the awslogs option to specify the AWS logs region
+	awslogsRegionOpt = "awslogs-region"
+	// awslogsEndpointOpt is the awslogs option to specify the AWS logs endpoint
+	awslogsEndpointOpt = "awslogs-endpoint"
+	// awslogsServiceName is the service name of AWS logs, it's used to
+	// compose the AWS logs endpoint
+	awslogsServiceName = "logs"
+
+	// The minimum docker CE version that supports "awslogs-endpoint" log option.
+	awslogsEndpointMinimumDockerCEVersion = "18.09-ce"
+	// The minimum docker EE version that supports "awslogs-endpoint" log option.
+	awslogsEndpointMinimumDockerEEVersion = "18.09-ee"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -255,7 +270,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 
 	if task.requiresSSMSecret() {
-		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+		task.initializeSSMSecretResource(cfg, credentialsManager, resourceFields)
 	}
 
 	if task.requiresASMSecret() {
@@ -606,9 +621,10 @@ func (task *Task) requiresSSMSecret() bool {
 }
 
 // initializeSSMSecretResource builds the resource dependency map for the SSM ssmsecret resource
-func (task *Task) initializeSSMSecretResource(credentialsManager credentials.Manager,
+func (task *Task) initializeSSMSecretResource(cfg *config.Config,
+	credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) {
-	ssmSecretResource := ssmsecret.NewSSMSecretResource(task.Arn, task.getAllSSMSecretRequirements(),
+	ssmSecretResource := ssmsecret.NewSSMSecretResource(cfg, task.Arn, task.getAllSSMSecretRequirements(),
 		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator)
 	task.AddResource(ssmsecret.ResourceName, ssmSecretResource)
 
@@ -936,12 +952,15 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) nat.Port
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
-	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
+func (task *Task) DockerHostConfig(cfg *config.Config,
+	container *apicontainer.Container,
+	dockerContainerMap map[string]*apicontainer.DockerContainer,
+	apiVersion dockerclient.DockerVersion, dockerVersion string) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+	return task.dockerHostConfig(cfg, container, dockerContainerMap, apiVersion, dockerVersion)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has execution role
-// credentials, and add the genereated credentials endpoint to the associated HostConfig
+// credentials, and add the generated credentials endpoint to the associated HostConfig
 func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostConfig, credentialsManager credentials.Manager) *apierrors.HostConfigError {
 	id := task.GetExecutionCredentialsID()
 	if id == "" {
@@ -962,7 +981,11 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) dockerHostConfig(cfg *config.Config,
+	container *apicontainer.Container,
+	dockerContainerMap map[string]*apicontainer.DockerContainer,
+	apiVersion dockerclient.DockerVersion,
+	dockerVersion string) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
@@ -1004,6 +1027,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		if err != nil {
 			return nil, &apierrors.HostConfigError{Msg: "Unable to decode given host config: " + err.Error()}
 		}
+	}
+
+	if task.shouldOverrideAWSLogsEndpoint(hostConfig, dockerVersion) {
+		task.setAWSLogsEndpoint(cfg, hostConfig)
 	}
 
 	err = task.platformHostConfigOverride(hostConfig)
@@ -1860,4 +1887,48 @@ func (task *Task) AssociationByTypeAndName(associationType, associationName stri
 	}
 
 	return nil, false
+}
+
+func (task *Task) shouldOverrideAWSLogsEndpoint(hostConfig *dockercontainer.HostConfig, dockerVersion string) bool {
+	if hostConfig.LogConfig.Type != awslogsType || hostConfig.LogConfig.Config[awslogsEndpointOpt] != "" {
+		return false
+	}
+
+	var match bool
+	match, err := utils.Version(dockerVersion).Matches(">=18.09,>=18.09-ce,>=18.09-ee")
+	if err != nil {
+		seelog.Warnf("Unable to compare docker version: %v", err)
+	}
+
+	return match
+}
+
+// setAWSLogsEndpoint sets the AWS logs endpoint for awslogs type using info
+// passed from upstream and inferred from ec2 metadata, this endpoint will be
+// passed to Docker's CloudWatch Logs logging driver and used as CloudWatch Logs endpoint.
+// Agent will try its best to compose the endpoint, this prevents us from being blocked by two cases:
+// 1. Docker doesn't update AWS SDK in time when there is a new AWS region.
+// 2. The new AWS region is not recorded in AWS SDK.
+
+func (task *Task) setAWSLogsEndpoint(cfg *config.Config, hostConfig *dockercontainer.HostConfig) {
+	var awslogsRegion, awslogsDomain string
+
+	// AWS domain is necessary to compose the endpoint.
+	if cfg.AWSDomain == "" {
+		return
+	}
+	awslogsDomain = cfg.AWSDomain
+
+	awslogsRegion = hostConfig.LogConfig.Config[awslogsRegionOpt]
+	if awslogsRegion == "" {
+		if cfg.AWSRegion == "" {
+			return
+		}
+		// Get the AWS region in local if it's not passed from upstream.
+		// We do this because AWS SDK does this as well.
+		awslogsRegion = cfg.AWSRegion
+	}
+
+	// The endpoint format is "{service}.{region}.{dnsSuffix}" in AWS SDK.
+	hostConfig.LogConfig.Config[awslogsEndpointOpt] = fmt.Sprintf("%s.%s.%s", awslogsServiceName, awslogsRegion, awslogsDomain)
 }
