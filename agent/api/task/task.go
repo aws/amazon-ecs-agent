@@ -740,6 +740,7 @@ func convertENIToCNIConfig(eni *apieni.ENI, cfg *ecscni.Config) {
 
 	// Populate Trunk ENI fields
 	if eni.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
+		cfg.InterfaceAssociationProtocol = eni.InterfaceAssociationProtocol
 		cfg.TrunkMACAddress = eni.InterfaceVlanProperties.TrunkInterfaceMacAddress
 		cfg.BranchVlanID = eni.InterfaceVlanProperties.VlanID
 	}
