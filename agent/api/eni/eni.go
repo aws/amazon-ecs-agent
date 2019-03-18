@@ -200,9 +200,11 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	if len(acsenis) != 1 {
 		return errors.Errorf("eni message validation: more than one ENIs in the message(%d)", len(acsenis))
 	} else if len(acsenis[0].Ipv4Addresses) != 1 {
-		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)", len(acsenis[0].Ipv4Addresses))
+		return errors.Errorf("eni message validation: more than one ipv4 addresses in the message(%d)",
+			len(acsenis[0].Ipv4Addresses))
 	} else if len(acsenis[0].Ipv6Addresses) > 1 {
-		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)", len(acsenis[0].Ipv6Addresses))
+		return errors.Errorf("eni message validation: more than one ipv6 addresses in the message(%d)",
+			len(acsenis[0].Ipv6Addresses))
 	}
 
 	if acsenis[0].MacAddress == nil {
@@ -214,14 +216,18 @@ func ValidateTaskENI(acsenis []*ecsacs.ElasticNetworkInterface) error {
 	}
 
 	if (acsenis[0].InterfaceAssociationProtocol != nil) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) !=
-		VLANInterfaceAssociationProtocol) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) != DefaultInterfaceAssociationProtocol) {
-		return errors.Errorf("Invalid ENI interface type: %s", aws.StringValue(acsenis[0].InterfaceAssociationProtocol))
+		VLANInterfaceAssociationProtocol) && (aws.StringValue(acsenis[0].InterfaceAssociationProtocol) !=
+		DefaultInterfaceAssociationProtocol) {
+		return errors.Errorf("invalid ENI interface type: %s",
+			aws.StringValue(acsenis[0].InterfaceAssociationProtocol))
 	}
 
 	// If ENI type is vlan, InterfaceVlanProperties must be not nil.
 	if aws.StringValue(acsenis[0].InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
-		if acsenis[0].InterfaceVlanProperties == nil || len(aws.StringValue(acsenis[0].InterfaceVlanProperties.VlanId)) == 0 || len(aws.StringValue(acsenis[0].InterfaceVlanProperties.TrunkInterfaceMacAddress)) == 0 {
-			return errors.Errorf("vlan interface properties missing.")
+		if acsenis[0].InterfaceVlanProperties == nil ||
+			len(aws.StringValue(acsenis[0].InterfaceVlanProperties.VlanId)) == 0 ||
+			len(aws.StringValue(acsenis[0].InterfaceVlanProperties.TrunkInterfaceMacAddress)) == 0 {
+			return errors.New("vlan interface properties missing.")
 		}
 	}
 
