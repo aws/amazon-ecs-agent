@@ -1,4 +1,4 @@
-// +build linux,unit
+// +build unit
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -193,7 +193,6 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	gomock.InOrder(
 		mockControl.EXPECT().Remove("cgroupRoot").Return(nil),
 		mockState.EXPECT().RemoveTask(task),
-		mockState.EXPECT().RemoveENIAttachment(mac),
 		mockSaver.EXPECT().Save(),
 	)
 
