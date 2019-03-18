@@ -36,10 +36,11 @@ import (
 const (
 	currentCNISpec = "0.3.1"
 	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated
-	currentECSCNIVersion = "2018.10.0"
-	currentECSCNIGitHash = "93f4377604504bff92e7555da73b0cba732a4fbb"
-	currentVPCCNIGitHash = "76973f587f9dfb0b40092a78fb5623c9547bc647"
-	vpcCNIPluginPath     = "/log/vpc-branch-eni.log"
+	currentECSCNIVersion      = "2018.10.0"
+	currentECSCNIGitHash      = "93f4377604504bff92e7555da73b0cba732a4fbb"
+	currentVPCCNIGitHash      = "8b5e552209b0009aecf3c60568b5a5041c6342c0"
+	vpcCNIPluginPath          = "/log/vpc-branch-eni.log"
+	vpcCNIPluginInterfaceType = "vlan"
 )
 
 // CNIClient defines the method of setting/cleaning up container namespace
@@ -405,6 +406,7 @@ func (client *cniClient) createBranchENINetworkConfig(cfg *Config) (string, *lib
 		BranchMACAddress:       cfg.ENIMACAddress,
 		BlockInstanceMetdata:   cfg.BlockInstanceMetdata,
 		BranchGatewayIPAddress: BranchGatewayIPAddress,
+		InterfaceType:          vpcCNIPluginInterfaceType,
 	}
 	networkConfig, err := client.constructNetworkConfig(eniConf, ECSBranchENIPluginName)
 	if err != nil {
