@@ -1447,7 +1447,7 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 	}
 }
 
-// updateContainerDesiredStatusUnsafe sets all container's desired status's to the
+// updateContainerDesiredStatusUnsafe sets all containers' desired statuses to the
 // task's desired status
 // Invariant: container desired status is <= task desired status converted to container status
 // Note: task desired status and container desired status is typically only RUNNING or STOPPED
