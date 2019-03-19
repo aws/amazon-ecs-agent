@@ -773,6 +773,62 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
+func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		// TODO set ECS_ENABLE_HIGH_DENSITY_ENI flag to true
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+			"ECS_ENABLE_HIGH_DENSITY_ENI": "false",
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+
+	defer agent.Cleanup()
+
+	// TODO Update the agent version in final testing
+	agent.RequireVersion(">1.20.1")
+
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		require.NoError(t, err, "Error getting IAM Roles from instance profile")
+		roleArn = *role.Arn
+	}
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TASK_ROLE$$$"] = roleArn
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+
+	numToRun := 3
+	tasks := make([]*TestTask, numToRun)
+
+	for numRun := 0; numRun < numToRun; numRun++ {
+		task, err := agent.StartAWSVPCTask("test-eni-trunking", tdOverrides)
+		require.NoError(t, err, "Unable to start task with trunk ENI enabled in 'awsvpc' network mode")
+
+		if err != nil {
+			continue
+		}
+		tasks[numRun] = task
+	}
+
+	t.Logf("Ran %v containers;", numToRun)
+
+	for _, task := range tasks {
+		err := task.WaitStopped(waitTaskStateChangeDuration)
+		assert.NoError(t, err, "Error waiting for task to transition to STOPPED")
+		exitCode, ok := task.ContainerExitcode("eni-trunking-validator")
+		assert.True(t, ok, "Get exit code failed")
+		assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+	}
+}
+
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
 
