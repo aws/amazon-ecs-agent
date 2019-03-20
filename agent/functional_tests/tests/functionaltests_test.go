@@ -759,6 +759,11 @@ func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
 	// TODO: Bump version to 1.24.0 (or next release after 1.23.0)
 	agent.RequireVersion(">=1.22.0")
 
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+	if ec2MetadataClient.PublicIPv4Address() == "" {
+		t.Skip("Skipping test, instance does not have PublicIPv4 Address")
+	}
+
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
