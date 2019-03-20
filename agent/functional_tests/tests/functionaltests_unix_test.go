@@ -1283,7 +1283,7 @@ func TestASMSecretsARN(t *testing.T) {
 		t.Skip("Skip TestASMSecretsARN in China partition")
 	}
 
-	secret := "FunctionalTest-SSMSecretsSecretFromASM"
+	secret := "FunctionalTest-SSMSecretsEncryptedASMSecrets"
 	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	input := &secretsmanager.CreateSecretInput{
 		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestASMSecretsARN"),
