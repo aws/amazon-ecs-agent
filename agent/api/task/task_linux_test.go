@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
+	"github.com/aws/aws-sdk-go/aws"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -45,6 +47,8 @@ const (
 	taskVCPULimit             = 2.0
 	taskMemoryLimit           = 512
 	minDockerClientAPIVersion = dockerclient.Version_1_17
+
+	proxyName = "envoy"
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -64,7 +68,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		ENI: &apieni.ENI{},
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -82,6 +86,77 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
 		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
+	pauseConfig := dockercontainer.Config{
+		User: "1337:35",
+	}
+
+	bytes, _ := json.Marshal(pauseConfig)
+	serializedConfig := string(bytes)
+
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name: proxyName,
+				DockerConfig: apicontainer.DockerConfig{
+					Config: &serializedConfig,
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "pause-container-image-name",
+		PauseContainerTag:       "pause-container-tag",
+	}
+	testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Equal(t, 3, len(testTask.Containers),
+		"addNetworkResourceProvisioningDependency should add another container")
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
+	require.True(t, ok, "Expected to find pause container")
+	containerConfig := &dockercontainer.Config{}
+	json.Unmarshal([]byte(aws.StringValue(pauseContainer.DockerConfig.Config)), &containerConfig)
+	assert.Equal(t, "1337:35", containerConfig.User, "pause container should have correct user")
+	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
+	assert.True(t, pauseContainer.Essential, "pause container should be essential")
+	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
+		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) {
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name:                      proxyName,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "pause-container-image-name",
+		PauseContainerTag:       "pause-container-tag",
+	}
+	err := testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Error(t, err,
+		"addNetworkResourceProvisioningDependency should throw error when no user in proxy container")
 }
 
 // TestBuildCgroupRootHappyPath builds cgroup root from valid taskARN
@@ -358,7 +433,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -386,7 +461,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -406,8 +481,8 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name:   "C1",
-				Memory: uint(2048), // container memory > task memory
+				Name:                      "C1",
+				Memory:                    uint(2048), // container memory > task memory
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -426,7 +501,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},

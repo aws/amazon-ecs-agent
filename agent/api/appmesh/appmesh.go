@@ -36,6 +36,8 @@ const (
 
 // AppMesh contains information of app mesh config
 type AppMesh struct {
+	// ContainerName is the proxy container name
+	ContainerName string
 	// IgnoredUID is egress traffic from the processes owned by the UID will be ignored
 	IgnoredUID string
 	// IgnoredGID specifies egress traffic from the processes owned by the GID will be ignored
@@ -60,6 +62,7 @@ func AppMeshFromACS(proxyConfig *ecsacs.ProxyConfiguration) (*AppMesh, error) {
 	}
 
 	return &AppMesh{
+		ContainerName:      aws.StringValue(proxyConfig.ContainerName),
 		IgnoredUID:         aws.StringValue(proxyConfig.Properties[ignoredUID]),
 		IgnoredGID:         aws.StringValue(proxyConfig.Properties[ignoredGID]),
 		ProxyIngressPort:   aws.StringValue(proxyConfig.Properties[proxyIngressPort]),

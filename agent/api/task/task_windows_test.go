@@ -28,13 +28,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 )
 
 const (
-	minDockerClientAPIVersion       = dockerclient.Version_1_24
+	minDockerClientAPIVersion = dockerclient.Version_1_24
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {

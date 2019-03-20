@@ -27,7 +27,7 @@ func TestGPUAssociationMarshal(t *testing.T) {
 		"containers": []interface{}{"container1"},
 		"content": map[string]interface{}{
 			"encoding": "base64",
-			"value": "val",
+			"value":    "val",
 		},
 		"name": "gpu1",
 		"type": "gpu",
@@ -56,7 +56,7 @@ func TestEIAssociationMarshal(t *testing.T) {
 		"containers": []interface{}{"container1"},
 		"content": map[string]interface{}{
 			"encoding": "base64",
-			"value": "val",
+			"value":    "val",
 		},
 		"name": "dev1",
 		"type": "elastic-inference",
@@ -83,7 +83,7 @@ func TestEIAssociationMarshal(t *testing.T) {
 func TestEncodedStringMarshal(t *testing.T) {
 	expectedEncodedStringMap := map[string]interface{}{
 		"encoding": "base64",
-		"value": "val",
+		"value":    "val",
 	}
 
 	encodedString := EncodedString{
