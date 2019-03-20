@@ -474,6 +474,9 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	// Try to let the container use 25% cpu, but bound it within valid range
 	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
 
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
+
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
 	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
@@ -511,11 +514,12 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	time.Sleep(waitMetricsInCloudwatchDuration)
 
 	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	_, err = VerifyMetrics(cwclient, params, true)
+
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
 	tdOverrides := make(map[string]string)
@@ -531,19 +535,21 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
+	metrics, err := VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
-	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
+	// Also verify the cpu usage is around expectedCPUPercentage
+	// +/- StatsNoiseDelta percentage
+	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, statsNoiseDelta)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	metrics, err = VerifyMetrics(cwclient, params, false)
+	metrics, err = VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 	memInfo, err := system.ReadMemInfo()
 	require.NoError(t, err, "Acquiring system info failed")
 	totalMemory := memInfo.MemTotal / bytePerMegabyte
-	// Verify the memory usage is around 1024/totalMemory +/- 5%
-	assert.InDelta(t, float32(1024*100)/float32(totalMemory), *metrics.Average, 5)
+	// Verify the memory usage is around 1024/totalMemory
+	// +/- StatsNoiseDelta percentage
+	assert.InDelta(t, float32(1024*100)/float32(totalMemory), *metrics.Average, statsNoiseDelta)
 
 	err = testTask.Stop()
 	require.NoError(t, err, "Failed to stop the telemetry task")
@@ -555,11 +561,11 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
@@ -569,6 +575,9 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 
 	// Try to let the container use 25% cpu, but bound it within valid range
 	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
+
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
 
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-polling-" + uuid.New()
@@ -621,13 +630,13 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
 	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
 	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
+	metrics, err := VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
-	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
+	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, statsNoiseDelta)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	metrics, err = VerifyMetrics(cwclient, params, false)
+	metrics, err = VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 	memInfo, err := system.ReadMemInfo()
 	require.NoError(t, err, "Acquiring system info failed")
