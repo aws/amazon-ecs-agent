@@ -1,4 +1,7 @@
 # Changelog
+## 1.26.1
+* Enhancement - Set up pause container user the same as proxy container when App Mesh enabled and pause container not using default image
+* Bug - Fixed a bug where network stats are not presented in container stats [#1932](https://github.com/aws/amazon-ecs-agent/pull/1932)
 
 ## 1.26.0
 * Feature - Startup order can now be explicitly set via DependsOn field in the Task Definition [#1904](https://github.com/aws/amazon-ecs-agent/pull/1904)
