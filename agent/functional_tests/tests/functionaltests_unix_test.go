@@ -1231,12 +1231,12 @@ func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
 		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
 	}
 
-	parameterName := "/aws/reference/secretsmanager/FunctionalTest-SSMSecretsSecretFromASM"
+	parameterName := "/aws/reference/secretsmanager/FunctionalTest-SSMSecretsEncryptedASMSecrets"
 	secretName := "SECRET_NAME"
 	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	input := &secretsmanager.CreateSecretInput{
 		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsEncryptedASMSecrets"),
-		Name:         aws.String("FunctionalTest-SSMSecretsSecretFromASM"),
+		Name:         aws.String("FunctionalTest-SSMSecretsEncryptedASMSecrets"),
 		SecretString: aws.String("secretValue"),
 	}
 
@@ -1246,7 +1246,7 @@ func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case secretsmanager.ErrCodeResourceExistsException:
-				t.Logf("Secret FunctionalTest-SSMSecretsSecretFromASM already exists in AWS Secrets Manager")
+				t.Logf("Secret FunctionalTest-SSMSecretsEncryptedASMSecrets already exists in AWS Secrets Manager")
 				break
 			default:
 				require.NoError(t, err, "Secrets Manager CreateSecret call failed")
@@ -1283,7 +1283,7 @@ func TestASMSecretsARN(t *testing.T) {
 		t.Skip("Skip TestASMSecretsARN in China partition")
 	}
 
-	secret := "FunctionalTest-SSMSecretsSecretFromASM"
+	secret := "FunctionalTest-SSMSecretsEncryptedASMSecrets"
 	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	input := &secretsmanager.CreateSecretInput{
 		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestASMSecretsARN"),
