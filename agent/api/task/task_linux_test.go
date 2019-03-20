@@ -119,6 +119,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 		PauseContainerImageName: "pause-container-image-name",
 		PauseContainerTag:       "pause-container-tag",
 	}
+
 	testTask.addNetworkResourceProvisioningDependency(cfg)
 	assert.Equal(t, 3, len(testTask.Containers),
 		"addNetworkResourceProvisioningDependency should add another container")
@@ -127,6 +128,49 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 	containerConfig := &dockercontainer.Config{}
 	json.Unmarshal([]byte(aws.StringValue(pauseContainer.DockerConfig.Config)), &containerConfig)
 	assert.Equal(t, "1337:35", containerConfig.User, "pause container should have correct user")
+	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
+	assert.True(t, pauseContainer.Essential, "pause container should be essential")
+	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
+		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *testing.T) {
+	pauseConfig := dockercontainer.Config{
+		User: "1337:35",
+	}
+
+	bytes, _ := json.Marshal(pauseConfig)
+	serializedConfig := string(bytes)
+
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name: proxyName,
+				DockerConfig: apicontainer.DockerConfig{
+					Config: &serializedConfig,
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "",
+		PauseContainerTag:       "pause-container-tag",
+	}
+	testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Equal(t, 3, len(testTask.Containers),
+		"addNetworkResourceProvisioningDependency should add another container")
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
+	require.True(t, ok, "Expected to find pause container")
+	assert.Equal(t, apicontainer.DockerConfig{}, pauseContainer.DockerConfig, "pause container should not have user")
 	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,

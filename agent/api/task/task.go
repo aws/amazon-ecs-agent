@@ -775,8 +775,8 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
 
-	// Set pauseContainer user the same as proxy container user
-	if task.GetAppMesh() != nil {
+	// Set pauseContainer user the same as proxy container user when image name is not DefaultPauseContainerImageName
+	if task.GetAppMesh() != nil && cfg.PauseContainerImageName != config.DefaultPauseContainerImageName {
 		appMeshConfig := task.GetAppMesh()
 
 		// Validation is done when registering task to make sure there is one container name matching
@@ -799,7 +799,8 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 			}
 
 			pauseConfig := dockercontainer.Config{
-				User: containerConfig.User,
+				User:  containerConfig.User,
+				Image: fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag),
 			}
 
 			bytes, _ := json.Marshal(pauseConfig)
