@@ -631,6 +631,113 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
+// TestLogDriverSecretSupport tests the log driver secret support using
+// the awslogs and awslogs-multiline-pattern option is utilized as a secret storing as an encrypted parameter
+func TestLogDriverSecretSupport(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.2")
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestLogDriverSecretSupport in China partition")
+	}
+
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	// Test whether the log group exists or not
+	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
+	})
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
+	logGroupExists := false
+	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
+		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
+			logGroupExists = true
+			break
+		}
+	}
+
+	if !logGroupExists {
+		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(awslogsLogGroupName),
+		})
+		require.NoError(t, err, fmt.Sprintf("Failed to create log group %s", awslogsLogGroupName))
+	}
+
+	parameterName := "FunctionalTest-SecretSupportLogDriverAwslogsMultiline"
+	secretName := "awslogs-multiline-pattern"
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestLogDriverSecretSupport"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("^INFO"),
+		Type:        aws.String("SecureString"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err = ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
+			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
+		},
+	}
+
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
+
+	agent := RunAgent(t, &agentOptions)
+
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.25.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "awslogs-secret-support-multiline", tdOverrides)
+	require.NoError(t, err, "Failed to start task for awslogs secret support multiline")
+
+	// Wait for the container to start
+	task.WaitRunning(waitTaskStateChangeDuration)
+
+	taskID, err := GetTaskID(aws.StringValue(task.TaskArn))
+	require.NoError(t, err)
+
+	// Delete the log stream after the test
+	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("1-new-awslogs-secret-multiline/awslogs-secret-support-multiline/%s", taskID)),
+	})
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("1-new-awslogs-secret-multiline/awslogs-secret-support-multiline/%s", taskID)),
+	}
+
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "INFO: ECS---Agent\nRunning\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
+	assert.Equal(t, *resp.Events[1].Message, "INFO: Instance\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[1].Message))
+}
+
 // TestAgentIntrospectionValidator tests that the agent introspection endpoint can
 // be accessed from within the container.
 func TestAgentIntrospectionValidator(t *testing.T) {

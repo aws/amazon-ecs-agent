@@ -1385,7 +1385,11 @@
       "required":["logDriver"],
       "members":{
         "logDriver":{"shape":"LogDriver"},
-        "options":{"shape":"LogConfigurationOptionsMap"}
+        "options":{"shape":"LogConfigurationOptionsMap"},
+        "secretOptions":{
+          "shape":"SecretList",
+          "internalonly":true
+        }
       }
     },
     "LogConfigurationOptionsMap":{
