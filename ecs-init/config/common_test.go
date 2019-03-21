@@ -177,3 +177,30 @@ func TestAgentRemoteTarballKey(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentPrivileged(t *testing.T) {
+	os.Setenv("ECS_AGENT_RUN_PRIVILEGED", "true")
+	defer os.Unsetenv("ECS_AGENT_RUN_PRIVILEGED")
+
+	if !RunPrivileged() {
+		t.Fatalf("Agent was expected to be running with privileged mode")
+	}
+}
+
+func TestAgentPrivilegedNotConfigured(t *testing.T) {
+	defer os.Unsetenv("ECS_AGENT_RUN_PRIVILEGED")
+	cases := []string{
+		"false",
+		"unrelated_word",
+		"1",
+		"",
+	}
+
+	for _, test := range cases {
+		os.Setenv("ECS_AGENT_RUN_PRIVILEGED", test)
+
+		if RunPrivileged() {
+			t.Errorf("Agent was expected to be running without privileged mode. Testcase (%s)", test)
+		}
+	}
+}

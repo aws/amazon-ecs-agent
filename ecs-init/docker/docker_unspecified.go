@@ -44,7 +44,7 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
-	return &godocker.HostConfig{
+	hostConfig := &godocker.HostConfig{
 		LogConfig:   logConfig,
 		Binds:       binds,
 		NetworkMode: networkMode,
@@ -52,4 +52,10 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
 		Init:        true,
 	}
+
+	if config.RunPrivileged() {
+		hostConfig.Privileged = true
+	}
+
+	return hostConfig
 }

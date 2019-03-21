@@ -228,6 +228,13 @@ func InstanceConfigFile() string {
 	return InstanceConfigDirectory() + "/ecs.config"
 }
 
+// RunPrivileged returns if agent should be invoked with '--privileged'. This is not
+// recommended and may be removed in future versions of amazon-ecs-init.
+func RunPrivileged() bool {
+	envVar := os.Getenv("ECS_AGENT_RUN_PRIVILEGED")
+	return envVar == "true"
+}
+
 func agentArtifactName(version string, arch string) (string, error) {
 	var interpose string
 	switch arch {
