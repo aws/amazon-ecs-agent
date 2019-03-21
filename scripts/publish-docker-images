@@ -21,8 +21,8 @@ IMAGE_NAME="amazon/amazon-ecs-agent"
 
 AWS_PROFILE=""
 STAGE_S3_BUCKET=""
-
-source $(dirname "${0}")/publishing-common.sh
+S3_ACL_OVERRIDE=""
+source scripts/publishing-common.sh
 
 usage() {
 	echo "Usage: ${0} -s BUCKET [OPTIONS]"
@@ -68,8 +68,10 @@ push_linux_amd_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball}"
 	for image_tag in ${IMAGE_TAG_VERSION_AMD} ${IMAGE_TAG_SHA_AMD} ${IMAGE_TAG_LATEST_AMD}; do
-		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
+		AMD_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag})
 	done
+
+	export AMD_IMAGE_SHA
 
 	rm ${tarball}
 	rm ${tarball_md5}
@@ -94,8 +96,10 @@ push_linux_arm_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball_arm}"
 	for image_tag in ${IMAGE_TAG_VERSION_ARM} ${IMAGE_TAG_SHA_ARM} ${IMAGE_TAG_LATEST_ARM}; do
-		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
+		ARM_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag})
 	done
+
+	export ARM_IMAGE_SHA
 
 	rm ${tarball_arm}
 	rm ${tarball_md5_arm}
@@ -123,9 +127,10 @@ push_multi-arch_manifest_docker_hub() {
 		# Replace the tags in multi-arch.yaml
 		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
 		# Generate the manifest list and push to docker hub
-		dryval ./manifest-tool push from-spec multi-arch-temp.yaml
+		MULTIARCH_IMAGE_SHA=$(dryval ./manifest-tool push from-spec multi-arch-temp.yaml)
 		rm multi-arch-temp.yaml
 	done
+	export MULTIARCH_IMAGE_SHA
 
 	rm -rf ${manifest_tool_dir}
 
