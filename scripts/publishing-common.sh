@@ -13,7 +13,7 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-export VERSION=$(cat $(dirname "${0}")/../VERSION)
+export VERSION=$(cat VERSION)
 
 export IMAGE_TAG_LATEST="latest"
 export IMAGE_TAG_SHA=$(git rev-parse --short=8 HEAD)
