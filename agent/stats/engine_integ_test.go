@@ -344,8 +344,10 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	// additional config fields to use polling instead of stream
 	cfg.PollMetrics = true
 	cfg.PollingMetricsWaitDuration = 1 * time.Second
+	// Create a new docker client with new config
+	dockerClientForNewContainersWithPolling, _  := dockerapi.NewDockerGoClient(sdkClientFactory, &cfg, ctx)
 	// Create a new docker stats engine
-	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNewContainers"))
+	engine := NewDockerStatsEngine(&cfg, dockerClientForNewContainersWithPolling, eventStream("TestStatsEngineWithNewContainers"))
 	defer engine.removeAll()
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -396,7 +398,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	assert.NoError(t, err, "failed to write to container change event stream")
 
 	// Wait for the stats collection go routine to start.
-	time.Sleep(checkPointSleep)
+	time.Sleep(10 * SleepBetweenUsageDataCollection)
 	validateInstanceMetrics(t, engine)
 	// Verify the health metrics of container
 	validateTaskHealthMetrics(t, engine)
