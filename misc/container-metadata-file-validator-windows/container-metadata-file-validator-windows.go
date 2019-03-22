@@ -20,17 +20,22 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 )
 
 const (
 	containerMetadataFileEnvVar = "ECS_CONTAINER_METADATA_FILE"
+	hasPublicIpEnvVar           = "HAS_PUBLIC_IP"
 	MetadataInitialText         = "INITIAL"
 	MetadataReadyText           = "READY"
 )
 
 // MetadataStatus specifies the current update status of the metadata file.
 type MetadataStatus int32
+
+// hasPublicIp indicates whether the test is run on an instance that has public ip
+var hasPublicIp bool
 
 // Represents the int32 representations for MetadataStatus
 const (
@@ -92,7 +97,11 @@ func verifyContainerMetadataResponse(containerMetadataResponseMap map[string]jso
 		"MetadataFileStatus": MetadataReadyText,
 	}
 	// Fields that change dynamically, not predictable
-	taskExpectedFieldNotEmptyArray := []string{"TaskDefinitionFamily", "Cluster", "ContainerInstanceARN", "TaskARN", "TaskDefinitionRevision", "ContainerID", "DockerContainerName", "ImageID", "HostPublicIPv4Address"}
+	taskExpectedFieldNotEmptyArray := []string{"TaskDefinitionFamily", "Cluster", "ContainerInstanceARN", "TaskARN", "TaskDefinitionRevision", "ContainerID", "DockerContainerName", "ImageID"}
+
+	if hasPublicIp {
+		taskExpectedFieldNotEmptyArray = append(taskExpectedFieldNotEmptyArray, "HostPublicIPv4Address")
+	}
 
 	for fieldName, fieldVal := range containerExpectedFieldEqualMap {
 		if err = fieldEqual(containerMetadataResponseMap, fieldName, fieldVal); err != nil {
@@ -166,6 +175,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Unable to convert container metadata file to bytes: %v\n", err)
 		os.Exit(1)
 	}
+
+	boolVar, err := strconv.ParseBool(os.Getenv(hasPublicIpEnvVar))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse environment variable %s: %v", hasPublicIpEnvVar, err)
+		os.Exit(1)
+	}
+	hasPublicIp = boolVar
 
 	// Parse file into struct to print to awslogs
 	var metadataResponse metadataSerializer

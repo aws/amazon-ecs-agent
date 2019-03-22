@@ -12,6 +12,12 @@
         "retries": 2,
         "startPeriod": 1
       },
+      "environment": [
+        {
+          "name": "HAS_PUBLIC_IP",
+          "value": "$$$HAS_PUBLIC_IP$$$"
+        }
+      ],
       "entryPoint": ["powershell"],
       "command": ["$env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\container-metadata-file-validator-windows.exe; exit $LASTEXITCODE"],
       "logConfiguration": {
