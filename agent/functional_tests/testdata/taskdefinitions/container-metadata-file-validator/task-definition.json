@@ -11,6 +11,12 @@
         "retries": 2,
         "startPeriod": 1
       },
+      "environment": [
+        {
+          "name": "HAS_PUBLIC_IP",
+          "value": "$$$HAS_PUBLIC_IP$$$"
+        }
+      ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

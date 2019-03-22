@@ -756,12 +756,20 @@ func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
-	// TODO: Bump version to 1.24.0 (or next release after 1.23.0)
-	agent.RequireVersion(">=1.22.0")
+
+	agent.RequireVersion(">=1.24.0")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+	ip, err := ec2MetadataClient.PublicIPv4Address()
+	if err != nil || ip == "" {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "false"
+	} else {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "true"
+	}
 
 	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
 	containerName := "container-metadata-file-validator"
