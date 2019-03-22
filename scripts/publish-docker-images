@@ -68,7 +68,7 @@ push_linux_amd_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball}"
 	for image_tag in ${IMAGE_TAG_VERSION_AMD} ${IMAGE_TAG_SHA_AMD} ${IMAGE_TAG_LATEST_AMD}; do
-		AMD_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag})
+		AMD_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag} | tail -1 | cut -d" " -f3)
 	done
 
 	export AMD_IMAGE_SHA
@@ -96,7 +96,7 @@ push_linux_arm_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball_arm}"
 	for image_tag in ${IMAGE_TAG_VERSION_ARM} ${IMAGE_TAG_SHA_ARM} ${IMAGE_TAG_LATEST_ARM}; do
-		ARM_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag})
+		ARM_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag} | tail -1 | cut -d" " -f3)
 	done
 
 	export ARM_IMAGE_SHA
@@ -127,7 +127,8 @@ push_multi-arch_manifest_docker_hub() {
 		# Replace the tags in multi-arch.yaml
 		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
 		# Generate the manifest list and push to docker hub
-		MULTIARCH_IMAGE_SHA=$(dryval ./manifest-tool push from-spec multi-arch-temp.yaml)
+
+		MULTIARCH_IMAGE_SHA=$(dryval ./manifest-tool push from-spec multi-arch-temp.yaml| tail -1 | cut -d" " -f2)
 		rm multi-arch-temp.yaml
 	done
 	export MULTIARCH_IMAGE_SHA
