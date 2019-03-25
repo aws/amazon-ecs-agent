@@ -1,0 +1,46 @@
+{
+  "family": "ecsftest-container-ordering-complete-condition-windows",
+  "containerDefinitions": [
+    {
+      "name": "complete",
+      "image": "microsoft/windowsservercore",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["powershell", "-c", "cat test.txt"],
+      "workingDirectory" : "C:/test",
+      "dependsOn": [
+        {
+          "containerName": "complete-dependency",
+          "condition": "COMPLETE"
+        }
+      ],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "C:/test"
+        }
+      ]
+    },
+    {
+      "name": "complete-dependency",
+      "image": "microsoft/windowsservercore",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["powershell", "-c", "New-Item -ItemType file test.txt; echo hi >> test.txt; exit 1"],
+      "workingDirectory" : "C:/test",
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "C:/test"
+        }
+      ]
+    }
+  ],
+  "volumes" : [
+    {
+      "name" : "volume1"
+    }
+  ]
+}

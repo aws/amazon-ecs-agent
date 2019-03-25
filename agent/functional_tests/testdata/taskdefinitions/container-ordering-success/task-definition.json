@@ -1,0 +1,46 @@
+{
+  "family": "ecsftest-container-ordering-success-condition",
+  "containerDefinitions": [
+    {
+      "name": "success",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "workingDirectory" : "/test",
+      "command": ["sh", "-c", "cat test.txt"],
+      "dependsOn": [
+        {
+          "containerName": "success-dependency",
+          "condition": "SUCCESS"
+        }
+      ],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ]
+    },
+    {
+      "name": "success-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "touch test.txt && echo hi >> test.txt"],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ],
+      "workingDirectory" : "/test"
+    }
+  ],
+  "volumes" : [
+    {
+      "name" : "volume1"
+    }
+  ]
+}

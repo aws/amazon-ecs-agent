@@ -1,0 +1,11 @@
+{
+  "Name": "ContainerOrderingComplete",
+  "Description": "Check that container ordering for complete condition works fine",
+  "TaskDefinition": "container-ordering-complete",
+  "Version": ">=1.25.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "complete-dependency": 1,
+    "complete": 0
+  }
+}

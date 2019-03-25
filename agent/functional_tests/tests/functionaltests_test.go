@@ -951,3 +951,4 @@ func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode s
 	exitCode, _ := task.ContainerExitcode(containerName)
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
+

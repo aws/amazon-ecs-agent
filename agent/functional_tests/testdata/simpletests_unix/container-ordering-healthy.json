@@ -1,0 +1,11 @@
+{
+  "Name": "ContainerOrderingHealthy",
+  "Description": "Check that container ordering for healthy condition works fine",
+  "TaskDefinition": "container-ordering-healthy",
+  "Version": ">=1.25.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "healthy-dependency": 0,
+    "healthy": 0
+  }
+}

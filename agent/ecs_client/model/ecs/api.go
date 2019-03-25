@@ -4255,6 +4255,8 @@ type ContainerDefinition struct {
 	// This parameter is not supported for Windows containers.
 	DisableNetworking *bool `locationName:"disableNetworking" type:"boolean"`
 
+	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
+
 	// A list of DNS search domains that are presented to the container. This parameter
 	// maps to DnsSearch in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.27/#create-a-container)
 	// section of the Docker Remote API (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.27/)
@@ -4690,6 +4692,12 @@ func (s *ContainerDefinition) SetCpu(v int64) *ContainerDefinition {
 	return s
 }
 
+// SetDependsOn sets the DependsOn field's value.
+func (s *ContainerDefinition) SetDependsOn(v []*ContainerDependency) *ContainerDefinition {
+	s.DependsOn = v
+	return s
+}
+
 // SetDisableNetworking sets the DisableNetworking field's value.
 func (s *ContainerDefinition) SetDisableNetworking(v bool) *ContainerDefinition {
 	s.DisableNetworking = &v
@@ -4885,6 +4893,54 @@ func (s *ContainerDefinition) SetVolumesFrom(v []*VolumeFrom) *ContainerDefiniti
 // SetWorkingDirectory sets the WorkingDirectory field's value.
 func (s *ContainerDefinition) SetWorkingDirectory(v string) *ContainerDefinition {
 	s.WorkingDirectory = &v
+	return s
+}
+
+type ContainerDependency struct {
+	_ struct{} `type:"structure"`
+
+	// Condition is a required field
+	Condition *string `locationName:"condition" type:"string" required:"true" enum:"ContainerCondition"`
+
+	// ContainerName is a required field
+	ContainerName *string `locationName:"containerName" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ContainerDependency) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ContainerDependency) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ContainerDependency) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ContainerDependency"}
+	if s.Condition == nil {
+		invalidParams.Add(request.NewErrParamRequired("Condition"))
+	}
+	if s.ContainerName == nil {
+		invalidParams.Add(request.NewErrParamRequired("ContainerName"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCondition sets the Condition field's value.
+func (s *ContainerDependency) SetCondition(v string) *ContainerDependency {
+	s.Condition = &v
+	return s
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *ContainerDependency) SetContainerName(v string) *ContainerDependency {
+	s.ContainerName = &v
 	return s
 }
 
