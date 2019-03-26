@@ -22,7 +22,8 @@ IMAGE_NAME="amazon/amazon-ecs-agent"
 AWS_PROFILE=""
 STAGE_S3_BUCKET=""
 S3_ACL_OVERRIDE=""
-source scripts/publishing-common.sh
+DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
+source ${DIR}/publishing-common.sh
 
 usage() {
 	echo "Usage: ${0} -s BUCKET [OPTIONS]"
