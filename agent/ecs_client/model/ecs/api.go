@@ -8310,6 +8310,8 @@ type LogConfiguration struct {
 	// to your container instance and run the following command: sudo docker version
 	// | grep "Server API version"
 	Options map[string]*string `locationName:"options" type:"map"`
+
+	SecretOptions []*Secret `locationName:"secretOptions" type:"list"`
 }
 
 // String returns the string representation
@@ -8329,6 +8331,17 @@ func (s *LogConfiguration) Validate() error {
 		invalidParams.Add(request.NewErrParamRequired("LogDriver"))
 	}
 
+	if s.SecretOptions != nil {
+		for i, v := range s.SecretOptions {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "SecretOptions", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
 	if invalidParams.Len() > 0 {
 		return invalidParams
 	}
@@ -8344,6 +8357,12 @@ func (s *LogConfiguration) SetLogDriver(v string) *LogConfiguration {
 // SetOptions sets the Options field's value.
 func (s *LogConfiguration) SetOptions(v map[string]*string) *LogConfiguration {
 	s.Options = v
+	return s
+}
+
+// SetSecretOptions sets the SecretOptions field's value.
+func (s *LogConfiguration) SetSecretOptions(v []*Secret) *LogConfiguration {
+	s.SecretOptions = v
 	return s
 }
 

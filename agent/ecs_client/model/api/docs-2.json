@@ -997,7 +997,8 @@
     "SecretList": {
       "base": null,
       "refs": {
-        "ContainerDefinition$secrets": null
+        "ContainerDefinition$secrets": null,
+        "LogConfiguration$secretOptions": null
       }
     },
     "ServerException": {
