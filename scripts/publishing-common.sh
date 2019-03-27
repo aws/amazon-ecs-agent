@@ -14,7 +14,7 @@
 # limitations under the License.
 
 DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-export VERSION=$(cat ${DIR}/../VERSION)
+export VERSION=$(cat "${DIR}/../VERSION")
 
 export IMAGE_TAG_LATEST="latest"
 export IMAGE_TAG_SHA=$(git rev-parse --short=8 HEAD)
