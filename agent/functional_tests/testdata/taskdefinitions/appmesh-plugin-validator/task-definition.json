@@ -1,0 +1,111 @@
+{
+  "family":"ecsftest-appmesh-plugin-validator",
+  "networkMode":"awsvpc",
+  "proxyConfiguration":{
+    "type": "APPMESH",
+    "containerName": "app-mesh",
+    "properties": [
+      {
+        "name": "IgnoredGID",
+        "value": "133"
+      },
+      {
+        "name": "ProxyIngressPort",
+        "value": "15000"
+      },
+      {
+        "name": "ProxyEgressPort",
+        "value": "15001"
+      },
+      {
+        "name": "AppPorts",
+        "value": "9080,9090"
+      },
+      {
+        "name": "EgressIgnoredIPs",
+        "value": "192.168.100.0/22,163.107.163.107"
+      },
+      {
+        "name": "EgressIgnoredPorts",
+        "value": "80,81"
+      }
+    ]
+  },
+  "volumes": [
+    {
+      "name": "iptableExe",
+      "host": {
+        "sourcePath": "/sbin"
+      }
+    },
+    {
+      "name": "iptableLib",
+      "host": {
+        "sourcePath": "/lib"
+      }
+    },
+    {
+      "name": "iptableLib64",
+      "host": {
+        "sourcePath": "/lib64"
+      }
+    },
+    {
+      "name": "iptableUsrLib",
+      "host": {
+        "sourcePath": "/usr/lib"
+      }
+    },
+    {
+      "name": "iptableUsrLib64",
+      "host": {
+        "sourcePath": "/usr/lib64"
+      }
+    }
+  ],
+  "containerDefinitions":[{
+    "name":"app-mesh",
+    "image":"127.0.0.1:51670/amazon/amazon-appmesh-plugin-validator:latest",
+    "cpu":100,
+    "memory":100,
+    "privileged":true,
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":"ecs-functional-tests",
+        "awslogs-region":"$$$TEST_REGION$$$",
+        "awslogs-stream-prefix":"ecs-functional-tests"
+      }
+    },
+    "environment" : [
+      { "name" : "PATH", "value" : "/sbin" }
+    ],
+    "mountPoints": [
+      {
+        "sourceVolume": "iptableExe",
+        "containerPath": "/sbin",
+        "readOnly": true
+      },
+      {
+        "sourceVolume": "iptableLib",
+        "containerPath": "/lib",
+        "readOnly": true
+      },
+      {
+        "sourceVolume": "iptableLib64",
+        "containerPath": "/lib64",
+        "readOnly": true
+      },
+      {
+        "sourceVolume": "iptableUsrLib",
+        "containerPath": "/usr/lib",
+        "readOnly": true
+      },
+      {
+        "sourceVolume": "iptableUsrLib64",
+        "containerPath": "/usr/lib64",
+        "readOnly": true
+      }
+    ]
+  }]
+}
