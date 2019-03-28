@@ -1,4 +1,7 @@
 # Changelog
+## 1.27.0
+* Feature - Add secret support for log drivers
+
 ## 1.26.1
 * Enhancement - Set up pause container user the same as proxy container when App Mesh enabled and pause container not using default image
 * Bug - Fixed a bug where network stats are not presented in container stats [#1932](https://github.com/aws/amazon-ecs-agent/pull/1932)
