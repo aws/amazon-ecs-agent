@@ -2,7 +2,7 @@
     "family": "ecsftest-task-local-volume",
     "containerDefinitions": [
         {
-            "image": "microsoft/windowsservercore",
+            "image": "amazon-ecs-ftest-windows-base:make",
             "name": "task-shared-vol-write-windows",
             "cpu": 1024,
             "memory": 256,

@@ -5,7 +5,7 @@
     "host": {}
   }],
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "name": "exit",
     "cpu": 1024,
     "memory": 256,
@@ -15,7 +15,7 @@
     }],
     "command": ["powershell", "-c", "while (1) { sleep 1; if (test-path \"C:/data/success\") { exit 42 }}; done"]
   }, {
-    "image": "microsoft/windowsservercore",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "name": "dataSource",
     "cpu": 1024,
     "memory": 256,
@@ -25,7 +25,7 @@
     }],
     "command": ["powershell", "-c", "New-Item -ItemType file C:/data/success"]
   }, {
-    "image": "microsoft/windowsservercore",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "name": "data-volume-source",
     "cpu": 1024,
     "memory": 256,
