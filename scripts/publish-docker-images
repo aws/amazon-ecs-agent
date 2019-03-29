@@ -21,13 +21,8 @@ IMAGE_NAME="amazon/amazon-ecs-agent"
 
 AWS_PROFILE=""
 STAGE_S3_BUCKET=""
-S3_ACL_OVERRIDE=""
-DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
-source "${DIR}/publishing-common.sh"
 
-AMD_IMAGE_SHA=""
-ARM_IMAGE_SHA=""
-MULTIARCH_IMAGE_SHA=""
+source $(dirname "${0}")/publishing-common.sh
 
 usage() {
 	echo "Usage: ${0} -s BUCKET [OPTIONS]"
@@ -43,6 +38,7 @@ usage() {
 	echo "  -p  PROFILE	 AWS CLI Profile (default is none)"
 	echo "  -s  BUCKET	  AWS S3 Bucket for staging"
 	echo "  -i  IMAGE	   Docker image name"
+	echo "	-f  FILE PATH	Path to file where manifest JSON output is stored"
 	echo "  -h			  Display this help message"
 }
 
@@ -73,7 +69,7 @@ push_linux_amd_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball}"
 	for image_tag in ${IMAGE_TAG_VERSION_AMD} ${IMAGE_TAG_SHA_AMD} ${IMAGE_TAG_LATEST_AMD}; do
-		AMD_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag} | tail -1 | cut -d" " -f3)
+		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
 	done
 
 	rm ${tarball}
@@ -99,7 +95,7 @@ push_linux_arm_agent_docker_hub() {
 	# Pushing to docker hub
 	docker load < "${tarball_arm}"
 	for image_tag in ${IMAGE_TAG_VERSION_ARM} ${IMAGE_TAG_SHA_ARM} ${IMAGE_TAG_LATEST_ARM}; do
-		ARM_IMAGE_SHA=$(tag_and_push_docker ${IMAGE_NAME} ${image_tag} | tail -1 | cut -d" " -f3)
+		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
 	done
 
 	rm ${tarball_arm}
@@ -124,21 +120,40 @@ push_multi-arch_manifest_docker_hub() {
 	git checkout ${manifest_tool_commit_id}
 
 	make build
+
 	for image_tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
 		# Replace the tags in multi-arch.yaml
 		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
 		# Generate the manifest list and push to docker hub
-
-		MULTIARCH_IMAGE_SHA=$(dryval ./manifest-tool push from-spec multi-arch-temp.yaml| tail -1 | cut -d" " -f2)
+		dryval ./manifest-tool push from-spec multi-arch-temp.yaml
 		rm multi-arch-temp.yaml
 	done
+
+	# Create digest files
+	if [[ ! -z "${FILE_PATH}" ]]; then
+		if [[ -d "${FILE_PATH}" ]]; then
+			echo "Creating digest files"
+
+			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST}" \
+				> "${FILE_PATH}/${IMAGE_TAG_SHA}-digest.json"
+
+			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST_ARM}" \
+				> "${FILE_PATH}/${IMAGE_TAG_SHA_ARM}-digest.json"
+
+			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST_AMD}" \
+				> "${FILE_PATH}/${IMAGE_TAG_SHA_AMD}-digest.json"
+
+			echo "Digest file created"
+		else
+			echo "File path is not valid: ${FILE_PATH}"
+		fi
+	fi
 
 	rm -rf ${manifest_tool_dir}
 
 }
 
-
-while getopts ":d:p:s:i" opt; do
+while getopts ":d:p:s:i:f:" opt; do
 	case ${opt} in
 		d)
 			if [[ "${OPTARG}" = "false" ]]; then
@@ -155,6 +170,9 @@ while getopts ":d:p:s:i" opt; do
 			;;
 		i)
 			IMAGE_NAME="${OPTARG}"
+			;;
+		f)
+			FILE_PATH="${OPTARG}"
 			;;
 		\?)
 			echo "Invalid option -${OPTARG}" >&2
@@ -174,7 +192,7 @@ while getopts ":d:p:s:i" opt; do
 done
 
 
-if [ -z "${STAGE_S3_BUCKET}" ]; then
+if [[ -z "${STAGE_S3_BUCKET}" ]]; then
 	usage
 	exit 1
 fi

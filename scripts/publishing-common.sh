@@ -18,14 +18,15 @@ export VERSION=$(cat "${DIR}/../VERSION")
 
 export IMAGE_TAG_LATEST="latest"
 export IMAGE_TAG_SHA=$(git rev-parse --short=8 HEAD)
+
 export IMAGE_TAG_VERSION="v${VERSION}"
 
-export IMAGE_TAG_LATEST_ARM="arm64-latest"
-export IMAGE_TAG_SHA_ARM="arm64-$(git rev-parse --short=8 HEAD)"
+export IMAGE_TAG_LATEST_ARM="arm64-${IMAGE_TAG_LATEST}"
+export IMAGE_TAG_SHA_ARM="arm64-${IMAGE_TAG_SHA}"
 export IMAGE_TAG_VERSION_ARM="arm64-v${VERSION}"
 
-export IMAGE_TAG_LATEST_AMD="amd64-latest"
-export IMAGE_TAG_SHA_AMD="amd64-$(git rev-parse --short=8 HEAD)"
+export IMAGE_TAG_LATEST_AMD="amd64-${IMAGE_TAG_LATEST}"
+export IMAGE_TAG_SHA_AMD="amd64-${IMAGE_TAG_SHA}"
 export IMAGE_TAG_VERSION_AMD="amd64-v${VERSION}"
 
 SUPPORTED_OSES=("linux" "windows")
