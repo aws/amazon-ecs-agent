@@ -3,7 +3,7 @@
   "containerDefinitions": [
     {
       "name": "complete",
-      "image": "microsoft/windowsservercore",
+      "image": "amazon-ecs-ftest-windows-base:make",
       "cpu": 0,
       "memory": 64,
       "essential": true,
@@ -24,7 +24,7 @@
     },
     {
       "name": "complete-dependency",
-      "image": "microsoft/windowsservercore",
+      "image": "amazon-ecs-ftest-windows-base:make",
       "cpu": 0,
       "memory": 64,
       "essential": false,

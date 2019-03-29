@@ -11,6 +11,17 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+Param (
+  [string]$BaseImageName="microsoft/windowsservercore"
+)
+
+# Prepared base image
+$dockerImages = Invoke-Expression "docker images"
+if (-Not ($dockerImages -like "*$BaseImageName*")) {
+    Invoke-Expression "docker pull $BaseImageName"
+}
+Invoke-Expression "docker tag $BaseImageName amazon-ecs-ftest-windows-base:make"
+
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-iam\Setup_Iam.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-listen80\Setup_Listen80.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\windows-telemetry\build.ps1"

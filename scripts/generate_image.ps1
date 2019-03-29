@@ -99,6 +99,7 @@ Import-Module AWSPowerShell
 
 echo "Pulling microsoft/windowsservercore:latest..."
 docker pull microsoft/windowsservercore:latest
+docker tag microsoft/windowsservercore:latest amazon-ecs-ftest-windows-base:make
 
 $ENV:ECS_WINDOWS_TEST_DIR="${BUILD_ROOT}"
 $ENV:ECS_FTEST_TMP="${WORK_ROOT}\ftest_temp"
