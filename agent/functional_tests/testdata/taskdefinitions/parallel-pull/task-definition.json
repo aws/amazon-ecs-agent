@@ -5,7 +5,6 @@
         "name": "busybox",
         "image": "127.0.0.1:51670/busybox:parallel-pull-fts",
         "cpu": 10,
-        "command":  [ "sh", "-c", "while [ true ]; do sleep 1s; date +%T; done"],
         "memory": 64,
         "essential": true
     },
@@ -14,8 +13,7 @@
         "image": "127.0.0.1:51670/ubuntu:parallel-pull-fts",
         "cpu": 10,
         "memory": 64,
-        "essential": true,
-        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+        "essential": true
     },
     {
         "name": "consul",
@@ -28,16 +26,14 @@
         "image": "127.0.0.1:51670/debian:parallel-pull-fts",
         "cpu": 10,
         "memory": 64,
-        "essential": true,
-        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+        "essential": true
     },
     {
         "name": "debian-2",
         "image": "127.0.0.1:51670/debian:parallel-pull-fts",
         "cpu": 10,
         "memory": 64,
-        "essential": true,
-        "command": ["bash", "-c", "while [ true ]; do date +%T; sleep 1s; done"]
+        "essential": true
     },
     {
         "name": "httpd",
