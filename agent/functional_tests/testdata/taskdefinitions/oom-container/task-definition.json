@@ -5,8 +5,8 @@
     "memory": 64,
     "name": "error",
     "cpu": 1,
-    "image": "127.0.0.1:51670/python:2",
-    "command": ["python", "-c", "foo=' '*1024*1024*512; import time; time.sleep(10)"]
+    "image": "amazon/amazon-ecs-stress:make",
+    "command": ["-concurrency", "10", "-memory", "100"]
   }]
 }
 
