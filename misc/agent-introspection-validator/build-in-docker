@@ -21,4 +21,4 @@ docker run \
 	-v ${AGENT_VENDOR_DIR}:/gopath/src \
 	-e CGO_ENABLED=0 \
 	-e GOPATH=/go:/gopath \
-	golang:1.9 go build -a -x -ldflags '-s' -o /out/agent-introspection-validator /in/agent-introspection-validator.go
+	golang:1.12 go build -a -x -ldflags '-s' -o /out/agent-introspection-validator /in/agent-introspection-validator.go
