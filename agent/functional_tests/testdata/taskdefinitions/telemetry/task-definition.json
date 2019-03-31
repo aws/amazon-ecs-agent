@@ -4,6 +4,6 @@
     "containerDefinitions": [{
         "memory": 2000,
         "name": "telemetry",
-        "image": "amazon/amazon-ecs-telemetry-test:make"
+        "image": "amazon/amazon-ecs-stress:make"
     }]
 }

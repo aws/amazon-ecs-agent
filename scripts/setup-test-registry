@@ -72,7 +72,6 @@ docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image
 
 mirror_image busybox:1.29.3 "127.0.0.1:51670/busybox:latest"
 mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
-mirror_image python:2.7.15 "127.0.0.1:51670/python:2"
 mirror_image ubuntu:16.04 "127.0.0.1:51670/ubuntu:latest"
 
 # create a context folder used by docker build. It will only have a file
