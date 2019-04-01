@@ -22,4 +22,4 @@ docker run \
 	-e CGO_ENABLED=0 \
 	-e GO111MODULE=on \
 	-w /in \
-	golang:1.11.5 go build -a -x -ldflags '-s' -o /out/appmesh-plugin-validator /in/appmesh-plugin-validator.go
+	golang:1.12 go build -a -x -ldflags '-s' -o /out/appmesh-plugin-validator /in/appmesh-plugin-validator.go
