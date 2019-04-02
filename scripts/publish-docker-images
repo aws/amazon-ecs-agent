@@ -35,11 +35,11 @@ usage() {
 	echo
 	echo "Options"
 	echo "  -d  true|false  Dryrun (default is true)"
-	echo "  -p  PROFILE	 AWS CLI Profile (default is none)"
-	echo "  -s  BUCKET	  AWS S3 Bucket for staging"
-	echo "  -i  IMAGE	   Docker image name"
-	echo "	-f  FILE PATH	Path to file where manifest JSON output is stored"
-	echo "  -h			  Display this help message"
+	echo "  -p  PROFILE	 	AWS CLI Profile (default is none)"
+	echo "  -s  BUCKET	  	AWS S3 Bucket for staging"
+	echo "  -i  IMAGE	   	Docker image name"
+	echo "	-f  FILE_PATH	Path to file where manifest JSON output is stored"
+	echo "  -h			  	Display this help message"
 }
 
 verify_md5() {
@@ -63,17 +63,17 @@ push_linux_amd_agent_docker_hub() {
 	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5}"
 	echo "Checking ecs-agent-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-${IMAGE_TAG_SHA}.tar.md5"
 
-	verify_md5 ${tarball} ${tarball_md5}
+	verify_md5 "${tarball}" "${tarball_md5}"
 	echo "md5sum Check Successful"
 
 	# Pushing to docker hub
 	docker load < "${tarball}"
-	for image_tag in ${IMAGE_TAG_VERSION_AMD} ${IMAGE_TAG_SHA_AMD} ${IMAGE_TAG_LATEST_AMD}; do
-		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
+	for image_tag in "${IMAGE_TAG_VERSION_AMD}" "${IMAGE_TAG_SHA_AMD}" "${IMAGE_TAG_LATEST_AMD}"; do
+		tag_and_push_docker "${IMAGE_NAME}" "${image_tag}"
 	done
 
-	rm ${tarball}
-	rm ${tarball_md5}
+	rm "${tarball}"
+	rm "${tarball_md5}"
 }
 
 push_linux_arm_agent_docker_hub() {
@@ -89,17 +89,17 @@ push_linux_arm_agent_docker_hub() {
 	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5_arm}"
 	echo "Checking ecs-agent-arm64-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5"
 
-	verify_md5 ${tarball_arm} ${tarball_md5_arm}
+	verify_md5 "${tarball_arm}" "${tarball_md5_arm}"
 	echo "md5sum Check Successful"
 
 	# Pushing to docker hub
 	docker load < "${tarball_arm}"
-	for image_tag in ${IMAGE_TAG_VERSION_ARM} ${IMAGE_TAG_SHA_ARM} ${IMAGE_TAG_LATEST_ARM}; do
-		tag_and_push_docker ${IMAGE_NAME} ${image_tag}
+	for image_tag in "${IMAGE_TAG_VERSION_ARM}" "${IMAGE_TAG_SHA_ARM}" "${IMAGE_TAG_LATEST_ARM}"; do
+		tag_and_push_docker "${IMAGE_NAME}" "${image_tag}"
 	done
 
-	rm ${tarball_arm}
-	rm ${tarball_md5_arm}
+	rm "${tarball_arm}"
+	rm "${tarball_md5_arm}"
 }
 
 push_multi-arch_manifest_docker_hub() {
@@ -111,17 +111,15 @@ push_multi-arch_manifest_docker_hub() {
 
 	manifest_tool_dir="manifest-tool"
 	# Remove manifest-tool folder if it already exists
-	rm -rf ${manifest_tool_dir}
+	rm -rf "${manifest_tool_dir}"
 
-	manifest_tool_commit_id="6bcfccea0827b4ff930f2798440cfce6cd4f1318" # v0.9.0
 	# Clone the manifest-tool from github
-	git clone https://github.com/estesp/manifest-tool ${manifest_tool_dir}
-	cd ${manifest_tool_dir}
-	git checkout ${manifest_tool_commit_id}
+	git clone --depth 1 --branch v0.9.0 https://github.com/estesp/manifest-tool "${manifest_tool_dir}"
+
+	pushd "${manifest_tool_dir}"
 
 	make build
-
-	for image_tag in ${IMAGE_TAG_VERSION} ${IMAGE_TAG_SHA} ${IMAGE_TAG_LATEST}; do
+	for image_tag in "${IMAGE_TAG_VERSION}" "${IMAGE_TAG_SHA}" "${IMAGE_TAG_LATEST}"; do
 		# Replace the tags in multi-arch.yaml
 		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
 		# Generate the manifest list and push to docker hub
@@ -129,27 +127,31 @@ push_multi-arch_manifest_docker_hub() {
 		rm multi-arch-temp.yaml
 	done
 
+
 	# Create digest files
-	if [[ ! -z "${FILE_PATH}" ]]; then
-		if [[ -d "${FILE_PATH}" ]]; then
+	if [[ -n "${FILE_PATH}" ]]; then
 			echo "Creating digest files"
+			# Generate a combined JSON object for each image name with its
+			# manifest-tool output of the form:
+			#
+			# {
+			#    "amazon/amazon-ecs-agent:sha": [ ...inspected-manifest ],
+			# 	 "amazon/amazon-ecs-agent:arm64-sha": [ ...inspected-manifest ],
+			# 	 "amazon/amazon-ecs-agent:amd64-sha": [ ...inspected-manifest ]
+			# }
+			# The JSON is stored in a file passed in -f parameter
 
-			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST}" \
-				> "${FILE_PATH}/${IMAGE_TAG_SHA}-digest.json"
-
-			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST_ARM}" \
-				> "${FILE_PATH}/${IMAGE_TAG_SHA_ARM}-digest.json"
-
-			./manifest-tool inspect --raw "${IMAGE_NAME}:${IMAGE_TAG_LATEST_AMD}" \
-				> "${FILE_PATH}/${IMAGE_TAG_SHA_AMD}-digest.json"
+			{
+				for v in "${IMAGE_TAG_SHA}" "${IMAGE_TAG_SHA_ARM}" "${IMAGE_TAG_SHA_AMD}"; do
+					./manifest-tool inspect --raw "${IMAGE_NAME}:${v}" | jq "{\"${IMAGE_NAME}:${v}\":.}"
+				done
+			} | jq -s add > "${FILE_PATH}"
 
 			echo "Digest file created"
-		else
-			echo "File path is not valid: ${FILE_PATH}"
-		fi
 	fi
 
-	rm -rf ${manifest_tool_dir}
+	popd
+	rm -rf "${manifest_tool_dir}"
 
 }
 
