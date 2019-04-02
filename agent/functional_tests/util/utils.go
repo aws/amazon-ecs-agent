@@ -334,7 +334,9 @@ func DeleteCluster(t *testing.T, clusterName string) {
 
 // VerifyMetrics whether the response is as expected
 // the expected value can be 0 or positive
-func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool) (*cloudwatch.Datapoint, error) {
+// noiseDelta should be significantly less than the percentage of cpu/memory we
+// use for non-idle workload.
+func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool, noiseDelta float64) (*cloudwatch.Datapoint, error) {
 	resp, err := cwclient.GetMetricStatistics(params)
 	if err != nil {
 		return nil, fmt.Errorf("Error getting metrics of cluster: %v", err)
@@ -353,14 +355,13 @@ func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetric
 	if *datapoint.SampleCount != 1.0 {
 		return nil, fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
 	}
-
 	if idleCluster {
-		if *datapoint.Average != 0.0 {
-			return nil, fmt.Errorf("non-zero utilization for idle cluster")
+		if *datapoint.Average >= noiseDelta {
+			return nil, fmt.Errorf("utilization is >= expected noise delta for idle cluster")
 		}
 	} else {
-		if *datapoint.Average == 0.0 {
-			return nil, fmt.Errorf("utilization is zero for non-idle cluster")
+		if *datapoint.Average < noiseDelta {
+			return nil, fmt.Errorf("utilization is < expected noise delta for non-idle cluster")
 		}
 	}
 	return datapoint, nil
