@@ -38,6 +38,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
+	"runtime"
 )
 
 const (
@@ -260,7 +261,14 @@ func (agent *TestAgent) StartAgent() error {
 // * EXECDRIVER_PATH: the path of metrics
 func (agent *TestAgent) getBindMounts() []string {
 	var binds []string
-	cgroupPath := utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
+	var cgroupPath string
+
+	if runtime.GOARCH == "arm64" {
+		cgroupPath = utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPathAgentMount)
+	} else {
+		cgroupPath = utils.DefaultIfBlank(os.Getenv("CGROUP_PATH"), defaultCgroupPath)
+	}
+
 	cgroupBind := cgroupPath + ":" + defaultCgroupPathAgentMount
 	binds = append(binds, cgroupBind)
 
