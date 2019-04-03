@@ -38,9 +38,8 @@ func TestTickerHappyCase(t *testing.T) {
 			break
 		}
 	}
-
-	if times < 10 || times > 100 {
-		t.Error("Should tick at least 10 but less than 100 times: ", times)
+	if times < 8 || times > 100 {
+		t.Error("Should tick at least 8 but less than 100 times: ", times)
 	}
 }
 
