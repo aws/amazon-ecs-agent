@@ -25,10 +25,20 @@ const (
 	TheBestNumber = 28
 )
 
+func setRandomSeed(){
+	// The best randomness is deterministic
+	rand.Seed(TheBestNumber)
+}
+
 func TestTickerHappyCase(t *testing.T) {
+	setRandomSeed()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 	defer cancel()
 	mTicker := NewJitteredTicker(ctx, 10*time.Millisecond, 100*time.Millisecond)
+
+	lowerTickLimit := 10
+	upperTickLimit := 100
 
 	times := 0
 	for {
@@ -38,14 +48,13 @@ func TestTickerHappyCase(t *testing.T) {
 			break
 		}
 	}
-	if times < 8 || times > 100 {
-		t.Error("Should tick at least 8 but less than 100 times: ", times)
+	if times < lowerTickLimit || times > upperTickLimit {
+		t.Errorf("Should tick more than %d but less than %d times, got: %d", lowerTickLimit, upperTickLimit, times)
 	}
 }
 
 func TestRandomDuration(t *testing.T) {
-	// The best randomness is deterministic
-	rand.Seed(TheBestNumber)
+	setRandomSeed()
 
 	start := 10 * time.Second
 	end := 20 * time.Second
