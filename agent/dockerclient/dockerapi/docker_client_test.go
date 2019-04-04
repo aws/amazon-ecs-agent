@@ -169,7 +169,7 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 	mockDockerSDK, client, testTime, _, _, done := dockerClientSetup(t)
 	defer done()
 
-	client.config.ImagePullInactivityTimeout = 100 * time.Millisecond
+	client.config.ImagePullInactivityTimeout = 1 * time.Millisecond
 
 	testTime.EXPECT().After(gomock.Any()).AnyTimes()
 	mockDockerSDK.EXPECT().ImagePull(gomock.Any(), "image:latest", gomock.Any()).DoAndReturn(
@@ -1067,7 +1067,7 @@ func waitForStats(t *testing.T, stat *types.StatsJSON) {
 }
 
 func TestStatsInactivityTimeout(t *testing.T) {
-	shortInactivityTimeout := 100 * time.Millisecond
+	shortInactivityTimeout := 1 * time.Millisecond
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
 	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), true).Return(types.ContainerStats{
