@@ -25,14 +25,12 @@ const (
 	TheBestNumber = 28
 )
 
-func setRandomSeed(){
+func init(){
 	// The best randomness is deterministic
 	rand.Seed(TheBestNumber)
 }
 
 func TestTickerHappyCase(t *testing.T) {
-	setRandomSeed()
-
 	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
 	defer cancel()
 	mTicker := NewJitteredTicker(ctx, 10*time.Millisecond, 100*time.Millisecond)
@@ -54,8 +52,6 @@ func TestTickerHappyCase(t *testing.T) {
 }
 
 func TestRandomDuration(t *testing.T) {
-	setRandomSeed()
-
 	start := 10 * time.Second
 	end := 20 * time.Second
 
