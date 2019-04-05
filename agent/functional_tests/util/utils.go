@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -332,39 +333,81 @@ func DeleteCluster(t *testing.T, clusterName string) {
 	}
 }
 
-// VerifyMetrics whether the response is as expected
-// the expected value can be 0 or positive
-// noiseDelta should be significantly less than the percentage of cpu/memory we
-// use for non-idle workload.
-func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool, noiseDelta float64) (*cloudwatch.Datapoint, error) {
+// gets metrics for given time interval and metricName
+// validates metrics for given conditions
+// returns an average over all (trimmed) metric datapoints as float64
+func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool, noiseDelta float64) (float64, error) {
 	resp, err := cwclient.GetMetricStatistics(params)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting metrics of cluster: %v", err)
+		return float64(0.0), fmt.Errorf("Error getting metrics of cluster: %v", err)
 	}
 
 	if resp == nil || resp.Datapoints == nil {
-		return nil, fmt.Errorf("Cloudwatch get metrics failed, returned null")
+		return float64(0.0), fmt.Errorf("Cloudwatch get metrics failed, returned null")
 	}
 	metricsCount := len(resp.Datapoints)
 	if metricsCount == 0 {
-		return nil, fmt.Errorf("No datapoints returned")
+		return float64(0.0), fmt.Errorf("No datapoints returned")
 	}
 
-	datapoint := resp.Datapoints[metricsCount-1]
 	// Samplecount is always expected to be "1" for cluster metrics
+	datapoint := resp.Datapoints[metricsCount-1]
 	if *datapoint.SampleCount != 1.0 {
-		return nil, fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
+		return float64(0.0), fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
 	}
+
+	trimmedResponseDatapoints := trimOutliers(resp.Datapoints)
+	responseAverage := getAverage(trimmedResponseDatapoints)
+
 	if idleCluster {
-		if *datapoint.Average >= noiseDelta {
-			return nil, fmt.Errorf("utilization is >= expected noise delta for idle cluster")
+		if responseAverage >= noiseDelta {
+			return float64(0.0), fmt.Errorf("utilization is >= expected noise delta for idle cluster")
 		}
 	} else {
-		if *datapoint.Average < noiseDelta {
-			return nil, fmt.Errorf("utilization is < expected noise delta for non-idle cluster")
+		if responseAverage < noiseDelta {
+			return float64(0.0), fmt.Errorf("utilization is < expected noise delta for non-idle cluster")
 		}
 	}
-	return datapoint, nil
+	return responseAverage, nil
+}
+
+// trimOutliers smooths out an array of CloudWatch Datapoints.
+// This is meant to clear outliers we encounter in the stats.
+func trimOutliers(datapoints []*cloudwatch.Datapoint) []*cloudwatch.Datapoint {
+	if len(datapoints) < 3 {
+		// we need at least 3 datapoints to remove min/max and still
+		// have something left over
+		return datapoints
+	}
+	// find min/max indexes and slice out of datapoints array
+	maxIndex := -1
+	maxValue := float64(0.0) // initialized to min float
+	for index, datapoint := range datapoints {
+		if *datapoint.Average >= maxValue {
+			maxValue = *datapoint.Average
+			maxIndex = index
+		}
+	}
+	datapoints = append(datapoints[:maxIndex], datapoints[maxIndex+1:]...)
+	minIndex := -1
+	minValue := math.MaxFloat64
+	for index, datapoint := range datapoints {
+		if *datapoint.Average <= minValue {
+			minValue = *datapoint.Average
+			minIndex = index
+		}
+	}
+	datapoints = append(datapoints[:minIndex], datapoints[minIndex+1:]...)
+	return datapoints
+}
+
+// finds average for all datapoints in an array of cloudwatch.Datapoint
+func getAverage(datapoints []*cloudwatch.Datapoint) float64 {
+	total := float64(0.0)
+	for _, val := range datapoints {
+		total += *val.Average
+	}
+	return total / float64(len(datapoints))
 }
 
 // ResolveTaskDockerID determines the Docker ID for a container within a given
