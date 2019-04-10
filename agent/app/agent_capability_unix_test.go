@@ -361,6 +361,9 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
 			},
 			{
+				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
+			},
+			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
 			},
 		}...)
@@ -437,6 +440,9 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
