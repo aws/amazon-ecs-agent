@@ -3,7 +3,6 @@
 ![Amazon ECS logo](doc/ecs.png "Amazon ECS")
 
 [![Build Status](https://travis-ci.org/aws/amazon-ecs-agent.svg?branch=master)](https://travis-ci.org/aws/amazon-ecs-agent)
-[![Build status](https://ci.appveyor.com/api/projects/status/upkhbwf2oc0srglt?svg=true)](https://ci.appveyor.com/project/AmazonECS/amazon-ecs-agent)
 
 
 The Amazon ECS Container Agent is a component of Amazon Elastic Container Service
@@ -64,10 +63,11 @@ $ /usr/bin/docker run --name ecs-agent \
 --volume=/var/log/ecs/:/log:Z \
 --volume=/var/lib/ecs/data:/data:Z \
 --volume=/etc/ecs:/etc/ecs \
---volume=/lib:/lib \
 --volume=/sbin:/sbin \
+--volume=/lib:/lib \
 --volume=/lib64:/lib64 \
 --volume=/usr/lib:/usr/lib \
+--volume=/usr/lib64:/usr/lib64 \
 --volume=/proc:/host/proc \
 --volume=/sys/fs/cgroup:/sys/fs/cgroup \
 --net=host \

@@ -58,12 +58,18 @@ func isDockerRunning() bool { return true }
 func createTestContainer() *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "windows",
-		Image:               "microsoft/windowsservercore",
+		Image:               "amazon-ecs-ftest-windows-base:make",
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 512,
 		Memory:              256,
 	}
+}
+
+// getLongRunningCommand returns the command that keeps the container running for the container
+// that uses the default integ test image (amazon-ecs-ftest-windows-base:make for windows)
+func getLongRunningCommand() []string {
+	return []string{"ping", "-t", "localhost"}
 }
 
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {

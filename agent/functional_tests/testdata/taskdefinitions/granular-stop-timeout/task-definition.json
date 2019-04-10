@@ -1,0 +1,41 @@
+{
+  "family": "ecsftest-container-granular-stop-timeout",
+  "containerDefinitions": [
+    {
+      "name": "parent",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["sh", "-c", "sleep 10"],
+      "dependsOn": [
+        {
+          "containerName": "dependency1",
+          "condition": "START"
+        },
+        {
+          "containerName": "dependency2",
+          "condition": "START"
+        }
+      ]
+    },
+    {
+      "name": "dependency1",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "trap 'echo caught' SIGTERM; sleep 30"],
+      "stopTimeout": 2
+    },
+    {
+      "name": "dependency2",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "trap 'echo caught' SIGTERM; sleep 30"],
+      "stopTimeout": 20
+    }
+  ]
+}

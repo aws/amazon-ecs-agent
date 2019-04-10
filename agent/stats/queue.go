@@ -36,7 +36,7 @@ type Queue struct {
 	buffer        []UsageStats
 	maxSize       int
 	lastResetTime time.Time
-	lastStat      *types.Stats
+	lastStat      *types.StatsJSON
 	lock          sync.RWMutex
 }
 
@@ -57,7 +57,7 @@ func (queue *Queue) Reset() {
 }
 
 // Add adds a new set of container stats to the queue.
-func (queue *Queue) Add(dockerStat *types.Stats) error {
+func (queue *Queue) Add(dockerStat *types.StatsJSON) error {
 	queue.setLastStat(dockerStat)
 	stat, err := dockerStatsToContainerStats(dockerStat)
 	if err != nil {
@@ -67,7 +67,7 @@ func (queue *Queue) Add(dockerStat *types.Stats) error {
 	return nil
 }
 
-func (queue *Queue) setLastStat(stat *types.Stats) {
+func (queue *Queue) setLastStat(stat *types.StatsJSON) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
@@ -108,7 +108,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 }
 
 // GetLastStat returns the last recorded raw statistics object from docker
-func (queue *Queue) GetLastStat() *types.Stats {
+func (queue *Queue) GetLastStat() *types.StatsJSON {
 	queue.lock.RLock()
 	defer queue.lock.RUnlock()
 

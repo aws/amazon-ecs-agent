@@ -415,7 +415,7 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 	}
 }
 
-func TestHasSecretAsEnv(t *testing.T) {
+func TestHasSecretAsEnvOrLogDriver(t *testing.T) {
 	cases := []struct {
 		in  Container
 		out bool
@@ -447,11 +447,22 @@ func TestHasSecretAsEnv(t *testing.T) {
 					ValueFrom: "/test/secretName",
 				}},
 		}, false},
+		{Container{
+			Name:  "myName",
+			Image: "image:tag",
+			Secrets: []Secret{
+				Secret{
+					Provider:  "asm",
+					Name:      "splunk-token",
+					ValueFrom: "/test/secretName",
+					Target:    "LOG_DRIVER",
+				}},
+		}, true},
 	}
 
 	for _, test := range cases {
 		container := test.in
-		assert.Equal(t, test.out, container.HasSecretAsEnv())
+		assert.Equal(t, test.out, container.HasSecretAsEnvOrLogDriver())
 	}
 
 }

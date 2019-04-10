@@ -1,0 +1,26 @@
+{
+  "family": "test-awslogs-secret-multiline",
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$",
+  "containerDefinitions": [{
+    "essential": true,
+    "memory": 64,
+    "name": "awslogs-secret-support-multiline",
+    "cpu": 10,
+    "image": "busybox:latest",
+    "command": ["sh", "-c", "echo \"INFO: ECS Agent\nRunning\nINFO: Instance\""],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group":"ecs-functional-tests",
+        "awslogs-region":"$$$TEST_REGION$$$",
+        "awslogs-stream-prefix":"1-new-awslogs-secret-multiline"
+      },
+      "secretOptions": [
+        {
+          "name": "$$$SECRET_NAME$$$",
+          "valueFrom": "$$$SECRET_VALUE_FROM$$$"
+        }
+      ]
+    }
+  }]
+}

@@ -22,7 +22,7 @@ import (
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
-func dockerStatsToContainerStats(dockerStats *types.Stats) (*ContainerStats, error) {
+func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats, error) {
 	// The length of PercpuUsage represents the number of cores in an instance.
 	if len(dockerStats.CPUStats.CPUUsage.PercpuUsage) == 0 || numCores == uint64(0) {
 		seelog.Debug("Invalid container statistics reported, no cpu core usage reported")

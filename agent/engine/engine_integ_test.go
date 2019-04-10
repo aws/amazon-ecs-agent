@@ -127,6 +127,10 @@ func TestDockerStateToContainerState(t *testing.T) {
 	testTask := createTestTask("test_task")
 	container := testTask.Containers[0]
 
+	// let the container keep running to prevent the edge case where it's already stopped when we check whether
+	// it's running
+	container.Command = getLongRunningCommand()
+
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
 

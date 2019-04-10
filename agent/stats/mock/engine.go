@@ -49,9 +49,9 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.Stats, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.StatsJSON, error) {
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
-	ret0, _ := ret[0].(*types.Stats)
+	ret0, _ := ret[0].(*types.StatsJSON)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

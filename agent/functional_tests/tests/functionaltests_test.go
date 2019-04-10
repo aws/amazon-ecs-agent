@@ -44,9 +44,10 @@ import (
 )
 
 const (
-	waitTaskStateChangeDuration     = 2 * time.Minute
-	waitMetricsInCloudwatchDuration = 4 * time.Minute
-	awslogsLogGroupName             = "ecs-functional-tests"
+	waitTaskStateChangeDuration         = 2 * time.Minute
+	waitIdleMetricsInCloudwatchDuration = 4 * time.Minute
+	waitBusyMetricsInCloudwatchDuration = 10 * time.Minute
+	awslogsLogGroupName                 = "ecs-functional-tests"
 
 	// 'awsvpc' test parameters
 	awsvpcTaskDefinition     = "nginx-awsvpc"
@@ -474,6 +475,9 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	// Try to let the container use 25% cpu, but bound it within valid range
 	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
 
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
+
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
 	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
@@ -490,10 +494,10 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	params := &cloudwatch.GetMetricStatisticsInput{
-		MetricName: aws.String("CPUUtilization"),
-		Namespace:  aws.String("AWS/ECS"),
-		Period:     aws.Int64(60),
+		Namespace: aws.String("AWS/ECS"),
+		Period:    aws.Int64(60),
 		Statistics: []*string{
 			aws.String("Average"),
 			aws.String("SampleCount"),
@@ -505,61 +509,67 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 			},
 		},
 	}
-	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.EndTime = aws.Time((*params.StartTime).Add(waitMetricsInCloudwatchDuration).UTC())
-	// wait for the agent start and ensure no task is running
-	time.Sleep(waitMetricsInCloudwatchDuration)
 
-	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	_, err = VerifyMetrics(cwclient, params, true)
+	// collect and validate idle state metrics
+	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.EndTime = aws.Time((*params.StartTime).Add(waitIdleMetricsInCloudwatchDuration).UTC())
+	time.Sleep(waitIdleMetricsInCloudwatchDuration)
+
+	params.MetricName = aws.String("CPUUtilization")
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
+	// start telemetry task
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
-
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
-	// Wait for the task to run and the agent to send back metrics
 	err = testTask.WaitRunning(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error wait telemetry task running")
 
-	time.Sleep(waitMetricsInCloudwatchDuration)
+	// collect and validate busy state metrics
+	time.Sleep(waitBusyMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitBusyMetricsInCloudwatchDuration).UTC())
+
 	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
+	metricsAverage, err := VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
-	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
+	// Also verify the cpu usage is around expectedCPUPercentage
+	// +/- StatsNoiseDelta percentage
+	assert.InDelta(t, expectedCPUPercentage*100.0, metricsAverage, statsNoiseDelta)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	metrics, err = VerifyMetrics(cwclient, params, false)
+	metricsAverage, err = VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
+	// Verify the memory usage is around 1024/totalMemory
+	// +/- StatsNoiseDelta percentage
 	memInfo, err := system.ReadMemInfo()
 	require.NoError(t, err, "Acquiring system info failed")
 	totalMemory := memInfo.MemTotal / bytePerMegabyte
-	// Verify the memory usage is around 1024/totalMemory +/- 5%
-	assert.InDelta(t, float32(1024*100)/float32(totalMemory), *metrics.Average, 5)
+	assert.InDelta(t, float32(1024*100)/float32(totalMemory), metricsAverage, statsNoiseDelta)
 
+	// stop telemetry task
 	err = testTask.Stop()
 	require.NoError(t, err, "Failed to stop the telemetry task")
-
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Waiting for task stop failed")
 
-	time.Sleep(waitMetricsInCloudwatchDuration)
+	// collect and validate idle state metrics
+	time.Sleep(waitIdleMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitIdleMetricsInCloudwatchDuration).UTC())
+
 	params.MetricName = aws.String("CPUUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
@@ -569,6 +579,9 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 
 	// Try to let the container use 25% cpu, but bound it within valid range
 	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
+
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
 
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-polling-" + uuid.New()
@@ -589,10 +602,10 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	params := &cloudwatch.GetMetricStatisticsInput{
-		MetricName: aws.String("CPUUtilization"),
-		Namespace:  aws.String("AWS/ECS"),
-		Period:     aws.Int64(60),
+		Namespace: aws.String("AWS/ECS"),
+		Period:    aws.Int64(60),
 		Statistics: []*string{
 			aws.String("Average"),
 			aws.String("SampleCount"),
@@ -605,35 +618,33 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 		},
 	}
 
-	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-
+	// start telemetry task
 	tdOverrides := make(map[string]string)
-	// Set the container cpu percentage 25%
 	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
-
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
-	// Wait for the task to run and the agent to send back metrics
 	err = testTask.WaitRunning(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error wait telemetry task running")
 
-	time.Sleep(waitMetricsInCloudwatchDuration)
+	// collect and validate busy state metrics
+	time.Sleep(waitBusyMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitBusyMetricsInCloudwatchDuration).UTC())
+
 	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
+	metricsAverage, err := VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
 	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
-	assert.InDelta(t, expectedCPUPercentage*100.0, *metrics.Average, 5)
+	assert.InDelta(t, expectedCPUPercentage*100.0, metricsAverage, statsNoiseDelta)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	metrics, err = VerifyMetrics(cwclient, params, false)
+	metricsAverage, err = VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 	memInfo, err := system.ReadMemInfo()
 	require.NoError(t, err, "Acquiring system info failed")
 	totalMemory := memInfo.MemTotal / bytePerMegabyte
 	// Verify the memory usage is around 1024/totalMemory +/- 5%
-	assert.InDelta(t, float32(1024*100)/float32(totalMemory), *metrics.Average, 5)
+	assert.InDelta(t, float32(1024*100)/float32(totalMemory), metricsAverage, 5)
 
 	err = testTask.Stop()
 	require.NoError(t, err, "Failed to stop the telemetry task")
@@ -756,12 +767,20 @@ func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
-	// TODO: Bump version to 1.24.0 (or next release after 1.23.0)
-	agent.RequireVersion(">=1.22.0")
+
+	agent.RequireVersion(">=1.24.0")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+	ip, err := ec2MetadataClient.PublicIPv4Address()
+	if err != nil || ip == "" {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "false"
+	} else {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "true"
+	}
 
 	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
 	containerName := "container-metadata-file-validator"

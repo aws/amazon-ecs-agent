@@ -47,6 +47,7 @@ func TestAppMeshFromACS(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, appMesh)
+	assert.Equal(t, mockContainerName, appMesh.ContainerName)
 	assert.Equal(t, mockIgnoredUID, appMesh.IgnoredUID)
 	assert.Equal(t, mockIgnoredGID, appMesh.IgnoredGID)
 	assert.Equal(t, mockProxyEgressPort, appMesh.ProxyEgressPort)

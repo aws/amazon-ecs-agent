@@ -56,7 +56,7 @@ func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.Stats, error) {
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -70,7 +70,7 @@ func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstc
 	return nil, nil, fmt.Errorf("empty stats")
 }
 
-func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.Stats, error) {
+func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -90,7 +90,7 @@ func (*idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return metadata, []*ecstcs.TaskMetric{}, nil
 }
 
-func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.Stats, error) {
+func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -118,7 +118,7 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata,
 	return metadata, taskMetrics, nil
 }
 
-func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.Stats, error) {
+func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
