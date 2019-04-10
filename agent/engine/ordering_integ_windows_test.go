@@ -16,7 +16,7 @@
 package engine
 
 const (
-	baseImageForOS = "microsoft/windowsservercore"
+	baseImageForOS = "amazon-ecs-ftest-windows-base:make"
 )
 
 var (

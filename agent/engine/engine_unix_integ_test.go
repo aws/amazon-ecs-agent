@@ -1003,7 +1003,7 @@ func TestLinking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(waitForDockerDuration)
 
 	var response []byte
 	for i := 0; i < 10; i++ {
@@ -1022,7 +1022,7 @@ func TestLinking(t *testing.T) {
 		// isn't up quickly enough and we get a blank response. It's still unclear
 		// to me if this is a docker bug or netkitten bug
 		t.Log("Retrying getting response from container; got nothing")
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 	if string(response) != "hello linker" {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")

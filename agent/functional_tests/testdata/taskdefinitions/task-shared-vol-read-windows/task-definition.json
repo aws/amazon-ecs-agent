@@ -3,7 +3,7 @@
     "containerDefinitions": [
         {
             "name": "task-shared-vol-read",
-            "image": "microsoft/windowsservercore",
+            "image": "amazon-ecs-ftest-windows-base:make",
             "cpu": 1024,
             "memory": 256,
             "essential": true,

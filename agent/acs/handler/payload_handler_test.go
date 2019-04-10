@@ -721,6 +721,7 @@ func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
 	// Validate the added task has the eni information as expected
 	appMesh := addedTask.GetAppMesh()
 	assert.NotNil(t, appMesh)
+	assert.Equal(t, mockContainerName, appMesh.ContainerName)
 	assert.Equal(t, mockIgnoredUID, appMesh.IgnoredUID)
 	assert.Equal(t, mockIgnoredGID, appMesh.IgnoredGID)
 	assert.Equal(t, mockProxyIngressPort, appMesh.ProxyIngressPort)

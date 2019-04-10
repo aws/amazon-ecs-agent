@@ -24,7 +24,7 @@ import (
 // NewTaskStatsResponse returns a new task stats response object
 func NewTaskStatsResponse(taskARN string,
 	state dockerstate.TaskEngineState,
-	statsEngine stats.Engine) (map[string]*types.Stats, error) {
+	statsEngine stats.Engine) (map[string]*types.StatsJSON, error) {
 
 	containerMap, ok := state.ContainerMapByArn(taskARN)
 	if !ok {
@@ -33,7 +33,7 @@ func NewTaskStatsResponse(taskARN string,
 			taskARN)
 	}
 
-	resp := make(map[string]*types.Stats)
+	resp := make(map[string]*types.StatsJSON)
 	for _, dockerContainer := range containerMap {
 		containerID := dockerContainer.DockerID
 		dockerStats, err := statsEngine.ContainerDockerStats(taskARN, containerID)

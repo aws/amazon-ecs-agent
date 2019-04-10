@@ -1,0 +1,52 @@
+{
+  "family": "ecsftest-container-ordering-complete-condition",
+  "containerDefinitions": [
+    {
+      "name": "healthy",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "workingDirectory" : "/test",
+      "command": ["sh", "-c", "cat test.txt"],
+      "dependsOn": [
+        {
+          "containerName": "healthy-dependency",
+          "condition": "HEALTHY"
+        }
+      ],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ]
+    },
+    {
+      "name": "healthy-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["sh", "-c", "sleep 60"],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "/test"
+        }
+      ],
+      "workingDirectory" : "/test",
+      "healthCheck": {
+        "command": ["CMD-SHELL", "cd /test && touch test.txt && echo hi >> test.txt;"],
+        "interval": 5,
+        "timeout": 50,
+        "retries": 3
+      }
+    }
+  ],
+  "volumes" : [
+    {
+      "name" : "volume1"
+    }
+  ]
+}

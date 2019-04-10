@@ -163,7 +163,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.Stats, error)
+	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1287,8 +1287,8 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 	return dg.sdkClientFactory.FindClientAPIVersion(client), nil
 }
 
-// Stats returns a channel of *types.Stats entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.Stats, error) {
+// Stats returns a channel of *types.StatsJSON entries for the container.
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
 	client, err := dg.sdkDockerClient()
@@ -1298,7 +1298,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	}
 
 	// Create channel to hold the stats
-	statsChnl := make(chan *types.Stats)
+	statsChnl := make(chan *types.StatsJSON)
 	var resp types.ContainerStats
 
 	if !dg.config.PollMetrics {
@@ -1322,7 +1322,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 
 			// Returns a *Decoder and takes in a readCloser
 			decoder := json.NewDecoder(resp.Body)
-			data := new(types.Stats)
+			data := new(types.StatsJSON)
 			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 				if err != nil {
 					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1334,7 +1334,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				}
 
 				statsChnl <- data
-				data = new(types.Stats)
+				data = new(types.StatsJSON)
 			}
 		}()
 	} else {
@@ -1359,7 +1359,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 
 				// Returns a *Decoder and takes in a readCloser
 				decoder := json.NewDecoder(resp.Body)
-				data := new(types.Stats)
+				data := new(types.StatsJSON)
 				err := decoder.Decode(data)
 				if err != nil {
 					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
@@ -1367,7 +1367,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				}
 
 				statsChnl <- data
-				data = new(types.Stats)
+				data = new(types.StatsJSON)
 			}
 		}()
 	}

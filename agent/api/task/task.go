@@ -87,7 +87,6 @@ const (
 	// awslogsCredsEndpointOpt is the awslogs option that is used to pass in an
 	// http endpoint for authentication
 	awslogsCredsEndpointOpt = "awslogs-credentials-endpoint"
-
 	// These contants identify the docker flag options
 	pidModeHost     = "host"
 	pidModeTask     = "task"
@@ -300,7 +299,11 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
-	task.addNetworkResourceProvisioningDependency(cfg)
+	err = task.addNetworkResourceProvisioningDependency(cfg)
+	if err != nil {
+		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
@@ -768,9 +771,9 @@ func (task *Task) isNetworkModeVPC() bool {
 	return true
 }
 
-func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
+func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) error {
 	if !task.isNetworkModeVPC() {
-		return
+		return nil
 	}
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
 	pauseContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
@@ -778,6 +781,44 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 	pauseContainer.Image = fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	pauseContainer.Essential = true
 	pauseContainer.Type = apicontainer.ContainerCNIPause
+
+	// Set pauseContainer user the same as proxy container user when image name is not DefaultPauseContainerImageName
+	if task.GetAppMesh() != nil && cfg.PauseContainerImageName != config.DefaultPauseContainerImageName {
+		appMeshConfig := task.GetAppMesh()
+
+		// Validation is done when registering task to make sure there is one container name matching
+		for _, container := range task.Containers {
+			if container.Name != appMeshConfig.ContainerName {
+				continue
+			}
+
+			if container.DockerConfig.Config == nil {
+				return errors.Errorf("user needs to be specified for proxy container")
+			}
+			containerConfig := &dockercontainer.Config{}
+			err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
+			if err != nil {
+				return errors.Errorf("unable to decode given docker config: %s", err.Error())
+			}
+
+			if containerConfig.User == "" {
+				return errors.Errorf("user needs to be specified for proxy container")
+			}
+
+			pauseConfig := dockercontainer.Config{
+				User:  containerConfig.User,
+				Image: fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag),
+			}
+
+			bytes, _ := json.Marshal(pauseConfig)
+			serializedConfig := string(bytes)
+			pauseContainer.DockerConfig = apicontainer.DockerConfig{
+				Config: &serializedConfig,
+			}
+			break
+		}
+	}
+
 	task.Containers = append(task.Containers, pauseContainer)
 
 	for _, container := range task.Containers {
@@ -787,6 +828,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) {
 		container.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
+	return nil
 }
 
 func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) {
@@ -1237,7 +1279,7 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 		}
 		return true, dockerMappingContainerPrefix + pauseDockerID.DockerID
 
-	// If PIDMode is not Host or Task, then no need to override
+		// If PIDMode is not Host or Task, then no need to override
 	default:
 		return false, ""
 	}
@@ -1267,7 +1309,7 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 	case "":
 		return false, ""
 
-	// IPCMode is none - container will have own private namespace with /dev/shm not mounted
+		// IPCMode is none - container will have own private namespace with /dev/shm not mounted
 	case ipcModeNone:
 		return true, ipcModeNone
 
@@ -1842,8 +1884,8 @@ func (task *Task) getSSMSecretsResource() ([]taskresource.TaskResource, bool) {
 	return res, ok
 }
 
-// PopulateSecretsAsEnv appends the container's env var map with secrets
-func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apierrors.DockerClientConfigError {
+// PopulateSecrets appends secrets to container's env var map and hostconfig section
+func (task *Task) PopulateSecrets(hostConfig *dockercontainer.HostConfig, container *apicontainer.Container) *apierrors.DockerClientConfigError {
 	var ssmRes *ssmsecret.SSMSecretResource
 	var asmRes *asmsecret.ASMSecretResource
 
@@ -1865,18 +1907,38 @@ func (task *Task) PopulateSecretsAsEnv(container *apicontainer.Container) *apier
 
 	envVars := make(map[string]string)
 
+	logDriverTokenName := ""
+	logDriverTokenSecretValue := ""
+
 	for _, secret := range container.Secrets {
-		if secret.Provider == apicontainer.SecretProviderSSM && secret.Type == apicontainer.SecretTypeEnv {
+		secretVal := ""
+
+		if secret.Provider == apicontainer.SecretProviderSSM {
 			k := secret.GetSecretResourceCacheKey()
 			if secretValue, ok := ssmRes.GetCachedSecretValue(k); ok {
-				envVars[secret.Name] = secretValue
+				secretVal = secretValue
 			}
 		}
 
-		if secret.Provider == apicontainer.SecretProviderASM && secret.Type == apicontainer.SecretTypeEnv {
+		if secret.Provider == apicontainer.SecretProviderASM {
 			k := secret.GetSecretResourceCacheKey()
 			if secretValue, ok := asmRes.GetCachedSecretValue(k); ok {
-				envVars[secret.Name] = secretValue
+				secretVal = secretValue
+			}
+		}
+
+		if secret.Type == apicontainer.SecretTypeEnv {
+			envVars[secret.Name] = secretVal
+			continue
+		}
+		if secret.Target == apicontainer.SecretTargetLogDriver {
+			logDriverTokenName = secret.Name
+			logDriverTokenSecretValue = secretVal
+
+			// Check if all the name and secret value for the log driver do exist
+			// And add the secret value for this log driver into container's HostConfig
+			if hostConfig.LogConfig.Type != "" && logDriverTokenName != "" && logDriverTokenSecretValue != "" {
+				hostConfig.LogConfig.Config[logDriverTokenName] = logDriverTokenSecretValue
 			}
 		}
 	}

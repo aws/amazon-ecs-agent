@@ -670,7 +670,8 @@ func TestV2ContainerStats(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &types.Stats{NumProcs: 2}
+	dockerStats := &types.StatsJSON{}
+	dockerStats.NumProcs = 2
 	gomock.InOrder(
 		state.EXPECT().GetTaskByIPAddress(remoteIP).Return(taskARN, true),
 		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, nil),
@@ -684,7 +685,7 @@ func TestV2ContainerStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult *types.Stats
+	var statsFromResult *types.StatsJSON
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)
@@ -712,7 +713,8 @@ func TestV2TaskStats(t *testing.T) {
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_api.NewMockECSClient(ctrl)
 
-			dockerStats := &types.Stats{NumProcs: 2}
+			dockerStats := &types.StatsJSON{}
+			dockerStats.NumProcs = 2
 			containerMap := map[string]*apicontainer.DockerContainer{
 				containerName: {
 					DockerID: containerID,
@@ -732,7 +734,7 @@ func TestV2TaskStats(t *testing.T) {
 			res, err := ioutil.ReadAll(recorder.Body)
 			assert.NoError(t, err)
 			assert.Equal(t, http.StatusOK, recorder.Code)
-			var statsFromResult map[string]*types.Stats
+			var statsFromResult map[string]*types.StatsJSON
 			err = json.Unmarshal(res, &statsFromResult)
 			assert.NoError(t, err)
 			containerStats, ok := statsFromResult[containerID]
@@ -938,7 +940,8 @@ func TestV3TaskStats(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &types.Stats{NumProcs: 2}
+	dockerStats := &types.StatsJSON{}
+	dockerStats.NumProcs = 2
 
 	containerMap := map[string]*apicontainer.DockerContainer{
 		containerName: {
@@ -959,7 +962,7 @@ func TestV3TaskStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult map[string]*types.Stats
+	var statsFromResult map[string]*types.StatsJSON
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	containerStats, ok := statsFromResult[containerID]
@@ -976,7 +979,8 @@ func TestV3ContainerStats(t *testing.T) {
 	statsEngine := mock_stats.NewMockEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 
-	dockerStats := &types.Stats{NumProcs: 2}
+	dockerStats := &types.StatsJSON{}
+	dockerStats.NumProcs = 2
 
 	gomock.InOrder(
 		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
@@ -991,7 +995,7 @@ func TestV3ContainerStats(t *testing.T) {
 	res, err := ioutil.ReadAll(recorder.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	var statsFromResult *types.Stats
+	var statsFromResult *types.StatsJSON
 	err = json.Unmarshal(res, &statsFromResult)
 	assert.NoError(t, err)
 	assert.Equal(t, dockerStats.NumProcs, statsFromResult.NumProcs)

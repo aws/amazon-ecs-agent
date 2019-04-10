@@ -11,6 +11,17 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+Param (
+  [string]$BaseImageName="microsoft/windowsservercore"
+)
+
+# Prepare windows base image
+$dockerImages = Invoke-Expression "docker images"
+if (-Not ($dockerImages -like "*$BaseImageName*")) {
+  Invoke-Expression "docker pull $BaseImageName"
+}
+Invoke-Expression "docker tag $BaseImageName amazon-ecs-ftest-windows-base:make"
+
 # Prepare dependencies
 Invoke-Expression "${PSScriptRoot}\..\misc\volumes-test\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
@@ -22,7 +33,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -race -tags integration -timeout=35m -v ../agent/engine ../agent/stats ../agent/app
+  go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"

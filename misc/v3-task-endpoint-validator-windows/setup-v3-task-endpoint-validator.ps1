@@ -17,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
 
 # Create amazon/amazon-ecs-v3-task-endpoint-validator-windows for tests
+Invoke-Expression "go get github.com/docker/docker/api/types github.com/pkg/errors"
 Invoke-Expression "go build -o ${PSScriptRoot}\v3-task-endpoint-validator-windows.exe ${PSScriptRoot}\v3-task-endpoint-validator-windows.go" 
 Invoke-Expression "docker build -t amazon/amazon-ecs-v3-task-endpoint-validator-windows --file ${PSScriptRoot}\v3-task-endpoint-validator-windows.dockerfile ${PSScriptRoot}"
 $ErrorActionPreference = $oldPref
