@@ -225,7 +225,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		// test  to time out as the context is never cancelled
 		mockWsClient.EXPECT().Connect().Do(func() {
 			cancel()
-		}).MinTimes(1),
+		}).Return(nil).MinTimes(1),
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
@@ -717,7 +717,7 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	mockWsClient.EXPECT().Connect().Do(func() {
 		// Serve() cancels the context
 		cancel()
-	}).MinTimes(1)
+	}).Return(nil).MinTimes(1)
 
 	gomock.InOrder(
 		// DiscoverPollEndpoint returns an error on its first invocation
