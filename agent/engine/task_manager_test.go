@@ -44,6 +44,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
@@ -1512,7 +1513,7 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
 	}
-	// Disgard all the statechange events
+	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
 
 	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
@@ -1537,8 +1538,59 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 	mTask.handleContainerChange(containerChange)
 
 	containerHealth := container.GetHealthStatus()
-	assert.Equal(t, containerHealth.Status, apicontainerstatus.ContainerHealthy)
-	assert.Equal(t, containerHealth.Output, "health check succeed")
+	assert.Equal(t, apicontainerstatus.ContainerHealthy, containerHealth.Status)
+	assert.Equal(t, "health check succeed", containerHealth.Output)
+}
+
+func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
+	eventStreamName := "TestHandleContainerChangeUpdateContainerHealth"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	containerChangeEventStream := eventstream.NewEventStream(eventStreamName, ctx)
+	containerChangeEventStream.StartListening()
+
+	mTask := &managedTask{
+		Task:                       testdata.LoadTask("sleep5TaskCgroup"),
+		containerChangeEventStream: containerChangeEventStream,
+		stateChangeEvents:          make(chan statechange.Event),
+	}
+	// Discard all the statechange events
+	defer discardEvents(mTask.stateChangeEvents)()
+
+	mTask.SetKnownStatus(apitaskstatus.TaskRunning)
+	mTask.SetSentStatus(apitaskstatus.TaskRunning)
+	container := mTask.Containers[0]
+	container.HealthCheckType = "docker"
+	// Container already in RUNNING status
+	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+
+	timeNow := time.Now()
+	exitCode := exitcodes.ExitError
+	containerChange := dockerContainerChange{
+		container: container,
+		event: dockerapi.DockerContainerChangeEvent{
+			Status: apicontainerstatus.ContainerRunning,
+			DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+				DockerID: "dockerID",
+				Health: apicontainer.HealthStatus{
+					Status: apicontainerstatus.ContainerHealthy,
+					Output: "health check succeed",
+				},
+				ExitCode:  &exitCode,
+				CreatedAt: timeNow,
+			},
+		},
+	}
+
+	mTask.handleContainerChange(containerChange)
+
+	containerHealth := container.GetHealthStatus()
+	assert.Equal(t, apicontainerstatus.ContainerHealthy, containerHealth.Status)
+	assert.Equal(t, "health check succeed", containerHealth.Output)
+	containerExitCode := container.GetKnownExitCode()
+	assert.Equal(t, exitCode, *containerExitCode)
+	containerCreateTime := container.GetCreatedAt()
+	assert.Equal(t, timeNow, containerCreateTime)
 }
 
 func TestWaitForHostResources(t *testing.T) {
