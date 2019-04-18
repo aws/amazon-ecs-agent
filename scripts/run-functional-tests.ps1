@@ -33,7 +33,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\container-metadata-file-validator-win
 $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
-  go test -tags functional -timeout=40m -v ../agent/functional_tests/tests
+  go test -tags functional -timeout=40m -run TestContainerHealthMetricsWithStartPeriod -v ../agent/functional_tests/tests
   $handwrittenExitCode = $LastExitCode
   echo "Handwritten functional tests exited with ${handwrittenExitCode}"
   go test -tags functional -timeout=30m -v ../agent/functional_tests/tests/generated/simpletests_windows
