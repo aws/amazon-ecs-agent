@@ -10,7 +10,8 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM busybox:1.29.3
+   # busybox:1.30.1
+FROM busybox@sha256:954e1f01e80ce09d0887ff6ea10b13a812cb01932a0781d6b0cc23f743a874fd
 
 MAINTAINER Amazon Web Services, Inc.
 

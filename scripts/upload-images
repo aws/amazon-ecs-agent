@@ -48,7 +48,7 @@ fi
 
 ECR_ROLE_IMAGE="executionrole"
 
-BUSYBOX_IMAGE="busybox:1.29.3"
+BUSYBOX_IMAGE="busybox:1.30.1"
 NGINX_IMAGE="nginx:1.15.8"
 PYTHON2_IMAGE="python:2.7.15"
 UBUNTU_IMAGE="ubuntu:16.04"
