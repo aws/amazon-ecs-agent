@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -30,7 +31,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/aws/aws-sdk-go/aws"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,6 +47,8 @@ const (
 	taskVCPULimit             = 2.0
 	taskMemoryLimit           = 512
 	minDockerClientAPIVersion = dockerclient.Version_1_17
+
+	proxyName = "envoy"
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -64,7 +68,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		ENI: &apieni.ENI{},
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -76,12 +80,127 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask.addNetworkResourceProvisioningDependency(cfg)
 	assert.Equal(t, 2, len(testTask.Containers),
 		"addNetworkResourceProvisioningDependency should add another container")
-	pauseContainer, ok := testTask.ContainerByName(PauseContainerName)
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
 	require.True(t, ok, "Expected to find pause container")
 	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
 	assert.True(t, pauseContainer.Essential, "pause container should be essential")
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
 		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
+	pauseConfig := dockercontainer.Config{
+		User: "1337:35",
+	}
+
+	bytes, _ := json.Marshal(pauseConfig)
+	serializedConfig := string(bytes)
+
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name: proxyName,
+				DockerConfig: apicontainer.DockerConfig{
+					Config: &serializedConfig,
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "pause-container-image-name",
+		PauseContainerTag:       "pause-container-tag",
+	}
+
+	testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Equal(t, 3, len(testTask.Containers),
+		"addNetworkResourceProvisioningDependency should add another container")
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
+	require.True(t, ok, "Expected to find pause container")
+	containerConfig := &dockercontainer.Config{}
+	json.Unmarshal([]byte(aws.StringValue(pauseContainer.DockerConfig.Config)), &containerConfig)
+	assert.Equal(t, "1337:35", containerConfig.User, "pause container should have correct user")
+	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
+	assert.True(t, pauseContainer.Essential, "pause container should be essential")
+	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
+		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *testing.T) {
+	pauseConfig := dockercontainer.Config{
+		User: "1337:35",
+	}
+
+	bytes, _ := json.Marshal(pauseConfig)
+	serializedConfig := string(bytes)
+
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name: proxyName,
+				DockerConfig: apicontainer.DockerConfig{
+					Config: &serializedConfig,
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "",
+		PauseContainerTag:       "pause-container-tag",
+	}
+	testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Equal(t, 3, len(testTask.Containers),
+		"addNetworkResourceProvisioningDependency should add another container")
+	pauseContainer, ok := testTask.ContainerByName(NetworkPauseContainerName)
+	require.True(t, ok, "Expected to find pause container")
+	assert.Equal(t, apicontainer.DockerConfig{}, pauseContainer.DockerConfig, "pause container should not have user")
+	assert.Equal(t, apicontainer.ContainerCNIPause, pauseContainer.Type, "pause container should have correct type")
+	assert.True(t, pauseContainer.Essential, "pause container should be essential")
+	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
+		"pause container should use configured image")
+}
+
+func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) {
+	testTask := &Task{
+		AppMesh: &apiappmesh.AppMesh{
+			ContainerName: proxyName,
+		},
+		ENI: &apieni.ENI{},
+		Containers: []*apicontainer.Container{
+			{
+				Name:                      "c1",
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			{
+				Name:                      proxyName,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+	cfg := &config.Config{
+		PauseContainerImageName: "pause-container-image-name",
+		PauseContainerTag:       "pause-container-tag",
+	}
+	err := testTask.addNetworkResourceProvisioningDependency(cfg)
+	assert.Error(t, err,
+		"addNetworkResourceProvisioningDependency should throw error when no user in proxy container")
 }
 
 // TestBuildCgroupRootHappyPath builds cgroup root from valid taskARN
@@ -238,7 +357,7 @@ func TestOverrideCgroupParentHappyPath(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.NoError(t, task.overrideCgroupParent(hostConfig))
 	assert.NotEmpty(t, hostConfig)
@@ -255,7 +374,7 @@ func TestOverrideCgroupParentErrorPath(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.Error(t, task.overrideCgroupParent(hostConfig))
 	assert.Empty(t, hostConfig.CgroupParent)
@@ -270,7 +389,7 @@ func TestPlatformHostConfigOverride(t *testing.T) {
 		MemoryCPULimitsEnabled: true,
 	}
 
-	hostConfig := &docker.HostConfig{}
+	hostConfig := &dockercontainer.HostConfig{}
 
 	assert.NoError(t, task.platformHostConfigOverride(hostConfig))
 	assert.NotEmpty(t, hostConfig)
@@ -298,7 +417,7 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
+	// dockercontainer.HostConfig which will include a lot of zero values.
 	rawHostConfigInput := struct {
 		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
@@ -336,52 +455,18 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, configErr)
 
-	expected := docker.HostConfig{
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
-	}
-
-	assertSetStructFieldsEqual(t, expected, *hostConfig)
-}
-
-// TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly
-// set based on the docker client version
-func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
-	memoryMiB := 500
-	testTask := &Task{
-		Containers: []*apicontainer.Container{
-			{
-				Name:   "c1",
-				CPU:    uint(10),
-				Memory: uint(memoryMiB),
-			},
+	expected := dockercontainer.HostConfig{
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
+		Resources: dockercontainer.Resources{
+			// Convert MB to B and set Memory
+			Memory:     int64(100 * 1024 * 1024),
+			CPUShares:  50,
+			CPUPercent: minimumCPUPercent,
 		},
 	}
-
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
-	assert.Nil(t, err)
-
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-
-	assert.Equal(t, int64(memoryMiB*1024*1024), config.Memory)
-	assert.Equal(t, int64(10), config.CPUShares)
-	assert.Empty(t, hostconfig.CPUShares)
-	assert.Empty(t, hostconfig.Memory)
-
-	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
-	assert.Nil(t, err)
-
-	config, cerr = testTask.DockerConfig(testTask.Containers[0], dockerclient.Version_1_18)
-	assert.Nil(t, err)
-	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
-	assert.Equal(t, int64(10), hostconfig.CPUShares)
-
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
+	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
 func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
@@ -392,7 +477,7 @@ func TestInitCgroupResourceSpecHappyPath(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -420,7 +505,7 @@ func TestInitCgroupResourceSpecInvalidARN(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -440,8 +525,8 @@ func TestInitCgroupResourceSpecInvalidMem(t *testing.T) {
 		Memory: taskMemoryLimit,
 		Containers: []*apicontainer.Container{
 			{
-				Name:   "C1",
-				Memory: uint(2048), // container memory > task memory
+				Name:                      "C1",
+				Memory:                    uint(2048), // container memory > task memory
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
@@ -460,7 +545,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		Version: "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "c1",
+				Name:                      "c1",
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},

@@ -19,6 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -199,10 +200,10 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			// credentials id for the task as well
 			taskIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.RoleCredentials, credentials.ApplicationRoleType)
 			err = payloadHandler.credentialsManager.SetTaskCredentials(
-				credentials.TaskIAMRoleCredentials{
+				&(credentials.TaskIAMRoleCredentials{
 					ARN:                aws.StringValue(task.Arn),
 					IAMRoleCredentials: taskIAMRoleCredentials,
-				})
+				}))
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false
@@ -222,16 +223,26 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 
 			apiTask.SetTaskENI(eni)
 		}
+		// Add the app mesh information to task struct
+		if task.ProxyConfiguration != nil {
+			appmesh, err := apiappmesh.AppMeshFromACS(task.ProxyConfiguration)
+			if err != nil {
+				payloadHandler.handleUnrecognizedTask(task, err, payload)
+				allTasksOK = false
+				continue
+			}
+			apiTask.SetAppMesh(appmesh)
+		}
 		if task.ExecutionRoleCredentials != nil {
 			// The payload message contains execution credentials for the task.
 			// Add the credentials to the credentials manager and set the
 			// task executionCredentials id.
 			taskExecutionIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(task.ExecutionRoleCredentials, credentials.ExecutionRoleType)
 			err = payloadHandler.credentialsManager.SetTaskCredentials(
-				credentials.TaskIAMRoleCredentials{
+				&(credentials.TaskIAMRoleCredentials{
 					ARN:                aws.StringValue(task.Arn),
 					IAMRoleCredentials: taskExecutionIAMRoleCredentials,
-				})
+				}))
 			if err != nil {
 				payloadHandler.handleUnrecognizedTask(task, err, payload)
 				allTasksOK = false

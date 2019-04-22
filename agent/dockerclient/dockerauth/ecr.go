@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,10 +24,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 type cacheKey struct {
@@ -66,16 +66,16 @@ func NewECRAuthProvider(ecrFactory ecr.ECRFactory, cache async.Cache) DockerAuth
 
 // GetAuthconfig retrieves the correct auth configuration for the given repository
 func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
-	registryAuthData *apicontainer.RegistryAuthenticationData) (docker.AuthConfiguration, error) {
+	registryAuthData *apicontainer.RegistryAuthenticationData) (types.AuthConfig, error) {
 
 	if registryAuthData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("dockerauth: missing container's registry auth data")
+		return types.AuthConfig{}, fmt.Errorf("dockerauth: missing container's registry auth data")
 	}
 
 	authData := registryAuthData.ECRAuthData
 
 	if authData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("dockerauth: missing container's ecr auth data")
+		return types.AuthConfig{}, fmt.Errorf("dockerauth: missing container's ecr auth data")
 	}
 
 	// First try to get the token from cache, if the token does not exist,
@@ -104,7 +104,7 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 }
 
 // getAuthconfigFromCache retrieves the token from cache
-func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *docker.AuthConfiguration {
+func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *types.AuthConfig {
 	token, ok := authProvider.tokenCache.Get(key.String())
 	if !ok {
 		return nil
@@ -133,20 +133,20 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromCache(key cacheKey) *docke
 }
 
 // getAuthConfigFromECR calls the ECR API to get docker auth config
-func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (docker.AuthConfiguration, error) {
+func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cacheKey, authData *apicontainer.ECRAuthData) (types.AuthConfig, error) {
 	// Create ECR client to get the token
 	client, err := authProvider.factory.GetClient(authData)
 	if err != nil {
-		return docker.AuthConfiguration{}, err
+		return types.AuthConfig{}, err
 	}
 
 	log.Debugf("Calling ECR.GetAuthorizationToken for %s", image)
 	ecrAuthData, err := client.GetAuthorizationToken(authData.RegistryID)
 	if err != nil {
-		return docker.AuthConfiguration{}, err
+		return types.AuthConfig{}, err
 	}
 	if ecrAuthData == nil {
-		return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
+		return types.AuthConfig{}, fmt.Errorf("ecr auth: missing AuthorizationData in ECR response for %s", image)
 	}
 
 	// Verify the auth data has the correct format for ECR
@@ -158,16 +158,16 @@ func (authProvider *ecrAuthProvider) getAuthConfigFromECR(image string, key cach
 		authProvider.tokenCache.Set(key.String(), ecrAuthData)
 		return extractToken(ecrAuthData)
 	}
-	return docker.AuthConfiguration{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
+	return types.AuthConfig{}, fmt.Errorf("ecr auth: AuthorizationData is malformed for %s", image)
 }
 
-func extractToken(authData *ecrapi.AuthorizationData) (docker.AuthConfiguration, error) {
+func extractToken(authData *ecrapi.AuthorizationData) (types.AuthConfig, error) {
 	decodedToken, err := base64.StdEncoding.DecodeString(aws.StringValue(authData.AuthorizationToken))
 	if err != nil {
-		return docker.AuthConfiguration{}, err
+		return types.AuthConfig{}, err
 	}
 	parts := strings.SplitN(string(decodedToken), ":", 2)
-	return docker.AuthConfiguration{
+	return types.AuthConfig{
 		Username:      parts[0],
 		Password:      parts[1],
 		ServerAddress: aws.StringValue(authData.ProxyEndpoint),
@@ -182,7 +182,7 @@ func (authProvider *ecrAuthProvider) IsTokenValid(authData *ecrapi.Authorization
 	}
 
 	refreshTime := aws.TimeValue(authData.ExpiresAt).
-		Add(-1 * utils.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
+		Add(-1 * retry.AddJitter(MinimumJitterDuration, MinimumJitterDuration))
 
 	return time.Now().Before(refreshTime)
 }

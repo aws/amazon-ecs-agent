@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,7 +26,8 @@ type ECSClient interface {
 	// ContainerInstanceARN if successful. Supplying a non-empty container
 	// instance ARN allows a container instance to update its registered
 	// resources.
-	RegisterContainerInstance(existingContainerInstanceArn string, attributes []*ecs.Attribute) (string, error)
+	RegisterContainerInstance(existingContainerInstanceArn string,
+		attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) (string, string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitTaskStateChange(change TaskStateChange) error
@@ -39,6 +40,8 @@ type ECSClient interface {
 	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact Telemetry Service
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
+	// GetTaskTags retrieves the Tags associated with a certain Task
+	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
@@ -48,6 +51,7 @@ type ECSSDK interface {
 	CreateCluster(*ecs.CreateClusterInput) (*ecs.CreateClusterOutput, error)
 	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
 	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
+	ListTagsForResource(*ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error)
 }
 
 // ECSSubmitStateSDK is an interface with customized ecs client that

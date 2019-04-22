@@ -22,10 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	docker "github.com/fsouza/go-dockerclient"
+
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,9 +47,9 @@ func TestCreateSuccess(t *testing.T) {
 		"opt2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, nil, dockerapi.CreateVolumeTimeout).Return(
-		dockerapi.VolumeResponse{
-			DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, nil, dockerclient.CreateVolumeTimeout).Return(
+		dockerapi.SDKVolumeResponse{
+			DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 			Error:        nil,
 		})
 
@@ -73,8 +75,8 @@ func TestCreateError(t *testing.T) {
 		"label2": "val2",
 	}
 
-	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, labels, dockerapi.CreateVolumeTimeout).Return(
-		dockerapi.VolumeResponse{
+	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, labels, dockerclient.CreateVolumeTimeout).Return(
+		dockerapi.SDKVolumeResponse{
 			DockerVolume: nil,
 			Error:        errors.New("some error"),
 		})
@@ -96,7 +98,7 @@ func TestCleanupSuccess(t *testing.T) {
 	autoprovision := false
 	driver := "driver"
 
-	mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Return(nil)
+	mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerclient.RemoveVolumeTimeout).Return(nil)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -136,9 +138,9 @@ func TestApplyTransitionForTaskScopeVolume(t *testing.T) {
 	mountPoint := "some/mount/point"
 
 	gomock.InOrder(
-		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, labels, dockerapi.CreateVolumeTimeout).Times(1).Return(
-			dockerapi.VolumeResponse{
-				DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, driverOptions, labels, dockerclient.CreateVolumeTimeout).Times(1).Return(
+			dockerapi.SDKVolumeResponse{
+				DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
 	)
@@ -159,12 +161,12 @@ func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
 	mountPoint := "some/mount/point"
 
 	gomock.InOrder(
-		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, nil, dockerapi.CreateVolumeTimeout).Times(1).Return(
-			dockerapi.VolumeResponse{
-				DockerVolume: &docker.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
+		mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, nil, dockerclient.CreateVolumeTimeout).Times(1).Return(
+			dockerapi.SDKVolumeResponse{
+				DockerVolume: &types.Volume{Name: name, Driver: driver, Mountpoint: mountPoint, Labels: nil},
 				Error:        nil,
 			}),
-		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerapi.RemoveVolumeTimeout).Times(0),
+		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerclient.RemoveVolumeTimeout).Times(0),
 	)
 
 	volume, _ := NewVolumeResource(nil, name, name, scope, autoprovision, driver, nil, nil, mockClient)

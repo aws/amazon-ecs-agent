@@ -19,16 +19,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -45,6 +48,7 @@ const initPID = 1
 var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
 	ecscni.ECSBridgePluginName,
 	ecscni.ECSIPAMPluginName,
+	ecscni.ECSAppMeshPluginName,
 }
 
 // startWindowsService is not supported on Linux
@@ -81,17 +85,15 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, true
 	}
 
-	if agent.cfg.ShouldLoadPauseContainerTarball() {
-		// Load the pause container's image from the 'disk'
-		if _, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient); err != nil {
-			if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-				// If the pause container's image tarball doesn't exist or if the
-				// invocation is done for an unsupported platform, we cannot recover.
-				// Return the error as terminal for these cases
-				return err, true
-			}
-			return err, false
+	// Load the pause container's image from the 'disk'
+	if _, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient); err != nil {
+		if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
+			// If the pause container's image tarball doesn't exist or if the
+			// invocation is done for an unsupported platform, we cannot recover.
+			// Return the error as terminal for these cases
+			return err, true
 		}
+		return err, false
 	}
 
 	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
@@ -147,12 +149,17 @@ func isInstanceLaunchedInVPC(err error) bool {
 // a. ecs-eni
 // b. ecs-bridge
 // c. ecs-ipam
+// d. aws-appmesh
 func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
 		capabilities, err := agent.cniClient.Capabilities(plugin)
 		if err != nil {
 			return err
+		}
+		// appmesh plugin is not needed for awsvpc networking capability
+		if plugin == ecscni.ECSAppMeshPluginName {
+			continue
 		}
 		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
 			return errors.Errorf("plugin '%s' doesn't support the capability: %s",
@@ -197,11 +204,13 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		Control: cgroup.New(),
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			IOUtil:             ioutilwrapper.NewIOUtil(),
-			ASMClientCreator:   factory.NewClientCreator(),
+			ASMClientCreator:   asmfactory.NewClientCreator(),
+			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
-		Ctx:          agent.ctx,
-		DockerClient: agent.dockerClient,
+		Ctx:              agent.ctx,
+		DockerClient:     agent.dockerClient,
+		NvidiaGPUManager: gpu.NewNvidiaGPUManager(),
 	}
 }
 
@@ -217,5 +226,21 @@ func (agent *ecsAgent) cgroupInit() error {
 	}
 	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
 	agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	return nil
+}
+
+func (agent *ecsAgent) initializeGPUManager() error {
+	if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+		return agent.resourceFields.NvidiaGPUManager.Initialize()
+	}
+	return nil
+}
+
+func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
+	if agent.cfg.GPUSupportEnabled {
+		if agent.resourceFields != nil && agent.resourceFields.NvidiaGPUManager != nil {
+			return agent.resourceFields.NvidiaGPUManager.GetDevices()
+		}
+	}
 	return nil
 }

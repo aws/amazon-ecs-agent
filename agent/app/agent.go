@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
+
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -28,8 +30,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/clientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -52,6 +54,7 @@ import (
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
+	"github.com/pborman/uuid"
 )
 
 const (
@@ -90,6 +93,7 @@ type agent interface {
 type ecsAgent struct {
 	ctx                   context.Context
 	ec2MetadataClient     ec2.EC2MetadataClient
+	ec2Client             ec2.Client
 	cfg                   *config.Config
 	dockerClient          dockerapi.DockerClient
 	containerInstanceARN  string
@@ -106,6 +110,7 @@ type ecsAgent struct {
 	terminationHandler    sighandlers.TerminationHandler
 	mobyPlugins           mobypkgwrapper.Plugins
 	resourceFields        *taskresource.ResourceFields
+	availabilityZone      string
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -134,8 +139,9 @@ func newAgent(
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
-	dockerClient, err := dockerapi.NewDockerGoClient(
-		clientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg)
+	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
+
 	if err != nil {
 		// This is also non terminal in the current config
 		seelog.Criticalf("Error creating Docker client: %v", err)
@@ -153,6 +159,7 @@ func newAgent(
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
 		cfg:               cfg,
 		dockerClient:      dockerClient,
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
@@ -226,6 +233,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			return exitcodes.ExitTerminal
 		}
 	}
+	if agent.cfg.GPUSupportEnabled {
+		err := agent.initializeGPUManager()
+		if err != nil {
+			seelog.Criticalf("Could not initialize Nvidia GPU Manager: %v", err)
+			return exitcodes.ExitError
+		}
+	}
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
@@ -234,9 +248,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	agent.initMetricsEngine()
+
 	// Initialize the state manager
 	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID)
+		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -280,6 +296,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
+		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
+		agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -317,7 +335,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	}
 
 	// We try to set these values by loading the existing state file first
-	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn string
+	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousAZ string
 	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
 		credentialsManager, containerChangeEventStream, imageManager, state,
 		agent.metadataManager, agent.resourceFields)
@@ -325,7 +343,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
 	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID)
+		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
@@ -368,6 +386,20 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	return previousTaskEngine, currentEC2InstanceID, nil
 }
 
+func (agent *ecsAgent) initMetricsEngine() {
+	// In case of a panic during set-up, we will recover quietly and resume
+	// normal Agent execution.
+	defer func() {
+		if r := recover(); r != nil {
+			seelog.Errorf("MetricsEngine Set-up panicked. Recovering quietly: %s", r)
+		}
+	}()
+
+	// We init the global MetricsEngine before we publish metrics
+	metrics.MustInit(agent.cfg)
+	metrics.PublishMetrics()
+}
+
 // setClusterInConfig sets the cluster name in the config object based on
 // previous state. It returns an error if there's a mismatch between the
 // the current cluster name with what's restored from the cluster state
@@ -393,13 +425,13 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 
 // getEC2InstanceID gets the EC2 instance ID from the metadata service
 func (agent *ecsAgent) getEC2InstanceID() string {
-	instanceIdentityDoc, err := agent.ec2MetadataClient.InstanceIdentityDocument()
+	instanceID, err := agent.ec2MetadataClient.InstanceID()
 	if err != nil {
-		seelog.Criticalf(
+		seelog.Warnf(
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
 		return ""
 	}
-	return instanceIdentityDoc.InstanceID
+	return instanceID
 }
 
 // newStateManager creates a new state manager object for the task engine.
@@ -409,7 +441,8 @@ func (agent *ecsAgent) newStateManager(
 	taskEngine engine.TaskEngine,
 	cluster *string,
 	containerInstanceArn *string,
-	savedInstanceID *string) (statemanager.StateManager, error) {
+	savedInstanceID *string,
+	availabilityZone *string) (statemanager.StateManager, error) {
 
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
@@ -423,6 +456,7 @@ func (agent *ecsAgent) newStateManager(
 		agent.saveableOptionFactory.AddSaveable("Cluster", cluster),
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
+		agent.saveableOptionFactory.AddSaveable("availabilityZone", availabilityZone),
 	)
 }
 
@@ -446,7 +480,6 @@ func (agent *ecsAgent) registerContainerInstance(
 	stateManager statemanager.StateManager,
 	client api.ECSClient,
 	additionalAttributes []*ecs.Attribute) error {
-
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
 		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
@@ -458,13 +491,29 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	capabilities := append(agentCapabilities, additionalAttributes...)
 
+	// Get the tags of this container instance defined in config file
+	tags := utils.MapToTags(agent.cfg.ContainerInstanceTags)
+	if agent.cfg.ContainerInstancePropagateTagsFrom == config.ContainerInstancePropagateTagsFromEC2InstanceType {
+		ec2Tags, err := agent.getContainerInstanceTagsFromEC2API()
+		// If we are unable to call the API, we should not treat it as a transient error,
+		// because we've already retried several times, we may throttle the API if we
+		// keep retrying.
+		if err != nil {
+			return err
+		}
+		seelog.Infof("Retrieved Tags from EC2 DescribeTags API:\n%v", ec2Tags)
+		tags = mergeTags(tags, ec2Tags)
+	}
+
+	platformDevices := agent.getPlatformDevices()
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities)
+		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, err := client.RegisterContainerInstance("", capabilities)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -482,6 +531,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	}
 	seelog.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
+	agent.availabilityZone = availabilityZone
 	// Save our shiny new containerInstanceArn
 	stateManager.Save()
 	return nil
@@ -490,8 +540,12 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute) error {
-	_, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities)
+func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
+	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) error {
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken, platformDevices)
+	//set az to agent
+	agent.availabilityZone = availabilityZone
+
 	if err == nil {
 		return nil
 	}
@@ -527,12 +581,17 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.V1ServeHTTP(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.ServeIntrospectionHTTPEndpoint(&agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
-	go handlers.V2ServeHTTP(credentialsManager, state, agent.containerInstanceARN, agent.cfg, statsEngine)
+	if agent.cfg.TaskMetadataAZDisabled {
+		// send empty availability zone
+		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
+	} else {
+		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
+	}
 
 	// Start sending events to the backend
 	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler)
@@ -549,7 +608,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	}
 
 	// Start metrics session in a go routine
-	go tcshandler.StartMetricsSession(telemetrySessionParams)
+	go tcshandler.StartMetricsSession(&telemetrySessionParams)
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This
@@ -607,4 +666,43 @@ func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
 	seelog.Criticalf("Required minimum docker API verion %s is not supported",
 		dockerclient.Version_1_21)
 	return exitcodes.ExitTerminal, false
+}
+
+// getContainerInstanceTagsFromEC2API will retrieve the tags of this instance remotely.
+func (agent *ecsAgent) getContainerInstanceTagsFromEC2API() ([]*ecs.Tag, error) {
+	// Get instance ID from ec2 metadata client.
+	instanceID, err := agent.ec2MetadataClient.InstanceID()
+	if err != nil {
+		return nil, err
+	}
+
+	return agent.ec2Client.DescribeECSTagsForInstance(instanceID)
+}
+
+// mergeTags will merge the local tags and ec2 tags, for the overlap part, ec2 tags
+// will be overridden by local tags.
+func mergeTags(localTags []*ecs.Tag, ec2Tags []*ecs.Tag) []*ecs.Tag {
+	tagsMap := make(map[string]string)
+
+	for _, ec2Tag := range ec2Tags {
+		tagsMap[aws.StringValue(ec2Tag.Key)] = aws.StringValue(ec2Tag.Value)
+	}
+
+	for _, localTag := range localTags {
+		tagsMap[aws.StringValue(localTag.Key)] = aws.StringValue(localTag.Value)
+	}
+
+	return utils.MapToTags(tagsMap)
+}
+
+// getHostPublicIPv4AddressFromEC2Metadata will retrieve the PublicIPAddress (IPv4) of this
+// instance through the EC2 API
+func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
+	// Get instance ID from ec2 metadata client.
+	hostPublicIPv4Address, err := agent.ec2MetadataClient.PublicIPv4Address()
+	if err != nil {
+		seelog.Errorf("Unable to retrieve Host Instance PublicIPv4 Address: %v", err)
+		return ""
+	}
+	return hostPublicIPv4Address
 }

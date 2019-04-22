@@ -1,7 +1,7 @@
 {
   "family": "ecsinteg-simple-exit-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "name": "exit",
     "cpu": 1024,
     "memory": 512,

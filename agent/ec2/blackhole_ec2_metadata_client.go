@@ -45,10 +45,26 @@ func (blackholeMetadataClient) SubnetID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) InstanceID() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) GetMetadata(path string) (string, error) {
 	return "", errors.New("blackholed")
 }
 
 func (blackholeMetadataClient) GetDynamicData(path string) (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) GetUserData() (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) Region() (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) PublicIPv4Address() (string, error) {
 	return "", errors.New("blackholed")
 }

@@ -19,18 +19,12 @@ import (
 	"errors"
 	"testing"
 
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRetriableErrorReturnsFalseForNoSuchContainer(t *testing.T) {
-	err := CannotStopContainerError{&docker.NoSuchContainer{}}
+	err := CannotStopContainerError{NoSuchContainerError{}}
 	assert.False(t, err.IsRetriableError(), "No such container error should be treated as unretriable docker error")
-}
-
-func TestRetriableErrorReturnsFalseForContainerNotRunning(t *testing.T) {
-	err := CannotStopContainerError{&docker.ContainerNotRunning{}}
-	assert.False(t, err.IsRetriableError(), "ContainerNotRunning error should be treated as unretriable docker error")
 }
 
 func TestRetriableErrorReturnsTrue(t *testing.T) {

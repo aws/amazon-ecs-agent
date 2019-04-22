@@ -30,9 +30,15 @@ const (
 	Version_1_28 DockerVersion = "1.28"
 	Version_1_29 DockerVersion = "1.29"
 	Version_1_30 DockerVersion = "1.30"
+	Version_1_31 DockerVersion = "1.31"
+	Version_1_32 DockerVersion = "1.32"
 )
 
-// getKnownAPIVersions returns all of the API versions that we know about.
+func (d DockerVersion) String() string {
+	return string(d)
+}
+
+// GetKnownAPIVersions returns all of the API versions that we know about.
 // It doesn't care if the version is supported by Docker or ECS agent
 func GetKnownAPIVersions() []DockerVersion {
 	return []DockerVersion{
@@ -50,5 +56,7 @@ func GetKnownAPIVersions() []DockerVersion {
 		Version_1_28,
 		Version_1_29,
 		Version_1_30,
+		Version_1_31,
+		Version_1_32,
 	}
 }

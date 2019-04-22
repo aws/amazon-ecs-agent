@@ -27,7 +27,7 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/cihub/seelog"
-	"github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -55,7 +55,7 @@ type ASMAuthResource struct {
 
 	// required for asm private registry auth
 	requiredASMResources []*apicontainer.ASMAuthData
-	dockerAuthData       map[string]docker.AuthConfiguration
+	dockerAuthData       map[string]types.AuthConfig
 	// asmClientCreator is a factory interface that creates new ASM clients. This is
 	// needed mostly for testing as we're creating an asm client per every item in
 	// the requiredASMResources list. Each of these items could be from different
@@ -250,7 +250,7 @@ func (auth *ASMAuthResource) GetCreatedAt() time.Time {
 func (auth *ASMAuthResource) Create() error {
 	seelog.Infof("ASM Auth: Retrieving credentials for containers in task: [%s]", auth.taskARN)
 	if auth.dockerAuthData == nil {
-		auth.dockerAuthData = make(map[string]docker.AuthConfiguration)
+		auth.dockerAuthData = make(map[string]types.AuthConfig)
 	}
 	for _, a := range auth.GetRequiredASMResources() {
 		err := auth.retrieveASMDockerAuthData(a)
@@ -328,7 +328,7 @@ func (auth *ASMAuthResource) clearASMDockerAuthConfig() {
 
 // GetASMDockerAuthConfig retrieves the docker private registry auth data from
 // the task
-func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (docker.AuthConfiguration, bool) {
+func (auth *ASMAuthResource) GetASMDockerAuthConfig(secretID string) (types.AuthConfig, bool) {
 	auth.lock.RLock()
 	defer auth.lock.RUnlock()
 

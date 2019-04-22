@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -71,7 +71,7 @@ func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.C
 }
 
 // SetTaskCredentials mocks base method
-func (m *MockManager) SetTaskCredentials(arg0 credentials.TaskIAMRoleCredentials) error {
+func (m *MockManager) SetTaskCredentials(arg0 *credentials.TaskIAMRoleCredentials) error {
 	ret := m.ctrl.Call(m, "SetTaskCredentials", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0

@@ -22,9 +22,11 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 
@@ -33,16 +35,19 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/docker/docker/pkg/system"
+	"github.com/docker/go-connections/nat"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	waitTaskStateChangeDuration     = 2 * time.Minute
-	waitMetricsInCloudwatchDuration = 4 * time.Minute
-	awslogsLogGroupName             = "ecs-functional-tests"
+	waitTaskStateChangeDuration         = 2 * time.Minute
+	waitIdleMetricsInCloudwatchDuration = 4 * time.Minute
+	waitBusyMetricsInCloudwatchDuration = 10 * time.Minute
+	awslogsLogGroupName                 = "ecs-functional-tests"
 
 	// 'awsvpc' test parameters
 	awsvpcTaskDefinition     = "nginx-awsvpc"
@@ -50,6 +55,8 @@ const (
 	awsvpcTaskRequestTimeout = 5 * time.Second
 	cpuSharesPerCore         = 1024
 	bytePerMegabyte          = 1024 * 1024
+	minimumCPUShares         = 128
+	maximumCPUShares         = 10240
 )
 
 // TestPullInvalidImage verifies that an invalid image returns an error
@@ -70,6 +77,7 @@ func TestPullInvalidImage(t *testing.T) {
 // its control, and starting the agent results in that container being moved to
 // 'stopped'
 func TestSavedState(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	testTask, err := agent.StartTask(t, savedStateTaskDefinition)
@@ -91,7 +99,8 @@ func TestSavedState(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,6 +185,7 @@ func TestPortResourceContention(t *testing.T) {
 }
 
 func TestLabels(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -193,7 +203,7 @@ func TestLabels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,6 +213,7 @@ func TestLabels(t *testing.T) {
 }
 
 func TestLogdriverOptions(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.5.0")
@@ -220,7 +231,7 @@ func TestLogdriverOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	container, err := agent.DockerClient.InspectContainer(dockerId)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,6 +244,7 @@ func TestLogdriverOptions(t *testing.T) {
 }
 
 func TestTaskCleanup(t *testing.T) {
+	ctx := context.TODO()
 	// Set the task cleanup time to just over a minute.
 	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "70s")
 	agent := RunAgent(t, nil)
@@ -258,13 +270,14 @@ func TestTaskCleanup(t *testing.T) {
 	}
 
 	// We should be able to inspect the container ID from docker at this point.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err != nil {
 		t.Fatalf("Error inspecting container in task: %v", err)
 	}
 
 	// Stop the task and sleep for 2 minutes to let the task be cleaned up.
-	err = agent.DockerClient.StopContainer(dockerId, 1)
+	containerStopTimeout := 1 * time.Second
+	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
 	if err != nil {
 		t.Fatalf("Error stoppping task: %v", err)
 	}
@@ -277,7 +290,7 @@ func TestTaskCleanup(t *testing.T) {
 	time.Sleep(2 * time.Minute)
 
 	// We should not be able to describe the container now since it has been cleaned up.
-	_, err = agent.DockerClient.InspectContainer(dockerId)
+	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
 	if err == nil {
 		t.Fatalf("Expected error inspecting container in task")
 	}
@@ -304,7 +317,12 @@ func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
 	if err != nil {
 		return fmt.Errorf("error starting task with network %v, err: %v", mode, err)
 	}
-	defer task.Stop()
+	defer func() {
+		if err := task.Stop(); err != nil {
+			return
+		}
+		task.WaitStopped(waitTaskStateChangeDuration)
+	}()
 
 	err = task.WaitRunning(waitTaskStateChangeDuration)
 	if err != nil {
@@ -436,7 +454,30 @@ func containerHealthWithStartPeriodTest(t *testing.T, taskDefinition string) {
 	containerHealthMetricsTest(t, taskDefinition, tdOverrides)
 }
 
+func calculateCpuLimits(cpuPercentage float64) (int, float64) {
+	cpuNum := runtime.NumCPU()
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare := int(float64(cpuNum*cpuSharesPerCore) * cpuPercentage)
+	if cpuShare < minimumCPUShares {
+		cpuShare = minimumCPUShares
+	} else if cpuShare > maximumCPUShares {
+		cpuShare = maximumCPUShares
+	}
+	expectedCPUPercentage := float64(cpuShare) / float64(cpuNum*cpuSharesPerCore)
+
+	return cpuShare, expectedCPUPercentage
+}
+
 func telemetryTest(t *testing.T, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
+
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
+
 	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
 	newClusterName := "ecstest-telemetry-" + uuid.New()
 	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
@@ -453,10 +494,10 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	params := &cloudwatch.GetMetricStatisticsInput{
-		MetricName: aws.String("CPUUtilization"),
-		Namespace:  aws.String("AWS/ECS"),
-		Period:     aws.Int64(60),
+		Namespace: aws.String("AWS/ECS"),
+		Period:    aws.Int64(60),
 		Statistics: []*string{
 			aws.String("Average"),
 			aws.String("SampleCount"),
@@ -468,65 +509,148 @@ func telemetryTest(t *testing.T, taskDefinition string) {
 			},
 		},
 	}
-	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.EndTime = aws.Time((*params.StartTime).Add(waitMetricsInCloudwatchDuration).UTC())
-	// wait for the agent start and ensure no task is running
-	time.Sleep(waitMetricsInCloudwatchDuration)
 
-	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	_, err = VerifyMetrics(cwclient, params, true)
+	// collect and validate idle state metrics
+	params.StartTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.EndTime = aws.Time((*params.StartTime).Add(waitIdleMetricsInCloudwatchDuration).UTC())
+	time.Sleep(waitIdleMetricsInCloudwatchDuration)
+
+	params.MetricName = aws.String("CPUUtilization")
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for CPU utilization failed")
 
 	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
 	assert.NoError(t, err, "Before task running, verify metrics for memory utilization failed")
 
-	cpuNum := runtime.NumCPU()
-
+	// start telemetry task
 	tdOverrides := make(map[string]string)
-	// Set the container cpu percentage 25%
-	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(int(float64(cpuNum*cpuSharesPerCore) * 0.25))
-
+	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
 	require.NoError(t, err, "Failed to start telemetry task")
-	// Wait for the task to run and the agent to send back metrics
 	err = testTask.WaitRunning(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error wait telemetry task running")
 
-	time.Sleep(waitMetricsInCloudwatchDuration)
+	// collect and validate busy state metrics
+	time.Sleep(waitBusyMetricsInCloudwatchDuration)
 	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitBusyMetricsInCloudwatchDuration).UTC())
+
 	params.MetricName = aws.String("CPUUtilization")
-	metrics, err := VerifyMetrics(cwclient, params, false)
+	metricsAverage, err := VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
-	// Also verify the cpu usage is around 25% +/- 5%
-	assert.InDelta(t, 25, *metrics.Average, 5)
+	// Also verify the cpu usage is around expectedCPUPercentage
+	// +/- StatsNoiseDelta percentage
+	assert.InDelta(t, expectedCPUPercentage*100.0, metricsAverage, statsNoiseDelta)
 
 	params.MetricName = aws.String("MemoryUtilization")
-	metrics, err = VerifyMetrics(cwclient, params, false)
+	metricsAverage, err = VerifyMetrics(cwclient, params, false, 0.0)
+	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
+	// Verify the memory usage is around 1024/totalMemory
+	// +/- StatsNoiseDelta percentage
+	memInfo, err := system.ReadMemInfo()
+	require.NoError(t, err, "Acquiring system info failed")
+	totalMemory := memInfo.MemTotal / bytePerMegabyte
+	assert.InDelta(t, float32(1024*100)/float32(totalMemory), metricsAverage, statsNoiseDelta)
+
+	// stop telemetry task
+	err = testTask.Stop()
+	require.NoError(t, err, "Failed to stop the telemetry task")
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Waiting for task stop failed")
+
+	// collect and validate idle state metrics
+	time.Sleep(waitIdleMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitIdleMetricsInCloudwatchDuration).UTC())
+
+	params.MetricName = aws.String("CPUUtilization")
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
+	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
+
+	params.MetricName = aws.String("MemoryUtilization")
+	_, err = VerifyMetrics(cwclient, params, true, statsNoiseDelta)
+	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
+}
+
+func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	// Try to let the container use 25% cpu, but bound it within valid range
+	cpuShare, expectedCPUPercentage := calculateCpuLimits(0.25)
+
+	// account for docker stats / CloudWatch noise
+	statsNoiseDelta := 5.0
+
+	// Try to use a new cluster for this test, ensure no other task metrics for this cluster
+	newClusterName := "ecstest-telemetry-polling-" + uuid.New()
+	_, err := ECS.CreateCluster(&ecsapi.CreateClusterInput{
+		ClusterName: aws.String(newClusterName),
+	})
+	require.NoError(t, err, "Failed to create cluster")
+	defer DeleteCluster(t, newClusterName)
+
+	// additional config fields to use polling instead of stream
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_CLUSTER":                       newClusterName,
+			"ECS_POLL_METRICS":                  "true",
+			"ECS_POLLING_METRICS_WAIT_DURATION": "15s",
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	params := &cloudwatch.GetMetricStatisticsInput{
+		Namespace: aws.String("AWS/ECS"),
+		Period:    aws.Int64(60),
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("SampleCount"),
+		},
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("ClusterName"),
+				Value: aws.String(newClusterName),
+			},
+		},
+	}
+
+	// start telemetry task
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$$CPUSHARE$$$$"] = strconv.Itoa(cpuShare)
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskDefinition, tdOverrides)
+	require.NoError(t, err, "Failed to start telemetry task")
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error wait telemetry task running")
+
+	// collect and validate busy state metrics
+	time.Sleep(waitBusyMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitBusyMetricsInCloudwatchDuration).UTC())
+
+	params.MetricName = aws.String("CPUUtilization")
+	metricsAverage, err := VerifyMetrics(cwclient, params, false, 0.0)
+	assert.NoError(t, err, "Task is running, verify metrics for CPU utilization failed")
+	// Also verify the cpu usage is around expectedCPUPercentage +/- 5%
+	assert.InDelta(t, expectedCPUPercentage*100.0, metricsAverage, statsNoiseDelta)
+
+	params.MetricName = aws.String("MemoryUtilization")
+	metricsAverage, err = VerifyMetrics(cwclient, params, false, 0.0)
 	assert.NoError(t, err, "Task is running, verify metrics for memory utilization failed")
 	memInfo, err := system.ReadMemInfo()
 	require.NoError(t, err, "Acquiring system info failed")
 	totalMemory := memInfo.MemTotal / bytePerMegabyte
 	// Verify the memory usage is around 1024/totalMemory +/- 5%
-	assert.InDelta(t, float32(1024*100)/float32(totalMemory), *metrics.Average, 5)
+	assert.InDelta(t, float32(1024*100)/float32(totalMemory), metricsAverage, 5)
 
 	err = testTask.Stop()
 	require.NoError(t, err, "Failed to stop the telemetry task")
 
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Waiting for task stop failed")
-
-	time.Sleep(waitMetricsInCloudwatchDuration)
-	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
-	params.StartTime = aws.Time((*params.EndTime).Add(-waitMetricsInCloudwatchDuration).UTC())
-	params.MetricName = aws.String("CPUUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Task stopped: verify metrics for CPU utilization failed")
-
-	params.MetricName = aws.String("MemoryUtilization")
-	_, err = VerifyMetrics(cwclient, params, true)
-	assert.NoError(t, err, "Task stopped, verify metrics for memory utilization failed")
 }
 
 // containerHealthMetricsTest tests the container health metrics based on the task definition
@@ -566,4 +690,275 @@ func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatc
 	}
 
 	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
+}
+func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awslogsPrefix string) {
+	agentOptions := &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$CHECK_TAGS$$$"] = "" // Tags are not checked in regular V3TaskEndpoint Test
+
+	if networkMode != "" {
+		tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+		tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] + "-" + networkMode
+	}
+
+	var task *TestTask
+	var err error
+
+	if networkMode == "awsvpc" {
+		task, err = agent.StartAWSVPCTask(taskName, tdOverrides)
+	} else {
+		task, err = agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+	}
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	ctx := context.TODO()
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	v3TaskEndpointEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_URI=") {
+				v3TaskEndpointEnabled = true
+				break
+			}
+		}
+	}
+	if !v3TaskEndpointEnabled {
+		task.Stop()
+		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// testContainerMetadataFile validates that the metadata file from the
+// ECS_CONTAINER_METADATA_FILE environment variable contains all the required
+// fields
+func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
+	ctx := context.TODO()
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_CONTAINER_METADATA": "true",
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.24.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+	ip, err := ec2MetadataClient.PublicIPv4Address()
+	if err != nil || ip == "" {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "false"
+	} else {
+		tdOverrides["$$$HAS_PUBLIC_IP$$$"] = "true"
+	}
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+	containerName := "container-metadata-file-validator"
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	containerMetadataFileFound := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_FILE=") {
+				containerMetadataFileFound = true
+				break
+			}
+		}
+	}
+	if !containerMetadataFileFound {
+		task.Stop()
+		t.Fatal("Could not find ECS_CONTAINER_METADATA_FILE in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+func TestContainerInstanceTags(t *testing.T) {
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+	ec2Key := "ec2Key"
+	ec2Value := "ec2Value"
+	localKey := "localKey"
+	localValue := "localValue"
+	commonKey := "commonKey"
+	commonKeyEC2Value := "commonEC2Value"
+	commonKeyLocalValue := "commonKeyLocalValue"
+
+	// Get instance ID.
+	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
+	instanceID, err := ec2MetadataClient.InstanceID()
+	assert.NoError(t, err)
+
+	// Add tags to the instance.
+	ec2Client := ec2.NewClientImpl(*ECS.Config.Region)
+	createTagsInput := ec2sdk.CreateTagsInput{
+		Resources: []*string{aws.String(instanceID)},
+		Tags: []*ec2sdk.Tag{
+			{
+				Key:   aws.String(ec2Key),
+				Value: aws.String(ec2Value),
+			},
+			{
+				Key:   aws.String(commonKey),
+				Value: aws.String(commonKeyEC2Value),
+			},
+		},
+	}
+	_, err = ec2Client.CreateTags(&createTagsInput)
+	assert.NoError(t, err)
+
+	// Set the env var for tags and start Agent.
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s", "%s": "%s"}`,
+				localKey, localValue, commonKey, commonKeyLocalValue),
+		},
+	}
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.22.0")
+
+	// Verify the tags are registered.
+	ListTagsForResourceInput := ecsapi.ListTagsForResourceInput{
+		ResourceArn: aws.String(agent.ContainerInstanceArn),
+	}
+	ListTagsForResourceOutput, err := ECS.ListTagsForResource(&ListTagsForResourceInput)
+	assert.NoError(t, err)
+	registeredTags := ListTagsForResourceOutput.Tags
+	expectedTagsMap := map[string]string{
+		ec2Key:    ec2Value,
+		localKey:  localValue,
+		commonKey: commonKeyLocalValue, // The value of common tag key should be local common tag value
+	}
+
+	// Here we only verify that the tags we've defined in the test are registered, because the
+	// test instance may have some other tags that are unknown to us.
+	for _, registeredTag := range registeredTags {
+		registeredTagKey := aws.StringValue(registeredTag.Key)
+		if expectedVal, ok := expectedTagsMap[registeredTagKey]; ok {
+			assert.Equal(t, expectedVal, aws.StringValue(registeredTag.Value))
+			delete(expectedTagsMap, registeredTagKey)
+		}
+	}
+	assert.Zero(t, len(expectedTagsMap))
+}
+
+func testV3TaskEndpointTags(t *testing.T, taskName, containerName, networkMode string) {
+	ctx := context.TODO()
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+	awslogsPrefix := "ecs-functional-tests-v3-task-endpoint-with-tags-validator"
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
+		},
+		PortBindings: map[nat.Port]map[string]string{
+			"51679/tcp": {
+				"HostIP":   "0.0.0.0",
+				"HostPort": "51679",
+			},
+		},
+	}
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // To enable Tag check in v3-task-endpoint-validator image
+
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = awslogsPrefix
+	tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] + "-" + networkMode
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, taskName, tdOverrides)
+
+	require.NoError(t, err, "Error start task")
+	err = task.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to run")
+	containerId, err := agent.ResolveTaskDockerID(task, containerName)
+	require.NoError(t, err, "Error resolving docker id for container in task")
+
+	// Container should have the ExtraEnvironment variable ECS_CONTAINER_METADATA_URI
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
+	require.NoError(t, err, "Could not inspect container for task")
+	v3TaskEndpointEnabled := false
+	if containerMetaData.Config != nil {
+		for _, env := range containerMetaData.Config.Env {
+			if strings.HasPrefix(env, "ECS_CONTAINER_METADATA_URI=") {
+				v3TaskEndpointEnabled = true
+				break
+			}
+		}
+	}
+	if !v3TaskEndpointEnabled {
+		task.Stop()
+		t.Fatal("Could not found ECS_CONTAINER_METADATA_URI in the container environment variable")
+	}
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode(containerName)
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }

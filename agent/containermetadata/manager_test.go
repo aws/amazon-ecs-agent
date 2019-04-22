@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,10 +22,11 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,6 +40,8 @@ const (
 	taskDefinitionRevision = "8"
 	containerName          = "container"
 	dataDir                = "ecs_mockdata"
+	availabilityZone       = "us-west-2b"
+	hostPublicIPv4Address  = "127.0.0.1"
 )
 
 func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
@@ -60,6 +63,25 @@ func TestSetContainerInstanceARN(t *testing.T) {
 	newManager := &metadataManager{}
 	newManager.SetContainerInstanceARN(mockARN)
 	assert.Equal(t, mockARN, newManager.containerInstanceARN)
+}
+
+// TestAvailabilityZone checks whether the container availabilityZone is set correctly.
+func TestSetAvailabilityZone(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	mockAvailabilityZone := availabilityZone
+	newManager := &metadataManager{}
+	newManager.SetAvailabilityZone(mockAvailabilityZone)
+	assert.Equal(t, mockAvailabilityZone, newManager.availabilityZone)
+}
+
+// TestSetHostPublicIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
+func TestSetHostPublicIPv4Address(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	newManager := &metadataManager{}
+	newManager.SetHostPublicIPv4Address(hostPublicIPv4Address)
+	assert.Equal(t, hostPublicIPv4Address, newManager.hostPublicIPv4Address)
 }
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path
@@ -110,7 +132,7 @@ func TestUpdateInspectFail(t *testing.T) {
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(nil, errors.New("Inspect fail"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)
@@ -127,18 +149,20 @@ func TestUpdateNotRunningFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
-	mockState := docker.State{
+	mockState := types.ContainerState{
 		Running: false,
 	}
-	mockContainer := &docker.Container{
-		State: mockState,
+	mockContainer := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			State: &mockState,
+		},
 	}
 
 	newManager := &metadataManager{
 		client: mockClient,
 	}
 
-	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, inspectContainerTimeout).Return(mockContainer, nil)
+	mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(&mockContainer, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)

@@ -35,8 +35,39 @@ $dockerSubnet = (docker network inspect nat | ConvertFrom-Json).IPAM.Config.Subn
 $ip = (Get-NetRoute -InterfaceIndex $ifIndex -DestinationPrefix $dockerSubnet)
 if(!($ip)) {
 
+	$IPAddrParams = @{
+		InterfaceIndex = $ifIndex;
+		IPAddress = $credentialAddress;
+		PrefixLength = 32;
+	}
+
 	# This command tells the APIPA interface that this IP exists.
-	New-NetIPAddress -InterfaceIndex $ifIndex -IPAddress $credentialAddress -PrefixLength 32
+	New-NetIPAddress @IPAddrParams
+
+	[int]$delay = 1
+	[int]$maxTries = 10
+	[bool]$available = $false
+	while (-not $available -and $maxTries -ge 0) {
+		try {
+			$IPAddr = Get-NetIPAddress @IPAddrParams -ErrorAction:Ignore
+			if ($IPAddr) {
+				if ($($IPAddr.AddressState) -eq "Preferred") {
+					$available = $true
+					break;
+				} else {
+					Start-Sleep -Seconds $delay
+					$maxTries--
+				}
+			}
+		} catch {
+			# Prevent race condition where the adapter has multiple addresses before our new ip is assigned
+			# Note: Allowing this race condition can cause the netsh interface portproxy setup to result
+			#       in the network adapter in an unrecoverable bad state where the proxy is unable to
+			#       listen on port 80 because the port is in use by a non-functional proxy rule.
+			Start-Sleep -Seconds $delay
+			$maxTries--
+		}
+	}
 
 	# Enable the default docker IP range to be routable by the APIPA interface.
 	New-NetRoute -DestinationPrefix $dockerSubnet -ifIndex $ifindex

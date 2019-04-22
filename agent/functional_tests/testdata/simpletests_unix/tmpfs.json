@@ -6,5 +6,6 @@
   "Timeout": "2m",
   "ExitCodes": {
     "exit": 42
-  }
+  },
+  "MinimumMemory": "650"
 }

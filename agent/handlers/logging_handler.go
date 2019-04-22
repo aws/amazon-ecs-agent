@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,6 @@ func NewLoggingHandler(handler http.Handler) LoggingHandler {
 
 // ServeHTTP logs the method and remote address of the request.
 func (lh LoggingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	seelog.Info("Handling http request", "method", r.Method, "from", r.RemoteAddr)
+	seelog.Debug("Handling http request", "method", r.Method, "from", r.RemoteAddr)
 	lh.h.ServeHTTP(w, r)
 }

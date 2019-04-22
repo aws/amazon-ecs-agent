@@ -33,6 +33,7 @@ const (
           "Containers": [
             {
               "Name": "foo",
+              "V3EndpointID": "fooV3EndpointID",
               "Image": "myimage:latest",
               "ImageID": "sha256:invalid",
               "Command": null,
@@ -81,6 +82,7 @@ const (
             },
             {
               "Name": "~internal~ecs~pause",
+              "V3EndpointID": "pauseV3EndpointID",
               "Image": "amazon/amazon-ecs-pause:0.1.0",
               "ImageID": "",
               "Command": null,
@@ -133,7 +135,18 @@ const (
             ],
             "IPV6Addresses": null,
             "MacAddress": "0a:1b:2c:3d:4e:5f"
-          }
+          },
+          "associations": [
+            {
+              "containers": ["foo"],
+              "content": {
+                "encoding": "base64",
+                "value": "val"
+              },
+              "name": "dev1",
+              "type": "elastic-inference"
+            }
+          ]
         }
       ],
       "IdToContainer": {
@@ -297,4 +310,14 @@ func validateUnmarshaledState(t *testing.T, state *DockerTaskEngineState, conten
 	assert.Equal(t, "attachment1", attachments[0].AttachmentARN)
 	_, ok = state.ipToTask["169.254.172.2"]
 	assert.True(t, ok, fmt.Sprintf("%s", state.ipToTask))
+
+	// verify v3EndpointID mappings have been correctly added
+	fooTaskArn, ok := state.v3EndpointIDToTask["fooV3EndpointID"]
+	assert.Equal(t, fooTaskArn, "task1")
+	pauseTaskArn, ok := state.v3EndpointIDToTask["pauseV3EndpointID"]
+	assert.Equal(t, pauseTaskArn, "task1")
+	fooContainerID, ok := state.v3EndpointIDToDockerID["fooV3EndpointID"]
+	assert.Equal(t, fooContainerID, "40109a71187ddd35effcd4e20067f97c140cd8ca7bef6a62028743c7f5b88a53")
+	pauseContainerID, ok := state.v3EndpointIDToDockerID["pauseV3EndpointID"]
+	assert.Equal(t, pauseContainerID, "042fd42cf3016526ccff43ef6ccb2c6a4b6f112bb74d5175cbebca75059b0c38")
 }

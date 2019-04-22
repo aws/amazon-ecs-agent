@@ -4,7 +4,7 @@
     "image": "busybox:latest",
     "name": "labeled",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "dockerLabels": {
       "label1": "",
       "com.foo.label2": "value"

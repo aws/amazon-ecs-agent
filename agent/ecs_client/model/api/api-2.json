@@ -6,7 +6,7 @@
     "jsonVersion":"1.1",
     "protocol":"json",
     "serviceAbbreviation":"Amazon ECS",
-    "serviceFullName":"Amazon EC2 Container Service",
+    "serviceFullName":"Amazon Elastic Container Service",
     "serviceId":"ECS",
     "signatureVersion":"v4",
     "targetPrefix":"AmazonEC2ContainerServiceV20141113",
@@ -44,6 +44,20 @@
         {"shape":"PlatformUnknownException"},
         {"shape":"PlatformTaskDefinitionIncompatibilityException"},
         {"shape":"AccessDeniedException"}
+      ]
+    },
+    "DeleteAccountSetting":{
+      "name":"DeleteAccountSetting",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"DeleteAccountSettingRequest"},
+      "output":{"shape":"DeleteAccountSettingResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "DeleteAttributes":{
@@ -266,6 +280,21 @@
         {"shape":"ClusterNotFoundException"}
       ]
     },
+    "ListTagsForResource":{
+      "name":"ListTagsForResource",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"ListTagsForResourceRequest"},
+      "output":{"shape":"ListTagsForResourceResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"ClusterNotFoundException"},
+        {"shape":"InvalidParameterException"}
+      ]
+    },
     "ListTaskDefinitionFamilies":{
       "name":"ListTaskDefinitionFamilies",
       "http":{
@@ -308,6 +337,20 @@
         {"shape":"InvalidParameterException"},
         {"shape":"ClusterNotFoundException"},
         {"shape":"ServiceNotFoundException"}
+      ]
+    },
+    "PutAccountSetting":{
+      "name":"PutAccountSetting",
+      "http":{
+        "method":"POST",
+        "requestUri":"/"
+      },
+      "input":{"shape":"PutAccountSettingRequest"},
+      "output":{"shape":"PutAccountSettingResponse"},
+      "errors":[
+        {"shape":"ServerException"},
+        {"shape":"ClientException"},
+        {"shape":"InvalidParameterException"}
       ]
     },
     "PutAttributes":{
@@ -673,6 +716,15 @@
         "healthStatus":{"shape":"HealthStatus"}
       }
     },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
     "ContainerDefinition":{
       "type":"structure",
       "members":{
@@ -691,6 +743,11 @@
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "linuxParameters":{"shape":"LinuxParameters"},
+        "secrets":{"shape":"SecretList"},
+        "inferenceDevices":{"shape":"StringList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
+        "startTimeout":{"shape":"BoxedInteger"},
+        "stopTimeout":{"shape":"BoxedInteger"},
         "hostname":{"shape":"String"},
         "user":{"shape":"String"},
         "workingDirectory":{"shape":"String"},
@@ -701,15 +758,34 @@
         "dnsSearchDomains":{"shape":"StringList"},
         "extraHosts":{"shape":"HostEntryList"},
         "dockerSecurityOptions":{"shape":"StringList"},
+        "interactive":{"shape":"BoxedBoolean"},
+        "pseudoTerminal":{"shape":"BoxedBoolean"},
         "dockerLabels":{"shape":"DockerLabelsMap"},
         "ulimits":{"shape":"UlimitList"},
         "logConfiguration":{"shape":"LogConfiguration"},
-        "healthCheck":{"shape":"HealthCheck"}
+        "healthCheck":{"shape":"HealthCheck"},
+        "systemControls":{"shape":"SystemControls"},
+        "resourceRequirements":{"shape":"ResourceRequirements"}
       }
     },
     "ContainerDefinitions":{
       "type":"list",
       "member":{"shape":"ContainerDefinition"}
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "required":[
+        "containerName",
+        "condition"
+      ],
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
+      }
     },
     "ContainerInstance":{
       "type":"structure",
@@ -727,7 +803,11 @@
         "agentUpdateStatus":{"shape":"AgentUpdateStatus"},
         "attributes":{"shape":"Attributes"},
         "registeredAt":{"shape":"Timestamp"},
-        "attachments":{"shape":"Attachments"}
+        "attachments":{"shape":"Attachments"},
+        "clientToken":{
+          "shape":"String"
+        },
+        "tags":{"shape":"Tags"}
       }
     },
     "ContainerInstanceStatus":{
@@ -749,7 +829,8 @@
         "environment":{"shape":"EnvironmentVariables"},
         "cpu":{"shape":"BoxedInteger"},
         "memory":{"shape":"BoxedInteger"},
-        "memoryReservation":{"shape":"BoxedInteger"}
+        "memoryReservation":{"shape":"BoxedInteger"},
+        "resourceRequirements":{"shape":"ResourceRequirements"}
       }
     },
     "ContainerOverrides":{
@@ -815,6 +896,20 @@
       "type":"structure",
       "members":{
         "service":{"shape":"Service"}
+      }
+    },
+    "DeleteAccountSettingRequest":{
+      "type":"structure",
+      "required":["name"],
+      "members":{
+        "name":{"shape":"SettingName"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "DeleteAccountSettingResponse":{
+      "type":"structure",
+      "members":{
+        "setting":{"shape":"Setting"}
       }
     },
     "DeleteAttributesRequest":{
@@ -1104,12 +1199,35 @@
         "sourcePath":{"shape":"String"}
       }
     },
+    "InferenceAccelerator":{
+      "type":"structure",
+      "required":[
+        "deviceName",
+        "deviceType"
+      ],
+      "members":{
+        "deviceName":{"shape":"String"},
+        "deviceType":{"shape":"String"}
+      }
+    },
+    "InferenceAccelerators":{
+      "type":"list",
+      "member":{"shape":"InferenceAccelerator"}
+    },
     "Integer":{"type":"integer"},
     "InvalidParameterException":{
       "type":"structure",
       "members":{
       },
       "exception":true
+    },
+    "IpcMode":{
+      "type":"string",
+      "enum":[
+        "host",
+        "task",
+        "none"
+      ]
     },
     "KernelCapabilities":{
       "type":"structure",
@@ -1209,6 +1327,19 @@
         "nextToken":{"shape":"String"}
       }
     },
+    "ListTagsForResourceRequest":{
+      "type":"structure",
+      "required":["resourceArn"],
+      "members":{
+        "resourceArn":{"shape":"String"}
+      }
+    },
+    "ListTagsForResourceResponse":{
+      "type":"structure",
+      "members":{
+        "tags":{"shape":"Tags"}
+      }
+    },
     "ListTaskDefinitionFamiliesRequest":{
       "type":"structure",
       "members":{
@@ -1281,7 +1412,10 @@
       "required":["logDriver"],
       "members":{
         "logDriver":{"shape":"LogDriver"},
-        "options":{"shape":"LogConfigurationOptionsMap"}
+        "options":{"shape":"LogConfigurationOptionsMap"},
+        "secretOptions":{
+          "shape":"SecretList"
+        }
       }
     },
     "LogConfigurationOptionsMap":{
@@ -1366,6 +1500,13 @@
       },
       "exception":true
     },
+    "PidMode":{
+      "type":"string",
+      "enum":[
+        "host",
+        "task"
+      ]
+    },
     "PlacementConstraint":{
       "type":"structure",
       "members":{
@@ -1403,6 +1544,21 @@
         "binpack"
       ]
     },
+    "PlatformDevice":{
+      "type":"structure",
+      "members":{
+        "id":{"shape":"String"},
+        "type":{"shape":"PlatformDeviceType"}
+      }
+    },
+    "PlatformDeviceType":{
+      "type":"string",
+      "enum":["GPU"]
+    },
+    "PlatformDevices":{
+      "type":"list",
+      "member":{"shape":"PlatformDevice"}
+    },
     "PlatformTaskDefinitionIncompatibilityException":{
       "type":"structure",
       "members":{
@@ -1427,6 +1583,41 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "ProxyConfiguration":{
+      "type":"structure",
+      "required":["containerName"],
+      "members":{
+        "type":{"shape":"ProxyConfigurationType"},
+        "containerName":{"shape":"String"},
+        "properties":{"shape":"ProxyConfigurationProperties"}
+      }
+    },
+    "ProxyConfigurationProperties":{
+      "type":"list",
+      "member":{"shape":"KeyValuePair"}
+    },
+    "ProxyConfigurationType":{
+      "type":"string",
+      "enum":["APPMESH"]
+    },
+    "PutAccountSettingRequest":{
+      "type":"structure",
+      "required":[
+        "name",
+        "value"
+      ],
+      "members":{
+        "name":{"shape":"SettingName"},
+        "value":{"shape":"String"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "PutAccountSettingResponse":{
+      "type":"structure",
+      "members":{
+        "setting":{"shape":"Setting"}
+      }
+    },
     "PutAttributesRequest":{
       "type":"structure",
       "required":["attributes"],
@@ -1450,7 +1641,12 @@
         "totalResources":{"shape":"Resources"},
         "versionInfo":{"shape":"VersionInfo"},
         "containerInstanceArn":{"shape":"String"},
-        "attributes":{"shape":"Attributes"}
+        "attributes":{"shape":"Attributes"},
+        "tags":{"shape":"Tags"},
+        "clientToken":{
+          "shape":"String"
+        },
+       "platformDevices":{"shape":"PlatformDevices"}
       }
     },
     "RegisterContainerInstanceResponse":{
@@ -1475,7 +1671,14 @@
         "placementConstraints":{"shape":"TaskDefinitionPlacementConstraints"},
         "requiresCompatibilities":{"shape":"CompatibilityList"},
         "cpu":{"shape":"String"},
-        "memory":{"shape":"String"}
+        "memory":{"shape":"String"},
+        "pidMode":{"shape":"PidMode"},
+        "ipcMode":{"shape":"IpcMode"},
+        "tags":{"shape":"Tags"},
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"},
+        "proxyConfiguration":{
+          "shape":"ProxyConfiguration"
+        }
       }
     },
     "RegisterTaskDefinitionResponse":{
@@ -1505,6 +1708,27 @@
         "integerValue":{"shape":"Integer"},
         "stringSetValue":{"shape":"StringList"}
       }
+    },
+    "ResourceRequirement":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "type":{"shape":"ResourceType"}
+      }
+    },
+    "ResourceRequirements":{
+      "type":"list",
+      "member":{"shape":"ResourceRequirement"}
+    },
+    "ResourceType":{
+      "type":"string",
+      "enum":["GPU"]
+    },
+    "ResourceNotFoundException":{
+      "type":"structure",
+      "members":{
+      },
+      "exception":true
     },
     "Resources":{
       "type":"list",
@@ -1547,6 +1771,28 @@
         "REPLICA",
         "DAEMON"
       ]
+    },
+    "Scope":{
+      "type":"string",
+      "enum":[
+        "task",
+        "shared"
+      ]
+    },
+    "Secret":{
+      "type":"structure",
+      "required":[
+        "name",
+        "valueFrom"
+      ],
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
     },
     "ServerException":{
       "type":"structure",
@@ -1623,6 +1869,22 @@
     "Services":{
       "type":"list",
       "member":{"shape":"Service"}
+    },
+    "Setting":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"SettingName"},
+        "value":{"shape":"String"},
+        "principalArn":{"shape":"String"}
+      }
+    },
+    "SettingName":{
+      "type":"string",
+      "enum":[
+        "serviceLongArnFormat",
+        "taskLongArnFormat",
+        "containerInstanceLongArnFormat"
+      ]
     },
     "SortOrder":{
       "type":"string",
@@ -1717,6 +1979,42 @@
         "acknowledgment":{"shape":"String"}
       }
     },
+    "SystemControl":{
+      "type":"structure",
+      "members":{
+        "namespace":{"shape":"String"},
+        "value":{"shape":"String"}
+      }
+    },
+    "SystemControls":{
+      "type":"list",
+      "member":{"shape":"SystemControl"}
+    },
+    "Tag":{
+      "type":"structure",
+      "members":{
+        "key":{"shape":"TagKey"},
+        "value":{"shape":"TagValue"}
+      }
+    },
+    "TagKey":{
+      "type":"string",
+      "max":128,
+      "min":1,
+      "pattern":"^([\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*)$"
+    },
+    "TagValue":{
+      "type":"string",
+      "max":256,
+      "min":0,
+      "pattern":"^([\\p{L}\\p{Z}\\p{N}_.:/=+\\-@]*)$"
+    },
+    "Tags":{
+      "type":"list",
+      "member":{"shape":"Tag"},
+      "max":50,
+      "min":0
+    },
     "TargetNotFoundException":{
       "type":"structure",
       "members":{
@@ -1756,7 +2054,8 @@
         "launchType":{"shape":"LaunchType"},
         "platformVersion":{"shape":"String"},
         "attachments":{"shape":"Attachments"},
-        "healthStatus":{"shape":"HealthStatus"}
+        "healthStatus":{"shape":"HealthStatus"},
+        "tags":{"shape":"Tags"}
       }
     },
     "TaskDefinition":{
@@ -1776,7 +2075,13 @@
         "compatibilities":{"shape":"CompatibilityList"},
         "requiresCompatibilities":{"shape":"CompatibilityList"},
         "cpu":{"shape":"String"},
-        "memory":{"shape":"String"}
+        "memory":{"shape":"String"},
+        "pidMode":{"shape":"PidMode"},
+        "ipcMode":{"shape":"IpcMode"},
+        "inferenceAccelerators":{"shape":"InferenceAccelerators"},
+        "proxyConfiguration":{
+          "shape":"ProxyConfiguration"
+        }
       }
     },
     "TaskDefinitionFamilyStatus":{

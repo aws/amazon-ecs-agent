@@ -14,13 +14,15 @@
 package taskresource
 
 import (
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
+	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 
 type ResourceFieldsCommon struct {
 	IOUtil             ioutilwrapper.IOUtil
-	ASMClientCreator   factory.ClientCreator
+	ASMClientCreator   asmfactory.ClientCreator
+	SSMClientCreator   ssmfactory.SSMClientCreator
 	CredentialsManager credentials.Manager
 }

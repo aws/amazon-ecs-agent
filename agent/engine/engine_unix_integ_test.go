@@ -16,6 +16,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -35,13 +36,15 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -52,12 +55,30 @@ const (
 	testAuthRegistryHost  = "127.0.0.1:51671"
 	testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
 	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testPIDNamespaceImage = "127.0.0.1:51670/amazon/amazon-ecs-pid-namespace-test:latest"
+	testIPCNamespaceImage = "127.0.0.1:51670/amazon/amazon-ecs-ipc-namespace-test:latest"
 	testAuthUser          = "user"
 	testAuthPass          = "swordfish"
+
+	// Search for the running process
+	testPIDNamespaceCommand         = "if [ `ps ax | grep pidNamespaceTest | grep -vc grep` -gt 0 ]; then exit 1; else exit 2; fi;"
+	testPIDNamespaceProcessFound    = 1
+	testPIDNamespaceProcessNotFound = 2
+
+	// Search for a semaphore with a Key of 5 (created in ipcNamespaceTest.c
+	// running in testIPCNamespaceImage)
+	testIPCNamespaceCommand          = "if [ `ipcs -s | awk '$1+0 == 5' | wc -l` -gt 0 ]; then exit 1; else exit 2; fi;"
+	testIPCNamespaceResourceFound    = 1
+	testIPCNamespaceResourceNotFound = 2
+
+	testGPUImage         = "nvidia/cuda:9.0-base"
+	testGPUContainerName = "testGPUContainer"
+	gpuConfigFilePath    = "/var/lib/ecs/ecs.config"
 )
 
 var (
-	endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+	endpoint            = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
+	TestGPUInstanceType = []string{"p2", "p3", "g3"}
 )
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
@@ -73,15 +94,57 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"sh", "-c", "sleep 300"}
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
-		Config: aws.String(`{
-			"HealthCheck":{
-				"Test":["CMD-SHELL", "echo hello"],
-				"Interval":100000000,
-				"Timeout":100000000,
-				"StartPeriod":100000000,
-				"Retries":3}
-		}`),
+		Config: aws.String(alwaysHealthyHealthCheckConfig),
 	}
+	return testTask
+}
+
+// All Namespace Sharing Tests will rely on 3 containers
+// container0 will be the container that starts an executable or creates a resource
+// container1 and container2 will attempt to see this process/resource
+// and quit with exit 0 for success and 1 for failure
+func createNamespaceSharingTask(arn, pidMode, ipcMode, testImage string, theCommand []string) *apitask.Task {
+	testTask := &apitask.Task{
+		Arn:                 arn,
+		Family:              "family",
+		Version:             "1",
+		PIDMode:             pidMode,
+		IPCMode:             ipcMode,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				Name:                      "container0",
+				Image:                     testImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			&apicontainer.Container{
+				Name:                      "container1",
+				Image:                     testBusyboxImage,
+				Command:                   theCommand,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+			&apicontainer.Container{
+				Name:                      "container2",
+				Image:                     testBusyboxImage,
+				Command:                   theCommand,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	// Setting a container dependency so the executable can be started or resource can be created
+	// before read is attempted by other containers
+	testTask.Containers[1].BuildContainerDependency(testTask.Containers[0].Name, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated)
+	testTask.Containers[2].BuildContainerDependency(testTask.Containers[0].Name, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerCreated)
 	return testTask
 }
 
@@ -128,6 +191,494 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	testTask.Containers[0].Command = []string{"sh", "-c", "if [[ $(cat /ecs/volume-data) != \"volume\" ]]; then cat /ecs/volume-data; exit 1; fi; exit 0"}
 	return testTask, tmpDirectory, nil
+}
+
+func createTestGPUTask() *apitask.Task {
+	return &apitask.Task{
+		Arn:                 "testGPUArn",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{createTestGPUContainerWithImage(testGPUImage)},
+		Associations: []apitask.Association{
+			{
+				Containers: []string{
+					testGPUContainerName,
+				},
+				Content: apitask.EncodedString{
+					Encoding: "base64",
+					Value:    "val",
+				},
+				Name: "0",
+				Type: apitask.GPUAssociationType,
+			},
+		},
+		NvidiaRuntime: config.DefaultNvidiaRuntime,
+	}
+}
+
+func createTestGPUContainerWithImage(image string) *apicontainer.Container {
+	return &apicontainer.Container{
+		Name:                testGPUContainerName,
+		Image:               image,
+		Command:             []string{},
+		Essential:           true,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		CPU:                 100,
+		Memory:              80,
+	}
+}
+
+func getGPUEnvVar(filename string) map[string]string {
+	envVariables := make(map[string]string)
+
+	file, err := os.Open(filename)
+	if err != nil {
+		return envVariables
+	}
+
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return envVariables
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for _, line := range lines {
+		parts := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		envVariables[parts[0]] = parts[1]
+	}
+	return envVariables
+}
+
+// A map that stores statusChangeEvents for both Tasks and Containers
+// Organized first by EventType (Task or Container),
+// then by StatusType (i.e. RUNNING, STOPPED, etc)
+// then by Task/Container identifying string (TaskARN or ContainerName)
+//                   EventType
+//                  /         \
+//          TaskEvent         ContainerEvent
+//        /          \           /        \
+//    RUNNING      STOPPED   RUNNING      STOPPED
+//    /    \        /    \      |             |
+//  ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
+type EventSet map[statechange.EventType]statusToName
+
+// Type definition for mapping a Status to a TaskARN/ContainerName
+type statusToName map[string]nameSet
+
+// Type definition for a generic set implemented as a map
+type nameSet map[string]bool
+
+// Holds the Events Map described above with a RW mutex
+type TestEvents struct {
+	RecordedEvents    EventSet
+	StateChangeEvents <-chan statechange.Event
+}
+
+// Initializes the TestEvents using the TaskEngine. Abstracts the overhead required to set up
+// collecting TaskEngine stateChangeEvents.
+// We must use the Golang assert library and NOT the require library to ensure the Go routine is
+// stopped at the end of our tests
+func InitEventCollection(taskEngine TaskEngine) *TestEvents {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	recordedEvents := make(EventSet)
+	testEvents := &TestEvents{
+		RecordedEvents:    recordedEvents,
+		StateChangeEvents: stateChangeEvents,
+	}
+	return testEvents
+}
+
+// This method queries the TestEvents struct to check a Task Status.
+// This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
+func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) error {
+	for {
+		if _, found := testEvents.RecordedEvents[statechange.TaskEvent][status.String()][taskARN]; found {
+			return nil
+		}
+		event := <-testEvents.StateChangeEvents
+		RecordEvent(testEvents, event)
+	}
+}
+
+// This method queries the TestEvents struct to check a Task Status.
+// This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
+func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
+	for {
+		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
+			return nil
+		}
+		event := <-testEvents.StateChangeEvents
+		RecordEvent(testEvents, event)
+	}
+}
+
+// Will record the event that was just collected into the TestEvents struct's RecordedEvents map
+func RecordEvent(testEvents *TestEvents, event statechange.Event) {
+	switch event.GetEventType() {
+	case statechange.TaskEvent:
+		taskEvent := event.(api.TaskStateChange)
+		if _, exists := testEvents.RecordedEvents[statechange.TaskEvent]; !exists {
+			testEvents.RecordedEvents[statechange.TaskEvent] = make(statusToName)
+		}
+		if _, exists := testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()]; !exists {
+			testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()] = make(map[string]bool)
+		}
+		testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()][taskEvent.TaskARN] = true
+	case statechange.ContainerEvent:
+		containerEvent := event.(api.ContainerStateChange)
+		if _, exists := testEvents.RecordedEvents[statechange.ContainerEvent]; !exists {
+			testEvents.RecordedEvents[statechange.ContainerEvent] = make(statusToName)
+		}
+		if _, exists := testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()]; !exists {
+			testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()] = make(map[string]bool)
+		}
+		testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()][containerEvent.TaskArn+":"+containerEvent.ContainerName] = true
+	}
+}
+
+// This Test starts an executable named pidNamespaceTest on one docker container.
+// Other containers will query the terminal for this process.
+func TestHostPIDNamespaceSharingInSingleTask(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	theCommand := []string{"sh", "-c", testPIDNamespaceCommand}
+	testTask := createNamespaceSharingTask("TaskSharePIDWithTask", "host", "", testPIDNamespaceImage, theCommand)
+	go taskEngine.AddTask(testTask)
+
+	testEvents := InitEventCollection(taskEngine)
+
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
+	assert.NoError(t, err, "Not verified task running")
+	assert.Equal(t, "host", testTask.PIDMode)
+	//Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+
+	//Manually stop container0
+	cont0, _ := testTask.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, cont0)
+
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
+	assert.NoError(t, err)
+
+	cont1, _ := testTask.ContainerByName("container1")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont1.GetKnownExitCode()), "container1 could not see NamespaceTest process")
+	cont2, _ := testTask.ContainerByName("container2")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont2.GetKnownExitCode()), "container2 could not see NamespaceTest process")
+}
+
+// This Test starts an executable in a container in Task1 sharing the PID namespace with Host.
+// Another Task is started and should be able to see this running executable
+func TestHostPIDNamespaceSharingInMultipleTasks(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	theCommand := []string{"sh", "-c", testPIDNamespaceCommand}
+	testTaskWithProcess := createNamespaceSharingTask("TaskWithProcess", "host", "", testPIDNamespaceImage, theCommand)
+	testTaskWithoutProcess := &apitask.Task{
+		Arn:                 "TaskWithoutProcess",
+		Family:              "family",
+		Version:             "1",
+		PIDMode:             "host",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				Name:                      "container0",
+				Image:                     testBusyboxImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				Command:                   theCommand,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	testEvents := InitEventCollection(taskEngine)
+
+	// Run Task with Process attached
+	go taskEngine.AddTask(testTaskWithProcess)
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "host", testTaskWithProcess.PIDMode)
+	// Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithProcess.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithProcess.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+	cont1, _ := testTaskWithProcess.ContainerByName("container1")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont1.GetKnownExitCode()), "container1 could not see NamespaceTest process")
+	cont2, _ := testTaskWithProcess.ContainerByName("container2")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont2.GetKnownExitCode()), "container2 could not see NamespaceTest process")
+
+	// Run Task without Process attached
+	go taskEngine.AddTask(testTaskWithoutProcess)
+	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithoutProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "host", testTaskWithoutProcess.PIDMode)
+	// Wait for container0 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithoutProcess.Arn+":container0", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithoutProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+	cont0, _ := testTaskWithoutProcess.ContainerByName("container0")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont0.GetKnownExitCode()), "container0 could not see NamespaceTest process, but should be able to.")
+
+	// Test is complete, can stop container with process
+	cont, _ := testTaskWithProcess.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithProcess, cont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+}
+
+// This Test starts an executable in a container in Task1 with the PID namespace within the Task.
+// Another Task is started and should not be able to see this running executable
+func TestTaskPIDNamespaceSharingInMultipleTasks(t *testing.T) {
+	config.DefaultPauseContainerImageName = "amazon/amazon-ecs-pause"
+	config.DefaultPauseContainerTag = "0.1.0"
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	theCommand := []string{"sh", "-c", testPIDNamespaceCommand}
+	testTaskWithProcess := createNamespaceSharingTask("TaskWithProcess", "task", "", testPIDNamespaceImage, theCommand)
+	testTaskWithoutProcess := &apitask.Task{
+		Arn:                 "TaskWithoutProcess",
+		Family:              "family",
+		Version:             "1",
+		PIDMode:             "task",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				Name:                      "container0",
+				Image:                     testBusyboxImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				Command:                   theCommand,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	testEvents := InitEventCollection(taskEngine)
+
+	// Run Task with Process attached
+	go taskEngine.AddTask(testTaskWithProcess)
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "task", testTaskWithProcess.PIDMode)
+	// Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithProcess.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithProcess.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+	cont1, _ := testTaskWithProcess.ContainerByName("container1")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont1.GetKnownExitCode()), "container1 could not see NamespaceTest process")
+	cont2, _ := testTaskWithProcess.ContainerByName("container2")
+	assert.Equal(t, testPIDNamespaceProcessFound, *(cont2.GetKnownExitCode()), "container2 could not see NamespaceTest process")
+
+	// Run Task without Process attached
+	go taskEngine.AddTask(testTaskWithoutProcess)
+	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithoutProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "task", testTaskWithoutProcess.PIDMode)
+	// Wait for container0 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithoutProcess.Arn+":container0", testEvents, t)
+	assert.NoError(t, err)
+
+	// Manually stop the Pause container and verify if TaskWithoutProcess has stopped
+	pauseCont, _ := testTaskWithoutProcess.ContainerByName(apitask.NamespacePauseContainerName)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithoutProcess, pauseCont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithoutProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+
+	cont0, _ := testTaskWithoutProcess.ContainerByName("container0")
+	assert.Equal(t, testPIDNamespaceProcessNotFound, *(cont0.GetKnownExitCode()), "container0 could see NamespaceTest process, but shouldn't be able to.")
+
+	// Test is complete, can stop container with process
+	cont, _ := testTaskWithProcess.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithProcess, cont)
+	// Manually stop the Pause container and verify if TaskWithProcess has stopped
+	pauseCont, _ = testTaskWithProcess.ContainerByName(apitask.NamespacePauseContainerName)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithProcess, pauseCont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithProcess.Arn, testEvents, t)
+	assert.NoError(t, err)
+}
+
+// This Test creates an IPC semaphore on one docker container.
+// Other containers will query the terminal for this semaphore.
+func TestHostIPCNamespaceSharingInSingleTask(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	theCommand := []string{"sh", "-c", testIPCNamespaceCommand}
+	testTask := createNamespaceSharingTask("TaskShareIPCWithHost", "", "host", testIPCNamespaceImage, theCommand)
+
+	testEvents := InitEventCollection(taskEngine)
+
+	go taskEngine.AddTask(testTask)
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "host", testTask.IPCMode)
+
+	//Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+	//Manually stop container0
+	cont0, _ := testTask.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, cont0)
+
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTask.Arn, testEvents, t)
+	assert.NoError(t, err)
+	cont1, _ := testTask.ContainerByName("container1")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont1.GetKnownExitCode()), "container1 could not see IPC Semaphore")
+	cont2, _ := testTask.ContainerByName("container2")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont2.GetKnownExitCode()), "container2 could not see IPC Semaphore")
+}
+
+// This Test creates an IPC Semaphore in a container in TaskWithResource sharing the IPC namespace with Host.
+// Another Task is started and should be able to see the created IPC Semaphore
+func TestHostIPCNamespaceSharingInMultipleTasks(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	theCommand := []string{"sh", "-c", testIPCNamespaceCommand}
+	testTaskWithResource := createNamespaceSharingTask("TaskWithResource", "", "host", testIPCNamespaceImage, theCommand)
+	testTaskWithoutResource := &apitask.Task{
+		Arn:                 "TaskWithoutResource",
+		Family:              "family",
+		Version:             "1",
+		IPCMode:             "host",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				Name:                      "container0",
+				Image:                     testBusyboxImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				Command:                   theCommand,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	testEvents := InitEventCollection(taskEngine)
+
+	// Run Task with IPC Semaphore attached
+	go taskEngine.AddTask(testTaskWithResource)
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "host", testTaskWithResource.IPCMode)
+	// Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithResource.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithResource.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+	cont1, _ := testTaskWithResource.ContainerByName("container1")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont1.GetKnownExitCode()), "container1 could not see IPC Semaphore")
+	cont2, _ := testTaskWithResource.ContainerByName("container2")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont2.GetKnownExitCode()), "container2 could not see IPC Semaphore")
+
+	// Run Task with IPC Semaphore attached
+	go taskEngine.AddTask(testTaskWithoutResource)
+	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithoutResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "host", testTaskWithoutResource.IPCMode)
+	// Wait for container0 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithoutResource.Arn+":container0", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithoutResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+	cont0, _ := testTaskWithoutResource.ContainerByName("container0")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont0.GetKnownExitCode()), "container0 could not see IPC Semaphore, but should be able to.")
+
+	// Test is complete, can stop container with process
+	cont, _ := testTaskWithResource.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithResource, cont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+}
+
+// This Test creates an IPC Semaphore in a container in TaskWithResource with the IPC namespace within the Task.
+// Another Task is started and should not be able to see this created semaphore
+func TestTaskIPCNamespaceSharingInMultipleTasks(t *testing.T) {
+	config.DefaultPauseContainerImageName = "amazon/amazon-ecs-pause"
+	config.DefaultPauseContainerTag = "0.1.0"
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+	theCommand := []string{"sh", "-c", testIPCNamespaceCommand}
+	testTaskWithResource := createNamespaceSharingTask("TaskWithResource", "", "task", testIPCNamespaceImage, theCommand)
+	testTaskWithoutResource := &apitask.Task{
+		Arn:                 "TaskWithoutResource",
+		Family:              "family",
+		Version:             "1",
+		IPCMode:             "task",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			&apicontainer.Container{
+				Name:                      "container0",
+				Image:                     testBusyboxImage,
+				DesiredStatusUnsafe:       apicontainerstatus.ContainerRunning,
+				CPU:                       100,
+				Memory:                    80,
+				Command:                   theCommand,
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	testEvents := InitEventCollection(taskEngine)
+
+	// Run Task with Semaphore
+	go taskEngine.AddTask(testTaskWithResource)
+	err := VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "task", testTaskWithResource.IPCMode)
+	// Wait for container1 and container2 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithResource.Arn+":container1", testEvents, t)
+	assert.NoError(t, err)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithResource.Arn+":container2", testEvents, t)
+	assert.NoError(t, err)
+	cont1, _ := testTaskWithResource.ContainerByName("container1")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont1.GetKnownExitCode()), "container1 could not see IPC Semaphore")
+	cont2, _ := testTaskWithResource.ContainerByName("container2")
+	assert.Equal(t, testIPCNamespaceResourceFound, *(cont2.GetKnownExitCode()), "container2 could not see IPC Semaphore")
+
+	// Run Task without Semaphore
+	go taskEngine.AddTask(testTaskWithoutResource)
+	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTaskWithoutResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+	assert.Equal(t, "task", testTaskWithoutResource.IPCMode)
+	// Wait for container0 to go down
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTaskWithoutResource.Arn+":container0", testEvents, t)
+	assert.NoError(t, err)
+
+	// Manually stop the Pause container and verify if TaskWithoutResource has stopped
+	pauseCont, _ := testTaskWithoutResource.ContainerByName(apitask.NamespacePauseContainerName)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithoutResource, pauseCont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithoutResource.Arn, testEvents, t)
+	assert.NoError(t, err)
+
+	cont0, _ := testTaskWithoutResource.ContainerByName("container0")
+	assert.Equal(t, testIPCNamespaceResourceNotFound, *(cont0.GetKnownExitCode()), "container0 could see IPC Semaphore, but shouldn't be able to.")
+
+	// Test is complete, can stop container with semaphore
+	cont, _ := testTaskWithResource.ContainerByName("container0")
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithResource, cont)
+	// Manually stop the Pause container and verify if TaskWithResource has stopped
+	pauseCont, _ = testTaskWithResource.ContainerByName(apitask.NamespacePauseContainerName)
+	taskEngine.(*DockerTaskEngine).stopContainer(testTaskWithResource, pauseCont)
+	err = VerifyTaskStatus(apitaskstatus.TaskStopped, testTaskWithResource.Arn, testEvents, t)
+	assert.NoError(t, err)
 }
 
 // TestStartStopUnpulledImage ensures that an unpulled image is successfully
@@ -194,11 +745,9 @@ func TestPortForward(t *testing.T) {
 	// Kill the existing container now to make the test run more quickly.
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	client, _ := docker.NewClient(endpoint)
-	err = client.KillContainer(docker.KillContainerOptions{ID: cid})
-	if err != nil {
-		t.Error("Could not kill container", err)
-	}
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	assert.NoError(t, err, "Could not kill container", err)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 
@@ -454,7 +1003,7 @@ func TestLinking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(waitForDockerDuration)
 
 	var response []byte
 	for i := 0; i < 10; i++ {
@@ -473,7 +1022,7 @@ func TestLinking(t *testing.T) {
 		// isn't up quickly enough and we get a blank response. It's still unclear
 		// to me if this is a docker bug or netkitten bug
 		t.Log("Retrying getting response from container; got nothing")
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 	if string(response) != "hello linker" {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")
@@ -728,11 +1277,9 @@ func TestSignalEvent(t *testing.T) {
 	// Signal the container now
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
-	client, _ := docker.NewClient(endpoint)
-	err := client.KillContainer(docker.KillContainerOptions{ID: cid, Signal: docker.Signal(int(syscall.SIGUSR1))})
-	if err != nil {
-		t.Error("Could not signal container", err)
-	}
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	err := client.ContainerKill(context.TODO(), cid, "SIGUSR1")
+	assert.NoError(t, err, "Could not signal container", err)
 
 	// Verify the container has not stopped
 	time.Sleep(2 * time.Second)
@@ -838,4 +1385,97 @@ func TestTaskLevelVolume(t *testing.T) {
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 	assert.Equal(t, *testTask.Containers[0].GetKnownExitCode(), 0)
 	assert.NotEqual(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.Source(), "TestTaskLevelVolume", "task volume name is the same as specified in task definition")
+
+	client := taskEngine.(*DockerTaskEngine).client
+	client.RemoveVolume(context.TODO(), "TestTaskLevelVolume", 5*time.Second)
+}
+
+func TestGPUAssociationTask(t *testing.T) {
+	gpuSupportEnabled := utils.ParseBool(getGPUEnvVar(gpuConfigFilePath)["ECS_ENABLE_GPU_SUPPORT"], false)
+
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+
+	var isGPUInstanceType bool
+
+	for _, gpuInstanceType := range TestGPUInstanceType {
+		if strings.HasPrefix(iid.InstanceType, gpuInstanceType) {
+			isGPUInstanceType = true
+			break
+		}
+	}
+
+	if !(isGPUInstanceType && gpuSupportEnabled) {
+		t.Skip("Skipped because either ECS_ENABLE_GPU_SUPPORT is not set to true or the instance type is not a supported GPU instance type")
+	}
+
+	cfg := defaultTestConfigIntegTest()
+	cfg.GPUSupportEnabled = true
+	taskEngine, done, _ := setup(cfg, nil, t)
+	defer done()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	testTask := createTestGPUTask()
+	container := testTask.Containers[0]
+
+	go taskEngine.AddTask(testTask)
+
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+	assert.Equal(t, []string{"0"}, container.GPUIDs)
+	assert.Equal(t, "0", container.Environment[apitask.NvidiaVisibleDevicesEnvVar])
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+	assert.Equal(t, testTask.NvidiaRuntime, state.HostConfig.Runtime)
+	assert.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=0")
+
+	taskUpdate := *testTask
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&taskUpdate)
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+}
+
+func TestPerContainerStopTimeout(t *testing.T) {
+	// set the global stop timemout, but this should be ignored since the per container value is set
+	globalStopContainerTimeout := 1000 * time.Second
+	os.Setenv("ECS_CONTAINER_STOP_TIMEOUT", globalStopContainerTimeout.String())
+	defer os.Unsetenv("ECS_CONTAINER_STOP_TIMEOUT")
+	cfg := defaultTestConfigIntegTest()
+
+	taskEngine, _, _ := setup(cfg, nil, t)
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+
+	if dockerTaskEngine.cfg.DockerStopTimeout != globalStopContainerTimeout {
+		t.Errorf("Expect ECS_CONTAINER_STOP_TIMEOUT to be set to , %v", dockerTaskEngine.cfg.DockerStopTimeout)
+	}
+
+	testTask := createTestTask("TestDockerStopTimeout")
+	testTask.Containers[0].Command = []string{"sh", "-c", "trap 'echo hello' SIGTERM; while true; do echo `date +%T`; sleep 1s; done;"}
+	testTask.Containers[0].Image = testBusyboxImage
+	testTask.Containers[0].Name = "test-docker-timeout"
+	testTask.Containers[0].StopTimeout = uint(testDockerStopTimeout.Seconds())
+
+	go dockerTaskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	startTime := ttime.Now()
+	dockerTaskEngine.stopContainer(testTask, testTask.Containers[0])
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+
+	if ttime.Since(startTime) < testDockerStopTimeout {
+		t.Errorf("Container stopped before the timeout: %v", ttime.Since(startTime))
+	}
+	if ttime.Since(startTime) > testDockerStopTimeout+1*time.Second {
+		t.Errorf("Container should have stopped eariler, but stopped after %v", ttime.Since(startTime))
+	}
 }

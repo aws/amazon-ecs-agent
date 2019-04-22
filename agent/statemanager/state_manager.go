@@ -27,6 +27,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 )
 
 const (
@@ -60,12 +61,29 @@ const (
 	// 9) Add 'ipToTask' map to state file
 	// 10) Add 'healthCheckType' field in 'apicontainer.Container'
 	// 11)
-	//  a) Add 'PrivateDNSName' field to 'api.ENI'
-	//  b)Remove `AppliedStatus` field form 'apicontainer.Container'
+	//   a) Add 'PrivateDNSName' field to 'api.ENI'
+	//   b) Remove `AppliedStatus` field form 'apicontainer.Container'
 	// 12) Deprecate 'TransitionDependencySet' and add new 'TransitionDependenciesMap' in 'apicontainer.Container'
 	// 13) Add 'resources' field to 'api.task.task'
 	// 14) Add 'PlatformFields' field to 'api.task.task'
-	ECSDataVersion = 14
+	// 15) Add 'PIDMode' and 'IPCMode' fields to 'api.task.task'
+	// 16) Add 'V3EndpointID' field to 'Container' struct
+	// 17)
+	//   a) Add 'secrets' field to 'apicontainer.Container'
+	//   b) Add 'ssmsecret' field to 'resources'
+	// 18)
+	//   a) Add 'AvailabilityZone' field to the TaskResponse struct
+	//   b) Add 'asmsecret' field to 'resources'
+	// 19)
+	//   a) Add 'Associations' field to 'api.task.task'
+	//   b) Add 'GPUIDs' field to 'apicontainer.Container'
+	//   c) Add 'NvidiaRuntime' field to 'api.task.task'
+	// 20)
+	//   a) Add 'DependsOn' field to 'apicontainer.Container'
+	//   b) Add 'StartTime' field to 'api.container.Container'
+	//   c) Add 'StopTime' field to 'api.container.Container'
+	// 21)  Add 'target' field to the Secret struct
+	ECSDataVersion = 21
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
@@ -187,6 +205,7 @@ func AddSaveable(name string, saveable Saveable) Option {
 // Save triggers a save to file, though respects a minimum save interval to wait
 // between saves.
 func (manager *basicStateManager) Save() error {
+	defer metrics.MetricsEngineGlobal.RecordStateManagerMetric("SAVE")()
 	manager.saveTimesLock.Lock()
 	defer manager.saveTimesLock.Unlock()
 	if time.Since(manager.lastSave) >= minSaveInterval {

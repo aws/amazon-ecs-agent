@@ -16,26 +16,33 @@
 package functional_tests
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
+	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
+	docker "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,6 +95,9 @@ func TestRunManyTasks(t *testing.T) {
 
 // TestOOMContainer verifies that an OOM container returns an error
 func TestOOMContainer(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	RequireDockerVersion(t, "<1.9.0,>1.9.1") // https://github.com/docker/docker/issues/18510
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
@@ -100,6 +110,9 @@ func TestOOMContainer(t *testing.T) {
 
 // TestOOMTask verifies that a task with a memory limit returns an error
 func TestOOMTask(t *testing.T) {
+	// oom container task requires 500MB of memory; requires a bit more to be stable
+	RequireMinimumMemory(t, 600)
+
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
@@ -182,48 +195,51 @@ func TestDockerAuth(t *testing.T) {
 }
 
 func TestSquidProxy(t *testing.T) {
+	ctx := context.TODO()
 	// Run a squid proxy manually, verify that the agent can connect through it
-	client, err := docker.NewVersionedClientFromEnv("1.17")
+	client, err := docker.NewClientWithOpts(docker.WithVersion("1.17"))
 	require.NoError(t, err)
 
 	squidImage := "127.0.0.1:51670/amazon/squid:latest"
-	dockerConfig := docker.Config{
+	dockerConfig := dockercontainer.Config{
 		Image: squidImage,
 	}
-	dockerHostConfig := docker.HostConfig{}
+	dockerHostConfig := dockercontainer.HostConfig{}
 
-	err = client.PullImage(docker.PullImageOptions{Repository: squidImage}, docker.AuthConfiguration{})
+	_, err = client.ImagePull(ctx, squidImage, types.ImagePullOptions{})
 	require.NoError(t, err)
+	// Squid pull time
+	time.Sleep(2 * time.Second)
 
-	squidContainer, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config:     &dockerConfig,
-		HostConfig: &dockerHostConfig,
-	})
+	squidContainer, err := client.ContainerCreate(ctx,
+		&dockerConfig,
+		&dockerHostConfig,
+		&network.NetworkingConfig{},
+		"") // containerName
 	require.NoError(t, err)
-	err = client.StartContainer(squidContainer.ID, &dockerHostConfig)
+	err = client.ContainerStart(ctx, squidContainer.ID, types.ContainerStartOptions{})
 	require.NoError(t, err)
 	defer func() {
-		client.RemoveContainer(docker.RemoveContainerOptions{
-			Force:         true,
-			ID:            squidContainer.ID,
+		client.ContainerRemove(ctx, squidContainer.ID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
+			Force:         true,
 		})
 	}()
 
 	// Resolve the name so we can use it in the link below; the create returns an ID only
-	squidContainer, err = client.InspectContainer(squidContainer.ID)
+	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainer.Name)
+	t.Logf("Started squid container: %v", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"HTTP_PROXY": "squid:3128",
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainer.Name + ":squid"},
+		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
@@ -250,30 +266,32 @@ func TestSquidProxy(t *testing.T) {
 	// Note, do a docker exec instead of bindmount the logs out because the logs
 	// will not be permissioned correctly in the bindmount. Once we have proper
 	// user namespacing we could revisit this
-	logExec, err := client.CreateExec(docker.CreateExecOptions{
-		AttachStdout: true,
-		AttachStdin:  false,
-		Container:    squidContainer.ID,
-		// Takes a second to flush the file sometimes, so slightly complicated command to wait for it to be written
-		Cmd: []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
-	})
+	idResponse, err := client.ContainerExecCreate(
+		ctx,
+		squidContainer.ID,
+		types.ExecConfig{
+			AttachStdout: true,
+			AttachStdin:  false,
+			Cmd:          []string{"sh", "-c", "FILE=/var/log/squid/access.log; while [ ! -s $FILE ]; do sleep 1; done; cat $FILE"},
+		})
 	require.NoError(t, err)
 	t.Logf("Execing cat of /var/log/squid/access.log on %v", squidContainer.ID)
 
-	var squidLogs bytes.Buffer
-	err = client.StartExec(logExec.ID, docker.StartExecOptions{
-		OutputStream: &squidLogs,
-	})
+	hijackedResp, err := client.ContainerExecAttach(ctx, idResponse.ID, types.ExecStartCheck{})
+	defer hijackedResp.Close()
 	require.NoError(t, err)
 	for {
-		tmp, _ := client.InspectExec(logExec.ID)
-		if !tmp.Running {
+		inspect, _ := client.ContainerExecInspect(ctx, idResponse.ID)
+		if !inspect.Running {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	t.Logf("Squid logs: %v", squidLogs.String())
+	squidLogs, err := ioutil.ReadAll(hijackedResp.Reader)
+	require.NoError(t, err)
+	squildLogStr := string(squidLogs[:])
+	t.Logf("Squid logs: %v", squildLogStr)
 
 	// Of the format:
 	//    1445018173.730   3163 10.0.0.1 TCP_MISS/200 5706 CONNECT ecs.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.250.253 -
@@ -282,7 +300,7 @@ func TestSquidProxy(t *testing.T) {
 	//    1445018173.731   3086 10.0.0.1 TCP_MISS/200 3411 CONNECT ecs-t-1.us-west-2.amazonaws.com:443 - HIER_DIRECT/54.240.254.59
 	allAddressesRegex := regexp.MustCompile("CONNECT [^ ]+ ")
 	// Match just the host+port it's proxying to
-	matches := allAddressesRegex.FindAllStringSubmatch(squidLogs.String(), -1)
+	matches := allAddressesRegex.FindAllStringSubmatch(squildLogStr, -1)
 	t.Logf("Proxy connections: %v", matches)
 	dedupedMatches := map[string]struct{}{}
 	for _, match := range matches {
@@ -357,9 +375,14 @@ func TestAWSLogsDriver(t *testing.T) {
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 }
 
-// TestTelemetry tests whether agent can send metrics to TACS
+// TestTelemetry tests whether agent can send metrics to TACS, through streaming docker stats
 func TestTelemetry(t *testing.T) {
 	telemetryTest(t, "telemetry")
+}
+
+// TestTelemetry tests whether agent can send metrics to TACS, through polling docker stats
+func TestTelemetryWithStatsPolling(t *testing.T) {
+	telemetryTestWithStatsPolling(t, "telemetry")
 }
 
 func TestTaskIAMRolesNetHostMode(t *testing.T) {
@@ -372,13 +395,8 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -395,13 +413,8 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
-		PortBindings: map[docker.Port]map[string]string{
-			"51679/tcp": {
-				"HostIP":   "0.0.0.0",
-				"HostPort": "51679",
-			},
-		},
 	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -409,7 +422,8 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 }
 
 func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
-	RequireDockerVersion(t, ">=1.11.0") // TaskIamRole is available from agent 1.11.0
+	ctx := context.TODO()
+	agent.RequireVersion(">=1.11.0") // TaskIamRole is available from agent 1.11.0
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
 		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
@@ -430,8 +444,8 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "container-with-iamrole")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	// TaskIAMRoles enabled contaienr should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	// TaskIAMRoles enabled container should have the ExtraEnvironment variable AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 	iamRoleEnabled := false
 	if containerMetaData.Config != nil {
@@ -444,14 +458,14 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	}
 	if !iamRoleEnabled {
 		task.Stop()
-		t.Fatalf("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
+		t.Fatal("Could not found AWS_CONTAINER_CREDENTIALS_RELATIVE_URI in the container environment variable")
 	}
 
 	// Task will only run one command "aws ec2 describe-regions"
 	err = task.WaitStopped(30 * time.Second)
 	require.NoError(t, err, "Waiting task to stop error")
 
-	containerMetaData, err = agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err = agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
@@ -461,8 +475,29 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.NoError(t, err, "Verify credential request failed")
 }
 
+func TestV3TaskEndpointAWSVPCNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "awsvpc", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointBridgeNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "bridge", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointHostNetworkMode(t *testing.T) {
+	testV3TaskEndpoint(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host", "ecs-functional-tests-v3-task-endpoint-validator")
+}
+
+func TestV3TaskEndpointTags(t *testing.T) {
+	testV3TaskEndpointTags(t, "v3-task-endpoint-validator", "v3-task-endpoint-validator", "host")
+}
+
+func TestContainerMetadataFile(t *testing.T) {
+	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
+}
+
 // TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
 func TestMemoryOvercommit(t *testing.T) {
+	ctx := context.TODO()
 	agent := RunAgent(t, nil)
 	defer agent.Cleanup()
 
@@ -480,7 +515,7 @@ func TestMemoryOvercommit(t *testing.T) {
 	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
 	require.NoError(t, err, "Error resolving docker id for container in task")
 
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	require.NoError(t, err, "Could not inspect container for task")
 
 	require.Equal(t, memoryReservation*1024*1024, containerMetaData.HostConfig.MemoryReservation,
@@ -523,6 +558,11 @@ func TestFluentdTag(t *testing.T) {
 	// tag was added in docker 1.9.0
 	RequireDockerVersion(t, ">=1.9.0")
 
+	// Skipping the test for arm as they do not have official support for Arm images
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping test, unsupported image for arm64")
+	}
+
 	fluentdDriverTest("fluentd-tag", t)
 }
 
@@ -533,10 +573,17 @@ func TestFluentdLogTag(t *testing.T) {
 	RequireDockerVersion(t, ">=1.8.0")
 	RequireDockerVersion(t, "<1.12.0")
 
+	// Skipping the test for arm as they do not have official support for Arm images
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping test, unsupported image for arm64")
+	}
+
 	fluentdDriverTest("fluentd-log-tag", t)
 }
 
 func fluentdDriverTest(taskDefinition string, t *testing.T) {
+	ctx := context.TODO()
+
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
@@ -563,7 +610,7 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
 	assert.NoError(t, err, "failed to resolve the container id from agent state")
 
-	container, err := agent.DockerClient.InspectContainer(dockerID)
+	container, err := agent.DockerClient.ContainerInspect(ctx, dockerID)
 	assert.NoError(t, err, "failed to inspect the container")
 
 	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)
@@ -584,29 +631,109 @@ func fluentdDriverTest(taskDefinition string, t *testing.T) {
 	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
-// TestMetadataServiceValidator tests that the metadata file can be accessed from the
-// container using the ECS_CONTAINER_METADATA_FILE environment variables
-func TestMetadataServiceValidator(t *testing.T) {
-	agentOptions := &AgentOptions{
+// TestLogDriverSecretSupport tests the log driver secret support using
+// the awslogs and awslogs-multiline-pattern option is utilized as a secret storing as an unencrypted parameter
+func TestLogDriverSecretSupport(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.2")
+
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestLogDriverSecretSupport in China partition")
+	}
+
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	// Test whether the log group exists or not
+	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
+	})
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
+	logGroupExists := false
+	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
+		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
+			logGroupExists = true
+			break
+		}
+	}
+
+	if !logGroupExists {
+		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(awslogsLogGroupName),
+		})
+		require.NoError(t, err, fmt.Sprintf("Failed to create log group %s", awslogsLogGroupName))
+	}
+
+	parameterName := "FunctionalTestSecretSupportLogDriverAwslogsMultiline"
+	secretName := "awslogs-multiline-pattern"
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestLogDriverSecretSupport"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("^INFO"),
+		Type:        aws.String("String"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err = ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_CONTAINER_METADATA": "true",
+			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
+			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
 		},
 	}
 
-	agent := RunAgent(t, agentOptions)
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
+
+	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
-	agent.RequireVersion(">=1.15.0")
+	agent.RequireVersion(">=1.25.0")
 
-	task, err := agent.StartTask(t, "mdservice-validator-unix")
-	require.NoError(t, err, "Register task definition failed")
-	defer task.Stop()
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
 
-	// clean up
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
-	exitCode, _ := task.ContainerExitcode("mdservice-validator-unix")
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "awslogs-secret-support-multiline", tdOverrides)
+	require.NoError(t, err, "Failed to start task for awslogs secret support multiline")
 
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+	// Wait for the container to start
+	task.WaitRunning(waitTaskStateChangeDuration)
+
+	taskID, err := GetTaskID(aws.StringValue(task.TaskArn))
+	require.NoError(t, err)
+
+	// Delete the log stream after the test
+	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("1-new-awslogs-secret-multiline/awslogs-secret-support-multiline/%s", taskID)),
+	})
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("1-new-awslogs-secret-multiline/awslogs-secret-support-multiline/%s", taskID)),
+	}
+
+	resp, err := waitCloudwatchLogs(cwlClient, params)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "INFO: ECS Agent\nRunning\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
+	assert.Equal(t, *resp.Events[1].Message, "INFO: Instance\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[1].Message))
 }
 
 // TestAgentIntrospectionValidator tests that the agent introspection endpoint can
@@ -648,16 +775,31 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 
 func TestTaskMetadataValidator(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	// Added to test presence of tags in metadata endpoint
+	// We need long container instance ARN for tagging APIs, PutAccountSettingInput
+	// will enable long container instance ARN.
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInstanceLongArnFormat"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
 	// Best effort to create a log group. It should be safe to even not do this
 	// as the log group gets created in the TestAWSLogsDriver functional test.
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(awslogsLogGroupName),
 	})
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_AVAILABLE_LOGGING_DRIVERS":              `["awslogs"]`,
+			"ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM": "ec2_instance",
+			"ECS_CONTAINER_INSTANCE_TAGS": fmt.Sprintf(`{"%s": "%s"}`,
+				"localKey", "localValue"),
 		},
 	})
 	defer agent.Cleanup()
@@ -665,6 +807,7 @@ func TestTaskMetadataValidator(t *testing.T) {
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$CHECK_TAGS$$$"] = "CheckTags" // Added to test presence of tags in metadata endpoint
 
 	task, err := agent.StartAWSVPCTask("taskmetadata-validator-awsvpc", tdOverrides)
 	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
@@ -711,7 +854,14 @@ func TestExecutionRole(t *testing.T) {
 	agent.RequireVersion(">=1.16.0")
 
 	tdOverrides := make(map[string]string)
-	testImage := fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+
+	testImage := ""
+
+	if runtime.GOARCH == "arm64" {
+		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:arm-fts", accountID, *ECS.Config.Region)
+	} else {
+		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
+	}
 
 	tdOverrides["$$$$TEST_REGION$$$$"] = aws.StringValue(ECS.Config.Region)
 	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
@@ -881,9 +1031,12 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 // TestPrivateRegistryAuthOverASM tests the workflow for retriving private registry authentication data
 // from AWS Secrets Manager
 func TestPrivateRegistryAuthOverASM(t *testing.T) {
-
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestPrivateRegistryAuthOverASM in China partition")
 	}
 
 	secretName := "FunctionalTest-PrivateRegistryAuth"
@@ -961,4 +1114,496 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
 	rExitCode, _ := rTask.ContainerExitcode("task-shared-vol-read")
 	assert.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
+}
+
+// TestHostPIDNamespaceSharing tests the visibility of an executable running on one Task from
+// another Task. Both tasks share their PID namespace with Host. Second Task should see the
+// running executable.
+func TestHostPIDNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "pid-namespace-host-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "pid-namespace-host-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("pidConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping pid-namespace-host-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for pid-namespace-host-share task to stop")
+	assert.Equal(t, 1, rExitCode, "Container could not see pidNamespaceTest process, but should")
+}
+
+// TestTaskPIDNamespaceSharing tests the visibility of an executable running on one Task from
+// another Task. Both tasks share their PID namespace within their respective Tasks. Second
+// Task should not see the running executable.
+func TestTaskPIDNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "pid-namespace-task-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "pid-namespace-task-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("pidConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping pid-namespace-task-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for pid-namespace-task-share task to stop")
+	assert.Equal(t, 2, rExitCode, "Container could see pidNamespaceTest process, but shouldn't")
+}
+
+// TestHostIPCNamespaceSharing tests the visibility of an IPC semaphore created on one Task from
+// another Task. Both tasks share their IPC namespace with Host. Second Task should see the
+// created semaphore.
+func TestHostIPCNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "ipc-namespace-host-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "ipc-namespace-host-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("ipcConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping ipc-namespace-host-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for ipc-namespace-host-share task to stop")
+	assert.Equal(t, 1, rExitCode, "Container could not see IPC resource, but should")
+}
+
+// TestTaskIPCNamespaceSharing tests the visibility of an IPC semaphore created on one Task from
+// another Task. Both tasks share their IPC namespace within their respective Tasks. Second
+// Task should not see the created semaphore.
+func TestTaskIPCNamespaceSharing(t *testing.T) {
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	sTask, err := agent.StartTask(t, "ipc-namespace-task-share")
+	require.NoError(t, err, "Register task definition failed")
+	sTask.WaitRunning(waitTaskStateChangeDuration)
+
+	rTask, err := agent.StartTask(t, "ipc-namespace-task-read")
+	require.NoError(t, err, "Register task definition failed")
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, _ := rTask.ContainerExitcode("ipcConsumer")
+
+	sErr := sTask.Stop()
+	require.NoError(t, sErr, "Error stopping ipc-namespace-task-share task")
+	sErr = sTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, sErr, "Error waiting for ipc-namespace-task-share task to stop")
+	assert.Equal(t, 2, rExitCode, "Container could see IPC resource, but shouldn't")
+}
+
+// TestSSMSecretsNonEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is a non encrypted parameter
+func TestSSMSecretsNonEncryptedParameterARN(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	executionRole := os.Getenv("ECS_FTS_EXECUTION_ROLE")
+	// execution role arn is following the pattern arn:aws:iam::accountId:role/***
+	executionRoleArr := strings.Split(executionRole, ":")
+	partition := executionRoleArr[1]
+	accountId := executionRoleArr[4]
+
+	parameterName := "FunctionalTest-SSMSecretsString"
+	secretName := "SECRET_NAME"
+	region := *ECS.Config.Region
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsNonEncryptedParameter"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("secretValue"),
+		Type:        aws.String("String"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+
+	arn := fmt.Sprintf("arn:%s:ssm:%s:%s:parameter/%s", partition, region, accountId, parameterName)
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = arn
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = executionRole
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for ssmsecrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestSSMSecretsEncryptedParameter tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is an encrypted parameter
+func TestSSMSecretsEncryptedParameter(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
+	}
+
+	parameterName := "FunctionalTest-SSMSecretsSecureString"
+	secretName := "SECRET_NAME"
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsEncryptedParameter"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String("secretValue"),
+		Type:        aws.String("SecureString"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestSSMSecretsEncryptedASMSecrets tests the workflow for retrieving secrets from SSM Parameter Store,
+// here secret is a secret in secrets manager passing through parameter store
+func TestSSMSecretsEncryptedASMSecrets(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
+	}
+
+	parameterName := "/aws/reference/secretsmanager/FunctionalTest-SSMSecretsEncryptedASMSecrets"
+	secretName := "SECRET_NAME"
+	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &secretsmanager.CreateSecretInput{
+		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestSSMSecretsEncryptedASMSecrets"),
+		Name:         aws.String("FunctionalTest-SSMSecretsEncryptedASMSecrets"),
+		SecretString: aws.String("secretValue"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := asmClient.CreateSecret(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case secretsmanager.ErrCodeResourceExistsException:
+				t.Logf("Secret FunctionalTest-SSMSecretsEncryptedASMSecrets already exists in AWS Secrets Manager")
+				break
+			default:
+				require.NoError(t, err, "Secrets Manager CreateSecret call failed")
+			}
+		}
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.22.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = secretName
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = parameterName
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestASMSecretsARN tests the workflow for retrieving secrets directly from AWS Secrets Manager.
+func TestASMSecretsARN(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestASMSecretsARN in China partition")
+	}
+
+	secret := "FunctionalTest-SSMSecretsEncryptedASMSecrets"
+	asmClient := secretsmanager.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &secretsmanager.CreateSecretInput{
+		Description:  aws.String("Resource created for the ECS Agent Functional Test: TestASMSecretsARN"),
+		Name:         aws.String(secret),
+		SecretString: aws.String("secretValue"),
+	}
+
+	// create secret in secrets manager if it does not exist
+	_, err := asmClient.CreateSecret(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case secretsmanager.ErrCodeResourceExistsException:
+				t.Logf("Secret %s already exists in AWS Secrets Manager", secret)
+				break
+			default:
+				require.NoError(t, err, "Secrets Manager CreateSecret call failed")
+			}
+		}
+	}
+
+	// get secret arn
+	secretInput := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secret),
+	}
+	res, err := asmClient.GetSecretValue(secretInput)
+	if err != nil {
+		require.NoError(t, err, "Secrets Manager GetSecretValue call failed")
+	}
+	secretARN := aws.StringValue(res.ARN)
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.23.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$SECRET_NAME$$$"] = "SECRET_NAME"
+	tdOverrides["$$$SECRET_VALUE_FROM$$$"] = secretARN
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "secrets-environment-variables", tdOverrides)
+	require.NoError(t, err, "Failed to start task for secrets environment variables")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+	exitCode, _ := task.ContainerExitcode("secrets-environment-variables")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// Note: This functional test requires ECS GPU instance which has atleast 2 GPUs
+func TestRunGPUTask(t *testing.T) {
+	gpuInstances := []string{"p2", "p3", "g3"}
+	var isGPUInstance bool
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+	for _, gpuInstance := range gpuInstances {
+		if strings.HasPrefix(iid.InstanceType, gpuInstance) {
+			// GPU test should only run on p2/p3/g3 ECS instances
+			isGPUInstance = true
+			break
+		}
+	}
+	if !isGPUInstance {
+		t.Skip("Skipped because the instance type is not a supported GPU instance type")
+	}
+	if _, err := os.Stat(gpu.NvidiaGPUInfoFilePath); os.IsNotExist(err) {
+		t.Skip("Skipped because GPU information file does not exist")
+	}
+	agent := RunAgent(t, &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			// required environment variable to register with GPU devices
+			"ECS_ENABLE_GPU_SUPPORT": "true",
+		},
+		GPUEnabled: true,
+	})
+	defer agent.Cleanup()
+	// TODO: after release, change it to 1.24.0
+	agent.RequireVersion(">=1.22.0")
+
+	testTask, err := agent.StartTask(t, "nvidia-gpu")
+	require.NoError(t, err)
+
+	err = testTask.WaitStopped(2 * time.Minute)
+	require.NoError(t, err)
+
+	if exit, ok := testTask.ContainerExitcode("exit"); !ok || exit != 42 {
+		t.Errorf("Expected exit to exit with 42; actually exited (%v) with %v", ok, exit)
+	}
+
+	defer agent.SweepTask(testTask)
+}
+
+// TestElasticInferenceValidator tests the workflow of an elastic inference task
+func TestElasticInferenceValidator(t *testing.T) {
+	t.Skip("Skipping the test until EI is fully supported in all AZs of some regions")
+
+	supportedRegions := []string{"us-west-2", "us-east-1", "ap-northeast-2"}
+	RequireRegions(t, supportedRegions, *ECS.Config.Region)
+
+	// Best effort to create a log group. It should be safe to even not do this
+	// as the log group gets created in the TestAWSLogsDriver functional test.
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(awslogsLogGroupName),
+	})
+
+	agentOptions := &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.25.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$TEST_AWSLOGS_STREAM_PREFIX$$$"] = "ecs-functional-tests-elastic-inference-validator"
+
+	var task *TestTask
+	var err error
+
+	task, err = agent.StartAWSVPCTask("task-elastic-inference", tdOverrides)
+	require.NoError(t, err, "Error starting elastic inference task")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+
+	exitCode, _ := task.ContainerExitcode("container_1")
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42 for container; got %d", exitCode))
+}
+
+// TestServerEndpointValidator tests the workflow of task server endpoint
+func TestServerEndpointValidator(t *testing.T) {
+	// The test runs only when the environment TEST_IAM_ROLE was set
+	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE_NET_HOST") == "true" {
+		t.Skip("Skipping test TaskIamRole in host network mode, as TEST_DISABLE_TASK_IAM_ROLE_NET_HOST is set true")
+	}
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
+			"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
+		},
+	}
+
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		require.NoError(t, err, "Error getting IAM Roles from instance profile")
+		roleArn = *role.Arn
+	}
+	tdOverride := make(map[string]string)
+	tdOverride["$$$TASK_ROLE$$$"] = roleArn
+
+	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "task-server-endpoint-validator", tdOverride)
+	require.NoError(t, err, "Error start task-server-endpoint-validator task")
+
+	err = task.WaitStopped(10 * time.Minute)
+	assert.NoError(t, err)
+	code, ok := task.ContainerExitcode("task_server_endpoint_validator_container")
+	assert.True(t, ok, "Get exit code failed")
+	assert.Equal(t, 42, code, "Wrong exit code")
+}
+
+// TestAppMeshCNIPlugin validates the functionality of appmesh cni plugin.
+func TestAppMeshCNIPlugin(t *testing.T) {
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	// Test whether the log group exists or not
+	respDescribeLogGroups, err := cwlClient.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(awslogsLogGroupName),
+	})
+	require.NoError(t, err, "CloudWatchLogs describe log groups failed")
+	logGroupExists := false
+	for i := 0; i < len(respDescribeLogGroups.LogGroups); i++ {
+		if *respDescribeLogGroups.LogGroups[i].LogGroupName == awslogsLogGroupName {
+			logGroupExists = true
+			break
+		}
+	}
+
+	if !logGroupExists {
+		_, err := cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
+			LogGroupName: aws.String(awslogsLogGroupName),
+		})
+		require.NoError(t, err, fmt.Sprintf("Failed to create log group %s", awslogsLogGroupName))
+	}
+
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+	defer agent.Cleanup()
+	// TODO: after release, change it to 1.26.0
+	agent.RequireVersion(">=1.25.3")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+	task, err := agent.StartAWSVPCTask("appmesh-plugin-validator", tdOverrides)
+	require.NoError(t, err, "Unable to start task with 'awsvpc' network mode")
+
+	err = task.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error waiting for task to transition to STOPPED")
+	exitCode, _ := task.ContainerExitcode("app-mesh")
+
+	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }

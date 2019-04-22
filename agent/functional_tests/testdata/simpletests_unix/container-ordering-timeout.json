@@ -1,0 +1,10 @@
+{
+  "Name": "ContainerOrderingTimeout",
+  "Description": "Check that container ordering has timed out",
+  "TaskDefinition": "container-ordering-timedout",
+  "Version": ">=1.25.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "success-timeout-dependency": 137
+  }
+}

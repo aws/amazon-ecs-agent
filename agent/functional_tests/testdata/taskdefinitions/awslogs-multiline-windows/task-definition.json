@@ -5,7 +5,7 @@
     "memory": 512,
     "name": "awslogs-multiline-windows",
     "cpu": 1024,
-    "image": "microsoft/windowsservercore:latest",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "entryPoint": ["powershell"],
     "command": ["echo", "\"INFO: ECS Agent\nRunning\nINFO: Instance\""],
     "logConfiguration": {

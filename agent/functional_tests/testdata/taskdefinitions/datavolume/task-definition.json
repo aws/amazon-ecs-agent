@@ -8,7 +8,7 @@
     "image": "127.0.0.1:51670/busybox:latest",
     "name": "exit",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "essential": true,
     "volumesFrom": [{
       "sourceContainer": "data-volume-source"
@@ -18,7 +18,7 @@
     "image": "127.0.0.1:51670/busybox:latest",
     "name": "dataSource",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "essential": false,
     "volumesFrom": [{
       "sourceContainer": "data-volume-source"
@@ -28,7 +28,7 @@
     "image": "127.0.0.1:51670/busybox:latest",
     "name": "data-volume-source",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "essential": false,
     "mountPoints": [{
       "sourceVolume": "test",

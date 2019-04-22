@@ -21,26 +21,30 @@ import (
 	"os"
 	"time"
 
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
-	v2MetadataEndpoint     = "http://169.254.170.2/v2/metadata"
-	v2StatsEndpoint        = "http://169.254.170.2/v2/stats"
-	maxRetries             = 4
-	durationBetweenRetries = time.Second
+	v2MetadataEndpoint         = "http://169.254.170.2/v2/metadata"
+	v2MetadataWithTagsEndpoint = "http://169.254.170.2/v2/metadataWithTags"
+	v2StatsEndpoint            = "http://169.254.170.2/v2/stats"
+	maxRetries                 = 4
+	durationBetweenRetries     = time.Second
 )
 
 // TaskResponse defines the schema for the task response JSON object
 type TaskResponse struct {
-	Cluster       string
-	TaskARN       string
-	Family        string
-	Revision      string
-	DesiredStatus string `json:",omitempty"`
-	KnownStatus   string
-	Containers    []ContainerResponse `json:",omitempty"`
-	Limits        LimitsResponse      `json:",omitempty"`
+	Cluster               string
+	TaskARN               string
+	Family                string
+	Revision              string
+	DesiredStatus         string `json:",omitempty"`
+	KnownStatus           string
+	AvailabilityZone      string
+	Containers            []ContainerResponse `json:",omitempty"`
+	Limits                LimitsResponse      `json:",omitempty"`
+	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
+	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
@@ -119,6 +123,23 @@ func taskMetadata(client *http.Client) (*TaskResponse, error) {
 	return &taskMetadata, nil
 }
 
+func taskWithTagsMetadata(client *http.Client) (*TaskResponse, error) {
+	body, err := metadataResponse(client, v2MetadataWithTagsEndpoint, "task with tags metadata")
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Received task with tags metadata: %s \n", string(body))
+
+	var taskMetadata TaskResponse
+	err = json.Unmarshal(body, &taskMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("task with tags metadata: unable to parse response body: %v", err)
+	}
+
+	return &taskMetadata, nil
+}
+
 func containerMetadata(client *http.Client, id string) (*ContainerResponse, error) {
 	body, err := metadataResponse(client, v2MetadataEndpoint+"/"+id, "container metadata")
 	if err != nil {
@@ -136,7 +157,7 @@ func containerMetadata(client *http.Client, id string) (*ContainerResponse, erro
 	return &containerMetadata, nil
 }
 
-func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
+func taskStats(client *http.Client) (map[string]*types.StatsJSON, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint, "task stats")
 	if err != nil {
 		return nil, err
@@ -144,7 +165,7 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 
 	fmt.Printf("Received task stats: %s \n", string(body))
 
-	var taskStats map[string]*docker.Stats
+	var taskStats map[string]*types.StatsJSON
 	err = json.Unmarshal(body, &taskStats)
 	if err != nil {
 		return nil, fmt.Errorf("task stats: unable to parse response body: %v", err)
@@ -153,7 +174,7 @@ func taskStats(client *http.Client) (map[string]*docker.Stats, error) {
 	return taskStats, nil
 }
 
-func containerStats(client *http.Client, id string) (*docker.Stats, error) {
+func containerStats(client *http.Client, id string) (*types.StatsJSON, error) {
 	body, err := metadataResponse(client, v2StatsEndpoint+"/"+id, "container stats")
 	if err != nil {
 		return nil, err
@@ -161,7 +182,7 @@ func containerStats(client *http.Client, id string) (*docker.Stats, error) {
 
 	fmt.Printf("Received container stats: %s \n", string(body))
 
-	var containerStats docker.Stats
+	var containerStats types.StatsJSON
 	err = json.Unmarshal(body, &containerStats)
 	if err != nil {
 		return nil, fmt.Errorf("container stats: unable to parse response body: %v", err)
@@ -212,6 +233,21 @@ func main() {
 
 	// Wait for the Health information to be ready
 	time.Sleep(5 * time.Second)
+
+	// If the image is built with option to check Tags
+	argsWithoutProg := os.Args[1:]
+	if len(argsWithoutProg) > 0 && argsWithoutProg[0] == "CheckTags" {
+		taskWithTagsMetadata, err := taskWithTagsMetadata(client)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to get task stats: %v", err)
+			os.Exit(1)
+		}
+
+		if len(taskWithTagsMetadata.ContainerInstanceTags) == 0 {
+			fmt.Fprintf(os.Stderr, "ContainerInstanceTags not found: %v", err)
+			os.Exit(1)
+		}
+	}
 
 	taskMetadata, err := taskMetadata(client)
 	if err != nil {

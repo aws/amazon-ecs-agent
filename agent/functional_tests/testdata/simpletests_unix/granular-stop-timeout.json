@@ -1,0 +1,12 @@
+{
+  "Name": "ContainerOrderingGranularStopTimeout",
+  "Description": "Check that granular stop timeout works fine",
+  "TaskDefinition": "granular-stop-timeout",
+  "Version": ">=1.25.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "parent": 0,
+    "dependency1": 137,
+    "dependency2": 0
+  }
+}

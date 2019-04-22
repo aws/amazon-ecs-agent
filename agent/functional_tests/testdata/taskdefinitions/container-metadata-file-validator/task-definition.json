@@ -1,0 +1,30 @@
+{
+    "family": "ecsftest-container-metadata-file-validator",
+    "containerDefinitions": [{
+      "image": "127.0.0.1:51670/amazon/amazon-ecs-container-metadata-file-validator:latest",
+      "name": "container-metadata-file-validator",
+      "memory": 50,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "echo hello"],
+        "interval": 5,
+        "timeout": 5,
+        "retries": 2,
+        "startPeriod": 1
+      },
+      "environment": [
+        {
+          "name": "HAS_PUBLIC_IP",
+          "value": "$$$HAS_PUBLIC_IP$$$"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"$$$TEST_AWSLOGS_STREAM_PREFIX$$$"
+        }
+      }
+    }]
+  }
+  

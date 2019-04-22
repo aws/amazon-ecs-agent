@@ -17,14 +17,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
 // NewTaskStatsResponse returns a new task stats response object
 func NewTaskStatsResponse(taskARN string,
 	state dockerstate.TaskEngineState,
-	statsEngine stats.Engine) (map[string]*docker.Stats, error) {
+	statsEngine stats.Engine) (map[string]*types.StatsJSON, error) {
 
 	containerMap, ok := state.ContainerMapByArn(taskARN)
 	if !ok {
@@ -33,7 +33,7 @@ func NewTaskStatsResponse(taskARN string,
 			taskARN)
 	}
 
-	resp := make(map[string]*docker.Stats)
+	resp := make(map[string]*types.StatsJSON)
 	for _, dockerContainer := range containerMap {
 		containerID := dockerContainer.DockerID
 		dockerStats, err := statsEngine.ContainerDockerStats(taskARN, containerID)

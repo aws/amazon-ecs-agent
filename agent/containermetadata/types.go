@@ -20,8 +20,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 )
 
 const (
@@ -80,7 +79,7 @@ func (status *MetadataStatus) UnmarshalText(text []byte) error {
 // The problems described above are indications dockerapi.DockerClient needs to be moved
 // outside the engine package
 type DockerMetadataClient interface {
-	InspectContainer(context.Context, string, time.Duration) (*docker.Container, error)
+	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 }
 
 // Network is a struct that keeps track of metadata of a network interface
@@ -130,6 +129,8 @@ type Metadata struct {
 	dockerContainerMetadata DockerContainerMetadata
 	containerInstanceARN    string
 	metadataStatus          MetadataStatus
+	availabilityZone        string
+	hostPublicIPv4Address   string
 }
 
 // metadataSerializer is an intermediate struct that converts the information
@@ -148,6 +149,8 @@ type metadataSerializer struct {
 	Ports                  []apicontainer.PortBinding `json:"PortMappings,omitempty"`
 	Networks               []Network                  `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
+	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
+	HostPublicIPv4Address  string                     `json:"HostPublicIPv4Address,omitempty"`
 }
 
 func (m Metadata) MarshalJSON() ([]byte, error) {
@@ -166,5 +169,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Ports:                  m.dockerContainerMetadata.ports,
 			Networks:               m.dockerContainerMetadata.networkInfo.networks,
 			MetadataFileStatus:     m.metadataStatus,
+			AvailabilityZone:       m.availabilityZone,
+			HostPublicIPv4Address:  m.hostPublicIPv4Address,
 		})
 }

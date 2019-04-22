@@ -17,7 +17,16 @@ set -ex
 region=$(curl -s 169.254.169.254/latest/meta-data/placement/availability-zone/ | grep -o ".*[0-9]")
 accountID=$(curl -s 169.254.169.254/latest/dynamic/instance-identity/document | grep accountId | grep -oE "[0-9]*")
 eval $(aws ecr get-login --region ${region} --no-include-email)
-repository=${accountID}.dkr.ecr.${region}.amazonaws.com/executionrole:fts
+
+BUILD_PLATFORM=$(uname -m)
+
+execution_role_tag="fts"
+
+if [[ "$BUILD_PLATFORM" == "aarch64" ]]; then
+	execution_role_tag="arm-fts"
+fi
+
+repository=${accountID}.dkr.ecr.${region}.amazonaws.com/executionrole:${execution_role_tag}
 
 # Create the repository if it does not exist
 if ! aws ecr describe-repositories --region ${region}| grep -q 'repositoryName": "executionrole"' ;
@@ -26,7 +35,7 @@ then
 fi
 
 # Upload the image if it does not exist
-if ! aws ecr list-images --repository-name executionrole --region ${region} | grep -q '"imageTag": "fts"' ;
+if ! aws ecr list-images --repository-name executionrole --region ${region} | grep -q "\"imageTag\": \"${execution_role_tag}\"" ;
 then
     docker build -t ${repository} .
     docker push ${repository}

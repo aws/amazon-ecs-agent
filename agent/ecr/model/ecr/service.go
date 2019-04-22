@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -40,8 +40,9 @@ var initRequest func(*request.Request)
 
 // Service information constants
 const (
-	ServiceName = "ecr"       // Service endpoint prefix API calls made to.
-	EndpointsID = ServiceName // Service ID for Regions and Endpoints metadata.
+	ServiceName = "ecr"     // Name of service.
+	EndpointsID = "api.ecr" // ID to lookup a service endpoint with.
+	ServiceID   = "ECR"     // ServiceID is a unique identifer of a specific service.
 )
 
 // New creates a new instance of the ECR client with a session.
@@ -69,6 +70,7 @@ func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegio
 			cfg,
 			metadata.ClientInfo{
 				ServiceName:   ServiceName,
+				ServiceID:     ServiceID,
 				SigningName:   signingName,
 				SigningRegion: signingRegion,
 				Endpoint:      endpoint,

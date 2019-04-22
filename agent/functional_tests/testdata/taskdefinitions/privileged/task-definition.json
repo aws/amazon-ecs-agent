@@ -4,7 +4,7 @@
     "image": "busybox:latest",
     "name": "exit",
     "cpu": 10,
-    "memory": 10,
+    "memory": 64,
     "privileged": true,
     "command": ["sh", "-c", "mkdir /test && mount --rbind /test /tmp && exit 42 || exit 1"]
   }]

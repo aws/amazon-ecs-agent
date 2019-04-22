@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,6 +30,11 @@ const (
 	// ContainerCNIPause represents the internal container type for the
 	// pause container
 	ContainerCNIPause
+
+	// ContainerNamespacePause represents the internal container type for
+	// sharing either PID or IPC resource namespaces. Regardless if one or
+	// both flags are used, only 1 of these containers need to be active
+	ContainerNamespacePause
 )
 
 // ContainerType represents the type of the internal container created
@@ -39,6 +44,7 @@ var stringToContainerType = map[string]ContainerType{
 	"NORMAL":            ContainerNormal,
 	"EMPTY_HOST_VOLUME": ContainerEmptyHostVolume,
 	"CNI_PAUSE":         ContainerCNIPause,
+	"NAMESPACE_PAUSE":   ContainerNamespacePause,
 }
 
 // String converts the container type enum to a string

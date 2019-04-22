@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2015-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,7 @@ import (
 	reflect "reflect"
 
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	go_dockerclient "github.com/fsouza/go-dockerclient"
+	types "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -49,9 +49,9 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*go_dockerclient.Stats, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.StatsJSON, error) {
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
-	ret0, _ := ret[0].(*go_dockerclient.Stats)
+	ret0, _ := ret[0].(*types.StatsJSON)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

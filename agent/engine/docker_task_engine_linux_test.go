@@ -40,10 +40,10 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
-	docker "github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 
+	dockercontainer "github.com/docker/docker/api/types/container"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -91,12 +91,12 @@ func TestResourceContainerProgression(t *testing.T) {
 		mockControl.EXPECT().Create(gomock.Any()).Return(nil, nil),
 		mockIO.EXPECT().WriteFile(cgroupMemoryPath, gomock.Any(), gomock.Any()).Return(nil),
 		imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes(),
-		client.EXPECT().PullImage(sleepContainer.Image, nil).Return(dockerapi.DockerContainerMetadata{}),
+		client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{}),
 		imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil),
 		imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false),
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *docker.Config, hostConfig *docker.HostConfig, containerName string, z time.Duration) {
+			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
 				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
 				containerEventsWG.Add(1)
 				go func() {
@@ -115,7 +115,7 @@ func TestResourceContainerProgression(t *testing.T) {
 			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
 	)
 
-	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
@@ -280,7 +280,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 
 			for _, container := range sleepTask.Containers {
 				validateContainerRunWorkflow(t, container, sleepTask, imageManager,
-					client, &roleCredentials, containerEventsWG,
+					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
 							gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
@@ -289,7 +289,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 					})
 			}
 
-			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, containerEventsWG)
+			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
 			mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)

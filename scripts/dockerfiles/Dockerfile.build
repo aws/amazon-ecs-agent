@@ -11,11 +11,13 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.9
+FROM golang:1.12
 MAINTAINER Amazon Web Services, Inc.
 
+ENV XDG_CACHE_HOME /tmp
+
 RUN apt-get update && \
-    apt-get install -y gcc-mingw-w64
+    apt-get install -y --no-install-recommends gcc-mingw-w64
 
 RUN mkdir -p /go/src/github.com/aws/
 

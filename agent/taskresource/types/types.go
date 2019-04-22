@@ -19,7 +19,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
+	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
@@ -28,7 +30,12 @@ const (
 	CgroupKey = "cgroup"
 	// DockerVolumeKey is the string used in resources map to represent docker volume
 	DockerVolumeKey = "dockerVolume"
-	ASMAuthKey      = asmauthres.ResourceName
+	// ASMAuthKey is the string used in resources map to represent asm auth
+	ASMAuthKey = asmauthres.ResourceName
+	// SSMSecretKey is the string used in resources map to represent ssm secret
+	SSMSecretKey = ssmsecretres.ResourceName
+	// ASMSecretKey is the string used in resources map to represent asm secret
+	ASMSecretKey = asmsecretres.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -55,6 +62,14 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 			}
 		case ASMAuthKey:
 			if unmarshalASMAuthKey(key, value, result) != nil {
+				return err
+			}
+		case SSMSecretKey:
+			if unmarshalSSMSecretKey(key, value, result) != nil {
+				return err
+			}
+		case ASMSecretKey:
+			if unmarshalASMSecretKey(key, value, result) != nil {
 				return err
 			}
 		default:
@@ -113,6 +128,42 @@ func unmarshalASMAuthKey(key string, value json.RawMessage, result map[string][]
 			return err
 		}
 		result[key] = append(result[key], auth)
+	}
+	return nil
+}
+
+func unmarshalSSMSecretKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var ssmsecrets []json.RawMessage
+	err := json.Unmarshal(value, &ssmsecrets)
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range ssmsecrets {
+		res := &ssmsecretres.SSMSecretResource{}
+		err := res.UnmarshalJSON(secret)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalASMSecretKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var asmsecrets []json.RawMessage
+	err := json.Unmarshal(value, &asmsecrets)
+	if err != nil {
+		return err
+	}
+
+	for _, secret := range asmsecrets {
+		res := &asmsecretres.ASMSecretResource{}
+		err := res.UnmarshalJSON(secret)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], res)
 	}
 	return nil
 }

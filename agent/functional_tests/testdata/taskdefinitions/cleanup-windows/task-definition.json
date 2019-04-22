@@ -1,7 +1,7 @@
 {
   "family": "ecsftest-cleanup-windows",
   "containerDefinitions": [{
-    "image": "microsoft/windowsservercore:latest",
+    "image": "amazon-ecs-ftest-windows-base:make",
     "name": "cleanup-windows",
     "cpu": 1024,
     "memory": 512,

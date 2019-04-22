@@ -16,9 +16,11 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 const (
@@ -36,57 +38,65 @@ const (
 	defaultContainerStartTimeout = 3 * time.Minute
 	// minimumContainerStartTimeout specifies the minimum value for starting a container
 	minimumContainerStartTimeout = 45 * time.Second
+	// default docker inactivity time is extra time needed on container extraction
+	defaultImagePullInactivityTimeout = 1 * time.Minute
 )
 
 // DefaultConfig returns the default configuration for Linux
 func DefaultConfig() Config {
 	return Config{
-		DockerEndpoint:              "unix:///var/run/docker.sock",
-		ReservedPorts:               []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
-		ReservedPortsUDP:            []uint16{},
-		DataDir:                     "/data/",
-		DataDirOnHost:               "/var/lib/ecs",
-		DisableMetrics:              false,
-		ReservedMemory:              0,
-		AvailableLoggingDrivers:     []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
-		TaskCleanupWaitDuration:     DefaultTaskCleanupWaitDuration,
-		DockerStopTimeout:           defaultDockerStopTimeout,
-		ContainerStartTimeout:       defaultContainerStartTimeout,
-		CredentialsAuditLogFile:     defaultCredentialsAuditLogFile,
-		CredentialsAuditLogDisabled: false,
-		ImageCleanupDisabled:        false,
-		MinimumImageDeletionAge:     DefaultImageDeletionAge,
-		ImageCleanupInterval:        DefaultImageCleanupTimeInterval,
-		NumImagesToDeletePerCycle:   DefaultNumImagesToDeletePerCycle,
-		CNIPluginsPath:              defaultCNIPluginsPath,
-		PauseContainerTarballPath:   pauseContainerTarballPath,
-		PauseContainerImageName:     DefaultPauseContainerImageName,
-		PauseContainerTag:           DefaultPauseContainerTag,
-		AWSVPCBlockInstanceMetdata:  false,
-		ContainerMetadataEnabled:    false,
-		TaskCPUMemLimit:             DefaultEnabled,
-		CgroupPath:                  defaultCgroupPath,
-		TaskMetadataSteadyStateRate: DefaultTaskMetadataSteadyStateRate,
-		TaskMetadataBurstRate:       DefaultTaskMetadataBurstRate,
-		SharedVolumeMatchFullConfig: false, // only requiring shared volumes to match on name, which is default docker behavior
+		DockerEndpoint:                      "unix:///var/run/docker.sock",
+		ReservedPorts:                       []uint16{SSHPort, DockerReservedPort, DockerReservedSSLPort, AgentIntrospectionPort, AgentCredentialsPort},
+		ReservedPortsUDP:                    []uint16{},
+		DataDir:                             "/data/",
+		DataDirOnHost:                       "/var/lib/ecs",
+		DisableMetrics:                      false,
+		ReservedMemory:                      0,
+		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
+		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
+		DockerStopTimeout:                   defaultDockerStopTimeout,
+		ContainerStartTimeout:               defaultContainerStartTimeout,
+		CredentialsAuditLogFile:             defaultCredentialsAuditLogFile,
+		CredentialsAuditLogDisabled:         false,
+		ImageCleanupDisabled:                false,
+		MinimumImageDeletionAge:             DefaultImageDeletionAge,
+		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
+		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
+		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
+		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
+		CNIPluginsPath:                      defaultCNIPluginsPath,
+		PauseContainerTarballPath:           pauseContainerTarballPath,
+		PauseContainerImageName:             DefaultPauseContainerImageName,
+		PauseContainerTag:                   DefaultPauseContainerTag,
+		AWSVPCBlockInstanceMetdata:          false,
+		ContainerMetadataEnabled:            false,
+		TaskCPUMemLimit:                     DefaultEnabled,
+		CgroupPath:                          defaultCgroupPath,
+		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
+		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
+		SharedVolumeMatchFullConfig:         false, // only requiring shared volumes to match on name, which is default docker behavior
+		ContainerInstancePropagateTagsFrom:  ContainerInstancePropagateTagsFromNoneType,
+		PrometheusMetricsEnabled:            false,
+		PollMetrics:                         false,
+		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
+		NvidiaRuntime:                       DefaultNvidiaRuntime,
 	}
 }
 
-func (cfg *Config) platformOverrides() {}
-
-// ShouldLoadPauseContainerTarball determines whether the pause container
-// tarball should be loaded into Docker or not.  This function will return
-// false is the default image name/tag have been overridden, because we do not
-// expect the tarball to match the overridden name/tag.
-func (cfg *Config) ShouldLoadPauseContainerTarball() bool {
-	return cfg.PauseContainerImageName == DefaultPauseContainerImageName &&
-		cfg.PauseContainerTag == DefaultPauseContainerTag
+func (cfg *Config) platformOverrides() {
+	cfg.PrometheusMetricsEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false)
+	if cfg.PrometheusMetricsEnabled {
+		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
+	}
 }
 
 // platformString returns platform-specific config data that can be serialized
 // to string for debugging
 func (cfg *Config) platformString() string {
-	if cfg.ShouldLoadPauseContainerTarball() {
+	// Returns a string if the default image name/tag of the Pause container has
+	// been overridden
+	if cfg.PauseContainerImageName == DefaultPauseContainerImageName &&
+		cfg.PauseContainerTag == DefaultPauseContainerTag {
 		return fmt.Sprintf(", PauseContainerImageName: %s, PauseContainerTag: %s",
 			cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	}

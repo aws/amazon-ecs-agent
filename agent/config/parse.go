@@ -91,6 +91,19 @@ func parseContainerStartTimeout() time.Duration {
 	return containerStartTimeout
 }
 
+func parseImagePullInactivityTimeout() time.Duration {
+	var imagePullInactivityTimeout time.Duration
+	parsedImagePullInactivityTimeout := parseEnvVariableDuration("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT")
+	if parsedImagePullInactivityTimeout >= minimumImagePullInactivityTimeout {
+		imagePullInactivityTimeout = parsedImagePullInactivityTimeout
+		// do the parsedStartTimeout != 0 check for the same reason as in getDockerStopTimeout()
+	} else if parsedImagePullInactivityTimeout != 0 {
+		imagePullInactivityTimeout = minimumImagePullInactivityTimeout
+		seelog.Warnf("Discarded invalid value for image pull inactivity timeout, parsed as: %v", parsedImagePullInactivityTimeout)
+	}
+	return imagePullInactivityTimeout
+}
+
 func parseAvailableLoggingDrivers() []dockerclient.LoggingDriver {
 	availableLoggingDriversEnv := os.Getenv("ECS_AVAILABLE_LOGGING_DRIVERS")
 	loggingDriverDecoder := json.NewDecoder(strings.NewReader(availableLoggingDriversEnv))
@@ -115,6 +128,15 @@ func parseNumImagesToDeletePerCycle() int {
 	}
 
 	return numImagesToDeletePerCycle
+}
+
+func parseNumNonECSContainersToDeletePerCycle() int {
+	numNonEcsContainersToDeletePerCycleEnvVal := os.Getenv("NONECS_NUM_CONTAINERS_DELETE_PER_CYCLE")
+	numNonEcsContainersToDeletePerCycle, err := strconv.Atoi(numNonEcsContainersToDeletePerCycleEnvVal)
+	if numNonEcsContainersToDeletePerCycleEnvVal != "" && err != nil {
+		seelog.Warnf("Invalid format for \"NONECS_NUM_CONTAINERS_DELETE_PER_CYCLE\", expected an integer. err %v", err)
+	}
+	return numNonEcsContainersToDeletePerCycle
 }
 
 func parseImagePullBehavior() ImagePullBehaviorType {
@@ -206,6 +228,39 @@ func parseTaskMetadataThrottles() (int, int) {
 	return steadyStateRate, burstRate
 }
 
+func parseContainerInstanceTags(errs []error) (map[string]string, []error) {
+	var containerInstanceTags map[string]string
+	containerInstanceTagsConfigString := os.Getenv("ECS_CONTAINER_INSTANCE_TAGS")
+
+	// If duplicate keys exist, the value of the key will be the value of latter key.
+	err := json.Unmarshal([]byte(containerInstanceTagsConfigString), &containerInstanceTags)
+	if containerInstanceTagsConfigString != "" {
+		if err != nil {
+			wrappedErr := fmt.Errorf("Invalid format for ECS_CONTAINER_INSTANCE_TAGS. Expected a json hash: %v", err)
+			seelog.Error(wrappedErr)
+			errs = append(errs, wrappedErr)
+		}
+	}
+
+	for tagKey, tagValue := range containerInstanceTags {
+		seelog.Debugf("Setting instance tag %v: %v", tagKey, tagValue)
+	}
+
+	return containerInstanceTags, errs
+}
+
+func parseContainerInstancePropagateTagsFrom() ContainerInstancePropagateTagsFromType {
+	containerInstancePropagateTagsFromString := os.Getenv("ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM")
+	switch containerInstancePropagateTagsFromString {
+	case "ec2_instance":
+		return ContainerInstancePropagateTagsFromEC2InstanceType
+	default:
+		// Use the default "none" type when ECS_CONTAINER_INSTANCE_PROPAGATE_TAGS_FROM is
+		// "none" or not valid.
+		return ContainerInstancePropagateTagsFromNoneType
+	}
+}
+
 func parseEnvVariableUint16(envVar string) uint16 {
 	envVal := os.Getenv(envVar)
 	var var16 uint16
@@ -233,4 +288,22 @@ func parseEnvVariableDuration(envVar string) time.Duration {
 		}
 	}
 	return duration
+}
+
+func parseImageCleanupExclusionList(envVar string) []string {
+	imageEnv := os.Getenv(envVar)
+	var imageCleanupExclusionList []string
+	if imageEnv == "" {
+		seelog.Debugf("Environment variable empty: %s", imageEnv)
+	} else {
+		imageCleanupExclusionList = strings.Split(imageEnv, ",")
+	}
+
+	// append known cached internal images to imageCleanupExclusionLis
+	imageCleanupExclusionList = append(imageCleanupExclusionList, CachedImageNameAgentContainer, CachedImageNamePauseContainer)
+
+	for _, image := range imageCleanupExclusionList {
+		seelog.Infof("Image excluded from cleanup: %s", image)
+	}
+	return imageCleanupExclusionList
 }

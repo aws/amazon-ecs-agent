@@ -1,6 +1,6 @@
 // +build functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,10 +16,12 @@
 package util
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -29,23 +31,29 @@ import (
 	"testing"
 	"time"
 
-	"context"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/iam"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
+	docker "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/system"
+	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
+	bytePerMegabyte      = 1024 * 1024
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -98,6 +106,16 @@ func GetTaskDefinitionWithOverrides(name string, overrides map[string]string) (s
 	return fmt.Sprintf("%s:%d", *registered.TaskDefinition.Family, *registered.TaskDefinition.Revision), nil
 }
 
+func IsCNPartition() bool {
+	partitions := endpoints.DefaultPartitions()
+	p, _ := endpoints.PartitionForRegion(partitions, *ECS.Config.Region)
+
+	if p.ID() == endpoints.AwsCnPartition().ID() {
+		return true
+	}
+	return false
+}
+
 type TestAgent struct {
 	Image                string
 	DockerID             string
@@ -117,8 +135,9 @@ type TestAgent struct {
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
 	ContainerLinks   []string
-	PortBindings     map[docker.Port]map[string]string
+	PortBindings     map[nat.Port]map[string]string
 	EnableTaskENI    bool
+	GPUEnabled       bool
 }
 
 // verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
@@ -144,13 +163,14 @@ func (agent *TestAgent) verifyIntrospectionAPI() error {
 		}
 		time.Sleep(1 * time.Second)
 	}
+	ctx := context.TODO()
 	if localMetadata.ContainerInstanceArn == nil {
-		agent.DockerClient.StopContainer(agent.DockerID, 1)
+		stopTimeout := 1 * time.Second
+		agent.DockerClient.ContainerStop(ctx, agent.DockerID, &stopTimeout)
 		return errors.New("Could not get agent metadata after launching it")
 	}
 
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
-	fmt.Println("Container InstanceArn:", agent.ContainerInstanceArn)
 	agent.Cluster = localMetadata.Cluster
 	agent.Version = utils.ExtractVersion(localMetadata.Version)
 	agent.t.Logf("Found agent metadata: %+v", localMetadata)
@@ -313,38 +333,81 @@ func DeleteCluster(t *testing.T, clusterName string) {
 	}
 }
 
-// VerifyMetrics whether the response is as expected
-// the expected value can be 0 or positive
-func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool) (*cloudwatch.Datapoint, error) {
+// gets metrics for given time interval and metricName
+// validates metrics for given conditions
+// returns an average over all (trimmed) metric datapoints as float64
+func VerifyMetrics(cwclient *cloudwatch.CloudWatch, params *cloudwatch.GetMetricStatisticsInput, idleCluster bool, noiseDelta float64) (float64, error) {
 	resp, err := cwclient.GetMetricStatistics(params)
 	if err != nil {
-		return nil, fmt.Errorf("Error getting metrics of cluster: %v", err)
+		return float64(0.0), fmt.Errorf("Error getting metrics of cluster: %v", err)
 	}
 
 	if resp == nil || resp.Datapoints == nil {
-		return nil, fmt.Errorf("Cloudwatch get metrics failed, returned null")
+		return float64(0.0), fmt.Errorf("Cloudwatch get metrics failed, returned null")
 	}
 	metricsCount := len(resp.Datapoints)
 	if metricsCount == 0 {
-		return nil, fmt.Errorf("No datapoints returned")
+		return float64(0.0), fmt.Errorf("No datapoints returned")
 	}
 
-	datapoint := resp.Datapoints[metricsCount-1]
 	// Samplecount is always expected to be "1" for cluster metrics
+	datapoint := resp.Datapoints[metricsCount-1]
 	if *datapoint.SampleCount != 1.0 {
-		return nil, fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
+		return float64(0.0), fmt.Errorf("Incorrect SampleCount %f, expected 1", *datapoint.SampleCount)
 	}
+
+	trimmedResponseDatapoints := trimOutliers(resp.Datapoints)
+	responseAverage := getAverage(trimmedResponseDatapoints)
 
 	if idleCluster {
-		if *datapoint.Average != 0.0 {
-			return nil, fmt.Errorf("non-zero utilization for idle cluster")
+		if responseAverage >= noiseDelta {
+			return float64(0.0), fmt.Errorf("utilization is >= expected noise delta for idle cluster")
 		}
 	} else {
-		if *datapoint.Average == 0.0 {
-			return nil, fmt.Errorf("utilization is zero for non-idle cluster")
+		if responseAverage < noiseDelta {
+			return float64(0.0), fmt.Errorf("utilization is < expected noise delta for non-idle cluster")
 		}
 	}
-	return datapoint, nil
+	return responseAverage, nil
+}
+
+// trimOutliers smooths out an array of CloudWatch Datapoints.
+// This is meant to clear outliers we encounter in the stats.
+func trimOutliers(datapoints []*cloudwatch.Datapoint) []*cloudwatch.Datapoint {
+	if len(datapoints) < 3 {
+		// we need at least 3 datapoints to remove min/max and still
+		// have something left over
+		return datapoints
+	}
+	// find min/max indexes and slice out of datapoints array
+	maxIndex := -1
+	maxValue := float64(0.0) // initialized to min float
+	for index, datapoint := range datapoints {
+		if *datapoint.Average >= maxValue {
+			maxValue = *datapoint.Average
+			maxIndex = index
+		}
+	}
+	datapoints = append(datapoints[:maxIndex], datapoints[maxIndex+1:]...)
+	minIndex := -1
+	minValue := math.MaxFloat64
+	for index, datapoint := range datapoints {
+		if *datapoint.Average <= minValue {
+			minValue = *datapoint.Average
+			minIndex = index
+		}
+	}
+	datapoints = append(datapoints[:minIndex], datapoints[minIndex+1:]...)
+	return datapoints
+}
+
+// finds average for all datapoints in an array of cloudwatch.Datapoint
+func getAverage(datapoints []*cloudwatch.Datapoint) float64 {
+	total := float64(0.0)
+	for _, val := range datapoints {
+		total += *val.Average
+	}
+	return total / float64(len(datapoints))
 }
 
 // ResolveTaskDockerID determines the Docker ID for a container within a given
@@ -593,51 +656,66 @@ func (task *TestTask) GetAttachmentInfo() ([]*ecs.KeyValuePair, error) {
 }
 
 func RequireDockerVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
-	if err != nil {
-		t.Fatalf("Could not get docker client to check version: %v", err)
-	}
-	dockerVersion, err := dockerClient.Version()
-	if err != nil {
-		t.Fatalf("Could not get docker version: %v", err)
-	}
+	ctx := context.TODO()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Could not get docker client to check version")
 
-	version := dockerVersion.Get("Version")
+	version, err := dockerClient.ServerVersion(ctx)
+	require.NoError(t, err, "Could not get docker version")
 
-	match, err := utils.Version(version).Matches(selector)
-	if err != nil {
-		t.Fatalf("Could not check docker version to match required: %v", err)
-	}
+	dockerVersion := version.Version
+	match, err := utils.Version(dockerVersion).Matches(selector)
+	require.NoError(t, err, "Could not check docker version to match required")
 
 	if !match {
-		t.Skipf("Skipping test; requires %v, but version is %v", selector, version)
+		t.Skipf("Skipping test; requires %v, but version is %v", selector, dockerVersion)
+	}
+}
+
+func RequireMinimumMemory(t *testing.T, minimumMemoryInMegaBytes int) {
+	memInfo, err := system.ReadMemInfo()
+	require.NoError(t, err, "Could not check system memory info before checking minimum memory requirement")
+
+	totalMemory := int(memInfo.MemTotal / bytePerMegabyte)
+	if totalMemory < minimumMemoryInMegaBytes {
+		t.Skipf("Skipping the test since it requires %d MB of memory. Total memory on the instance: %d MB", minimumMemoryInMegaBytes, totalMemory)
 	}
 }
 
 func RequireDockerAPIVersion(t *testing.T, selector string) {
-	dockerClient, err := docker.NewClientFromEnv()
-	if err != nil {
-		t.Fatalf("Could not get docker client to check version: %v", err)
-	}
-	dockerVersion, err := dockerClient.Version()
-	if err != nil {
-		t.Fatalf("Could not get docker version: %v", err)
-	}
+	ctx := context.TODO()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Could not get docker client to check version")
 
-	version := dockerVersion.Get("ApiVersion")
+	version, err := dockerClient.ServerVersion(ctx)
+	require.NoError(t, err, "Could not get docker version")
 
+	apiVersion := version.APIVersion
 	// adding zero patch to use semver comparator
 	// TODO: Implement non-semver comparator
-	version += ".0"
+	apiVersion += ".0"
 	selector += ".0"
 
-	match, err := utils.Version(version).Matches(selector)
+	match, err := utils.Version(apiVersion).Matches(selector)
 	if err != nil {
 		t.Fatalf("Could not check docker api version to match required: %v", err)
 	}
 
 	if !match {
-		t.Skipf("Skipping test; requires %v, but api version is %v", selector, version)
+		t.Skipf("Skipping test; requires %v, but api version is %v", selector, apiVersion)
+	}
+}
+
+func RequireRegions(t *testing.T, supportedRegions []string, region string) {
+	skipTest := true
+	for _, supportedRegion := range supportedRegions {
+		if region == supportedRegion {
+			skipTest = false
+		}
+	}
+
+	if skipTest {
+		t.Skipf("Skipping the test in unsupported region: %s", *ECS.Config.Region)
 	}
 }
 
@@ -707,7 +785,8 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 
 // GetContainerNetworkMode gets the container network mode, given container id
 func (agent *TestAgent) GetContainerNetworkMode(containerId string) ([]string, error) {
-	containerMetaData, err := agent.DockerClient.InspectContainer(containerId)
+	ctx := context.TODO()
+	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
 	if err != nil {
 		return nil, fmt.Errorf("Could not inspect container for task: %v", err)
 	}
@@ -739,11 +818,10 @@ func (agent *TestAgent) SweepTask(task *TestTask) error {
 
 	for _, container := range taskResponse.Containers {
 		ctx, _ := context.WithTimeout(context.Background(), 1*time.Minute)
-		agent.DockerClient.RemoveContainer(docker.RemoveContainerOptions{
-			ID:            container.DockerID,
+		agent.DockerClient.ContainerRemove(ctx, container.DockerID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
-			Force:         true,
-			Context:       ctx,
+			RemoveLinks:   false,
+			Force:         false,
 		})
 	}
 

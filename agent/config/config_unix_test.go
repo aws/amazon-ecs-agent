@@ -90,6 +90,9 @@ func TestConfigFromFile(t *testing.T) {
   "InstanceAttributes": {
     "attribute1": "value1"
   },
+  "ContainerInstanceTags": {
+    "tag1": "value1"
+  },
   "PauseContainerImageName":"%s",
   "PauseContainerTag":"%s",
   "AWSVPCAdditionalLocalRoutes":["169.254.172.1/32"]
@@ -108,6 +111,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.Equal(t, dockerAuthType, cfg.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(cfg.EngineAuthData.Contents()), "docker auth data not as expected from file")
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
+	assert.Equal(t, map[string]string{"tag1": "value1"}, cfg.ContainerInstanceTags)
 	assert.Equal(t, testPauseImageName, cfg.PauseContainerImageName, "should read PauseContainerImageName")
 	assert.Equal(t, testPauseTag, cfg.PauseContainerTag, "should read PauseContainerTag")
 	assert.Equal(t, 1, len(cfg.AWSVPCAdditionalLocalRoutes), "should have one additional local route")
@@ -137,6 +141,9 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
   "TaskIAMRoleEnabled": true,
   "InstanceAttributes": {
     "attribute1": "value1"
+  },
+  "ContainerInstanceTags": {
+    "tag1": "value1"
   }
 }`, dockerAuthType, dockerAuth)
 
@@ -154,6 +161,7 @@ func TestDockerAuthMergeFromFile(t *testing.T) {
 	assert.Equal(t, dockerAuthType, cfg.EngineAuthType, "docker auth type not as expected from file")
 	assert.Equal(t, dockerAuth, string(cfg.EngineAuthData.Contents()), "docker auth data not as expected from file")
 	assert.Equal(t, map[string]string{"attribute1": "value1"}, cfg.InstanceAttributes)
+	assert.Equal(t, map[string]string{"tag1": "value1"}, cfg.ContainerInstanceTags)
 }
 
 func TestBadFileContent(t *testing.T) {
@@ -172,14 +180,15 @@ func TestBadFileContent(t *testing.T) {
 	assert.Error(t, err, "create configuration should fail")
 }
 
-func TestShouldLoadPauseContainerTarball(t *testing.T) {
-	cfg := DefaultConfig()
-	assert.True(t, cfg.ShouldLoadPauseContainerTarball(), "should load tarball by default")
-	cfg.PauseContainerTag = "foo!"
-	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if tag differs")
-	cfg = DefaultConfig()
-	cfg.PauseContainerImageName = "foo!"
-	assert.False(t, cfg.ShouldLoadPauseContainerTarball(), "should not load tarball if image name differs")
+func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	defer setTestEnv("ECS_ENABLE_PROMETHEUS_METRICS", "true")()
+	cfg.platformOverrides()
+	assert.True(t, cfg.PrometheusMetricsEnabled, "Prometheus metrics should be enabled")
+	assert.Equal(t, 6, len(cfg.ReservedPorts), "Reserved ports should have added Prometheus endpoint")
 }
 
 // setupFileConfiguration create a temp file store the configuration
@@ -191,4 +200,12 @@ func setupFileConfiguration(t *testing.T, configContent string) string {
 	require.NoError(t, err, "writing configuration to file failed")
 
 	return file.Name()
+}
+
+func TestEmptyNvidiaRuntime(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_NVIDIA_RUNTIME", "")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
 }

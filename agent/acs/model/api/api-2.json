@@ -126,6 +126,26 @@
         "messageId":{"shape":"String"}
       }
     },
+    "Association":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "type":{"shape":"AssociationType"},
+        "content":{"shape":"EncodedString"},
+        "containers":{"shape":"StringList"}
+      }
+    },
+    "AssociationType":{
+      "type":"string",
+      "enum":[
+        "elastic-inference",
+        "gpu"
+      ]
+    },
+    "Associations":{
+      "type":"list",
+      "member":{"shape":"Association"}
+    },
     "AttachTaskNetworkInterfacesMessage":{
       "type":"structure",
       "members":{
@@ -182,7 +202,31 @@
         "dockerConfig":{"shape":"DockerConfig"},
         "healthCheckType":{"shape":"HealthCheckType"},
         "registryAuthentication":{"shape":"RegistryAuthenticationData"},
-        "logsAuthStrategy":{"shape":"AuthStrategy"}
+        "logsAuthStrategy":{"shape":"AuthStrategy"},
+        "secrets":{"shape":"SecretList"},
+        "dependsOn":{"shape":"ContainerDependencies"},
+        "startTimeout":{"shape":"Integer"},
+        "stopTimeout":{"shape":"Integer"}
+      }
+    },
+    "ContainerCondition":{
+      "type":"string",
+      "enum":[
+        "START",
+        "COMPLETE",
+        "SUCCESS",
+        "HEALTHY"
+      ]
+    },
+    "ContainerDependencies":{
+      "type":"list",
+      "member":{"shape":"ContainerDependency"}
+    },
+    "ContainerDependency":{
+      "type":"structure",
+      "members":{
+        "containerName":{"shape":"String"},
+        "condition":{"shape":"ContainerCondition"}
       }
     },
     "ContainerList":{
@@ -234,6 +278,20 @@
     "ElasticNetworkInterfaceList":{
       "type":"list",
       "member":{"shape":"ElasticNetworkInterface"}
+    },
+    "EncodedString":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "encoding":{"shape":"Encoding"}
+      }
+    },
+    "Encoding":{
+      "type":"string",
+      "enum":[
+        "identity",
+        "base64"
+      ]
     },
     "EnvironmentVariables":{
       "type":"map",
@@ -397,6 +455,18 @@
       "type":"list",
       "member":{"shape":"PortMapping"}
     },
+    "ProxyConfiguration":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"ProxyConfigurationType"},
+        "containerName":{"shape":"String"},
+        "properties":{"shape":"StringMap"}
+      }
+    },
+    "ProxyConfigurationType":{
+      "type":"string",
+      "enum":["APPMESH"]
+    },
     "RegistryAuthenticationData":{
       "type":"structure",
       "members":{
@@ -417,6 +487,34 @@
       "enum":[
         "task",
         "shared"
+      ]
+    },
+    "Secret":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"String"},
+        "valueFrom":{"shape":"String"},
+        "containerPath":{"shape":"String"},
+        "type":{"shape":"SecretType"},
+        "region":{"shape":"String"},
+        "provider":{"shape":"SecretProvider"}
+      }
+    },
+    "SecretList":{
+      "type":"list",
+      "member":{"shape":"Secret"}
+    },
+    "SecretProvider":{
+      "type":"string",
+      "enum":[
+        "ssm",
+        "asm"
+      ]
+    },
+    "SecretType":{
+      "type":"string",
+      "enum":[
+        "ENVIRONMENT_VARIABLE"
       ]
     },
     "SensitiveString":{
@@ -464,7 +562,11 @@
         "executionRoleCredentials":{"shape":"IAMRoleCredentials"},
         "elasticNetworkInterfaces":{"shape":"ElasticNetworkInterfaceList"},
         "cpu":{"shape":"Double"},
-        "memory":{"shape":"Integer"}
+        "memory":{"shape":"Integer"},
+        "associations":{"shape":"Associations"},
+        "pidMode":{"shape":"String"},
+        "ipcMode":{"shape":"String"},
+        "proxyConfiguration":{"shape":"ProxyConfiguration"}
       }
     },
     "TaskList":{

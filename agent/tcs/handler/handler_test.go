@@ -36,7 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -65,12 +65,25 @@ func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return req.Metadata, req.TaskMetrics, nil
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*docker.Stats, error) {
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+// TestDisableMetrics tests the StartMetricsSession will return immediately if
+// the metrics was disabled
+func TestDisableMetrics(t *testing.T) {
+	params := TelemetrySessionParams{
+		Cfg: &config.Config{
+			DisableMetrics:           true,
+			DisableDockerHealthCheck: true,
+		},
+	}
+
+	StartMetricsSession(&params)
 }
 
 func TestFormatURL(t *testing.T) {
@@ -241,7 +254,7 @@ func TestDiscoverEndpointAndStartSession(t *testing.T) {
 	mockEcs := mock_api.NewMockECSClient(ctrl)
 	mockEcs.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return("", errors.New("error"))
 
-	err := startTelemetrySession(TelemetrySessionParams{ECSClient: mockEcs}, nil)
+	err := startTelemetrySession(&TelemetrySessionParams{ECSClient: mockEcs}, nil)
 	if err == nil {
 		t.Error("Expected error from startTelemetrySession when DiscoverTelemetryEndpoint returns error")
 	}

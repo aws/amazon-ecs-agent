@@ -24,11 +24,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	docker "github.com/fsouza/go-dockerclient"
+	docker "github.com/docker/docker/client"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -66,7 +67,7 @@ func init() {
 func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	agent := &TestAgent{t: t}
 
-	dockerClient, err := docker.NewClientFromEnv()
+	dockerClient, err := docker.NewClientWithOpts(docker.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,6 +93,10 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	os.Setenv("ECS_AUDIT_LOGFILE", logdir+"/audit.log")
 	os.Setenv("ECS_LOGLEVEL", "debug")
 	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", `["json-file","awslogs"]`)
+	os.Setenv("ECS_IMAGE_PULL_BEHAVIOR", "prefer-cached")
+
+	// Some tests use 0 cpu, this won't impact the other ones
+	os.Setenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND", "true")
 
 	t.Log("datadir", datadir)
 	os.Mkdir(logdir, 0755)

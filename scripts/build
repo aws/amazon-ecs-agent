@@ -21,8 +21,10 @@ set -ex
 # Pass in whether you want to build a static binary (true|false) and whether
 # the resulting binary should be moved to an output directory
 # The second option exists so that if built in a container, the result can be moved to a shared volume mount
+# The thrid option is for skipping version generation when running cross-platform build, as it results in exec format error
 static=${1:-true}
 output_directory=${2:-}
+version_gen=${3:-true}
 
 # Normalize to working directory being build root (up one level from ./scripts)
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
@@ -30,13 +32,15 @@ cd "${ROOT}"
 
 source ./scripts/shared_env
 
-# Versioning stuff. We run the generator to setup the version and then always
-# restore ourselves to a clean state
-cp agent/version/version.go agent/version/_version.go
-trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
+if [[ "${version_gen}" == "true" ]]; then
+  # Versioning stuff. We run the generator to setup the version and then always
+  # restore ourselves to a clean state
+  cp agent/version/version.go agent/version/_version.go
+  trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
 
-cd ./agent/version/
-go run gen/version-gen.go
+  cd ./agent/version/
+  go run gen/version-gen.go
+fi
 
 if [ "${TARGET_OS}" == "windows" ]; then
     unset static

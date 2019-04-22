@@ -32,6 +32,8 @@ const (
 	MacResource                               = "mac"
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
+	InstanceIDResource                        = "instance-id"
+	PublicIPv4Resource                        = "public-ipv4"
 )
 
 const (
@@ -53,6 +55,8 @@ type HttpClient interface {
 	GetMetadata(string) (string, error)
 	GetDynamicData(string) (string, error)
 	GetInstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error)
+	GetUserData() (string, error)
+	Region() (string, error)
 }
 
 // EC2MetadataClient is the client used to get metadata from instance metadata service
@@ -64,6 +68,10 @@ type EC2MetadataClient interface {
 	VPCID(mac string) (string, error)
 	SubnetID(mac string) (string, error)
 	PrimaryENIMAC() (string, error)
+	InstanceID() (string, error)
+	GetUserData() (string, error)
+	Region() (string, error)
+	PublicIPv4Address() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -73,7 +81,10 @@ type ec2MetadataClientImpl struct {
 // NewEC2MetadataClient creates an ec2metadata client to retrieve metadata
 func NewEC2MetadataClient(client HttpClient) EC2MetadataClient {
 	if client == nil {
-		return &ec2MetadataClientImpl{client: ec2metadata.New(session.New(), aws.NewConfig().WithMaxRetries(metadataRetries))}
+		return &ec2MetadataClientImpl{
+			client: ec2metadata.New(
+				session.New(), aws.NewConfig().WithMaxRetries(metadataRetries)),
+		}
 	} else {
 		return &ec2MetadataClientImpl{client: client}
 	}
@@ -137,4 +148,23 @@ func (c *ec2MetadataClientImpl) VPCID(mac string) (string, error) {
 // given its mac address
 func (c *ec2MetadataClientImpl) SubnetID(mac string) (string, error) {
 	return c.client.GetMetadata(fmt.Sprintf(SubnetIDResourceFormat, mac))
+}
+
+// InstanceID returns the id of this instance.
+func (c *ec2MetadataClientImpl) InstanceID() (string, error) {
+	return c.client.GetMetadata(InstanceIDResource)
+}
+
+// GetUserData returns the userdata that was configured for the
+func (c *ec2MetadataClientImpl) GetUserData() (string, error) {
+	return c.client.GetUserData()
+}
+
+// Region returns the region the instance is running in.
+func (c *ec2MetadataClientImpl) Region() (string, error) {
+	return c.client.Region()
+}
+
+func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
+	return c.client.GetMetadata(PublicIPv4Resource)
 }

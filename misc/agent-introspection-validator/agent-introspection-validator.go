@@ -20,8 +20,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	"github.com/cihub/seelog"
 )
 
 const (
@@ -86,12 +84,7 @@ func getTasksMetadata(client *http.Client, path string) (*TasksResponse, error) 
 		return nil, err
 	}
 
-	seelog.Infof("Received tasks metadata: %s \n", string(body))
-
-	err = verifyTasksMetadata(body)
-	if err != nil {
-		return nil, fmt.Errorf("%s: unable to verify response: %v", tasksMetadataRespType, err)
-	}
+	fmt.Printf("Received tasks metadata: %s \n", string(body))
 
 	var tasksMetadata TasksResponse
 	err = json.Unmarshal(body, &tasksMetadata)
@@ -108,12 +101,7 @@ func getTaskMetadata(client *http.Client, path string) (*TaskResponse, error) {
 		return nil, err
 	}
 
-	seelog.Infof("Received task metadata: %s \n", string(body))
-
-	err = verifyTaskMetadata(body)
-	if err != nil {
-		return nil, fmt.Errorf("%s: unable to verify response: %v", taskMetadataRespType, err)
-	}
+	fmt.Printf("Received task metadata: %s \n", string(body))
 
 	var taskMetadata TaskResponse
 	err = json.Unmarshal(body, &taskMetadata)
@@ -230,7 +218,7 @@ func metadataResponse(client *http.Client, endpoint string, respType string) ([]
 		if err == nil {
 			return resp, nil
 		}
-		fmt.Fprintf(os.Stderr, "Attempt [%d/%d]: unable to get metadata response for '%s' from '%s': %v",
+		fmt.Fprintf(os.Stderr, "Attempt [%d/%d]: unable to get metadata response for '%s' from '%s': %v\n",
 			i, maxRetries, respType, endpoint, err)
 		time.Sleep(durationBetweenRetries)
 	}
@@ -253,6 +241,23 @@ func metadataResponseOnce(client *http.Client, endpoint string, respType string)
 	if err != nil {
 		return nil, fmt.Errorf("%s: unable to read response body: %v", respType, err)
 	}
+
+	fmt.Printf("Received %s metadata response: %s \n", respType, body)
+
+	// verify metadata response
+	if respType == tasksMetadataRespType {
+		err = verifyTasksMetadata(body)
+		if err != nil {
+			return nil, fmt.Errorf("error verifying tasks metadata response: %v", err)
+		}
+	} else if respType == taskMetadataRespType {
+		err = verifyTaskMetadata(body)
+		if err != nil {
+			return nil, fmt.Errorf("error verifying task metadata response: %v", err)
+		}
+	}
+
+	fmt.Printf("Successfully verified %s response", respType)
 
 	return body, nil
 }

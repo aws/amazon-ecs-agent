@@ -55,47 +55,48 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	// reset it by just creating a new one and swapping shortly.
-	// This also means we don't have to lock for the remainder of this function
-	// because we are the only ones with a reference to clean
-	clean := newDockerTaskEngineState()
 
+	// run precheck to shake out all the errors before resetting state.
+	precheckState := newDockerTaskEngineState()
 	for _, task := range saved.Tasks {
-		clean.AddTask(task)
-	}
-	// add image states
-	for _, imageState := range saved.ImageStates {
-		clean.AddImageState(imageState)
+		precheckState.AddTask(task)
 	}
 	for id, container := range saved.IdToContainer {
 		taskArn, ok := saved.IdToTask[id]
 		if !ok {
 			return errors.New("Could not unmarshal state; incomplete save. There was no task for docker id " + id)
 		}
-		task, ok := clean.TaskByArn(taskArn)
+		task, ok := precheckState.TaskByArn(taskArn)
 		if !ok {
 			return errors.New("Could not unmarshal state; incomplete save. There was no task for arn " + taskArn)
 		}
-
-		// The container.Container pointers *must* match the task's container
-		// pointers for things to operate correctly; update them here
-		taskContainer, ok := task.ContainerByName(container.Container.Name)
+		_, ok = task.ContainerByName(container.Container.Name)
 		if !ok {
 			return errors.New("Could not resolve a container into a task based on name: " + task.String() + " -- " + container.String())
 		}
+	}
+
+	// reset state and safely populate with saved
+	state.Reset()
+	for _, task := range saved.Tasks {
+		state.AddTask(task)
+	}
+	for _, imageState := range saved.ImageStates {
+		state.AddImageState(imageState)
+	}
+	for id, container := range saved.IdToContainer {
+		taskArn, _ := saved.IdToTask[id]
+		task, _ := state.TaskByArn(taskArn)
+		taskContainer, _ := task.ContainerByName(container.Container.Name)
 		container.Container = taskContainer
-		//pointer matching now; everyone happy
-		clean.AddContainer(container, task)
+		state.AddContainer(container, task)
 	}
-
 	for _, eniAttachment := range saved.ENIAttachments {
-		clean.AddENIAttachment(eniAttachment)
+		state.AddENIAttachment(eniAttachment)
 	}
-
 	for ipAddr, taskARN := range saved.IPToTask {
-		clean.AddTaskIPAddress(ipAddr, taskARN)
+		state.AddTaskIPAddress(ipAddr, taskARN)
 	}
 
-	*state = *clean
 	return nil
 }

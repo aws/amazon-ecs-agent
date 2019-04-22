@@ -26,16 +26,15 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
-	"github.com/fsouza/go-dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	expectedMemorySwappinessDefault = memorySwappinessDefault
-	minDockerClientAPIVersion       = dockerclient.Version_1_24
+	minDockerClientAPIVersion = dockerclient.Version_1_24
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -102,8 +101,23 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	cfg := config.Config{TaskCPUMemLimit: config.ExplicitlyDisabled}
 	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 
+	for _, container := range task.Containers { // remove v3 endpoint from each container because it's randomly generated
+		removeV3EndpointConfig(container)
+	}
 	assert.Equal(t, expectedTask.Containers, task.Containers, "Containers should be equal")
 	assert.Equal(t, expectedTask.Volumes, task.Volumes, "Volumes should be equal")
+}
+
+// removeV3EndpointConfig removes the v3 endpoint id and the injected env for a container
+// so that checking all other fields can be easier
+func removeV3EndpointConfig(container *apicontainer.Container) {
+	container.SetV3EndpointID("")
+	if container.Environment != nil {
+		delete(container.Environment, apicontainer.MetadataURIEnvironmentVariableName)
+	}
+	if len(container.Environment) == 0 {
+		container.Environment = nil
+	}
 }
 
 func TestWindowsPlatformHostConfigOverride(t *testing.T) {
@@ -112,53 +126,21 @@ func TestWindowsPlatformHostConfigOverride(t *testing.T) {
 
 	task := &Task{}
 
-	hostConfig := &docker.HostConfig{CPUShares: int64(1 * cpuSharesPerCore)}
+	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{CPUShares: int64(1 * cpuSharesPerCore)}}
 
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(1*cpuSharesPerCore*percentageFactor)/int64(cpuShareScaleFactor), hostConfig.CPUPercent)
 	assert.Equal(t, int64(0), hostConfig.CPUShares)
-	assert.EqualValues(t, expectedMemorySwappinessDefault, hostConfig.MemorySwappiness)
 
-	hostConfig = &docker.HostConfig{CPUShares: 10}
+	hostConfig = &dockercontainer.HostConfig{Resources: dockercontainer.Resources{CPUShares: 10}}
 	task.platformHostConfigOverride(hostConfig)
 	assert.Equal(t, int64(minimumCPUPercent), hostConfig.CPUPercent)
 	assert.Empty(t, hostConfig.CPUShares)
 }
 
-func TestWindowsMemorySwappinessOption(t *testing.T) {
-	// Testing sending a task to windows overriding MemorySwappiness value
-	rawHostConfigInput := docker.HostConfig{}
-
-	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testTask := &Task{
-		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
-		Family:  "myFamily",
-		Version: "1",
-		Containers: []*apicontainer.Container{
-			{
-				Name: "c1",
-				DockerConfig: apicontainer.DockerConfig{
-					HostConfig: strptr(string(rawHostConfig)),
-				},
-			},
-		},
-	}
-
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
-
-	assert.EqualValues(t, expectedMemorySwappinessDefault, config.MemorySwappiness)
-}
-
 func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	// Use a struct that will marshal to the actual message we expect; not
-	// docker.HostConfig which will include a lot of zero values.
+	// dockercontainer.HostConfig which will include a lot of zero values.
 	rawHostConfigInput := struct {
 		Privileged  bool     `json:"Privileged,omitempty" yaml:"Privileged,omitempty"`
 		SecurityOpt []string `json:"SecurityOpt,omitempty" yaml:"SecurityOpt,omitempty"`
@@ -196,43 +178,19 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
 	assert.Nil(t, configErr)
 
-	expected := docker.HostConfig{
-		Memory:           apicontainer.DockerContainerMinimumMemoryInBytes,
-		Privileged:       true,
-		SecurityOpt:      []string{"foo", "bar"},
-		VolumesFrom:      []string{"dockername-c2"},
-		MemorySwappiness: memorySwappinessDefault,
-		CPUPercent:       minimumCPUPercent,
-	}
-
-	assertSetStructFieldsEqual(t, expected, *hostConfig)
-}
-
-// TestSetConfigHostconfigBasedOnAPIVersion tests the docker hostconfig was correctly
-// set based on the docker client version
-func TestSetConfigHostconfigBasedOnAPIVersion(t *testing.T) {
-	memoryMiB := 500
-	testTask := &Task{
-		Containers: []*apicontainer.Container{
-			{
-				Name:   "c1",
-				CPU:    uint(10),
-				Memory: uint(memoryMiB),
-			},
+	expected := dockercontainer.HostConfig{
+		Resources: dockercontainer.Resources{
+			// Convert MB to B and set Memory
+			Memory:     apicontainer.DockerContainerMinimumMemoryInBytes,
+			CPUPercent: minimumCPUPercent,
 		},
+		Privileged:  true,
+		SecurityOpt: []string{"foo", "bar"},
+		VolumesFrom: []string{"dockername-c2"},
 	}
 
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
-	assert.Nil(t, err)
-
-	config, cerr := testTask.DockerConfig(testTask.Containers[0], minDockerClientAPIVersion)
-	assert.Nil(t, cerr)
-	assert.Equal(t, int64(memoryMiB*1024*1024), hostconfig.Memory)
-	assert.Empty(t, hostconfig.CPUShares)
-	assert.Equal(t, int64(minimumCPUPercent), hostconfig.CPUPercent)
-
-	assert.Empty(t, config.CPUShares)
-	assert.Empty(t, config.Memory)
+	assert.Nil(t, expected.MemorySwappiness, "Expected default memorySwappiness to be nil")
+	assertSetStructFieldsEqual(t, expected, *hostConfig)
 }
 
 func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {

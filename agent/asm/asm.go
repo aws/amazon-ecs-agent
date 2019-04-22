@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
-	docker "github.com/fsouza/go-dockerclient"
+	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
 
@@ -32,29 +32,29 @@ type AuthDataValue struct {
 
 // GetDockerAuthFromASM makes the api call to the AWS Secrets Manager service to
 // retrieve the docker auth data
-func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (docker.AuthConfiguration, error) {
+func GetDockerAuthFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (types.AuthConfig, error) {
 	in := &secretsmanager.GetSecretValueInput{
 		SecretId: aws.String(secretID),
 	}
 
 	out, err := client.GetSecretValue(in)
 	if err != nil {
-		return docker.AuthConfiguration{}, errors.Wrapf(err,
+		return types.AuthConfig{}, errors.Wrapf(err,
 			"asm fetching secret from the service for %s", secretID)
 	}
 
 	return extractASMValue(out)
 }
 
-func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfiguration, error) {
+func extractASMValue(out *secretsmanager.GetSecretValueOutput) (types.AuthConfig, error) {
 	if out == nil {
-		return docker.AuthConfiguration{}, errors.New(
+		return types.AuthConfig{}, errors.New(
 			"asm fetching authorization data: empty response")
 	}
 
 	secretValue := aws.StringValue(out.SecretString)
 	if secretValue == "" {
-		return docker.AuthConfiguration{}, errors.New(
+		return types.AuthConfig{}, errors.New(
 			"asm fetching authorization data: empty secrets value")
 	}
 
@@ -62,7 +62,7 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 	err := json.Unmarshal([]byte(secretValue), &authDataValue)
 	if err != nil {
 		// could  not unmarshal, incorrect secret value schema
-		return docker.AuthConfiguration{}, errors.New(
+		return types.AuthConfig{}, errors.New(
 			"asm fetching authorization data: unable to unmarshal secret value, invalid schema")
 	}
 
@@ -70,19 +70,34 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (docker.AuthConfi
 	password := aws.StringValue(authDataValue.Password)
 
 	if username == "" {
-		return docker.AuthConfiguration{}, errors.New(
+		return types.AuthConfig{}, errors.New(
 			"asm fetching username: AuthorizationData is malformed, empty field")
 	}
 
 	if password == "" {
-		return docker.AuthConfiguration{}, errors.New(
+		return types.AuthConfig{}, errors.New(
 			"asm fetching password: AuthorizationData is malformed, empty field")
 	}
 
-	dac := docker.AuthConfiguration{
+	dac := types.AuthConfig{
 		Username: username,
 		Password: password,
 	}
 
 	return dac, nil
+}
+
+// GetSecretFromASM makes the api call to the AWS Secrets Manager service to
+// retrieve the secret value
+func GetSecretFromASM(secretID string, client secretsmanageriface.SecretsManagerAPI) (string, error) {
+	in := &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(secretID),
+	}
+
+	out, err := client.GetSecretValue(in)
+	if err != nil {
+		return "", errors.Wrapf(err, "secret %s", secretID)
+	}
+
+	return aws.StringValue(out.SecretString), nil
 }

@@ -29,8 +29,8 @@ import (
 	"golang.org/x/tools/imports"
 )
 
-var simpleTestPattern = `
-// +build functional,%s
+// TODO: add more awsvpc functional tests using simple test template
+var simpleTestPattern = `// +build functional,%s
 
 // Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -52,6 +52,7 @@ var simpleTestPattern = `
 package simpletest
 
 import (
+	"strings"
 	"testing"
 	"time"
 	"os"
@@ -63,6 +64,10 @@ import (
 
 // Test{{ $el.Name }} {{ $el.Description }}
 func Test{{ $el.Name }}(t *testing.T) {
+	{{if $el.MinimumMemory}}
+	// Test only available on instance with total memory more than {{ $el.MinimumMemory }} MB
+	RequireMinimumMemory(t, {{ $el.MinimumMemory }})
+	{{end}}
 	{{if $el.DockerVersion}}
 	// Test only available for docker version {{ $el.DockerVersion }}
 	RequireDockerVersion(t, "{{ $el.DockerVersion }}") 
@@ -70,7 +75,11 @@ func Test{{ $el.Name }}(t *testing.T) {
 	// Parallel is opt in because resource constraints could cause test failures
 	// on smaller instances
 	if os.Getenv("ECS_FUNCTIONAL_PARALLEL") != "" { t.Parallel() }
-	agent := RunAgent(t, nil)
+	var options *AgentOptions
+	if "{{ $el.AwsvpcMode }}" == "true" {
+			options = &AgentOptions{EnableTaskENI: true}
+	}
+	agent := RunAgent(t, options)
 	defer agent.Cleanup()
 	agent.RequireVersion("{{ $el.Version }}")
 
@@ -78,10 +87,22 @@ func Test{{ $el.Name }}(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not register task definition: %%v", err)
 	}
-	testTasks, err := agent.StartMultipleTasks(t, td, {{ $el.Count }})
-	if err != nil {
-		t.Fatalf("Could not start task: %%v", err)
+	var testTasks []*TestTask
+	if "{{ $el.AwsvpcMode }}" == "true"{
+		for i := 0; i < {{ $el.Count }}; i ++{
+			tmpTask, err := agent.StartAWSVPCTask( "{{ $el.TaskDefinition }}", nil)
+			if err != nil{
+				t.Fatalf("Could not start task in awsvpc mode: %%v",err)
+			}
+			testTasks = append(testTasks, tmpTask)
+		}
+	}else{
+		testTasks, err = agent.StartMultipleTasks(t, td, {{ $el.Count }})
+		if err != nil {
+			t.Fatalf("Could not start task: %%v", err)
+		}
 	}
+
 	timeout, err := time.ParseDuration("{{ $el.Timeout }}")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %%#v", err)
@@ -135,6 +156,8 @@ func main() {
 		Count          int
 		DockerVersion  string
 		Daemon         bool
+		AwsvpcMode     string
+		MinimumMemory  string
 	}
 
 	types := []struct {
