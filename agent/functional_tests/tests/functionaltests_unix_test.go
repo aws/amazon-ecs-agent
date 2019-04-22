@@ -776,21 +776,30 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
 
+	RequireInstanceTypes(t, []string{"c5", "m5"})
+
+	// Enable ENI Trunking account setting
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("awsvpcTrunking"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
-		// TODO set ECS_ENABLE_HIGH_DENSITY_ENI flag to true
 		ExtraEnvironment: map[string]string{
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
-			"ECS_ENABLE_HIGH_DENSITY_ENI": "false",
+			"ECS_ENABLE_HIGH_DENSITY_ENI": "true",
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
 	})
 
 	defer agent.Cleanup()
 
-	// TODO Update the agent version in final testing
-	agent.RequireVersion(">1.20.1")
+	agent.RequireVersion(">=1.27.1")
 
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -805,7 +814,7 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 
 
-	numToRun := 3
+	numToRun := 5
 	tasks := make([]*TestTask, numToRun)
 
 	for numRun := 0; numRun < numToRun; numRun++ {
