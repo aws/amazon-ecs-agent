@@ -58,6 +58,7 @@ type metadataSerializer struct {
 	Networks               []Network      `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus `json:"MetadataFileStatus,omitempty"`
 	AvailabilityZone       string         `json:"AvailabilityZone,omitempty"`
+	HostPrivateIPv4Address string         `json:"HostPrivateIPv4Address,omitempty"`
 	HostPublicIPv4Address  string         `json:"HostPublicIPv4Address,omitempty"`
 }
 
@@ -97,7 +98,7 @@ func verifyContainerMetadataResponse(containerMetadataResponseMap map[string]jso
 		"MetadataFileStatus": MetadataReadyText,
 	}
 	// Fields that change dynamically, not predictable
-	taskExpectedFieldNotEmptyArray := []string{"TaskDefinitionFamily", "Cluster", "ContainerInstanceARN", "TaskARN", "TaskDefinitionRevision", "ContainerID", "DockerContainerName", "ImageID"}
+	taskExpectedFieldNotEmptyArray := []string{"TaskDefinitionFamily", "Cluster", "ContainerInstanceARN", "TaskARN", "TaskDefinitionRevision", "ContainerID", "DockerContainerName", "ImageID", "HostPrivateIPv4Address"}
 
 	if hasPublicIp {
 		taskExpectedFieldNotEmptyArray = append(taskExpectedFieldNotEmptyArray, "HostPublicIPv4Address")
