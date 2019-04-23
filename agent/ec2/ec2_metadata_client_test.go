@@ -38,6 +38,7 @@ const (
 	vpcID        = "vpc-1234"
 	subnetID     = "subnet-1234"
 	iidRegion    = "us-east-1"
+	privateIP    = "127.0.0.1"
 	publicIP     = "127.0.0.1"
 )
 
@@ -179,6 +180,20 @@ func TestSubnetID(t *testing.T) {
 	subnetIDResponse, err := testClient.SubnetID(mac)
 	assert.NoError(t, err)
 	assert.Equal(t, subnetID, subnetIDResponse)
+}
+
+func TestPrivateIPv4Address(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		ec2.PrivateIPv4Resource).Return(privateIP, nil)
+	privateIPResponse, err := testClient.PrivateIPv4Address()
+	assert.NoError(t, err)
+	assert.Equal(t, privateIP, privateIPResponse)
 }
 
 func TestPublicIPv4Address(t *testing.T) {

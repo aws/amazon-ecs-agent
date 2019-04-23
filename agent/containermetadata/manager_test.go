@@ -41,6 +41,7 @@ const (
 	containerName          = "container"
 	dataDir                = "ecs_mockdata"
 	availabilityZone       = "us-west-2b"
+	hostPrivateIPv4Address = "127.0.0.1"
 	hostPublicIPv4Address  = "127.0.0.1"
 )
 
@@ -73,6 +74,15 @@ func TestSetAvailabilityZone(t *testing.T) {
 	newManager := &metadataManager{}
 	newManager.SetAvailabilityZone(mockAvailabilityZone)
 	assert.Equal(t, mockAvailabilityZone, newManager.availabilityZone)
+}
+
+// TestSetHostPrivateIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
+func TestSetHostPrivateIPv4Address(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	newManager := &metadataManager{}
+	newManager.SetHostPrivateIPv4Address(hostPrivateIPv4Address)
+	assert.Equal(t, hostPrivateIPv4Address, newManager.hostPrivateIPv4Address)
 }
 
 // TestSetHostPublicIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
