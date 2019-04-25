@@ -340,6 +340,8 @@ func goType(s *Shape, withPkgName bool) string {
 		return "*int64"
 	case "float", "double":
 		return "*float64"
+	case "biginteger":
+		return "*uint64"
 	case "timestamp":
 		s.API.imports["time"] = true
 		return "*time.Time"
