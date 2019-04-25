@@ -206,7 +206,7 @@ func (acsSession *session) Start() error {
 			if shouldReconnectWithoutBackoff(acsError) {
 				// If ACS closed the connection, there's no need to backoff,
 				// reconnect immediately
-				seelog.Info("ACS Websocket connection closed for a valid reason")
+				seelog.Infof("ACS Websocket connection closed for a valid reason: %v", acsError)
 				acsSession.backoff.Reset()
 				sendEmptyMessageOnChannel(connectToACS)
 			} else {
@@ -219,6 +219,7 @@ func (acsSession *session) Start() error {
 					// If the context was not cancelled and we've waited for the
 					// wait duration without any errors, send the message to the channel
 					// to reconnect to ACS
+					seelog.Info("Done waiting; reconnecting to ACS")
 					sendEmptyMessageOnChannel(connectToACS)
 				} else {
 					// Wait was interrupted. We expect the session to close as canceling
@@ -322,6 +323,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		seelog.Errorf("Error connecting to ACS: %v", err)
 		return err
 	}
+
 	seelog.Info("Connected to ACS endpoint")
 	// Start inactivity timer for closing the connection
 	timer := newDisconnectionTimer(client, acsSession.heartbeatTimeout(), acsSession.heartbeatJitter())
@@ -351,11 +353,13 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		case <-acsSession.ctx.Done():
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
+			seelog.Infof("ACS session context cancelled.")
 			return acsSession.ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
 			// the connection is closed by ACS or the agent
+			seelog.Errorf("Error serving to ACS Webserver: %v", err)
 			return err
 		}
 	}

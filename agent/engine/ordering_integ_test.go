@@ -432,7 +432,6 @@ func TestShutdownOrder(t *testing.T) {
 	waitFinished(t, finished, shutdownOrderingTimeout)
 }
 
-
 func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
 	select {
 	case <-finished:

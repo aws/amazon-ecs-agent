@@ -407,6 +407,11 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	if event.Status <= containerKnownStatus {
 		seelog.Infof("Managed task [%s]: redundant container state change. %s to %s, but already %s",
 			mtask.Arn, container.Name, event.Status.String(), containerKnownStatus.String())
+
+		// Only update container metadata when status stays RUNNING
+		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
+			updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
+		}
 		return
 	}
 
@@ -420,11 +425,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		if !proceedAnyway {
 			return
 		}
-	}
-
-	// Update the container health status
-	if container.HealthStatusShouldBeReported() {
-		container.SetHealthStatus(event.Health)
 	}
 
 	mtask.RecordExecutionStoppedAt(container)
