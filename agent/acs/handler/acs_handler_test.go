@@ -215,6 +215,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
+	mockWsClient.EXPECT().Serve().AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	gomock.InOrder(
 		// Connect fails 10 times
@@ -224,7 +225,7 @@ func TestHandlerReconnectsOnConnectErrors(t *testing.T) {
 		// test  to time out as the context is never cancelled
 		mockWsClient.EXPECT().Connect().Do(func() {
 			cancel()
-		}).Return(io.EOF).MinTimes(1),
+		}).Return(nil).MinTimes(1),
 	)
 	acsSession := session{
 		containerInstanceARN: "myArn",
@@ -616,7 +617,7 @@ func TestHandlerReconnectsOnServeErrors(t *testing.T) {
 		// test to time out as the context is never cancelled
 		mockWsClient.EXPECT().Serve().Do(func() {
 			cancel()
-		}).Return(io.EOF),
+		}),
 	)
 
 	acsSession := session{
@@ -711,12 +712,12 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
-	mockWsClient.EXPECT().Connect().Return(nil).AnyTimes()
+	mockWsClient.EXPECT().Serve().AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
-	mockWsClient.EXPECT().Serve().Do(func() {
+	mockWsClient.EXPECT().Connect().Do(func() {
 		// Serve() cancels the context
 		cancel()
-	}).Return(io.EOF).MinTimes(1)
+	}).Return(nil).MinTimes(1)
 
 	gomock.InOrder(
 		// DiscoverPollEndpoint returns an error on its first invocation
@@ -761,7 +762,6 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 	if timeSinceStart > 2*connectionBackoffMin {
 		t.Errorf("Duration since start is greater than maximum anticipated wait time: %v", timeSinceStart.String())
 	}
-
 }
 
 // TestConnectionIsClosedOnIdle tests if the connection to ACS is closed
