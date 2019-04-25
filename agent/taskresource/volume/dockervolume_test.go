@@ -24,7 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 
 	"github.com/docker/docker/api/types"
@@ -78,7 +78,7 @@ func TestCreateError(t *testing.T) {
 	mockClient.EXPECT().CreateVolume(gomock.Any(), name, driver, nil, labels, dockerclient.CreateVolumeTimeout).Return(
 		dockerapi.SDKVolumeResponse{
 			DockerVolume: nil,
-			Error:        errors.New("some error"),
+			Error:        errors.New("Test this error is propogated"),
 		})
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -86,6 +86,8 @@ func TestCreateError(t *testing.T) {
 	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, nil, labels, mockClient)
 	err := volume.Create()
 	assert.NotNil(t, err)
+	assert.Equal(t, "Test this error is propogated", err.Error())
+	assert.Equal(t, "Test this error is propogated", volume.GetTerminalReason())
 }
 
 func TestCleanupSuccess(t *testing.T) {
@@ -234,7 +236,7 @@ func TestNewVolumeResource(t *testing.T) {
 		fail          bool
 	}{
 		{
-			"task scoped volume can be non-auto provisioned",
+			"task scoped volume can not be auto provisioned",
 			"task",
 			true,
 			true,
@@ -262,10 +264,12 @@ func TestNewVolumeResource(t *testing.T) {
 	for _, testcase := range testCases {
 		t.Run(fmt.Sprintf("%s,scope %s, autoprovision: %v", testcase.description,
 			testcase.scope, testcase.autoprovision), func(t *testing.T) {
-			_, err := NewVolumeResource(nil, "volume", "dockerVolume",
+			vol, err := NewVolumeResource(nil, "volume", "dockerVolume",
 				testcase.scope, testcase.autoprovision, "", nil, nil, nil)
 			if testcase.fail {
 				assert.Error(t, err)
+				assert.Nil(t, vol)
+				assert.Contains(t, err.Error(), "task scoped volume could not be autoprovisioned")
 			} else {
 				assert.NoError(t, err)
 			}
