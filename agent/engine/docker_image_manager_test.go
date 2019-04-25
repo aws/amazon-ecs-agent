@@ -1065,7 +1065,7 @@ func TestDeleteImage(t *testing.T) {
 }
 
 // This test tests that we detect correctly in agent when the agent is trying to delete image that
-// does not exist for older version of docker. 
+// does not exist for older version of docker.
 func TestDeleteImageNotFoundOldDockerMessageError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

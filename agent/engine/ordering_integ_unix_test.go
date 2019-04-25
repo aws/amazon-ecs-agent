@@ -49,11 +49,11 @@ func TestGranularStopTimeout(t *testing.T) {
 	parent.DependsOn = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency1",
-			Condition: "START",
+			Condition:     "START",
 		},
 		{
 			ContainerName: "dependency2",
-			Condition: "START",
+			Condition:     "START",
 		},
 	}
 
