@@ -14,5 +14,3 @@
 FROM amazon-ecs-ftest-windows-base:make
 
 ADD stress.exe stress.exe
-ENTRYPOINT ["./stress.exe"]
-CMD [ "-concurrency", "1000", "-memory", "1024"]
