@@ -113,9 +113,10 @@ func TestCleanupError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockClient.EXPECT().RemoveVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("Test this is propogated"))
 
 	name := "volumeName"
-	scope := "shared"
+	scope := "task"
 	autoprovision := false
 	driver := "driver"
 
@@ -123,7 +124,9 @@ func TestCleanupError(t *testing.T) {
 	defer cancel()
 	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, nil, nil, mockClient)
 	err := volume.Cleanup()
-	assert.Nil(t, err)
+	assert.Error(t, err)
+	assert.Equal(t, "Test this is propogated", err.Error())
+	assert.Equal(t, "Test this is propogated", volume.GetTerminalReason())
 }
 
 func TestApplyTransitionForTaskScopeVolume(t *testing.T) {
