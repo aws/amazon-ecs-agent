@@ -17,6 +17,8 @@ package stats
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -61,4 +63,18 @@ func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 	assert.NoError(t, err, "converting container stats failed")
 	require.NotNil(t, containerStats, "containerStats should not be nil")
 	assert.Equal(t, uint64(2500), containerStats.cpuUsage, "unexpected value for cpuUsage", containerStats.cpuUsage)
+}
+
+func TestDockerStatsToContainerStats(t *testing.T) {
+	inputJsonFile, _ := filepath.Abs("./windows_test_stats.json")
+	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
+	dockerStat := &types.StatsJSON{}
+	json.Unmarshal([]byte(jsonBytes), dockerStat)
+	containerStats, err := dockerStatsToContainerStats(dockerStat)
+	assert.NoError(t, err, "converting container stats failed")
+	require.NotNil(t, containerStats, "containerStats should not be nil")
+	// network stats check
+	netStats := containerStats.networkStats
+	assert.NotNil(t, netStats, "networkStats should not be nil")
+	validateNetworkMetrics(t, netStats)
 }

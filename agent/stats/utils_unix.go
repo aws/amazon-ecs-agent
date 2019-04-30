@@ -31,6 +31,19 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
 	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats["cache"]
+	storageReadBytes, storageWriteBytes := getStorageStats(dockerStats)
+	networkStats := getNetworkStats(dockerStats)
+	return &ContainerStats{
+		cpuUsage:          cpuUsage,
+		memoryUsage:       memoryUsage,
+		storageReadBytes:  storageReadBytes,
+		storageWriteBytes: storageWriteBytes,
+		networkStats:      networkStats,
+		timestamp:         dockerStats.Read,
+	}, nil
+}
+
+func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
 	// initialize block io and loop over stats to aggregate
 	storageReadBytes := uint64(0)
 	storageWriteBytes := uint64(0)
@@ -45,11 +58,5 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 			continue
 		}
 	}
-	return &ContainerStats{
-		cpuUsage:          cpuUsage,
-		memoryUsage:       memoryUsage,
-		storageReadBytes:  storageReadBytes,
-		storageWriteBytes: storageWriteBytes,
-		timestamp:         dockerStats.Read,
-	}, nil
+	return storageReadBytes, storageWriteBytes
 }

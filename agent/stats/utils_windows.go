@@ -30,9 +30,11 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 
 	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
+	networkStats := getNetworkStats(dockerStats)
 	return &ContainerStats{
-		cpuUsage:    cpuUsage,
-		memoryUsage: memoryUsage,
-		timestamp:   dockerStats.Read,
+		cpuUsage:     cpuUsage,
+		memoryUsage:  memoryUsage,
+		timestamp:    dockerStats.Read,
+		networkStats: networkStats,
 	}, nil
 }

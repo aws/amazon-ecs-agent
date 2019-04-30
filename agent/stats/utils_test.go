@@ -21,6 +21,19 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
+	"github.com/stretchr/testify/assert"
+)
+
+const (
+	// below is the sum of each field in each network interface json in unix_test_stats.json
+	expectedRxBytes   = uint64(1096)
+	expectedRxPackets = uint64(14)
+	expectedRxDropped = uint64(1)
+	expectedRxErrors  = uint64(0)
+	expectedTxBytes   = uint64(8992)
+	expectedTxPackets = uint64(123)
+	expectedTxDropped = uint64(10)
+	expectedTxErrors  = uint64(0)
 )
 
 func TestIsNetworkStatsError(t *testing.T) {
@@ -68,4 +81,15 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 	if containerStats.memoryUsage != 10 {
 		t.Error("Unexpected value for memoryUsage", containerStats.memoryUsage)
 	}
+}
+
+func validateNetworkMetrics(t *testing.T, netStats *NetworkStats) {
+	assert.Equal(t, expectedRxBytes, netStats.rxBytes)
+	assert.Equal(t, expectedRxPackets, netStats.rxPackets)
+	assert.Equal(t, expectedRxDropped, netStats.rxDropped)
+	assert.Equal(t, expectedRxErrors, netStats.rxErrors)
+	assert.Equal(t, expectedTxBytes, netStats.txBytes)
+	assert.Equal(t, expectedTxPackets, netStats.txPackets)
+	assert.Equal(t, expectedTxDropped, netStats.txDropped)
+	assert.Equal(t, expectedTxErrors, netStats.txErrors)
 }

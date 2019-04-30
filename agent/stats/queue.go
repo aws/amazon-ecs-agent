@@ -84,6 +84,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 		MemoryUsageInMegs: uint32(rawStat.memoryUsage / BytesInMiB),
 		StorageReadBytes:  rawStat.storageReadBytes,
 		StorageWriteBytes: rawStat.storageWriteBytes,
+		NetworkStats:      rawStat.networkStats,
 		Timestamp:         rawStat.timestamp,
 		cpuUsage:          rawStat.cpuUsage,
 	}
@@ -137,6 +138,101 @@ func (queue *Queue) GetStorageWriteStatsSet() (*ecstcs.ULongStatsSet, error) {
 	return queue.getULongStatsSet(getStorageWriteBytes)
 }
 
+// GetNetworkStatsSet gets the stats set for network metrics.
+func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
+	networkStatsSet := &ecstcs.NetworkStatsSet{}
+	var err error
+	networkStatsSet.RxBytes, err = queue.getULongStatsSet(getNetworkRxBytes)
+	if err != nil {
+		seelog.Warnf("Error getting network rx bytes: %v", err)
+	}
+	networkStatsSet.RxDropped, err = queue.getULongStatsSet(getNetworkRxDropped)
+	if err != nil {
+		seelog.Warnf("Error getting network rx dropped: %v", err)
+	}
+	networkStatsSet.RxErrors, err = queue.getULongStatsSet(getNetworkRxErrors)
+	if err != nil {
+		seelog.Warnf("Error getting network rx errors: %v", err)
+	}
+	networkStatsSet.RxPackets, err = queue.getULongStatsSet(getNetworkRxPackets)
+	if err != nil {
+		seelog.Warnf("Error getting network rx packets: %v", err)
+	}
+	networkStatsSet.TxBytes, err = queue.getULongStatsSet(getNetworkTxBytes)
+	if err != nil {
+		seelog.Warnf("Error getting network tx bytes: %v", err)
+	}
+	networkStatsSet.TxDropped, err = queue.getULongStatsSet(getNetworkTxDropped)
+	if err != nil {
+		seelog.Warnf("Error getting network tx dropped: %v", err)
+	}
+	networkStatsSet.TxErrors, err = queue.getULongStatsSet(getNetworkTxErrors)
+	if err != nil {
+		seelog.Warnf("Error getting network tx errors: %v", err)
+	}
+	networkStatsSet.TxPackets, err = queue.getULongStatsSet(getNetworkTxPackets)
+	if err != nil {
+		seelog.Warnf("Error getting network tx packets: %v", err)
+	}
+	return networkStatsSet, err
+}
+
+func getNetworkRxBytes(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.rxBytes
+	}
+	return uint64(0)
+}
+
+func getNetworkRxDropped(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.rxDropped
+	}
+	return uint64(0)
+}
+
+func getNetworkRxErrors(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.rxErrors
+	}
+	return uint64(0)
+}
+
+func getNetworkRxPackets(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.rxPackets
+	}
+	return uint64(0)
+}
+
+func getNetworkTxBytes(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.txBytes
+	}
+	return uint64(0)
+}
+
+func getNetworkTxDropped(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.txDropped
+	}
+	return uint64(0)
+}
+
+func getNetworkTxErrors(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.txErrors
+	}
+	return uint64(0)
+}
+
+func getNetworkTxPackets(s *UsageStats) uint64 {
+	if s.NetworkStats != nil {
+		return s.NetworkStats.txPackets
+	}
+	return uint64(0)
+}
+
 // GetRawUsageStats gets the array of most recent raw UsageStats, in descending
 // order of timestamps.
 func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
@@ -161,6 +257,7 @@ func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
 			MemoryUsageInMegs: rawUsageStat.MemoryUsageInMegs,
 			StorageReadBytes:  rawUsageStat.StorageReadBytes,
 			StorageWriteBytes: rawUsageStat.StorageWriteBytes,
+			NetworkStats:      rawUsageStat.NetworkStats,
 			Timestamp:         rawUsageStat.Timestamp,
 		}
 	}
@@ -219,7 +316,7 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("We need at least 2 data points in queue to calculate float stats")
+		return nil, fmt.Errorf("Need at least 2 data points in queue to calculate CW stats set")
 	}
 
 	var min, max, sum float64
@@ -260,7 +357,7 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("We need at least 2 data points in the queue to calculate int stats")
+		return nil, fmt.Errorf("Need at least 2 data points in the queue to calculate int stats")
 	}
 
 	var min, max, sum uint64
