@@ -686,6 +686,12 @@ type ULongStatsSet struct {
 	// Min is a required field
 	Min *int64 `locationName:"min" type:"long" required:"true"`
 
+	OverflowMax *int64 `locationName:"overflowMax" type:"long"`
+
+	OverflowMin *int64 `locationName:"overflowMin" type:"long"`
+
+	OverflowSum *int64 `locationName:"overflowSum" type:"long"`
+
 	// SampleCount is a required field
 	SampleCount *int64 `locationName:"sampleCount" type:"long" required:"true"`
 
