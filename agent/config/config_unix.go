@@ -80,6 +80,7 @@ func DefaultConfig() Config {
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
+		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 	}
 }
 

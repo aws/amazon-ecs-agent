@@ -26,6 +26,7 @@ import (
 
 const (
 	defaultCPUPeriod = 100 * time.Millisecond // 100ms
+
 	// With a 100ms CPU period, we can express 0.01 vCPU to 10 vCPUs
 	maxTaskVCPULimit = 10
 	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
@@ -46,7 +47,7 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 
 func getCanonicalPath(path string) string { return path }
 
-func (task *Task) initializeCgroupResourceSpec(cgroupPath string, resourceFields *taskresource.ResourceFields) error {
+func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
 	return nil
 }
 

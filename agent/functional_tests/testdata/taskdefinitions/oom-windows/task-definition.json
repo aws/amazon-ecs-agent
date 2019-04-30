@@ -6,7 +6,8 @@
     "name": "memory-overcommit",
     "cpu": 1024,
     "image": "amazon/amazon-ecs-windows-telemetry-test:make",
-    "command": ["-concurrency", "10", "-memory", "1024"]
+    "entryPoint": ["powershell"],
+    "command": [".\\stress.exe", "-concurrency", "10", "-memory", "1024"]
   }]
 }
 
