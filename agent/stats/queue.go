@@ -82,6 +82,8 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 	stat := UsageStats{
 		CPUUsagePerc:      float32(nan32()),
 		MemoryUsageInMegs: uint32(rawStat.memoryUsage / BytesInMiB),
+		StorageReadBytes:  rawStat.storageReadBytes,
+		StorageWriteBytes: rawStat.storageWriteBytes,
 		Timestamp:         rawStat.timestamp,
 		cpuUsage:          rawStat.cpuUsage,
 	}
@@ -125,6 +127,16 @@ func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
 	return queue.getCWStatsSet(getMemoryUsagePerc)
 }
 
+// GetStorageReadStatsSet gets the stats set for aggregate storage read
+func (queue *Queue) GetStorageReadStatsSet() (*ecstcs.ULongStatsSet, error) {
+	return queue.getULongStatsSet(getStorageReadBytes)
+}
+
+// GetStorageWriteStatsSet gets the stats set for aggregate storage written
+func (queue *Queue) GetStorageWriteStatsSet() (*ecstcs.ULongStatsSet, error) {
+	return queue.getULongStatsSet(getStorageWriteBytes)
+}
+
 // GetRawUsageStats gets the array of most recent raw UsageStats, in descending
 // order of timestamps.
 func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
@@ -147,6 +159,8 @@ func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
 		usageStats[i] = UsageStats{
 			CPUUsagePerc:      rawUsageStat.CPUUsagePerc,
 			MemoryUsageInMegs: rawUsageStat.MemoryUsageInMegs,
+			StorageReadBytes:  rawUsageStat.StorageReadBytes,
+			StorageWriteBytes: rawUsageStat.StorageWriteBytes,
 			Timestamp:         rawUsageStat.Timestamp,
 		}
 	}
@@ -162,7 +176,26 @@ func getMemoryUsagePerc(s *UsageStats) float64 {
 	return float64(s.MemoryUsageInMegs)
 }
 
-type getUsageFunc func(*UsageStats) float64
+func getStorageReadBytes(s *UsageStats) uint64 {
+	return s.StorageReadBytes
+}
+
+func getStorageWriteBytes(s *UsageStats) uint64 {
+	return s.StorageWriteBytes
+}
+
+// getInt64WithOverflow truncates a uint64 to fit an int64
+// it returns overflow as a second int64
+func getInt64WithOverflow(uintStat uint64) (int64, int64) {
+	if uintStat > math.MaxInt64 {
+		overflow := int64(uintStat % uint64(math.MaxInt64))
+		return math.MaxInt64, overflow
+	}
+	return int64(uintStat), int64(0)
+}
+
+type getUsageFloatFunc func(*UsageStats) float64
+type getUsageIntFunc func(*UsageStats) uint64
 
 func (queue *Queue) resetThresholdElapsed(timeout time.Duration) bool {
 	queue.lock.RLock()
@@ -179,14 +212,14 @@ func (queue *Queue) enoughDatapointsInBuffer() bool {
 
 // getCWStatsSet gets the stats set for either CPU or Memory based on the
 // function pointer.
-func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
+func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, error) {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("No data in the queue")
+		return nil, fmt.Errorf("We need at least 2 data points in queue to calculate float stats")
 	}
 
 	var min, max, sum float64
@@ -197,15 +230,15 @@ func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
 	sampleCount = 0
 
 	for _, stat := range queue.buffer {
-		perc := f(&stat)
-		if math.IsNaN(perc) {
+		thisStat := f(&stat)
+		if math.IsNaN(thisStat) {
 			continue
 		}
 
-		min = math.Min(min, perc)
-		max = math.Max(max, perc)
+		min = math.Min(min, thisStat)
+		max = math.Max(max, thisStat)
 		sampleCount++
-		sum += perc
+		sum += thisStat
 	}
 
 	return &ecstcs.CWStatsSet{
@@ -213,5 +246,53 @@ func (queue *Queue) getCWStatsSet(f getUsageFunc) (*ecstcs.CWStatsSet, error) {
 		Min:         &min,
 		SampleCount: &sampleCount,
 		Sum:         &sum,
+	}, nil
+}
+
+// getULongStatsSet gets the stats set for the specified raw stat type
+// stats come from docker as uint64 type, and by neccesity are packed into int64 type
+// where there is overflow (math.MaxInt64 + 1 or greater)
+// we capture the excess in optional overflow fields.
+func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, fmt.Errorf("We need at least 2 data points in the queue to calculate int stats")
+	}
+
+	var min, max, sum uint64
+	var sampleCount int64
+	min = math.MaxUint64
+	max = 0
+	sum = 0
+	sampleCount = 0
+
+	for _, stat := range queue.buffer {
+		thisStat := f(&stat)
+		if thisStat < min {
+			min = thisStat
+		}
+		if thisStat > max {
+			max = thisStat
+		}
+		sum += thisStat
+		sampleCount++
+	}
+
+	baseMin, overflowMin := getInt64WithOverflow(min)
+	baseMax, overflowMax := getInt64WithOverflow(max)
+	baseSum, overflowSum := getInt64WithOverflow(sum)
+
+	return &ecstcs.ULongStatsSet{
+		Max:         &baseMax,
+		OverflowMax: &overflowMax,
+		Min:         &baseMin,
+		OverflowMin: &overflowMin,
+		SampleCount: &sampleCount,
+		Sum:         &baseSum,
+		OverflowSum: &overflowSum,
 	}, nil
 }

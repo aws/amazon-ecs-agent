@@ -248,8 +248,8 @@ func validateEmptyTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
 
 func createFakeContainerStats() []*ContainerStats {
 	return []*ContainerStats{
-		{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{22400432, 1839104, uint64(0), uint64(0), parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		{116499979, 3649536, uint64(0), uint64(0), parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 }
 

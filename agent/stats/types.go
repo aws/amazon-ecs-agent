@@ -24,15 +24,19 @@ import (
 
 // ContainerStats encapsulates the raw CPU and memory utilization from cgroup fs.
 type ContainerStats struct {
-	cpuUsage    uint64
-	memoryUsage uint64
-	timestamp   time.Time
+	cpuUsage          uint64
+	memoryUsage       uint64
+	storageReadBytes  uint64
+	storageWriteBytes uint64
+	timestamp         time.Time
 }
 
 // UsageStats abstracts the format in which the queue stores data.
 type UsageStats struct {
 	CPUUsagePerc      float32   `json:"cpuUsagePerc"`
 	MemoryUsageInMegs uint32    `json:"memoryUsageInMegs"`
+	StorageReadBytes  uint64    `json:"storageReadBytes"`
+	StorageWriteBytes uint64    `json:"storageWriteBytes"`
 	Timestamp         time.Time `json:"timestamp"`
 	cpuUsage          uint64
 }
