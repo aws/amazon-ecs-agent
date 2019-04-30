@@ -30,6 +30,7 @@ const (
 	InstanceIdentityDocumentResource          = "instance-identity/document"
 	InstanceIdentityDocumentSignatureResource = "instance-identity/signature"
 	MacResource                               = "mac"
+	AllMacResource                            = "network/interfaces/macs"
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 	InstanceIDResource                        = "instance-id"
@@ -68,6 +69,7 @@ type EC2MetadataClient interface {
 	VPCID(mac string) (string, error)
 	SubnetID(mac string) (string, error)
 	PrimaryENIMAC() (string, error)
+	AllENIMacs() (string, error)
 	InstanceID() (string, error)
 	GetUserData() (string, error)
 	Region() (string, error)
@@ -136,6 +138,11 @@ func (c *ec2MetadataClientImpl) GetMetadata(path string) (string, error) {
 // network interface of the instance
 func (c *ec2MetadataClientImpl) PrimaryENIMAC() (string, error) {
 	return c.client.GetMetadata(MacResource)
+}
+
+// AllENIMacs returns the mac addresses for all the network interfaces attached to the instance
+func (c *ec2MetadataClientImpl) AllENIMacs() (string, error) {
+	return c.client.GetMetadata(AllMacResource)
 }
 
 // VPCID returns the VPC id for the network interface, given
