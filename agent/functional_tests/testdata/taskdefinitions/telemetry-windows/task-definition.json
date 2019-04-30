@@ -4,6 +4,8 @@
     "image": "amazon/amazon-ecs-windows-telemetry-test:make",
     "name": "windows-telemetry",
     "cpu": $$$$CPUSHARE$$$$,
-    "memory": 2048
+    "memory": 2048,
+    "entryPoint": ["powershell"],
+    "command": [".\\stress.exe", "-concurrency", "1000", "-memory", "1024"]
   }]
 }
