@@ -306,7 +306,10 @@
         "min":{"shape":"ULong"},
         "max":{"shape":"ULong"},
         "sampleCount":{"shape":"ULong"},
-        "sum":{"shape":"ULong"}
+        "sum":{"shape":"ULong"},
+        "overflowMin":{"shape":"ULong"},
+        "overflowMax":{"shape":"ULong"},
+        "overflowSum":{"shape":"ULong"}
       }
     }
   }
