@@ -38,6 +38,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -132,6 +133,12 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 	err = agent.StartAgent()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if options != nil && options.EnableTaskENI {
+		// if task networking is enabled, needs to wait for container instance to become active
+		err = agent.WaitContainerInstanceStatus("ACTIVE")
+		require.NoError(t, err)
 	}
 	return agent
 }
@@ -291,5 +298,36 @@ func (agent *TestAgent) getBindMounts() []string {
 }
 
 func (agent *TestAgent) Cleanup() {
-	agent.platformIndependentCleanup()
+	if agent.Options == nil || ! agent.Options.EnableTaskENI {
+		// if task networking is not enabled, do the usual cleanup
+		agent.platformIndependentCleanup()
+		return
+	}
+
+	// otherwise, we need to wait for container instance to become INACTIVE after deregistration.
+	// cleanup needs to happen regardless of what happened elsewhere.
+	defer func() {
+		if agent.t.Failed() {
+			agent.t.Logf("Preserving test dir for failed test %s", agent.TestDir)
+		} else {
+			agent.t.Logf("Removing test dir for passed test %s", agent.TestDir)
+			os.RemoveAll(agent.TestDir)
+		}
+	}()
+
+	// stop the agent
+	err := agent.StopAgent()
+	require.NoError(agent.t, err)
+
+	// deregister the container instance
+	_, err = ECS.DeregisterContainerInstance(&ecs.DeregisterContainerInstanceInput{
+		Cluster:           &agent.Cluster,
+		ContainerInstance: &agent.ContainerInstanceArn,
+		Force:             aws.Bool(true),
+	})
+	require.NoError(agent.t, err)
+
+	// wait for container instance to reach INACTIVE
+	err = agent.WaitContainerInstanceStatus("INACTIVE")
+	require.NoError(agent.t, err)
 }

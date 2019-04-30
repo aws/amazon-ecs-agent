@@ -51,9 +51,10 @@ import (
 )
 
 const (
-	arnResourceSections  = 2
-	arnResourceDelimiter = "/"
-	bytePerMegabyte      = 1024 * 1024
+	arnResourceSections                 = 2
+	arnResourceDelimiter                = "/"
+	bytePerMegabyte                     = 1024 * 1024
+	waitContainerInstanceStatusDuration = time.Minute
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -885,4 +886,61 @@ func GetTaskID(taskARN string) (string, error) {
 	}
 
 	return resourceSplit[1], nil
+}
+
+// WaitContainerInstanceStatus waits for a container instance to reach certain status by polling its status
+func (agent *TestAgent) WaitContainerInstanceStatus(desiredStatus string) error {
+	timer := time.NewTimer(waitContainerInstanceStatusDuration)
+	errChan := make(chan error, 1)
+	containerInstanceStatus := ""
+
+	cancelled := false
+	go func() {
+		for !cancelled {
+			status, err := agent.getContainerInstanceStatus()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			containerInstanceStatus = status
+
+			if status == desiredStatus {
+				break
+			}
+			if desiredStatus == "ACTIVE" {
+				if status == "REGISTRATION_FAILED" || status == "INACTIVE" {
+					errChan <- errors.Errorf("container instance ends at status %s; will never reach ACTIVE", status)
+					return
+				}
+			}
+			time.Sleep(5 * time.Second)
+		}
+		errChan <- nil
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-timer.C:
+		cancelled = true
+		return errors.Errorf("timed out waiting for container instance '%s' to reach 'ACTIVE', status is '%s'",
+			agent.ContainerInstanceArn, containerInstanceStatus)
+	}
+}
+
+func (agent *TestAgent) getContainerInstanceStatus() (string, error) {
+	res, err := ECS.DescribeContainerInstances(&ecs.DescribeContainerInstancesInput{
+		Cluster:            aws.String(agent.Cluster),
+		ContainerInstances: aws.StringSlice([]string{agent.ContainerInstanceArn}),
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(res.Failures) != 0 {
+		return "", errors.Errorf("unable to describe container instance %s: %v", agent.ContainerInstanceArn, res.Failures)
+	}
+
+	return aws.StringValue(res.ContainerInstances[0].Status), nil
 }
