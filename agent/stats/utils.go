@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 )
 
 // networkStatsErrorPattern defines the pattern that is used to evaluate
@@ -49,4 +50,23 @@ func isNetworkStatsError(err error) bool {
 	}
 
 	return matched
+}
+
+func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
+	if dockerStats.Networks == nil {
+		return nil
+	}
+	networkStats := &NetworkStats{}
+	for _, netStats := range dockerStats.Networks {
+		networkStats.rxBytes += netStats.RxBytes
+		networkStats.rxDropped += netStats.RxDropped
+		networkStats.rxErrors += netStats.RxErrors
+		networkStats.rxPackets += netStats.RxPackets
+
+		networkStats.txBytes += netStats.TxBytes
+		networkStats.txDropped += netStats.TxDropped
+		networkStats.txErrors += netStats.TxErrors
+		networkStats.txPackets += netStats.TxPackets
+	}
+	return networkStats
 }

@@ -36,7 +36,7 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
 }
 
-func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
+func TestDockerStatsToContainerStats(t *testing.T) {
 	// numCores is a global variable in package agent/stats
 	// which denotes the number of cpu cores
 	// TODO should we take this from the docker stats `online_cpus`?
@@ -49,17 +49,11 @@ func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
 	assert.NoError(t, err, "converting container stats failed")
 	require.NotNil(t, containerStats, "containerStats should not be nil")
 	assert.Equal(t, uint64(65714455379), containerStats.cpuUsage, "unexpected value for cpuUsage", containerStats.cpuUsage)
-}
-
-func TestDockerStatsToContainerStatsStorageBytes(t *testing.T) {
-	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
-	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
-	json.Unmarshal([]byte(jsonBytes), dockerStat)
-	containerStats, err := dockerStatsToContainerStats(dockerStat)
-	assert.NoError(t, err, "converting container stats failed")
-	require.NotNil(t, containerStats, "containerStats should not be nil")
-
+	// storage bytes check
 	assert.Equal(t, uint64(3), containerStats.storageReadBytes, "unexpected value for storageReadBytes", containerStats.storageReadBytes)
 	assert.Equal(t, uint64(15), containerStats.storageWriteBytes, "Unexpected value for storageWriteBytes", containerStats.storageWriteBytes)
+	// network stats check
+	netStats := containerStats.networkStats
+	assert.NotNil(t, netStats, "networkStats should not be nil")
+	validateNetworkMetrics(t, netStats)
 }

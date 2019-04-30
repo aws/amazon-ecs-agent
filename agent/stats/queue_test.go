@@ -20,6 +20,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -152,7 +154,17 @@ func createQueue(size int, predictableHighUtilization bool) *Queue {
 			memoryUsage:       memoryUtilizationInBytes[i],
 			storageReadBytes:  uintStats[i],
 			storageWriteBytes: uintStats[i],
-			timestamp:         time})
+			networkStats: &NetworkStats{
+				rxBytes:   uintStats[i],
+				rxDropped: 0,
+				rxErrors:  uintStats[i],
+				rxPackets: uintStats[i],
+				txBytes:   uintStats[i],
+				txDropped: uintStats[i],
+				txErrors:  0,
+				txPackets: uintStats[i],
+			},
+			timestamp: time})
 	}
 	return queue
 }
@@ -244,6 +256,10 @@ func TestQueueAddRemove(t *testing.T) {
 		t.Error("Sum value incorrectly set: ", *storageWriteStatsSet.Sum)
 	}
 
+	netStatsSet, err := queue.GetNetworkStatsSet()
+	assert.NoError(t, err, "error getting network stats set")
+	validateNetStatsSet(t, netStatsSet, queueLength)
+
 	rawUsageStats, err := queue.GetRawUsageStats(2 * queueLength)
 	if err != nil {
 		t.Error("Error getting raw usage stats: ", err)
@@ -268,6 +284,41 @@ func TestQueueAddRemove(t *testing.T) {
 		t.Error("Empty queue query did not throw an error")
 	}
 
+}
+
+func validateNetStatsSet(t *testing.T, netStats *ecstcs.NetworkStatsSet, queueLen int) {
+	// checking only the fields RxBytes, RxDropped, TxBytes, TxErrors since others are similar
+	assert.NotEqual(t, int64(math.MaxInt64), *netStats.RxBytes.Min, "incorrect rxbytes min")
+	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowMin, "incorrect rxbytes overlfowMin")
+	assert.NotEqual(t, int64(0), *netStats.RxBytes.Max, "incorrect rxbytes max")
+	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowMax, "incorrect rxbytes overlfowMax")
+	assert.Equal(t, int64(queueLen), *netStats.RxBytes.SampleCount, "incorrect rxbytes sampleCount")
+	assert.NotEqual(t, int64(0), *netStats.RxBytes.Sum, "incorrect rxbytes sum")
+	assert.Equal(t, int64(0), *netStats.RxBytes.OverflowSum, "incorrect rxbytes overlfowSum")
+
+	assert.Equal(t, int64(0), *netStats.RxDropped.Min, "incorrect RxDropped min")
+	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowMin, "incorrect RxDropped overlfowMin")
+	assert.Equal(t, int64(0), *netStats.RxDropped.Max, "incorrect RxDropped max")
+	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowMax, "incorrect RxDropped overlfowMax")
+	assert.Equal(t, int64(queueLen), *netStats.RxDropped.SampleCount, "incorrect RxDropped sampleCount")
+	assert.Equal(t, int64(0), *netStats.RxDropped.Sum, "incorrect RxDropped sum")
+	assert.Equal(t, int64(0), *netStats.RxDropped.OverflowSum, "incorrect RxDropped overlfowSum")
+
+	assert.NotEqual(t, int64(math.MaxInt64), *netStats.TxBytes.Min, "incorrect TxBytes min")
+	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowMin, "incorrect TxBytes overlfowMin")
+	assert.NotEqual(t, int64(0), *netStats.TxBytes.Max, "incorrect TxBytes max")
+	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowMax, "incorrect TxBytes overlfowMax")
+	assert.Equal(t, int64(queueLen), *netStats.TxBytes.SampleCount, "incorrect TxBytes sampleCount")
+	assert.NotEqual(t, int64(0), *netStats.TxBytes.Sum, "incorrect TxBytes sum")
+	assert.Equal(t, int64(0), *netStats.TxBytes.OverflowSum, "incorrect TxBytes overlfowSum")
+
+	assert.Equal(t, int64(0), *netStats.TxErrors.Min, "incorrect TxErrors min")
+	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowMin, "incorrect TxErrors overlfowMin")
+	assert.Equal(t, int64(0), *netStats.TxErrors.Max, "incorrect TxErrors max")
+	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowMax, "incorrect TxErrors overlfowMax")
+	assert.Equal(t, int64(queueLen), *netStats.TxErrors.SampleCount, "incorrect TxErrors sampleCount")
+	assert.Equal(t, int64(0), *netStats.TxErrors.Sum, "incorrect TxErrors sum")
+	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowSum, "incorrect TxErrors overlfowSum")
 }
 
 func TestQueueUintStats(t *testing.T) {

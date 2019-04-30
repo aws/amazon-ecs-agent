@@ -1,0 +1,20 @@
+{
+    "networks": {
+        "eth0": {
+            "rx_bytes": 796,
+            "rx_packets": 10,
+            "rx_dropped": 0,
+            "tx_bytes": 8192,
+            "tx_packets": 112,
+            "tx_dropped": 5
+        },
+        "eth1": {
+            "rx_bytes": 300,
+            "rx_packets": 4,
+            "rx_dropped": 1,
+            "tx_bytes": 800,
+            "tx_packets": 11,
+            "tx_dropped": 5
+        }
+    }
+}

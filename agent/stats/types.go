@@ -28,16 +28,30 @@ type ContainerStats struct {
 	memoryUsage       uint64
 	storageReadBytes  uint64
 	storageWriteBytes uint64
+	networkStats      *NetworkStats
 	timestamp         time.Time
+}
+
+// NetworkStats contains the network stats information for a container
+type NetworkStats struct {
+	rxBytes   uint64
+	rxDropped uint64
+	rxErrors  uint64
+	rxPackets uint64
+	txBytes   uint64
+	txDropped uint64
+	txErrors  uint64
+	txPackets uint64
 }
 
 // UsageStats abstracts the format in which the queue stores data.
 type UsageStats struct {
-	CPUUsagePerc      float32   `json:"cpuUsagePerc"`
-	MemoryUsageInMegs uint32    `json:"memoryUsageInMegs"`
-	StorageReadBytes  uint64    `json:"storageReadBytes"`
-	StorageWriteBytes uint64    `json:"storageWriteBytes"`
-	Timestamp         time.Time `json:"timestamp"`
+	CPUUsagePerc      float32       `json:"cpuUsagePerc"`
+	MemoryUsageInMegs uint32        `json:"memoryUsageInMegs"`
+	StorageReadBytes  uint64        `json:"storageReadBytes"`
+	StorageWriteBytes uint64        `json:"storageWriteBytes"`
+	NetworkStats      *NetworkStats `json:"networkStats"`
+	Timestamp         time.Time     `json:"timestamp"`
 	cpuUsage          uint64
 }
 
