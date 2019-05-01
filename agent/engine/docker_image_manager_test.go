@@ -27,7 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -984,12 +984,14 @@ func TestNonECSImageAndContainersCleanupRemoveImage(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	imageManager := &dockerImageManager{
-		client:                    client,
-		state:                     dockerstate.NewTaskEngineState(),
-		minimumAgeBeforeDeletion:  config.DefaultImageDeletionAge,
-		numImagesToDelete:         config.DefaultNumImagesToDeletePerCycle,
-		imageCleanupTimeInterval:  config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled: true,
+		client:                             client,
+		state:                              dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:           config.DefaultImageDeletionAge,
+		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
+		numNonECSContainersToDelete:        10,
+		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
+		deleteNonECSImagesEnabled:          true,
+		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetSaver(statemanager.NewNoopStateManager())
 
@@ -1002,35 +1004,262 @@ func TestNonECSImageAndContainersCleanupRemoveImage(t *testing.T) {
 			ID: "1",
 			State: &types.ContainerState{
 				Status:     "exited",
-				FinishedAt: time.Now().AddDate(0, -2, 0).String(),
+				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
 			},
 		},
 	}
 
+	inspectImageResponse := &types.ImageInspect{
+		Size: 4096,
+	}
+
 	listImagesResponse := dockerapi.ListImagesResponse{
 		ImageIDs: []string{"sha256:qwerty1"},
+		RepoTags: []string{"tester"},
 	}
 
 	client.EXPECT().ListContainers(gomock.Any(), gomock.Any(), dockerclient.ListImagesTimeout).Return(listContainersResponse).AnyTimes()
 	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), dockerclient.InspectContainerTimeout).Return(inspectContainerResponse, nil).AnyTimes()
-	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), dockerclient.RemoveContainerTimeout).Return(nil).AnyTimes()
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), dockerclient.RemoveContainerTimeout).Return(nil).Times(1)
 	client.EXPECT().ListImages(gomock.Any(), dockerclient.ListImagesTimeout).Return(listImagesResponse).AnyTimes()
-	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.ImageIDs[0], dockerclient.RemoveImageTimeout).Return(nil).AnyTimes()
+	client.EXPECT().InspectImage(listImagesResponse.RepoTags[0]).Return(inspectImageResponse, nil).Times(1)
+	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.RepoTags[0], dockerclient.RemoveImageTimeout).Return(nil).Times(1)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
 	imageManager.removeUnusedImages(ctx)
 
-	if len(listContainersResponse.DockerIDs) != 1 {
-		t.Error("Error removing containers ids")
+	assert.Len(t, listContainersResponse.DockerIDs, 1, "error removing container IDs")
+	assert.Len(t, inspectContainerResponse.ID, 1, "error inspecting containers ids")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state after the image is removed")
+}
+
+// Dead images should be cleaned up.
+func TestNonECSImageAndContainers_RemoveDeadContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{
+		client:                             client,
+		state:                              dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:           config.DefaultImageDeletionAge,
+		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
+		numNonECSContainersToDelete:        10,
+		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
+		deleteNonECSImagesEnabled:          true,
+		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
-	if len(inspectContainerResponse.ID) != 1 {
-		t.Error("Error inspecting containers ids")
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	listContainersResponse := dockerapi.ListContainersResponse{
+		DockerIDs: []string{"1"},
 	}
-	if len(imageManager.imageStates) != 0 {
-		t.Error("Error removing image state after the image is removed")
+
+	inspectContainerResponse := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1",
+			State: &types.ContainerState{
+				Status:     "dead",
+				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
+			},
+		},
 	}
+
+	inspectImageResponse := &types.ImageInspect{
+		Size: 4096,
+	}
+
+	listImagesResponse := dockerapi.ListImagesResponse{
+		ImageIDs: []string{"sha256:qwerty1"},
+		RepoTags: []string{"tester"},
+	}
+
+	client.EXPECT().ListContainers(gomock.Any(), gomock.Any(), dockerclient.ListImagesTimeout).Return(listContainersResponse).AnyTimes()
+	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), dockerclient.InspectContainerTimeout).Return(inspectContainerResponse, nil).AnyTimes()
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), dockerclient.RemoveContainerTimeout).Return(nil).Times(1)
+	client.EXPECT().ListImages(gomock.Any(), dockerclient.ListImagesTimeout).Return(listImagesResponse).AnyTimes()
+	client.EXPECT().InspectImage(listImagesResponse.RepoTags[0]).Return(inspectImageResponse, nil).Times(1)
+	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.RepoTags[0], dockerclient.RemoveImageTimeout).Return(nil).Times(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	imageManager.removeUnusedImages(ctx)
+
+	assert.Len(t, listContainersResponse.DockerIDs, 1, "error removing container IDs")
+	assert.Len(t, inspectContainerResponse.ID, 1, "error inspecting containers ids")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state after the image is removed")
+}
+
+// Old 'Created' Images should be cleaned up
+func TestNonECSImageAndContainersCleanup_RemoveOldCreatedContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{
+		client:                             client,
+		state:                              dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:           config.DefaultImageDeletionAge,
+		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
+		numNonECSContainersToDelete:        10,
+		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
+		deleteNonECSImagesEnabled:          true,
+		nonECSContainerCleanupWaitDuration: time.Hour * 3,
+	}
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	listContainersResponse := dockerapi.ListContainersResponse{
+		DockerIDs: []string{"1"},
+	}
+
+	inspectContainerResponse := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1",
+			State: &types.ContainerState{
+				Status:     "created",
+				FinishedAt: time.Now().AddDate(0, -2, 0).Format(time.RFC3339Nano),
+			},
+		},
+	}
+
+	inspectImageResponse := &types.ImageInspect{
+		Size: 4096,
+	}
+
+	listImagesResponse := dockerapi.ListImagesResponse{
+		ImageIDs: []string{"sha256:qwerty1"},
+		RepoTags: []string{"tester"},
+	}
+
+	client.EXPECT().ListContainers(gomock.Any(), gomock.Any(), dockerclient.ListImagesTimeout).Return(listContainersResponse).AnyTimes()
+	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), dockerclient.InspectContainerTimeout).Return(inspectContainerResponse, nil).AnyTimes()
+	client.EXPECT().RemoveContainer(gomock.Any(), "1", gomock.Any()).Return(nil).Times(1)
+	client.EXPECT().ListImages(gomock.Any(), dockerclient.ListImagesTimeout).Return(listImagesResponse).AnyTimes()
+	client.EXPECT().InspectImage(listImagesResponse.RepoTags[0]).Return(inspectImageResponse, nil).Times(1)
+	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.RepoTags[0], dockerclient.RemoveImageTimeout).Return(nil).Times(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	imageManager.removeUnusedImages(ctx)
+
+	assert.Len(t, listContainersResponse.DockerIDs, 1, "error removing container IDs")
+	assert.Len(t, inspectContainerResponse.ID, 1, "error inspecting containers ids")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state after the image is removed")
+}
+
+func TestNonECSImageAndContainersCleanup_DontRemoveContainerWithInvalidFinishedTime(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{
+		client:                             client,
+		state:                              dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:           config.DefaultImageDeletionAge,
+		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
+		numNonECSContainersToDelete:        10,
+		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
+		deleteNonECSImagesEnabled:          true,
+		nonECSContainerCleanupWaitDuration: time.Hour * 3,
+	}
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	listContainersResponse := dockerapi.ListContainersResponse{
+		DockerIDs: []string{"1"},
+	}
+
+	inspectContainerResponse := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1",
+			State: &types.ContainerState{
+				Status:     "created",
+				FinishedAt: "Hello! I am an invalid timestamp!!",
+			},
+		},
+	}
+
+	inspectImageResponse := &types.ImageInspect{
+		Size: 4096,
+	}
+
+	listImagesResponse := dockerapi.ListImagesResponse{
+		ImageIDs: []string{"sha256:qwerty1"},
+		RepoTags: []string{"tester"},
+	}
+
+	client.EXPECT().ListContainers(gomock.Any(), gomock.Any(), dockerclient.ListImagesTimeout).Return(listContainersResponse).AnyTimes()
+	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), dockerclient.InspectContainerTimeout).Return(inspectContainerResponse, nil).AnyTimes()
+	client.EXPECT().RemoveContainer(gomock.Any(), "1", gomock.Any()).Return(nil).Times(0)
+	client.EXPECT().ListImages(gomock.Any(), dockerclient.ListImagesTimeout).Return(listImagesResponse).AnyTimes()
+	client.EXPECT().InspectImage(listImagesResponse.RepoTags[0]).Return(inspectImageResponse, nil).Times(1)
+	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.RepoTags[0], dockerclient.RemoveImageTimeout).Return(nil).Times(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	imageManager.removeUnusedImages(ctx)
+
+	assert.Len(t, listContainersResponse.DockerIDs, 1, "error removing container IDs")
+	assert.Len(t, inspectContainerResponse.ID, 1, "error inspecting containers ids")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state after the image is removed")
+}
+
+// New 'Created' Images should NOT be cleaned up.
+func TestNonECSImageAndContainersCleanup_DoNotRemoveNewlyCreatedContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{
+		client:                             client,
+		state:                              dockerstate.NewTaskEngineState(),
+		minimumAgeBeforeDeletion:           config.DefaultImageDeletionAge,
+		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
+		numNonECSContainersToDelete:        10,
+		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
+		deleteNonECSImagesEnabled:          true,
+		nonECSContainerCleanupWaitDuration: time.Hour * 3,
+	}
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+
+	listContainersResponse := dockerapi.ListContainersResponse{
+		DockerIDs: []string{"1"},
+	}
+
+	inspectContainerResponse := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: "1",
+			State: &types.ContainerState{
+				Status:     "created",
+				FinishedAt: time.Now().Format(time.RFC3339Nano),
+			},
+		},
+	}
+
+	inspectImageResponse := &types.ImageInspect{
+		Size: 4096,
+	}
+
+	listImagesResponse := dockerapi.ListImagesResponse{
+		ImageIDs: []string{"sha256:qwerty1"},
+		RepoTags: []string{"tester"},
+	}
+
+	client.EXPECT().ListContainers(gomock.Any(), gomock.Any(), dockerclient.ListImagesTimeout).Return(listContainersResponse).AnyTimes()
+	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), dockerclient.InspectContainerTimeout).Return(inspectContainerResponse, nil).AnyTimes()
+	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), dockerclient.RemoveContainerTimeout).Return(nil).Times(0)
+	client.EXPECT().ListImages(gomock.Any(), dockerclient.ListImagesTimeout).Return(listImagesResponse).AnyTimes()
+	client.EXPECT().InspectImage(listImagesResponse.RepoTags[0]).Return(inspectImageResponse, nil).Times(1)
+	client.EXPECT().RemoveImage(gomock.Any(), listImagesResponse.RepoTags[0], dockerclient.RemoveImageTimeout).Return(nil).Times(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	imageManager.removeUnusedImages(ctx)
+
+	assert.Len(t, listContainersResponse.DockerIDs, 1, "error removing container IDs")
+	assert.Len(t, inspectContainerResponse.ID, 1, "error inspecting containers ids")
+	assert.Len(t, imageManager.imageStates, 0, "Error removing image state after the image is removed")
 }
 
 func TestDeleteImage(t *testing.T) {

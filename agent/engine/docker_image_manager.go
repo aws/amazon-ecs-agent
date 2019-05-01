@@ -312,6 +312,7 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 
 	var numECSImagesDeleted int
 	imageManager.imageStatesConsideredForDeletion = imageManager.imagesConsiderForDeletion(imageManager.getAllImageStates())
+
 	for i := 0; i < imageManager.numImagesToDelete; i++ {
 		err := imageManager.removeLeastRecentlyUsedImage(ctx)
 		numECSImagesDeleted = i
@@ -342,9 +343,17 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 			continue
 		}
 
-		finishedTime, _ := time.Parse(time.Now().String(), response.State.FinishedAt)
+		seelog.Debugf("Inspecting Non-ECS Container ID [%s] for removal, Finished [%s] Status [%s]", id, response.State.FinishedAt, response.State.Status)
+		finishedTime, err := time.Parse(time.RFC3339Nano, response.State.FinishedAt)
+		if err != nil {
+			seelog.Errorf("Error parsing time string for container. id: %s, time: %s err: %s", id, response.State.FinishedAt, err)
+			continue
+		}
 
-		if response.State.Status == "exited" && time.Now().Sub(finishedTime) > imageManager.nonECSContainerCleanupWaitDuration {
+		if (response.State.Status == "exited" ||
+			response.State.Status == "dead" ||
+			response.State.Status == "created") &&
+			time.Now().Sub(finishedTime) > imageManager.nonECSContainerCleanupWaitDuration {
 			nonECSContainerRemoveAvailableIDs = append(nonECSContainerRemoveAvailableIDs, id)
 		}
 	}
@@ -353,13 +362,13 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 		if numNonECSContainerDeleted == imageManager.numNonECSContainersToDelete {
 			break
 		}
-		seelog.Infof("Removing non-ECS container id: %s", id)
+		seelog.Debugf("Removing non-ECS Container ID %s", id)
 		err := imageManager.client.RemoveContainer(ctx, id, dockerclient.RemoveContainerTimeout)
 		if err == nil {
-			seelog.Infof("Image removed: %s", id)
+			seelog.Infof("Removed Container ID: %s", id)
 			numNonECSContainerDeleted++
 		} else {
-			seelog.Errorf("Error removing Image %s - %v", id, err)
+			seelog.Errorf("Error Removing Container ID %s - %s", id, err)
 			continue
 		}
 	}
