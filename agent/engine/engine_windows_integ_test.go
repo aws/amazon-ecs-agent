@@ -46,7 +46,7 @@ const (
 	dockerEndpoint              = "npipe:////./pipe/docker_engine"
 	testVolumeImage             = "amazon/amazon-ecs-volumes-test:make"
 	testRegistryImage           = "amazon/amazon-ecs-netkitten:make"
-	testHelloworldImage         = "cggruszka/microsoft-windows-helloworld:latest"
+	testBaseImage               = "amazon-ecs-ftest-windows-base:make"
 	dockerVolumeDirectoryFormat = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
 )
 
@@ -58,7 +58,7 @@ func isDockerRunning() bool { return true }
 func createTestContainer() *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "windows",
-		Image:               "amazon-ecs-ftest-windows-base:make",
+		Image:               testBaseImage,
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 512,
@@ -102,7 +102,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
-	testTask.Containers[0].Image = "microsoft/nanoserver"
+	testTask.Containers[0].Image = testBaseImage
 	testTask.Containers[0].Name = "test-health-check"
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"powershell", "-command", "Start-Sleep -s 300"}
@@ -203,10 +203,11 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(t, testHelloworldImage)
+	baseImg := os.Getenv("BASE_IMAGE_NAME")
+	removeImage(t, baseImg)
 
 	testTask := createTestTask("testStartUnpulled")
-	testTask.Containers[0].Image = testHelloworldImage
+	testTask.Containers[0].Image = baseImg
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -228,14 +229,14 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
-	imageDigest := "cggruszka/microsoft-windows-helloworld@sha256:89282ba3e122e461381eae854d142c6c4895fcc1087d4849dbe4786fb21018f8"
+	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(t, imageDigest)
+	removeImage(t, baseImgWithDigest)
 
 	testTask := createTestTask("testStartUnpulledDigest")
-	testTask.Containers[0].Image = imageDigest
+	testTask.Containers[0].Image = baseImgWithDigest
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
