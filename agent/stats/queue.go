@@ -128,14 +128,19 @@ func (queue *Queue) GetMemoryStatsSet() (*ecstcs.CWStatsSet, error) {
 	return queue.getCWStatsSet(getMemoryUsagePerc)
 }
 
-// GetStorageReadStatsSet gets the stats set for aggregate storage read
-func (queue *Queue) GetStorageReadStatsSet() (*ecstcs.ULongStatsSet, error) {
-	return queue.getULongStatsSet(getStorageReadBytes)
-}
-
-// GetStorageWriteStatsSet gets the stats set for aggregate storage written
-func (queue *Queue) GetStorageWriteStatsSet() (*ecstcs.ULongStatsSet, error) {
-	return queue.getULongStatsSet(getStorageWriteBytes)
+// GetStorageStatsSet gets the stats set for aggregate storage
+func (queue *Queue) GetStorageStatsSet() (*ecstcs.StorageStatsSet, error) {
+	storageStatsSet := &ecstcs.StorageStatsSet{}
+	var err error
+	storageStatsSet.ReadSizeBytes, err = queue.getULongStatsSet(getStorageReadBytes)
+	if err != nil {
+		seelog.Warnf("Error getting storage read size bytes: %v", err)
+	}
+	storageStatsSet.WriteSizeBytes, err = queue.getULongStatsSet(getStorageWriteBytes)
+	if err != nil {
+		seelog.Warnf("Error getting storage write size bytes: %v", err)
+	}
+	return storageStatsSet, err
 }
 
 // GetNetworkStatsSet gets the stats set for network metrics.

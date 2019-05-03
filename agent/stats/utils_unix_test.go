@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
+func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
 	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
 	dockerStat := &types.StatsJSON{}

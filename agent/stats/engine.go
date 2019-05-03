@@ -594,7 +594,6 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		// Get memory stats set
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
 			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)

@@ -219,11 +219,12 @@ func TestQueueAddRemove(t *testing.T) {
 		t.Error("Sum value incorrectly set: ", *memStatsSet.Sum)
 	}
 
-	storageReadStatsSet, err := queue.GetStorageReadStatsSet()
+	storageStatsSet, err := queue.GetStorageStatsSet()
 	if err != nil {
-		t.Error("Error getting storage read stats set:", err)
+		t.Error("Error getting storage stats set:", err)
 	}
 	// assuming min is initialized to math.MaxUint64 then truncated
+	storageReadStatsSet := storageStatsSet.ReadSizeBytes
 	if *storageReadStatsSet.Min == int64(math.MaxInt64) &&
 		*storageReadStatsSet.OverflowMin == int64(math.MaxInt64) {
 		t.Error("Min value incorrectly set: ", *storageReadStatsSet.Min)
@@ -238,10 +239,7 @@ func TestQueueAddRemove(t *testing.T) {
 		t.Error("Sum value incorrectly set: ", *storageReadStatsSet.Sum)
 	}
 
-	storageWriteStatsSet, err := queue.GetStorageWriteStatsSet()
-	if err != nil {
-		t.Error("Error getting storage read stats set:", err)
-	}
+	storageWriteStatsSet := storageStatsSet.WriteSizeBytes
 	if *storageWriteStatsSet.Min == int64(math.MaxInt64) {
 		t.Error("Min value incorrectly set: ", *storageWriteStatsSet.Min)
 	}
@@ -328,7 +326,8 @@ func TestQueueUintStats(t *testing.T) {
 		t.Errorf("Buffer size is incorrect. Expected: %d, Got: %d", queueLength, len(buf))
 	}
 
-	storageReadStatsSet, err := queue.GetStorageReadStatsSet()
+	storageStatsSet, err := queue.GetStorageStatsSet()
+	storageReadStatsSet := storageStatsSet.ReadSizeBytes
 
 	if err != nil {
 		t.Error("Error getting storage read stats set:", err)
