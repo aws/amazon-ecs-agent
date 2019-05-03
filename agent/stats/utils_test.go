@@ -84,12 +84,12 @@ func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 }
 
 func validateNetworkMetrics(t *testing.T, netStats *NetworkStats) {
-	assert.Equal(t, expectedRxBytes, netStats.rxBytes)
-	assert.Equal(t, expectedRxPackets, netStats.rxPackets)
-	assert.Equal(t, expectedRxDropped, netStats.rxDropped)
-	assert.Equal(t, expectedRxErrors, netStats.rxErrors)
-	assert.Equal(t, expectedTxBytes, netStats.txBytes)
-	assert.Equal(t, expectedTxPackets, netStats.txPackets)
-	assert.Equal(t, expectedTxDropped, netStats.txDropped)
-	assert.Equal(t, expectedTxErrors, netStats.txErrors)
+	assert.Equal(t, expectedRxBytes, netStats.RxBytes)
+	assert.Equal(t, expectedRxPackets, netStats.RxPackets)
+	assert.Equal(t, expectedRxDropped, netStats.RxDropped)
+	assert.Equal(t, expectedRxErrors, netStats.RxErrors)
+	assert.Equal(t, expectedTxBytes, netStats.TxBytes)
+	assert.Equal(t, expectedTxPackets, netStats.TxPackets)
+	assert.Equal(t, expectedTxDropped, netStats.TxDropped)
+	assert.Equal(t, expectedTxErrors, netStats.TxErrors)
 }

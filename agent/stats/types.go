@@ -34,14 +34,14 @@ type ContainerStats struct {
 
 // NetworkStats contains the network stats information for a container
 type NetworkStats struct {
-	rxBytes   uint64
-	rxDropped uint64
-	rxErrors  uint64
-	rxPackets uint64
-	txBytes   uint64
-	txDropped uint64
-	txErrors  uint64
-	txPackets uint64
+	RxBytes   uint64 `json:"rxBytes"`
+	RxDropped uint64 `json:"rxDropped"`
+	RxErrors  uint64 `json:"rxErrors"`
+	RxPackets uint64 `json:"rxPackets"`
+	TxBytes   uint64 `json:"txBytes"`
+	TxDropped uint64 `json:"txDropped"`
+	TxErrors  uint64 `json:"txErrors"`
+	TxPackets uint64 `json:"txPackets"`
 }
 
 // UsageStats abstracts the format in which the queue stores data.

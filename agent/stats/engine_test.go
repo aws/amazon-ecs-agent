@@ -190,20 +190,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
-	netStats := &NetworkStats{
-		rxBytes:   796,
-		rxDropped: 6,
-		rxErrors:  0,
-		rxPackets: 10,
-		txBytes:   8192,
-		txDropped: 5,
-		txErrors:  0,
-		txPackets: 60,
-	}
-	containerStats := []*ContainerStats{
-		{22400432, 1839104, uint64(0), uint64(0), netStats, ts1},
-		{116499979, 3649536, uint64(0), uint64(0), netStats, ts2},
-	}
+	containerStats := createFakeContainerStats()
 	dockerStats := []*types.StatsJSON{{}, {}}
 	dockerStats[0].Read = ts1
 	dockerStats[1].Read = ts2

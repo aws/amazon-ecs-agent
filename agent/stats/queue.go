@@ -179,56 +179,56 @@ func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 
 func getNetworkRxBytes(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.rxBytes
+		return s.NetworkStats.RxBytes
 	}
 	return uint64(0)
 }
 
 func getNetworkRxDropped(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.rxDropped
+		return s.NetworkStats.RxDropped
 	}
 	return uint64(0)
 }
 
 func getNetworkRxErrors(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.rxErrors
+		return s.NetworkStats.RxErrors
 	}
 	return uint64(0)
 }
 
 func getNetworkRxPackets(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.rxPackets
+		return s.NetworkStats.RxPackets
 	}
 	return uint64(0)
 }
 
 func getNetworkTxBytes(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.txBytes
+		return s.NetworkStats.TxBytes
 	}
 	return uint64(0)
 }
 
 func getNetworkTxDropped(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.txDropped
+		return s.NetworkStats.TxDropped
 	}
 	return uint64(0)
 }
 
 func getNetworkTxErrors(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.txErrors
+		return s.NetworkStats.TxErrors
 	}
 	return uint64(0)
 }
 
 func getNetworkTxPackets(s *UsageStats) uint64 {
 	if s.NetworkStats != nil {
-		return s.NetworkStats.txPackets
+		return s.NetworkStats.TxPackets
 	}
 	return uint64(0)
 }

@@ -54,19 +54,20 @@ func isNetworkStatsError(err error) bool {
 
 func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
 	if dockerStats.Networks == nil {
+		seelog.Debug("Network stats not reported for container")
 		return nil
 	}
 	networkStats := &NetworkStats{}
 	for _, netStats := range dockerStats.Networks {
-		networkStats.rxBytes += netStats.RxBytes
-		networkStats.rxDropped += netStats.RxDropped
-		networkStats.rxErrors += netStats.RxErrors
-		networkStats.rxPackets += netStats.RxPackets
+		networkStats.RxBytes += netStats.RxBytes
+		networkStats.RxDropped += netStats.RxDropped
+		networkStats.RxErrors += netStats.RxErrors
+		networkStats.RxPackets += netStats.RxPackets
 
-		networkStats.txBytes += netStats.TxBytes
-		networkStats.txDropped += netStats.TxDropped
-		networkStats.txErrors += netStats.TxErrors
-		networkStats.txPackets += netStats.TxPackets
+		networkStats.TxBytes += netStats.TxBytes
+		networkStats.TxDropped += netStats.TxDropped
+		networkStats.TxErrors += netStats.TxErrors
+		networkStats.TxPackets += netStats.TxPackets
 	}
 	return networkStats
 }
