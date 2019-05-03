@@ -799,8 +799,7 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 
 	defer agent.Cleanup()
 
-	// TODO: change back to 1.27.1 when merging the pr
-	agent.RequireVersion(">=1.26.0")
+	agent.RequireVersion(">=1.27.1")
 
 	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
 	if utils.ZeroOrNil(roleArn) {
@@ -1717,8 +1716,8 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 		err = WaitNetworkInterfaceCount(existingInterfaceCount, asyncWaitDuration)
 		assert.NoError(t, err)
 	}()
-	// TODO: when merging the changes, change to 1.27.1
-	agent.RequireVersion(">=1.26.0")
+
+	agent.RequireVersion(">=1.27.1")
 
 	// Expect one more interface to be attached (i.e. the Trunk)
 	macs, err := GetNetworkInterfaceMacs()
