@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 )
@@ -155,14 +154,14 @@ func createQueue(size int, predictableHighUtilization bool) *Queue {
 			storageReadBytes:  uintStats[i],
 			storageWriteBytes: uintStats[i],
 			networkStats: &NetworkStats{
-				rxBytes:   uintStats[i],
-				rxDropped: 0,
-				rxErrors:  uintStats[i],
-				rxPackets: uintStats[i],
-				txBytes:   uintStats[i],
-				txDropped: uintStats[i],
-				txErrors:  0,
-				txPackets: uintStats[i],
+				RxBytes:   uintStats[i],
+				RxDropped: 0,
+				RxErrors:  uintStats[i],
+				RxPackets: uintStats[i],
+				TxBytes:   uintStats[i],
+				TxDropped: uintStats[i],
+				TxErrors:  0,
+				TxPackets: uintStats[i],
 			},
 			timestamp: time})
 	}
