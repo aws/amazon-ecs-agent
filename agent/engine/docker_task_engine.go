@@ -127,6 +127,10 @@ type DockerTaskEngine struct {
 	taskSteadyStatePollInterval time.Duration
 
 	resourceFields *taskresource.ResourceFields
+
+	// handleDelay is a function used to delay cleanup. Implementation is
+	// swappable for testing
+	handleDelay func(duration time.Duration)
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -164,6 +168,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		metadataManager:             metadataManager,
 		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
 		resourceFields:              resourceFields,
+		handleDelay:                 time.Sleep,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -1024,8 +1029,13 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 
 // cleanupPauseContainerNetwork will clean up the network namespace of pause container
 func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task, container *apicontainer.Container) error {
-	seelog.Infof("Task engine [%s]: cleaning up the network namespace", task.Arn)
+	delay := time.Duration(engine.cfg.ENIPauseContainerCleanupDelaySeconds) * time.Second
+	if engine.handleDelay != nil && delay > 0 {
+		seelog.Infof("Task engine [%s]: waiting %s before cleaning up pause container.", task.Arn, delay)
+		engine.handleDelay(delay)
+	}
 
+	seelog.Infof("Task engine [%s]: cleaning up the network namespace", task.Arn)
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return errors.Wrapf(err,
