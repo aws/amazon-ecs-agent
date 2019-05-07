@@ -31,8 +31,7 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
 	networkStats := getNetworkStats(dockerStats)
-	storageReadBytes := dockerStats.StorageStats.ReadSizeBytes
-	storageWriteBytes := dockerStats.StorageStats.WriteSizeBytes
+	storageReadBytes, storageWriteBytes := getStorageStats(dockerStats)
 	return &ContainerStats{
 		cpuUsage:          cpuUsage,
 		memoryUsage:       memoryUsage,
@@ -41,4 +40,19 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 		storageWriteBytes: storageWriteBytes,
 		networkStats:      networkStats,
 	}, nil
+}
+
+// Safe return of storage stats based on Docker Stats (Windows)
+func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
+	if dockerStats == nil {
+		return uint64(0), uint64(0)
+	}
+	if dockerStats.StorageStats.ReadSizeBytes == 0 && dockerStats.StorageStats.WriteSizeBytes == 0 {
+		seelog.Debug("storage stats (Windows) not reported for container")
+	}
+	// windows StorageStats are zero-initialized if the stats struct is not
+	// null, so return is guaranteed to be a uint64
+	storageReadBytes := dockerStats.StorageStats.ReadSizeBytes
+	storageWriteBytes := dockerStats.StorageStats.WriteSizeBytes
+	return storageReadBytes, storageWriteBytes
 }
