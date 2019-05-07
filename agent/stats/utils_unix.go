@@ -45,6 +45,10 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 
 func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
 	// initialize block io and loop over stats to aggregate
+	if dockerStats.BlkioStats.IoServiceBytesRecursive == nil {
+		seelog.Debug("Storage stats not reported for container")
+		return uint64(0), uint64(0)
+	}
 	storageReadBytes := uint64(0)
 	storageWriteBytes := uint64(0)
 	for _, blockStat := range dockerStats.BlkioStats.IoServiceBytesRecursive {
