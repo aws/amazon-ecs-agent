@@ -57,6 +57,8 @@ const (
 	fluentdLogPath                  = "/tmp/ftslog"
 )
 
+var trunkingInstancePrefixes = []string{"c5.", "m5."}
+
 // TestRunManyTasks runs several tasks in short succession and expects them to
 // all run.
 func TestRunManyTasks(t *testing.T) {
@@ -776,7 +778,7 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	RequireDockerVersion(t, ">=17.06.0-ce")
 
-	RequireInstanceTypes(t, []string{"c5", "m5"})
+	RequireInstanceTypes(t, trunkingInstancePrefixes)
 
 	// Enable ENI Trunking account setting
 	putAccountSettingInput := ecsapi.PutAccountSettingInput{
@@ -1678,7 +1680,7 @@ func TestAppMeshCNIPlugin(t *testing.T) {
 func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 	asyncWaitDuration := 30 * time.Second
 
-	RequireInstanceTypes(t, []string{"c5", "m5"})
+	RequireInstanceTypes(t, trunkingInstancePrefixes)
 
 	// Enable ENI Trunking account setting
 	putAccountSettingInput := ecsapi.PutAccountSettingInput{
