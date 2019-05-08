@@ -50,6 +50,19 @@ func (m *MockEC2MetadataClient) EXPECT() *MockEC2MetadataClientMockRecorder {
 	return m.recorder
 }
 
+// AllENIMacs mocks base method
+func (m *MockEC2MetadataClient) AllENIMacs() (string, error) {
+	ret := m.ctrl.Call(m, "AllENIMacs")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllENIMacs indicates an expected call of AllENIMacs
+func (mr *MockEC2MetadataClientMockRecorder) AllENIMacs() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllENIMacs", reflect.TypeOf((*MockEC2MetadataClient)(nil).AllENIMacs))
+}
+
 // DefaultCredentials mocks base method
 func (m *MockEC2MetadataClient) DefaultCredentials() (*ec2.RoleCredentials, error) {
 	ret := m.ctrl.Call(m, "DefaultCredentials")

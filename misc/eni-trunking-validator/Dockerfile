@@ -10,16 +10,9 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM busybox:1.29.3
 
-FROM golang:1.10
 MAINTAINER Amazon Web Services, Inc.
+COPY eni-trunking-validator /
 
-ARG GOARCH
-
-ENV GOARCH ${GOARCH}
-
-RUN mkdir -p /go/src/github.com/aws/
-
-WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
-
-CMD ["make", "aws-appmesh", "vpc-branch-eni"]
+ENTRYPOINT ["/eni-trunking-validator"]

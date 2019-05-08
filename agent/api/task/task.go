@@ -234,7 +234,8 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		}
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 	}
-	// initialize resources map for task
+
+	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	return task, nil
 }
@@ -738,6 +739,13 @@ func convertENIToCNIConfig(eni *apieni.ENI, cfg *ecscni.Config) {
 	// If there is ipv6 assigned to eni then set it
 	if len(eni.IPV6Addresses) > 0 {
 		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
+	}
+
+	// Populate Trunk ENI fields
+	if eni.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
+		cfg.InterfaceAssociationProtocol = eni.InterfaceAssociationProtocol
+		cfg.TrunkMACAddress = eni.InterfaceVlanProperties.TrunkInterfaceMacAddress
+		cfg.BranchVlanID = eni.InterfaceVlanProperties.VlanID
 	}
 }
 

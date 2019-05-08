@@ -763,7 +763,7 @@ func TestExtraHosts(t *testing.T) {
 
 }
 
-// TestContainerOrderingGranularStopTimeout check that granular stop timeout works fine
+// TestContainerOrderingGranularStopTimeout Check that granular stop timeout works fine
 func TestContainerOrderingGranularStopTimeout(t *testing.T) {
 
 	// Parallel is opt in because resource constraints could cause test failures

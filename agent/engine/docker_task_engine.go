@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -491,12 +492,19 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	// Now remove ourselves from the global state and cleanup channels
 	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
-	eni := task.GetTaskENI()
-	if eni == nil {
+	eniTask := task.GetTaskENI()
+	if eniTask == nil {
 		seelog.Debugf("Task engine [%s]: no eni associated with task", task.Arn)
 	} else {
-		seelog.Infof("Task engine [%s]: removing the eni from agent state", task.Arn)
-		engine.state.RemoveENIAttachment(eni.MacAddress)
+		// A Trunk/Branch awsvpc task doesn't have an ENI attachment corresponds to the task's ENI,
+		// so such deletion should be skipped
+		if eniTask.InterfaceAssociationProtocol != eni.VLANInterfaceAssociationProtocol {
+			seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
+			engine.state.RemoveENIAttachment(eniTask.MacAddress)
+		} else {
+			seelog.Debugf("Task engine [%s]: Not removing the eni from agent state as it is a "+
+				"branch ENI", task.Arn)
+		}
 	}
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)

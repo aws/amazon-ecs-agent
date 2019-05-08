@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,15 +12,16 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.10
-MAINTAINER Amazon Web Services, Inc.
+CUR_DIR=$(pwd)
+AGENT_VENDOR_DIR=$(echo $(cd ${CUR_DIR}/../../agent/vendor;pwd))
 
-ARG GOARCH
-
-ENV GOARCH ${GOARCH}
-
-RUN mkdir -p /go/src/github.com/aws/
-
-WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
-
-CMD ["make", "aws-appmesh", "vpc-branch-eni"]
+docker run \
+	-v ${CUR_DIR}:/out \
+	-v ${CUR_DIR}/eni-trunking-validator.go:/in/eni-trunking-validator.go \
+	-v ${CUR_DIR}/go.mod:/in/go.mod\
+	-v ${CUR_DIR}/go.sum:/in/go.sum \
+	-v ${AGENT_VENDOR_DIR}:/gopath/src \
+	-e CGO_ENABLED=0 \
+	-e GO111MODULE=on \
+	-e GOPATH=/go:/gopath \
+	golang:1.12 go build -a -x -ldflags '-s' -o /out/eni-trunking-validator /in/eni-trunking-validator.go
