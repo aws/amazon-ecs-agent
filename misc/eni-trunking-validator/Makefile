@@ -10,16 +10,16 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+.PHONY: all clean eni-trunking-validator image
 
-FROM golang:1.10
-MAINTAINER Amazon Web Services, Inc.
+all: eni-trunking-validator image
 
-ARG GOARCH
+eni-trunking-validator: eni-trunking-validator.go
+	@./build-in-docker
 
-ENV GOARCH ${GOARCH}
+image: eni-trunking-validator
+	docker build -t amazon/amazon-ecs-eni-trunking-validator:make .
 
-RUN mkdir -p /go/src/github.com/aws/
-
-WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
-
-CMD ["make", "aws-appmesh", "vpc-branch-eni"]
+clean:
+	rm -f eni-trunking-validator
+	-docker rmi -f "amazon/amazon-ecs-eni-trunking-validator:make"

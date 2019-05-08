@@ -37,6 +37,10 @@ func (blackholeMetadataClient) PrimaryENIMAC() (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) AllENIMacs() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) VPCID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }

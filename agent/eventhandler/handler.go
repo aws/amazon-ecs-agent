@@ -14,12 +14,18 @@
 package eventhandler
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/cihub/seelog"
 )
 
-func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, eventhandler *TaskHandler) {
+// HandleEngineEvents handles state change events from the state change event channel by sending it to
+// responsible event handler
+func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, taskHandler *TaskHandler,
+	attachmentEventHandler *AttachmentEventHandler) {
 	for {
 		stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -31,11 +37,23 @@ func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, even
 					seelog.Error("Unable to handle state change event. The events channel is closed")
 					break
 				}
-				err := eventhandler.AddStateChangeEvent(event, client)
+				err := handleEngineEvent(event, client, taskHandler, attachmentEventHandler)
 				if err != nil {
 					seelog.Errorf("Handler unable to add state change event %v: %v", event, err)
 				}
 			}
 		}
+	}
+}
+
+func handleEngineEvent(event statechange.Event, client api.ECSClient, taskHandler *TaskHandler,
+	attachmentEventHandler *AttachmentEventHandler) error {
+	switch event.GetEventType() {
+	case statechange.TaskEvent, statechange.ContainerEvent:
+		return taskHandler.AddStateChangeEvent(event, client)
+	case statechange.AttachmentEvent:
+		return attachmentEventHandler.AddStateChangeEvent(event)
+	default:
+		return fmt.Errorf("unrecognized event type: %d", event.GetEventType())
 	}
 }

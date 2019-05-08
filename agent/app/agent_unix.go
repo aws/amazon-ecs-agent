@@ -49,6 +49,7 @@ var awsVPCCNIPlugins = []string{ecscni.ECSENIPluginName,
 	ecscni.ECSBridgePluginName,
 	ecscni.ECSIPAMPluginName,
 	ecscni.ECSAppMeshPluginName,
+	ecscni.ECSBranchENIPluginName,
 }
 
 // startWindowsService is not supported on Linux
@@ -65,7 +66,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 	// Check if the Agent process's pid  == 1, which means it's running without an init system
 	if agent.os.Getpid() == initPID {
 		// This is a terminal error. Bad things happen with invoking the
-		// the ENI plugin when there's no init process in the pid namesapce.
+		// the ENI plugin when there's no init process in the pid namespace.
 		// Specifically, the DHClient processes that are started as children
 		// of the Agent will not be reaped leading to the ENI device
 		// disappearing until the Agent is killed.
@@ -150,9 +151,15 @@ func isInstanceLaunchedInVPC(err error) bool {
 // b. ecs-bridge
 // c. ecs-ipam
 // d. aws-appmesh
+// e. vpc-branch-eni
 func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
+		// skip verifying branch cni plugin if eni trunking is not enabled
+		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled {
+			continue
+		}
+
 		capabilities, err := agent.cniClient.Capabilities(plugin)
 		if err != nil {
 			return err

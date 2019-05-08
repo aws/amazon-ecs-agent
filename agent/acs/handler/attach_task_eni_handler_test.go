@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2018-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -218,7 +218,7 @@ func TestENIAckSingleMessage(t *testing.T) {
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
@@ -272,7 +272,7 @@ func TestENIAckSingleMessageDuplicateENIAttachmentMessageStartsTimer(t *testing.
 
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, mockState, manager)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, mockState, manager)
 
 	// Set expiresAt to a value in the past
 	expiresAt := time.Unix(time.Now().Unix()-1, 0)
@@ -323,7 +323,7 @@ func TestENIAckHappyPath(t *testing.T) {
 	manager := mock_statemanager.NewMockStateManager(ctrl)
 
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
+	eniAttachHandler := newAttachTaskENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
 
 	var ackSent sync.WaitGroup
 	ackSent.Add(1)
@@ -357,79 +357,4 @@ func TestENIAckHappyPath(t *testing.T) {
 	select {
 	case <-eniAttachHandler.ctx.Done():
 	}
-}
-
-// TestENIAckTimeout tests the eni ackknowledge timeout before submit the state change
-func TestENIAckTimeout(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.TODO()
-	taskEngineState := dockerstate.NewTaskEngineState()
-	manager := mock_statemanager.NewMockStateManager(ctrl)
-
-	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
-	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
-		Ec2Id:         aws.String("1"),
-		MacAddress:    aws.String(randomMAC),
-		AttachmentArn: aws.String("attachmentarn"),
-	}
-	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
-		MessageId:            aws.String(eniMessageId),
-		ClusterArn:           aws.String(clusterName),
-		ContainerInstanceArn: aws.String(containerInstanceArn),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
-			&mockNetInterface1,
-		},
-		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
-	}
-
-	eniAttachHandler.addENIAttachmentToState(message, time.Now())
-	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
-	for {
-		time.Sleep(time.Millisecond * waitTimeoutMillis)
-		if len(taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments()) == 0 {
-			break
-		}
-	}
-}
-
-// TestENIAckWithinTimeout tests the eni state change was reported before the timeout
-func TestENIAckWithinTimeout(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.TODO()
-	taskEngineState := dockerstate.NewTaskEngineState()
-	manager := mock_statemanager.NewMockStateManager(ctrl)
-
-	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-	eniAttachHandler := newAttachENIHandler(ctx, clusterName, containerInstanceArn, mockWSClient, taskEngineState, manager)
-	mockNetInterface1 := ecsacs.ElasticNetworkInterface{
-		Ec2Id:         aws.String("1"),
-		MacAddress:    aws.String(randomMAC),
-		AttachmentArn: aws.String("attachmentarn"),
-	}
-	message := &ecsacs.AttachTaskNetworkInterfacesMessage{
-		MessageId:            aws.String(eniMessageId),
-		ClusterArn:           aws.String(clusterName),
-		ContainerInstanceArn: aws.String(containerInstanceArn),
-		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
-			&mockNetInterface1,
-		},
-		TaskArn:       aws.String(taskArn),
-		WaitTimeoutMs: aws.Int64(waitTimeoutMillis),
-	}
-
-	eniAttachHandler.addENIAttachmentToState(message, time.Now())
-	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
-	eniAttachment, ok := taskEngineState.(*dockerstate.DockerTaskEngineState).ENIByMac(randomMAC)
-	assert.True(t, ok)
-	eniAttachment.SetSentStatus()
-
-	time.Sleep(time.Millisecond * waitTimeoutMillis)
-
-	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
 }

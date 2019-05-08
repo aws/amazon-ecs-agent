@@ -107,3 +107,56 @@ func TestValidateENIFromACS(t *testing.T) {
 	err = ValidateTaskENI(acsenis)
 	assert.Error(t, err)
 }
+
+func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
+
+	acseni := []*ecsacs.ElasticNetworkInterface{
+		{
+			InterfaceAssociationProtocol: aws.String(VLANInterfaceAssociationProtocol),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+	}
+
+	err := ValidateTaskENI(acseni)
+	assert.Error(t, err)
+
+}
+
+func TestInvalidENIInvalidInterfaceAssociationProtocol(t *testing.T) {
+
+	acseni := []*ecsacs.ElasticNetworkInterface{
+		{
+			InterfaceAssociationProtocol: aws.String("no-eni"),
+			AttachmentArn: aws.String("arn"),
+			Ec2Id:         aws.String("ec2id"),
+			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+				{
+					Primary:        aws.Bool(true),
+					PrivateAddress: aws.String("ipv4"),
+				},
+			},
+			Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+				{
+					Address: aws.String("ipv6"),
+				},
+			},
+			MacAddress: aws.String("mac"),
+		},
+	}
+
+	err := ValidateTaskENI(acseni)
+	assert.Error(t, err)
+}

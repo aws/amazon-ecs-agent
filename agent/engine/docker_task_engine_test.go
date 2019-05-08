@@ -1246,6 +1246,50 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	}
 }
 
+func TestBuildTrunkCNIConfigFromTaskContainer(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			config := defaultConfig
+			config.AWSVPCBlockInstanceMetdata = blockIMDS
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+			defer ctrl.Finish()
+
+			testTask := testdata.LoadTask("sleep5")
+			testTask.SetTaskENI(&apieni.ENI{
+				ID:                           "TestBuildCNIConfigFromTaskContainer",
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
+					VlanID:                   "1234",
+					TrunkInterfaceMacAddress: "macTrunk",
+				},
+			})
+			container := &apicontainer.Container{
+				Name: "container",
+			}
+			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+				Container:  container,
+				DockerName: dockerContainerName,
+			}, testTask)
+
+			dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: containerPid},
+				},
+			}, nil)
+
+			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+			assert.NoError(t, err)
+			assert.Equal(t, "macTrunk", cniConfig.TrunkMACAddress)
+			assert.Equal(t, "1234", cniConfig.BranchVlanID)
+			assert.Equal(t, apieni.VLANInterfaceAssociationProtocol, cniConfig.InterfaceAssociationProtocol)
+		})
+	}
+}
+
 func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

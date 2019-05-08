@@ -159,6 +159,10 @@ type Config struct {
 	// defined EC2 networks
 	TaskENIEnabled bool
 
+	// ENITrunkingEnabled specifies if the Agent is enabled to launch awsvpc
+	// task with ENI Trunking
+	ENITrunkingEnabled bool
+
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
 	ImageCleanupDisabled bool

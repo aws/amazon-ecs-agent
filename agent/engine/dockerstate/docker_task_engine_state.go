@@ -222,7 +222,6 @@ func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
 	}
 	state.lock.Lock()
 	defer state.lock.Unlock()
-
 	if _, ok := state.eniAttachments[mac]; ok {
 		delete(state.eniAttachments, mac)
 	} else {

@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -479,6 +479,28 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 		seelog.Warnf("Could not submit container state change: [%s]: %v", change.String(), err)
 		return err
 	}
+	return nil
+}
+
+func (client *APIECSClient) SubmitAttachmentStateChange(change api.AttachmentStateChange) error {
+	attachmentStatus := change.Attachment.Status.String()
+
+	req := ecs.SubmitAttachmentStateChangesInput{
+		Cluster: &client.config.Cluster,
+		Attachments: []*ecs.AttachmentStateChange{
+			{
+				AttachmentArn: aws.String(change.Attachment.AttachmentARN),
+				Status:        aws.String(attachmentStatus),
+			},
+		},
+	}
+
+	_, err := client.submitStateChangeClient.SubmitAttachmentStateChanges(&req)
+	if err != nil {
+		seelog.Warnf("Could not submit attachment state change [%s]: %v", change.String(), err)
+		return err
+	}
+
 	return nil
 }
 
