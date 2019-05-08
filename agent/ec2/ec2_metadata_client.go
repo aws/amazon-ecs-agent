@@ -34,6 +34,7 @@ const (
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
 	InstanceIDResource                        = "instance-id"
+	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
 )
 
@@ -73,6 +74,7 @@ type EC2MetadataClient interface {
 	InstanceID() (string, error)
 	GetUserData() (string, error)
 	Region() (string, error)
+	PrivateIPv4Address() (string, error)
 	PublicIPv4Address() (string, error)
 }
 
@@ -172,6 +174,13 @@ func (c *ec2MetadataClientImpl) Region() (string, error) {
 	return c.client.Region()
 }
 
+// PublicIPv4Address returns the public IPv4 of this instance
+// if this instance has a public address
 func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
 	return c.client.GetMetadata(PublicIPv4Resource)
+}
+
+// PrivateIPv4Address returns the private IPv4 of this instance
+func (c *ec2MetadataClientImpl) PrivateIPv4Address() (string, error) {
+	return c.client.GetMetadata(PrivateIPv4Resource)
 }

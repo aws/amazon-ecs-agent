@@ -154,6 +154,19 @@ func (mr *MockEC2MetadataClientMockRecorder) PrimaryENIMAC() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrimaryENIMAC", reflect.TypeOf((*MockEC2MetadataClient)(nil).PrimaryENIMAC))
 }
 
+// PrivateIPv4Address mocks base method
+func (m *MockEC2MetadataClient) PrivateIPv4Address() (string, error) {
+	ret := m.ctrl.Call(m, "PrivateIPv4Address")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrivateIPv4Address indicates an expected call of PrivateIPv4Address
+func (mr *MockEC2MetadataClientMockRecorder) PrivateIPv4Address() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrivateIPv4Address", reflect.TypeOf((*MockEC2MetadataClient)(nil).PrivateIPv4Address))
+}
+
 // PublicIPv4Address mocks base method
 func (m *MockEC2MetadataClient) PublicIPv4Address() (string, error) {
 	ret := m.ctrl.Call(m, "PublicIPv4Address")

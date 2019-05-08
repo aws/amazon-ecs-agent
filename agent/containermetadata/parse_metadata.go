@@ -38,10 +38,11 @@ func (manager *metadataManager) parseMetadataAtContainerCreate(task *apitask.Tas
 			taskDefinitionFamily:   task.Family,
 			taskDefinitionRevision: task.Version,
 		},
-		containerInstanceARN:  manager.containerInstanceARN,
-		metadataStatus:        MetadataInitial,
-		availabilityZone:      manager.availabilityZone,
-		hostPublicIPv4Address: manager.hostPublicIPv4Address,
+		containerInstanceARN:   manager.containerInstanceARN,
+		metadataStatus:         MetadataInitial,
+		availabilityZone:       manager.availabilityZone,
+		hostPrivateIPv4Address: manager.hostPrivateIPv4Address,
+		hostPublicIPv4Address:  manager.hostPublicIPv4Address,
 	}
 }
 
@@ -63,6 +64,7 @@ func (manager *metadataManager) parseMetadata(dockerContainer *types.ContainerJS
 		containerInstanceARN:    manager.containerInstanceARN,
 		metadataStatus:          MetadataReady,
 		availabilityZone:        manager.availabilityZone,
+		hostPrivateIPv4Address:  manager.hostPrivateIPv4Address,
 		hostPublicIPv4Address:   manager.hostPublicIPv4Address,
 	}
 }
