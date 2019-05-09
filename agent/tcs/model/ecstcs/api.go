@@ -116,6 +116,8 @@ type ContainerMetric struct {
 
 	ContainerArn *string `locationName:"containerArn" type:"string"`
 
+	ContainerName *string `locationName:"containerName" type:"string"`
+
 	CpuStatsSet *CWStatsSet `locationName:"cpuStatsSet" type:"structure"`
 
 	MemoryStatsSet *CWStatsSet `locationName:"memoryStatsSet" type:"structure"`
