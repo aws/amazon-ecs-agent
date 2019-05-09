@@ -58,6 +58,7 @@ type UsageStats struct {
 // ContainerMetadata contains meta-data information for a container.
 type ContainerMetadata struct {
 	DockerID string `json:"-"`
+	Name     string `json:"-"`
 }
 
 // StatsContainer abstracts methods to gather and aggregate utilization data for a container.

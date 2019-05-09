@@ -246,8 +246,12 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
+	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
+	}
+
 	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
-	statsContainer := newStatsContainer(dockerID, engine.client, engine.resolver)
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
 	watchStatsContainer := false

@@ -43,6 +43,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
 	t2 := &apitask.Task{Arn: "t2", Family: "f2"}
 	t3 := &apitask.Task{Arn: "t3"}
+	name := "testContainer"
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
@@ -50,7 +51,9 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
-		Container: &apicontainer.Container{},
+		Container: &apicontainer.Container{
+			Name: name,
+		},
 	}, nil)
 	mockStatsChannel := make(chan *types.StatsJSON)
 	defer close(mockStatsChannel)
@@ -90,6 +93,7 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	for _, statsContainer := range containers {
+		assert.Equal(t, name, statsContainer.containerMetadata.Name)
 		for _, fakeContainerStats := range createFakeContainerStats() {
 			statsContainer.statsQueue.add(fakeContainerStats)
 		}
@@ -289,7 +293,7 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 				Since:  aws.Time(time.Now()),
 			},
 		},
-	}, nil).Times(2)
+	}, nil).Times(3)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -298,7 +302,9 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
-	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	var err error
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
+	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{
 		family:  "f1",
@@ -331,7 +337,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 				Since:  aws.Time(time.Now()),
 			},
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -340,7 +346,9 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
-	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	var err error
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
+	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{
 		family:  "f1",
@@ -348,7 +356,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	}
 
 	engine.resolver = resolver
-	_, _, err := engine.GetTaskHealthMetrics()
+	_, _, err = engine.GetTaskHealthMetrics()
 	assert.Error(t, err, "empty metrics should cause an error")
 }
 
@@ -372,7 +380,7 @@ func TestMetricsDisabled(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -418,7 +426,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil)
+	}, nil).Times(2)
 	err := engine.synchronizeState()
 	assert.NoError(t, err)
 
