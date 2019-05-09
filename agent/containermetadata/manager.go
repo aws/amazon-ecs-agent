@@ -40,6 +40,7 @@ const (
 type Manager interface {
 	SetContainerInstanceARN(string)
 	SetAvailabilityZone(string)
+	SetHostPrivateIPv4Address(string)
 	SetHostPublicIPv4Address(string)
 	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
 	Update(context.Context, string, *apitask.Task, string) error
@@ -67,7 +68,9 @@ type metadataManager struct {
 	ioutilWrap ioutilwrapper.IOUtil
 	// availabilityZone is the availabiltyZone where task is in
 	availabilityZone string
-	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance ID
+	// hostPrivateIPv4Address is the private IPv4 address associated with the EC2 instance
+	hostPrivateIPv4Address string
+	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance
 	hostPublicIPv4Address string
 }
 
@@ -93,6 +96,12 @@ func (manager *metadataManager) SetContainerInstanceARN(containerInstanceARN str
 // at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetAvailabilityZone(availabilityZone string) {
 	manager.availabilityZone = availabilityZone
+}
+
+// SetHostPrivateIPv4Address sets the metadataManager's hostPrivateIPv4Address which is not available
+// at its creation as this information is not present immediately at the agent's startup
+func (manager *metadataManager) SetHostPrivateIPv4Address(ipv4address string) {
+	manager.hostPrivateIPv4Address = ipv4address
 }
 
 // SetHostPublicIPv4Address sets the metadataManager's hostPublicIPv4Address which is not available

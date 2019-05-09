@@ -22,7 +22,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
 
@@ -74,4 +76,29 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.At
 		}
 	}
 	return capabilities
+}
+
+func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	if !agent.cfg.ENITrunkingEnabled {
+		return capabilities
+	}
+
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskENITrunkingAttributeSuffix)
+
+	return agent.appendBranchENIPluginVersionAttribute(capabilities)
+}
+
+func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	version, err := agent.cniClient.Version(ecscni.ECSBranchENIPluginName)
+	if err != nil {
+		seelog.Warnf(
+			"Unable to determine the version of the plugin '%s': %v",
+			ecscni.ECSBranchENIPluginName, err)
+		return capabilities
+	}
+
+	return append(capabilities, &ecs.Attribute{
+		Name:  aws.String(attributePrefix + branchCNIPluginVersionSuffix),
+		Value: aws.String(version),
+	})
 }

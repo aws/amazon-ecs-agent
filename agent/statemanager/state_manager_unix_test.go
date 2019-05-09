@@ -173,6 +173,6 @@ func TestLoadsDataForGPU(t *testing.T) {
 
 	container := task.Containers[0]
 	assert.Equal(t, "container_1", container.Name)
-	assert.Equal(t, []string{"0","1"}, container.GPUIDs)
+	assert.Equal(t, []string{"0", "1"}, container.GPUIDs)
 	assert.Equal(t, "0,1", container.Environment["NVIDIA_VISIBLE_DEVICES"])
 }

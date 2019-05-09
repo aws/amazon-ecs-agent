@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -126,6 +127,10 @@ type DockerTaskEngine struct {
 	taskSteadyStatePollInterval time.Duration
 
 	resourceFields *taskresource.ResourceFields
+
+	// handleDelay is a function used to delay cleanup. Implementation is
+	// swappable for testing
+	handleDelay func(duration time.Duration)
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -163,6 +168,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		metadataManager:             metadataManager,
 		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
 		resourceFields:              resourceFields,
+		handleDelay:                 time.Sleep,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -491,12 +497,19 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	// Now remove ourselves from the global state and cleanup channels
 	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
-	eni := task.GetTaskENI()
-	if eni == nil {
+	eniTask := task.GetTaskENI()
+	if eniTask == nil {
 		seelog.Debugf("Task engine [%s]: no eni associated with task", task.Arn)
 	} else {
-		seelog.Infof("Task engine [%s]: removing the eni from agent state", task.Arn)
-		engine.state.RemoveENIAttachment(eni.MacAddress)
+		// A Trunk/Branch awsvpc task doesn't have an ENI attachment corresponds to the task's ENI,
+		// so such deletion should be skipped
+		if eniTask.InterfaceAssociationProtocol != eni.VLANInterfaceAssociationProtocol {
+			seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
+			engine.state.RemoveENIAttachment(eniTask.MacAddress)
+		} else {
+			seelog.Debugf("Task engine [%s]: Not removing the eni from agent state as it is a "+
+				"branch ENI", task.Arn)
+		}
 	}
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
@@ -1016,8 +1029,13 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 
 // cleanupPauseContainerNetwork will clean up the network namespace of pause container
 func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task, container *apicontainer.Container) error {
-	seelog.Infof("Task engine [%s]: cleaning up the network namespace", task.Arn)
+	delay := time.Duration(engine.cfg.ENIPauseContainerCleanupDelaySeconds) * time.Second
+	if engine.handleDelay != nil && delay > 0 {
+		seelog.Infof("Task engine [%s]: waiting %s before cleaning up pause container.", task.Arn, delay)
+		engine.handleDelay(delay)
+	}
 
+	seelog.Infof("Task engine [%s]: cleaning up the network namespace", task.Arn)
 	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
 	if err != nil {
 		return errors.Wrapf(err,

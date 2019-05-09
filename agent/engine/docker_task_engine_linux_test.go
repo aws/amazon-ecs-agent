@@ -165,6 +165,40 @@ func TestDeleteTask(t *testing.T) {
 	taskEngine.deleteTask(task)
 }
 
+func TestDeleteTaskBranchENIEnabled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockControl := mock_control.NewMockControl(ctrl)
+	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
+	task := &apitask.Task{
+		ENI: &apieni.ENI{
+			MacAddress: mac,
+			InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+		},
+	}
+	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	task.AddResource("cgroup", cgroupResource)
+	cfg := defaultConfig
+	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+
+	taskEngine := &DockerTaskEngine{
+		state: mockState,
+		saver: mockSaver,
+		cfg:   &cfg,
+	}
+
+	gomock.InOrder(
+		mockControl.EXPECT().Remove("cgroupRoot").Return(nil),
+		mockState.EXPECT().RemoveTask(task),
+		mockSaver.EXPECT().Save(),
+	)
+
+	taskEngine.deleteTask(task)
+}
+
 // TestResourceContainerProgressionFailure ensures that task moves to STOPPED when
 // resource creation fails
 func TestResourceContainerProgressionFailure(t *testing.T) {

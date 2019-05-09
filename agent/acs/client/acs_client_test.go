@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -61,6 +61,27 @@ const (
     "messageId": "123",
     "clusterArn": "default",
     "taskArn": "task",
+    "elasticNetworkInterfaces":[{
+      "attachmentArn": "attach_arn",
+      "ec2Id": "eni_id",
+      "ipv4Addresses":[{
+        "primary": true,
+        "privateAddress": "ipv4"
+      }],
+      "ipv6Addresses":[{
+        "address": "ipv6"
+      }],
+      "macAddress": "mac"
+    }]
+  }
+}
+`
+	sampleAttachInstanceENIMessage = `
+{
+  "type": "AttachInstanceNetworkInterfacesMessage",
+  "message": {
+    "messageId": "123",
+    "clusterArn": "default",
     "elasticNetworkInterfaces":[{
       "attachmentArn": "attach_arn",
       "ec2Id": "eni_id",
@@ -389,6 +410,56 @@ func TestAttachENIHandlerCalled(t *testing.T) {
 		MessageId:  aws.String("123"),
 		ClusterArn: aws.String("default"),
 		TaskArn:    aws.String("task"),
+		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
+			{AttachmentArn: aws.String("attach_arn"),
+				Ec2Id: aws.String("eni_id"),
+				Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
+					{
+						Primary:        aws.Bool(true),
+						PrivateAddress: aws.String("ipv4"),
+					},
+				},
+				Ipv6Addresses: []*ecsacs.IPv6AddressAssignment{
+					{
+						Address: aws.String("ipv6"),
+					},
+				},
+				MacAddress: aws.String("mac"),
+			},
+		},
+	}
+
+	assert.Equal(t, <-messageChannel, expectedMessage)
+}
+
+func TestAttachInstanceENIHandlerCalled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+	defer cs.Close()
+
+	// Messages should be read from the connection at least once
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Return(websocket.TextMessage,
+		[]byte(sampleAttachInstanceENIMessage), nil).MinTimes(1)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	messageChannel := make(chan *ecsacs.AttachInstanceNetworkInterfacesMessage)
+	reqHandler := func(message *ecsacs.AttachInstanceNetworkInterfacesMessage) {
+		messageChannel <- message
+	}
+
+	cs.AddRequestHandler(reqHandler)
+
+	go cs.Serve()
+
+	expectedMessage := &ecsacs.AttachInstanceNetworkInterfacesMessage{
+		MessageId:  aws.String("123"),
+		ClusterArn: aws.String("default"),
 		ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 			{AttachmentArn: aws.String("attach_arn"),
 				Ec2Id: aws.String("eni_id"),

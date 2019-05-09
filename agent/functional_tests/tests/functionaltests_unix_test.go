@@ -57,6 +57,8 @@ const (
 	fluentdLogPath                  = "/tmp/ftslog"
 )
 
+var trunkingInstancePrefixes = []string{"c5.", "m5."}
+
 // TestRunManyTasks runs several tasks in short succession and expects them to
 // all run.
 func TestRunManyTasks(t *testing.T) {
@@ -771,6 +773,71 @@ func TestAgentIntrospectionValidator(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("agent-introspection-validator")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
+	RequireDockerVersion(t, ">=17.06.0-ce")
+
+	RequireInstanceTypes(t, trunkingInstancePrefixes)
+
+	// Enable ENI Trunking account setting
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("awsvpcTrunking"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	assert.NoError(t, err)
+
+
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agent := RunAgent(t, &AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+			"ECS_ENABLE_HIGH_DENSITY_ENI": "true",
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+		},
+	})
+
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.27.1")
+
+	roleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(roleArn) {
+		t.Logf("TASK_IAM_ROLE_ARN not set, will try to use the role attached to instance profile")
+		role, err := GetInstanceIAMRole()
+		require.NoError(t, err, "Error getting IAM Roles from instance profile")
+		roleArn = *role.Arn
+	}
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TASK_ROLE$$$"] = roleArn
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+
+
+	numToRun := 5
+	tasks := make([]*TestTask, numToRun)
+
+	for numRun := 0; numRun < numToRun; numRun++ {
+		task, err := agent.StartAWSVPCTask("test-eni-trunking", tdOverrides)
+		require.NoError(t, err, "Unable to start task with trunk ENI enabled in 'awsvpc' network mode")
+
+		if err != nil {
+			continue
+		}
+		tasks[numRun] = task
+	}
+
+	t.Logf("Ran %v containers;", numToRun)
+
+	for _, task := range tasks {
+		err := task.WaitStopped(waitTaskStateChangeDuration)
+		assert.NoError(t, err, "Error waiting for task to transition to STOPPED")
+		exitCode, ok := task.ContainerExitcode("eni-trunking-validator")
+		assert.True(t, ok, "Get exit code failed")
+		assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+	}
 }
 
 func TestTaskMetadataValidator(t *testing.T) {
@@ -1606,4 +1673,76 @@ func TestAppMeshCNIPlugin(t *testing.T) {
 	exitCode, _ := task.ContainerExitcode("app-mesh")
 
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
+}
+
+// TestTrunkENIAttachDetachWorkflow tests that when ENI trunking is enabled, the Trunk ENI is attached
+// when container instance reaches ACTIVE status, and it's detached when the container instance is deregistered
+func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
+	asyncWaitDuration := 30 * time.Second
+
+	RequireInstanceTypes(t, trunkingInstancePrefixes)
+
+	// Enable ENI Trunking account setting
+	putAccountSettingInput := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("awsvpcTrunking"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
+	require.NoError(t, err)
+
+	existingMacs, err := GetNetworkInterfaceMacs()
+	require.NoError(t, err)
+	existingInterfaceCount := len(existingMacs)
+
+	agentOptions := &AgentOptions{
+		EnableTaskENI: true,
+	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+
+	agent := RunAgent(t, agentOptions)
+	defer func() {
+		// Cleanup needs to happen regardless of what happened elsewhere
+		defer agent.TestCleanup()
+
+		err := agent.StopAgent()
+		require.NoError(t, err)
+
+		_, err = ECS.DeregisterContainerInstance(&ecsapi.DeregisterContainerInstanceInput{
+			Cluster:           &agent.Cluster,
+			ContainerInstance: &agent.ContainerInstanceArn,
+			Force:             aws.Bool(true),
+		})
+		require.NoError(t, err)
+
+		// Wait and verify that the Trunk ENI is detached after deregistration
+		err = WaitNetworkInterfaceCount(existingInterfaceCount, asyncWaitDuration)
+		assert.NoError(t, err)
+	}()
+
+	agent.RequireVersion(">=1.27.1")
+
+	// Expect one more interface to be attached (i.e. the Trunk)
+	macs, err := GetNetworkInterfaceMacs()
+	require.NoError(t, err)
+	assert.Equal(t, existingInterfaceCount + 1, len(macs))
+
+	// Check that there's one ENI attachment in DescribeContainerInstances response and it matches
+	// the one on the instance
+	resp, err := ECS.DescribeContainerInstances(&ecsapi.DescribeContainerInstancesInput{
+		Cluster: &agent.Cluster,
+		ContainerInstances: aws.StringSlice([]string{agent.ContainerInstanceArn}),
+	})
+	require.NoError(t, err)
+	describedContainerInstance := resp.ContainerInstances[0]
+	assert.Equal(t, "ACTIVE", aws.StringValue(describedContainerInstance.Status))
+	assert.Equal(t, 1, len(describedContainerInstance.Attachments))
+	checkMacSucceeds := false
+	for _, detail := range describedContainerInstance.Attachments[0].Details {
+		if aws.StringValue(detail.Name) == "macAddress" {
+			if strings.Contains(strings.Join(macs, "\n"), aws.StringValue(detail.Value)) {
+				checkMacSucceeds = true
+			}
+		}
+	}
+	assert.True(t, checkMacSucceeds)
 }

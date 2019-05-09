@@ -196,7 +196,11 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd \
+				agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator \
+				container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator \
+				eni-trunking-validator
 	@./scripts/setup-test-registry
 
 test-in-docker:
@@ -209,7 +213,8 @@ run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-t
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
+build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator \
+						testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
 
 ecr-execution-role-image-for-upload:
 	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
@@ -276,10 +281,10 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 
 ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && ECS_LOGLEVEL=debug go test -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 else
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	. ./scripts/shared_env && ECS_LOGLEVEL=debug go test -race -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 endif
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -343,6 +348,9 @@ taskmetadata-validator:
 
 v3-task-endpoint-validator:
 	$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS)
+
+eni-trunking-validator:
+	$(MAKE) -C misc/eni-trunking-validator $(MFLAGS)
 
 container-metadata-file-validator:
 	$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS)
@@ -431,6 +439,7 @@ clean:
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
 	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp

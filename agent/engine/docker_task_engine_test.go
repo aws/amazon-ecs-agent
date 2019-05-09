@@ -93,6 +93,8 @@ const (
 	proxyEgressPort             = "15001"
 	appPort                     = "9000"
 	egressIgnoredIP             = "169.254.169.254"
+	expectedDelaySeconds        = 10
+	expectedDelay               = expectedDelaySeconds * time.Second
 )
 
 var (
@@ -1246,6 +1248,50 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	}
 }
 
+func TestBuildTrunkCNIConfigFromTaskContainer(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			config := defaultConfig
+			config.AWSVPCBlockInstanceMetdata = blockIMDS
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+			defer ctrl.Finish()
+
+			testTask := testdata.LoadTask("sleep5")
+			testTask.SetTaskENI(&apieni.ENI{
+				ID:                           "TestBuildCNIConfigFromTaskContainer",
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
+					VlanID:                   "1234",
+					TrunkInterfaceMacAddress: "macTrunk",
+				},
+			})
+			container := &apicontainer.Container{
+				Name: "container",
+			}
+			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+				Container:  container,
+				DockerName: dockerContainerName,
+			}, testTask)
+
+			dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:    containerID,
+					State: &types.ContainerState{Pid: containerPid},
+				},
+			}, nil)
+
+			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+			assert.NoError(t, err)
+			assert.Equal(t, "macTrunk", cniConfig.TrunkMACAddress)
+			assert.Equal(t, "1234", cniConfig.BranchVlanID)
+			assert.Equal(t, apieni.VLANInterfaceAssociationProtocol, cniConfig.InterfaceAssociationProtocol)
+		})
+	}
+}
+
 func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1333,6 +1379,76 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	)
 
 	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
+}
+
+// TestStopPauseContainerCleanupCalled tests when stopping the pause container
+// its network namespace should be cleaned up first
+func TestStopPauseContainerCleanupDelay(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
+
+	delayedChan := make(chan time.Duration, 1)
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &cfg)
+	taskEngine.(*DockerTaskEngine).handleDelay = func(d time.Duration) {
+		delayedChan <- d
+	}
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5")
+	pauseContainer := &apicontainer.Container{
+		Name: "pausecontainer",
+		Type: apicontainer.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.SetTaskENI(&apieni.ENI{
+		ID: "TestStopPauseContainerCleanupCalled",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+	})
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
+	}, testTask)
+
+	gomock.InOrder(
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    containerID,
+				State: &types.ContainerState{Pid: containerPid},
+			},
+		}, nil),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		dockerClient.EXPECT().StopContainer(gomock.Any(),
+			containerID,
+			defaultConfig.DockerStopTimeout,
+		).Return(dockerapi.DockerContainerMetadata{}),
+	)
+
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
+
+	select {
+	case actualDelay := <-delayedChan:
+		assert.Equal(t, expectedDelay, actualDelay)
+	default:
+		assert.Fail(t, "engine.handleDelay wasn't called")
+	}
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the

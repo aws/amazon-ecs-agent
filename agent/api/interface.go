@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -34,6 +34,9 @@ type ECSClient interface {
 	// SubmitContainerStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitContainerStateChange(change ContainerStateChange) error
+	// SubmitAttachmentStateChange sends an attachment state change and returns an error
+	// indicating if it was submitted
+	SubmitAttachmentStateChange(change AttachmentStateChange) error
 	// DiscoverPollEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact ACS
 	DiscoverPollEndpoint(containerInstanceArn string) (string, error)
@@ -59,4 +62,5 @@ type ECSSDK interface {
 type ECSSubmitStateSDK interface {
 	SubmitContainerStateChange(*ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error)
 	SubmitTaskStateChange(*ecs.SubmitTaskStateChangeInput) (*ecs.SubmitTaskStateChangeOutput, error)
+	SubmitAttachmentStateChanges(*ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error)
 }
