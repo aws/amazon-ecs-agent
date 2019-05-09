@@ -33,17 +33,22 @@ const (
 	ContainerStatsBufferLength = 120
 )
 
-func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) *StatsContainer {
+func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) (*StatsContainer, error) {
+	dockerContainer, err := resolver.ResolveContainer(dockerID)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsContainer{
 		containerMetadata: &ContainerMetadata{
 			DockerID: dockerID,
+			Name:     dockerContainer.Container.Name,
 		},
 		ctx:      ctx,
 		cancel:   cancel,
 		client:   client,
 		resolver: resolver,
-	}
+	}, nil
 }
 
 func (container *StatsContainer) StartStatsCollection() {
