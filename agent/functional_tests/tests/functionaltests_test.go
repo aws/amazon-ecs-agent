@@ -768,7 +768,7 @@ func testContainerMetadataFile(t *testing.T, taskName, awslogsPrefix string) {
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.24.0")
+	agent.RequireVersion(">1.27.0")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
