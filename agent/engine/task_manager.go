@@ -572,7 +572,7 @@ func (mtask *managedTask) releaseIPInIPAM() {
 			mtask.Arn, err)
 		return
 	}
-	err = mtask.cniClient.ReleaseIPResource(cfg)
+	err = mtask.cniClient.ReleaseIPResource(mtask.ctx, cfg, ipamCleanupTmeout)
 	if err != nil {
 		seelog.Warnf("Managed task [%s]: failed to release ip; IPAM error: %v",
 			mtask.Arn, err)
