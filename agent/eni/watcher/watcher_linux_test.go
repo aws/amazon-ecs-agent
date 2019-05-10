@@ -1,6 +1,6 @@
 // +build linux,unit
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -562,4 +562,52 @@ func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
 	ctx := context.TODO()
 	assert.Error(t, watcher.sendENIStateChangeWithRetries(
 		ctx, randomMAC, sendENIStateChangeRetryTimeout))
+}
+
+// TestSendENIStateChangeWithAttachmentTypeInstanceENI tests that we send the attachment state change
+// of an instance level eni as an attachment state change
+func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
+
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
+		ExpiresAt:      time.Unix(time.Now().Unix()+10, 0),
+	}, true)
+
+	go watcher.sendENIStateChange(randomMAC)
+
+	eniChangeEvent := <-eventChannel
+	attachmentStateChange, ok := eniChangeEvent.(api.AttachmentStateChange)
+	require.True(t, ok)
+	assert.Equal(t, apieni.ENIAttached, attachmentStateChange.Attachment.Status)
+}
+
+// TestSendENIStateChangeWithAttachmentTypeTaskENI tests that we send the attachment state change
+// of a regular eni as a task state change
+func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
+
+	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
+
+	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
+		AttachmentType: apieni.ENIAttachmentTypeTaskENI,
+		ExpiresAt:      time.Unix(time.Now().Unix()+10, 0),
+	}, true)
+
+	go watcher.sendENIStateChange(randomMAC)
+
+	eniChangeEvent := <-eventChannel
+	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
+	require.True(t, ok)
+	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 }

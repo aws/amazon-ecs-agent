@@ -306,7 +306,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	// If a value has been set for taskCleanupWaitDuration and the value is less than the minimum allowed cleanup duration,
 	// print a warning and override it
 	if cfg.TaskCleanupWaitDuration < minimumTaskCleanupWaitDuration {
-		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
+		seelog.Warnf("Invalid value for ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultTaskCleanupWaitDuration.String(), cfg.TaskCleanupWaitDuration, minimumTaskCleanupWaitDuration)
 		cfg.TaskCleanupWaitDuration = DefaultTaskCleanupWaitDuration
 	}
 
@@ -316,7 +316,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 
 	if cfg.ImageCleanupInterval < minimumImageCleanupInterval {
-		seelog.Warnf("Invalid value for image cleanup duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
+		seelog.Warnf("Invalid value for ECS_IMAGE_CLEANUP_INTERVAL, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultImageCleanupTimeInterval.String(), cfg.ImageCleanupInterval, minimumImageCleanupInterval)
 		cfg.ImageCleanupInterval = DefaultImageCleanupTimeInterval
 	}
 

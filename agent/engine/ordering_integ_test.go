@@ -426,6 +426,7 @@ func TestShutdownOrder(t *testing.T) {
 		assert.Equal(t, expectedA.(api.ContainerStateChange).Status, status.ContainerStopped)
 		assert.Equal(t, expectedA.(api.ContainerStateChange).ContainerName, "C")
 
+		verifyTaskIsStopped(stateChangeEvents, testTask)
 		close(finished)
 	}()
 

@@ -123,6 +123,19 @@ func (m *MockECSSubmitStateSDK) EXPECT() *MockECSSubmitStateSDKMockRecorder {
 	return m.recorder
 }
 
+// SubmitAttachmentStateChanges mocks base method
+func (m *MockECSSubmitStateSDK) SubmitAttachmentStateChanges(arg0 *ecs.SubmitAttachmentStateChangesInput) (*ecs.SubmitAttachmentStateChangesOutput, error) {
+	ret := m.ctrl.Call(m, "SubmitAttachmentStateChanges", arg0)
+	ret0, _ := ret[0].(*ecs.SubmitAttachmentStateChangesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SubmitAttachmentStateChanges indicates an expected call of SubmitAttachmentStateChanges
+func (mr *MockECSSubmitStateSDKMockRecorder) SubmitAttachmentStateChanges(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitAttachmentStateChanges", reflect.TypeOf((*MockECSSubmitStateSDK)(nil).SubmitAttachmentStateChanges), arg0)
+}
+
 // SubmitContainerStateChange mocks base method
 func (m *MockECSSubmitStateSDK) SubmitContainerStateChange(arg0 *ecs.SubmitContainerStateChangeInput) (*ecs.SubmitContainerStateChangeOutput, error) {
 	ret := m.ctrl.Call(m, "SubmitContainerStateChange", arg0)
@@ -223,6 +236,18 @@ func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attri
 // RegisterContainerInstance indicates an expected call of RegisterContainerInstance
 func (mr *MockECSClientMockRecorder) RegisterContainerInstance(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSClient)(nil).RegisterContainerInstance), arg0, arg1, arg2, arg3, arg4)
+}
+
+// SubmitAttachmentStateChange mocks base method
+func (m *MockECSClient) SubmitAttachmentStateChange(arg0 api.AttachmentStateChange) error {
+	ret := m.ctrl.Call(m, "SubmitAttachmentStateChange", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SubmitAttachmentStateChange indicates an expected call of SubmitAttachmentStateChange
+func (mr *MockECSClientMockRecorder) SubmitAttachmentStateChange(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitAttachmentStateChange", reflect.TypeOf((*MockECSClient)(nil).SubmitAttachmentStateChange), arg0)
 }
 
 // SubmitContainerStateChange mocks base method

@@ -538,7 +538,6 @@
     "github.com/stretchr/testify/require",
     "github.com/stretchr/testify/suite",
     "github.com/vishvananda/netlink",
-    "golang.org/x/net/context",
     "golang.org/x/sys/windows",
     "golang.org/x/sys/windows/registry",
     "golang.org/x/sys/windows/svc",

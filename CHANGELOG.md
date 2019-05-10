@@ -1,4 +1,15 @@
 # Changelog
+## 1.28.0-dev
+* Feature - Introduce high density awsvpc tasks support
+* Enhancement - Introduce `ECS_CGROUP_CPU_PERIOD` to make cgroup cpu period configurable [@boynux](https://github.com/boynux) [#1941](https://github.com/aws/amazon-ecs-agent/pull/1941)
+* Enhancement - Add Private Host IPv4 address to container metadata [@bencord0](https://github.com/bencord0) [#2000](https://github.com/aws/amazon-ecs-agent/pull/2000)
+* Enhancement - Set terminal reason for volume task resource [#2004](https://github.com/aws/amazon-ecs-agent/pull/2004)
+* Bug - Fixed a bug where container health status is not updated when container status isn't changed [#1972](https://github.com/aws/amazon-ecs-agent/pull/1972)
+* Bug - Fixed a bug where containers in 'dead' or 'created' status are not cleaned up by the agent [#2015](https://github.com/aws/amazon-ecs-agent/pull/2015)
+
+## 1.27.0
+* Feature - Add secret support for log drivers
+
 ## 1.26.1
 * Enhancement - Set up pause container user the same as proxy container when App Mesh enabled and pause container not using default image
 * Bug - Fixed a bug where network stats are not presented in container stats [#1932](https://github.com/aws/amazon-ecs-agent/pull/1932)

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -51,9 +52,10 @@ import (
 )
 
 const (
-	arnResourceSections  = 2
-	arnResourceDelimiter = "/"
-	bytePerMegabyte      = 1024 * 1024
+	arnResourceSections                 = 2
+	arnResourceDelimiter                = "/"
+	bytePerMegabyte                     = 1024 * 1024
+	waitContainerInstanceStatusDuration = time.Minute
 )
 
 // GetTaskDefinition is a helper that provies the family:revision for the named
@@ -191,6 +193,16 @@ func (agent *TestAgent) platformIndependentCleanup() {
 		ContainerInstance: &agent.ContainerInstanceArn,
 		Force:             aws.Bool(true),
 	})
+}
+
+// Cleanup without stopping the Agent and deregistering.
+func (agent *TestAgent) TestCleanup() {
+	if agent.t.Failed() {
+		agent.t.Logf("Preserving test dir for failed test %s", agent.TestDir)
+	} else {
+		agent.t.Logf("Removing test dir for passed test %s", agent.TestDir)
+		os.RemoveAll(agent.TestDir)
+	}
 }
 
 func (agent *TestAgent) StartMultipleTasks(t *testing.T, taskDefinition string, num int) ([]*TestTask, error) {
@@ -719,6 +731,20 @@ func RequireRegions(t *testing.T, supportedRegions []string, region string) {
 	}
 }
 
+// RequireInstanceTypes skips the test if current instance type is not a supported instance type
+func RequireInstanceTypes(t *testing.T, supportedTypePrefixes []string) {
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+	instanceType := iid.InstanceType
+	for _, prefix := range supportedTypePrefixes {
+		if strings.HasPrefix(instanceType, prefix) {
+			return
+		}
+	}
+
+	t.Skipf("Skipped because the instance type %s is not a supported instance type. Supported instance type: %v",
+		instanceType, supportedTypePrefixes)
+}
+
 // GetInstanceProfileName gets the instance profile name
 func GetInstanceMetadata(path string) (string, error) {
 	ec2MetadataClient := ec2metadata.New(session.New())
@@ -885,4 +911,106 @@ func GetTaskID(taskARN string) (string, error) {
 	}
 
 	return resourceSplit[1], nil
+}
+
+// WaitContainerInstanceStatus waits for a container instance to reach certain status by polling its status
+func (agent *TestAgent) WaitContainerInstanceStatus(desiredStatus string) error {
+	timer := time.NewTimer(waitContainerInstanceStatusDuration)
+	errChan := make(chan error, 1)
+	containerInstanceStatus := ""
+
+	cancelled := false
+	go func() {
+		for !cancelled {
+			status, err := agent.getContainerInstanceStatus()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			containerInstanceStatus = status
+
+			if status == desiredStatus {
+				break
+			}
+			if desiredStatus == "ACTIVE" {
+				if status == "REGISTRATION_FAILED" || status == "INACTIVE" {
+					errChan <- errors.Errorf("container instance ends at status %s; will never reach ACTIVE", status)
+					return
+				}
+			}
+			time.Sleep(5 * time.Second)
+		}
+		errChan <- nil
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-timer.C:
+		cancelled = true
+		return errors.Errorf("timed out waiting for container instance '%s' to reach 'ACTIVE', status is '%s'",
+			agent.ContainerInstanceArn, containerInstanceStatus)
+	}
+}
+
+func (agent *TestAgent) getContainerInstanceStatus() (string, error) {
+	res, err := ECS.DescribeContainerInstances(&ecs.DescribeContainerInstancesInput{
+		Cluster:            aws.String(agent.Cluster),
+		ContainerInstances: aws.StringSlice([]string{agent.ContainerInstanceArn}),
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(res.Failures) != 0 {
+		return "", errors.Errorf("unable to describe container instance %s: %v", agent.ContainerInstanceArn, res.Failures)
+	}
+
+	return aws.StringValue(res.ContainerInstances[0].Status), nil
+}
+
+// GetNetworkInterfaceMacs returns a list of macs of all the network interfaces attached to the instance
+func GetNetworkInterfaceMacs() ([]string, error) {
+	macs, err := ec2.NewEC2MetadataClient(nil).AllENIMacs()
+	if err != nil {
+		return nil, err
+	}
+
+	return strings.Split(macs, "\n"), nil
+}
+
+// WaitNetworkInterfaceCount waits until there are certain number of ENIs attached to the instance
+func WaitNetworkInterfaceCount(desiredCount int, timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	errChan := make(chan error, 1)
+	networkInterfaceCount := 0
+
+	cancelled := false
+	go func() {
+		for !cancelled {
+			macs, err := GetNetworkInterfaceMacs()
+			count := len(macs)
+			if err != nil {
+				errChan <- err
+				return
+			}
+			networkInterfaceCount = count
+
+			if count == desiredCount {
+				break
+			}
+			time.Sleep(5 * time.Second)
+		}
+		errChan <- nil
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-timer.C:
+		cancelled = true
+		return errors.Errorf("Timed out waiting for instance to have %d network interfaces attached; number of interfaces attached: %d",
+			desiredCount, networkInterfaceCount)
+	}
 }

@@ -51,10 +51,11 @@ import (
 )
 
 const (
-	clusterName           = "some-cluster"
-	containerInstanceARN  = "container-instance1"
-	availabilityZone      = "us-west-2b"
-	hostPublicIPv4Address = "127.0.0.1"
+	clusterName            = "some-cluster"
+	containerInstanceARN   = "container-instance1"
+	availabilityZone       = "us-west-2b"
+	hostPrivateIPv4Address = "127.0.0.1"
+	hostPublicIPv4Address  = "127.0.0.1"
 )
 
 var apiVersions = []dockerclient.DockerVersion{
@@ -304,6 +305,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 
 	var discoverEndpointsInvoked sync.WaitGroup
@@ -339,6 +341,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 			"arn:123", availabilityZone, nil),
 		containermetadata.EXPECT().SetContainerInstanceARN("arn:123"),
 		containermetadata.EXPECT().SetAvailabilityZone(availabilityZone),
+		containermetadata.EXPECT().SetHostPrivateIPv4Address(hostPrivateIPv4Address),
 		containermetadata.EXPECT().SetHostPublicIPv4Address(hostPublicIPv4Address),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()),
@@ -1113,6 +1116,38 @@ func TestGetContainerInstanceTagsFromEC2APIFailToDescribeECSTagsForInstance(t *t
 	resTags, err := agent.getContainerInstanceTagsFromEC2API()
 	assert.Error(t, err)
 	assert.Nil(t, resTags)
+}
+
+func TestGetHostPrivateIPv4AddressFromEC2Metadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+
+	agent := &ecsAgent{
+		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
+	}
+	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
+
+	assert.Equal(t, hostPrivateIPv4Address, agent.getHostPrivateIPv4AddressFromEC2Metadata())
+}
+
+func TestGetHostPrivateIPv4AddressFromEC2MetadataFailWithError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+
+	agent := &ecsAgent{
+		ec2MetadataClient: ec2MetadataClient,
+		ec2Client:         ec2Client,
+	}
+	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return("", errors.New("Unable to get IP Address"))
+
+	assert.Empty(t, agent.getHostPrivateIPv4AddressFromEC2Metadata())
 }
 
 func TestGetHostPublicIPv4AddressFromEC2Metadata(t *testing.T) {

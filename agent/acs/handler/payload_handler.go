@@ -13,9 +13,8 @@
 package handler
 
 import (
-	"fmt"
-
 	"context"
+	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -220,7 +219,6 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 				allTasksOK = false
 				continue
 			}
-
 			apiTask.SetTaskENI(eni)
 		}
 		// Add the app mesh information to task struct
@@ -322,12 +320,12 @@ func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, c
 // and returns the boolean comparison result
 type skipAddTaskComparatorFunc func(apitaskstatus.TaskStatus) bool
 
-// isTaskStatusStopped returns true if the task status == STOPPTED
+// isTaskStatusStopped returns true if the task status == STOPPED
 func isTaskStatusStopped(status apitaskstatus.TaskStatus) bool {
 	return status == apitaskstatus.TaskStopped
 }
 
-// isTaskStatusNotStopped returns true if the task status != STOPPTED
+// isTaskStatusNotStopped returns true if the task status != STOPPED
 func isTaskStatusNotStopped(status apitaskstatus.TaskStatus) bool {
 	return status != apitaskstatus.TaskStopped
 }

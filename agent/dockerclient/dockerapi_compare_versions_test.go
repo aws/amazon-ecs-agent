@@ -15,8 +15,8 @@
 package dockerclient
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestParseDockerVersions(t *testing.T) {
@@ -49,7 +49,7 @@ func TestParseDockerVersions(t *testing.T) {
 	invalidCases := []string{"foo", "", "bar", "x.y.z", "1.x.y", "1.1.z"}
 	for i, invalidCase := range invalidCases {
 		_, err := parseDockerVersions(invalidCase)
-		assert.Error(t, err,"#%v: Expected error, didn't get one. Input: %v", i, invalidCase )
+		assert.Error(t, err, "#%v: Expected error, didn't get one. Input: %v", i, invalidCase)
 	}
 }
 
@@ -122,4 +122,3 @@ func TestDockerVersionMatches(t *testing.T) {
 		assert.Equal(t, testCase.expectedOutput, result, "#%v: %v(%v) expected %v but got %v", i, testCase.version, testCase.selector, testCase.expectedOutput, result)
 	}
 }
-
