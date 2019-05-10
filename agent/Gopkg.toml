@@ -39,7 +39,7 @@ required = ["github.com/golang/mock/mockgen/model"]
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
-  version = "0.5.2"
+  version = "0.7.0"
 
 [[constraint]]
   name = "github.com/deniswernert/udev"
