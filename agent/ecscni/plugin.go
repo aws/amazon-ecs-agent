@@ -323,7 +323,8 @@ func (client *cniClient) constructNetworkConfig(cfg interface{}, plugin string) 
 	}
 	networkConfig := &libcni.NetworkConfig{
 		Network: &cnitypes.NetConf{
-			Type: plugin,
+			Type:       plugin,
+			CNIVersion: client.cniVersion,
 		},
 		Bytes: configBytes,
 	}

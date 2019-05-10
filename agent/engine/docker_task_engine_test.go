@@ -38,29 +38,29 @@ import (
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -421,7 +421,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		}, nil)
 	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer(gomock.Any(), containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
-	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil).MaxTimes(1)
+	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1)
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
@@ -1148,9 +1148,10 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(
 		dockerapi.DockerContainerMetadata{DockerID: pauseContainerID})
-	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Do(func(cfg *ecscni.Config) {
-		wg.Done()
-	}).Return(nil)
+	cniClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) {
+			wg.Done()
+		}).Return(nil)
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
