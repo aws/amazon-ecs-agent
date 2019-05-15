@@ -154,6 +154,12 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 		if containerMetric.MemoryStatsSet == nil {
 			return fmt.Errorf("MemoryStatsSet is nil")
 		}
+		if containerMetric.NetworkStatsSet == nil {
+			return fmt.Errorf("NetworkStatsSet is nil")
+		}
+		if containerMetric.StorageStatsSet == nil {
+			return fmt.Errorf("StorageStatsSet is nil")
+		}
 	}
 	return nil
 }
@@ -258,8 +264,8 @@ func createFakeContainerStats() []*ContainerStats {
 		TxPackets: 60,
 	}
 	return []*ContainerStats{
-		{22400432, 1839104, uint64(0), uint64(0), netStats, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		{116499979, 3649536, uint64(0), uint64(0), netStats, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{22400432, 1839104, uint64(100), uint64(200), netStats, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		{116499979, 3649536, uint64(300), uint64(400), netStats, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 }
 
