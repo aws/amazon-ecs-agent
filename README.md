@@ -260,6 +260,8 @@ If you have a feature request, please open it over at the [AWS Containers Roadma
 
 Amazon Web Services does not currently provide support for modified copies of this software.
 
+## Security disclosures
+If you think you’ve found a potential security issue, please do not post it in the Issues.  Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or [email AWS security directly](mailto:aws-security@amazon.com).
 
 ## License
 
