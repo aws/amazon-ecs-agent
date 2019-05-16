@@ -617,6 +617,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		}
 
 		containerMetrics = append(containerMetrics, &ecstcs.ContainerMetric{
+			ContainerName:   &container.containerMetadata.Name,
 			CpuStatsSet:     cpuStatsSet,
 			MemoryStatsSet:  memoryStatsSet,
 			NetworkStatsSet: networkStatsSet,

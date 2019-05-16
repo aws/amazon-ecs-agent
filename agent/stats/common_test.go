@@ -148,6 +148,9 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
 	}
 	for _, containerMetric := range containerMetrics {
+		if *containerMetric.ContainerName == "" {
+			return fmt.Errorf("ContainerName is empty")
+		}
 		if containerMetric.CpuStatsSet == nil {
 			return fmt.Errorf("CPUStatsSet is nil")
 		}

@@ -179,7 +179,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
-		Container: &apicontainer.Container{},
+		Container: &apicontainer.Container{
+			Name: "test",
+		},
 	}, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
