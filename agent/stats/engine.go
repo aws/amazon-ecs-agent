@@ -42,6 +42,8 @@ import (
 const (
 	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
 	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
+	hostNetworkMode        = "host"
+	noneNetworkMode        = "none"
 )
 
 var (
@@ -604,26 +606,34 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
+		containerMetric := &ecstcs.ContainerMetric{
+			ContainerName:  &container.containerMetadata.Name,
+			CpuStatsSet:    cpuStatsSet,
+			MemoryStatsSet: memoryStatsSet,
+		}
+
+		task, err := engine.resolver.ResolveTask(dockerID)
 		if err != nil {
-			// we log the error and still continue to publish cpu, memory stats
-			seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+			seelog.Warnf("Task not found for container ID: %s", dockerID)
+		} else {
+			// send network stats for default/bridge/nat network modes
+			if task.ENI == nil && container.containerMetadata.NetworkMode != hostNetworkMode && container.containerMetadata.NetworkMode != noneNetworkMode {
+				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
+				if err != nil {
+					// we log the error and still continue to publish cpu, memory stats
+					seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+				}
+				containerMetric.NetworkStatsSet = networkStatsSet
+			}
 		}
 
 		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
 		if err != nil {
 			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
-			continue
 		}
+		containerMetric.StorageStatsSet = storageStatsSet
 
-		containerMetrics = append(containerMetrics, &ecstcs.ContainerMetric{
-			ContainerName:   &container.containerMetadata.Name,
-			CpuStatsSet:     cpuStatsSet,
-			MemoryStatsSet:  memoryStatsSet,
-			NetworkStatsSet: networkStatsSet,
-			StorageStatsSet: storageStatsSet,
-		})
-
+		containerMetrics = append(containerMetrics, containerMetric)
 	}
 
 	return containerMetrics, nil
