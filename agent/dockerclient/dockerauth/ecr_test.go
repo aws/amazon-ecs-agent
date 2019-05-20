@@ -285,7 +285,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 		EndpointOverride: "my.endpoint",
 	}
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
-		RoleArn: "arn:aws:iam::123456789012:role/test",
+		AccessKeyID: "ABCD1234",
 	})
 
 	registryAuthData := &apicontainer.RegistryAuthenticationData{
@@ -293,7 +293,7 @@ func TestAuthorizationTokenCacheMiss(t *testing.T) {
 	}
 
 	key := cacheKey{
-		roleARN:          authData.GetPullCredentials().RoleArn,
+		roleAK:           authData.GetPullCredentials().AccessKeyID,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,
@@ -382,7 +382,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 		EndpointOverride: "my.endpoint",
 	}
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
-		RoleArn: "arn:aws:iam::123456789012:role/test",
+		AccessKeyID: "ABCD12345",
 	})
 
 	registryAuthData := &apicontainer.RegistryAuthenticationData{
@@ -390,7 +390,7 @@ func TestAuthorizationTokenCacheWithCredentialsHit(t *testing.T) {
 	}
 
 	key := cacheKey{
-		roleARN:          authData.GetPullCredentials().RoleArn,
+		roleAK:           authData.GetPullCredentials().AccessKeyID,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,
@@ -429,7 +429,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 		EndpointOverride: "my.endpoint",
 	}
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
-		RoleArn: "arn:aws:iam::123456789012:role/test",
+		AccessKeyID: "ABCDE1234",
 	})
 
 	registryAuthData := &apicontainer.RegistryAuthenticationData{
@@ -437,7 +437,7 @@ func TestAuthorizationTokenCacheHitExpired(t *testing.T) {
 	}
 
 	key := cacheKey{
-		roleARN:          authData.GetPullCredentials().RoleArn,
+		roleAK:           authData.GetPullCredentials().AccessKeyID,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,
@@ -487,7 +487,7 @@ func TestExtractECRTokenError(t *testing.T) {
 		EndpointOverride: "my.endpoint",
 	}
 	authData.SetPullCredentials(credentials.IAMRoleCredentials{
-		RoleArn: "arn:aws:iam::123456789012:role/test",
+		AccessKeyID: "EDCBA54321",
 	})
 
 	registryAuthData := &apicontainer.RegistryAuthenticationData{
@@ -495,7 +495,7 @@ func TestExtractECRTokenError(t *testing.T) {
 	}
 
 	key := cacheKey{
-		roleARN:          authData.GetPullCredentials().RoleArn,
+		roleAK:           authData.GetPullCredentials().AccessKeyID,
 		region:           authData.Region,
 		registryID:       authData.RegistryID,
 		endpointOverride: authData.EndpointOverride,

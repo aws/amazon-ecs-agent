@@ -1358,7 +1358,7 @@ func TestECRAuthCacheWithDifferentExecutionRole(t *testing.T) {
 		},
 	}
 	authData.ECRAuthData.SetPullCredentials(credentials.IAMRoleCredentials{
-		RoleArn: "executionRole",
+		AccessKeyID: "executionRoleAccessKeyId",
 	})
 
 	imageEndpoint := "registry.endpoint"

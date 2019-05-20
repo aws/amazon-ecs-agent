@@ -32,7 +32,7 @@ import (
 
 type cacheKey struct {
 	region           string
-	roleARN          string
+	roleAK           string
 	registryID       string
 	endpointOverride string
 }
@@ -52,7 +52,7 @@ const (
 
 // String formats the cachKey as a string
 func (key *cacheKey) String() string {
-	return fmt.Sprintf("%s-%s-%s-%s", key.roleARN, key.region, key.registryID, key.endpointOverride)
+	return fmt.Sprintf("%s-%s-%s-%s", key.roleAK, key.region, key.registryID, key.endpointOverride)
 }
 
 // NewECRAuthProvider returns a DockerAuthProvider that can handle retrieve
@@ -87,10 +87,10 @@ func (authProvider *ecrAuthProvider) GetAuthconfig(image string,
 	}
 
 	// If the container is using execution role credentials to pull,
-	// add the roleARN as part of the cache key so that docker auth for
+	// add the role access key id as part of the cache key so that docker auth for
 	// containers pull with the same role can be cached
 	if authData.GetPullCredentials() != (credentials.IAMRoleCredentials{}) {
-		key.roleARN = authData.GetPullCredentials().RoleArn
+		key.roleAK = authData.GetPullCredentials().AccessKeyID
 	}
 
 	// Try to get the auth config from cache
