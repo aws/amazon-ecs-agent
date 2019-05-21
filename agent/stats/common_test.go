@@ -75,12 +75,14 @@ func eventStream(name string) *eventstream.EventStream {
 
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
-func createGremlin(client *sdkClient.Client) (*dockercontainer.ContainerCreateCreatedBody, error) {
+func createGremlin(client *sdkClient.Client, netMode string) (*dockercontainer.ContainerCreateCreatedBody, error) {
 	containerGremlin, err := client.ContainerCreate(context.TODO(),
 		&dockercontainer.Config{
 			Image: testImageName,
 		},
-		&dockercontainer.HostConfig{},
+		&dockercontainer.HostConfig{
+			NetworkMode: dockercontainer.NetworkMode(netMode),
+		},
 		&network.NetworkingConfig{},
 		"")
 
