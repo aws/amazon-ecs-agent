@@ -64,6 +64,7 @@ const (
 	labelCluster                       = labelPrefix + "cluster"
 	cniSetupTimeout                    = 1 * time.Minute
 	cniCleanupTimeout                  = 30 * time.Second
+	ipamCleanupTmeout                  = 5 * time.Second
 	minEngineConnectRetryDelay         = 200 * time.Second
 	maxEngineConnectRetryDelay         = 2 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20

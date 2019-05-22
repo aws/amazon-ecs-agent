@@ -1347,7 +1347,7 @@ func TestDeleteImageNotFoundError(t *testing.T) {
 	}
 	imageState, _ := imageManager.getImageState(imageInspected.ID)
 	client.EXPECT().RemoveImage(gomock.Any(), container.Image, dockerclient.RemoveImageTimeout).Return(
-		errors.New("no such image: " + container.Image))
+		errors.New("No such image: " + container.Image))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	imageManager.deleteImage(ctx, container.Image, imageState)

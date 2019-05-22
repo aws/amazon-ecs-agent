@@ -296,7 +296,7 @@ run-sudo-tests::
 endif
 
 .PHONY: codebuild
-codebuild: test-artifacts .out-stamp
+codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
 	$(MAKE) docker-release TARGET_OS="windows"

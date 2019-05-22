@@ -91,7 +91,7 @@
   revision = "c220ac4f01b8a301edcb9c9c05d7600249138cfa"
 
 [[projects]]
-  digest = "1:82da867f9729353d9b9c9af126e0b3260003150aab19c2564a8259d42fbc0b90"
+  digest = "1:7e981651f8cc87275ad60b2c48927f13cd5e55815d8db0d44bfd899e476ddd32"
   name = "github.com/containernetworking/cni"
   packages = [
     "libcni",
@@ -102,8 +102,8 @@
     "pkg/version",
   ]
   pruneopts = "UT"
-  revision = "137b4975ecab6e1f0c24c1e3c228a50a3cfba75e"
-  version = "v0.5.2"
+  revision = "7d76556571b6cf1ab90d7026a73092ac8d5e0c23"
+  version = "v0.7.0"
 
 [[projects]]
   digest = "1:6bf7f66890675dcbc7952f7afd044a2a46a8bd3143f837c46fd3ccd15da383d7"
