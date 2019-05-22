@@ -547,7 +547,7 @@ func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID
 	seelog.Infof("Removing Image: %s", imageID)
 	err := imageManager.client.RemoveImage(ctx, imageID, dockerclient.RemoveImageTimeout)
 	if err != nil {
-		if strings.Contains(err.Error(), imageNotFoundForDeletionError) {
+		if strings.Contains(strings.ToLower(err.Error()), imageNotFoundForDeletionError) {
 			seelog.Errorf("Image already removed from the instance: %v", err)
 		} else {
 			seelog.Errorf("Error removing Image %v - %v", imageID, err)
