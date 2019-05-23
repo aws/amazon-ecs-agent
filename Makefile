@@ -109,8 +109,13 @@ test::
 	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 endif
 
-test-silent:
-	. ./scripts/shared_env && go test -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+ifeq (${BUILD_PLATFORM},aarch64)
+test-silent::
+	. ./scripts/shared_env && go test -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+else
+test-silent::
+	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+endif
 
 benchmark-test:
 	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
@@ -196,7 +201,6 @@ test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
 test-artifacts: test-artifacts-windows test-artifacts-linux
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator
 test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd \
 				agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator \
 				container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator \
@@ -381,13 +385,13 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model) 
+	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
 .PHONY: fmtcheck
 fmtcheck:
 	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
-	
+
 
 .PHONY: static-check
 static-check: gocyclo fmtcheck govet
