@@ -208,13 +208,13 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
+run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
 	. ./scripts/shared_env && go test -tags functional -timeout=60m -v ./agent/functional_tests/...
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
 build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator \
-						testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
+						testnnp container-health-check-image telemetry-test-image storage-stats-test-image ecr-execution-role-image-for-upload
 
 ecr-execution-role-image-for-upload:
 	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
@@ -321,7 +321,8 @@ namespace-tests:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image
+
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -363,6 +364,9 @@ ecr-execution-role-image:
 
 telemetry-test-image:
 	$(MAKE) -C misc/telemetry $(MFLAGS)
+
+storage-stats-test-image:
+	$(MAKE) -C misc/storage-stats $(MFLAGS)
 
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
@@ -438,6 +442,7 @@ clean:
 	-$(MAKE) -C misc/elastic-inference-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
+	-$(MAKE) -C misc/storage-stats $(MFLAGS) clean
 	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
 	-rm -f .get-deps-stamp
