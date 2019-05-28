@@ -119,7 +119,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
 	capabilities = agent.appendENITrunkingCapabilities(capabilities)
-
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
 
 	// TODO: gate this on docker api version when ecs supported docker includes
@@ -140,10 +139,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverSSM)
 
-	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
-	// with host EC2 instance and among containers within the task
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
-
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
 	}
@@ -156,14 +151,18 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverASM)
 
-	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+appMeshAttributeSuffix)
-
-	// support elastic inference in agent
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
-
 	// support container ordering in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
+
+	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
+	// with host EC2 instance and among containers within the task
+	capabilities = agent.appendPIDAndIPCNamespaceSharingCapabilities(capabilities)
+
+	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
+	capabilities = agent.appendAppMeshCapabilities(capabilities)
+
+	// support elastic inference in agent
+	capabilities = agent.appendTaskEIACapabilities(capabilities)
 
 	return capabilities, nil
 }

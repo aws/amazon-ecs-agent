@@ -118,9 +118,6 @@ func TestCapabilities(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
 			},
 			{
-				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
-			},
-			{
 				Name: aws.String(attributePrefix + capabilityECREndpoint),
 			},
 			{
@@ -128,12 +125,6 @@ func TestCapabilities(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilitySecretLogDriverASM),
-			},
-			{
-				Name: aws.String(attributePrefix + appMeshAttributeSuffix),
-			},
-			{
-				Name: aws.String(attributePrefix + taskEIAAttributeSuffix),
 			},
 			{
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
