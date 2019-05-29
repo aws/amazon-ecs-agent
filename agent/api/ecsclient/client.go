@@ -263,11 +263,17 @@ func (client *APIECSClient) getResources() ([]*ecs.Resource, error) {
 			"api register-container-instance: reserved memory is higher than available memory on the host, total memory: %d, reserved: %d",
 			mem, client.config.ReservedMemory)
 	}
+	remainingCpu := cpu - int64(client.config.ReservedCpu)
+	if remainingCpu < 0 {
+		return nil, fmt.Errorf(
+			"api register-container-instance: reserved cpu is higher than available cpu on the host, total cpu: %d, reserved: %d",
+			cpu, client.config.ReservedCpu)
+	}
 
 	cpuResource := ecs.Resource{
 		Name:         utils.Strptr("CPU"),
 		Type:         &integerStr,
-		IntegerValue: &cpu,
+		IntegerValue: &remainingCpu,
 	}
 	memResource := ecs.Resource{
 		Name:         utils.Strptr("MEMORY"),

@@ -503,6 +503,7 @@ func environmentConfig() (Config, error) {
 		UpdateDownloadDir:                   os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
 		DisableMetrics:                      utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
 		ReservedMemory:                      parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
+		ReservedCpu:                         parseEnvVariableUint16("ECS_RESERVED_CPU"),
 		AvailableLoggingDrivers:             parseAvailableLoggingDrivers(),
 		PrivilegedDisabled:                  utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
 		SELinuxCapable:                      utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false),
@@ -571,6 +572,7 @@ func (cfg *Config) String() string {
 			"PollMetrics: %v, "+
 			"PollingMetricsWaitDuration: %v, "+
 			"ReservedMem: %v, "+
+			"ReservedCpu: %v, "+
 			"TaskCleanupWaitDuration: %v, "+
 			"DockerStopTimeout: %v, "+
 			"ContainerStartTimeout: %v, "+
@@ -586,6 +588,7 @@ func (cfg *Config) String() string {
 		cfg.PollMetrics,
 		cfg.PollingMetricsWaitDuration,
 		cfg.ReservedMemory,
+		cfg.ReservedCpu,
 		cfg.TaskCleanupWaitDuration,
 		cfg.DockerStopTimeout,
 		cfg.ContainerStartTimeout,

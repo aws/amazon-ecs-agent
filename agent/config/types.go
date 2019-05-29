@@ -105,6 +105,10 @@ type Config struct {
 	// other than containers managed by ECS
 	ReservedMemory uint16
 
+	// ReservedCpu specifies the amount of cpu to reserve for things
+	// other than containers managed by ECS
+	ReservedCpu uint16
+
 	// DockerStopTimeout specifies the amount of time before a SIGKILL is issued to
 	// containers managed by ECS
 	DockerStopTimeout time.Duration
