@@ -27,6 +27,9 @@ an update failed and the Amazon ECS Container Agent is no longer functional, a r
 2. `sudo /usr/libexec/amazon-ecs-init reload-cache`
 3. `sudo start ecs`
 
+## Security disclosures
+If you think you’ve found a potential security issue, please do not post it in the Issues.  Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or [email AWS security directly](mailto:aws-security@amazon.com).
+
 ## License
 
 The Amazon Elastic Container Service RPM is licensed under the Apache 2.0 License.
