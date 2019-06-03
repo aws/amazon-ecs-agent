@@ -788,13 +788,12 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
 	assert.NoError(t, err)
 
-
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
-			"ECS_ENABLE_TASK_IAM_ROLE": "true",
-			"ECS_ENABLE_HIGH_DENSITY_ENI": "true",
+			"ECS_ENABLE_TASK_IAM_ROLE":      "true",
+			"ECS_ENABLE_HIGH_DENSITY_ENI":   "true",
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
 	})
@@ -814,7 +813,6 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TASK_ROLE$$$"] = roleArn
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
-
 
 	numToRun := 5
 	tasks := make([]*TestTask, numToRun)
@@ -1532,8 +1530,7 @@ func TestRunGPUTask(t *testing.T) {
 		GPUEnabled: true,
 	})
 	defer agent.Cleanup()
-	// TODO: after release, change it to 1.24.0
-	agent.RequireVersion(">=1.22.0")
+	agent.RequireVersion(">=1.24.0")
 
 	testTask, err := agent.StartTask(t, "nvidia-gpu")
 	require.NoError(t, err)
@@ -1659,8 +1656,7 @@ func TestAppMeshCNIPlugin(t *testing.T) {
 		},
 	})
 	defer agent.Cleanup()
-	// TODO: after release, change it to 1.26.0
-	agent.RequireVersion(">=1.25.3")
+	agent.RequireVersion(">=1.26.0")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
@@ -1724,12 +1720,12 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 	// Expect one more interface to be attached (i.e. the Trunk)
 	macs, err := GetNetworkInterfaceMacs()
 	require.NoError(t, err)
-	assert.Equal(t, existingInterfaceCount + 1, len(macs))
+	assert.Equal(t, existingInterfaceCount+1, len(macs))
 
 	// Check that there's one ENI attachment in DescribeContainerInstances response and it matches
 	// the one on the instance
 	resp, err := ECS.DescribeContainerInstances(&ecsapi.DescribeContainerInstancesInput{
-		Cluster: &agent.Cluster,
+		Cluster:            &agent.Cluster,
 		ContainerInstances: aws.StringSlice([]string{agent.ContainerInstanceArn}),
 	})
 	require.NoError(t, err)
