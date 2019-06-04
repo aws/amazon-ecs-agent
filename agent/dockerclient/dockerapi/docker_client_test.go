@@ -1624,6 +1624,7 @@ func TestRemoveVolumeError(t *testing.T) {
 	defer cancel()
 	err := client.RemoveVolume(ctx, "name", dockerclient.RemoveVolumeTimeout)
 	assert.Equal(t, "CannotRemoveVolumeError", err.(apierrors.NamedError).ErrorName())
+	assert.NotNil(t, err.Error(), "Nested error cannot be nil")
 }
 
 func TestRemoveVolume(t *testing.T) {
