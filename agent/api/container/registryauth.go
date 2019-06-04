@@ -36,6 +36,7 @@ type ECRAuthData struct {
 	RegistryID       string `json:"registryId"`
 	UseExecutionRole bool   `json:"useExecutionRole"`
 	pullCredentials  credentials.IAMRoleCredentials
+	dockerAuthConfig types.AuthConfig
 	lock             sync.RWMutex
 }
 
@@ -67,6 +68,23 @@ func (auth *ECRAuthData) SetPullCredentials(creds credentials.IAMRoleCredentials
 	defer auth.lock.Unlock()
 
 	auth.pullCredentials = creds
+}
+
+// GetDockerAuthConfig returns the pull credentials in the auth
+func (auth *ECRAuthData) GetDockerAuthConfig() types.AuthConfig {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	return auth.dockerAuthConfig
+}
+
+// SetDockerAuthConfig sets the credentials to pull from ECR in the
+// ecr auth data
+func (auth *ECRAuthData) SetDockerAuthConfig(dac types.AuthConfig) {
+	auth.lock.Lock()
+	defer auth.lock.Unlock()
+
+	auth.dockerAuthConfig = dac
 }
 
 // GetDockerAuthConfig returns the pull credentials in the auth

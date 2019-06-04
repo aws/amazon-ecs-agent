@@ -233,8 +233,7 @@ func TestAWSLogsDriverMultilinePattern(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	// TODO: Change the version required
-	agent.RequireVersion(">=1.16.1") //Required for awslogs driver multiline pattern option
+	agent.RequireVersion(">=1.17.0") //Required for awslogs driver multiline pattern option
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = aws.StringValue(ECS.Config.Region)
@@ -284,8 +283,7 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	// TODO: Change the version required
-	agent.RequireVersion(">=1.16.1") //Required for awslogs driver datetime format option
+	agent.RequireVersion(">=1.17.0") //Required for awslogs driver datetime format option
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = aws.StringValue(ECS.Config.Region)

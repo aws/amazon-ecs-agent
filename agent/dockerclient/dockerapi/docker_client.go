@@ -945,8 +945,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status:                  status,
-			Type:                    eventType,
+			Status: status,
+			Type:   eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}
@@ -1209,8 +1209,8 @@ func (dg *dockerGoClient) removeVolume(ctx context.Context, name string) error {
 		return &CannotGetDockerClientError{version: dg.version, err: err}
 	}
 
-	ok := client.VolumeRemove(ctx, name, false)
-	if ok != nil {
+	err = client.VolumeRemove(ctx, name, false)
+	if err != nil {
 		return &CannotRemoveVolumeError{err}
 	}
 
