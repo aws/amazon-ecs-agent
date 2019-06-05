@@ -81,7 +81,7 @@ $ /usr/bin/docker run --name ecs-agent \
 --env ECS_ENABLE_TASK_IAM_ROLE=true \
 --env ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true \
 --env ECS_LOGFILE=/log/ecs-agent.log \
---env ECS_AVAILABLE_LOGGING_DRIVERS=["json-file","awslogs","syslog","none"] \
+--env ECS_AVAILABLE_LOGGING_DRIVERS='["json-file","awslogs","syslog","none"]' \
 --env ECS_LOGLEVEL=info \
 --detach \
 amazon/amazon-ecs-agent:latest
