@@ -42,6 +42,8 @@ import (
 const (
 	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
 	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
+	hostNetworkMode        = "host"
+	noneNetworkMode        = "none"
 )
 
 var (
@@ -246,8 +248,12 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
+	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
+	}
+
 	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
-	statsContainer := newStatsContainer(dockerID, engine.client, engine.resolver)
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
 	watchStatsContainer := false
@@ -594,18 +600,40 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		// Get memory stats set.
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
 			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)
 			continue
 		}
 
-		containerMetrics = append(containerMetrics, &ecstcs.ContainerMetric{
+		containerMetric := &ecstcs.ContainerMetric{
+			ContainerName:  &container.containerMetadata.Name,
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
-		})
+		}
 
+		task, err := engine.resolver.ResolveTask(dockerID)
+		if err != nil {
+			seelog.Warnf("Task not found for container ID: %s", dockerID)
+		} else {
+			// send network stats for default/bridge/nat network modes
+			if task.ENI == nil && container.containerMetadata.NetworkMode != hostNetworkMode && container.containerMetadata.NetworkMode != noneNetworkMode {
+				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
+				if err != nil {
+					// we log the error and still continue to publish cpu, memory stats
+					seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+				}
+				containerMetric.NetworkStatsSet = networkStatsSet
+			}
+		}
+
+		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
+		if err != nil {
+			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
+		}
+		containerMetric.StorageStatsSet = storageStatsSet
+
+		containerMetrics = append(containerMetrics, containerMetric)
 	}
 
 	return containerMetrics, nil
