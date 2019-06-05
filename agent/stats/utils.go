@@ -54,7 +54,6 @@ func isNetworkStatsError(err error) bool {
 
 func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
 	if dockerStats.Networks == nil {
-		seelog.Debug("Network stats not reported for container")
 		return nil
 	}
 	networkStats := &NetworkStats{}
