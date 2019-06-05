@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"syscall"
 	"time"
 )
 
@@ -28,27 +29,34 @@ func check(e error) {
 	}
 }
 
-func writeBytes(byteCount int64) error {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "blocktest-")
-	defer func() {
-		err = tmpFile.Close()
-		check(err)
-		err = os.Remove(tmpFile.Name())
-		check(err)
-	}()
+func writeBytes(byteCount int64, toFile *os.File) error {
 	//populate content with random bytes
 	writeBytes := make([]byte, byteCount)
 	rand.Read(writeBytes)
 	// write and flush to disk to force block write
-	bytesWritten, err := tmpFile.Write(writeBytes)
+	bytesWritten, err := toFile.Write(writeBytes)
 	if err != nil {
 		return err
 	}
-	err = tmpFile.Sync()
+	err = toFile.Sync()
 	if err != nil {
 		return err
 	}
 	fmt.Printf("wrote %d bytes\n", bytesWritten)
+	return nil
+}
+
+func readBytes(readFilePath string) error {
+	// O_DIRECT flag skips the filesystem cache
+	f, err := os.OpenFile(readFilePath, os.O_RDONLY|syscall.O_DIRECT, 0777)
+	if err != nil {
+		return err
+	}
+	bytes, err := ioutil.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("read %d bytes\n", len(bytes))
 	return nil
 }
 
@@ -57,10 +65,19 @@ func main() {
 	byteCount := flag.Int64("bytecount", 1024, "size in bytes to be written per interval")
 	flag.Parse()
 	for {
+		// create a temp file to write to then read from
+		tmpFile, err := ioutil.TempFile(os.TempDir(), "blockwrite-")
+		defer func() {
+			err = tmpFile.Close()
+			check(err)
+			err = os.Remove(tmpFile.Name())
+			check(err)
+		}()
 		// Storage stats are cumulative.
-		// We do incremental writes with sleep to create
+		// We do incremental reads/writes with sleep to create
 		// a predictable increase over time.
-		writeBytes(*byteCount)
+		writeBytes(*byteCount, tmpFile)
+		readBytes(tmpFile.Name())
 		time.Sleep(time.Duration(int32(*sleepInterval)) * time.Millisecond)
 	}
 }

@@ -19,4 +19,4 @@ COPY main.go .
 RUN go build -o storagestats main.go
 
 ENTRYPOINT ["./storagestats"]
-CMD [ "-sleep", "5000", "-bytecount", "1073741823"]
+CMD [ "-sleep", "5000", "-bytecount", "8192"]
