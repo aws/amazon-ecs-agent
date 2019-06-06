@@ -3,6 +3,9 @@
 * Feature - Adds container network and storage metrics as part of ongoing [work](https://github.com/aws/containers-roadmap/issues/70) [#2072](https://github.com/aws/amazon-ecs-agent/pull/2072)
 
 ## 1.28.1
+* Enhancement - Non-ECS images cleanup: clean up dangling images with image ID [#2023](https://github.com/aws/amazon-ecs-agent/pull/2023)
+* Bug - Pick up latest version of amazon-vpc-cni-plugins and amazon-ecs-cni-plugins to include recent bug fixes ([f09fd7c](https://github.com/aws/amazon-vpc-cni-plugins/commit/f09fd7c6ba0cf319b0c6ad23762091e25091fbce), [d90eebe](https://github.com/aws/amazon-vpc-cni-plugins/commit/d90eebe9907cde58c47756f65eccd7efc693e1d6), [06cbba2](https://github.com/aws/amazon-ecs-cni-plugins/commit/06cbba25cab0eb0aa466b0c5f72b55b61c87a2c5))
+* Bug - Fixed error detection case when image that is being deleted does not exist [@bendavies](https://github.com/bendavies) [#2008](https://github.com/aws/amazon-ecs-agent/pull/2008)
 * Bug - Fixed a bug where docker volume deletion resulted in nullpointer [#2059](https://github.com/aws/amazon-ecs-agent/pull/2059)
 
 ## 1.28.0
