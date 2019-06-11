@@ -15,3 +15,8 @@ matrix:
     - os: windows
       script:
         - go test -v -race -tags unit -timeout 40s ./agent/...
+    - os: osx
+      script:
+        - make get-deps
+        - make test
+        - make static-check
