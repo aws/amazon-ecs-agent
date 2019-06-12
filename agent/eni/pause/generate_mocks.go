@@ -13,4 +13,4 @@
 
 package pause
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/eni/pause Loader mocks/load_mocks.go
+//go:generate mockgen -destination=mocks/load_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/pause Loader

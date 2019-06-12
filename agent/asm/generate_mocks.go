@@ -13,4 +13,4 @@
 
 package asm
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface SecretsManagerAPI mocks/secretsmanagerapi_mocks.go
+//go:generate mockgen -destination=mocks/secretsmanagerapi_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface SecretsManagerAPI

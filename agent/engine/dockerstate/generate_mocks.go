@@ -13,4 +13,4 @@
 
 package dockerstate
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/engine/dockerstate TaskEngineState mocks/dockerstate_mocks.go
+//go:generate mockgen -destination=mocks/dockerstate_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/engine/dockerstate TaskEngineState
