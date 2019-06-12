@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/vishvananda/netlink"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
+	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
 )
 
 const (

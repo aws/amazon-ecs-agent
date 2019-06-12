@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go/aws"

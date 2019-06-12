@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

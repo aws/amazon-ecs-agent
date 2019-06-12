@@ -19,8 +19,8 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"

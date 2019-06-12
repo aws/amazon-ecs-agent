@@ -19,7 +19,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
 	"github.com/gorilla/mux"
 )

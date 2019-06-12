@@ -24,9 +24,9 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/async"
-	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
+	mock_async "github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
+	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"

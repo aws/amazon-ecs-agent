@@ -25,16 +25,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
-	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -682,7 +682,7 @@ func TestPayloadHandlerAddedAppMeshToTask(t *testing.T) {
 	mockEgressIgnoredIPs := mockEgressIgnoredIP1 + "," + mockEgressIgnoredIP2
 	mockEgressIgnoredPorts := mockEgressIgnoredPort1 + "," + mockEgressIgnoredPort2
 	mockContainerName := "testEnvoyContainer"
-	taskMetadataEndpointIP     := "169.254.170.2"
+	taskMetadataEndpointIP := "169.254.170.2"
 	instanceMetadataEndpointIP := "169.254.169.254"
 	tester := setup(t)
 	defer tester.ctrl.Finish()
@@ -756,8 +756,8 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 				ElasticNetworkInterfaces: []*ecsacs.ElasticNetworkInterface{
 					{
 						InterfaceAssociationProtocol: aws.String(eni.VLANInterfaceAssociationProtocol),
-						AttachmentArn: aws.String("arn"),
-						Ec2Id:         aws.String("ec2id"),
+						AttachmentArn:                aws.String("arn"),
+						Ec2Id:                        aws.String("ec2id"),
 						Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 							{
 								Primary:        aws.Bool(true),
