@@ -15,4 +15,4 @@
 
 package gpu
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/gpu GPUManager mocks/gpu_manager_mocks.go
+//go:generate mockgen -destination=mocks/gpu_manager_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/gpu GPUManager

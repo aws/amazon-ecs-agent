@@ -94,7 +94,8 @@ release: certs docker-release
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
 gogenerate:
-	./scripts/gogenerate
+	go generate -x $(shell go list ./agent/...)
+	$(MAKE) goimports
 
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt
@@ -104,22 +105,22 @@ misc/certs/ca-certificates.crt:
 
 ifeq (${BUILD_PLATFORM},aarch64)
 test::
-	. ./scripts/shared_env && go test -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	go test -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 else
 test::
-	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+	go test -race -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
 endif
 
 ifeq (${BUILD_PLATFORM},aarch64)
 test-silent::
-	. ./scripts/shared_env && go test -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+	go test -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
 else
 test-silent::
-	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+	go test -race -tags unit -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
 endif
 
 benchmark-test:
-	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
+	go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
 
 define dockerbuild
 	docker run \
@@ -214,7 +215,7 @@ test-in-docker:
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
-	. ./scripts/shared_env && go test -tags functional -timeout=60m -v ./agent/functional_tests/...
+	go test -tags functional -timeout=60m -v ./agent/functional_tests/...
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
@@ -286,18 +287,18 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 
 ifeq (${BUILD_PLATFORM},aarch64)
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && ECS_LOGLEVEL=debug go test -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	ECS_LOGLEVEL=debug go test -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 else
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && ECS_LOGLEVEL=debug go test -race -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
+	ECS_LOGLEVEL=debug go test -race -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
 endif
 
 ifeq (${BUILD_PLATFORM},aarch64)
 run-sudo-tests::
-	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -tags sudo -timeout=10m -v ./agent/engine/...
+	sudo -E ${GO_EXECUTABLE} test -tags sudo -timeout=10m -v ./agent/engine/...
 else
 run-sudo-tests::
-	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
+	sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
 endif
 
 .PHONY: codebuild

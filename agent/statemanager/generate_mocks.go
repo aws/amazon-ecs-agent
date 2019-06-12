@@ -13,4 +13,4 @@
 
 package statemanager
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/statemanager StateManager mocks/statemanager_mocks.go
+//go:generate mockgen -destination=mocks/statemanager_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/statemanager StateManager

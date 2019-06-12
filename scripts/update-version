@@ -7,8 +7,6 @@ version=${1:?Must specify version as the only argument (e.g. 1.0.0)}
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
-source ./scripts/shared_env
-
 echo -n "$version" > VERSION
 export ECS_UNKNOWN_VERSION=true
 

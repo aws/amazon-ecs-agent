@@ -13,4 +13,4 @@
 
 package factory
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/asm/factory ClientCreator mocks/factory_mocks.go
+//go:generate mockgen -destination=mocks/factory_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/asm/factory ClientCreator

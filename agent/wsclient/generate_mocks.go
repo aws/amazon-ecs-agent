@@ -13,4 +13,4 @@
 
 package wsclient
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer mock/client.go
+//go:generate mockgen -destination=mock/client.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/wsclient ClientServer

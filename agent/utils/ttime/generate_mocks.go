@@ -13,4 +13,4 @@
 
 package ttime
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/utils/ttime Time,Timer mocks/time_mocks.go
+//go:generate mockgen -destination=mocks/time_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/utils/ttime Time,Timer

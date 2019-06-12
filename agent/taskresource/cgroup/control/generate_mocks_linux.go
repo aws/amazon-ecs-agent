@@ -15,4 +15,4 @@
 
 package control
 
-//go:generate go run ../../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control Control mock_control/mock_cgroup_control_linux.go
+//go:generate mockgen -destination=mock_control/mock_cgroup_control_linux.go -copyright_file=../../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control Control

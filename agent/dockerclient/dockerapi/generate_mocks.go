@@ -13,4 +13,4 @@
 
 package dockerapi
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi DockerClient mocks/dockerapi_mocks.go
+//go:generate mockgen -destination=mocks/dockerapi_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi DockerClient

@@ -13,4 +13,4 @@
 
 package oswrapper
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/app/oswrapper OS mocks/oswrapper_mocks.go
+//go:generate mockgen -destination=mocks/oswrapper_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/app/oswrapper OS
