@@ -37,13 +37,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v3"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	mock_audit "github.com/aws/amazon-ecs-agent/agent/logger/audit/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/stats/mock"
+	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -1058,7 +1058,7 @@ func TestV3ContainerAssociation(t *testing.T) {
 
 func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 	testPathsMap := map[string]string{
-		"http://127.0.0.1/v3///task/": "http://127.0.0.1/v3/task/",
+		"http://127.0.0.1/v3///task/":           "http://127.0.0.1/v3/task/",
 		"http://127.0.0.1//v2/credentials/test": "http://127.0.0.1/v2/credentials/test",
 	}
 

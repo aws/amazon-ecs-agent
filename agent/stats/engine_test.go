@@ -27,8 +27,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"

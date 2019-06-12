@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
+	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/registry"

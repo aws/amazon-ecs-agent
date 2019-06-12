@@ -28,11 +28,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
+	mock_os "github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
+	mock_http "github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_client "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"

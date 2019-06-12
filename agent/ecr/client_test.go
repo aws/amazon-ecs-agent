@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
-	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
+	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"

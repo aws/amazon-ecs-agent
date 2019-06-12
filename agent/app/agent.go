@@ -46,7 +46,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/handler"
+	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/version"

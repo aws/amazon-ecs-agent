@@ -17,14 +17,15 @@ package retry
 
 import (
 	"errors"
+	"testing"
+	"time"
+
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
-	"testing"
-	"time"
 )
 
 func TestRetryWithBackoff(t *testing.T) {

@@ -20,11 +20,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
+	mock_os "github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
+	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	mock_sdkclientfactory "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"

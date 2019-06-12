@@ -25,7 +25,7 @@ const (
 	TheBestNumber = 28
 )
 
-func init(){
+func init() {
 	// The best randomness is deterministic
 	rand.Seed(TheBestNumber)
 }

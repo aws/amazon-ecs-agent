@@ -23,13 +23,13 @@ import (
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -339,7 +339,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 				Value: aws.String("v1"),
 			},
 			{
-				Name:  aws.String(attributePrefix + taskENITrunkingAttributeSuffix),
+				Name: aws.String(attributePrefix + taskENITrunkingAttributeSuffix),
 			},
 			{
 				Name:  aws.String(attributePrefix + branchCNIPluginVersionSuffix),

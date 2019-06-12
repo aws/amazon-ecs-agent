@@ -22,10 +22,10 @@ import (
 	"time"
 
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
+	mock_cgroups "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"

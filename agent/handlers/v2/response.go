@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"

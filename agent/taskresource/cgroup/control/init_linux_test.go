@@ -19,7 +19,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
+	mock_cgroups "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory/mock_factory"
 
 	"github.com/golang/mock/gomock"

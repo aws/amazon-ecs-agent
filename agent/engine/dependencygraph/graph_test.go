@@ -24,7 +24,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
