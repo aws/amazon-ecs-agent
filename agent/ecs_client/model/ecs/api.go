@@ -8416,7 +8416,6 @@ func (s *LogConfiguration) Validate() error {
 	if s.LogDriver == nil {
 		invalidParams.Add(request.NewErrParamRequired("LogDriver"))
 	}
-
 	if s.SecretOptions != nil {
 		for i, v := range s.SecretOptions {
 			if v == nil {
