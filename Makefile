@@ -381,7 +381,8 @@ appmesh-plugin-validator:
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
-		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
@@ -390,16 +391,30 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
+	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
+GOFMTSTRING:='{{$$dir := .Dir}}{{range $$f := .GoFiles}}{{$$dir}}/{{$$f}} {{end}}{{range $$f := .IgnoredGoFiles}}{{$$dir}}/{{$$f}} {{end}}'
+GOFMTFILES:=$(shell go list -f $(GOFMTSTRING) ./agent/...)
 .PHONY: fmtcheck
 fmtcheck:
-	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
+	$(eval DIFFS:=$(shell gofmt -l $(GOFMTFILES)))
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
 
+.PHONY: importcheck
+importcheck:
+	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
 
 .PHONY: static-check
-static-check: gocyclo fmtcheck govet
+static-check: gocyclo fmtcheck govet importcheck
+
+.PHONY: goimports
+goimports:
+	goimports -w $(GOFMTFILES)
+
+.PHONY: gofmt
+gofmt:
+	go fmt ./agent/...
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
