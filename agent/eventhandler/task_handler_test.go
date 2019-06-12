@@ -36,7 +36,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	mock_utils "github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+	mock_retry "github.com/aws/amazon-ecs-agent/agent/utils/retry/mock"
+
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -461,7 +462,7 @@ func TestSubmitTaskEventsWhenSubmittingTaskRunningAfterStopped(t *testing.T) {
 		taskARN:   taskARN,
 	}
 
-	backoff := mock_utils.NewMockBackoff(ctrl)
+	backoff := mock_retry.NewMockBackoff(ctrl)
 	ok, err := taskEvents.submitFirstEvent(handler, backoff)
 	assert.True(t, ok)
 	assert.NoError(t, err)
@@ -525,7 +526,7 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 		taskARN:   taskARN,
 	}
 
-	backoff := mock_utils.NewMockBackoff(ctrl)
+	backoff := mock_retry.NewMockBackoff(ctrl)
 	ok, err := taskEvents.submitFirstEvent(handler, backoff)
 	assert.True(t, ok)
 	assert.NoError(t, err)

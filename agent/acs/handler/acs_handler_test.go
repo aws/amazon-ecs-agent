@@ -41,8 +41,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	mock_utils "github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	mock_retry "github.com/aws/amazon-ecs-agent/agent/utils/retry/mock"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
@@ -280,7 +281,7 @@ func TestComputeReconnectDelayForActiveInstance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockBackoff.EXPECT().Duration().Return(connectionBackoffMax)
 
 	acsSession := session{backoff: mockBackoff}
@@ -354,7 +355,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
@@ -417,7 +418,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
