@@ -389,6 +389,36 @@ func TestConstructAppMeshNetworkConfig(t *testing.T) {
 	assert.Equal(t, config.EgressIgnoredIPs[0], appMeshConfig.EgressIgnoredIPs[0])
 }
 
+func TestConstructIPAMNetworkConfig(t *testing.T) {
+	ecscniClient := NewClient(&Config{})
+
+	config := &Config{
+		ID:                       "02:7b:64:49:b1:40",
+		ENIID:                    "eni-12345678",
+		ContainerID:              "containerid12",
+		ContainerPID:             "pid",
+		ENIIPV4Address:           "172.31.21.40",
+		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+		ENIMACAddress:            "02:7b:64:49:b1:40",
+		BlockInstanceMetdata:     true,
+		SubnetGatewayIPV4Address: "172.31.1.1/20",
+	}
+
+	_, networkConfig, err := ecscniClient.(*cniClient).createIPAMNetworkConfig(config)
+	assert.NoError(t, err, "construct network config failed")
+	ipamNetworkConfig := &IPAMNetworkConfig{}
+	err = json.Unmarshal(networkConfig.Bytes, ipamNetworkConfig)
+	assert.NoError(t, err, "unmarshal config from bytes failed")
+
+	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.Name)
+	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.Type)
+	assert.NotNil(t, ipamNetworkConfig.IPAM)
+	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.IPAM.Type)
+	assert.Equal(t, config.ENIMACAddress, ipamNetworkConfig.IPAM.ID)
+	assert.Equal(t, 1, len(ipamNetworkConfig.IPAM.IPV4Routes))
+	assert.Equal(t, TaskIAMRoleEndpoint, ipamNetworkConfig.IPAM.IPV4Routes[0].Dst.String())
+}
+
 // TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM
 // creates the correct configuration for bridge and ipam plugin
 func TestConstructNetworkConfig(t *testing.T) {

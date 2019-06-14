@@ -568,13 +568,13 @@ func (mtask *managedTask) releaseIPInIPAM() {
 
 	cfg, err := mtask.BuildCNIConfig()
 	if err != nil {
-		seelog.Warnf("Managed task [%s]: failed to release ip; unable to build cni configuration: %v",
+		seelog.Errorf("Managed task [%s]: failed to release ip; unable to build cni configuration: %v",
 			mtask.Arn, err)
 		return
 	}
 	err = mtask.cniClient.ReleaseIPResource(mtask.ctx, cfg, ipamCleanupTmeout)
 	if err != nil {
-		seelog.Warnf("Managed task [%s]: failed to release ip; IPAM error: %v",
+		seelog.Errorf("Managed task [%s]: failed to release ip; IPAM error: %v",
 			mtask.Arn, err)
 		return
 	}
