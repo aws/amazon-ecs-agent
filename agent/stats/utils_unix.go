@@ -31,9 +31,36 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 
 	cpuUsage := dockerStats.CPUStats.CPUUsage.TotalUsage / numCores
 	memoryUsage := dockerStats.MemoryStats.Usage - dockerStats.MemoryStats.Stats["cache"]
+	storageReadBytes, storageWriteBytes := getStorageStats(dockerStats)
+	networkStats := getNetworkStats(dockerStats)
 	return &ContainerStats{
-		cpuUsage:    cpuUsage,
-		memoryUsage: memoryUsage,
-		timestamp:   dockerStats.Read,
+		cpuUsage:          cpuUsage,
+		memoryUsage:       memoryUsage,
+		storageReadBytes:  storageReadBytes,
+		storageWriteBytes: storageWriteBytes,
+		networkStats:      networkStats,
+		timestamp:         dockerStats.Read,
 	}, nil
+}
+
+func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
+	// initialize block io and loop over stats to aggregate
+	if dockerStats.BlkioStats.IoServiceBytesRecursive == nil {
+		seelog.Debug("Storage stats not reported for container")
+		return uint64(0), uint64(0)
+	}
+	storageReadBytes := uint64(0)
+	storageWriteBytes := uint64(0)
+	for _, blockStat := range dockerStats.BlkioStats.IoServiceBytesRecursive {
+		switch op := blockStat.Op; op {
+		case "Read":
+			storageReadBytes += blockStat.Value
+		case "Write":
+			storageWriteBytes += blockStat.Value
+		default:
+			//ignoring "Async", "Total", "Sum", etc
+			continue
+		}
+	}
+	return storageReadBytes, storageWriteBytes
 }

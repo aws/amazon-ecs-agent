@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/client"
+	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
+	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"

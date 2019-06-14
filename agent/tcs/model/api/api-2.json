@@ -123,7 +123,7 @@
       "members":{
         "min":{"shape":"Double"},
         "max":{"shape":"Double"},
-        "sampleCount":{"shape":"Integer"},
+        "sampleCount":{"shape":"UInteger"},
         "sum":{"shape":"Double"}
       }
     },
@@ -142,8 +142,12 @@
     "ContainerMetric":{
       "type":"structure",
       "members":{
+        "containerArn":{"shape":"String"},
+        "containerName":{"shape":"String"},
         "cpuStatsSet":{"shape":"CWStatsSet"},
-        "memoryStatsSet":{"shape":"CWStatsSet"}
+        "memoryStatsSet":{"shape":"CWStatsSet"},
+        "networkStatsSet":{"shape":"NetworkStatsSet"},
+        "storageStatsSet":{"shape":"StorageStatsSet"}
       }
     },
     "ContainerMetrics":{
@@ -174,7 +178,6 @@
         "healthy":{"shape":"Boolean"}
       }
     },
-    "Integer":{"type":"integer"},
     "InvalidParameterException":{
       "type":"structure",
       "members":{
@@ -190,6 +193,19 @@
         "messageId":{"shape":"String"},
         "idle":{"shape":"Boolean"},
         "fin":{"shape":"Boolean"}
+      }
+    },
+    "NetworkStatsSet":{
+      "type":"structure",
+      "members":{
+        "rxBytes":{"shape":"ULongStatsSet"},
+        "rxDropped":{"shape":"ULongStatsSet"},
+        "rxErrors":{"shape":"ULongStatsSet"},
+        "rxPackets":{"shape":"ULongStatsSet"},
+        "txBytes":{"shape":"ULongStatsSet"},
+        "txDropped":{"shape":"ULongStatsSet"},
+        "txErrors":{"shape":"ULongStatsSet"},
+        "txPackets":{"shape":"ULongStatsSet"}
       }
     },
     "PublishHealthRequest":{
@@ -235,6 +251,13 @@
         "message":{"shape":"String"}
       }
     },
+    "StorageStatsSet":{
+      "type":"structure",
+      "members":{
+        "readSizeBytes":{"shape":"ULongStatsSet"},
+        "writeSizeBytes":{"shape":"ULongStatsSet"}
+      }
+    },
     "String":{"type":"string"},
     "TaskHealth":{
       "type":"structure",
@@ -260,8 +283,35 @@
     },
     "TaskMetrics":{
       "type":"list",
-      "member":{"shape":"TaskMetric"}
+      "member":{"shape":"TaskMetric"},
+      "max":10
     },
-    "Timestamp":{"type":"timestamp"}
+    "Timestamp":{"type":"timestamp"},
+    "UInteger":{
+      "type":"integer",
+      "min":0
+    },
+    "ULong":{
+      "type":"long",
+      "min":0
+    },
+    "ULongStatsSet":{
+      "type":"structure",
+      "required":[
+        "min",
+        "max",
+        "sampleCount",
+        "sum"
+      ],
+      "members":{
+        "min":{"shape":"ULong"},
+        "max":{"shape":"ULong"},
+        "sampleCount":{"shape":"ULong"},
+        "sum":{"shape":"ULong"},
+        "overflowMin":{"shape":"ULong"},
+        "overflowMax":{"shape":"ULong"},
+        "overflowSum":{"shape":"ULong"}
+      }
+    }
   }
 }

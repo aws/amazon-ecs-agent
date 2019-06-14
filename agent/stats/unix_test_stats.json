@@ -1,0 +1,83 @@
+{
+    "blkio_stats": {
+        "io_service_bytes_recursive": [
+            {
+                "major": 202,
+                "minor": 192,
+                "op": "Read",
+                "value": 1 
+            },
+            {
+                "major": 202,
+                "minor": 192,
+                "op": "Write",
+                "value": 5 
+            },
+           {
+                "major": 202,
+                "minor": 26368,
+                "op": "Read",
+                "value": 1 
+            },
+            {
+                "major": 202,
+                "minor": 26368,
+                "op": "Write",
+                "value": 5 
+            },
+            {
+                "major": 253,
+                "minor": 1,
+                "op": "Read",
+                "value": 1
+            },
+            {
+                "major": 253,
+                "minor": 1,
+                "op": "Write",
+                "value": 5 
+            }
+        ]
+    },
+    "cpu_stats": {
+        "cpu_usage": {
+            "total_usage": 262857821518,
+            "percpu_usage": [
+                129951031737,
+                132906789781
+            ]
+        },
+        "online_cpus": 2
+    },
+    "memory_stats":{
+        "usage": 30,
+        "max_usage": 100,
+        "stats": {
+            "cache": 20,
+            "rss": 10
+        },
+        "privateworkingset": 10
+    },
+    "networks": {
+        "eth0": {
+            "rx_bytes": 796,
+            "rx_packets": 10,
+            "rx_errors": 0,
+            "rx_dropped": 0,
+            "tx_bytes": 8192,
+            "tx_packets": 112,
+            "tx_errors": 0,
+            "tx_dropped": 5
+        },
+        "eth1": {
+            "rx_bytes": 300,
+            "rx_packets": 4,
+            "rx_errors": 0,
+            "rx_dropped": 1,
+            "tx_bytes": 800,
+            "tx_packets": 11,
+            "tx_errors": 0,
+            "tx_dropped": 5
+        }
+    }
+}

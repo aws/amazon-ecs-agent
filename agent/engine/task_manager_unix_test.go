@@ -21,7 +21,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"

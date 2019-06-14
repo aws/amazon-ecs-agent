@@ -44,6 +44,7 @@ static:
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
+	GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
@@ -212,13 +213,13 @@ test-in-docker:
 	# Privileged needed for docker-in-docker so integ tests pass
 	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
 
-run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
+run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
 	. ./scripts/shared_env && go test -tags functional -timeout=60m -v ./agent/functional_tests/...
 
 .PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
 build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator \
-						testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
+						testnnp container-health-check-image telemetry-test-image storage-stats-test-image ecr-execution-role-image-for-upload
 
 ecr-execution-role-image-for-upload:
 	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
@@ -325,7 +326,8 @@ namespace-tests:
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image
+
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
 
@@ -368,6 +370,9 @@ ecr-execution-role-image:
 telemetry-test-image:
 	$(MAKE) -C misc/telemetry $(MFLAGS)
 
+storage-stats-test-image:
+	$(MAKE) -C misc/storage-stats $(MFLAGS)
+
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
@@ -376,7 +381,8 @@ appmesh-plugin-validator:
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
-		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
@@ -385,16 +391,30 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
+	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
+GOFMTSTRING:='{{$$dir := .Dir}}{{range $$f := .GoFiles}}{{$$dir}}/{{$$f}} {{end}}{{range $$f := .IgnoredGoFiles}}{{$$dir}}/{{$$f}} {{end}}'
+GOFMTFILES:=$(shell go list -f $(GOFMTSTRING) ./agent/...)
 .PHONY: fmtcheck
 fmtcheck:
-	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
+	$(eval DIFFS:=$(shell gofmt -l $(GOFMTFILES)))
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
 
+.PHONY: importcheck
+importcheck:
+	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
 
 .PHONY: static-check
-static-check: gocyclo fmtcheck govet
+static-check: gocyclo fmtcheck govet importcheck
+
+.PHONY: goimports
+goimports:
+	goimports -w $(GOFMTFILES)
+
+.PHONY: gofmt
+gofmt:
+	go fmt ./agent/...
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
@@ -442,6 +462,7 @@ clean:
 	-$(MAKE) -C misc/elastic-inference-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
+	-$(MAKE) -C misc/storage-stats $(MFLAGS) clean
 	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
 	-rm -f .get-deps-stamp

@@ -21,7 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/cihub/seelog"
 )
 

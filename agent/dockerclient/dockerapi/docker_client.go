@@ -945,8 +945,8 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 		metadata := dg.containerMetadata(ctx, containerID)
 
 		changedContainers <- DockerContainerChangeEvent{
-			Status: status,
-			Type:   eventType,
+			Status:                  status,
+			Type:                    eventType,
 			DockerContainerMetadata: metadata,
 		}
 	}

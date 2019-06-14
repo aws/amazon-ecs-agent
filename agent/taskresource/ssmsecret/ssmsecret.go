@@ -16,10 +16,11 @@ package ssmsecret
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 	"sync"
 	"time"
+
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"

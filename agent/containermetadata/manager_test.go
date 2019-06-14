@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"

@@ -113,8 +113,8 @@ func TestInvalidENIInterfaceVlanPropertyMissing(t *testing.T) {
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
 			InterfaceAssociationProtocol: aws.String(VLANInterfaceAssociationProtocol),
-			AttachmentArn: aws.String("arn"),
-			Ec2Id:         aws.String("ec2id"),
+			AttachmentArn:                aws.String("arn"),
+			Ec2Id:                        aws.String("ec2id"),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),
@@ -140,8 +140,8 @@ func TestInvalidENIInvalidInterfaceAssociationProtocol(t *testing.T) {
 	acseni := []*ecsacs.ElasticNetworkInterface{
 		{
 			InterfaceAssociationProtocol: aws.String("no-eni"),
-			AttachmentArn: aws.String("arn"),
-			Ec2Id:         aws.String("ec2id"),
+			AttachmentArn:                aws.String("arn"),
+			Ec2Id:                        aws.String("ec2id"),
 			Ipv4Addresses: []*ecsacs.IPv4AddressAssignment{
 				{
 					Primary:        aws.Bool(true),

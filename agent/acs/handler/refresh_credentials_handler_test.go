@@ -23,8 +23,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 )
