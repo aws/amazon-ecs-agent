@@ -1092,18 +1092,16 @@ func (mtask *managedTask) time() ttime.Time {
 
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
-	// There is a potential deadlock here if cleanupTime is negative. Ignore the computed
-	// value in this case in favor of the default config value.
+	cleanupTime := make(<-chan time.Time)
 	if cleanupTimeDuration < 0 {
-		seelog.Infof("Managed task [%s]: Cleanup Duration is too short. Resetting to: %s",
-			mtask.Arn, config.DefaultTaskCleanupWaitDuration.String())
-		cleanupTimeDuration = config.DefaultTaskCleanupWaitDuration
+		seelog.Infof("Managed task [%s]: Cleanup Duration has been exceeded. Starting cleanup now ", mtask.Arn)
+		cleanupTime = mtask.time().After(time.Nanosecond)
+	} else {
+		cleanupTime = mtask.time().After(cleanupTimeDuration)
 	}
-	cleanupTime := mtask.time().After(cleanupTimeDuration)
 	cleanupTimeBool := make(chan struct{})
 	go func() {
 		<-cleanupTime
-		cleanupTimeBool <- struct{}{}
 		close(cleanupTimeBool)
 	}()
 	// wait for the cleanup time to elapse, signalled by cleanupTimeBool
