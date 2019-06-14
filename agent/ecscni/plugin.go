@@ -404,6 +404,7 @@ func (client *cniClient) createIPAMNetworkConfig(cfg *Config) (string, *libcni.N
 
 	ipamNetworkConfig := IPAMNetworkConfig{
 		Name:       ECSIPAMPluginName,
+		Type:       ECSIPAMPluginName,
 		CNIVersion: client.cniVersion,
 		IPAM:       ipamConfig,
 	}
