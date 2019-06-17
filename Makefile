@@ -241,7 +241,7 @@ test-registry: netkitten volumes-test namespace-tests pause-container squid awsc
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image nfs-server-image
 
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
@@ -293,6 +293,9 @@ container-health-check-image:
 
 appmesh-plugin-validator:
 	$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS)
+
+nfs-server-image:
+	cd misc/nfs; $(MAKE) $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
@@ -380,6 +383,7 @@ clean:
 	-$(MAKE) -C misc/storage-stats $(MFLAGS) clean
 	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/nfs $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
