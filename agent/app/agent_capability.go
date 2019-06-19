@@ -49,6 +49,7 @@ const (
 	taskEIAAttributeSuffix                      = "task-eia"
 	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
 	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
+	swapEnabledSuffix                           = "task-swap"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -86,6 +87,8 @@ const (
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 //    ecs.capability.task-eni-trunking
+//	  ecs.capability.task-swap
+
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -163,6 +166,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support elastic inference in agent
 	capabilities = agent.appendTaskEIACapabilities(capabilities)
+
+	// support swappiness in agent
+	capabilities = agent.appendSwappinessCapabilities(capabilities)
 
 	return capabilities, nil
 }

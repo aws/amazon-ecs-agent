@@ -85,3 +85,7 @@ func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []*ecs.Attribute) 
 func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+func (agent *ecsAgent) appendSwappinessCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
