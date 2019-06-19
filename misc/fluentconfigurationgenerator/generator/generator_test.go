@@ -140,7 +140,6 @@ func TestGenerateConfig(t *testing.T) {
 	config.WriteFluentBitConfig(fluentbitConfig)
 	assert.Equal(t, expectedFluentBitConfig, fluentbitConfig.String(), "Expected Fluent Bit Config to match")
 
-	//config.WriteFluentdConfig(os.Stdout)
 	fluentDConfig := new(bytes.Buffer)
 	config.WriteFluentdConfig(fluentDConfig)
 	assert.Equal(t, expectedFluentDConfig, fluentDConfig.String(), "Expected FluentD Config to match")
