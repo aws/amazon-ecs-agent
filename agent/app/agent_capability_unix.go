@@ -114,3 +114,15 @@ func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []*ecs.Attribute) 
 func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
 }
+
+func (agent *ecsAgent) appendFirelensRouterFluentdCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensRouterFluentd)
+}
+
+func (agent *ecsAgent) appendFirelensRouterFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensRouterFluentbit)
+}
+
+func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
+}
