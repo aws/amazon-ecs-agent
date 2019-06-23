@@ -515,20 +515,21 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	// Now remove ourselves from the global state and cleanup channels
 	engine.tasksLock.Lock()
 	engine.state.RemoveTask(task)
-	eniTask := task.GetTaskENI()
-	if eniTask == nil {
-		seelog.Debugf("Task engine [%s]: no eni associated with task", task.Arn)
-	} else {
-		// A Trunk/Branch awsvpc task doesn't have an ENI attachment corresponds to the task's ENI,
-		// so such deletion should be skipped
-		if eniTask.InterfaceAssociationProtocol != eni.VLANInterfaceAssociationProtocol {
-			seelog.Debugf("Task engine [%s]: removing the eni from agent state", task.Arn)
-			engine.state.RemoveENIAttachment(eniTask.MacAddress)
+
+	taskENIs := task.GetTaskENIs()
+	for _, taskENI := range taskENIs {
+		// ENIs that exist only as logical associations on another interface do not have
+		// attachments that need to be removed.
+		if taskENI.InterfaceAssociationProtocol == eni.DefaultInterfaceAssociationProtocol {
+			seelog.Debugf("Task engine [%s]: removing eni %s from agent state",
+				task.Arn, taskENI.ID)
+			engine.state.RemoveENIAttachment(taskENI.MacAddress)
 		} else {
-			seelog.Debugf("Task engine [%s]: Not removing the eni from agent state as it is a "+
-				"branch ENI", task.Arn)
+			seelog.Debugf("Task engine [%s]: skipping removing logical eni %s from agent state",
+				task.Arn, taskENI.ID)
 		}
 	}
+
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
 	engine.tasksLock.Unlock()
@@ -1063,7 +1064,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
 	seelog.Infof("Task engine [%s]: setting up container resources for container [%s]",
 		task.Arn, container.Name)
-	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
+	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container, true)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{
 			Error: ContainerNetworkingError{
@@ -1101,7 +1102,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	}
 
 	seelog.Infof("Task engine [%s]: cleaning up the network namespace", task.Arn)
-	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container)
+	cniConfig, err := engine.buildCNIConfigFromTaskContainer(task, container, false)
 	if err != nil {
 		return errors.Wrapf(err,
 			"engine: failed cleanup task network namespace, task: %s", task.String())
@@ -1110,8 +1111,13 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	return engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
 }
 
-func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *apitask.Task, container *apicontainer.Container) (*ecscni.Config, error) {
-	cfg, err := task.BuildCNIConfig()
+// buildCNIConfigFromTaskContainer builds a CNI config for the task and container.
+func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
+	task *apitask.Task,
+	container *apicontainer.Container,
+	includeIPAMConfig bool) (*ecscni.Config, error) {
+
+	cfg, err := task.BuildCNIConfig(includeIPAMConfig)
 	if err != nil {
 		return nil, errors.Wrapf(err, "engine: build cni configuration from task failed")
 	}
@@ -1147,7 +1153,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(task *apitask.Ta
 
 	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cfg.ContainerID = containerInspectOutput.ID
-	cfg.BlockInstanceMetdata = engine.cfg.AWSVPCBlockInstanceMetdata
+	cfg.BlockInstanceMetadata = engine.cfg.AWSVPCBlockInstanceMetdata
 
 	return cfg, nil
 }

@@ -1494,12 +1494,12 @@ func TestTaskGetENI(t *testing.T) {
 		ENI: enisOfTask,
 	}
 
-	eni := testTask.GetTaskENI()
+	eni := testTask.GetPrimaryENI()
 	assert.NotNil(t, eni)
 	assert.Equal(t, "id", eni.ID)
 
 	testTask.ENI = nil
-	eni = testTask.GetTaskENI()
+	eni = testTask.GetPrimaryENI()
 	assert.Nil(t, eni)
 }
 

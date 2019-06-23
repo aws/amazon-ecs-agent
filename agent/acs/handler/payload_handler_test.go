@@ -657,7 +657,7 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 
 	// Validate the added task has the eni information as expected
 	expectedENI := payloadMessage.Tasks[0].ElasticNetworkInterfaces[0]
-	taskeni := addedTask.GetTaskENI()
+	taskeni := addedTask.GetPrimaryENI()
 	assert.Equal(t, aws.StringValue(expectedENI.Ec2Id), taskeni.ID)
 	assert.Equal(t, aws.StringValue(expectedENI.MacAddress), taskeni.MacAddress)
 	assert.Equal(t, 1, len(taskeni.IPV4Addresses))
@@ -784,7 +784,7 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
 	assert.NoError(t, err)
 
-	taskeni := addedTask.GetTaskENI()
+	taskeni := addedTask.GetPrimaryENI()
 
 	assert.Equal(t, taskeni.InterfaceAssociationProtocol, eni.VLANInterfaceAssociationProtocol)
 	assert.Equal(t, taskeni.InterfaceVlanProperties.TrunkInterfaceMacAddress, "mac")

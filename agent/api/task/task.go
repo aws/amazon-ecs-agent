@@ -50,6 +50,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
+	"github.com/containernetworking/cni/libcni"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
@@ -205,8 +206,8 @@ type Task struct {
 	// used to look up the credentials for task in the credentials manager
 	credentialsID string
 
-	// ENI is the elastic network interface specified by this task
-	ENI *apieni.ENI
+	// ENIs is the list of Elastic Network Interfaces assigned to this task.
+	ENIs []*apieni.ENI
 
 	// AppMesh is the service mesh specified by the task
 	AppMesh *apiappmesh.AppMesh
@@ -984,70 +985,63 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfigType string, host
 	return nil
 }
 
-// BuildCNIConfig constructs the cni configuration from eni
-func (task *Task) BuildCNIConfig() (*ecscni.Config, error) {
-	if !task.isNetworkModeVPC() {
-		return nil, errors.New("task config: task has no ENIs associated with it, unable to generate cni config")
+// BuildCNIConfig builds a list of CNI network configurations for the task.
+// If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
+func (task *Task) BuildCNIConfig(includeIPAMConfig bool) (*ecscni.Config, error) {
+	if !task.IsNetworkModeVPC() {
+		return nil, errors.New("task config: task network mode is not VPC")
 	}
 
 	cfg := &ecscni.Config{}
-	convertENIToCNIConfig(task.GetTaskENI(), cfg)
-	if task.GetAppMesh() != nil {
-		convertAppMeshToCNIConfig(task.GetAppMesh(), cfg)
+	var netconf *libcni.NetworkConfig
+	var err error
+
+	// Build a CNI network configuration for each ENI.
+	for _, eni := range task.ENIs {
+		switch eni.InterfaceAssociationProtocol {
+		case apieni.DefaultInterfaceAssociationProtocol:
+			_, netconf, err = ecscni.NewENINetworkConfig(eni, cfg)
+		case apieni.VLANInterfaceAssociationProtocol:
+			_, netconf, err = ecscni.NewBranchENINetworkConfig(eni, cfg)
+		default:
+			err = errors.New("task config: unknown interface association type")
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
+	}
+
+	// Build the bridge CNI network configuration.
+	// All AWSVPC tasks have a bridge network.
+	_, netconf, err = ecscni.NewBridgeNetworkConfig(cfg, includeIPAMConfig)
+	if err != nil {
+		return nil, err
+	}
+	cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
+
+	// Build a CNI network configuration for AppMesh if enabled.
+	appMeshConfig := task.GetAppMesh()
+	if appMeshConfig != nil {
+		_, netconf, err = ecscni.NewAppMeshConfig(appMeshConfig, cfg)
+		if err != nil {
+			return nil, err
+		}
+		cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
 	}
 
 	return cfg, nil
 }
 
-// convertENIToCNIConfig converts input eni config into cni config
-func convertENIToCNIConfig(eni *apieni.ENI, cfg *ecscni.Config) {
-	cfg.ENIID = eni.ID
-	cfg.ID = eni.MacAddress
-	cfg.ENIMACAddress = eni.MacAddress
-	cfg.SubnetGatewayIPV4Address = eni.GetSubnetGatewayIPV4Address()
-	for _, ipv4 := range eni.IPV4Addresses {
-		if ipv4.Primary {
-			cfg.ENIIPV4Address = ipv4.Address
-			break
-		}
-	}
-	// If there is ipv6 assigned to eni then set it
-	if len(eni.IPV6Addresses) > 0 {
-		cfg.ENIIPV6Address = eni.IPV6Addresses[0].Address
-	}
-
-	// Populate Trunk ENI fields
-	if eni.InterfaceAssociationProtocol == apieni.VLANInterfaceAssociationProtocol {
-		cfg.InterfaceAssociationProtocol = eni.InterfaceAssociationProtocol
-		cfg.TrunkMACAddress = eni.InterfaceVlanProperties.TrunkInterfaceMacAddress
-		cfg.BranchVlanID = eni.InterfaceVlanProperties.VlanID
-	}
-}
-
-// convertAppMeshToCNIConfig converts input app mesh config into cni config
-func convertAppMeshToCNIConfig(appMesh *apiappmesh.AppMesh, cfg *ecscni.Config) {
-	cfg.AppMeshCNIEnabled = true
-	cfg.IgnoredUID = appMesh.IgnoredUID
-	cfg.IgnoredGID = appMesh.IgnoredGID
-	cfg.ProxyIngressPort = appMesh.ProxyIngressPort
-	cfg.ProxyEgressPort = appMesh.ProxyEgressPort
-	cfg.AppPorts = appMesh.AppPorts
-	cfg.EgressIgnoredIPs = appMesh.EgressIgnoredIPs
-	cfg.EgressIgnoredPorts = appMesh.EgressIgnoredPorts
-
-}
-
-// isNetworkModeVPC checks if the task is configured to use task-networking feature
-func (task *Task) isNetworkModeVPC() bool {
-	if task.GetTaskENI() == nil {
-		return false
-	}
-
-	return true
+// IsNetworkModeVPC checks if the task is configured to use the AWSVPC task networking feature.
+func (task *Task) IsNetworkModeVPC() bool {
+	return len(task.ENIs) > 0
 }
 
 func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) error {
-	if !task.isNetworkModeVPC() {
+	if !task.IsNetworkModeVPC() {
 		return nil
 	}
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
@@ -1440,7 +1434,7 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 	// when using non docker daemon supported network modes, its existence
 	// indicates the need to configure the network mode outside of supported
 	// network drivers
-	if task.GetTaskENI() == nil {
+	if task.GetPrimaryENI() == nil {
 		return false, ""
 	}
 
@@ -1472,7 +1466,7 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 // This should only be done for the pause container as other containers inherit
 // /etc/resolv.conf of this container (they share the network namespace)
 func (task *Task) overrideDNS(hostConfig *dockercontainer.HostConfig) *dockercontainer.HostConfig {
-	eni := task.GetTaskENI()
+	eni := task.GetPrimaryENI()
 	if eni == nil {
 		return hostConfig
 	}
@@ -1487,7 +1481,7 @@ func (task *Task) overrideDNS(hostConfig *dockercontainer.HostConfig) *dockercon
 // container's docker config. At the time of implmentation, we are only using it
 // to configure the pause container for awsvpc tasks
 func (task *Task) applyENIHostname(dockerConfig *dockercontainer.Config) *dockercontainer.Config {
-	eni := task.GetTaskENI()
+	eni := task.GetPrimaryENI()
 	if eni == nil {
 		return dockerConfig
 	}
@@ -1504,7 +1498,7 @@ func (task *Task) applyENIHostname(dockerConfig *dockercontainer.Config) *docker
 // generateENIExtraHosts returns a slice of strings of the form "hostname:ip"
 // that is generated using the hostname and ip addresses allocated to the ENI
 func (task *Task) generateENIExtraHosts() []string {
-	eni := task.GetTaskENI()
+	eni := task.GetPrimaryENI()
 	if eni == nil {
 		return nil
 	}
@@ -1903,20 +1897,29 @@ func (task *Task) SetSentStatus(status apitaskstatus.TaskStatus) {
 	task.SentStatusUnsafe = status
 }
 
-// SetTaskENI sets the eni information of the task
-func (task *Task) SetTaskENI(eni *apieni.ENI) {
+// AddTaskENI adds ENI information to the task.
+func (task *Task) AddTaskENI(eni *apieni.ENI) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
-	task.ENI = eni
+	task.ENIs = append(task.ENIs, eni)
 }
 
-// GetTaskENI returns the eni of task, for now task can only have one enis
-func (task *Task) GetTaskENI() *apieni.ENI {
+// GetTaskENIs returns the list of ENIs for the task.
+func (task *Task) GetTaskENIs() []*apieni.ENI {
+	// TODO: what's the point of locking if we are returning a pointer?
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
-	return task.ENI
+	return task.ENIs
+}
+
+// GetPrimaryENI returns the primary ENI of the task.
+func (task *Task) GetPrimaryENI() *apieni.ENI {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ENIs[0]
 }
 
 // SetAppMesh sets the app mesh config of the task
@@ -2021,15 +2024,25 @@ func (task *Task) stringUnsafe() string {
 	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
 		task.Family, task.Version, task.Arn,
 		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String())
+
 	res += " Containers: ["
 	for _, container := range task.Containers {
-		res += fmt.Sprintf("%s (%s->%s),", container.Name, container.GetKnownStatus().String(), container.GetDesiredStatus().String())
+		res += fmt.Sprintf("%s (%s->%s),",
+			container.Name,
+			container.GetKnownStatus().String(),
+			container.GetDesiredStatus().String())
+	}
+	res += "]"
+
+	if len(task.ENIs) > 0 {
+		res += " ENIs: ["
+		for _, eni := range task.ENIs {
+			res += fmt.Sprintf("%s,", eni.String())
+		}
+		res += "]"
 	}
 
-	if task.ENI != nil {
-		res += fmt.Sprintf(" ENI: [%s]", task.ENI.String())
-	}
-	return res + "]"
+	return res
 }
 
 // GetID is used to retrieve the taskID from taskARN
