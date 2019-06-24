@@ -115,6 +115,8 @@ type Container struct {
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link
 	Links []string
+	// LogRouter contains informations about type and configuration needed by log router container
+	LogRouter *LogRouter `json:"logRouter"`
 	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
 	VolumesFrom []VolumeFrom `json:"volumesFrom"`
 	// MountPoints contains a list of volume mount paths
@@ -270,6 +272,19 @@ type MountPoint struct {
 	SourceVolume  string `json:"sourceVolume"`
 	ContainerPath string `json:"containerPath"`
 	ReadOnly      bool   `json:"readOnly"`
+}
+
+// Log Router describes the configuration details and type of log router being used.
+type LogRouter struct {
+	Config               *LogRouterConfig `json:"config"`
+	EnableECSLogMetaData bool             `json:"enableECSLogMetaData"`
+	Type                 string           `json:"type"`
+}
+
+// LogRouterConfig specifies Fluentd/Fluent Bit Configuration
+type LogRouterConfig struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
 }
 
 // VolumeFrom is a volume which references another container as its source.
