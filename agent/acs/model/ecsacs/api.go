@@ -294,6 +294,8 @@ type Container struct {
 
 	Links []*string `locationName:"links" type:"list"`
 
+	LogRouter *LogRouter `locationName:"logRouter" type:"structure"`
+
 	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
 
 	Memory *int64 `locationName:"memory" type:"integer"`
@@ -723,6 +725,44 @@ func (s InvalidInstanceException) GoString() string {
 	return s.String()
 }
 
+type LogRouter struct {
+	_ struct{} `type:"structure"`
+
+	Config *LogRouterConfig `locationName:"config" type:"structure"`
+
+	EnableECSLogMetaData *bool `locationName:"enableECSLogMetaData" type:"boolean"`
+
+	Type *string `locationName:"type" type:"string" enum:"LogRouterType"`
+}
+
+// String returns the string representation
+func (s LogRouter) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LogRouter) GoString() string {
+	return s.String()
+}
+
+type LogRouterConfig struct {
+	_ struct{} `type:"structure"`
+
+	Type *string `locationName:"type" type:"string" enum:"LogRouterConfigType"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s LogRouterConfig) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s LogRouterConfig) GoString() string {
+	return s.String()
+}
+
 type MountPoint struct {
 	_ struct{} `type:"structure"`
 
@@ -1096,11 +1136,11 @@ type Secret struct {
 
 	Region *string `locationName:"region" type:"string"`
 
+	Target *string `locationName:"target" type:"string" enum:"SecretTarget"`
+
 	Type *string `locationName:"type" type:"string" enum:"SecretType"`
 
 	ValueFrom *string `locationName:"valueFrom" type:"string"`
-
-	Target *string `locationName:"target" type:"string"`
 }
 
 // String returns the string representation
