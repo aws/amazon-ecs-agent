@@ -104,27 +104,27 @@ func TestLoadsV13DataCorrectly(t *testing.T) {
 	err = stateManager.Load()
 	assert.NoError(t, err)
 
-	assert.Equal(t, "test", cluster)
+	assert.Equal(t, "test-statefile", cluster)
 	assert.EqualValues(t, 0, sequenceNumber)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
 	var deadTask *apitask.Task
 	for _, task := range tasks {
-		if task.Arn == "arn:aws:ecs:us-west-2:694464167470:task/5e9f6adb-2a02-48db-860f-41e12c4ced32" {
+		if task.Arn == "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/6a86da4c40ed4a0b94cf359e840dda98" {
 			deadTask = task
 		}
 	}
 	require.NotNil(t, deadTask)
-	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskRunning)
-	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerRunning)
-	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerRunning)
-	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerRunning)
+	assert.Equal(t, deadTask.GetSentStatus(), apitaskstatus.TaskStopped)
+	assert.Equal(t, deadTask.Containers[0].SentStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].DesiredStatusUnsafe, apicontainerstatus.ContainerStopped)
+	assert.Equal(t, deadTask.Containers[0].KnownStatusUnsafe, apicontainerstatus.ContainerStopped)
 
 	exitCode := deadTask.Containers[0].KnownExitCodeUnsafe
 	require.NotNil(t, exitCode)
 	assert.Equal(t, *exitCode, 128)
 
-	expected, _ := time.Parse(time.RFC3339, "2015-04-28T17:29:48.129140193Z")
+	expected, _ := time.Parse(time.RFC3339, "2019-06-26T15:56:54.353114618Z")
 	assert.Equal(t, deadTask.GetKnownStatusTime(), expected)
 
 }
@@ -194,7 +194,7 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	err = stateManager.Load()
 	assert.NoError(t, err)
 
-	assert.Equal(t, "state-file", cluster)
+	assert.Equal(t, "test-statefile", cluster)
 	assert.EqualValues(t, 0, sequenceNumber)
 
 	tasks, err := taskEngine.ListTasks()
@@ -202,7 +202,7 @@ func TestLoadsDataForPrivateRegistryTask(t *testing.T) {
 	assert.Equal(t, 1, len(tasks))
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/19e8453e9a404cb58d55aaa0df65b4f5", task.Arn)
 	assert.Equal(t, "private-registry-state", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
 
@@ -238,23 +238,23 @@ func TestLoadsDataForSecretsTask(t *testing.T) {
 	assert.NoError(t, err)
 	err = stateManager.Load()
 	assert.NoError(t, err)
-	assert.Equal(t, "state-file", cluster)
+	assert.Equal(t, "test-statefile", cluster)
 	assert.EqualValues(t, 0, sequenceNumber)
 	tasks, err := taskEngine.ListTasks()
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(tasks))
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/33425c99-5db7-45fb-8244-bc94d00661e4", task.Arn)
-	assert.Equal(t, "secrets-state", task.Family)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/7e1bfc28fe764a789a721710258337ff", task.Arn)
+	assert.Equal(t, "test-secret-state", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
 	container := task.Containers[0]
 	assert.Equal(t, "container_1", container.Name)
 	assert.NotNil(t, container.Secrets)
 	secret := container.Secrets[0]
 	assert.Equal(t, "ENVIRONMENT_VARIABLE", secret.Type)
-	assert.Equal(t, "ssm-secret", secret.Name)
+	assert.Equal(t, "mysecret", secret.Name)
 	assert.Equal(t, "us-west-2", secret.Region)
-	assert.Equal(t, "secret-value-from", secret.ValueFrom)
+	assert.Equal(t, "/ecs/secrets/test", secret.ValueFrom)
 	assert.Equal(t, "ssm", secret.Provider)
 }
 
