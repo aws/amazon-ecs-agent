@@ -55,10 +55,6 @@
                   "ContainerDependencies": null,
                   "ResourceDependencies": [
                     {
-                      "Name": "cgroup",
-                      "RequiredStatus": 1
-                    },
-                    {
                       "Name": "ssmsecret",
                       "RequiredStatus": 1
                     }
@@ -96,20 +92,6 @@
                       "region": "us-west-2"
                     }
                   ]
-                }
-              }
-            ],
-            "cgroup": [
-              {
-                "cgroupRoot": "/ecs/33425c99-5db7-45fb-8244-bc94d00661e4",
-                "cgroupMountPath": "/sys/fs/cgroup",
-                "createdAt": "0001-01-01T00:00:00Z",
-                "desiredStatus": "CREATED",
-                "knownStatus": "CREATED",
-                "resourceSpec": {
-                  "cpu": {
-                    "shares": 2
-                  }
                 }
               }
             ]
@@ -167,10 +149,6 @@
               "1": {
                 "ContainerDependencies": null,
                 "ResourceDependencies": [
-                  {
-                    "Name": "cgroup",
-                    "RequiredStatus": 1
-                  },
                   {
                     "Name": "ssmsecret",
                     "RequiredStatus": 1

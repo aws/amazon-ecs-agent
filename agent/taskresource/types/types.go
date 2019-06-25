@@ -51,33 +51,29 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 	}
 	result := make(map[string][]taskresource.TaskResource)
 	for key, value := range resources {
-		switch key {
-		case CgroupKey:
-			if unmarshlCgroup(key, value, result) != nil {
-				return err
-			}
-		case DockerVolumeKey:
-			if unmarshalDockerVolume(key, value, result) != nil {
-				return err
-			}
-		case ASMAuthKey:
-			if unmarshalASMAuthKey(key, value, result) != nil {
-				return err
-			}
-		case SSMSecretKey:
-			if unmarshalSSMSecretKey(key, value, result) != nil {
-				return err
-			}
-		case ASMSecretKey:
-			if unmarshalASMSecretKey(key, value, result) != nil {
-				return err
-			}
-		default:
-			return errors.New("Unsupported resource type")
+		if err := unmarshalResource(key, value, result); err != nil {
+			return err
 		}
 	}
 	*rm = result
 	return nil
+}
+
+func unmarshalResource(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	switch key {
+	case CgroupKey:
+		return unmarshlCgroup(key, value, result)
+	case DockerVolumeKey:
+		return unmarshalDockerVolume(key, value, result)
+	case ASMAuthKey:
+		return unmarshalASMAuthKey(key, value, result)
+	case SSMSecretKey:
+		return unmarshalSSMSecretKey(key, value, result)
+	case ASMSecretKey:
+		return unmarshalASMSecretKey(key, value, result)
+	default:
+		return errors.New("Unsupported resource type")
+	}
 }
 
 func unmarshlCgroup(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
