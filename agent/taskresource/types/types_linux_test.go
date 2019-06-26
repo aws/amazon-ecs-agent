@@ -16,13 +16,17 @@
 package types
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
-	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 func TestUnmarshalResourcesMap(t *testing.T) {
@@ -39,4 +43,25 @@ func TestUnmarshalResourcesMap(t *testing.T) {
 	assert.Equal(t, time.Time{}, cgroupResource.GetCreatedAt())
 	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetDesiredStatus())
 	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetKnownStatus())
+}
+
+func TestMarshalUnmarshalLogRouterResource(t *testing.T) {
+	resources := make(map[string][]taskresource.TaskResource)
+	logRouters := []taskresource.TaskResource{
+		&logrouter.LogRouterResource{},
+	}
+	logRouters[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	logRouters[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
+
+	resources["logrouter"] = logRouters
+	data, err := json.Marshal(resources)
+	require.NoError(t, err)
+
+	var unmarshalledResource ResourcesMap
+	err = json.Unmarshal(data, &unmarshalledResource)
+	assert.NoError(t, err)
+	unMarshalledLogRouters, ok := unmarshalledResource["logrouter"]
+	assert.True(t, ok)
+	assert.Equal(t, unMarshalledLogRouters[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledLogRouters[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }
