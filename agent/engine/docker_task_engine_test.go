@@ -2694,3 +2694,62 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 		})
 	}
 }
+
+// TestCreateContainerAddV3EndpointIDToState tests that in createContainer, when the
+// container's v3 endpoint id is set, we will add mappings to engine state
+func TestCreateContainerAddLog(t *testing.T) {
+	taskName := "logTask"
+	taskARN := "logRouterTask"
+	taskFamily := "logRouterTaskFamily"
+	taskVersion := "1"
+	getTask := func() *apitask.Task {
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					LogRouter: &apicontainer.LogRouter{
+						Type:                 "logrouter",
+						EnableECSLogMetaData: true,
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name                  string
+		task                  *apitask.Task
+		expectedLogConfigType string
+	}{
+		{
+			name:                  "test create fluentd log router container",
+			task:                  getTask(),
+			expectedLogConfigType: "fluentd",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			// V3EndpointID mappings are only added to state when dockerID is available. So return one here.
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Contains(t, hostConfig.LogConfig.Type, tc.expectedLogConfigType)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.Nil(t, ret.Error)
+		})
+	}
+}

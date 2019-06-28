@@ -16,8 +16,10 @@ package engine
 
 import (
 	"context"
+	"github.com/docker/docker/api/types/container"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -69,6 +71,12 @@ const (
 	maxEngineConnectRetryDelay         = 2 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
+	logConfigType                      = "logrouter"
+	logDriverType                      = "fluentd"
+	logDriverTag                       = "tag"
+	logDriverFluentdAddress            = "fluentd-address"
+	dataLogDriverPath                  = "/data/logrouter/"
+	dataLogDriverSocketPath            = "/socket/fluent.sock"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -868,6 +876,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
+	// Check if the type of logconfig for the container is logrouter (To be changed ones a different name is approved)
+	if container.LogRouter.Type != "" && container.LogRouter.Type == logConfigType {
+		hostConfig.LogConfig = getLogRouterConfig(task, container, hostConfig, engine)
+	}
+
 	if container.AWSLogAuthExecutionRole() {
 		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
 		if err != nil {
@@ -943,6 +956,19 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
 		task.Arn, container.Name, metadata.DockerID, time.Since(createContainerBegin))
 	return metadata
+}
+
+func getLogRouterConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *container.HostConfig, engine *DockerTaskEngine) container.LogConfig {
+	seelog.Infof("Since the value for logrouter is %s, we modify LogConfig values to support log router driver", logConfigType)
+	fields := strings.Split(task.Arn, "/")
+	taskID := fields[len(fields)-1]
+	tag := container.Name + "-" + taskID
+	fluentd := engine.cfg.DataDirOnHost + dataLogDriverPath + taskID + dataLogDriverSocketPath
+	logConfig := hostConfig.LogConfig
+	logConfig.Type = logDriverType
+	logConfig.Config[logDriverTag] = tag
+	logConfig.Config[logDriverFluentdAddress] = fluentd
+	return logConfig
 }
 
 func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
