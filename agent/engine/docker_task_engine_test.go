@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -2692,5 +2693,96 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			assert.Nil(t, ret.Error)
 
 		})
+	}
+}
+
+// TestCreateContainerAddLogDriverConfig tests that in createContainer, when the
+// container's logConfig is set, the driver values are as expected
+func TestCreateContainerAddLogDriverConfig(t *testing.T) {
+	taskName := "logSenderTask"
+	taskARN := "arn:aws:ecs:region:account-id:task/task-id"
+	taskID := "task-id"
+	taskFamily := "logSenderTaskFamily"
+	taskVersion := "1"
+	awslogRouterType := "awslogrouter"
+	notAWSlogRouterType := "notawslogrouter"
+	dataLogDriverPath := "/data/logrouter/"
+	dataLogDriverSocketPath := "/socket/fluent.sock"
+	socketPathPrefix := "unix://"
+	getTask := func(logRouterType string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logRouterType,
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name                           string
+		task                           *apitask.Task
+		expectedLogConfigType          string
+		expectedLogConfigTag           string
+		expectedLogConfigFluentAddress string
+	}{
+		{
+			name:                           "test with awslogrouter container",
+			task:                           getTask(awslogRouterType),
+			expectedLogConfigType:          "fluentd",
+			expectedLogConfigTag:           taskName + "-" + taskID,
+			expectedLogConfigFluentAddress: filepath.Join(socketPathPrefix, defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+		},
+		{
+			name:                           "test without awslogrouter container",
+			task:                           getTask(notAWSlogRouterType),
+			expectedLogConfigType:          notAWSlogRouterType,
+			expectedLogConfigTag:           "",
+			expectedLogConfigFluentAddress: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Equal(t, hostConfig.LogConfig.Type, tc.expectedLogConfigType)
+					assert.Equal(t, hostConfig.LogConfig.Config["tag"], tc.expectedLogConfigTag)
+					assert.Equal(t, hostConfig.LogConfig.Config["fluentd-address"], tc.expectedLogConfigFluentAddress)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+
 	}
 }

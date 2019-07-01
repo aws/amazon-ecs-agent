@@ -16,8 +16,10 @@ package engine
 
 import (
 	"context"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,6 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	dockercontainer "github.com/docker/docker/api/types/container"
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
@@ -69,6 +72,13 @@ const (
 	maxEngineConnectRetryDelay         = 2 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
+	logConfigType                      = "awslogrouter"
+	logDriverType                      = "fluentd"
+	logDriverTag                       = "tag"
+	logDriverFluentdAddress            = "fluentd-address"
+	dataLogDriverPath                  = "/data/logrouter/"
+	dataLogDriverSocketPath            = "/socket/fluent.sock"
+	socketPathPrefix                   = "unix://"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -868,6 +878,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
+	// If the container is using a special log driver type "awslogrouter", it means the container wants to use
+	// log router to send logs. In this case, override the log driver type to be fluentd
+	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the log router
+	// For reference - https://docs.docker.com/config/containers/logging/fluentd/
+	if hostConfig.LogConfig.Type == logConfigType {
+		hostConfig.LogConfig = getLogRouterConfig(task, container, hostConfig, engine.cfg)
+	}
+
 	if container.AWSLogAuthExecutionRole() {
 		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
 		if err != nil {
@@ -943,6 +961,22 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
 		task.Arn, container.Name, metadata.DockerID, time.Since(createContainerBegin))
 	return metadata
+}
+
+func getLogRouterConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
+	seelog.Debugf("Applying logrouter config for container %s", container.Name)
+	fields := strings.Split(task.Arn, "/")
+	taskID := fields[len(fields)-1]
+	tag := container.Name + "-" + taskID
+	fluentd := filepath.Join(socketPathPrefix, cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
+	logConfig := hostConfig.LogConfig
+	logConfig.Type = logDriverType
+	if logConfig.Config == nil {
+		logConfig.Config = make(map[string]string)
+	}
+	logConfig.Config[logDriverTag] = tag
+	logConfig.Config[logDriverFluentdAddress] = fluentd
+	return logConfig
 }
 
 func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
