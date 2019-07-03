@@ -14,7 +14,7 @@
 $oldPref = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
 
-Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
+Invoke-Expression "Import-Module ECSTools; Initialize-ECSHost"
 
 Invoke-Expression "go get -u  github.com/aws/aws-sdk-go"
 Invoke-Expression "go get -u  github.com/aws/aws-sdk-go/aws"

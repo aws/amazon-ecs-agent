@@ -12,8 +12,22 @@
 # permissions and limitations under the License.
 
 Param (
-  [string]$BaseImageName="microsoft/windowsservercore"
+  [string]$Platform="windows2016"
 )
+
+if ($Platform -like "windows2016") {
+  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2016"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:91368f3cff77ad42259ccb3bf3d1a4e145cf5fa9e486f23999d32711c2913f3e"
+} elseif ($Platform -like "windows2019")  {
+  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2019"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:e20960b4c06acee08af55164e3abc37b39cdc128ce2f5fcdf3397c738cb91069"
+} else {
+  echo "Invalid platform parameter"
+  exit 1
+}
+
+$env:BASE_IMAGE_NAME=$BaseImageName
+$env:BASE_IMAGE_NAME_WITH_DIGEST=$BaseImageNameWithDigest
 
 # Prepare windows base image
 $dockerImages = Invoke-Expression "docker images"
