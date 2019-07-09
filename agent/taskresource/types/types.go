@@ -21,6 +21,7 @@ import (
 	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	efsres "github.com/aws/amazon-ecs-agent/agent/taskresource/efs"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
@@ -36,6 +37,8 @@ const (
 	SSMSecretKey = ssmsecretres.ResourceName
 	// ASMSecretKey is the string used in resources map to represent asm secret
 	ASMSecretKey = asmsecretres.ResourceName
+	// EFSKey is the string used in resources map to represent efs resource
+	EFSKey = efsres.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -62,7 +65,7 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 func unmarshalResource(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
 	switch key {
 	case CgroupKey:
-		return unmarshlCgroup(key, value, result)
+		return unmarshalCgroup(key, value, result)
 	case DockerVolumeKey:
 		return unmarshalDockerVolume(key, value, result)
 	case ASMAuthKey:
@@ -71,12 +74,14 @@ func unmarshalResource(key string, value json.RawMessage, result map[string][]ta
 		return unmarshalSSMSecretKey(key, value, result)
 	case ASMSecretKey:
 		return unmarshalASMSecretKey(key, value, result)
+	case EFSKey:
+		return unmarshalEFS(key, value, result)
 	default:
 		return errors.New("Unsupported resource type")
 	}
 }
 
-func unmarshlCgroup(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+func unmarshalCgroup(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
 	var cgroups []json.RawMessage
 	err := json.Unmarshal(value, &cgroups)
 	if err != nil {
@@ -160,6 +165,23 @@ func unmarshalASMSecretKey(key string, value json.RawMessage, result map[string]
 			return err
 		}
 		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalEFS(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var efsSlices []json.RawMessage
+	err := json.Unmarshal(value, &efsSlices)
+	if err != nil {
+		return err
+	}
+	for _, e := range efsSlices {
+		efs := &efsres.EFSResource{}
+		err := efs.UnmarshalJSON(e)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], efs)
 	}
 	return nil
 }

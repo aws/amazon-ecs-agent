@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -187,6 +189,27 @@ func (vol *VolumeResource) SetKnownStatus(status resourcestatus.ResourceStatus) 
 	defer vol.lock.Unlock()
 
 	vol.knownStatusUnsafe = status
+	vol.updateAppliedStatusUnsafe(status)
+}
+
+// updateAppliedStatusUnsafe updates the resource transitioning status
+func (vol *VolumeResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
+	if vol.appliedStatusUnsafe == resourcestatus.ResourceStatus(VolumeStatusNone) {
+		return
+	}
+
+	// Check if the resource transition has already finished
+	if vol.appliedStatusUnsafe <= knownStatus {
+		vol.appliedStatusUnsafe = resourcestatus.ResourceStatus(VolumeStatusNone)
+	}
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (vol *VolumeResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	return vol.appliedStatusUnsafe
 }
 
 // GetKnownStatus safely returns the currently known status of the task
@@ -372,5 +395,18 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	if temp.KnownStatus != nil {
 		vol.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
+	return nil
+}
+
+func (vol *VolumeResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
