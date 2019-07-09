@@ -95,7 +95,10 @@ func (logRouter *LogRouterResource) Initialize(resourceFields *taskresource.Reso
 	logRouter.lock.Lock()
 	defer logRouter.lock.Unlock()
 
+	// Initialize the fields that won't be populated by unmarshalling from state file.
 	logRouter.initStatusToTransition()
+	logRouter.os = oswrapper.NewOS()
+	logRouter.ioutil = ioutilwrapper.NewIOUtil()
 }
 
 func (logRouter *LogRouterResource) initStatusToTransition() {
@@ -156,6 +159,19 @@ func (logRouter *LogRouterResource) SetKnownStatus(status resourcestatus.Resourc
 	defer logRouter.lock.Unlock()
 
 	logRouter.knownStatusUnsafe = status
+	logRouter.updateAppliedStatusUnsafe(status)
+}
+
+// updateAppliedStatusUnsafe updates the resource transitioning status.
+func (logRouter *LogRouterResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
+	if logRouter.appliedStatusUnsafe == resourcestatus.ResourceStatus(LogRouterStatusNone) {
+		return
+	}
+
+	if logRouter.appliedStatusUnsafe <= knownStatus {
+		// Set applied status back to none to indicate that the transition has finished.
+		logRouter.appliedStatusUnsafe = resourcestatus.ResourceStatus(LogRouterStatusNone)
+	}
 }
 
 // GetKnownStatus safely returns the currently known status of the task.

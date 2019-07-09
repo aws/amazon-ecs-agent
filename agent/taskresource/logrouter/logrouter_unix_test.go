@@ -22,6 +22,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 )
@@ -259,4 +262,32 @@ func TestCleanupLogRouterResourceError(t *testing.T) {
 	mockOS.EXPECT().RemoveAll(testResourceDir).Return(errors.New("test error"))
 
 	assert.Error(t, logRouterResource.Cleanup())
+}
+
+func TestInitializeLogRouterResource(t *testing.T) {
+	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
+	logRouterResource.Initialize(&taskresource.ResourceFields{}, status.TaskRunning, status.TaskRunning)
+
+	assert.NotNil(t, logRouterResource.statusToTransitions)
+	assert.Equal(t, 1, len(logRouterResource.statusToTransitions))
+	assert.NotNil(t, logRouterResource.os)
+	assert.NotNil(t, logRouterResource.ioutil)
+}
+
+func TestSetKnownStatus(t *testing.T) {
+	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
+	logRouterResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(LogRouterCreated)
+
+	logRouterResource.SetKnownStatus(resourcestatus.ResourceStatus(LogRouterCreated))
+	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterCreated), logRouterResource.knownStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterStatusNone), logRouterResource.appliedStatusUnsafe)
+}
+
+func TestSetKnownStatusNoAppliedStatusUpdate(t *testing.T) {
+	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
+	logRouterResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(LogRouterCreated)
+
+	logRouterResource.SetKnownStatus(resourcestatus.ResourceStatus(LogRouterStatusNone))
+	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterStatusNone), logRouterResource.knownStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterCreated), logRouterResource.appliedStatusUnsafe)
 }
