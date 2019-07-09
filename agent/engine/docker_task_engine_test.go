@@ -2745,6 +2745,7 @@ func TestCreateContainerAddLogDriverConfig(t *testing.T) {
 		expectedLogConfigType          string
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
+		expectedFluentdAsyncConnect    string
 	}{
 		{
 			name:                           "test with awslogrouter container",
@@ -2752,6 +2753,7 @@ func TestCreateContainerAddLogDriverConfig(t *testing.T) {
 			expectedLogConfigType:          "fluentd",
 			expectedLogConfigTag:           taskName + "-" + taskID,
 			expectedLogConfigFluentAddress: filepath.Join(socketPathPrefix, defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
 		},
 		{
 			name:                           "test without awslogrouter container",
@@ -2759,6 +2761,7 @@ func TestCreateContainerAddLogDriverConfig(t *testing.T) {
 			expectedLogConfigType:          notAWSlogRouterType,
 			expectedLogConfigTag:           "",
 			expectedLogConfigFluentAddress: "",
+			expectedFluentdAsyncConnect:    "",
 		},
 	}
 
@@ -2779,6 +2782,7 @@ func TestCreateContainerAddLogDriverConfig(t *testing.T) {
 					assert.Equal(t, hostConfig.LogConfig.Type, tc.expectedLogConfigType)
 					assert.Equal(t, hostConfig.LogConfig.Config["tag"], tc.expectedLogConfigTag)
 					assert.Equal(t, hostConfig.LogConfig.Config["fluentd-address"], tc.expectedLogConfigFluentAddress)
+					assert.Equal(t, hostConfig.LogConfig.Config["fluentd-async-connect"], tc.expectedFluentdAsyncConnect)
 				})
 			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
 			assert.NoError(t, ret.Error)

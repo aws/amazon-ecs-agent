@@ -77,6 +77,7 @@ const (
 	logDriverTag                       = "tag"
 	logDriverFluentdAddress            = "fluentd-address"
 	dataLogDriverPath                  = "/data/logrouter/"
+	logDriverAsyncConnect              = "fluentd-async-connect"
 	dataLogDriverSocketPath            = "/socket/fluent.sock"
 	socketPathPrefix                   = "unix://"
 )
@@ -976,6 +977,7 @@ func getLogRouterConfig(task *apitask.Task, container *apicontainer.Container, h
 	}
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
+	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
 	return logConfig
 }
 
