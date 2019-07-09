@@ -14,7 +14,7 @@
 $oldPref = $ErrorActionPreference
 $ErrorActionPreference = 'Stop'
 
-Invoke-Expression ${PSScriptRoot}\..\windows-deploy\hostsetup.ps1
+Invoke-Expression "Import-Module ECSTools; Initialize-ECSHost"
 
 # Create amazon/amazon-ecs-v3-task-endpoint-validator-windows for tests
 Invoke-Expression "go get github.com/docker/docker/api/types github.com/pkg/errors"
