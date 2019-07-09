@@ -2704,7 +2704,7 @@ func TestCreateContainerAddLogDriverConfig(t *testing.T) {
 	taskID := "task-id"
 	taskFamily := "logSenderTaskFamily"
 	taskVersion := "1"
-	awslogRouterType := "awslogrouter"
+	awslogRouterType := "awsrouter"
 	notAWSlogRouterType := "notawslogrouter"
 	dataLogDriverPath := "/data/logrouter/"
 	dataLogDriverSocketPath := "/socket/fluent.sock"

@@ -49,6 +49,9 @@ const (
 	taskEIAAttributeSuffix                      = "task-eia"
 	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
 	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
+	capabilityAWSRouterFluentd                  = "awsrouter.fluentd"
+	capabilityAWSRouterFluentbit                = "awsrouter.fluentbit"
+	capabilityAWSRouterLoggingDriver            = "logging-driver.awsrouter"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -86,6 +89,9 @@ const (
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 //    ecs.capability.task-eni-trunking
+//    ecs.capability.awsrouter.fluentd
+//    ecs.capability.awsrouter.fluentbit
+//    com.amazonaws.ecs.capability.logging-driver.awsrouter
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -163,6 +169,15 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support elastic inference in agent
 	capabilities = agent.appendTaskEIACapabilities(capabilities)
+
+	// support aws router capabilities for fluentd
+	capabilities = agent.appendAWSRouterFluentdCapabilities(capabilities)
+
+	// support aws router capabilities for fluentbit
+	capabilities = agent.appendAWSRouterFluentbitCapabilities(capabilities)
+
+	// support aws router capabilities for log driver router
+	capabilities = agent.appendAWSLoggingDriverCapabilities(capabilities)
 
 	return capabilities, nil
 }

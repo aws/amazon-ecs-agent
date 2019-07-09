@@ -72,7 +72,7 @@ const (
 	maxEngineConnectRetryDelay         = 2 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
-	logConfigType                      = "awslogrouter"
+	logConfigType                      = "awsrouter"
 	logDriverType                      = "fluentd"
 	logDriverTag                       = "tag"
 	logDriverFluentdAddress            = "fluentd-address"
@@ -878,7 +878,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
-	// If the container is using a special log driver type "awslogrouter", it means the container wants to use
+	// If the container is using a special log driver type "awsrouter", it means the container wants to use
 	// log router to send logs. In this case, override the log driver type to be fluentd
 	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the log router
 	// For reference - https://docs.docker.com/config/containers/logging/fluentd/
