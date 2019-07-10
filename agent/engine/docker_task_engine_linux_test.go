@@ -37,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
@@ -49,6 +50,10 @@ import (
 
 const (
 	cgroupMountPath = "/sys/fs/cgroup"
+
+	testTaskARN        = "arn:aws:ecs:region:account-id:task/task-id"
+	testTaskDefFamily  = "testFamily"
+	testTaskDefVersion = "1"
 )
 
 func init() {
@@ -383,6 +388,68 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				}
 				time.Sleep(5 * time.Millisecond)
 			}
+		})
+	}
+}
+
+func TestCreateLogRouterContainer(t *testing.T) {
+	getTask := func(logrouterType string) *apitask.Task {
+		return &apitask.Task{
+			Arn:     testTaskARN,
+			Family:  testTaskDefFamily,
+			Version: testTaskDefVersion,
+			Containers: []*apicontainer.Container{
+				{
+					Name: "logrouter",
+					LogRouter: &apicontainer.LogRouter{
+						Type:                 logrouterType,
+						EnableECSLogMetaData: true,
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name               string
+		task               *apitask.Task
+		expectedConfigBind string
+		expectedSocketBind string
+	}{
+		{
+			name:               "test create fluentd log router container",
+			task:               getTask(logrouter.LogRouterTypeFluentd),
+			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/socket/:/var/run/",
+		},
+		{
+			name:               "test create fluentbit log router container",
+			task:               getTask(logrouter.LogRouterTypeFluentbit),
+			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/socket/:/var/run/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			mockTime.EXPECT().Now().AnyTimes()
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Contains(t, hostConfig.Binds, tc.expectedConfigBind)
+					assert.Contains(t, hostConfig.Binds, tc.expectedSocketBind)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
 		})
 	}
 }
