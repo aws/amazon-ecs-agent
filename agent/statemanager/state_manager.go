@@ -87,7 +87,9 @@ const (
 	// 	 a) Add 'attachmentType' field to 'api.ENIAttachment'
 	//	 b) Add 'InterfaceAssociationProtocol' field to 'api.ENI'
 	//	 c) Add 'InterfaceVlanProperties' field to 'api.ENI'
-	// 23) Add 'LogRouter' field to 'Container' struct
+	// 23)
+	//   a) Add 'LogRouter' field to 'Container' struct
+	//   b) Add 'logrouter' field to 'resources'
 
 	ECSDataVersion = 23
 

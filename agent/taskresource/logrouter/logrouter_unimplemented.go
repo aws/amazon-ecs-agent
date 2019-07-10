@@ -27,10 +27,20 @@ import (
 const (
 	// ResourceName is the name of the log router resource.
 	ResourceName = "logrouter"
+	// LogRouterTypeFluentd is the type of a fluentd log router.
+	LogRouterTypeFluentd = "fluentd"
+	// LogRouterTypeFluentbit is the type of a fluentbit log router.
+	LogRouterTypeFluentbit = "fluentbit"
 )
 
 // LogRouterResource represents the log router resource.
 type LogRouterResource struct{}
+
+// NewLogRouterResource returns a new LogRouterResource.
+func NewLogRouterResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, logRouterType string,
+	ecsMetadataEnabled bool, containerToLogOptions map[string]map[string]string) *LogRouterResource {
+	return &LogRouterResource{}
+}
 
 // SetDesiredStatus safely sets the desired status of the resource.
 func (logRouter *LogRouterResource) SetDesiredStatus(status resourcestatus.ResourceStatus) {}

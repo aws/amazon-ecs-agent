@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
@@ -94,6 +95,22 @@ const (
 	ipcModeTask     = "task"
 	ipcModeSharable = "shareable"
 	ipcModeNone     = "none"
+
+	// logRouterConfigBindFormatFluentd and logRouterConfigBindFormatFluentbit specifies the format of log router
+	// config file bind mount for fluentd and fluentbit log router respectively.
+	// First placeholder is host data dir, second placeholder is taskID.
+	logRouterConfigBindFormatFluentd   = "%s/data/logrouter/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
+	logRouterConfigBindFormatFluentbit = "%s/data/logrouter/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
+	// logRouterSocketBindFormat specifies the format for log router socket directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID.
+	logRouterSocketBindFormat = "%s/data/logrouter/%s/socket/:/var/run/"
+	// logRouterDriverName is the log driver name for containers that want to use the log router.
+	logRouterDriverName = "awsrouter"
+
+	// awsExecutionEnvKey is the key of the env specifying the execution environment.
+	awsExecutionEnvKey = "AWS_EXECUTION_ENV"
+	// ec2ExecutionEnv specifies the ec2 execution environment.
+	ec2ExecutionEnv = "AWS_ECS_EC2"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -306,6 +323,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
+
+	if task.hasLogRouter() {
+		err = task.initializeLogRouterResource(cfg, resourceFields)
+		if err != nil {
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
 
 	return nil
 }
@@ -707,6 +731,92 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 		}
 	}
 	return reqs
+}
+
+// hasLogRouter returns true if the task has a log router container.
+func (task *Task) hasLogRouter() bool {
+	for _, container := range task.Containers {
+		if container.LogRouter != nil { // This is a log router container.
+			return true
+		}
+	}
+	return false
+}
+
+// initializeLogRouterResource initializes the log router task resource and adds it as a dependency of the
+// log router container.
+func (task *Task) initializeLogRouterResource(config *config.Config, resourceFields *taskresource.ResourceFields) error {
+	containerToLogOptions, err := task.collectLogRouterOptions()
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize log router resource")
+	}
+
+	var logRouterResource *logrouter.LogRouterResource
+	for _, container := range task.Containers {
+		logRouter := container.LogRouter
+		if logRouter != nil {
+			var ec2InstanceID string
+			if container.Environment != nil && container.Environment[awsExecutionEnvKey] == ec2ExecutionEnv {
+				ec2InstanceID = resourceFields.EC2InstanceID
+			}
+
+			logRouterResource = logrouter.NewLogRouterResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+				ec2InstanceID, config.DataDir, logRouter.Type, logRouter.EnableECSLogMetaData, containerToLogOptions)
+			task.AddResource(logrouter.ResourceName, logRouterResource)
+			container.BuildResourceDependency(logRouterResource.GetName(), resourcestatus.ResourceCreated,
+				apicontainerstatus.ContainerCreated)
+			return nil
+		}
+	}
+
+	return errors.New("unable to initialize log router resource because there's no log router container")
+}
+
+// collectLogRouterOptions collects the log options for all the containers that use the log router container
+// as the log driver.
+func (task *Task) collectLogRouterOptions() (map[string]map[string]string, error) {
+	containerToLogOptions := make(map[string]map[string]string)
+
+	for _, container := range task.Containers {
+		if container.DockerConfig.HostConfig == nil {
+			continue
+		}
+
+		hostConfig := &dockercontainer.HostConfig{}
+		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
+		if err != nil {
+			return nil, errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
+		}
+
+		if hostConfig.LogConfig.Type == logRouterDriverName {
+			containerToLogOptions[container.Name] = hostConfig.LogConfig.Config
+		}
+	}
+
+	return containerToLogOptions, nil
+}
+
+// AddLogRouterBindMounts adds config file bind mount and socket directory bind mount to log router container's host
+// config.
+func (task *Task) AddLogRouterBindMounts(logRouterType string, hostConfig *dockercontainer.HostConfig,
+	config *config.Config) *apierrors.HostConfigError {
+	// TODO: fix task.GetID(). It's currently incorrect when opted in task long arn format.
+	fields := strings.Split(task.Arn, "/")
+	taskID := fields[len(fields)-1]
+
+	var configBind, socketBind string
+	switch logRouterType {
+	case logrouter.LogRouterTypeFluentd:
+		configBind = fmt.Sprintf(logRouterConfigBindFormatFluentd, config.DataDirOnHost, taskID)
+	case logrouter.LogRouterTypeFluentbit:
+		configBind = fmt.Sprintf(logRouterConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+	default:
+		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid log router type %s", logRouterType)}
+	}
+	socketBind = fmt.Sprintf(logRouterSocketBindFormat, config.DataDirOnHost, taskID)
+
+	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
+	return nil
 }
 
 // BuildCNIConfig constructs the cni configuration from eni

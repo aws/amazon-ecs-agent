@@ -893,9 +893,15 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	if container.LogRouter != nil {
+		err := task.AddLogRouterBindMounts(container.LogRouter.Type, hostConfig, engine.cfg)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
+		}
+	}
+
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
 	if container.HasSecretAsEnvOrLogDriver() {
-		//splunkToken, ok := hostConfig.LogConfig.Config["splunk-token"]
 		err := task.PopulateSecrets(hostConfig, container)
 
 		if err != nil {
