@@ -18,6 +18,7 @@ package task
 import (
 	"errors"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -80,11 +81,29 @@ func getCanonicalPath(path string) string {
 		return lowercasedPath
 	}
 
+	if isNamedPipesPath(lowercasedPath) {
+		return lowercasedPath
+	}
+
 	return filepath.Clean(lowercasedPath)
 }
 
 func isBareDrive(path string) bool {
 	if filepath.VolumeName(path) == path {
+		return true
+	}
+
+	return false
+}
+
+func isNamedPipesPath(path string) bool {
+	matched, err := regexp.MatchString(`\\{2}\.[\\]pipe[\\].+`, path)
+
+	if err != nil {
+		return false
+	}
+
+	if matched {
 		return true
 	}
 

@@ -270,6 +270,11 @@ func TestGetCanonicalPath(t *testing.T) {
 			path:           `D:`,
 			expectedResult: `d:`,
 		},
+		{
+			name:           "pipePath",
+			path:           `\\.\pipe\docker_engine`,
+			expectedResult: `\\.\pipe\docker_engine`,
+		},
 	}
 
 	for _, tc := range testcases {
