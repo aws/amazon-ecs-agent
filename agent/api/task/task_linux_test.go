@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -49,6 +50,13 @@ const (
 	minDockerClientAPIVersion = dockerclient.Version_1_17
 
 	proxyName = "envoy"
+
+	testCluster        = "testCluster"
+	testDataDir        = "testDataDir"
+	testDataDirOnHost  = "testDataDirOnHost"
+	testInstanceID     = "testInstanceID"
+	testTaskDefFamily  = "testFamily"
+	testTaskDefVersion = "1"
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -557,4 +565,307 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil, nil, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
+}
+
+func TestPostUnmarshalWithLogRouter(t *testing.T) {
+	task := getLogRouterTask(t)
+
+	resourceFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			EC2InstanceID: testInstanceID,
+		},
+	}
+	cfg := &config.Config{
+		DataDir: testDataDir,
+		Cluster: testCluster,
+	}
+	assert.NoError(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
+	resources := task.GetResources()
+	assert.Equal(t, 1, len(resources))
+	assert.Equal(t, 1, len(task.Containers[1].TransitionDependenciesMap))
+
+	logRouterResource := resources[0].(*logrouter.LogRouterResource)
+	assert.Equal(t, testCluster, logRouterResource.GetCluster())
+	assert.Equal(t, validTaskArn, logRouterResource.GetTaskARN())
+	assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, logRouterResource.GetTaskDefinition())
+	assert.Equal(t, testInstanceID, logRouterResource.GetEC2InstanceID())
+	assert.Equal(t, testDataDir+"/logrouter/task-id", logRouterResource.GetResourceDir())
+	assert.NotNil(t, logRouterResource.GetContainerToLogOptions())
+	assert.Equal(t, "value1", logRouterResource.GetContainerToLogOptions()["logsender"]["key1"])
+	assert.Equal(t, "value2", logRouterResource.GetContainerToLogOptions()["logsender"]["key2"])
+}
+
+func TestPostUnmarshalWithLogRouterError(t *testing.T) {
+	task := getLogRouterTask(t)
+	task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
+
+	resourceFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			EC2InstanceID: testInstanceID,
+		},
+	}
+	cfg := &config.Config{
+		DataDir: testDataDir,
+		Cluster: testCluster,
+	}
+	assert.Error(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
+}
+
+func TestHasLogRouter(t *testing.T) {
+	testCases := []struct {
+		name         string
+		task         *Task
+		hasLogRouter bool
+	}{
+		{
+			name: "task has log router",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Name: "c",
+						LogRouter: &apicontainer.LogRouter{
+							Type: logrouter.LogRouterTypeFluentd,
+						},
+					},
+				},
+			},
+			hasLogRouter: true,
+		},
+		{
+			name: "task doesn't have log router",
+			task: &Task{
+				Containers: []*apicontainer.Container{
+					{
+						Name: "c",
+					},
+				},
+			},
+			hasLogRouter: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.hasLogRouter, tc.task.hasLogRouter())
+		})
+	}
+}
+
+func TestInitializeLogRouterResource(t *testing.T) {
+	cfg := &config.Config{
+		DataDir: testDataDir,
+		Cluster: testCluster,
+	}
+	resourceFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			EC2InstanceID: testInstanceID,
+		},
+	}
+
+	testCases := []struct {
+		name                 string
+		task                 *Task
+		shouldFail           bool
+		shouldHaveInstanceID bool
+	}{
+		{
+			name:                 "test initialize log router resource fluentd",
+			task:                 getLogRouterTask(t),
+			shouldHaveInstanceID: true,
+		},
+		{
+			name: "test initialize log router resource fluentbit",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[1].LogRouter.Type = logrouter.LogRouterTypeFluentbit
+				return task
+			}(),
+			shouldHaveInstanceID: true,
+		},
+		{
+			name: "test initialize log router resource without ec2 instance id",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[1].Environment = nil
+				return task
+			}(),
+		},
+		{
+			name: "test initialize log router resource invalid host config",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
+				return task
+			}(),
+			shouldFail: true,
+		},
+		{
+			name: "test initialize log router resource no log router",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[1].LogRouter = nil
+				return task
+			}(),
+			shouldFail: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.initializeLogRouterResource(cfg, resourceFields)
+			if tc.shouldFail {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				resources := tc.task.GetResources()
+				assert.Equal(t, 1, len(resources))
+				assert.Equal(t, 1, len(tc.task.Containers[1].TransitionDependenciesMap))
+
+				logRouterResource := resources[0].(*logrouter.LogRouterResource)
+				assert.Equal(t, testCluster, logRouterResource.GetCluster())
+				assert.Equal(t, validTaskArn, logRouterResource.GetTaskARN())
+				assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, logRouterResource.GetTaskDefinition())
+				assert.Equal(t, testDataDir+"/logrouter/task-id", logRouterResource.GetResourceDir())
+				assert.NotNil(t, logRouterResource.GetContainerToLogOptions())
+				assert.Equal(t, "value1", logRouterResource.GetContainerToLogOptions()["logsender"]["key1"])
+				assert.Equal(t, "value2", logRouterResource.GetContainerToLogOptions()["logsender"]["key2"])
+
+				if tc.shouldHaveInstanceID {
+					assert.Equal(t, testInstanceID, logRouterResource.GetEC2InstanceID())
+				} else {
+					assert.Empty(t, logRouterResource.GetEC2InstanceID())
+				}
+			}
+		})
+	}
+}
+
+func TestCollectLogRouterOptions(t *testing.T) {
+	task := getLogRouterTask(t)
+
+	containerToLogOptions, err := task.collectLogRouterOptions()
+	assert.NoError(t, err)
+	assert.Equal(t, "value1", containerToLogOptions["logsender"]["key1"])
+	assert.Equal(t, "value2", containerToLogOptions["logsender"]["key2"])
+}
+
+func TestCollectLogRouterOptionsInvalidOptions(t *testing.T) {
+	task := getLogRouterTask(t)
+	task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
+
+	_, err := task.collectLogRouterOptions()
+	assert.Error(t, err)
+}
+
+func TestAddLogRouterBindMounts(t *testing.T) {
+	cfg := &config.Config{
+		DataDirOnHost: testDataDirOnHost,
+	}
+
+	testCases := []struct {
+		name               string
+		task               *Task
+		logRouterType      string
+		hostCfg            *dockercontainer.HostConfig
+		cfg                *config.Config
+		shouldFail         bool
+		expectedBindMounts []string
+	}{
+		{
+			name:          "test add bind mounts for fluentd log router",
+			task:          getLogRouterTask(t),
+			logRouterType: logrouter.LogRouterTypeFluentd,
+			hostCfg:       &dockercontainer.HostConfig{},
+			cfg:           cfg,
+			shouldFail:    false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/logrouter/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+				"testDataDirOnHost/data/logrouter/task-id/socket/:/var/run/",
+			},
+		},
+		{
+			name: "test add bind mounts for fluentbit log router",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[1].LogRouter.Type = logrouter.LogRouterTypeFluentbit
+				return task
+			}(),
+			logRouterType: logrouter.LogRouterTypeFluentbit,
+			hostCfg:       &dockercontainer.HostConfig{},
+			cfg:           cfg,
+			shouldFail:    false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/logrouter/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+				"testDataDirOnHost/data/logrouter/task-id/socket/:/var/run/",
+			},
+		},
+		{
+			name: "test add bind mounts invalid log router type",
+			task: func() *Task {
+				task := getLogRouterTask(t)
+				task.Containers[1].LogRouter.Type = "invalid"
+				return task
+			}(),
+			logRouterType: "invalid",
+			hostCfg:       &dockercontainer.HostConfig{},
+			cfg:           cfg,
+			shouldFail:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.AddLogRouterBindMounts(tc.logRouterType, tc.hostCfg, tc.cfg)
+			if tc.shouldFail {
+				// assert.Error doesn't work with *apierrors.HostConfigError.
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, tc.expectedBindMounts, tc.hostCfg.Binds)
+			}
+		})
+	}
+}
+
+// getLogRouterTask returns a sample log router task.
+func getLogRouterTask(t *testing.T) *Task {
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logRouterDriverName,
+			Config: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	return &Task{
+		Arn:                validTaskArn,
+		Family:             testTaskDefFamily,
+		Version:            testTaskDefVersion,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				Name: "logsender",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+			{
+				Name: "logrouter",
+				LogRouter: &apicontainer.LogRouter{
+					Type:                 logrouter.LogRouterTypeFluentd,
+					EnableECSLogMetaData: true,
+				},
+				Environment: map[string]string{
+					"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
 }
