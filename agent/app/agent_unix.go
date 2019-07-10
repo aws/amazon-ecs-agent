@@ -214,6 +214,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			ASMClientCreator:   asmfactory.NewClientCreator(),
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
+			EC2InstanceID:      agent.getEC2InstanceID(),
 		},
 		Ctx:              agent.ctx,
 		DockerClient:     agent.dockerClient,

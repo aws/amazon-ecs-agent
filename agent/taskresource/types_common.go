@@ -25,4 +25,5 @@ type ResourceFieldsCommon struct {
 	ASMClientCreator   asmfactory.ClientCreator
 	SSMClientCreator   ssmfactory.SSMClientCreator
 	CredentialsManager credentials.Manager
+	EC2InstanceID      string
 }
