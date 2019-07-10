@@ -56,7 +56,7 @@ const (
 			"HealthCheck":{
 				"Test":["CMD-SHELL", "echo hello"],
 				"Interval":100000000,
-				"Timeout":100000000,
+				"Timeout":2000000000,
 				"StartPeriod":100000000,
 				"Retries":3}
 		}`
