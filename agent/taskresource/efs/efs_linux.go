@@ -15,6 +15,7 @@ package efs
 
 import (
 	"errors"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -25,7 +26,6 @@ import (
 const (
 	defaultOptsForEFS  = "rsize=1048576,wsize=1048576,timeo=10,hard,retrans=2,noresvport"
 	enforcedOptsForEFS = "fg,vers=4"
-	defaultSource      = ":/"
 	fsTypeNFS          = "nfs"
 	defaultMountFlag   = uintptr(0)
 	defaultUnmountFlag = 0
@@ -90,10 +90,7 @@ func (nm *NFSMount) doMount() error {
 	opts := mergeOptions(defaultOptsForEFS, addressOpt, nm.AdditionalOpts, enforcedOptsForEFS)
 
 	// NFS expects the source to appear like ${IP}:/${SourceDirectory}
-	source := nm.IPAddress + defaultSource
-	if nm.SourceDirectory != "" {
-		source = source + nm.SourceDirectory
-	}
+	source := nm.IPAddress + ":" + filepath.Join("/", nm.SourceDirectory)
 
 	mountFlag := defaultMountFlag
 	if nm.ReadOnly {
