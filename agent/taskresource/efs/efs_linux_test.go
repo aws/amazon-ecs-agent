@@ -15,6 +15,7 @@
 package efs
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -29,6 +30,7 @@ const (
 	testSourceDirectory = "source"
 	testNamespacePath   = "/test/ns/path"
 	testNsHandle        = netns.NsHandle(1)
+	testAdditionalOpts  = "resvport,timeo=20"
 )
 
 // TestMount_HappyCase sets all of the values in NFSMount and asserts that each function is called with the expected
@@ -39,8 +41,22 @@ func TestMount_HappyCase(t *testing.T) {
 		assert.Equal(t, device, "0.0.0.0:/source")
 		assert.Equal(t, target, testTargetDirectory)
 		assert.Equal(t, fstype, "nfs")
-		assert.Equal(t, flags, uintptr(0))
-		assert.Equal(t, opts, "rsize=1048576,wsize=1048576,timeo=10,hard,retrans=2,noresvport,vers=4,addr=0.0.0.0")
+		assert.Equal(t, flags, uintptr(unix.MS_RDONLY))
+
+		// order is not preserved
+		expected := []string{
+			"rsize=1048576",
+			"wsize=1048576",
+			"timeo=20",
+			"hard",
+			"retrans=2",
+			"resvport",
+			"vers=4",
+			"addr=0.0.0.0",
+			"fg",
+		}
+
+		assert.ElementsMatch(t, expected, strings.Split(opts, ","))
 		return nil
 	}
 
@@ -59,9 +75,52 @@ func TestMount_HappyCase(t *testing.T) {
 		IPAddress:       testIP,
 		NamespacePath:   testNamespacePath,
 		SourceDirectory: testSourceDirectory,
+		ReadOnly:        true,
+		AdditionalOpts:  testAdditionalOpts,
 	}
 
 	assert.NoError(t, mount.Mount())
+}
+
+// TestMount_Defaultbehavior is another happy case test that validates behavior with minimum
+func TestMount_DefaultBehavior(t *testing.T) {
+	defer reset()
+	getNamespaceHelper = func(nspath string) (netns.NsHandle, error) {
+		t.Error("Namespace helper should not be called by default")
+		return testNsHandle, nil
+	}
+	setNamespaceSyscall = func(handle netns.NsHandle) error {
+		t.Error("Namespace setter should not be called by default")
+		return nil
+	}
+
+	mountSyscall = func(device string, target string, fstype string, flags uintptr, opts string) error {
+		assert.Equal(t, device, "0.0.0.0:/")
+		assert.Equal(t, target, testTargetDirectory)
+		assert.Equal(t, fstype, "nfs")
+		assert.Equal(t, flags, uintptr(0))
+
+		// order is not preserved
+		expected := []string{
+			"rsize=1048576",
+			"wsize=1048576",
+			"timeo=10",
+			"hard",
+			"retrans=2",
+			"noresvport",
+			"vers=4",
+			"addr=0.0.0.0",
+			"fg",
+		}
+
+		assert.ElementsMatch(t, expected, strings.Split(opts, ","), opts)
+		return nil
+	}
+	m := &NFSMount{
+		IPAddress:       testIP,
+		TargetDirectory: testTargetDirectory,
+	}
+	assert.NoError(t, m.Mount())
 }
 
 func TestMount_NoIPAddressError(t *testing.T) {

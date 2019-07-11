@@ -23,13 +23,13 @@ import (
 )
 
 const (
-	// TODO: break this out into a better options stream (IE, we will need overrides when specified in the service)
-	defaultOptsForEFS = "rsize=1048576,wsize=1048576,timeo=10,hard,retrans=2,noresvport,vers=4"
-	defaultSource     = ":/"
-	fsTypeNFS         = "nfs"
-	mountFlags        = 0
-	unmountFlags      = 0
-	mountTimeout      = time.Minute
+	defaultOptsForEFS  = "rsize=1048576,wsize=1048576,timeo=10,hard,retrans=2,noresvport"
+	enforcedOptsForEFS = "fg,vers=4"
+	defaultSource      = ":/"
+	fsTypeNFS          = "nfs"
+	defaultMountFlag   = uintptr(0)
+	defaultUnmountFlag = 0
+	mountTimeout       = time.Minute
 )
 
 var (
@@ -52,6 +52,8 @@ type NFSMount struct {
 	TargetDirectory string
 	SourceDirectory string
 	NamespacePath   string
+	ReadOnly        bool
+	AdditionalOpts  string
 }
 
 // Mount creates the nfs mount, placing it at TargetDirectory on the host
@@ -71,6 +73,7 @@ func (nm *NFSMount) Mount() error {
 	select {
 	case err := <-mountEvent:
 		return err
+		// TODO: need to test timeout use cases
 	case <-timeout.C:
 		return errMountTimeout
 	}
@@ -79,14 +82,12 @@ func (nm *NFSMount) Mount() error {
 // doMount handles the core mount logic. The main Mount() method spawns this
 // in a goroutine
 func (nm *NFSMount) doMount() error {
-	if nm.NamespacePath != "" {
-		runtime.LockOSThread()
-		if err := nm.setNameSpace(); err != nil {
-			return err
-		}
+	if err := checkOptionSet(nm.AdditionalOpts); err != nil {
+		return err
 	}
 
-	opts := defaultOptsForEFS + ",addr=" + nm.IPAddress
+	addressOpt := "addr=" + nm.IPAddress
+	opts := mergeOptions(defaultOptsForEFS, addressOpt, nm.AdditionalOpts, enforcedOptsForEFS)
 
 	// NFS expects the source to appear like ${IP}:/${SourceDirectory}
 	source := nm.IPAddress + defaultSource
@@ -94,7 +95,19 @@ func (nm *NFSMount) doMount() error {
 		source = source + nm.SourceDirectory
 	}
 
-	return mountSyscall(source, nm.TargetDirectory, fsTypeNFS, mountFlags, opts)
+	mountFlag := defaultMountFlag
+	if nm.ReadOnly {
+		mountFlag |= unix.MS_RDONLY
+	}
+
+	if nm.NamespacePath != "" {
+		runtime.LockOSThread()
+		if err := nm.setNameSpace(); err != nil {
+			return err
+		}
+	}
+
+	return mountSyscall(source, nm.TargetDirectory, fsTypeNFS, mountFlag, opts)
 }
 
 // Unmount removes the nfs mount from the host.
@@ -104,12 +117,13 @@ func (nm *NFSMount) Unmount() error {
 
 	mountEvent := make(chan error)
 	go func() {
-		mountEvent <- unmountSyscall(nm.TargetDirectory, unmountFlags)
+		mountEvent <- unmountSyscall(nm.TargetDirectory, defaultUnmountFlag)
 	}()
 
 	select {
 	case err := <-mountEvent:
 		return err
+		// TODO: test lazy unmount instead
 	case <-timeout.C:
 		return errUnmountTimeout
 	}
