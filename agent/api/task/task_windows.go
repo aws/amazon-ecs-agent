@@ -103,11 +103,7 @@ func isNamedPipesPath(path string) bool {
 		return false
 	}
 
-	if matched {
-		return true
-	}
-
-	return false
+	return matched
 }
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
