@@ -345,3 +345,13 @@ func (m *MockTaskResource) UnmarshalJSON(arg0 []byte) error {
 func (mr *MockTaskResourceMockRecorder) UnmarshalJSON(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnmarshalJSON", reflect.TypeOf((*MockTaskResource)(nil).UnmarshalJSON), arg0)
 }
+
+// UpdateAppliedStatus mocks base method
+func (m *MockTaskResource) UpdateAppliedStatus(arg0 status1.ResourceStatus) {
+	m.ctrl.Call(m, "UpdateAppliedStatus", arg0)
+}
+
+// UpdateAppliedStatus indicates an expected call of UpdateAppliedStatus
+func (mr *MockTaskResourceMockRecorder) UpdateAppliedStatus(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAppliedStatus", reflect.TypeOf((*MockTaskResource)(nil).UpdateAppliedStatus), arg0)
+}

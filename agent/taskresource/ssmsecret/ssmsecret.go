@@ -501,3 +501,11 @@ func (secret *SSMSecretResource) BuildContainerDependency(containerName string, 
 func (secret *SSMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (secret *SSMSecretResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	secret.appliedStatus = status
+}

@@ -410,3 +410,11 @@ func (vol *VolumeResource) BuildContainerDependency(containerName string, satisf
 func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (vol *VolumeResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	vol.appliedStatusUnsafe = status
+}

@@ -183,3 +183,6 @@ func (efs *EFSResource) GetContainerDependencies(dependent resourcestatus.Resour
 }
 
 func (efs *EFSResource) SetPauseContainerName(name string) {}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (efs *EFSResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {}

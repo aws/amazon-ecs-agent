@@ -569,6 +569,156 @@ func TestTransitionDependencyResourceNotFound(t *testing.T) {
 	assert.Equal(t, ErrResourceDependencyNotResolved, resolved)
 }
 
+// TestVerifyTransitionDependenciesResolvedForResource verifies the logic of function TaskResourceDependenciesAreResolved
+func TestVerifyTransitionDependenciesResolvedForResource(t *testing.T) {
+	testcases := []struct {
+		Name            string
+		TargetKnown     resourcestatus.ResourceStatus
+		TargetDesired   resourcestatus.ResourceStatus
+		TargetNext      resourcestatus.ResourceStatus
+		DependencyName  string
+		DependencyKnown apicontainerstatus.ContainerStatus
+		SatisfiedStatus apicontainerstatus.ContainerStatus
+		ResolvedErr     error
+	}{
+		{
+			Name:            "desired created, resource created depends on container resources provisioned",
+			TargetKnown:     resourcestatus.ResourceStatus(0),
+			TargetDesired:   resourcestatus.ResourceStatus(1),
+			TargetNext:      resourcestatus.ResourceStatus(1),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerStatusNone,
+			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolvedForResource,
+		},
+		{
+			Name:            "desired removed, resource created depends on container resources provisioned",
+			TargetKnown:     resourcestatus.ResourceStatus(0),
+			TargetDesired:   resourcestatus.ResourceStatus(2),
+			TargetNext:      resourcestatus.ResourceStatus(1),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerStatusNone,
+			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
+			ResolvedErr:     ErrContainerDependencyNotResolvedForResource,
+		},
+		{
+			Name:            "desired created, resource created depends on resourcesProvisioned, dependency resourcesProvisioned",
+			TargetKnown:     resourcestatus.ResourceStatus(0),
+			TargetDesired:   resourcestatus.ResourceStatus(1),
+			TargetNext:      resourcestatus.ResourceStatus(1),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerResourcesProvisioned,
+			SatisfiedStatus: apicontainerstatus.ContainerResourcesProvisioned,
+			ResolvedErr:     nil,
+		},
+		{
+			Name:            "desired created, resource created depends on created, dependency passed created",
+			TargetKnown:     resourcestatus.ResourceStatus(0),
+			TargetDesired:   resourcestatus.ResourceStatus(1),
+			TargetNext:      resourcestatus.ResourceStatus(1),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerRunning,
+			SatisfiedStatus: apicontainerstatus.ContainerCreated,
+			ResolvedErr:     nil,
+		},
+		{
+			Name:            "desired removed, resource removed depends on stopped, dependency resourceProvisioned",
+			TargetKnown:     resourcestatus.ResourceStatus(1),
+			TargetDesired:   resourcestatus.ResourceStatus(2),
+			TargetNext:      resourcestatus.ResourceStatus(2),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerResourcesProvisioned,
+			SatisfiedStatus: apicontainerstatus.ContainerStopped,
+			ResolvedErr:     ErrContainerDependencyNotResolvedForResource,
+		},
+		{
+			Name:            "desired removed, resource removed depends on stopped, dependency stopped",
+			TargetKnown:     resourcestatus.ResourceStatus(1),
+			TargetDesired:   resourcestatus.ResourceStatus(2),
+			TargetNext:      resourcestatus.ResourceStatus(2),
+			DependencyName:  "container",
+			DependencyKnown: apicontainerstatus.ContainerStopped,
+			SatisfiedStatus: apicontainerstatus.ContainerStopped,
+			ResolvedErr:     nil,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+			con := &apicontainer.Container{
+				Name:              tc.DependencyName,
+				KnownStatusUnsafe: tc.DependencyKnown,
+			}
+			containers := []*apicontainer.Container{
+				con,
+			}
+			containerDep := []apicontainer.ContainerDependency{
+				{
+					ContainerName:   tc.DependencyName,
+					SatisfiedStatus: tc.SatisfiedStatus,
+				},
+			}
+			gomock.InOrder(
+				mockResource.EXPECT().GetKnownStatus().Return(tc.TargetKnown),
+				mockResource.EXPECT().GetContainerDependencies(tc.TargetNext).Return(containerDep),
+			)
+			resolved := TaskResourceDependenciesAreResolved(mockResource, containers)
+			assert.Equal(t, tc.ResolvedErr, resolved)
+		})
+	}
+
+}
+
+// TestResourceTransitionDependencyNotFound verifies if error is thrown when the container dependency for resource
+// is not found in the list of task containers
+func TestResourceTransitionDependencyNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+	containerDep := []apicontainer.ContainerDependency{
+		{
+			ContainerName:   "container2",
+			SatisfiedStatus: apicontainerstatus.ContainerStopped,
+		},
+	}
+	con := &apicontainer.Container{
+		Name:                      "container1",
+		KnownStatusUnsafe:         apicontainerstatus.ContainerStopped,
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+	existingContainers := []*apicontainer.Container{
+		con,
+	}
+	gomock.InOrder(
+		mockResource.EXPECT().GetKnownStatus().Return(resourcestatus.ResourceStatus(1)),
+		mockResource.EXPECT().GetContainerDependencies(resourcestatus.ResourceStatus(2)).Return(containerDep),
+	)
+	resolved := TaskResourceDependenciesAreResolved(mockResource, existingContainers)
+	assert.Equal(t, ErrContainerDependencyNotResolvedForResource, resolved)
+}
+
+func TestResourceTransitionDependencyNoDependency(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+	con := &apicontainer.Container{
+		Name:                      "container1",
+		KnownStatusUnsafe:         apicontainerstatus.ContainerStopped,
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+	existingContainers := []*apicontainer.Container{
+		con,
+	}
+	gomock.InOrder(
+		mockResource.EXPECT().GetKnownStatus().Return(resourcestatus.ResourceStatus(1)),
+		mockResource.EXPECT().GetContainerDependencies(resourcestatus.ResourceStatus(2)).Return(nil),
+	)
+	assert.Nil(t, TaskResourceDependenciesAreResolved(mockResource, existingContainers))
+}
+
 func TestContainerOrderingCanResolve(t *testing.T) {
 	testcases := []struct {
 		TargetDesired       apicontainerstatus.ContainerStatus

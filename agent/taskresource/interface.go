@@ -58,6 +58,8 @@ type TaskResource interface {
 	// SetAppliedStatus sets the applied status of resource and returns whether
 	// the resource is already in a transition
 	SetAppliedStatus(status resourcestatus.ResourceStatus) bool
+	// UpdateAppliedStatus directly updates the applied status of resource
+	UpdateAppliedStatus(status resourcestatus.ResourceStatus)
 	// GetAppliedStatus gets the applied status of resource
 	GetAppliedStatus() resourcestatus.ResourceStatus
 	// StatusString returns the string of the resource status

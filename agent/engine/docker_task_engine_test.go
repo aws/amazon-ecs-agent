@@ -47,6 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -57,6 +58,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/efs"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -95,6 +97,7 @@ const (
 	egressIgnoredIP             = "169.254.169.254"
 	expectedDelaySeconds        = 10
 	expectedDelay               = expectedDelaySeconds * time.Second
+	taskArn                     = "task1"
 )
 
 var (
@@ -2693,4 +2696,35 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 		})
 	}
+}
+
+func TestDeleteTaskWithResourceDependOnTaskNetwork(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	efsRes := efs.NewEFSResource(taskArn, "efsVolume", ctx, nil, false, "", "", nil, false, "", "")
+
+	task := &apitask.Task{
+		Arn: taskArn,
+	}
+	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	task.AddResource(efs.ResourceName, efsRes)
+	cfg := defaultConfig
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
+
+	taskEngine := &DockerTaskEngine{
+		state: mockState,
+		saver: mockSaver,
+		cfg:   &cfg,
+	}
+
+	gomock.InOrder(
+		mockState.EXPECT().RemoveTask(task),
+		mockSaver.EXPECT().Save(),
+	)
+	taskEngine.deleteTask(task)
 }

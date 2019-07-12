@@ -81,6 +81,9 @@ func (c *CgroupResource) SetAppliedStatus(status resourcestatus.ResourceStatus) 
 	return false
 }
 
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (c *CgroupResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {}
+
 // GetAppliedStatus safely returns the currently applied status of the resource
 func (c *CgroupResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	return resourcestatus.ResourceStatusNone

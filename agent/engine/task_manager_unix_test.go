@@ -21,12 +21,16 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/efs"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/golang/mock/gomock"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/stretchr/testify/assert"
@@ -273,6 +277,146 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 				})
 			assert.Equal(t, tc.CanTransition, canTransition)
 			assert.Empty(t, transitions)
+		})
+	}
+}
+
+// TestEFSResourceNextState uses EFS as an example of task resource with dependency on task network
+func TestEFSResourceNextState(t *testing.T) {
+	testCases := []struct {
+		Name             string
+		ResKnownStatus   resourcestatus.ResourceStatus
+		ResAppliedStatus resourcestatus.ResourceStatus
+		ResDesiredStatus resourcestatus.ResourceStatus
+		NextState        resourcestatus.ResourceStatus
+		ActionRequired   bool
+	}{
+		// None => Created
+		{"none to created", resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSCreated), true},
+		// None => Removed, applied status is None
+		{"none to removed", resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSRemoved), resourcestatus.ResourceStatus(efs.EFSRemoved), false},
+		// None => Removed, applied status is Created
+		{"none to removed, applied created", resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSRemoved), resourcestatus.ResourceStatus(efs.EFSStatusNone), false},
+		// Created => Created
+		{"created to created", resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSStatusNone), false},
+		// Created => Removed
+		{"created to removed", resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSRemoved), resourcestatus.ResourceStatus(efs.EFSRemoved), true},
+		// Removed => Created
+		{"removed to created", resourcestatus.ResourceStatus(efs.EFSRemoved), resourcestatus.ResourceStatus(efs.EFSStatusNone), resourcestatus.ResourceStatus(efs.EFSCreated), resourcestatus.ResourceStatus(efs.EFSStatusNone), false},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			res := efs.EFSResource{}
+			res.SetKnownStatus(tc.ResKnownStatus)
+			res.SetDesiredStatus(tc.ResDesiredStatus)
+			res.SetAppliedStatus(tc.ResAppliedStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{},
+			}
+			transition := mtask.resourceNextState(&res)
+			assert.Equal(t, tc.NextState, transition.nextState)
+			assert.Equal(t, tc.ActionRequired, transition.actionRequired)
+		})
+	}
+}
+
+//TestEFSNextStateWithTransitionDependencies verifies the dependencies are resolved correctly for task resource
+func TestEFSNextStateWithTransitionDependencies(t *testing.T) {
+	testCases := []struct {
+		name                         string
+		resCurrentStatus             resourcestatus.ResourceStatus
+		resDesiredStatus             resourcestatus.ResourceStatus
+		resDependentStatus           resourcestatus.ResourceStatus
+		dependencyCurrentStatus      apicontainerstatus.ContainerStatus
+		dependencySatisfiedStatus    apicontainerstatus.ContainerStatus
+		expectedResourceStatus       resourcestatus.ResourceStatus
+		expectedTransitionActionable bool
+		reason                       error
+	}{
+		// NONE -> CREATED transition is not allowed and not actionable
+		{
+			name:                         "created depends on resourceProvisioned, dependency is none",
+			resCurrentStatus:             resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			resDesiredStatus:             resourcestatus.ResourceStatus(efs.EFSCreated),
+			resDependentStatus:           resourcestatus.ResourceStatus(efs.EFSCreated),
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerResourcesProvisioned,
+			expectedResourceStatus:       resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			expectedTransitionActionable: false,
+			reason:                       dependencygraph.ErrContainerDependencyNotResolvedForResource,
+		},
+		// NONE -> CREATED transition is allowed and actionable
+		{
+			name:                         "created depends on resourceProvisioned, dependency is resourceProvisioned",
+			resCurrentStatus:             resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			resDesiredStatus:             resourcestatus.ResourceStatus(efs.EFSCreated),
+			resDependentStatus:           resourcestatus.ResourceStatus(efs.EFSCreated),
+			dependencyCurrentStatus:      apicontainerstatus.ContainerResourcesProvisioned,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerResourcesProvisioned,
+			expectedResourceStatus:       resourcestatus.ResourceStatus(efs.EFSCreated),
+			expectedTransitionActionable: true,
+		},
+		// CREATED -> REMOVED transition is allowed and actionable
+		{
+			name:                         "removed depends on stopped, dependency is stopped",
+			resCurrentStatus:             resourcestatus.ResourceStatus(efs.EFSCreated),
+			resDesiredStatus:             resourcestatus.ResourceStatus(efs.EFSRemoved),
+			resDependentStatus:           resourcestatus.ResourceStatus(efs.EFSRemoved),
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStopped,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerStopped,
+			expectedResourceStatus:       resourcestatus.ResourceStatus(efs.EFSRemoved),
+			expectedTransitionActionable: true,
+		},
+		// NONE -> REMOVED transition is allowed and not actionable
+		{
+			name:                         "created depends on created, desired is stopped, dependency is created",
+			resCurrentStatus:             resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			resDesiredStatus:             resourcestatus.ResourceStatus(efs.EFSRemoved),
+			resDependentStatus:           resourcestatus.ResourceStatus(efs.EFSCreated),
+			dependencyCurrentStatus:      apicontainerstatus.ContainerCreated,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			expectedResourceStatus:       resourcestatus.ResourceStatus(efs.EFSRemoved),
+			expectedTransitionActionable: false,
+		},
+		// NONE -> REMOVED transition is not allowed and not actionable
+		{
+			name:                         "created depends on created, desired is stopped, dependency is none",
+			resCurrentStatus:             resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			resDesiredStatus:             resourcestatus.ResourceStatus(efs.EFSRemoved),
+			resDependentStatus:           resourcestatus.ResourceStatus(efs.EFSCreated),
+			dependencyCurrentStatus:      apicontainerstatus.ContainerStatusNone,
+			dependencySatisfiedStatus:    apicontainerstatus.ContainerCreated,
+			expectedResourceStatus:       resourcestatus.ResourceStatus(efs.EFSStatusNone),
+			expectedTransitionActionable: false,
+			reason:                       dependencygraph.ErrContainerDependencyNotResolvedForResource,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := efs.NewEFSResource("task1", "volume1", nil, nil, false, "", "", []string{}, false, "", "")
+			dependencyName := "dependency"
+			dependency := &apicontainer.Container{
+				Name:              dependencyName,
+				KnownStatusUnsafe: tc.dependencyCurrentStatus,
+			}
+			res.BuildContainerDependency(dependencyName, tc.dependencySatisfiedStatus, tc.resDependentStatus)
+
+			res.SetKnownStatus(tc.resCurrentStatus)
+			res.SetDesiredStatus(tc.resDesiredStatus)
+			mtask := managedTask{
+				Task: &apitask.Task{
+					Containers: []*apicontainer.Container{
+						dependency,
+					},
+				},
+			}
+			transition := mtask.resourceNextState(res)
+			assert.Equal(t, tc.expectedResourceStatus, transition.nextState,
+				"Expected next state [%s] != Retrieved next state [%s]",
+				res.StatusString(tc.expectedResourceStatus), res.StatusString(transition.nextState))
+			assert.Equal(t, tc.expectedTransitionActionable, transition.actionRequired, "transition actionable")
+			assert.Equal(t, tc.reason, transition.reason, "transition possible")
 		})
 	}
 }

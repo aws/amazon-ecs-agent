@@ -429,3 +429,11 @@ func (auth *ASMAuthResource) BuildContainerDependency(containerName string, sati
 func (auth *ASMAuthResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (auth *ASMAuthResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	auth.lock.RLock()
+	defer auth.lock.RUnlock()
+
+	auth.appliedStatus = status
+}

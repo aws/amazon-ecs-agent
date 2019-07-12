@@ -1060,6 +1060,7 @@ func TestCleanupTask(t *testing.T) {
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mockResource.EXPECT().Cleanup()
 	mockResource.EXPECT().GetName()
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1434,6 +1435,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mockResource.EXPECT().GetName()
 	mockResource.EXPECT().Cleanup().Return(nil)
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1496,6 +1498,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mockResource.EXPECT().GetName()
 	mockResource.EXPECT().Cleanup().Return(errors.New("cleanup error"))
 	mTask.cleanupTask(taskStoppedDuration)
@@ -1806,34 +1809,35 @@ func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
 	}
 }
 
+// TestVolumeResourceNextState uses Volume as an example of task resource with no dependency on task network
 func TestVolumeResourceNextState(t *testing.T) {
 	testCases := []struct {
 		Name             string
 		ResKnownStatus   resourcestatus.ResourceStatus
+		ResAppliedStatus resourcestatus.ResourceStatus
 		ResDesiredStatus resourcestatus.ResourceStatus
 		NextState        resourcestatus.ResourceStatus
 		ActionRequired   bool
 	}{
-		{
-			Name:             "next state happy path",
-			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
-			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeCreated),
-			NextState:        resourcestatus.ResourceStatus(volume.VolumeCreated),
-			ActionRequired:   true,
-		},
-		{
-			Name:             "desired terminal",
-			ResKnownStatus:   resourcestatus.ResourceStatus(volume.VolumeStatusNone),
-			ResDesiredStatus: resourcestatus.ResourceStatus(volume.VolumeRemoved),
-			NextState:        resourcestatus.ResourceStatus(volume.VolumeRemoved),
-			ActionRequired:   false,
-		},
+		// None => Created
+		{"none to created", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeCreated), true},
+		// None => Removed, applied status is None
+		{"none to removed", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeRemoved), false},
+		//None => Removed, applied status is Created
+		{"none to removed, applied created", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
+		//Created => Created
+		{"created to created", resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
+		//Created => Removed
+		{"created to removed", resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeRemoved), false},
+		//Removed => Created
+		{"removed to created", resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			res := volume.VolumeResource{}
 			res.SetKnownStatus(tc.ResKnownStatus)
 			res.SetDesiredStatus(tc.ResDesiredStatus)
+			res.SetAppliedStatus(tc.ResAppliedStatus)
 			mtask := managedTask{
 				Task: &apitask.Task{},
 			}

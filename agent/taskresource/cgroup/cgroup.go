@@ -218,6 +218,14 @@ func (cgroup *CgroupResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	return cgroup.appliedStatus
 }
 
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (cgroup *CgroupResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	cgroup.lock.RLock()
+	defer cgroup.lock.RUnlock()
+
+	cgroup.appliedStatus = status
+}
+
 // GetKnownStatus safely returns the currently known status of the task
 func (cgroup *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	cgroup.lock.RLock()

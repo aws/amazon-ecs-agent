@@ -566,3 +566,11 @@ func (efs *EFSResource) SetPauseContainerName(name string) {
 func (efs *EFSResource) GetPauseContainerName() string {
 	return efs.pauseContainerName
 }
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (efs *EFSResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	efs.lock.RLock()
+	defer efs.lock.RUnlock()
+
+	efs.appliedStatusUnsafe = status
+}

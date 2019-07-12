@@ -97,6 +97,8 @@ type resourceTransition struct {
 	// actionRequired indicates if the transition function needs to be called for
 	// the transition to be complete
 	actionRequired bool
+	// reason represents the error blocks transition
+	reason error
 }
 
 // managedTask is a type that is meant to manage the lifecycle of a task.
@@ -482,6 +484,7 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 			mtask.Arn, res.GetName())
 		mtask.SetDesiredStatus(apitaskstatus.TaskStopped)
 		mtask.Task.SetTerminalReason(res.GetTerminalReason())
+		res.UpdateAppliedStatus(resourcestatus.ResourceStatusNone)
 		mtask.engine.saver.Save()
 	}
 }
@@ -884,11 +887,14 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 	for _, res := range mtask.GetResources() {
 		knownStatus := res.GetKnownStatus()
 		desiredStatus := res.GetDesiredStatus()
+		seelog.Debugf("Desired status is %s", desiredStatus)
 		if knownStatus >= desiredStatus {
 			seelog.Debugf("Managed task [%s]: resource [%s] has already transitioned to or beyond the desired status %s; current known is %s",
 				mtask.Arn, res.GetName(), res.StatusString(desiredStatus), res.StatusString(knownStatus))
 			continue
 		}
+
+		//TODO: needs to verify is anyCanTransition needs to be updated or not
 		anyCanTransition = true
 		transition := mtask.resourceNextState(res)
 		// If the resource is already in a transition, skip
@@ -1031,16 +1037,82 @@ func (mtask *managedTask) containerNextState(container *apicontainer.Container) 
 	}
 }
 
+// resourceNextState determines the next state a resource should go to.
+// It returns a transition struct including the information:
+// * resource state it should transition to,
+// * string presentation of the resource state
+// * a bool indicating whether any action is required
+// * an error indicating why this transition can't happen
+//
+// Next status is determined by whether the known and desired statuses are
+// equal, the next numerically greater (iota-wise) status, and whether
+// dependencies are fully resolved.
 func (mtask *managedTask) resourceNextState(resource taskresource.TaskResource) *resourceTransition {
-	if resource.DesiredTerminal() {
-		nextState := resource.TerminalStatus()
+	resKnownStatus := resource.GetKnownStatus()
+	resDesiredStatus := resource.GetDesiredStatus()
+
+	if resKnownStatus == resDesiredStatus {
+		seelog.Debugf("Managed task [%s]: task resource [%s] at desired status: %s",
+			mtask.Arn, resource.GetName(), resource.StatusString(resDesiredStatus))
+
+		// Set nextState to ResourceStatusNone, so the knownState will not be updated
 		return &resourceTransition{
-			nextState:      nextState,
-			status:         resource.StatusString(nextState),
-			actionRequired: false, // since resource cleanup will be done while sweeping task
+			nextState:      resourcestatus.ResourceStatusNone,
+			status:         resource.StatusString(resourcestatus.ResourceStatusNone),
+			actionRequired: false,
+			reason:         dependencygraph.ResourcePastDesiredStatusErr,
 		}
 	}
-	nextState := resource.NextKnownState()
+
+	if resKnownStatus > resDesiredStatus {
+		seelog.Debugf("Managed task [%s]: task resource [%s] has already transitioned beyond desired status(%s): %s",
+			mtask.Arn, resource.GetName(), resource.StatusString(resDesiredStatus), resource.StatusString(resKnownStatus))
+		return &resourceTransition{
+			nextState:      resourcestatus.ResourceStatusNone,
+			status:         resource.StatusString(resourcestatus.ResourceStatusNone),
+			actionRequired: false,
+			reason:         dependencygraph.ResourcePastDesiredStatusErr,
+		}
+	}
+	if err := dependencygraph.TaskResourceDependenciesAreResolved(resource, mtask.Containers); err != nil {
+		seelog.Debugf("Managed task [%s]: can't apply state to resource [%s] yet due to unresolved dependencies: %v",
+			mtask.Arn, resource.GetName(), err)
+		return &resourceTransition{
+			nextState:      resourcestatus.ResourceStatusNone,
+			status:         resource.StatusString(resourcestatus.ResourceStatusNone),
+			actionRequired: false,
+			reason:         err,
+		}
+	}
+
+	var nextState resourcestatus.ResourceStatus
+	if resource.DesiredTerminal() {
+		nextState := resource.TerminalStatus()
+		if !resource.KnownCreated() {
+			// If the resource's creation is in progress, we will not transit resource state before
+			// it finishes. Otherwise, the resource may not be cleaned up.
+			if resource.GetAppliedStatus() == resourcestatus.ResourceCreated {
+				nextState = resourcestatus.ResourceStatusNone
+			}
+			seelog.Debugf("set next state to %s", resource.StatusString(nextState))
+			return &resourceTransition{
+				nextState:      nextState,
+				status:         resource.StatusString(nextState),
+				actionRequired: false,
+			}
+		}
+		// If the resource does not have dependency on task network, it will be cleaned up while sweeping task
+		if !resource.DependOnTaskNetwork() {
+			return &resourceTransition{
+				nextState:      nextState,
+				status:         resource.StatusString(nextState),
+				actionRequired: false,
+			}
+		}
+	}
+
+	nextState = resource.NextKnownState()
+	seelog.Debugf("Resource next state is %s", nextState)
 	return &resourceTransition{
 		nextState:      nextState,
 		status:         resource.StatusString(nextState),
