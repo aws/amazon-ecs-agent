@@ -44,10 +44,11 @@ import (
 )
 
 const (
-	waitTaskStateChangeDuration         = 2 * time.Minute
-	waitIdleMetricsInCloudwatchDuration = 4 * time.Minute
-	waitBusyMetricsInCloudwatchDuration = 10 * time.Minute
-	awslogsLogGroupName                 = "ecs-functional-tests"
+	waitTaskStateChangeDuration            = 2 * time.Minute
+	waitIdleMetricsInCloudwatchDuration    = 4 * time.Minute
+	waitMinimalMetricsInCloudwatchDuration = 5 * time.Minute
+	waitBusyMetricsInCloudwatchDuration    = 10 * time.Minute
+	awslogsLogGroupName                    = "ecs-functional-tests"
 
 	// 'awsvpc' test parameters
 	awsvpcTaskDefinition     = "nginx-awsvpc"
@@ -649,6 +650,83 @@ func telemetryTestWithStatsPolling(t *testing.T, taskDefinition string) {
 	err = testTask.Stop()
 	require.NoError(t, err, "Failed to stop the telemetry task")
 
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Waiting for task stop failed")
+}
+
+func telemetryStorageStatsTest(t *testing.T, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	newClusterName := "ecstest-storagestats-" + uuid.New()
+	putAccountInsights := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInsights"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountInsights)
+	require.NoError(t, err, "Failed to update account settings")
+
+	_, err = ECS.CreateCluster(&ecsapi.CreateClusterInput{
+		ClusterName: aws.String(newClusterName),
+	})
+	require.NoError(t, err, "Failed to create cluster")
+	defer DeleteCluster(t, newClusterName)
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_CLUSTER": newClusterName,
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.29.0")
+
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	params := &cloudwatch.GetMetricStatisticsInput{
+		Namespace: aws.String("ECS/ContainerInsights"),
+		Period:    aws.Int64(60),
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("SampleCount"),
+		},
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("ClusterName"),
+				Value: aws.String(newClusterName),
+			},
+		},
+	}
+
+	// start storageStats task
+	testTask, err := agent.StartTask(t, taskDefinition)
+	require.NoError(t, err, "Failed to start storageStats task")
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error wait storageStats task running")
+
+	// collect and validate minimal state metrics
+	time.Sleep(waitMinimalMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitMinimalMetricsInCloudwatchDuration).UTC())
+
+	// verify that metrics are flowing for StorageReadBytes
+	params.MetricName = aws.String("StorageReadBytes")
+	resp, err := cwclient.GetMetricStatistics(params)
+	assert.NotNil(t, resp, "Task is running, no metrics available for StorageReadBytes")
+	assert.NotNil(t, resp.Datapoints, "Task is running, nil datapoints returned for StorageReadBytes")
+	metricsCount := len(resp.Datapoints)
+	assert.NotZero(t, metricsCount, "Task is running, no datapoints returned for StorageReadBytes")
+
+	// verify that metrics are flowing for StorageWriteBytes
+	params.MetricName = aws.String("StorageWriteBytes")
+	resp, err = cwclient.GetMetricStatistics(params)
+	assert.NotNil(t, resp, "Task is running, no metrics available for StorageWriteBytes")
+	assert.NotNil(t, resp.Datapoints, "Task is running, nil datapoints returned for StorageWriteBytes")
+	metricsCount = len(resp.Datapoints)
+	assert.NotZero(t, metricsCount, "Task is running, no datapoints returned for StorageWriteBytes")
+
+	// stop storageStats task
+	err = testTask.Stop()
+	require.NoError(t, err, "Failed to stop the storageStats task")
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Waiting for task stop failed")
 }
