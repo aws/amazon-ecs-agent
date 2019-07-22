@@ -403,7 +403,7 @@ func TestCreateLogRouterContainer(t *testing.T) {
 					Name: "logrouter",
 					LogRouter: &apicontainer.LogRouter{
 						Type:                 logrouterType,
-						EnableECSLogMetaData: true,
+						EnableECSLogMetadata: true,
 					},
 				},
 			},

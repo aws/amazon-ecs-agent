@@ -277,7 +277,7 @@ type MountPoint struct {
 // Log Router describes the configuration details and type of log router being used.
 type LogRouter struct {
 	Config               *LogRouterConfig `json:"config"`
-	EnableECSLogMetaData bool             `json:"enableECSLogMetaData"`
+	EnableECSLogMetadata bool             `json:"enableECSLogMetadata"`
 	Type                 string           `json:"type"`
 }
 

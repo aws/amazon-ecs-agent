@@ -929,7 +929,7 @@ func TestPayloadHandlerAddedLogRouterData(t *testing.T) {
 								Type:  aws.String("arn"),
 								Value: aws.String("s3-arn"),
 							},
-							EnableECSLogMetaData: aws.Bool(true),
+							EnableECSLogMetadata: aws.Bool(true),
 							Type:                 aws.String("fluentd"),
 						},
 					},
@@ -947,7 +947,7 @@ func TestPayloadHandlerAddedLogRouterData(t *testing.T) {
 	actual := addedTask.Containers[0].LogRouter
 
 	assert.NotNil(t, actual.Config)
-	assert.True(t, actual.EnableECSLogMetaData)
+	assert.True(t, actual.EnableECSLogMetadata)
 	assert.NotNil(t, actual.Type)
 
 	assert.Equal(t, aws.StringValue(expected.Config.Type), actual.Config.Type)
