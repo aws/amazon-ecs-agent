@@ -4197,6 +4197,9 @@ type Container struct {
 	// details about a running or stopped container.
 	Reason *string `locationName:"reason" type:"string"`
 
+	// The RuntimeID of the container
+	RuntimeID *string `locationName:"runtimeId" type:"string"`
+
 	// The ARN of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
 }
@@ -4256,6 +4259,12 @@ func (s *Container) SetNetworkInterfaces(v []*NetworkInterface) *Container {
 // SetReason sets the Reason field's value.
 func (s *Container) SetReason(v string) *Container {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeID sets the RuntimeID field's value.
+func (s *Container) SetRuntimeID(v string) *Container {
+	s.RuntimeID = &v
 	return s
 }
 
@@ -5355,6 +5364,9 @@ type ContainerStateChange struct {
 	// The reason for the state change.
 	Reason *string `locationName:"reason" type:"string"`
 
+	// The docker ID of the container
+	RuntimeID *string `locationName:"runtimeId" type:"string"`
+
 	// The status of the container.
 	Status *string `locationName:"status" type:"string"`
 }
@@ -5390,6 +5402,12 @@ func (s *ContainerStateChange) SetNetworkBindings(v []*NetworkBinding) *Containe
 // SetReason sets the Reason field's value.
 func (s *ContainerStateChange) SetReason(v string) *ContainerStateChange {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeID sets the RuntimeID field's value.
+func (s *ContainerStateChange) SetRuntimeID(v string) *ContainerStateChange {
+	s.RuntimeID = &v
 	return s
 }
 
@@ -10654,6 +10672,9 @@ type SubmitContainerStateChangeInput struct {
 	// The reason for the state change request.
 	Reason *string `locationName:"reason" type:"string"`
 
+	// The Docker ID of the container
+	RuntimeID *string `locationName:"runtimeId" type:"string"`
+
 	// The status of the state change request.
 	Status *string `locationName:"status" type:"string"`
 
@@ -10699,6 +10720,12 @@ func (s *SubmitContainerStateChangeInput) SetNetworkBindings(v []*NetworkBinding
 // SetReason sets the Reason field's value.
 func (s *SubmitContainerStateChangeInput) SetReason(v string) *SubmitContainerStateChangeInput {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeID sets the RuntimeID field's value.
+func (s *SubmitContainerStateChangeInput) SetRuntimeID(v string) *SubmitContainerStateChangeInput {
+	s.RuntimeID = &v
 	return s
 }
 

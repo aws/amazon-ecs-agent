@@ -479,3 +479,10 @@ func TestPerContainerTimeouts(t *testing.T) {
 	assert.Equal(t, container.GetStartTimeout(), expectedTimeout)
 	assert.Equal(t, container.GetStopTimeout(), expectedTimeout)
 }
+
+func TestSetRuntimeIDInContainer(t *testing.T) {
+	container := Container{}
+	container.SetRuntimeID("asdfghjkl1234")
+	assert.Equal(t, "asdfghjkl1234", container.RuntimeID)
+	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
+}

@@ -942,6 +942,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	container.SetLabels(config.Labels)
 	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
 		task.Arn, container.Name, metadata.DockerID, time.Since(createContainerBegin))
+	container.SetRuntimeID(metadata.DockerID)
 	return metadata
 }
 

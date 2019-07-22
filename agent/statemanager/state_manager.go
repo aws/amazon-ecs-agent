@@ -87,8 +87,9 @@ const (
 	// 	 a) Add 'attachmentType' field to 'api.ENIAttachment'
 	//	 b) Add 'InterfaceAssociationProtocol' field to 'api.ENI'
 	//	 c) Add 'InterfaceVlanProperties' field to 'api.ENI'
+	// 23) Add 'RuntimeID' field to 'apicontainer.Container'
 
-	ECSDataVersion = 22
+	ECSDataVersion = 23
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
