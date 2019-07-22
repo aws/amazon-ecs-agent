@@ -96,6 +96,8 @@ type HealthStatus struct {
 type Container struct {
 	// Name is the name of the container specified in the task definition
 	Name string
+	// RuntimeID is the docker id of the container
+	RuntimeID string
 	// DependsOn is the field which specifies the ordering for container startup and shutdown.
 	DependsOn []DependsOn `json:"dependsOn,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
@@ -575,6 +577,22 @@ func (c *Container) SetLabels(labels map[string]string) {
 	defer c.lock.Unlock()
 
 	c.labels = labels
+}
+
+// SetRuntimeID sets the DockerID for a container
+func (c *Container) SetRuntimeID(RuntimeID string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.RuntimeID = RuntimeID
+}
+
+// GetRuntimeID gets the DockerID for a container
+func (c *Container) GetRuntimeID() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.RuntimeID
 }
 
 // GetLabels gets the labels for a container

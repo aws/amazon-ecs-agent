@@ -165,6 +165,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
+			RuntimeID:     strptr("runtime id"),
 			Status:        strptr("RUNNING"),
 			NetworkBindings: []*ecs.NetworkBinding{
 				{
@@ -185,6 +186,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
+		RuntimeID:     "runtime id",
 		Status:        apicontainerstatus.ContainerRunning,
 		PortBindings: []apicontainer.PortBinding{
 			{
@@ -217,6 +219,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
+			RuntimeID:     strptr("runtime id"),
 			Status:        strptr("STOPPED"),
 			ExitCode:      int64ptr(&exitCode),
 			Reason:        strptr(reason),
@@ -233,6 +236,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
+		RuntimeID:     "runtime id",
 		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
@@ -928,6 +932,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 			{
 				TaskArn:       "arn",
 				ContainerName: "container",
+				RuntimeID:     "runtimeid",
 				Status:        apicontainerstatus.ContainerRunning,
 			},
 		},
@@ -946,6 +951,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 					Containers: []*ecs.ContainerStateChange{
 						{
 							ContainerName:   strptr("container"),
+							RuntimeID:       strptr("runtimeid"),
 							Status:          strptr("RUNNING"),
 							NetworkBindings: []*ecs.NetworkBinding{},
 						},
