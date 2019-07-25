@@ -49,9 +49,9 @@ const (
 	taskEIAAttributeSuffix                      = "task-eia"
 	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
 	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
-	capabilityAWSRouterFluentd                  = "awsrouter.fluentd"
-	capabilityAWSRouterFluentbit                = "awsrouter.fluentbit"
-	capabilityAWSRouterLoggingDriver            = "logging-driver.awsrouter"
+	capabilityFirelensFluentd                   = "firelens.fluentd"
+	capabilityFirelensFluentbit                 = "firelens.fluentbit"
+	capabilityFirelensLoggingDriver             = "logging-driver.awsfirelens"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -89,9 +89,9 @@ const (
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 //    ecs.capability.task-eni-trunking
-//    ecs.capability.awsrouter.fluentd
-//    ecs.capability.awsrouter.fluentbit
-//    com.amazonaws.ecs.capability.logging-driver.awsrouter
+//    ecs.capability.firelens.fluentd
+//    ecs.capability.firelens.fluentbit
+//    com.amazonaws.ecs.capability.logging-driver.awsfirelens
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -171,13 +171,13 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities = agent.appendTaskEIACapabilities(capabilities)
 
 	// support aws router capabilities for fluentd
-	capabilities = agent.appendAWSRouterFluentdCapabilities(capabilities)
+	capabilities = agent.appendFirelensFluentdCapabilities(capabilities)
 
 	// support aws router capabilities for fluentbit
-	capabilities = agent.appendAWSRouterFluentbitCapabilities(capabilities)
+	capabilities = agent.appendFirelensFluentbitCapabilities(capabilities)
 
 	// support aws router capabilities for log driver router
-	capabilities = agent.appendAWSLoggingDriverCapabilities(capabilities)
+	capabilities = agent.appendFirelensLoggingDriverCapabilities(capabilities)
 
 	return capabilities, nil
 }
