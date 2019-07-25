@@ -715,7 +715,6 @@ func TestTaskEIACapabilitiesUnix(t *testing.T) {
 func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -781,13 +780,13 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + taskEIAAttributeSuffix),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityAWSRouterFluentd),
+				Name: aws.String(attributePrefix + capabilityFirelensFluentd),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityAWSRouterFluentbit),
+				Name: aws.String(attributePrefix + capabilityFirelensFluentbit),
 			},
 			{
-				Name: aws.String(capabilityPrefix + capabilityAWSRouterLoggingDriver),
+				Name: aws.String(capabilityPrefix + capabilityFirelensLoggingDriver),
 			},
 		}...)
 	ctx, cancel := context.WithCancel(context.TODO())
