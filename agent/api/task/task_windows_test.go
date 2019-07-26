@@ -259,8 +259,10 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 
 func TestWindowsMemoryReservationOption(t *testing.T) {
 	// Testing sending a task to windows overriding MemoryReservation value
-	rawHostConfigInput := docker.HostConfig{
-		MemoryReservation: nonZeroMemoryReservationValue,
+	rawHostConfigInput := dockercontainer.HostConfig{
+		Resources: dockercontainer.Resources{
+			MemoryReservation: nonZeroMemoryReservationValue,
+		},
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
@@ -272,10 +274,10 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
 		Family:  "myFamily",
 		Version: "1",
-		Containers: []*Container{
+		Containers: []*apicontainer.Container{
 			{
 				Name: "c1",
-				DockerConfig: DockerConfig{
+				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
 			},
