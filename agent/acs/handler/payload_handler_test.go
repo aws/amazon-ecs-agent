@@ -908,7 +908,7 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	wait.Wait()
 }
 
-func TestPayloadHandlerAddedLogRouterData(t *testing.T) {
+func TestPayloadHandlerAddedFirelensData(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()
 
@@ -924,13 +924,11 @@ func TestPayloadHandlerAddedLogRouterData(t *testing.T) {
 				Arn: aws.String("arn"),
 				Containers: []*ecsacs.Container{
 					{
-						LogRouter: &ecsacs.LogRouter{
-							Config: &ecsacs.LogRouterConfig{
-								Type:  aws.String("arn"),
-								Value: aws.String("s3-arn"),
+						FirelensConfiguration: &ecsacs.FirelensConfiguration{
+							Type: aws.String("fluentd"),
+							Options: map[string]*string{
+								"enable-ecs-log-metadata": aws.String("true"),
 							},
-							EnableECSLogMetadata: aws.Bool(true),
-							Type:                 aws.String("fluentd"),
 						},
 					},
 				},
@@ -942,15 +940,11 @@ func TestPayloadHandlerAddedLogRouterData(t *testing.T) {
 	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
 	assert.NoError(t, err)
 
-	// Validate the pieces of the LogRouter
-	expected := payloadMessage.Tasks[0].Containers[0].LogRouter
-	actual := addedTask.Containers[0].LogRouter
+	// Validate the pieces of the Firelens container
+	expected := payloadMessage.Tasks[0].Containers[0].FirelensConfiguration
+	actual := addedTask.Containers[0].FirelensConfig
 
-	assert.NotNil(t, actual.Config)
-	assert.True(t, actual.EnableECSLogMetadata)
-	assert.NotNil(t, actual.Type)
-
-	assert.Equal(t, aws.StringValue(expected.Config.Type), actual.Config.Type)
-	assert.Equal(t, aws.StringValue(expected.Config.Value), actual.Config.Value)
 	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
+	assert.NotNil(t, actual.Options)
+	assert.Equal(t, aws.StringValue(expected.Options["enable-ecs-log-metadata"]), actual.Options["enable-ecs-log-metadata"])
 }

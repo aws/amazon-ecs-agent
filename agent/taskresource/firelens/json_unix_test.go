@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package logrouter
+package firelens
 
 import (
 	"encoding/json"
@@ -31,13 +31,13 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		"container": testFluentdOptions,
 	}
 
-	logRouterResIn := &LogRouterResource{
+	firelensResIn := &FirelensResource{
 		cluster:               testCluster,
 		taskARN:               testTaskARN,
 		taskDefinition:        testTaskDefinition,
 		ec2InstanceID:         testEC2InstanceID,
 		resourceDir:           testResourceDir,
-		logRouterType:         LogRouterTypeFluentd,
+		firelensConfigType:    FirelensConfigTypeFluentd,
 		ecsMetadataEnabled:    true,
 		containerToLogOptions: testContainerToLogOptions,
 		terminalReason:        testTerminalResason,
@@ -47,22 +47,22 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		appliedStatusUnsafe:   resourcestatus.ResourceCreated,
 	}
 
-	bytes, err := json.Marshal(logRouterResIn)
+	bytes, err := json.Marshal(firelensResIn)
 	require.NoError(t, err)
 
-	logRouterResOut := &LogRouterResource{}
-	err = json.Unmarshal(bytes, logRouterResOut)
+	firelensResOut := &FirelensResource{}
+	err = json.Unmarshal(bytes, firelensResOut)
 	require.NoError(t, err)
-	assert.Equal(t, testCluster, logRouterResOut.cluster)
-	assert.Equal(t, testTaskARN, logRouterResOut.taskARN)
-	assert.Equal(t, testTaskDefinition, logRouterResOut.taskDefinition)
-	assert.True(t, logRouterResOut.ecsMetadataEnabled)
-	assert.Equal(t, testContainerToLogOptions, logRouterResOut.containerToLogOptions)
-	assert.Equal(t, testTerminalResason, logRouterResOut.terminalReason)
+	assert.Equal(t, testCluster, firelensResOut.cluster)
+	assert.Equal(t, testTaskARN, firelensResOut.taskARN)
+	assert.Equal(t, testTaskDefinition, firelensResOut.taskDefinition)
+	assert.True(t, firelensResOut.ecsMetadataEnabled)
+	assert.Equal(t, testContainerToLogOptions, firelensResOut.containerToLogOptions)
+	assert.Equal(t, testTerminalResason, firelensResOut.terminalReason)
 	// Can't use assert.Equal for time here. See https://github.com/golang/go/issues/22957.
-	assert.True(t, testCreatedAt.Equal(logRouterResOut.createdAtUnsafe))
-	assert.Equal(t, resourcestatus.ResourceCreated, logRouterResOut.desiredStatusUnsafe)
-	assert.Equal(t, resourcestatus.ResourceCreated, logRouterResOut.knownStatusUnsafe)
-	assert.Equal(t, resourcestatus.ResourceCreated, logRouterResOut.appliedStatusUnsafe)
-	assert.Equal(t, testTerminalResason, logRouterResOut.terminalReason)
+	assert.True(t, testCreatedAt.Equal(firelensResOut.createdAtUnsafe))
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResOut.desiredStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResOut.knownStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResOut.appliedStatusUnsafe)
+	assert.Equal(t, testTerminalResason, firelensResOut.terminalReason)
 }

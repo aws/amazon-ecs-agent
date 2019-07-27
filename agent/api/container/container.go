@@ -115,8 +115,8 @@ type Container struct {
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link
 	Links []string
-	// LogRouter contains informations about type and configuration needed by log router container
-	LogRouter *LogRouter `json:"logRouter"`
+	// FirelensConfig contains configuration for a Firelens container
+	FirelensConfig *FirelensConfig `json:"firelensConfiguration"`
 	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
 	VolumesFrom []VolumeFrom `json:"volumesFrom"`
 	// MountPoints contains a list of volume mount paths
@@ -274,17 +274,10 @@ type MountPoint struct {
 	ReadOnly      bool   `json:"readOnly"`
 }
 
-// Log Router describes the configuration details and type of log router being used.
-type LogRouter struct {
-	Config               *LogRouterConfig `json:"config"`
-	EnableECSLogMetadata bool             `json:"enableECSLogMetadata"`
-	Type                 string           `json:"type"`
-}
-
-// LogRouterConfig specifies Fluentd/Fluent Bit Configuration
-type LogRouterConfig struct {
-	Type  string `json:"type"`
-	Value string `json:"value"`
+// FirelensConfig describes the type and options of a Firelens container.
+type FirelensConfig struct {
+	Type    string            `json:"type"`
+	Options map[string]string `json:"options"`
 }
 
 // VolumeFrom is a volume which references another container as its source.

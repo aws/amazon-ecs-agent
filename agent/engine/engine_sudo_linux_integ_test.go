@@ -18,6 +18,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -32,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 
@@ -47,20 +47,20 @@ import (
 )
 
 const (
-	testLogSenderImage  = "amazonlinux:2"
-	testFluentbitImage  = "amazon/aws-for-fluent-bit:latest"
-	testVolumeImage     = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
-	testCluster         = "testCluster"
-	validTaskArnPrefix  = "arn:aws:ecs:region:account-id:task/"
-	testDataDir         = "/var/lib/ecs/data/"
-	testDataDirOnHost   = "/var/lib/ecs/"
-	testInstanceID      = "testInstanceID"
-	testTaskDefFamily   = "testFamily"
-	testTaskDefVersion  = "1"
-	logRouterDriverName = "awsrouter"
-	testECSRegion       = "us-east-1"
-	testLogGroupName    = "test-fluentbit"
-	testLogGroupPrefix  = "logrouter-fluentbit-"
+	testLogSenderImage = "amazonlinux:2"
+	testFluentbitImage = "amazon/aws-for-fluent-bit:latest"
+	testVolumeImage    = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
+	testCluster        = "testCluster"
+	validTaskArnPrefix = "arn:aws:ecs:region:account-id:task/"
+	testDataDir        = "/var/lib/ecs/data/"
+	testDataDirOnHost  = "/var/lib/ecs/"
+	testInstanceID     = "testInstanceID"
+	testTaskDefFamily  = "testFamily"
+	testTaskDefVersion = "1"
+	firelensDriverName = "awsfirelens"
+	testECSRegion      = "us-east-1"
+	testLogGroupName   = "test-fluentbit"
+	testLogGroupPrefix = "firelens-fluentbit-"
 )
 
 func TestStartStopWithCgroup(t *testing.T) {
@@ -152,7 +152,7 @@ func createTestLocalVolumeMountTask() *apitask.Task {
 	return testTask
 }
 
-func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
+func TestFirelensFluentbit(t *testing.T) {
 	// Skipping the test for arm as they do not have official support for Arm images
 	if runtime.GOARCH == "arm64" {
 		t.Skip("Skipping test, unsupported image for arm64")
@@ -165,7 +165,7 @@ func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 
-	testTask := createLogDriverAndContainersUsingLogDriverTask(t)
+	testTask := createFirelensTask(t)
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			EC2InstanceID: testInstanceID,
@@ -176,11 +176,11 @@ func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
 
 	//Verify logsender container is running
 	err := VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
-	assert.NoError(t, err, "Verify logsender is running")
+	assert.NoError(t, err, "Verify logsender container is running")
 
-	//Verify logrouter container is running
-	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logrouter", testEvents, t)
-	assert.NoError(t, err, "Verify logrouter is running")
+	//Verify firelens container is running
+	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":firelens", testEvents, t)
+	assert.NoError(t, err, "Verify firelens container is running")
 
 	//Verify task is in running state
 	err = VerifyTaskStatus(apitaskstatus.TaskRunning, testTask.Arn, testEvents, t)
@@ -190,8 +190,8 @@ func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
 	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logsender", testEvents, t)
 	assert.NoError(t, err)
 
-	//Verify logrouter container is stopped
-	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":logrouter", testEvents, t)
+	//Verify firelens container is stopped
+	err = VerifyContainerStatus(apicontainerstatus.ContainerStopped, testTask.Arn+":firelens", testEvents, t)
 	assert.NoError(t, err)
 
 	//Verify the task itself has stopped
@@ -204,7 +204,7 @@ func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(testECSRegion))
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(testLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("logrouter-fluentbit-logsender-%s", taskID)),
+		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-%s", taskID)),
 	}
 
 	// wait for the cloud watch logs
@@ -235,15 +235,15 @@ func TestLogSenderAndLogRouterForFluentbit(t *testing.T) {
 		time.Sleep(1 * time.Second)
 	}
 	// Make sure all the resource is cleaned up
-	_, err = ioutil.ReadDir(filepath.Join(testDataDir, "logrouter", testTask.Arn))
+	_, err = ioutil.ReadDir(filepath.Join(testDataDir, "firelens", testTask.Arn))
 	assert.Error(t, err)
 }
 
-func createLogDriverAndContainersUsingLogDriverTask(t *testing.T) *apitask.Task {
+func createFirelensTask(t *testing.T) *apitask.Task {
 	testTask := createTestTask(validTaskArnPrefix + uuid.New())
 	rawHostConfigInputForLogSender := dockercontainer.HostConfig{
 		LogConfig: dockercontainer.LogConfig{
-			Type: logRouterDriverName,
+			Type: firelensDriverName,
 			Config: map[string]string{
 				"Name":              "cloudwatch",
 				"exclude-pattern":   "exclude",
@@ -262,7 +262,7 @@ func createLogDriverAndContainersUsingLogDriverTask(t *testing.T) *apitask.Task 
 			Name:      "logsender",
 			Image:     testLogSenderImage,
 			Essential: true,
-			// TODO: the log router occasionally failed to send logs when it's shut down very quickly after started.
+			// TODO: the firelens router occasionally failed to send logs when it's shut down very quickly after started.
 			// Let the task run for a while with a sleep helps avoid that failure, but still needs to figure out the
 			// root cause.
 			Command: []string{"sh", "-c", "echo exclude; echo include; sleep 10;"},
@@ -274,18 +274,20 @@ func createLogDriverAndContainersUsingLogDriverTask(t *testing.T) *apitask.Task 
 			},
 			DependsOn: []apicontainer.DependsOn{
 				{
-					ContainerName: "logrouter",
+					ContainerName: "firelens",
 					Condition:     "START",
 				},
 			},
 		},
 		{
-			Name:      "logrouter",
+			Name:      "firelens",
 			Image:     testFluentbitImage,
 			Essential: true,
-			LogRouter: &apicontainer.LogRouter{
-				Type:                 logrouter.LogRouterTypeFluentbit,
-				EnableECSLogMetadata: true,
+			FirelensConfig: &apicontainer.FirelensConfig{
+				Type: firelens.FirelensConfigTypeFluentbit,
+				Options: map[string]string{
+					"enable-ecs-log-metadata": "true",
+				},
 			},
 			Environment: map[string]string{
 				"AWS_EXECUTION_ENV": "AWS_ECS_EC2",

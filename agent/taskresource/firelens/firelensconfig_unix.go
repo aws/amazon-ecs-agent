@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package logrouter
+package firelens
 
 import (
 	"fmt"
@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	// LogRouterTypeFluentd is the type of a fluentd log router.
-	LogRouterTypeFluentd = "fluentd"
+	// FirelensConfigTypeFluentd is the type of a fluentd firelens container.
+	FirelensConfigTypeFluentd = "fluentd"
 
-	// LogRouterTypeFluentbit is the type of a fluentbit log router.
-	LogRouterTypeFluentbit = "fluentbit"
+	// FirelensConfigTypeFluentbit is the type of a fluentbit firelens container.
+	FirelensConfigTypeFluentbit = "fluentbit"
 
 	// socketInputNameFluentd is the name of the socket input plugin for fluentd.
 	socketInputNameFluentd = "unix"
@@ -59,14 +59,14 @@ const (
 )
 
 // generateConfig generates a FluentConfig object that contains all necessary information to construct
-// a fluentd or fluentbit config file for the log router.
-func (logRouter *LogRouterResource) generateConfig() (generator.FluentConfig, error) {
+// a fluentd or fluentbit config file for a firelens container.
+func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, error) {
 	config := generator.New()
 
-	// Specify log stream input, which is a unix socket that will be used for communication between log router container
-	// and other containers.
+	// Specify log stream input, which is a unix socket that will be used for communication between the Firelens
+	// container and other containers.
 	var inputName, inputPathOption string
-	if logRouter.logRouterType == LogRouterTypeFluentd {
+	if firelens.firelensConfigType == FirelensConfigTypeFluentd {
 		inputName = socketInputNameFluentd
 		inputPathOption = socketInputPathOptionFluentd
 	} else {
@@ -77,25 +77,25 @@ func (logRouter *LogRouterResource) generateConfig() (generator.FluentConfig, er
 		inputPathOption: socketPath,
 	})
 
-	if logRouter.ecsMetadataEnabled {
+	if firelens.ecsMetadataEnabled {
 		// Add ecs metadata fields to the log stream.
-		config.AddFieldToRecord("ecs_cluster", logRouter.cluster, "*").
-			AddFieldToRecord("ecs_task_arn", logRouter.taskARN, "*").
-			AddFieldToRecord("ecs_task_definition", logRouter.taskDefinition, "*")
-		if logRouter.ec2InstanceID != "" {
-			config.AddFieldToRecord("ec2_instance_id", logRouter.ec2InstanceID, "*")
+		config.AddFieldToRecord("ecs_cluster", firelens.cluster, "*").
+			AddFieldToRecord("ecs_task_arn", firelens.taskARN, "*").
+			AddFieldToRecord("ecs_task_definition", firelens.taskDefinition, "*")
+		if firelens.ec2InstanceID != "" {
+			config.AddFieldToRecord("ec2_instance_id", firelens.ec2InstanceID, "*")
 		}
 	}
 
-	// Specify log stream output. Each container that uses the log router container to stream logs
+	// Specify log stream output. Each container that uses the firelens container to stream logs
 	// will have its own output section, with its own log options.
-	fields := strings.Split(logRouter.taskARN, "/")
+	fields := strings.Split(firelens.taskARN, "/")
 	taskID := fields[len(fields)-1]
-	for containerName, logOptions := range logRouter.containerToLogOptions {
+	for containerName, logOptions := range firelens.containerToLogOptions {
 		tag := containerName + "-" + taskID // Each output section is distinguished by a tag specific to a container.
-		newConfig, err := addOutputSection(tag, logRouter.logRouterType, logOptions, config)
+		newConfig, err := addOutputSection(tag, firelens.firelensConfigType, logOptions, config)
 		if err != nil {
-			return nil, fmt.Errorf("unable to apply log options of container %s to log router config: %v", containerName, err)
+			return nil, fmt.Errorf("unable to apply log options of container %s to firelens config: %v", containerName, err)
 		}
 		config = newConfig
 	}
@@ -103,17 +103,17 @@ func (logRouter *LogRouterResource) generateConfig() (generator.FluentConfig, er
 	return config, nil
 }
 
-// addOutputSection adds an output section in the log config for a container. It's constructed based on the
-// container's log options.
+// addOutputSection adds an output section to the firelens container's config that specifies how it routes another
+// container's logs. It's constructed based on that container's log options.
 // logOptions is a set of key-value pairs, which includes the following:
 //     1. The name of the output plugin (required). For fluentd, the key is "@type", for fluentbit, the key is "Name".
 //     2. include-pattern (optional): a regex specifying the logs to be included.
 //     3. exclude-pattern (optional): a regex specifying the logs to be excluded.
 //     4. All other key-value pairs are customer specified options for the plugin. They are unique for each plugin and
 //        we don't check them.
-func addOutputSection(tag, logRouterType string, logOptions map[string]string, config generator.FluentConfig) (generator.FluentConfig, error) {
+func addOutputSection(tag, firelensConfigType string, logOptions map[string]string, config generator.FluentConfig) (generator.FluentConfig, error) {
 	var outputKey string
-	if logRouterType == LogRouterTypeFluentd {
+	if firelensConfigType == FirelensConfigTypeFluentd {
 		outputKey = outputTypeLogOptionKeyFluentd
 	} else {
 		outputKey = outputTypeLogOptionKeyFluentbit
@@ -122,8 +122,8 @@ func addOutputSection(tag, logRouterType string, logOptions map[string]string, c
 	output, ok := logOptions[outputKey]
 	if !ok {
 		return config, errors.New(
-			fmt.Sprintf("missing output option %s which is required for log router type %s",
-				outputKey, logRouterType))
+			fmt.Sprintf("missing output option %s which is required for firelens configuration of type %s",
+				outputKey, firelensConfigType))
 	}
 
 	outputOptions := make(map[string]string)

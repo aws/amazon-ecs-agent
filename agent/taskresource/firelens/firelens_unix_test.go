@@ -12,7 +12,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package logrouter
+package firelens
 
 import (
 	"os"
@@ -50,28 +50,28 @@ func setup(t *testing.T) (*mock_oswrapper.MockOS, *mock_oswrapper.MockFile, *moc
 	return mockOS, mockFile, mockIOUtil, ctrl.Finish
 }
 
-func newMockLogRouterResource(logRouterType string, logRouterOptions map[string]string, mockOS *mock_oswrapper.MockOS,
-	mockIOUtil *mock_ioutilwrapper.MockIOUtil) *LogRouterResource {
-	return &LogRouterResource{
-		cluster:        testCluster,
-		taskARN:        testTaskARN,
-		taskDefinition: testTaskDefinition,
-		ec2InstanceID:  testEC2InstanceID,
-		resourceDir:    testResourceDir,
-		logRouterType:  logRouterType,
+func newMockFirelensResource(firelensConfigType string, lopOptions map[string]string, mockOS *mock_oswrapper.MockOS,
+	mockIOUtil *mock_ioutilwrapper.MockIOUtil) *FirelensResource {
+	return &FirelensResource{
+		cluster:            testCluster,
+		taskARN:            testTaskARN,
+		taskDefinition:     testTaskDefinition,
+		ec2InstanceID:      testEC2InstanceID,
+		resourceDir:        testResourceDir,
+		firelensConfigType: firelensConfigType,
 		containerToLogOptions: map[string]map[string]string{
-			"container": logRouterOptions,
+			"container": lopOptions,
 		},
 		os:     mockOS,
 		ioutil: mockIOUtil,
 	}
 }
 
-func TestCreateLogRouterResourceFluentd(t *testing.T) {
+func TestCreateFirelensResourceFluentd(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -85,14 +85,14 @@ func TestCreateLogRouterResourceFluentd(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	assert.NoError(t, logRouterResource.Create())
+	assert.NoError(t, firelensResource.Create())
 }
 
-func TestCreateLogRouterResourceFluentbit(t *testing.T) {
+func TestCreateFirelensResourceFluentbit(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentbit, testFluentbitOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentbit, testFluentbitOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -106,55 +106,55 @@ func TestCreateLogRouterResourceFluentbit(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	assert.NoError(t, logRouterResource.Create())
+	assert.NoError(t, firelensResource.Create())
 }
 
-func TestCreateLogRouterResourceInvalidType(t *testing.T) {
+func TestCreateFirelensResourceInvalidType(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
-	logRouterResource.logRouterType = "invalid"
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource.firelensConfigType = "invalid"
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceCreateConfigDirError(t *testing.T) {
+func TestCreateFirelensResourceCreateConfigDirError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm).Return(errors.New("test error")),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceCreateSocketDirError(t *testing.T) {
+func TestCreateFirelensResourceCreateSocketDirError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/socket", os.ModePerm).Return(errors.New("test error")),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceGenerateConfigError(t *testing.T) {
+func TestCreateFirelensResourceGenerateConfigError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
-	logRouterResource.containerToLogOptions = map[string]map[string]string{
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource.containerToLogOptions = map[string]map[string]string{
 		"container": {},
 	}
 
@@ -163,15 +163,15 @@ func TestCreateLogRouterResourceGenerateConfigError(t *testing.T) {
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/socket", os.ModePerm),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceCreateTempFileError(t *testing.T) {
+func TestCreateFirelensResourceCreateTempFileError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -179,15 +179,15 @@ func TestCreateLogRouterResourceCreateTempFileError(t *testing.T) {
 		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(nil, errors.New("test error")),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceWriteConfigFileError(t *testing.T) {
+func TestCreateFirelensResourceWriteConfigFileError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -197,15 +197,15 @@ func TestCreateLogRouterResourceWriteConfigFileError(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceChmodError(t *testing.T) {
+func TestCreateFirelensResourceChmodError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -216,15 +216,15 @@ func TestCreateLogRouterResourceChmodError(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCreateLogRouterResourceRenameError(t *testing.T) {
+func TestCreateFirelensResourceRenameError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -238,56 +238,56 @@ func TestCreateLogRouterResourceRenameError(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	assert.Error(t, logRouterResource.Create())
-	assert.NotEmpty(t, logRouterResource.terminalReason)
+	assert.Error(t, firelensResource.Create())
+	assert.NotEmpty(t, firelensResource.terminalReason)
 }
 
-func TestCleanupLogRouterResource(t *testing.T) {
+func TestCleanupFirelensResource(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	mockOS.EXPECT().RemoveAll(testResourceDir)
 
-	assert.NoError(t, logRouterResource.Cleanup())
+	assert.NoError(t, firelensResource.Cleanup())
 }
 
-func TestCleanupLogRouterResourceError(t *testing.T) {
+func TestCleanupFirelensResourceError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
 
 	mockOS.EXPECT().RemoveAll(testResourceDir).Return(errors.New("test error"))
 
-	assert.Error(t, logRouterResource.Cleanup())
+	assert.Error(t, firelensResource.Cleanup())
 }
 
-func TestInitializeLogRouterResource(t *testing.T) {
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
-	logRouterResource.Initialize(&taskresource.ResourceFields{}, status.TaskRunning, status.TaskRunning)
+func TestInitializeFirelensResource(t *testing.T) {
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource.Initialize(&taskresource.ResourceFields{}, status.TaskRunning, status.TaskRunning)
 
-	assert.NotNil(t, logRouterResource.statusToTransitions)
-	assert.Equal(t, 1, len(logRouterResource.statusToTransitions))
-	assert.NotNil(t, logRouterResource.os)
-	assert.NotNil(t, logRouterResource.ioutil)
+	assert.NotNil(t, firelensResource.statusToTransitions)
+	assert.Equal(t, 1, len(firelensResource.statusToTransitions))
+	assert.NotNil(t, firelensResource.os)
+	assert.NotNil(t, firelensResource.ioutil)
 }
 
 func TestSetKnownStatus(t *testing.T) {
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
-	logRouterResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(LogRouterCreated)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(FirelensCreated)
 
-	logRouterResource.SetKnownStatus(resourcestatus.ResourceStatus(LogRouterCreated))
-	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterCreated), logRouterResource.knownStatusUnsafe)
-	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterStatusNone), logRouterResource.appliedStatusUnsafe)
+	firelensResource.SetKnownStatus(resourcestatus.ResourceStatus(FirelensCreated))
+	assert.Equal(t, resourcestatus.ResourceStatus(FirelensCreated), firelensResource.knownStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceStatus(FirelensStatusNone), firelensResource.appliedStatusUnsafe)
 }
 
 func TestSetKnownStatusNoAppliedStatusUpdate(t *testing.T) {
-	logRouterResource := newMockLogRouterResource(LogRouterTypeFluentd, testFluentdOptions, nil, nil)
-	logRouterResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(LogRouterCreated)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(FirelensCreated)
 
-	logRouterResource.SetKnownStatus(resourcestatus.ResourceStatus(LogRouterStatusNone))
-	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterStatusNone), logRouterResource.knownStatusUnsafe)
-	assert.Equal(t, resourcestatus.ResourceStatus(LogRouterCreated), logRouterResource.appliedStatusUnsafe)
+	firelensResource.SetKnownStatus(resourcestatus.ResourceStatus(FirelensStatusNone))
+	assert.Equal(t, resourcestatus.ResourceStatus(FirelensStatusNone), firelensResource.knownStatusUnsafe)
+	assert.Equal(t, resourcestatus.ResourceStatus(FirelensCreated), firelensResource.appliedStatusUnsafe)
 }

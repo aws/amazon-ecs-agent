@@ -228,7 +228,7 @@
         "dependsOn":{"shape":"ContainerDependencies"},
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
-        "logRouter":{"shape":"LogRouter"}
+        "firelensConfiguration":{"shape":"FirelensConfiguration"}
       }
     },
     "ContainerCondition":{
@@ -432,34 +432,24 @@
       },
       "exception":true
     },
-    "LogRouter":{
+    "FirelensConfiguration":{
       "type":"structure",
       "members":{
-        "type":{"shape":"LogRouterType"},
-        "enableECSLogMetadata":{"shape":"Boolean"},
-        "config":{"shape":"LogRouterConfig"}
+        "type":{"shape":"FirelensConfigurationType"},
+        "options":{"shape":"FirelensConfigurationOptionsMap"}
       }
     },
-    "LogRouterConfig":{
-      "type":"structure",
-      "members":{
-        "type":{"shape":"LogRouterConfigType"},
-        "value":{"shape":"String"}
-      }
-    },
-    "LogRouterConfigType":{
-      "type":"string",
-      "enum":[
-        "arn",
-        "filePath"
-      ]
-    },
-    "LogRouterType":{
+    "FirelensConfigurationType":{
       "type":"string",
       "enum":[
         "fluentd",
         "fluentbit"
       ]
+    },
+    "FirelensConfigurationOptionsMap": {
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
     },
     "Long":{"type":"long"},
     "MountPoint":{
