@@ -39,7 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
@@ -96,16 +96,16 @@ const (
 	ipcModeSharable = "shareable"
 	ipcModeNone     = "none"
 
-	// logRouterConfigBindFormatFluentd and logRouterConfigBindFormatFluentbit specifies the format of log router
-	// config file bind mount for fluentd and fluentbit log router respectively.
+	// firelensConfigBindFormatFluentd and firelensConfigBindFormatFluentbit specifies the format of the firelens
+	// config file bind mount for fluentd and fluentbit firelens container respectively.
 	// First placeholder is host data dir, second placeholder is taskID.
-	logRouterConfigBindFormatFluentd   = "%s/data/logrouter/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
-	logRouterConfigBindFormatFluentbit = "%s/data/logrouter/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
-	// logRouterSocketBindFormat specifies the format for log router socket directory bind mount.
+	firelensConfigBindFormatFluentd   = "%s/data/firelens/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
+	firelensConfigBindFormatFluentbit = "%s/data/firelens/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
+	// firelensSocketBindFormat specifies the format for firelens container's socket directory bind mount.
 	// First placeholder is host data dir, second placeholder is taskID.
-	logRouterSocketBindFormat = "%s/data/logrouter/%s/socket/:/var/run/"
-	// logRouterDriverName is the log driver name for containers that want to use the log router.
-	logRouterDriverName = "awsrouter"
+	firelensSocketBindFormat = "%s/data/firelens/%s/socket/:/var/run/"
+	// firelensDriverName is the log driver name for containers that want to use the firelens container to send logs.
+	firelensDriverName = "awsfirelens"
 
 	// awsExecutionEnvKey is the key of the env specifying the execution environment.
 	awsExecutionEnvKey = "AWS_EXECUTION_ENV"
@@ -324,8 +324,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	if task.hasLogRouter() {
-		err = task.initializeLogRouterResource(cfg, resourceFields)
+	if task.hasFirelensContainer() {
+		err = task.initializeFirelensResource(cfg, resourceFields)
 		if err != nil {
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
@@ -733,47 +733,53 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 	return reqs
 }
 
-// hasLogRouter returns true if the task has a log router container.
-func (task *Task) hasLogRouter() bool {
+// hasFirelensContainer returns true if the task has a firelens container.
+func (task *Task) hasFirelensContainer() bool {
 	for _, container := range task.Containers {
-		if container.LogRouter != nil { // This is a log router container.
+		if container.FirelensConfig != nil { // This is a firelens container.
 			return true
 		}
 	}
 	return false
 }
 
-// initializeLogRouterResource initializes the log router task resource and adds it as a dependency of the
-// log router container.
-func (task *Task) initializeLogRouterResource(config *config.Config, resourceFields *taskresource.ResourceFields) error {
-	containerToLogOptions, err := task.collectLogRouterOptions()
+// initializeFirelensResource initializes the firelens task resource and adds it as a dependency of the
+// firelens container.
+func (task *Task) initializeFirelensResource(config *config.Config, resourceFields *taskresource.ResourceFields) error {
+	containerToLogOptions, err := task.collectLogOptions()
 	if err != nil {
-		return errors.Wrap(err, "unable to initialize log router resource")
+		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
-	var logRouterResource *logrouter.LogRouterResource
+	var firelensResource *firelens.FirelensResource
 	for _, container := range task.Containers {
-		logRouter := container.LogRouter
-		if logRouter != nil {
+		firelensConfig := container.FirelensConfig
+		if firelensConfig != nil {
 			var ec2InstanceID string
 			if container.Environment != nil && container.Environment[awsExecutionEnvKey] == ec2ExecutionEnv {
 				ec2InstanceID = resourceFields.EC2InstanceID
 			}
-			logRouterResource = logrouter.NewLogRouterResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
-				ec2InstanceID, config.DataDir, logRouter.Type, logRouter.EnableECSLogMetadata, containerToLogOptions)
-			task.AddResource(logrouter.ResourceName, logRouterResource)
-			container.BuildResourceDependency(logRouterResource.GetName(), resourcestatus.ResourceCreated,
+
+			var enableECSLogMetadata bool
+			if firelensConfig.Options != nil && firelensConfig.Options["enable-ecs-log-metadata"] == "true" {
+				enableECSLogMetadata = true
+			}
+
+			firelensResource = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+				ec2InstanceID, config.DataDir, firelensConfig.Type, enableECSLogMetadata, containerToLogOptions)
+			task.AddResource(firelens.ResourceName, firelensResource)
+			container.BuildResourceDependency(firelensResource.GetName(), resourcestatus.ResourceCreated,
 				apicontainerstatus.ContainerCreated)
 			return nil
 		}
 	}
 
-	return errors.New("unable to initialize log router resource because there's no log router container")
+	return errors.New("unable to initialize firelens resource because there's no firelens container")
 }
 
-// collectLogRouterOptions collects the log options for all the containers that use the log router container
+// collectLogOptions collects the log options for all the containers that use the firelens container
 // as the log driver.
-func (task *Task) collectLogRouterOptions() (map[string]map[string]string, error) {
+func (task *Task) collectLogOptions() (map[string]map[string]string, error) {
 	containerToLogOptions := make(map[string]map[string]string)
 
 	for _, container := range task.Containers {
@@ -787,7 +793,7 @@ func (task *Task) collectLogRouterOptions() (map[string]map[string]string, error
 			return nil, errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
-		if hostConfig.LogConfig.Type == logRouterDriverName {
+		if hostConfig.LogConfig.Type == firelensDriverName {
 			containerToLogOptions[container.Name] = hostConfig.LogConfig.Config
 		}
 	}
@@ -795,24 +801,25 @@ func (task *Task) collectLogRouterOptions() (map[string]map[string]string, error
 	return containerToLogOptions, nil
 }
 
-// AddLogRouterBindMounts adds config file bind mount and socket directory bind mount to log router container's host
-// config.
-func (task *Task) AddLogRouterBindMounts(logRouterType string, hostConfig *dockercontainer.HostConfig,
+// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
+// container's host config.
+func (task *Task) AddFirelensContainerBindMounts(firelensConfigType string, hostConfig *dockercontainer.HostConfig,
 	config *config.Config) *apierrors.HostConfigError {
 	// TODO: fix task.GetID(). It's currently incorrect when opted in task long arn format.
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 
 	var configBind, socketBind string
-	switch logRouterType {
-	case logrouter.LogRouterTypeFluentd:
-		configBind = fmt.Sprintf(logRouterConfigBindFormatFluentd, config.DataDirOnHost, taskID)
-	case logrouter.LogRouterTypeFluentbit:
-		configBind = fmt.Sprintf(logRouterConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+	switch firelensConfigType {
+	case firelens.FirelensConfigTypeFluentd:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
+	case firelens.FirelensConfigTypeFluentbit:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
 	default:
-		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid log router type %s", logRouterType)}
+		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
+			firelensConfigType)}
 	}
-	socketBind = fmt.Sprintf(logRouterSocketBindFormat, config.DataDirOnHost, taskID)
+	socketBind = fmt.Sprintf(firelensSocketBindFormat, config.DataDirOnHost, taskID)
 
 	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
 	return nil

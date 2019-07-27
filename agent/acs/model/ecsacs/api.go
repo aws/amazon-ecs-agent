@@ -288,13 +288,13 @@ type Container struct {
 
 	Essential *bool `locationName:"essential" type:"boolean"`
 
+	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
+
 	HealthCheckType *string `locationName:"healthCheckType" type:"string" enum:"HealthCheckType"`
 
 	Image *string `locationName:"image" type:"string"`
 
 	Links []*string `locationName:"links" type:"list"`
-
-	LogRouter *LogRouter `locationName:"logRouter" type:"structure"`
 
 	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
 
@@ -513,6 +513,24 @@ func (s ErrorOutput) GoString() string {
 	return s.String()
 }
 
+type FirelensConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Options map[string]*string `locationName:"options" type:"map"`
+
+	Type *string `locationName:"type" type:"string" enum:"FirelensConfigurationType"`
+}
+
+// String returns the string representation
+func (s FirelensConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FirelensConfiguration) GoString() string {
+	return s.String()
+}
+
 type HeartbeatInput struct {
 	_ struct{} `type:"structure"`
 
@@ -722,44 +740,6 @@ func (s InvalidInstanceException) String() string {
 
 // GoString returns the string representation
 func (s InvalidInstanceException) GoString() string {
-	return s.String()
-}
-
-type LogRouter struct {
-	_ struct{} `type:"structure"`
-
-	Config *LogRouterConfig `locationName:"config" type:"structure"`
-
-	EnableECSLogMetadata *bool `locationName:"enableECSLogMetadata" type:"boolean"`
-
-	Type *string `locationName:"type" type:"string" enum:"LogRouterType"`
-}
-
-// String returns the string representation
-func (s LogRouter) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s LogRouter) GoString() string {
-	return s.String()
-}
-
-type LogRouterConfig struct {
-	_ struct{} `type:"structure"`
-
-	Type *string `locationName:"type" type:"string" enum:"LogRouterConfigType"`
-
-	Value *string `locationName:"value" type:"string"`
-}
-
-// String returns the string representation
-func (s LogRouterConfig) String() string {
-	return awsutil.Prettify(s)
-}
-
-// GoString returns the string representation
-func (s LogRouterConfig) GoString() string {
 	return s.String()
 }
 

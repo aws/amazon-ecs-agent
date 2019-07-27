@@ -72,14 +72,15 @@ const (
 	maxEngineConnectRetryDelay         = 2 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
-	logConfigType                      = "awsrouter"
-	logDriverType                      = "fluentd"
-	logDriverTag                       = "tag"
-	logDriverFluentdAddress            = "fluentd-address"
-	dataLogDriverPath                  = "/data/logrouter/"
-	logDriverAsyncConnect              = "fluentd-async-connect"
-	dataLogDriverSocketPath            = "/socket/fluent.sock"
-	socketPathPrefix                   = "unix://"
+	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
+	logDriverTypeFirelens   = "awsfirelens"
+	logDriverTypeFluentd    = "fluentd"
+	logDriverTag            = "tag"
+	logDriverFluentdAddress = "fluentd-address"
+	dataLogDriverPath       = "/data/firelens/"
+	logDriverAsyncConnect   = "fluentd-async-connect"
+	dataLogDriverSocketPath = "/socket/fluent.sock"
+	socketPathPrefix        = "unix://"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -879,12 +880,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
-	// If the container is using a special log driver type "awsrouter", it means the container wants to use
-	// log router to send logs. In this case, override the log driver type to be fluentd
-	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the log router
+	// If the container is using a special log driver type "awsfirelens", it means the container wants to use
+	// the firelens container to send logs. In this case, override the log driver type to be fluentd
+	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
 	// For reference - https://docs.docker.com/config/containers/logging/fluentd/
-	if hostConfig.LogConfig.Type == logConfigType {
-		hostConfig.LogConfig = getLogRouterConfig(task, container, hostConfig, engine.cfg)
+	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
+		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
 	}
 
 	if container.AWSLogAuthExecutionRole() {
@@ -894,8 +895,8 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	if container.LogRouter != nil {
-		err := task.AddLogRouterBindMounts(container.LogRouter.Type, hostConfig, engine.cfg)
+	if container.FirelensConfig != nil {
+		err := task.AddFirelensContainerBindMounts(container.FirelensConfig.Type, hostConfig, engine.cfg)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
@@ -970,18 +971,18 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	return metadata
 }
 
-func getLogRouterConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
-	seelog.Debugf("Applying logrouter config for container %s", container.Name)
+func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 	tag := container.Name + "-" + taskID
 	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig := hostConfig.LogConfig
-	logConfig.Type = logDriverType
+	logConfig.Type = logDriverTypeFluentd
 	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
 	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
+	seelog.Debugf("Applying firelens log config for container %s: %v", container.Name, logConfig)
 	return logConfig
 }
 

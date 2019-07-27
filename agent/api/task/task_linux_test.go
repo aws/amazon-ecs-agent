@@ -28,7 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -567,8 +567,8 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 	assert.Equal(t, 0, len(task.Containers[0].TransitionDependenciesMap))
 }
 
-func TestPostUnmarshalWithLogRouter(t *testing.T) {
-	task := getLogRouterTask(t)
+func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
+	task := getFirelensTask(t)
 
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -584,19 +584,19 @@ func TestPostUnmarshalWithLogRouter(t *testing.T) {
 	assert.Equal(t, 1, len(resources))
 	assert.Equal(t, 1, len(task.Containers[1].TransitionDependenciesMap))
 
-	logRouterResource := resources[0].(*logrouter.LogRouterResource)
-	assert.Equal(t, testCluster, logRouterResource.GetCluster())
-	assert.Equal(t, validTaskArn, logRouterResource.GetTaskARN())
-	assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, logRouterResource.GetTaskDefinition())
-	assert.Equal(t, testInstanceID, logRouterResource.GetEC2InstanceID())
-	assert.Equal(t, testDataDir+"/logrouter/task-id", logRouterResource.GetResourceDir())
-	assert.NotNil(t, logRouterResource.GetContainerToLogOptions())
-	assert.Equal(t, "value1", logRouterResource.GetContainerToLogOptions()["logsender"]["key1"])
-	assert.Equal(t, "value2", logRouterResource.GetContainerToLogOptions()["logsender"]["key2"])
+	firelensResource := resources[0].(*firelens.FirelensResource)
+	assert.Equal(t, testCluster, firelensResource.GetCluster())
+	assert.Equal(t, validTaskArn, firelensResource.GetTaskARN())
+	assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
+	assert.Equal(t, testInstanceID, firelensResource.GetEC2InstanceID())
+	assert.Equal(t, testDataDir+"/firelens/task-id", firelensResource.GetResourceDir())
+	assert.NotNil(t, firelensResource.GetContainerToLogOptions())
+	assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
+	assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
 }
 
-func TestPostUnmarshalWithLogRouterError(t *testing.T) {
-	task := getLogRouterTask(t)
+func TestPostUnmarshalWithFirelensContainerError(t *testing.T) {
+	task := getFirelensTask(t)
 	task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
 
 	resourceFields := &taskresource.ResourceFields{
@@ -611,28 +611,28 @@ func TestPostUnmarshalWithLogRouterError(t *testing.T) {
 	assert.Error(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
 }
 
-func TestHasLogRouter(t *testing.T) {
+func TestHasFirelensContainer(t *testing.T) {
 	testCases := []struct {
-		name         string
-		task         *Task
-		hasLogRouter bool
+		name                 string
+		task                 *Task
+		hasFirelensContainer bool
 	}{
 		{
-			name: "task has log router",
+			name: "task has firelens container",
 			task: &Task{
 				Containers: []*apicontainer.Container{
 					{
 						Name: "c",
-						LogRouter: &apicontainer.LogRouter{
-							Type: logrouter.LogRouterTypeFluentd,
+						FirelensConfig: &apicontainer.FirelensConfig{
+							Type: firelens.FirelensConfigTypeFluentd,
 						},
 					},
 				},
 			},
-			hasLogRouter: true,
+			hasFirelensContainer: true,
 		},
 		{
-			name: "task doesn't have log router",
+			name: "task doesn't have firelens container",
 			task: &Task{
 				Containers: []*apicontainer.Container{
 					{
@@ -640,18 +640,18 @@ func TestHasLogRouter(t *testing.T) {
 					},
 				},
 			},
-			hasLogRouter: false,
+			hasFirelensContainer: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.hasLogRouter, tc.task.hasLogRouter())
+			assert.Equal(t, tc.hasFirelensContainer, tc.task.hasFirelensContainer())
 		})
 	}
 }
 
-func TestInitializeLogRouterResource(t *testing.T) {
+func TestInitializeFirelensResource(t *testing.T) {
 	cfg := &config.Config{
 		DataDir: testDataDir,
 		Cluster: testCluster,
@@ -669,41 +669,41 @@ func TestInitializeLogRouterResource(t *testing.T) {
 		shouldHaveInstanceID bool
 	}{
 		{
-			name:                 "test initialize log router resource fluentd",
-			task:                 getLogRouterTask(t),
+			name:                 "test initialize firelens resource fluentd",
+			task:                 getFirelensTask(t),
 			shouldHaveInstanceID: true,
 		},
 		{
-			name: "test initialize log router resource fluentbit",
+			name: "test initialize firelens resource fluentbit",
 			task: func() *Task {
-				task := getLogRouterTask(t)
-				task.Containers[1].LogRouter.Type = logrouter.LogRouterTypeFluentbit
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
 				return task
 			}(),
 			shouldHaveInstanceID: true,
 		},
 		{
-			name: "test initialize log router resource without ec2 instance id",
+			name: "test initialize firelens resource without ec2 instance id",
 			task: func() *Task {
-				task := getLogRouterTask(t)
+				task := getFirelensTask(t)
 				task.Containers[1].Environment = nil
 				return task
 			}(),
 		},
 		{
-			name: "test initialize log router resource invalid host config",
+			name: "test initialize firelens resource invalid host config",
 			task: func() *Task {
-				task := getLogRouterTask(t)
+				task := getFirelensTask(t)
 				task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
 				return task
 			}(),
 			shouldFail: true,
 		},
 		{
-			name: "test initialize log router resource no log router",
+			name: "test initialize firelens resource no firelens container",
 			task: func() *Task {
-				task := getLogRouterTask(t)
-				task.Containers[1].LogRouter = nil
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig = nil
 				return task
 			}(),
 			shouldFail: true,
@@ -712,7 +712,7 @@ func TestInitializeLogRouterResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.initializeLogRouterResource(cfg, resourceFields)
+			err := tc.task.initializeFirelensResource(cfg, resourceFields)
 			if tc.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -722,43 +722,43 @@ func TestInitializeLogRouterResource(t *testing.T) {
 				assert.Equal(t, 1, len(resources))
 				assert.Equal(t, 1, len(tc.task.Containers[1].TransitionDependenciesMap))
 
-				logRouterResource := resources[0].(*logrouter.LogRouterResource)
-				assert.Equal(t, testCluster, logRouterResource.GetCluster())
-				assert.Equal(t, validTaskArn, logRouterResource.GetTaskARN())
-				assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, logRouterResource.GetTaskDefinition())
-				assert.Equal(t, testDataDir+"/logrouter/task-id", logRouterResource.GetResourceDir())
-				assert.NotNil(t, logRouterResource.GetContainerToLogOptions())
-				assert.Equal(t, "value1", logRouterResource.GetContainerToLogOptions()["logsender"]["key1"])
-				assert.Equal(t, "value2", logRouterResource.GetContainerToLogOptions()["logsender"]["key2"])
+				firelensResource := resources[0].(*firelens.FirelensResource)
+				assert.Equal(t, testCluster, firelensResource.GetCluster())
+				assert.Equal(t, validTaskArn, firelensResource.GetTaskARN())
+				assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
+				assert.Equal(t, testDataDir+"/firelens/task-id", firelensResource.GetResourceDir())
+				assert.NotNil(t, firelensResource.GetContainerToLogOptions())
+				assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
+				assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
 
 				if tc.shouldHaveInstanceID {
-					assert.Equal(t, testInstanceID, logRouterResource.GetEC2InstanceID())
+					assert.Equal(t, testInstanceID, firelensResource.GetEC2InstanceID())
 				} else {
-					assert.Empty(t, logRouterResource.GetEC2InstanceID())
+					assert.Empty(t, firelensResource.GetEC2InstanceID())
 				}
 			}
 		})
 	}
 }
 
-func TestCollectLogRouterOptions(t *testing.T) {
-	task := getLogRouterTask(t)
+func TestCollectLogOptions(t *testing.T) {
+	task := getFirelensTask(t)
 
-	containerToLogOptions, err := task.collectLogRouterOptions()
+	containerToLogOptions, err := task.collectLogOptions()
 	assert.NoError(t, err)
 	assert.Equal(t, "value1", containerToLogOptions["logsender"]["key1"])
 	assert.Equal(t, "value2", containerToLogOptions["logsender"]["key2"])
 }
 
-func TestCollectLogRouterOptionsInvalidOptions(t *testing.T) {
-	task := getLogRouterTask(t)
+func TestCollectLogOptionsInvalidOptions(t *testing.T) {
+	task := getFirelensTask(t)
 	task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
 
-	_, err := task.collectLogRouterOptions()
+	_, err := task.collectLogOptions()
 	assert.Error(t, err)
 }
 
-func TestAddLogRouterBindMounts(t *testing.T) {
+func TestAddFirelensContainerBindMounts(t *testing.T) {
 	cfg := &config.Config{
 		DataDirOnHost: testDataDirOnHost,
 	}
@@ -766,57 +766,57 @@ func TestAddLogRouterBindMounts(t *testing.T) {
 	testCases := []struct {
 		name               string
 		task               *Task
-		logRouterType      string
+		firelensConfigType string
 		hostCfg            *dockercontainer.HostConfig
 		cfg                *config.Config
 		shouldFail         bool
 		expectedBindMounts []string
 	}{
 		{
-			name:          "test add bind mounts for fluentd log router",
-			task:          getLogRouterTask(t),
-			logRouterType: logrouter.LogRouterTypeFluentd,
-			hostCfg:       &dockercontainer.HostConfig{},
-			cfg:           cfg,
-			shouldFail:    false,
+			name:               "test add bind mounts for fluentd firelens container",
+			task:               getFirelensTask(t),
+			firelensConfigType: firelens.FirelensConfigTypeFluentd,
+			hostCfg:            &dockercontainer.HostConfig{},
+			cfg:                cfg,
+			shouldFail:         false,
 			expectedBindMounts: []string{
-				"testDataDirOnHost/data/logrouter/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
-				"testDataDirOnHost/data/logrouter/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
 			},
 		},
 		{
-			name: "test add bind mounts for fluentbit log router",
+			name: "test add bind mounts for fluentbit firelens container",
 			task: func() *Task {
-				task := getLogRouterTask(t)
-				task.Containers[1].LogRouter.Type = logrouter.LogRouterTypeFluentbit
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
 				return task
 			}(),
-			logRouterType: logrouter.LogRouterTypeFluentbit,
-			hostCfg:       &dockercontainer.HostConfig{},
-			cfg:           cfg,
-			shouldFail:    false,
+			firelensConfigType: firelens.FirelensConfigTypeFluentbit,
+			hostCfg:            &dockercontainer.HostConfig{},
+			cfg:                cfg,
+			shouldFail:         false,
 			expectedBindMounts: []string{
-				"testDataDirOnHost/data/logrouter/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
-				"testDataDirOnHost/data/logrouter/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
 			},
 		},
 		{
-			name: "test add bind mounts invalid log router type",
+			name: "test add bind mounts invalid firelens configuration type",
 			task: func() *Task {
-				task := getLogRouterTask(t)
-				task.Containers[1].LogRouter.Type = "invalid"
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = "invalid"
 				return task
 			}(),
-			logRouterType: "invalid",
-			hostCfg:       &dockercontainer.HostConfig{},
-			cfg:           cfg,
-			shouldFail:    true,
+			firelensConfigType: "invalid",
+			hostCfg:            &dockercontainer.HostConfig{},
+			cfg:                cfg,
+			shouldFail:         true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.AddLogRouterBindMounts(tc.logRouterType, tc.hostCfg, tc.cfg)
+			err := tc.task.AddFirelensContainerBindMounts(tc.firelensConfigType, tc.hostCfg, tc.cfg)
 			if tc.shouldFail {
 				// assert.Error doesn't work with *apierrors.HostConfigError.
 				assert.NotNil(t, err)
@@ -828,11 +828,11 @@ func TestAddLogRouterBindMounts(t *testing.T) {
 	}
 }
 
-// getLogRouterTask returns a sample log router task.
-func getLogRouterTask(t *testing.T) *Task {
+// getFirelensTask returns a sample firelens task.
+func getFirelensTask(t *testing.T) *Task {
 	rawHostConfigInput := dockercontainer.HostConfig{
 		LogConfig: dockercontainer.LogConfig{
-			Type: logRouterDriverName,
+			Type: firelensDriverName,
 			Config: map[string]string{
 				"key1": "value1",
 				"key2": "value2",
@@ -856,10 +856,12 @@ func getLogRouterTask(t *testing.T) *Task {
 				},
 			},
 			{
-				Name: "logrouter",
-				LogRouter: &apicontainer.LogRouter{
-					Type:                 logrouter.LogRouterTypeFluentd,
-					EnableECSLogMetadata: true,
+				Name: "firelenscontainer",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: firelens.FirelensConfigTypeFluentd,
+					Options: map[string]string{
+						"enable-ecs-log-metadata": "true",
+					},
 				},
 				Environment: map[string]string{
 					"AWS_EXECUTION_ENV": "AWS_ECS_EC2",

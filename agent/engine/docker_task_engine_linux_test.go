@@ -37,7 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
@@ -392,18 +392,20 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 	}
 }
 
-func TestCreateLogRouterContainer(t *testing.T) {
-	getTask := func(logrouterType string) *apitask.Task {
+func TestCreateFirelensContainer(t *testing.T) {
+	getTask := func(firelensConfigType string) *apitask.Task {
 		return &apitask.Task{
 			Arn:     testTaskARN,
 			Family:  testTaskDefFamily,
 			Version: testTaskDefVersion,
 			Containers: []*apicontainer.Container{
 				{
-					Name: "logrouter",
-					LogRouter: &apicontainer.LogRouter{
-						Type:                 logrouterType,
-						EnableECSLogMetadata: true,
+					Name: "firelens",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: firelensConfigType,
+						Options: map[string]string{
+							"enable-ecs-log-metadata": "true",
+						},
 					},
 				},
 			},
@@ -417,16 +419,16 @@ func TestCreateLogRouterContainer(t *testing.T) {
 		expectedSocketBind string
 	}{
 		{
-			name:               "test create fluentd log router container",
-			task:               getTask(logrouter.LogRouterTypeFluentd),
-			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
-			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/socket/:/var/run/",
+			name:               "test create fluentd firelens container",
+			task:               getTask(firelens.FirelensConfigTypeFluentd),
+			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
 		},
 		{
-			name:               "test create fluentbit log router container",
-			task:               getTask(logrouter.LogRouterTypeFluentbit),
-			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
-			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/logrouter/task-id/socket/:/var/run/",
+			name:               "test create fluentbit firelens container",
+			task:               getTask(firelens.FirelensConfigTypeFluentbit),
+			expectedConfigBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+			expectedSocketBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
 		},
 	}
 

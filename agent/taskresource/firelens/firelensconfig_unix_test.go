@@ -13,7 +13,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package logrouter
+package firelens
 
 import (
 	"bytes"
@@ -141,10 +141,10 @@ func TestGenerateFluentdConfig(t *testing.T) {
 		"container": testFluentdOptions,
 	}
 
-	logRouterResource := NewLogRouterResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, LogRouterTypeFluentd, true, containerToLogOptions)
+	firelensResource := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
+		testDataDir, FirelensConfigTypeFluentd, true, containerToLogOptions)
 
-	config, err := logRouterResource.generateConfig()
+	config, err := firelensResource.generateConfig()
 	assert.NoError(t, err)
 
 	configBytes := new(bytes.Buffer)
@@ -158,10 +158,10 @@ func TestGenerateFluentbitConfig(t *testing.T) {
 		"container": testFluentbitOptions,
 	}
 
-	logRouterResource := NewLogRouterResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, LogRouterTypeFluentbit, true, containerToLogOptions)
+	firelensResource := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
+		testDataDir, FirelensConfigTypeFluentbit, true, containerToLogOptions)
 
-	config, err := logRouterResource.generateConfig()
+	config, err := firelensResource.generateConfig()
 	assert.NoError(t, err)
 
 	configBytes := new(bytes.Buffer)
@@ -177,10 +177,10 @@ func TestGenerateFluentdConfigMissingOutputName(t *testing.T) {
 		},
 	}
 
-	logRouterResource := NewLogRouterResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, LogRouterTypeFluentd, true, containerToLogOptions)
+	firelensResource := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
+		testDataDir, FirelensConfigTypeFluentd, true, containerToLogOptions)
 
-	_, err := logRouterResource.generateConfig()
+	_, err := firelensResource.generateConfig()
 	assert.Error(t, err)
 }
 
@@ -191,10 +191,10 @@ func TestGenerateFLuentbitConfigMissingOutputName(t *testing.T) {
 		},
 	}
 
-	logRouterResource := NewLogRouterResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, LogRouterTypeFluentbit, true, containerToLogOptions)
+	firelensResource := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
+		testDataDir, FirelensConfigTypeFluentbit, true, containerToLogOptions)
 
-	_, err := logRouterResource.generateConfig()
+	_, err := firelensResource.generateConfig()
 	assert.Error(t, err)
 }
 
@@ -203,10 +203,10 @@ func TestGenerateConfigWithECSMetadataDisabled(t *testing.T) {
 		"container": testFluentdOptions,
 	}
 
-	logRouterResource := NewLogRouterResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, LogRouterTypeFluentd, false, containerToLogOptions)
+	firelensResource := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
+		testDataDir, FirelensConfigTypeFluentd, false, containerToLogOptions)
 
-	config, err := logRouterResource.generateConfig()
+	config, err := firelensResource.generateConfig()
 	assert.NoError(t, err)
 
 	configBytes := new(bytes.Buffer)

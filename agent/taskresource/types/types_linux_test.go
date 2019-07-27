@@ -25,7 +25,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
@@ -45,23 +45,23 @@ func TestUnmarshalResourcesMap(t *testing.T) {
 	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetKnownStatus())
 }
 
-func TestMarshalUnmarshalLogRouterResource(t *testing.T) {
+func TestMarshalUnmarshalFirelensResource(t *testing.T) {
 	resources := make(map[string][]taskresource.TaskResource)
-	logRouters := []taskresource.TaskResource{
-		&logrouter.LogRouterResource{},
+	firelensResources := []taskresource.TaskResource{
+		&firelens.FirelensResource{},
 	}
-	logRouters[0].SetDesiredStatus(resourcestatus.ResourceCreated)
-	logRouters[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
+	firelensResources[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	firelensResources[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
 
-	resources["logrouter"] = logRouters
+	resources["firelens"] = firelensResources
 	data, err := json.Marshal(resources)
 	require.NoError(t, err)
 
 	var unmarshalledResource ResourcesMap
 	err = json.Unmarshal(data, &unmarshalledResource)
 	assert.NoError(t, err)
-	unMarshalledLogRouters, ok := unmarshalledResource["logrouter"]
+	unMarshalledFirelensResources, ok := unmarshalledResource["firelens"]
 	assert.True(t, ok)
-	assert.Equal(t, unMarshalledLogRouters[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
-	assert.Equal(t, unMarshalledLogRouters[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
+	assert.Equal(t, unMarshalledFirelensResources[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledFirelensResources[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }

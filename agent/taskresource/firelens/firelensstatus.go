@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package logrouter
+package firelens
 
 import (
 	"errors"
@@ -20,26 +20,26 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
-type LogRouterStatus resourcestatus.ResourceStatus
+type FirelensStatus resourcestatus.ResourceStatus
 
 const (
-	// LogRouterStatusNone is the zero state of a logrouter task resource.
-	LogRouterStatusNone LogRouterStatus = iota
-	// LogRouterCreated represents the status of a logrouter task resource which has been created.
-	LogRouterCreated
-	// LogRouterRemoved represents the status of a logrouter task resource which has been cleaned up.
-	LogRouterRemoved
+	// FirelensStatusNone is the zero state of a firelens task resource.
+	FirelensStatusNone FirelensStatus = iota
+	// FirelensCreated represents the status of a firelens task resource which has been created.
+	FirelensCreated
+	// FirelensRemoved represents the status of a firelens task resource which has been cleaned up.
+	FirelensRemoved
 )
 
-var logRouterStatusMap = map[string]LogRouterStatus{
-	"NONE":    LogRouterStatusNone,
-	"CREATED": LogRouterCreated,
-	"REMOVED": LogRouterRemoved,
+var firelensStatusMap = map[string]FirelensStatus{
+	"NONE":    FirelensStatusNone,
+	"CREATED": FirelensCreated,
+	"REMOVED": FirelensRemoved,
 }
 
 // String returns a human readable string representation of this object.
-func (as LogRouterStatus) String() string {
-	for k, v := range logRouterStatusMap {
+func (as FirelensStatus) String() string {
+	for k, v := range firelensStatusMap {
 		if v == as {
 			return k
 		}
@@ -48,29 +48,29 @@ func (as LogRouterStatus) String() string {
 }
 
 // MarshalJSON overrides the logic for JSON-encoding the ResourceStatus type.
-func (as *LogRouterStatus) MarshalJSON() ([]byte, error) {
+func (as *FirelensStatus) MarshalJSON() ([]byte, error) {
 	if as == nil {
-		return nil, errors.New("logrouter resource status is nil")
+		return nil, errors.New("firelens resource status is nil")
 	}
 	return []byte(`"` + as.String() + `"`), nil
 }
 
 // UnmarshalJSON overrides the logic for parsing the JSON-encoded ResourceStatus data.
-func (as *LogRouterStatus) UnmarshalJSON(b []byte) error {
+func (as *FirelensStatus) UnmarshalJSON(b []byte) error {
 	if strings.ToLower(string(b)) == "null" {
-		*as = LogRouterStatusNone
+		*as = FirelensStatusNone
 		return nil
 	}
 
 	if b[0] != '"' || b[len(b)-1] != '"' {
-		*as = LogRouterStatusNone
+		*as = FirelensStatusNone
 		return errors.New("resource status unmarshal: status must be a string or null; Got " + string(b))
 	}
 
 	strStatus := string(b[1 : len(b)-1])
-	stat, ok := logRouterStatusMap[strStatus]
+	stat, ok := firelensStatusMap[strStatus]
 	if !ok {
-		*as = LogRouterStatusNone
+		*as = FirelensStatusNone
 		return errors.New("resource status unmarshal: unrecognized status")
 	}
 	*as = stat

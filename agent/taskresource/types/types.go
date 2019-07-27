@@ -21,7 +21,7 @@ import (
 	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/logrouter"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
@@ -37,8 +37,8 @@ const (
 	SSMSecretKey = ssmsecretres.ResourceName
 	// ASMSecretKey is the string used in resources map to represent asm secret
 	ASMSecretKey = asmsecretres.ResourceName
-	// LogRouterKey is the string used in resources map to represent log router resource
-	LogRouterKey = logrouter.ResourceName
+	// FirelensKey is the string used in resources map to represent firelens resource
+	FirelensKey = firelens.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -74,8 +74,8 @@ func unmarshalResource(key string, value json.RawMessage, result map[string][]ta
 		return unmarshalSSMSecretKey(key, value, result)
 	case ASMSecretKey:
 		return unmarshalASMSecretKey(key, value, result)
-	case LogRouterKey:
-		return unmarshalLogRouterKey(key, value, result)
+	case FirelensKey:
+		return unmarshalFirelensKey(key, value, result)
 	default:
 		return errors.New("Unsupported resource type")
 	}
@@ -169,16 +169,16 @@ func unmarshalASMSecretKey(key string, value json.RawMessage, result map[string]
 	return nil
 }
 
-func unmarshalLogRouterKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
-	var logRouters []json.RawMessage
-	err := json.Unmarshal(value, &logRouters)
+func unmarshalFirelensKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var firelensResources []json.RawMessage
+	err := json.Unmarshal(value, &firelensResources)
 	if err != nil {
 		return err
 	}
 
-	for _, logRouter := range logRouters {
-		res := &logrouter.LogRouterResource{}
-		err := res.UnmarshalJSON(logRouter)
+	for _, firelensResource := range firelensResources {
+		res := &firelens.FirelensResource{}
+		err := res.UnmarshalJSON(firelensResource)
 		if err != nil {
 			return err
 		}
