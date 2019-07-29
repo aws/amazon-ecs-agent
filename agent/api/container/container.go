@@ -900,3 +900,28 @@ func (c *Container) GetStopTimeout() time.Duration {
 
 	return time.Duration(c.StopTimeout) * time.Second
 }
+
+// DependsOnContainer checks whether a container depends on another container.
+func (c *Container) DependsOnContainer(name string) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for _, dependsOn := range c.DependsOn {
+		if dependsOn.ContainerName == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// AddContainerDependency adds a container dependency to a container.
+func (c *Container) AddContainerDependency(name string, condition string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.DependsOn = append(c.DependsOn, DependsOn{
+		ContainerName: name,
+		Condition:     condition,
+	})
+}

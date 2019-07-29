@@ -479,3 +479,59 @@ func TestPerContainerTimeouts(t *testing.T) {
 	assert.Equal(t, container.GetStartTimeout(), expectedTimeout)
 	assert.Equal(t, container.GetStopTimeout(), expectedTimeout)
 }
+
+func TestDependsOnContainer(t *testing.T) {
+	testCases := []struct {
+		name          string
+		container     *Container
+		dependsOnName string
+		dependsOn     bool
+	}{
+		{
+			name: "test DependsOnContainer positive case",
+			container: &Container{
+				Name: "container1",
+				DependsOn: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container2",
+			dependsOn:     true,
+		},
+		{
+			name: "test DependsOnContainer negative case",
+			container: &Container{
+				Name: "container1",
+				DependsOn: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container0",
+			dependsOn:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.dependsOn, tc.container.DependsOnContainer(tc.dependsOnName))
+		})
+	}
+}
+
+func TestAddContainerDependency(t *testing.T) {
+	container := &Container{
+		Name: "container1",
+	}
+	container.AddContainerDependency("container2", "START")
+
+	assert.Contains(t, container.DependsOn, DependsOn{
+		ContainerName: "container2",
+		Condition:     "START",
+	})
+}

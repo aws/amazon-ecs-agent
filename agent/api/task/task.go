@@ -325,10 +325,19 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
 	if task.hasFirelensContainer() {
-		err = task.initializeFirelensResource(cfg, resourceFields)
-		if err != nil {
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
+		return task.applyFirelensSetup(cfg, resourceFields)
+	}
+	return nil
+}
+
+func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields) error {
+	err := task.initializeFirelensResource(cfg, resourceFields)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.addFirelensContainerDependency()
+	if err != nil {
+		return errors.New("unable to add firelens container dependency")
 	}
 
 	return nil
@@ -760,9 +769,9 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 				ec2InstanceID = resourceFields.EC2InstanceID
 			}
 
-			var enableECSLogMetadata bool
-			if firelensConfig.Options != nil && firelensConfig.Options["enable-ecs-log-metadata"] == "true" {
-				enableECSLogMetadata = true
+			enableECSLogMetadata := true
+			if firelensConfig.Options != nil && firelensConfig.Options["enable-ecs-log-metadata"] == "false" {
+				enableECSLogMetadata = false
 			}
 
 			firelensResource = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
@@ -775,6 +784,43 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 	}
 
 	return errors.New("unable to initialize firelens resource because there's no firelens container")
+}
+
+func (task *Task) addFirelensContainerDependency() error {
+	var firelensContainer *apicontainer.Container
+	for _, container := range task.Containers {
+		if container.FirelensConfig != nil {
+			firelensContainer = container
+		}
+	}
+
+	if firelensContainer == nil {
+		return errors.New("unable to add firelens container dependency because there's no firelens container")
+	}
+
+	for _, container := range task.Containers {
+		if container.DockerConfig.HostConfig == nil {
+			continue
+		}
+
+		hostConfig := &dockercontainer.HostConfig{}
+		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
+		if err != nil {
+			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
+		}
+
+		if hostConfig.LogConfig.Type == firelensDriverName {
+			// If there's no dependency between the app container and the firelens container, make firelens container
+			// start first to be the default behavior by adding a START container depdendency.
+			if !container.DependsOnContainer(firelensContainer.Name) && !firelensContainer.DependsOnContainer(container.Name) {
+				seelog.Infof("Adding a START container dependency on firelens container %s for container %s",
+					firelensContainer.Name, container.Name)
+				container.AddContainerDependency(firelensContainer.Name, ContainerOrderingStartCondition)
+			}
+		}
+	}
+
+	return nil
 }
 
 // collectLogOptions collects the log options for all the containers that use the firelens container
