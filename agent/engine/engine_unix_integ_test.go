@@ -1303,6 +1303,39 @@ func TestTaskLevelVolume(t *testing.T) {
 	client.RemoveVolume(context.TODO(), "TestTaskLevelVolume", 5*time.Second)
 }
 
+func TestSwapConfigurationTask(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	testArn := "TestSwapMemory"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	go taskEngine.AddTask(testTask)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+	assert.EqualValues(t, 314572800, state.HostConfig.MemorySwap)
+	assert.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
+
+	// Kill the existing container now
+	taskUpdate := createTestTask(testArn)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
 func TestGPUAssociationTask(t *testing.T) {
 	gpuSupportEnabled := utils.ParseBool(getGPUEnvVar(gpuConfigFilePath)["ECS_ENABLE_GPU_SUPPORT"], false)
 
