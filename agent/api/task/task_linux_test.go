@@ -593,6 +593,10 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 	assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
 	assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
+	assert.Contains(t, task.Containers[0].DependsOn, apicontainer.DependsOn{
+		ContainerName: task.Containers[1].Name,
+		Condition:     ContainerOrderingStartCondition,
+	})
 }
 
 func TestPostUnmarshalWithFirelensContainerError(t *testing.T) {
@@ -663,10 +667,11 @@ func TestInitializeFirelensResource(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                 string
-		task                 *Task
-		shouldFail           bool
-		shouldHaveInstanceID bool
+		name                  string
+		task                  *Task
+		shouldFail            bool
+		shouldHaveInstanceID  bool
+		shouldDisableMetadata bool
 	}{
 		{
 			name:                 "test initialize firelens resource fluentd",
@@ -689,6 +694,16 @@ func TestInitializeFirelensResource(t *testing.T) {
 				task.Containers[1].Environment = nil
 				return task
 			}(),
+		},
+		{
+			name: "test initialize firelens resource disables ecs log metadata",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Options["enable-ecs-log-metadata"] = "false"
+				return task
+			}(),
+			shouldHaveInstanceID:  true,
+			shouldDisableMetadata: true,
 		},
 		{
 			name: "test initialize firelens resource invalid host config",
@@ -730,6 +745,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
 				assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
+				assert.Equal(t, !tc.shouldDisableMetadata, firelensResource.GetECSMetadataEnabled())
 
 				if tc.shouldHaveInstanceID {
 					assert.Equal(t, testInstanceID, firelensResource.GetEC2InstanceID())
@@ -756,6 +772,16 @@ func TestCollectLogOptionsInvalidOptions(t *testing.T) {
 
 	_, err := task.collectLogOptions()
 	assert.Error(t, err)
+}
+
+func TestAddFirelensContainerDependency(t *testing.T) {
+	task := getFirelensTask(t)
+
+	err := task.addFirelensContainerDependency()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(task.Containers[0].DependsOn))
+	assert.Equal(t, task.Containers[1].Name, task.Containers[0].DependsOn[0].ContainerName)
+	assert.Equal(t, ContainerOrderingStartCondition, task.Containers[0].DependsOn[0].Condition)
 }
 
 func TestAddFirelensContainerBindMounts(t *testing.T) {
