@@ -730,7 +730,7 @@ type LogRouter struct {
 
 	Config *LogRouterConfig `locationName:"config" type:"structure"`
 
-	EnableECSLogMetaData *bool `locationName:"enableECSLogMetaData" type:"boolean"`
+	EnableECSLogMetadata *bool `locationName:"enableECSLogMetadata" type:"boolean"`
 
 	Type *string `locationName:"type" type:"string" enum:"LogRouterType"`
 }

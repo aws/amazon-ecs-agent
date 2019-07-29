@@ -859,7 +859,7 @@ func getLogRouterTask(t *testing.T) *Task {
 				Name: "logrouter",
 				LogRouter: &apicontainer.LogRouter{
 					Type:                 logrouter.LogRouterTypeFluentd,
-					EnableECSLogMetaData: true,
+					EnableECSLogMetadata: true,
 				},
 				Environment: map[string]string{
 					"AWS_EXECUTION_ENV": "AWS_ECS_EC2",

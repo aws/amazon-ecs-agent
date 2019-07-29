@@ -759,9 +759,8 @@ func (task *Task) initializeLogRouterResource(config *config.Config, resourceFie
 			if container.Environment != nil && container.Environment[awsExecutionEnvKey] == ec2ExecutionEnv {
 				ec2InstanceID = resourceFields.EC2InstanceID
 			}
-
 			logRouterResource = logrouter.NewLogRouterResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
-				ec2InstanceID, config.DataDir, logRouter.Type, logRouter.EnableECSLogMetaData, containerToLogOptions)
+				ec2InstanceID, config.DataDir, logRouter.Type, logRouter.EnableECSLogMetadata, containerToLogOptions)
 			task.AddResource(logrouter.ResourceName, logRouterResource)
 			container.BuildResourceDependency(logRouterResource.GetName(), resourcestatus.ResourceCreated,
 				apicontainerstatus.ContainerCreated)

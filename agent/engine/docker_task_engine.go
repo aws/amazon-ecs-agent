@@ -975,12 +975,10 @@ func getLogRouterConfig(task *apitask.Task, container *apicontainer.Container, h
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 	tag := container.Name + "-" + taskID
-	fluentd := filepath.Join(socketPathPrefix, cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
+	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig := hostConfig.LogConfig
 	logConfig.Type = logDriverType
-	if logConfig.Config == nil {
-		logConfig.Config = make(map[string]string)
-	}
+	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
 	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)

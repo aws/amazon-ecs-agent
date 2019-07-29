@@ -436,7 +436,7 @@
       "type":"structure",
       "members":{
         "type":{"shape":"LogRouterType"},
-        "enableECSLogMetaData":{"shape":"Boolean"},
+        "enableECSLogMetadata":{"shape":"Boolean"},
         "config":{"shape":"LogRouterConfig"}
       }
     },
