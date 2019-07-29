@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
@@ -899,6 +900,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		err := task.AddFirelensContainerBindMounts(container.FirelensConfig.Type, hostConfig, engine.cfg)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
+		}
+
+		if container.FirelensConfig.Type == firelens.FirelensConfigTypeFluentd {
+			// For fluentd router, needs to specify FLUENT_UID to root in order for the fluentd process to access
+			// the socket created by Docker.
+			container.MergeEnvironmentVariables(map[string]string{
+				"FLUENT_UID": "0",
+			})
 		}
 	}
 

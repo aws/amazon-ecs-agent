@@ -2790,3 +2790,34 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 
 	}
 }
+
+func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+			assert.Contains(t, config.Env, "FLUENT_UID=0")
+		})
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}

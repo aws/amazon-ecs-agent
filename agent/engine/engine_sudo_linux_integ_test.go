@@ -18,7 +18,6 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"io/ioutil"
 	"path/filepath"
 	"runtime"
@@ -33,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 
