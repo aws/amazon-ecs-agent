@@ -915,6 +915,14 @@ func (c *Container) DependsOnContainer(name string) bool {
 	return false
 }
 
+// HasContainerDependencies checks whether a container has any container dependency.
+func (c *Container) HasContainerDependencies() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return len(c.DependsOn) != 0
+}
+
 // AddContainerDependency adds a container dependency to a container.
 func (c *Container) AddContainerDependency(name string, condition string) {
 	c.lock.Lock()
