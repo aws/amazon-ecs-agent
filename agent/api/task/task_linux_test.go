@@ -775,13 +775,57 @@ func TestCollectLogOptionsInvalidOptions(t *testing.T) {
 }
 
 func TestAddFirelensContainerDependency(t *testing.T) {
-	task := getFirelensTask(t)
+	testCases := []struct {
+		name                string
+		task                *Task
+		shouldAddDependency bool
+	}{
+		{
+			name:                "test adding firelens container dependency",
+			task:                getFirelensTask(t),
+			shouldAddDependency: true,
+		},
+		{
+			name: "test not adding firelens container dependency case 1",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[0].FirelensConfig = task.Containers[1].FirelensConfig
+				task.Containers = task.Containers[:1]
+				return task
+			}(),
+			shouldAddDependency: false,
+		},
+		{
+			name: "test not adding firelens container dependency case 2",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers = append(task.Containers, &apicontainer.Container{
+					Name: "container2",
+				})
+				task.Containers[1].DependsOn = append(task.Containers[1].DependsOn, apicontainer.DependsOn{
+					ContainerName: "container2",
+					Condition:     ContainerOrderingStartCondition,
+				})
+				return task
+			}(),
+			shouldAddDependency: false,
+		},
+	}
 
-	err := task.addFirelensContainerDependency()
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(task.Containers[0].DependsOn))
-	assert.Equal(t, task.Containers[1].Name, task.Containers[0].DependsOn[0].ContainerName)
-	assert.Equal(t, ContainerOrderingStartCondition, task.Containers[0].DependsOn[0].Condition)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.addFirelensContainerDependency()
+			assert.NoError(t, err)
+
+			if tc.shouldAddDependency {
+				assert.Equal(t, 1, len(tc.task.Containers[0].DependsOn))
+				assert.Equal(t, tc.task.Containers[1].Name, tc.task.Containers[0].DependsOn[0].ContainerName)
+				assert.Equal(t, ContainerOrderingStartCondition, tc.task.Containers[0].DependsOn[0].Condition)
+			} else {
+				assert.Empty(t, tc.task.Containers[0].DependsOn)
+			}
+		})
+	}
 }
 
 func TestAddFirelensContainerBindMounts(t *testing.T) {

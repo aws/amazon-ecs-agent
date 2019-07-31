@@ -786,6 +786,8 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 	return errors.New("unable to initialize firelens resource because there's no firelens container")
 }
 
+// addFirelensContainerDependency adds a START dependency between each container using awsfirelens log driver
+// and the firelens container.
 func (task *Task) addFirelensContainerDependency() error {
 	var firelensContainer *apicontainer.Container
 	for _, container := range task.Containers {
@@ -798,8 +800,20 @@ func (task *Task) addFirelensContainerDependency() error {
 		return errors.New("unable to add firelens container dependency because there's no firelens container")
 	}
 
+	if firelensContainer.HasContainerDependencies() {
+		// If firelens container has any container dependency, we don't add internal container dependency that depends
+		// on it in order to be safe (otherwise we need to deal with circular dependency).
+		seelog.Warnf("Not adding container dependency to let firelens container %s start first, because it has dependency on other containers.", firelensContainer.Name)
+		return nil
+	}
+
 	for _, container := range task.Containers {
 		if container.DockerConfig.HostConfig == nil {
+			continue
+		}
+
+		// Firelens container itself could be using awsfirelens log driver. Don't add container dependency in this case.
+		if container.Name == firelensContainer.Name {
 			continue
 		}
 
@@ -812,7 +826,7 @@ func (task *Task) addFirelensContainerDependency() error {
 		if hostConfig.LogConfig.Type == firelensDriverName {
 			// If there's no dependency between the app container and the firelens container, make firelens container
 			// start first to be the default behavior by adding a START container depdendency.
-			if !container.DependsOnContainer(firelensContainer.Name) && !firelensContainer.DependsOnContainer(container.Name) {
+			if !container.DependsOnContainer(firelensContainer.Name) {
 				seelog.Infof("Adding a START container dependency on firelens container %s for container %s",
 					firelensContainer.Name, container.Name)
 				container.AddContainerDependency(firelensContainer.Name, ContainerOrderingStartCondition)
