@@ -731,6 +731,98 @@ func telemetryStorageStatsTest(t *testing.T, taskDefinition string) {
 	require.NoError(t, err, "Waiting for task stop failed")
 }
 
+func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition string) {
+	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
+	RequireMinimumMemory(t, 2200)
+
+	newClusterName := "ecstest-networkstats-" + uuid.New()
+	putAccountInsights := ecsapi.PutAccountSettingInput{
+		Name:  aws.String("containerInsights"),
+		Value: aws.String("enabled"),
+	}
+	_, err := ECS.PutAccountSetting(&putAccountInsights)
+	require.NoError(t, err, "Failed to update account settings")
+
+	_, err = ECS.CreateCluster(&ecsapi.CreateClusterInput{
+		ClusterName: aws.String(newClusterName),
+	})
+	require.NoError(t, err, "Failed to create cluster")
+	defer DeleteCluster(t, newClusterName)
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agentOptions := AgentOptions{
+		EnableTaskENI: true,
+		ExtraEnvironment: map[string]string{
+			"ECS_CLUSTER": newClusterName,
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+	agent.RequireVersion(">=1.29.0")
+
+	cwclient := cloudwatch.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	params := &cloudwatch.GetMetricStatisticsInput{
+		Namespace: aws.String("ECS/ContainerInsights"),
+		Period:    aws.Int64(60),
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("SampleCount"),
+		},
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("ClusterName"),
+				Value: aws.String(newClusterName),
+			},
+		},
+	}
+
+	tdOverrides := make(map[string]string)
+	if networkMode != "" {
+		tdOverrides["$$$NETWORK_MODE$$$"] = networkMode
+	}
+
+	var testTask *TestTask
+	// start networkStats task
+	if networkMode == "awsvpc" {
+		testTask, err = agent.StartAWSVPCTask("network-stats", tdOverrides)
+	} else {
+		testTask, err = agent.StartTaskWithTaskDefinitionOverrides(t, "network-stats", tdOverrides)
+	}
+	require.NoError(t, err, "Failed to start networkStats task")
+	err = testTask.WaitRunning(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Error wait networkStats task running")
+
+	// collect and validate minimal state metrics
+	time.Sleep(waitMinimalMetricsInCloudwatchDuration)
+	params.EndTime = aws.Time(RoundTimeUp(time.Now(), time.Minute).UTC())
+	params.StartTime = aws.Time((*params.EndTime).Add(-waitMinimalMetricsInCloudwatchDuration).UTC())
+
+	// verify that metrics are flowing for NetworkRxBytes
+	params.MetricName = aws.String("NetworkRxBytes")
+	resp, err := cwclient.GetMetricStatistics(params)
+	assert.NotNil(t, resp, "Task is running, no metrics available for NetworkRxBytes")
+	if networkMode == "bridge" {
+		assert.NotNil(t, resp.Datapoints, "Task is running, nil datapoints returned for NetworkRxBytes")
+	} else {
+		assert.Nil(t, resp.Datapoints, "Task is running, nil datapoints expected for NetworkRxBytes")
+	}
+
+	// verify that metrics are flowing for NetworkTxBytes
+	params.MetricName = aws.String("NetworkTxBytes")
+	resp, err = cwclient.GetMetricStatistics(params)
+	assert.NotNil(t, resp, "Task is running, no metrics available for NetworkTxBytes")
+	if networkMode == "bridge" {
+		assert.NotNil(t, resp.Datapoints, "Task is running, nil datapoints returned for NetworkTxBytes")
+	} else {
+		assert.Nil(t, resp.Datapoints, "Task is running, nil datapoints expected for NetworkTxBytes")
+	}
+
+	// stop networkStats task
+	err = testTask.Stop()
+	require.NoError(t, err, "Failed to stop the networkStats task")
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err, "Waiting for task stop failed")
+}
+
 // containerHealthMetricsTest tests the container health metrics based on the task definition
 func containerHealthMetricsTest(t *testing.T, taskDefinition string, overrides map[string]string) {
 	agent := RunAgent(t, nil)
