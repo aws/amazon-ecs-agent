@@ -13,4 +13,4 @@
 
 package utils
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/utils LicenseProvider,Backoff mocks/utils_mocks.go
+//go:generate mockgen -destination=mocks/utils_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/utils LicenseProvider

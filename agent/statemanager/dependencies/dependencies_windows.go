@@ -23,7 +23,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey,FS,File mocks/mocks_windows.go
+//go:generate mockgen -destination=mocks/mocks_windows.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey,FS,File
 
 // WindowsRegistry is an interface for the package-level methods in the golang.org/x/sys/windows/registry package
 type WindowsRegistry interface {

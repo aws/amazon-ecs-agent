@@ -13,4 +13,4 @@
 
 package udevwrapper
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper Udev mocks/mock_udevwrapper_linux.go
+//go:generate mockgen -destination=mocks/mock_udevwrapper_linux.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper Udev

@@ -28,7 +28,7 @@ const (
 	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
-	// Default cgroup prefix for ECS tasks
+	// DefaultTaskCgroupPrefix is default cgroup prefix for ECS tasks
 	DefaultTaskCgroupPrefix = "/ecs"
 
 	// Default cgroup memory system root path, this is the default used if the

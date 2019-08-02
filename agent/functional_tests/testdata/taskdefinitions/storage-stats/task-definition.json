@@ -1,0 +1,9 @@
+{
+    "cpu": "1028",
+    "family": "storage-stats-test",
+    "containerDefinitions": [{
+        "memory": 2000,
+        "name": "storage-stats-test",
+        "image": "amazon/amazon-ecs-storage-stats-test:make"
+    }]
+}

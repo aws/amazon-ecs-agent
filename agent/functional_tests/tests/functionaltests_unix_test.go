@@ -387,6 +387,28 @@ func TestTelemetryWithStatsPolling(t *testing.T) {
 	telemetryTestWithStatsPolling(t, "telemetry")
 }
 
+// TestTelemetryStorageStats tests whether agent can send metrics to TACS,
+// via cloudwatch metrics.  This is an end-to-end test.
+func TestTelemetryStorageStats(t *testing.T) {
+	telemetryStorageStatsTest(t, "storage-stats")
+}
+
+func TestTelemetryNetworkStatsAWSVPCMode(t *testing.T) {
+	telemetryNetworkStatsTest(t, "awsvpc", "network-stats")
+}
+
+func TestTelemetryNetworkStatsBridgeMode(t *testing.T) {
+	telemetryNetworkStatsTest(t, "bridge", "network-stats")
+}
+
+func TestTelemetryNetworkStatsHostMode(t *testing.T) {
+	telemetryNetworkStatsTest(t, "host", "network-stats")
+}
+
+func TestTelemetryNetworkStatsNoneMode(t *testing.T) {
+	telemetryNetworkStatsTest(t, "none", "network-stats")
+}
+
 func TestTaskIAMRolesNetHostMode(t *testing.T) {
 	// The test runs only when the environment TEST_IAM_ROLE was set
 	if os.Getenv("TEST_DISABLE_TASK_IAM_ROLE_NET_HOST") == "true" {

@@ -15,5 +15,5 @@
 
 package factory
 
-//go:generate go run ../../../../../scripts/generate/mockgen.go github.com/containerd/cgroups Cgroup mock/mock_cgroups_linux.go
-//go:generate go run ../../../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory CgroupFactory mock_factory/mock_cgroup_factory_linux.go
+//go:generate mockgen -destination=mock/mock_cgroups_linux.go -copyright_file=../../../../../scripts/copyright_file github.com/containerd/cgroups Cgroup
+//go:generate mockgen -destination=mock_factory/mock_cgroup_factory_linux.go -copyright_file=../../../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory CgroupFactory

@@ -13,4 +13,4 @@
 
 package wsconn
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn WebsocketConn mock/conn.go
+//go:generate mockgen -destination=mock/conn.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn WebsocketConn

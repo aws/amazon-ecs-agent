@@ -13,4 +13,4 @@
 
 package taskresource
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/taskresource TaskResource mocks/taskresource_mocks.go
+//go:generate mockgen -destination=mocks/taskresource_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/taskresource TaskResource

@@ -13,4 +13,4 @@
 
 package containermetadata
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/containermetadata Manager,DockerMetadataClient mocks/containermetadata_mocks.go
+//go:generate mockgen -destination=mocks/containermetadata_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/containermetadata Manager,DockerMetadataClient

@@ -13,4 +13,4 @@
 
 package ec2
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/ec2 EC2MetadataClient,HttpClient,Client,ClientSDK mocks/ec2_mocks.go
+//go:generate mockgen -destination=mocks/ec2_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/ec2 EC2MetadataClient,HttpClient,Client,ClientSDK

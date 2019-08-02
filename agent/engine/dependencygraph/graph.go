@@ -15,6 +15,9 @@ package dependencygraph
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -22,8 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
-	"strings"
-	"time"
 )
 
 const (

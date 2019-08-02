@@ -13,4 +13,4 @@
 
 package sdkclient
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient Client mocks/sdkclient_mocks.go
+//go:generate mockgen -destination=mocks/sdkclient_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient Client
