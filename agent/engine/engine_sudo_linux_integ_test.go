@@ -57,7 +57,6 @@ const (
 	testInstanceID     = "testInstanceID"
 	testTaskDefFamily  = "testFamily"
 	testTaskDefVersion = "1"
-	firelensDriverName = "awsfirelens"
 	testECSRegion      = "us-east-1"
 	testLogGroupName   = "test-fluentbit"
 	testLogGroupPrefix = "firelens-fluentbit-"
@@ -243,7 +242,7 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 	testTask := createTestTask(validTaskArnPrefix + uuid.New())
 	rawHostConfigInputForLogSender := dockercontainer.HostConfig{
 		LogConfig: dockercontainer.LogConfig{
-			Type: firelensDriverName,
+			Type: logDriverTypeFirelens,
 			Config: map[string]string{
 				"Name":              "cloudwatch",
 				"exclude-pattern":   "exclude",

@@ -27,8 +27,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -581,10 +583,22 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	}
 	assert.NoError(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
 	resources := task.GetResources()
-	assert.Equal(t, 1, len(resources))
-	assert.Equal(t, 1, len(task.Containers[1].TransitionDependenciesMap))
+	assert.Len(t, resources, 2)
+	assert.Len(t, task.Containers[1].TransitionDependenciesMap, 1)
+	assert.Len(t, task.Containers[1].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies, 2)
+	var firelensResource *firelens.FirelensResource
+	var secretResource *ssmsecret.SSMSecretResource
+	for _, resource := range resources {
+		if resource.GetName() == firelens.ResourceName {
+			firelensResource = resource.(*firelens.FirelensResource)
+		} else if resource.GetName() == ssmsecret.ResourceName {
+			secretResource = resource.(*ssmsecret.SSMSecretResource)
+		}
+	}
 
-	firelensResource := resources[0].(*firelens.FirelensResource)
+	assert.NotNil(t, firelensResource)
+	assert.NotNil(t, secretResource)
+
 	assert.Equal(t, testCluster, firelensResource.GetCluster())
 	assert.Equal(t, validTaskArn, firelensResource.GetTaskARN())
 	assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
@@ -615,25 +629,27 @@ func TestPostUnmarshalWithFirelensContainerError(t *testing.T) {
 	assert.Error(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
 }
 
-func TestHasFirelensContainer(t *testing.T) {
+func TestGetFirelensContainer(t *testing.T) {
+	firelensContainer := &apicontainer.Container{
+		Name: "c",
+		FirelensConfig: &apicontainer.FirelensConfig{
+			Type: firelens.FirelensConfigTypeFluentd,
+		},
+	}
+
 	testCases := []struct {
-		name                 string
-		task                 *Task
-		hasFirelensContainer bool
+		name              string
+		task              *Task
+		firelensContainer *apicontainer.Container
 	}{
 		{
 			name: "task has firelens container",
 			task: &Task{
 				Containers: []*apicontainer.Container{
-					{
-						Name: "c",
-						FirelensConfig: &apicontainer.FirelensConfig{
-							Type: firelens.FirelensConfigTypeFluentd,
-						},
-					},
+					firelensContainer,
 				},
 			},
-			hasFirelensContainer: true,
+			firelensContainer: firelensContainer,
 		},
 		{
 			name: "task doesn't have firelens container",
@@ -644,13 +660,13 @@ func TestHasFirelensContainer(t *testing.T) {
 					},
 				},
 			},
-			hasFirelensContainer: false,
+			firelensContainer: nil,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.hasFirelensContainer, tc.task.hasFirelensContainer())
+			assert.Equal(t, tc.firelensContainer, tc.task.getFirelensContainer())
 		})
 	}
 }
@@ -672,11 +688,19 @@ func TestInitializeFirelensResource(t *testing.T) {
 		shouldFail            bool
 		shouldHaveInstanceID  bool
 		shouldDisableMetadata bool
+		expectedLogOptions    map[string]map[string]string
 	}{
 		{
 			name:                 "test initialize firelens resource fluentd",
 			task:                 getFirelensTask(t),
 			shouldHaveInstanceID: true,
+			expectedLogOptions: map[string]map[string]string{
+				"logsender": {
+					"key1":        "value1",
+					"key2":        "value2",
+					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+				},
+			},
 		},
 		{
 			name: "test initialize firelens resource fluentbit",
@@ -686,6 +710,13 @@ func TestInitializeFirelensResource(t *testing.T) {
 				return task
 			}(),
 			shouldHaveInstanceID: true,
+			expectedLogOptions: map[string]map[string]string{
+				"logsender": {
+					"key1":        "value1",
+					"key2":        "value2",
+					"secret-name": "${secret-name_logsender}",
+				},
+			},
 		},
 		{
 			name: "test initialize firelens resource without ec2 instance id",
@@ -694,6 +725,13 @@ func TestInitializeFirelensResource(t *testing.T) {
 				task.Containers[1].Environment = nil
 				return task
 			}(),
+			expectedLogOptions: map[string]map[string]string{
+				"logsender": {
+					"key1":        "value1",
+					"key2":        "value2",
+					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+				},
+			},
 		},
 		{
 			name: "test initialize firelens resource disables ecs log metadata",
@@ -704,6 +742,13 @@ func TestInitializeFirelensResource(t *testing.T) {
 			}(),
 			shouldHaveInstanceID:  true,
 			shouldDisableMetadata: true,
+			expectedLogOptions: map[string]map[string]string{
+				"logsender": {
+					"key1":        "value1",
+					"key2":        "value2",
+					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+				},
+			},
 		},
 		{
 			name: "test initialize firelens resource invalid host config",
@@ -727,7 +772,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.initializeFirelensResource(cfg, resourceFields)
+			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1])
 			if tc.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -743,8 +788,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
 				assert.Equal(t, testDataDir+"/firelens/task-id", firelensResource.GetResourceDir())
 				assert.NotNil(t, firelensResource.GetContainerToLogOptions())
-				assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
-				assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
+				assert.Equal(t, tc.expectedLogOptions, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, !tc.shouldDisableMetadata, firelensResource.GetECSMetadataEnabled())
 
 				if tc.shouldHaveInstanceID {
@@ -757,21 +801,32 @@ func TestInitializeFirelensResource(t *testing.T) {
 	}
 }
 
-func TestCollectLogOptions(t *testing.T) {
+func TestCollectFirelensLogOptions(t *testing.T) {
 	task := getFirelensTask(t)
 
-	containerToLogOptions, err := task.collectLogOptions()
+	containerToLogOptions := make(map[string]map[string]string)
+	err := task.collectFirelensLogOptions(containerToLogOptions)
 	assert.NoError(t, err)
 	assert.Equal(t, "value1", containerToLogOptions["logsender"]["key1"])
 	assert.Equal(t, "value2", containerToLogOptions["logsender"]["key2"])
 }
 
-func TestCollectLogOptionsInvalidOptions(t *testing.T) {
+func TestCollectFirelensLogOptionsInvalidOptions(t *testing.T) {
 	task := getFirelensTask(t)
 	task.Containers[0].DockerConfig.HostConfig = strptr(string("invalid"))
 
-	_, err := task.collectLogOptions()
+	containerToLogOptions := make(map[string]map[string]string)
+	err := task.collectFirelensLogOptions(containerToLogOptions)
 	assert.Error(t, err)
+}
+
+func TestCollectFirelensLogEnvOptions(t *testing.T) {
+	task := getFirelensTask(t)
+
+	containerToLogOptions := make(map[string]map[string]string)
+	err := task.collectFirelensLogEnvOptions(containerToLogOptions, "fluentd")
+	assert.NoError(t, err)
+	assert.Equal(t, "\"#{ENV['secret-name_logsender']}\"", containerToLogOptions["logsender"]["secret-name"])
 }
 
 func TestAddFirelensContainerDependency(t *testing.T) {
@@ -898,6 +953,90 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 	}
 }
 
+func TestFirelensDependsOnSecretResource(t *testing.T) {
+	testCases := []struct {
+		name     string
+		provider string
+		task     *Task
+		res      bool
+	}{
+		{
+			name:     "depends on ssm",
+			provider: apicontainer.SecretProviderSSM,
+			task:     getFirelensTask(t),
+			res:      true,
+		},
+		{
+			name:     "depends on asm",
+			provider: apicontainer.SecretProviderASM,
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[0].Secrets[0].Provider = apicontainer.SecretProviderASM
+				return task
+			}(),
+			res: true,
+		},
+		{
+			name:     "no dependency",
+			provider: apicontainer.SecretProviderSSM,
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[0].Secrets = []apicontainer.Secret{}
+				return task
+			}(),
+			res: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.res, tc.task.firelensDependsOnSecretResource(tc.provider))
+		})
+	}
+}
+
+func TestPopulateSecretLogOptionsToFirelensContainer(t *testing.T) {
+	task := getFirelensTask(t)
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
+	task.AddResource(ssmsecret.ResourceName, ssmRes)
+
+	assert.Nil(t, task.PopulateSecretLogOptionsToFirelensContainer(task.Containers[1]))
+	assert.Len(t, task.Containers[1].Environment, 2)
+	assert.Equal(t, "secret-val", task.Containers[1].Environment["secret-name_logsender"])
+}
+
+func TestCollectLogDriverSecretData(t *testing.T) {
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
+
+	asmRes := &asmsecret.ASMSecretResource{}
+	asmRes.SetCachedSecretValue("secret-value-from-asm_us-west-2", "secret-val-asm")
+
+	secrets := []apicontainer.Secret{
+		{
+			Name:      "secret-name",
+			Provider:  apicontainer.SecretProviderSSM,
+			Target:    apicontainer.SecretTargetLogDriver,
+			ValueFrom: "secret-value-from",
+			Region:    "us-west-2",
+		},
+		{
+			Name:      "secret-name-asm",
+			Provider:  apicontainer.SecretProviderASM,
+			Target:    apicontainer.SecretTargetLogDriver,
+			ValueFrom: "secret-value-from-asm",
+			Region:    "us-west-2",
+		},
+	}
+
+	secretData, err := collectLogDriverSecretData(secrets, ssmRes, asmRes)
+	assert.NoError(t, err)
+	assert.Len(t, secretData, 2)
+	assert.Equal(t, "secret-val", secretData["secret-name"])
+	assert.Equal(t, "secret-val-asm", secretData["secret-name-asm"])
+}
+
 // getFirelensTask returns a sample firelens task.
 func getFirelensTask(t *testing.T) *Task {
 	rawHostConfigInput := dockercontainer.HostConfig{
@@ -924,6 +1063,17 @@ func getFirelensTask(t *testing.T) *Task {
 				DockerConfig: apicontainer.DockerConfig{
 					HostConfig: strptr(string(rawHostConfig)),
 				},
+				Secrets: []apicontainer.Secret{
+					{
+						Name:      "secret-name",
+						ValueFrom: "secret-value-from",
+						Region:    "us-west-2",
+
+						Target:   apicontainer.SecretTargetLogDriver,
+						Provider: apicontainer.SecretProviderSSM,
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 			{
 				Name: "firelenscontainer",
