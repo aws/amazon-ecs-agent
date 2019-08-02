@@ -670,7 +670,13 @@ func telemetryStorageStatsTest(t *testing.T, taskDefinition string) {
 		ClusterName: aws.String(newClusterName),
 	})
 	require.NoError(t, err, "Failed to create cluster")
-	defer DeleteCluster(t, newClusterName)
+	defer func() {
+		DeleteCluster(t, newClusterName)
+		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
+			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
+		})
+	}()
 
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -747,7 +753,13 @@ func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition 
 		ClusterName: aws.String(newClusterName),
 	})
 	require.NoError(t, err, "Failed to create cluster")
-	defer DeleteCluster(t, newClusterName)
+	defer func() {
+		DeleteCluster(t, newClusterName)
+		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
+			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
+		})
+	}()
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agentOptions := AgentOptions{
 		EnableTaskENI: true,
