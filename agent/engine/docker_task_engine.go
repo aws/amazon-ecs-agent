@@ -881,14 +881,6 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}
 
-	// If the container is using a special log driver type "awsfirelens", it means the container wants to use
-	// the firelens container to send logs. In this case, override the log driver type to be fluentd
-	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
-	// For reference - https://docs.docker.com/config/containers/logging/fluentd/
-	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
-		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
-	}
-
 	if container.AWSLogAuthExecutionRole() {
 		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
 		if err != nil {
@@ -896,13 +888,19 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	if container.FirelensConfig != nil {
-		err := task.AddFirelensContainerBindMounts(container.FirelensConfig.Type, hostConfig, engine.cfg)
+	firelensConfig := container.GetFirelensConfig()
+	if firelensConfig != nil {
+		err := task.AddFirelensContainerBindMounts(firelensConfig.Type, hostConfig, engine.cfg)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
 
-		if container.FirelensConfig.Type == firelens.FirelensConfigTypeFluentd {
+		cerr := task.PopulateSecretLogOptionsToFirelensContainer(container)
+		if cerr != nil {
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(cerr)}
+		}
+
+		if firelensConfig.Type == firelens.FirelensConfigTypeFluentd {
 			// For fluentd router, needs to specify FLUENT_UID to root in order for the fluentd process to access
 			// the socket created by Docker.
 			container.MergeEnvironmentVariables(map[string]string{
@@ -911,8 +909,19 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	// If the container is using a special log driver type "awsfirelens", it means the container wants to use
+	// the firelens container to send logs. In this case, override the log driver type to be fluentd
+	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
+	// For reference - https://docs.docker.com/config/containers/logging/fluentd/.
+	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
+		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
+	}
+
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
-	if container.HasSecretAsEnvOrLogDriver() {
+	hasSecretAsEnvOrLogDriver := func(s apicontainer.Secret) bool {
+		return s.Type == apicontainer.SecretTypeEnv || s.Target == apicontainer.SecretTargetLogDriver
+	}
+	if container.HasSecret(hasSecretAsEnvOrLogDriver) {
 		err := task.PopulateSecrets(hostConfig, container)
 
 		if err != nil {
