@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -47,6 +47,7 @@ const (
 	capabilityECREndpoint                       = "ecr-endpoint"
 	capabilityContainerOrdering                 = "container-ordering"
 	taskEIAAttributeSuffix                      = "task-eia"
+	taskEIAWithOptimizedCPU                     = "task-eia.optimized-cpu"
 	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
 	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
 )
@@ -86,6 +87,7 @@ const (
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
 //    ecs.capability.task-eni-trunking
+//    ecs.capability.task-eia.optimized-cpu
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 

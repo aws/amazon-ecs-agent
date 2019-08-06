@@ -51,7 +51,6 @@ func (m *MockIOUtil) EXPECT() *MockIOUtilMockRecorder {
 
 // TempFile mocks base method
 func (m *MockIOUtil) TempFile(arg0, arg1 string) (oswrapper.File, error) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TempFile", arg0, arg1)
 	ret0, _ := ret[0].(oswrapper.File)
 	ret1, _ := ret[1].(error)
@@ -60,13 +59,11 @@ func (m *MockIOUtil) TempFile(arg0, arg1 string) (oswrapper.File, error) {
 
 // TempFile indicates an expected call of TempFile
 func (mr *MockIOUtilMockRecorder) TempFile(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TempFile", reflect.TypeOf((*MockIOUtil)(nil).TempFile), arg0, arg1)
 }
 
 // WriteFile mocks base method
 func (m *MockIOUtil) WriteFile(arg0 string, arg1 []byte, arg2 os.FileMode) error {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -74,6 +71,5 @@ func (m *MockIOUtil) WriteFile(arg0 string, arg1 []byte, arg2 os.FileMode) error
 
 // WriteFile indicates an expected call of WriteFile
 func (mr *MockIOUtilMockRecorder) WriteFile(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockIOUtil)(nil).WriteFile), arg0, arg1, arg2)
 }
