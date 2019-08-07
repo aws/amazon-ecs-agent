@@ -271,7 +271,7 @@ func createFirelensTask(t *testing.T) *apitask.Task {
 					return &s
 				}(),
 			},
-			DependsOn: []apicontainer.DependsOn{
+			DependsOnUnsafe: []apicontainer.DependsOn{
 				{
 					ContainerName: "firelens",
 					Condition:     "START",

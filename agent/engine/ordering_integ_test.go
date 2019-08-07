@@ -44,7 +44,7 @@ func TestDependencyHealthCheck(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"exit 0"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "HEALTHY",
@@ -97,7 +97,7 @@ func TestDependencyComplete(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"sleep 5"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "COMPLETE",
@@ -150,7 +150,7 @@ func TestDependencySuccess(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"exit 0"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "SUCCESS",
@@ -203,7 +203,7 @@ func TestDependencySuccessErrored(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"exit 0"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "SUCCESS",
@@ -250,7 +250,7 @@ func TestDependencySuccessTimeout(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"exit 0"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "SUCCESS",
@@ -300,7 +300,7 @@ func TestDependencyHealthyTimeout(t *testing.T) {
 
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"exit 0"}
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency",
 			Condition:     "HEALTHY",
@@ -361,7 +361,7 @@ func TestShutdownOrder(t *testing.T) {
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"echo hi"}
 	parent.Essential = true
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "A",
 			Condition:     "START",
@@ -370,7 +370,7 @@ func TestShutdownOrder(t *testing.T) {
 
 	A.EntryPoint = &entryPointForOS
 	A.Command = []string{"sleep 100"}
-	A.DependsOn = []apicontainer.DependsOn{
+	A.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "B",
 			Condition:     "START",
@@ -379,7 +379,7 @@ func TestShutdownOrder(t *testing.T) {
 
 	B.EntryPoint = &entryPointForOS
 	B.Command = []string{"sleep 100"}
-	B.DependsOn = []apicontainer.DependsOn{
+	B.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "C",
 			Condition:     "START",

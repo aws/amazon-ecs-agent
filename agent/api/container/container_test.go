@@ -531,7 +531,7 @@ func TestDependsOnContainer(t *testing.T) {
 			name: "test DependsOnContainer positive case",
 			container: &Container{
 				Name: "container1",
-				DependsOn: []DependsOn{
+				DependsOnUnsafe: []DependsOn{
 					{
 						ContainerName: "container2",
 						Condition:     "START",
@@ -545,7 +545,7 @@ func TestDependsOnContainer(t *testing.T) {
 			name: "test DependsOnContainer negative case",
 			container: &Container{
 				Name: "container1",
-				DependsOn: []DependsOn{
+				DependsOnUnsafe: []DependsOn{
 					{
 						ContainerName: "container2",
 						Condition:     "START",
@@ -570,7 +570,7 @@ func TestAddContainerDependency(t *testing.T) {
 	}
 	container.AddContainerDependency("container2", "START")
 
-	assert.Contains(t, container.DependsOn, DependsOn{
+	assert.Contains(t, container.DependsOnUnsafe, DependsOn{
 		ContainerName: "container2",
 		Condition:     "START",
 	})

@@ -99,8 +99,8 @@ type HealthStatus struct {
 type Container struct {
 	// Name is the name of the container specified in the task definition
 	Name string
-	// DependsOn is the field which specifies the ordering for container startup and shutdown.
-	DependsOn []DependsOn `json:"dependsOn,omitempty"`
+	// DependsOnUnsafe is the field which specifies the ordering for container startup and shutdown.
+	DependsOnUnsafe []DependsOn `json:"dependsOn,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -906,12 +906,26 @@ func (c *Container) GetStopTimeout() time.Duration {
 	return time.Duration(c.StopTimeout) * time.Second
 }
 
+func (c *Container) GetDependsOn() []DependsOn {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.DependsOnUnsafe
+}
+
+func (c *Container) SetDependsOn(dependsOn []DependsOn) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.DependsOnUnsafe = dependsOn
+}
+
 // DependsOnContainer checks whether a container depends on another container.
 func (c *Container) DependsOnContainer(name string) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	for _, dependsOn := range c.DependsOn {
+	for _, dependsOn := range c.DependsOnUnsafe {
 		if dependsOn.ContainerName == name {
 			return true
 		}
@@ -925,7 +939,7 @@ func (c *Container) HasContainerDependencies() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	return len(c.DependsOn) != 0
+	return len(c.DependsOnUnsafe) != 0
 }
 
 // AddContainerDependency adds a container dependency to a container.
@@ -933,7 +947,7 @@ func (c *Container) AddContainerDependency(name string, condition string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	c.DependsOn = append(c.DependsOn, DependsOn{
+	c.DependsOnUnsafe = append(c.DependsOnUnsafe, DependsOn{
 		ContainerName: name,
 		Condition:     condition,
 	})
