@@ -607,7 +607,7 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 	assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
 	assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
-	assert.Contains(t, task.Containers[0].DependsOn, apicontainer.DependsOn{
+	assert.Contains(t, task.Containers[0].DependsOnUnsafe, apicontainer.DependsOn{
 		ContainerName: task.Containers[1].Name,
 		Condition:     ContainerOrderingStartCondition,
 	})
@@ -857,7 +857,7 @@ func TestAddFirelensContainerDependency(t *testing.T) {
 				task.Containers = append(task.Containers, &apicontainer.Container{
 					Name: "container2",
 				})
-				task.Containers[1].DependsOn = append(task.Containers[1].DependsOn, apicontainer.DependsOn{
+				task.Containers[1].DependsOnUnsafe = append(task.Containers[1].DependsOnUnsafe, apicontainer.DependsOn{
 					ContainerName: "container2",
 					Condition:     ContainerOrderingStartCondition,
 				})
@@ -873,11 +873,11 @@ func TestAddFirelensContainerDependency(t *testing.T) {
 			assert.NoError(t, err)
 
 			if tc.shouldAddDependency {
-				assert.Equal(t, 1, len(tc.task.Containers[0].DependsOn))
-				assert.Equal(t, tc.task.Containers[1].Name, tc.task.Containers[0].DependsOn[0].ContainerName)
-				assert.Equal(t, ContainerOrderingStartCondition, tc.task.Containers[0].DependsOn[0].Condition)
+				assert.Equal(t, 1, len(tc.task.Containers[0].DependsOnUnsafe))
+				assert.Equal(t, tc.task.Containers[1].Name, tc.task.Containers[0].DependsOnUnsafe[0].ContainerName)
+				assert.Equal(t, ContainerOrderingStartCondition, tc.task.Containers[0].DependsOnUnsafe[0].Condition)
 			} else {
-				assert.Empty(t, tc.task.Containers[0].DependsOn)
+				assert.Empty(t, tc.task.Containers[0].DependsOnUnsafe)
 			}
 		})
 	}

@@ -1612,7 +1612,7 @@ func (task *Task) initializeContainerOrderingForVolumes() error {
 					return fmt.Errorf("could not find container with name %s", volume.SourceContainer)
 				}
 				dependOn := apicontainer.DependsOn{ContainerName: volume.SourceContainer, Condition: ContainerOrderingCreateCondition}
-				container.DependsOn = append(container.DependsOn, dependOn)
+				container.SetDependsOn(append(container.GetDependsOn(), dependOn))
 			}
 		}
 	}
@@ -1632,7 +1632,7 @@ func (task *Task) initializeContainerOrderingForLinks() error {
 					return fmt.Errorf("could not find container with name %s", linkName)
 				}
 				dependOn := apicontainer.DependsOn{ContainerName: linkName, Condition: ContainerOrderingStartCondition}
-				container.DependsOn = append(container.DependsOn, dependOn)
+				container.SetDependsOn(append(container.GetDependsOn(), dependOn))
 			}
 		}
 	}
