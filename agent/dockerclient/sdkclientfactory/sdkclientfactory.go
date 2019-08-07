@@ -88,7 +88,7 @@ func (f *factory) GetDefaultClient() (sdkclient.Client, error) {
 
 func (f *factory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
 	var supportedVersions []dockerclient.DockerVersion
-	for _, testVersion := range getAgentVersions() {
+	for _, testVersion := range getAgentSupportedDockerVersions() {
 		_, err := f.GetClient(testVersion)
 		if err != nil {
 			continue

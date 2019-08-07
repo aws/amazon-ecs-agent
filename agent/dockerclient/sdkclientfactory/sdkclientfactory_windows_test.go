@@ -61,7 +61,7 @@ func TestFindClientAPIVersion(t *testing.T) {
 	mockClient := mock_sdkclient.NewMockClient(ctrl)
 	factory := NewFactory(ctx, expectedEndpoint)
 
-	for _, version := range getAgentVersions() {
+	for _, version := range getAgentSupportedDockerVersions() {
 		if isWindowsReplaceableVersion(version) {
 			version = minDockerAPIVersion
 		}
