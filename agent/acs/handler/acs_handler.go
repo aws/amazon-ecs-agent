@@ -432,7 +432,7 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 	query.Set("agentVersion", version.Version)
 	query.Set("seqNum", "1")
 	if dockerVersion, err := taskEngine.Version(); err == nil {
-		query.Set("dockerVersion", "DockerVersion: "+dockerVersion)
+		query.Set("dockerVersion", dockerVersion)
 	}
 	query.Set(sendCredentialsURLParameterName, acsSessionState.getSendCredentialsURLParameter())
 	return acsURL + "?" + query.Encode()
