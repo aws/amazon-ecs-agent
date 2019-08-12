@@ -698,7 +698,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				"logsender": {
 					"key1":        "value1",
 					"key2":        "value2",
-					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+					"secret-name": "\"#{ENV['secret-name_0']}\"",
 				},
 			},
 		},
@@ -714,7 +714,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				"logsender": {
 					"key1":        "value1",
 					"key2":        "value2",
-					"secret-name": "${secret-name_logsender}",
+					"secret-name": "${secret-name_0}",
 				},
 			},
 		},
@@ -729,7 +729,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				"logsender": {
 					"key1":        "value1",
 					"key2":        "value2",
-					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+					"secret-name": "\"#{ENV['secret-name_0']}\"",
 				},
 			},
 		},
@@ -746,7 +746,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 				"logsender": {
 					"key1":        "value1",
 					"key2":        "value2",
-					"secret-name": "\"#{ENV['secret-name_logsender']}\"",
+					"secret-name": "\"#{ENV['secret-name_0']}\"",
 				},
 			},
 		},
@@ -826,7 +826,7 @@ func TestCollectFirelensLogEnvOptions(t *testing.T) {
 	containerToLogOptions := make(map[string]map[string]string)
 	err := task.collectFirelensLogEnvOptions(containerToLogOptions, "fluentd")
 	assert.NoError(t, err)
-	assert.Equal(t, "\"#{ENV['secret-name_logsender']}\"", containerToLogOptions["logsender"]["secret-name"])
+	assert.Equal(t, "\"#{ENV['secret-name_0']}\"", containerToLogOptions["logsender"]["secret-name"])
 }
 
 func TestAddFirelensContainerDependency(t *testing.T) {
@@ -1003,7 +1003,7 @@ func TestPopulateSecretLogOptionsToFirelensContainer(t *testing.T) {
 
 	assert.Nil(t, task.PopulateSecretLogOptionsToFirelensContainer(task.Containers[1]))
 	assert.Len(t, task.Containers[1].Environment, 2)
-	assert.Equal(t, "secret-val", task.Containers[1].Environment["secret-name_logsender"])
+	assert.Equal(t, "secret-val", task.Containers[1].Environment["secret-name_0"])
 }
 
 func TestCollectLogDriverSecretData(t *testing.T) {

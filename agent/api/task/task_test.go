@@ -2995,3 +2995,24 @@ func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
 	assert.Equal(t, task.Containers[0].StartTimeout, expectedTimeout)
 	assert.Equal(t, task.Containers[0].StopTimeout, expectedTimeout)
 }
+
+func TestGetContainerIndex(t *testing.T) {
+	task := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+			},
+			{
+				Name: "p",
+				Type: apicontainer.ContainerCNIPause,
+			},
+			{
+				Name: "c2",
+			},
+		},
+	}
+
+	assert.Equal(t, 0, task.GetContainerIndex("c1"))
+	assert.Equal(t, 1, task.GetContainerIndex("c2"))
+	assert.Equal(t, -1, task.GetContainerIndex("p"))
+}

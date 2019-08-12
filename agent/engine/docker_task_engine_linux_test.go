@@ -463,14 +463,14 @@ func TestCreateFirelensContainer(t *testing.T) {
 			task:                 getTask(firelens.FirelensConfigTypeFluentd),
 			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
 			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
-			expectedLogOptionEnv: "secret-name_logsender=secret-val",
+			expectedLogOptionEnv: "secret-name_1=secret-val",
 		},
 		{
 			name:                 "test create fluentbit firelens container",
 			task:                 getTask(firelens.FirelensConfigTypeFluentbit),
 			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
 			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
-			expectedLogOptionEnv: "secret-name_logsender=secret-val",
+			expectedLogOptionEnv: "secret-name_1=secret-val",
 		},
 	}
 
