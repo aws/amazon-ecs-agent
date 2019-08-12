@@ -142,7 +142,7 @@ additional details on each available environment variable.
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false | true |
 | `ECS_POLL_METRICS`     | &lt;true &#124; false&gt;  | Whether to poll or stream when gathering metrics for tasks. | false | false |
 | `ECS_POLLING_METRICS_WAIT_DURATION` | 30s | Time to wait to poll for new metrics for a task. Only used when ECS_POLL_METRICS is true  | 15s | 15s |
-| `ECS_RESERVED_MEMORY` | 32 | Memory, in MB, to reserve for use by things other than containers managed by Amazon ECS. | 0 | 0 |
+| `ECS_RESERVED_MEMORY` | 32 | Memory, in MiB, to reserve for use by things other than containers managed by Amazon ECS. | 0 | 0 |
 | `ECS_AVAILABLE_LOGGING_DRIVERS` | `["awslogs","fluentd","gelf","json-file","journald","logentries","splunk","syslog"]` | Which logging drivers are available on the container instance. | `["json-file","none"]` | `["json-file","none"]` |
 | `ECS_DISABLE_PRIVILEGED` | `true` | Whether launching privileged containers is disabled on the container instance. | `false` | `false` |
 | `ECS_SELINUX_CAPABLE` | `true` | Whether SELinux is available on the container instance. | `false` | `false` |
