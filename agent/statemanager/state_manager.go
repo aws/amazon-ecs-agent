@@ -90,6 +90,7 @@ const (
 	// 23)
 	//   a) Add 'FirelensConfig' field to 'Container' struct
 	//   b) Add 'firelens' field to 'resources'
+	//   c) Add 'RuntimeID' field to 'apicontainer.Container'
 
 	ECSDataVersion = 23
 

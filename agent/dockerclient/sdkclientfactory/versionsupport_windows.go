@@ -62,8 +62,8 @@ func getWindowsSupportedVersions() []dockerclient.DockerVersion {
 	}
 }
 
-// getAgentVersions for Windows should return all of the replaceable versions plus supported versions
-func getAgentVersions() []dockerclient.DockerVersion {
+// getAgentSupportedDockerVersions for Windows should return all of the replaceable versions plus supported versions
+func getAgentSupportedDockerVersions() []dockerclient.DockerVersion {
 	return append(getWindowsReplaceableVersions(), getWindowsSupportedVersions()...)
 }
 
