@@ -43,7 +43,7 @@ type ECSClient interface {
 	// DiscoverTelemetryEndpoint takes a ContainerInstanceARN and returns the
 	// endpoint at which this Agent should contact Telemetry Service
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
-	// GetTaskTags retrieves the Tags associated with a certain Task
+	// GetResourceTags retrieves the Tags associated with a certain resource
 	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
 }
 
