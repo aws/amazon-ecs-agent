@@ -16,7 +16,6 @@ package firelens
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -56,6 +55,9 @@ const (
 
 	// socketPath is the path for socket file.
 	socketPath = "/var/run/fluent.sock"
+
+	// fluentTagOutputFormat is the format for the log tag, which is container name with "-firelens" appended
+	fluentTagOutputFormat = "%s-firelens*"
 )
 
 // generateConfig generates a FluentConfig object that contains all necessary information to construct
@@ -89,10 +91,8 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 
 	// Specify log stream output. Each container that uses the firelens container to stream logs
 	// will have its own output section, with its own log options.
-	fields := strings.Split(firelens.taskARN, "/")
-	taskID := fields[len(fields)-1]
 	for containerName, logOptions := range firelens.containerToLogOptions {
-		tag := containerName + "-" + taskID // Each output section is distinguished by a tag specific to a container.
+		tag := fmt.Sprintf(fluentTagOutputFormat, containerName) // Each output section is distinguished by a tag specific to a container.
 		newConfig, err := addOutputSection(tag, firelens.firelensConfigType, logOptions, config)
 		if err != nil {
 			return nil, fmt.Errorf("unable to apply log options of container %s to firelens config: %v", containerName, err)

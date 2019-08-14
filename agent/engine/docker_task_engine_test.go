@@ -2751,7 +2751,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			name:                           "test container that uses firelens log driver",
 			task:                           getTask(logDriverTypeFirelens),
 			expectedLogConfigType:          logDriverTypeFluentd,
-			expectedLogConfigTag:           taskName + "-" + taskID,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
 		},
