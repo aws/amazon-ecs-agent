@@ -16,6 +16,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -82,6 +83,9 @@ const (
 	logDriverAsyncConnect   = "fluentd-async-connect"
 	dataLogDriverSocketPath = "/socket/fluent.sock"
 	socketPathPrefix        = "unix://"
+
+	// fluentTagDockerFormat is the format for the log tag, which is "containerName-firelens-taskID"
+	fluentTagDockerFormat = "%s-firelens-%s"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -992,7 +996,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
-	tag := container.Name + "-" + taskID
+	tag := fmt.Sprintf(fluentTagDockerFormat, container.Name, taskID)
 	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig := hostConfig.LogConfig
 	logConfig.Type = logDriverTypeFluentd

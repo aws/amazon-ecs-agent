@@ -45,7 +45,7 @@ var (
     path /var/run/fluent.sock
 </source>
 
-<filter container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<filter container-firelens*>
     @type  grep
     <regexp>
         key log
@@ -53,7 +53,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<filter container-firelens*>
     @type  grep
     <exclude>
         key log
@@ -71,7 +71,7 @@ var (
     </record>
 </filter>
 
-<match container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<match container-firelens*>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2
@@ -84,12 +84,12 @@ var (
 
 [FILTER]
     Name   grep
-    Match container-3de392df-6bfa-470b-97ed-aa6f482cd7a
+    Match container-firelens*
     Regex  log *failure*
 
 [FILTER]
     Name   grep
-    Match container-3de392df-6bfa-470b-97ed-aa6f482cd7a
+    Match container-firelens*
     Exclude log *success*
 
 [FILTER]
@@ -102,7 +102,7 @@ var (
 
 [OUTPUT]
     Name kinesis_firehose
-    Match container-3de392df-6bfa-470b-97ed-aa6f482cd7a
+    Match container-firelens*
     deliver_stream_name my-stream
     region us-west-2
 `
@@ -112,7 +112,7 @@ var (
     path /var/run/fluent.sock
 </source>
 
-<filter container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<filter container-firelens*>
     @type  grep
     <regexp>
         key log
@@ -120,7 +120,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<filter container-firelens*>
     @type  grep
     <exclude>
         key log
@@ -128,7 +128,7 @@ var (
     </exclude>
 </filter>
 
-<match container-3de392df-6bfa-470b-97ed-aa6f482cd7a>
+<match container-firelens*>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2

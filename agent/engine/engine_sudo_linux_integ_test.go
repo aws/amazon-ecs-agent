@@ -203,7 +203,7 @@ func TestFirelensFluentbit(t *testing.T) {
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(testECSRegion))
 	params := &cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(testLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-%s", taskID)),
+		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
 	}
 
 	// wait for the cloud watch logs
