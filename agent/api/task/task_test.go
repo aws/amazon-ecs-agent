@@ -2917,21 +2917,21 @@ func TestInitializeContainerOrderingWithLinksAndVolumesFrom(t *testing.T) {
 	assert.NoError(t, err)
 
 	containerResultWithVolume := task.Containers[0]
-	assert.Equal(t, "myName1", containerResultWithVolume.DependsOn[0].ContainerName)
-	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithVolume.DependsOn[0].Condition)
+	assert.Equal(t, "myName1", containerResultWithVolume.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithVolume.DependsOnUnsafe[0].Condition)
 
 	containerResultWithLink := task.Containers[1]
-	assert.Equal(t, "myName", containerResultWithLink.DependsOn[0].ContainerName)
-	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithLink.DependsOn[0].Condition)
+	assert.Equal(t, "myName", containerResultWithLink.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithLink.DependsOnUnsafe[0].Condition)
 
 	containerResultWithBothVolumeAndLink := task.Containers[2]
-	assert.Equal(t, "myName", containerResultWithBothVolumeAndLink.DependsOn[0].ContainerName)
-	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithBothVolumeAndLink.DependsOn[0].Condition)
-	assert.Equal(t, "myName1", containerResultWithBothVolumeAndLink.DependsOn[1].ContainerName)
-	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOn[1].Condition)
+	assert.Equal(t, "myName", containerResultWithBothVolumeAndLink.DependsOnUnsafe[0].ContainerName)
+	assert.Equal(t, ContainerOrderingCreateCondition, containerResultWithBothVolumeAndLink.DependsOnUnsafe[0].Condition)
+	assert.Equal(t, "myName1", containerResultWithBothVolumeAndLink.DependsOnUnsafe[1].ContainerName)
+	assert.Equal(t, ContainerOrderingStartCondition, containerResultWithBothVolumeAndLink.DependsOnUnsafe[1].Condition)
 
 	containerResultWithNoVolumeOrLink := task.Containers[3]
-	assert.Equal(t, 0, len(containerResultWithNoVolumeOrLink.DependsOn))
+	assert.Equal(t, 0, len(containerResultWithNoVolumeOrLink.DependsOnUnsafe))
 }
 
 func TestInitializeContainerOrderingWithError(t *testing.T) {
@@ -2994,4 +2994,25 @@ func TestTaskFromACSPerContainerTimeouts(t *testing.T) {
 
 	assert.Equal(t, task.Containers[0].StartTimeout, expectedTimeout)
 	assert.Equal(t, task.Containers[0].StopTimeout, expectedTimeout)
+}
+
+func TestGetContainerIndex(t *testing.T) {
+	task := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+			},
+			{
+				Name: "p",
+				Type: apicontainer.ContainerCNIPause,
+			},
+			{
+				Name: "c2",
+			},
+		},
+	}
+
+	assert.Equal(t, 0, task.GetContainerIndex("c1"))
+	assert.Equal(t, 1, task.GetContainerIndex("c2"))
+	assert.Equal(t, -1, task.GetContainerIndex("p"))
 }

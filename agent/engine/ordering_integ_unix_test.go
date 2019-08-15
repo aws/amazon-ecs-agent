@@ -46,7 +46,7 @@ func TestGranularStopTimeout(t *testing.T) {
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"sleep 30"}
 	parent.Essential = true
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency1",
 			Condition:     "START",

@@ -415,56 +415,96 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 	}
 }
 
-func TestHasSecretAsEnvOrLogDriver(t *testing.T) {
-	cases := []struct {
-		in  Container
-		out bool
+func TestHasSecret(t *testing.T) {
+	isEnvOrLogDriverSecret := func(s Secret) bool {
+		return s.Type == SecretTypeEnv || s.Target == SecretTargetLogDriver
+	}
+	isSSMLogDriverSecret := func(s Secret) bool {
+		return s.Provider == SecretProviderSSM && s.Target == SecretTargetLogDriver
+	}
+
+	testCases := []struct {
+		name    string
+		f       func(s Secret) bool
+		secrets []Secret
+		res     bool
 	}{
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+		{
+			name: "test env secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "secret",
 					Type:      "ENVIRONMENT_VARIABLE",
 					ValueFrom: "/test/secretName",
 				}},
-		}, true},
-		{Container{
-			Name:    "myName",
-			Image:   "image:tag",
-			Secrets: nil,
-		}, false},
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			res: true,
+		},
+		{
+			name: "test no secret",
+			f:    isEnvOrLogDriverSecret,
+		},
+		{
+			name: "test mount point secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "secret",
 					Type:      "MOUNT_POINT",
 					ValueFrom: "/test/secretName",
 				}},
-		}, false},
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			res: false,
+		},
+		{
+			name: "test log driver secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "splunk-token",
 					ValueFrom: "/test/secretName",
 					Target:    "LOG_DRIVER",
 				}},
-		}, true},
+			res: true,
+		},
+		{
+			name: "test secret provider ssm",
+			f:    isSSMLogDriverSecret,
+			secrets: []Secret{
+				{
+					Name:     "secret",
+					Provider: SecretProviderSSM,
+					Target:   SecretTargetLogDriver,
+				},
+			},
+			res: true,
+		},
+		{
+			name: "test wrong secret provider",
+			f:    isSSMLogDriverSecret,
+			secrets: []Secret{
+				{
+					Name:     "secret",
+					Provider: "dummy",
+					Target:   SecretTargetLogDriver,
+				},
+			},
+			res: false,
+		},
 	}
 
-	for _, test := range cases {
-		container := test.in
-		assert.Equal(t, test.out, container.HasSecretAsEnvOrLogDriver())
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Container{
+				Name:    "c",
+				Secrets: tc.secrets,
+			}
 
+			assert.Equal(t, tc.res, c.HasSecret(tc.f))
+		})
+	}
 }
 
 func TestPerContainerTimeouts(t *testing.T) {
@@ -485,4 +525,93 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	container.SetRuntimeID("asdfghjkl1234")
 	assert.Equal(t, "asdfghjkl1234", container.RuntimeID)
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
+}
+
+func TestDependsOnContainer(t *testing.T) {
+	testCases := []struct {
+		name          string
+		container     *Container
+		dependsOnName string
+		dependsOn     bool
+	}{
+		{
+			name: "test DependsOnContainer positive case",
+			container: &Container{
+				Name: "container1",
+				DependsOnUnsafe: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container2",
+			dependsOn:     true,
+		},
+		{
+			name: "test DependsOnContainer negative case",
+			container: &Container{
+				Name: "container1",
+				DependsOnUnsafe: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container0",
+			dependsOn:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.dependsOn, tc.container.DependsOnContainer(tc.dependsOnName))
+		})
+	}
+}
+
+func TestAddContainerDependency(t *testing.T) {
+	container := &Container{
+		Name: "container1",
+	}
+	container.AddContainerDependency("container2", "START")
+
+	assert.Contains(t, container.DependsOnUnsafe, DependsOn{
+		ContainerName: "container2",
+		Condition:     "START",
+	})
+}
+
+func TestGetLogDriver(t *testing.T) {
+	getContainer := func(hostConfig string) *Container {
+		c := &Container{
+			Name: "c",
+		}
+		c.DockerConfig.HostConfig = &hostConfig
+		return c
+	}
+
+	testCases := []struct {
+		name      string
+		container *Container
+		logDriver string
+	}{
+		{
+			name:      "positive case",
+			container: getContainer(`{"LogConfig":{"Type":"logdriver"}}`),
+			logDriver: "logdriver",
+		},
+		{
+			name:      "negative case",
+			container: getContainer("invalid"),
+			logDriver: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.logDriver, tc.container.GetLogDriver())
+		})
+	}
 }

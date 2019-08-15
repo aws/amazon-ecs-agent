@@ -14,6 +14,7 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"sync"
@@ -23,9 +24,11 @@ import (
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	"github.com/aws/aws-sdk-go/aws"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -98,8 +101,8 @@ type Container struct {
 	Name string
 	// RuntimeID is the docker id of the container
 	RuntimeID string
-	// DependsOn is the field which specifies the ordering for container startup and shutdown.
-	DependsOn []DependsOn `json:"dependsOn,omitempty"`
+	// DependsOnUnsafe is the field which specifies the ordering for container startup and shutdown.
+	DependsOnUnsafe []DependsOn `json:"dependsOn,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -117,6 +120,8 @@ type Container struct {
 	Memory uint
 	// Links contains a list of containers to link, corresponding to docker option: --link
 	Links []string
+	// FirelensConfig contains configuration for a Firelens container
+	FirelensConfig *FirelensConfig `json:"firelensConfiguration"`
 	// VolumesFrom contains a list of container's volume to use, corresponding to docker option: --volumes-from
 	VolumesFrom []VolumeFrom `json:"volumesFrom"`
 	// MountPoints contains a list of volume mount paths
@@ -272,6 +277,12 @@ type MountPoint struct {
 	SourceVolume  string `json:"sourceVolume"`
 	ContainerPath string `json:"containerPath"`
 	ReadOnly      bool   `json:"readOnly"`
+}
+
+// FirelensConfig describes the type and options of a Firelens container.
+type FirelensConfig struct {
+	Type    string            `json:"type"`
+	Options map[string]string `json:"options"`
 }
 
 // VolumeFrom is a volume which references another container as its source.
@@ -881,19 +892,21 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	}
 }
 
-func (c *Container) HasSecretAsEnvOrLogDriver() bool {
+// HasSecret returns whether a container has secret based on a certain condition.
+func (c *Container) HasSecret(f func(s Secret) bool) bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	// Secrets field will be nil if there is no secrets for container
 	if c.Secrets == nil {
 		return false
 	}
+
 	for _, secret := range c.Secrets {
-		if secret.Type == SecretTypeEnv || secret.Target == SecretTargetLogDriver {
+		if f(secret) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -909,4 +922,86 @@ func (c *Container) GetStopTimeout() time.Duration {
 	defer c.lock.Unlock()
 
 	return time.Duration(c.StopTimeout) * time.Second
+}
+
+func (c *Container) GetDependsOn() []DependsOn {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.DependsOnUnsafe
+}
+
+func (c *Container) SetDependsOn(dependsOn []DependsOn) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.DependsOnUnsafe = dependsOn
+}
+
+// DependsOnContainer checks whether a container depends on another container.
+func (c *Container) DependsOnContainer(name string) bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for _, dependsOn := range c.DependsOnUnsafe {
+		if dependsOn.ContainerName == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasContainerDependencies checks whether a container has any container dependency.
+func (c *Container) HasContainerDependencies() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return len(c.DependsOnUnsafe) != 0
+}
+
+// AddContainerDependency adds a container dependency to a container.
+func (c *Container) AddContainerDependency(name string, condition string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.DependsOnUnsafe = append(c.DependsOnUnsafe, DependsOn{
+		ContainerName: name,
+		Condition:     condition,
+	})
+}
+
+// GetLogDriver returns the log driver used by the container.
+func (c *Container) GetLogDriver() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.DockerConfig.HostConfig == nil {
+		return ""
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+	if err != nil {
+		seelog.Warnf("Encountered error when trying to get log driver for container %s: %v", err)
+		return ""
+	}
+
+	return hostConfig.LogConfig.Type
+}
+
+// GetHostConfig returns the container's host config.
+func (c *Container) GetHostConfig() *string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.DockerConfig.HostConfig
+}
+
+// GetFirelensConfig returns the container's firelens config.
+func (c *Container) GetFirelensConfig() *FirelensConfig {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.FirelensConfig
 }

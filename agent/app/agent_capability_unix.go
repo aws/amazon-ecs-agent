@@ -91,9 +91,7 @@ func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribu
 	if !agent.cfg.ENITrunkingEnabled {
 		return capabilities
 	}
-
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskENITrunkingAttributeSuffix)
-
 	return agent.appendBranchENIPluginVersionAttribute(capabilities)
 }
 
@@ -145,4 +143,16 @@ func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) 
 	}
 
 	return appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAWithOptimizedCPU)
+}
+
+func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentd)
+}
+
+func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
+}
+
+func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }

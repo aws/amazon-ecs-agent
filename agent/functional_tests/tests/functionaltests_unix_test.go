@@ -17,6 +17,7 @@ package functional_tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -1763,4 +1764,163 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 		}
 	}
 	assert.True(t, checkMacSucceeds)
+}
+
+// TestFirelensFluentd starts a task that has a log sender container and a firelens container with configuration type
+// as fluentd. The log sender container is configured to send logs via the firelens container. It echoes something
+// and then exits. The firelens container is configured to route the logs from the log sender container to its stdout.
+// The firelens container itself is configured to use the awslogs logging driver, so that we can examine its stdout
+// by querying cloudwatch logs.
+// Since the test is similar to TestFirelensFluentbit, the common parts of the two tests are extracted to a helper method
+// testFirelens, while the different parts are covered in getLogSenderMessageFunc.
+func TestFirelensFluentd(t *testing.T) {
+	// getLogSenderMessageFunc defines a function that specifies how to find the log sender's logs after the task
+	// finished running.
+	getLogSenderMessageFunc := func(taskID string, t *testing.T) string {
+		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+		params := &cloudwatchlogs.FilterLogEventsInput{
+			LogGroupName:  aws.String(awslogsLogGroupName),
+			LogStreamNames: aws.StringSlice([]string{fmt.Sprintf("firelens-fluentd/firelens/%s", taskID)}),
+			// The firelens container's stdout contains both log sender's log and its own logs.
+			// Filter out the logs that belong to the firelens container itself.
+			FilterPattern: aws.String(`?"\"log\":\"pass\"" ?"\"log\":\"filtered\""`),
+		}
+
+		resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30 * time.Second)
+		require.NoError(t, err, "CloudWatchLogs get log failed")
+
+		// Expect one message sent from the log sender.
+		assert.Equal(t, 1, len(resp.Events))
+		line := aws.StringValue(resp.Events[0].Message)
+
+		// Format of the log should be something like:
+		// Timestamp containerName-taskID: {"source":"stdout","log":"...","container_id":"...","container_name":"...","ec2_instance_id":"...","ecs_cluster":"...","ecs_task_arn":"...","ecs_task_definition":"..."}
+		// Return the last part which will be checked by the caller (testFirelens).
+		fields := strings.Split(line, " ")
+		message := fields[len(fields)-1]
+
+		return message
+	}
+
+	testFirelens(t, "fluentd", "@type", "stdout", getLogSenderMessageFunc)
+}
+
+// TestFirelensFluentbit starts a task that has a log sender container and a firelens container with configuration type
+// as fluentbit. The log sender container is configured to send logs via the firelens container. It echoes something
+// and then exits. The firelens container is configured to route the logs from the log sender container directly to
+// cloudwatch logs (with a fluentbit cloudwatch plugin that's available in the amazon/aws-for-fluent-bit container image).
+func TestFirelensFluentbit(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping the test as the fluentbit image doesn't support arm right now.")
+	}
+
+	// getLogSenderMessageFunc defines a function that specifies how to find the log sender's logs after the task
+	// finished running.
+	getLogSenderMessageFunc := func(taskID string, t *testing.T) string {
+		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+		params := &cloudwatchlogs.GetLogEventsInput{
+			LogGroupName:  aws.String(awslogsLogGroupName),
+			LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
+		}
+
+		// Expect one message sent from the log sender.
+		resp, err := waitCloudwatchLogs(cwlClient, params)
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(resp.Events))
+		message := aws.StringValue(resp.Events[0].Message)
+		return message
+	}
+
+	testFirelens(t, "fluentbit", "Name", "cloudwatch", getLogSenderMessageFunc)
+}
+
+func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLogOptionValue string,
+	getLogSenderMessageFunc func(string, *testing.T)string) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	taskRoleArn := os.Getenv("TASK_IAM_ROLE_ARN")
+	if utils.ZeroOrNil(taskRoleArn) {
+		t.Skip("Skipping the test since TASK_IAM_ROLE_ARN is not set")
+	}
+
+	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
+	instanceID := iid.InstanceID
+
+	parameterName := fmt.Sprintf("FunctionalTest-FirelensLogOptionSecret-%s", firelensConfigType)
+	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	input := &ssm.PutParameterInput{
+		Description: aws.String(
+			"Resource created for the ECS Agent Functional Tests: TestFirelensFluentd and TestFirelensFluentbit"),
+		Name:        aws.String(parameterName),
+		Value:       aws.String(secretLogOptionValue),
+		Type:        aws.String("String"),
+	}
+
+	// create parameter in parameter store if it does not exist
+	_, err := ssmClient.PutParameter(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case ssm.ErrCodeParameterAlreadyExists:
+				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+				break
+			default:
+				require.NoError(t, err, "SSM PutParameter call failed")
+			}
+		}
+	}
+
+	// socket path has a length limit of 108 characters on Linux. The default temp data dir used in our functional
+	// tests unfortunately causes the socket used by firelens container to be slightly longer than that. So I have
+	// to override the path to be shorter.
+	tempDirPrefix := os.Getenv("ECS_FTEST_TMP")
+	tempDir, err := ioutil.TempDir(tempDirPrefix, "")
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION": "1m",
+			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
+			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+		},
+		TempDirOverride: tempDir,
+	}
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	agent := RunAgent(t, agentOptions)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.30.0")
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
+	tdOverrides["$$$SECRET_OPTION_KEY$$$"] = secretLogOptionKey
+	tdOverrides["$$$SECRET_OPTION_PARAM$$$"] = parameterName
+	tdOverrides["$$$TASK_ROLE$$$"] = taskRoleArn
+	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "firelens-"+firelensConfigType, tdOverrides)
+	require.NoError(t, err)
+
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, err)
+
+	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
+	require.NoError(t, err)
+	message := getLogSenderMessageFunc(taskID, t)
+
+	// Message should be like: {"source":"stdout","log":"...","container_id":"...","container_name":"...","ec2_instance_id":"...","ecs_cluster":"...","ecs_task_arn":"...","ecs_task_definition":"..."}.
+	// Verify each of the field.
+	jsonBlob := make(map[string]string)
+	err = json.Unmarshal([]byte(message), &jsonBlob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "stdout", jsonBlob["source"])
+	assert.Equal(t, "pass", jsonBlob["log"])
+	assert.Contains(t, jsonBlob, "container_id")
+	assert.Contains(t, jsonBlob["container_name"], "logsender")
+	assert.Equal(t, instanceID, jsonBlob["ec2_instance_id"])
+	assert.Equal(t, agent.Cluster, jsonBlob["ecs_cluster"])
+	assert.Equal(t, *testTask.TaskArn, jsonBlob["ecs_task_arn"])
+	assert.Contains(t, *testTask.TaskDefinitionArn, jsonBlob["ecs_task_definition"])
 }

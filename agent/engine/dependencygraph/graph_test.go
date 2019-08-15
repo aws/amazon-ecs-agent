@@ -42,7 +42,7 @@ func volumeStrToVol(vols []string) []apicontainer.VolumeFrom {
 func steadyStateContainer(name string, dependsOn []apicontainer.DependsOn, desiredState apicontainerstatus.ContainerStatus, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
 	container := apicontainer.NewContainerWithSteadyState(steadyState)
 	container.Name = name
-	container.DependsOn = dependsOn
+	container.DependsOnUnsafe = dependsOn
 	container.DesiredStatusUnsafe = desiredState
 	return container
 }
@@ -50,7 +50,7 @@ func steadyStateContainer(name string, dependsOn []apicontainer.DependsOn, desir
 func createdContainer(name string, dependsOn []apicontainer.DependsOn, steadyState apicontainerstatus.ContainerStatus) *apicontainer.Container {
 	container := apicontainer.NewContainerWithSteadyState(steadyState)
 	container.Name = name
-	container.DependsOn = dependsOn
+	container.DependsOnUnsafe = dependsOn
 	container.DesiredStatusUnsafe = apicontainerstatus.ContainerCreated
 	return container
 }
@@ -901,22 +901,22 @@ func TestVerifyShutdownOrder(t *testing.T) {
 	others := map[string]*apicontainer.Container{
 		"A": {
 			Name:              "A",
-			DependsOn:         dependsOn("B"),
+			DependsOnUnsafe:   dependsOn("B"),
 			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 		},
 		"B": {
 			Name:              "B",
-			DependsOn:         dependsOn("C", "D"),
+			DependsOnUnsafe:   dependsOn("C", "D"),
 			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 		},
 		"C": {
 			Name:              "C",
-			DependsOn:         dependsOn("E", "F"),
+			DependsOnUnsafe:   dependsOn("E", "F"),
 			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
 		},
 		"D": {
 			Name:              "D",
-			DependsOn:         dependsOn("E"),
+			DependsOnUnsafe:   dependsOn("E"),
 			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 		},
 	}

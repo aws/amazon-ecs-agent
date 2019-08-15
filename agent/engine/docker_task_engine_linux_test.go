@@ -16,6 +16,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -37,6 +38,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
@@ -45,10 +48,15 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	cgroupMountPath = "/sys/fs/cgroup"
+
+	testTaskARN        = "arn:aws:ecs:region:account-id:task/task-id"
+	testTaskDefFamily  = "testFamily"
+	testTaskDefVersion = "1"
 )
 
 func init() {
@@ -383,6 +391,110 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				}
 				time.Sleep(5 * time.Millisecond)
 			}
+		})
+	}
+}
+
+func TestCreateFirelensContainer(t *testing.T) {
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeFirelens,
+			Config: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	getTask := func(firelensConfigType string) *apitask.Task {
+		task := &apitask.Task{
+			Arn:     testTaskARN,
+			Family:  testTaskDefFamily,
+			Version: testTaskDefVersion,
+			Containers: []*apicontainer.Container{
+				{
+					Name: "firelens",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: firelensConfigType,
+						Options: map[string]string{
+							"enable-ecs-log-metadata": "true",
+						},
+					},
+				},
+				{
+					Name: "logsender",
+					Secrets: []apicontainer.Secret{
+						{
+							Name:      "secret-name",
+							ValueFrom: "secret-value-from",
+							Provider:  apicontainer.SecretProviderSSM,
+							Target:    apicontainer.SecretTargetLogDriver,
+							Region:    "us-west-2",
+						},
+					},
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func(s string) *string {
+							return &s
+						}(string(rawHostConfig)),
+					},
+				},
+			},
+		}
+
+		task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+		ssmRes := &ssmsecret.SSMSecretResource{}
+		ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
+		task.AddResource(ssmsecret.ResourceName, ssmRes)
+		return task
+	}
+
+	testCases := []struct {
+		name                 string
+		task                 *apitask.Task
+		expectedConfigBind   string
+		expectedSocketBind   string
+		expectedLogOptionEnv string
+	}{
+		{
+			name:                 "test create fluentd firelens container",
+			task:                 getTask(firelens.FirelensConfigTypeFluentd),
+			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
+			expectedLogOptionEnv: "secret-name_1=secret-val",
+		},
+		{
+			name:                 "test create fluentbit firelens container",
+			task:                 getTask(firelens.FirelensConfigTypeFluentbit),
+			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
+			expectedLogOptionEnv: "secret-name_1=secret-val",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			mockTime.EXPECT().Now().AnyTimes()
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Contains(t, hostConfig.Binds, tc.expectedConfigBind)
+					assert.Contains(t, hostConfig.Binds, tc.expectedSocketBind)
+					assert.Contains(t, config.Env, tc.expectedLogOptionEnv)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
 		})
 	}
 }
