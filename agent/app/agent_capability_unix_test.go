@@ -786,9 +786,6 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + taskEIAAttributeSuffix),
 			},
 			{
-				Name: aws.String(attributePrefix + taskEIAWithOptimizedCPU),
-			},
-			{
 				Name: aws.String(attributePrefix + capabilityFirelensFluentd),
 			},
 			{
@@ -811,8 +808,10 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
 
-	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	for _, expected := range expectedCapabilities {
+		assert.Contains(t, capabilities, &ecs.Attribute{
+			Name:  expected.Name,
+			Value: expected.Value,
+		})
 	}
 }
