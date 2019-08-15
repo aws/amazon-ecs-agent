@@ -873,6 +873,41 @@ func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatc
 
 	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
 }
+
+func waitCloudwatchLogsWithFilter(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.FilterLogEventsInput,
+	timeout time.Duration) (*cloudwatchlogs.FilterLogEventsOutput, error) {
+	timer := time.NewTimer(timeout)
+
+	waitEventErr := make(chan error, 1)
+	cancelled := false
+
+	var output *cloudwatchlogs.FilterLogEventsOutput
+	go func() {
+		for !cancelled {
+			resp, err := client.FilterLogEvents(params)
+			if err != nil {
+				awsError, ok := err.(awserr.Error)
+				if !ok || awsError.Code() != "ResourceNotFoundException" {
+					waitEventErr <- err
+				}
+			} else if len(resp.Events) > 0 {
+				output = resp
+				waitEventErr <- nil
+				break
+			}
+			time.Sleep(time.Second)
+		}
+	}()
+
+	select{
+	case err := <- waitEventErr:
+		return output, err
+	case <-timer.C:
+		cancelled = true
+		return nil, fmt.Errorf("timeout waiting for the logs to be sent to cloudwatch logs")
+	}
+}
+
 func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awslogsPrefix string) {
 	agentOptions := &AgentOptions{
 		EnableTaskENI: true,

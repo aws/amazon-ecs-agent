@@ -907,3 +907,44 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	tester.payloadHandler.handleUnrecognizedTask(ecsacsTask, errors.New("test error"), payloadMessage)
 	wait.Wait()
 }
+
+func TestPayloadHandlerAddedFirelensData(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(
+		func(task *apitask.Task) {
+			addedTask = task
+		})
+
+	payloadMessage := &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("arn"),
+				Containers: []*ecsacs.Container{
+					{
+						FirelensConfiguration: &ecsacs.FirelensConfiguration{
+							Type: aws.String("fluentd"),
+							Options: map[string]*string{
+								"enable-ecs-log-metadata": aws.String("true"),
+							},
+						},
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
+	assert.NoError(t, err)
+
+	// Validate the pieces of the Firelens container
+	expected := payloadMessage.Tasks[0].Containers[0].FirelensConfiguration
+	actual := addedTask.Containers[0].FirelensConfig
+
+	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
+	assert.NotNil(t, actual.Options)
+	assert.Equal(t, aws.StringValue(expected.Options["enable-ecs-log-metadata"]), actual.Options["enable-ecs-log-metadata"])
+}

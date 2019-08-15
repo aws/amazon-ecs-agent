@@ -140,6 +140,7 @@ type AgentOptions struct {
 	PortBindings     map[nat.Port]map[string]string
 	EnableTaskENI    bool
 	GPUEnabled       bool
+	TempDirOverride  string
 }
 
 // verifyIntrospectionAPI verifies that we can talk to the agent's introspection http endpoint.
@@ -188,6 +189,7 @@ func (agent *TestAgent) platformIndependentCleanup() {
 		agent.t.Logf("Removing test dir for passed test %s", agent.TestDir)
 		os.RemoveAll(agent.TestDir)
 	}
+
 	ECS.DeregisterContainerInstance(&ecs.DeregisterContainerInstanceInput{
 		Cluster:           &agent.Cluster,
 		ContainerInstance: &agent.ContainerInstanceArn,
@@ -910,7 +912,13 @@ func GetTaskID(taskARN string) (string, error) {
 		return "", errors.Errorf("task get-id: invalid task resource split: %s, expected=%d, actual=%d", resource, arnResourceSections, len(resourceSplit))
 	}
 
-	return resourceSplit[1], nil
+	// resourceSplit[1] can be "cluster/task-id" or "task-id", depends on whether task long arn format is turned on or not.
+	if !strings.Contains(resourceSplit[1], "/") {
+		return resourceSplit[1], nil
+	}
+
+	fields := strings.Split(resourceSplit[1], "/")
+	return fields[1], nil
 }
 
 // WaitContainerInstanceStatus waits for a container instance to reach certain status by polling its status

@@ -227,7 +227,8 @@
         "secrets":{"shape":"SecretList"},
         "dependsOn":{"shape":"ContainerDependencies"},
         "startTimeout":{"shape":"Integer"},
-        "stopTimeout":{"shape":"Integer"}
+        "stopTimeout":{"shape":"Integer"},
+        "firelensConfiguration":{"shape":"FirelensConfiguration"}
       }
     },
     "ContainerCondition":{
@@ -431,6 +432,25 @@
       },
       "exception":true
     },
+    "FirelensConfiguration":{
+      "type":"structure",
+      "members":{
+        "type":{"shape":"FirelensConfigurationType"},
+        "options":{"shape":"FirelensConfigurationOptionsMap"}
+      }
+    },
+    "FirelensConfigurationType":{
+      "type":"string",
+      "enum":[
+        "fluentd",
+        "fluentbit"
+      ]
+    },
+    "FirelensConfigurationOptionsMap": {
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
+    },
     "Long":{"type":"long"},
     "MountPoint":{
       "type":"structure",
@@ -537,7 +557,8 @@
         "containerPath":{"shape":"String"},
         "type":{"shape":"SecretType"},
         "region":{"shape":"String"},
-        "provider":{"shape":"SecretProvider"}
+        "provider":{"shape":"SecretProvider"},
+        "target":{"shape":"SecretTarget"}
       }
     },
     "SecretList":{
@@ -549,6 +570,13 @@
       "enum":[
         "ssm",
         "asm"
+      ]
+    },
+    "SecretTarget":{
+      "type":"string",
+      "enum":[
+        "CONTAINER",
+        "LOG_DRIVER"
       ]
     },
     "SecretType":{

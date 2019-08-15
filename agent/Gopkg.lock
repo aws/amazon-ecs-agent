@@ -61,6 +61,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:83cedb03ada7f52025f19d4e1fef1193b0c95dd3d1ec463488e5b9865bcf5af3"
+  name = "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "d9b7ac1ed5905d5434dd21ebc1582389b4ae91d1"
+
+[[projects]]
+  branch = "master"
   digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
   name = "github.com/beorn7/perks"
   packages = ["quantile"]
@@ -506,6 +514,7 @@
     "github.com/aws/aws-sdk-go/service/secretsmanager",
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",
     "github.com/aws/aws-sdk-go/service/ssm",
+    "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit",
     "github.com/cihub/seelog",
     "github.com/containerd/cgroups",
     "github.com/containernetworking/cni/libcni",

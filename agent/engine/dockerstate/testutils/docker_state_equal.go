@@ -16,8 +16,10 @@
 // allows this to happen
 package testutils
 
-import "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-import api_testutils "github.com/aws/amazon-ecs-agent/agent/api/testutils"
+import (
+	api_testutils "github.com/aws/amazon-ecs-agent/agent/api/testutils"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+)
 
 // DockerStatesEqual determines if the two given dockerstates are equal, for
 // equal meaning they have the same tasks and their tasks are equal

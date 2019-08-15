@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -2693,4 +2694,130 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 		})
 	}
+}
+
+// TestCreateContainerAddFirelensLogDriverConfig tests that in createContainer, when the
+// container is using firelens log driver, its logConfig is properly set.
+func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
+	taskName := "logSenderTask"
+	taskARN := "arn:aws:ecs:region:account-id:task/task-id"
+	taskID := "task-id"
+	taskFamily := "logSenderTaskFamily"
+	taskVersion := "1"
+	logDriverTypeFirelens := "awsfirelens"
+	logDriverTypeOther := "other"
+	dataLogDriverPath := "/data/firelens/"
+	dataLogDriverSocketPath := "/socket/fluent.sock"
+	socketPathPrefix := "unix://"
+	getTask := func(logDriverType string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverType,
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+				},
+			},
+		}
+	}
+
+	testCases := []struct {
+		name                           string
+		task                           *apitask.Task
+		expectedLogConfigType          string
+		expectedLogConfigTag           string
+		expectedLogConfigFluentAddress string
+		expectedFluentdAsyncConnect    string
+	}{
+		{
+			name:                           "test container that uses firelens log driver",
+			task:                           getTask(logDriverTypeFirelens),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+		},
+		{
+			name:                           "test container that uses other log driver",
+			task:                           getTask(logDriverTypeOther),
+			expectedLogConfigType:          logDriverTypeOther,
+			expectedLogConfigTag:           "",
+			expectedLogConfigFluentAddress: "",
+			expectedFluentdAsyncConnect:    "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Equal(t, tc.expectedLogConfigType, hostConfig.LogConfig.Type)
+					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
+					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
+					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+
+	}
+}
+
+func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+			assert.Contains(t, config.Env, "FLUENT_UID=0")
+		})
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
 }
