@@ -67,10 +67,12 @@ func TestTaskResponse(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENI: &apieni.ENI{
-			IPV4Addresses: []*apieni.ENIIPV4Address{
-				{
-					Address: eniIPv4Address,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
 				},
 			},
 		},
@@ -190,10 +192,12 @@ func TestContainerResponse(t *testing.T) {
 				Container:  container,
 			}
 			task := &apitask.Task{
-				ENI: &apieni.ENI{
-					IPV4Addresses: []*apieni.ENIIPV4Address{
-						{
-							Address: eniIPv4Address,
+				ENIs: []*apieni.ENI{
+					{
+						IPV4Addresses: []*apieni.ENIIPV4Address{
+							{
+								Address: eniIPv4Address,
+							},
 						},
 					},
 				},
@@ -274,10 +278,12 @@ func TestTaskResponseMarshal(t *testing.T) {
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENI: &apieni.ENI{
-			IPV4Addresses: []*apieni.ENIIPV4Address{
-				{
-					Address: eniIPv4Address,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
 				},
 			},
 		},
@@ -427,10 +433,12 @@ func TestContainerResponseMarshal(t *testing.T) {
 		Container:  container,
 	}
 	task := &apitask.Task{
-		ENI: &apieni.ENI{
-			IPV4Addresses: []*apieni.ENIIPV4Address{
-				{
-					Address: eniIPv4Address,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
 				},
 			},
 		},

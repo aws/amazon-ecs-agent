@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -37,6 +38,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
@@ -62,6 +64,14 @@ const (
 	secretKeyWest1    = "/test/secretName_us-west-2"
 	secKeyLogDriver   = "/test/secretName1_us-west-1"
 	asmSecretKeyWest1 = "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName_us-west-2"
+	ipv4              = "10.0.0.1"
+	mac               = "1.2.3.4"
+	ipv6              = "f0:234:23"
+	ignoredUID        = "1337"
+	proxyIngressPort  = "15000"
+	proxyEgressPort   = "15001"
+	appPort           = "9000"
+	egressIgnoredIP   = "169.254.169.254"
 )
 
 var defaultDockerClientAPIVersion = dockerclient.Version_1_17
@@ -271,8 +281,10 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 
 func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask := &Task{
-		ENI: &apieni.ENI{
-			ID: "eniID",
+		ENIs: []*apieni.ENI{
+			{
+				ID: "eniID",
+			},
 		},
 		Containers: []*apicontainer.Container{
 			{
@@ -306,8 +318,8 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 
 	// Verify that overridden DNS settings are set for the pause container
 	// and not set for non pause containers
-	testTask.ENI.DomainNameServers = []string{"169.254.169.253"}
-	testTask.ENI.DomainNameSearchList = []string{"us-west-2.compute.internal"}
+	testTask.ENIs[0].DomainNameServers = []string{"169.254.169.253"}
+	testTask.ENIs[0].DomainNameSearchList = []string{"us-west-2.compute.internal"}
 
 	// DNS overrides are only applied to the pause container. Verify that the non-pause
 	// container contains no overrides
@@ -324,8 +336,8 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 
 	// Verify eni ExtraHosts  added to HostConfig for pause container
 	ipaddr := &apieni.ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
-	testTask.ENI.IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
-	testTask.ENI.PrivateDNSName = "eni.ip.region.compute.internal"
+	testTask.ENIs[0].IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
+	testTask.ENIs[0].PrivateDNSName = "eni.ip.region.compute.internal"
 
 	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
@@ -1485,20 +1497,22 @@ func TestGetIDHappyPath(t *testing.T) {
 	assert.Equal(t, "task-id", taskID)
 }
 
-// TestTaskGetENI tests the eni can be correctly acquired by calling GetTaskENI
-func TestTaskGetENI(t *testing.T) {
-	enisOfTask := &apieni.ENI{
-		ID: "id",
+// TestTaskGetPrimaryENI tests the eni can be correctly acquired by calling GetTaskPrimaryENI
+func TestTaskGetPrimaryENI(t *testing.T) {
+	enisOfTask := []*apieni.ENI{
+		{
+			ID: "id",
+		},
 	}
 	testTask := &Task{
-		ENI: enisOfTask,
+		ENIs: enisOfTask,
 	}
 
 	eni := testTask.GetPrimaryENI()
 	assert.NotNil(t, eni)
 	assert.Equal(t, "id", eni.ID)
 
-	testTask.ENI = nil
+	testTask.ENIs = nil
 	eni = testTask.GetPrimaryENI()
 	assert.Nil(t, eni)
 }
@@ -3015,4 +3029,112 @@ func TestGetContainerIndex(t *testing.T) {
 	assert.Equal(t, 0, task.GetContainerIndex("c1"))
 	assert.Equal(t, 1, task.GetContainerIndex("c2"))
 	assert.Equal(t, -1, task.GetContainerIndex("p"))
+}
+
+func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.AddTaskENI(&apieni.ENI{
+				ID: "TestBuildCNIConfigRegularENI",
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Primary: true,
+						Address: ipv4,
+					},
+				},
+				MacAddress: mac,
+				IPV6Addresses: []*apieni.ENIIPV6Address{
+					{
+						Address: ipv6,
+					},
+				},
+			})
+			testTask.SetAppMesh(&appmesh.AppMesh{
+				IgnoredUID:       ignoredUID,
+				ProxyIngressPort: proxyIngressPort,
+				ProxyEgressPort:  proxyEgressPort,
+				AppPorts: []string{
+					appPort,
+				},
+				EgressIgnoredIPs: []string{
+					egressIgnoredIP,
+				},
+			})
+			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+				BlockInstanceMetadata: blockIMDS,
+			})
+			assert.NoError(t, err)
+			// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+			// ENI, Bridge and Appmesh
+			require.Len(t, cniConfig.NetworkConfigs, 3)
+			// The first one should be for the ENI.
+			var eniConfig ecscni.ENIConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+			require.NoError(t, err)
+			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
+			assert.Equal(t, ipv4, eniConfig.IPV4Address)
+			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			// The second one should be for the Bridge.
+			var bridgeConfig ecscni.BridgeConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
+			require.NoError(t, err)
+			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+			// The third one should be for Appmesh.
+			var appMeshConfig ecscni.AppMeshConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[2].CNINetworkConfig.Bytes, &appMeshConfig)
+			require.NoError(t, err)
+			assert.Equal(t, ignoredUID, appMeshConfig.IgnoredUID)
+			assert.Equal(t, proxyIngressPort, appMeshConfig.ProxyIngressPort)
+			assert.Equal(t, proxyEgressPort, appMeshConfig.ProxyEgressPort)
+			assert.Equal(t, appPort, appMeshConfig.AppPorts[0])
+			assert.Equal(t, egressIgnoredIP, appMeshConfig.EgressIgnoredIPs[0])
+		})
+	}
+}
+
+func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.AddTaskENI(&apieni.ENI{
+				ID:                           "TestBuildCNIConfigTrunkBranchENI",
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
+					VlanID:                   "1234",
+					TrunkInterfaceMacAddress: "macTrunk",
+				},
+				SubnetGatewayIPV4Address: "10.0.1.0/24",
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Primary: true,
+						Address: ipv4,
+					},
+				},
+			})
+
+			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+				BlockInstanceMetadata: blockIMDS,
+			})
+			assert.NoError(t, err)
+			// We expect 2 NetworkConfig objects in the cni Config wrapper object:
+			// Branch ENI and Bridge.
+			require.Len(t, cniConfig.NetworkConfigs, 2)
+			// The first one should be for the ENI.
+			var eniConfig ecscni.BranchENIConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+			require.NoError(t, err)
+			assert.Equal(t, mac, eniConfig.BranchMACAddress, eniConfig)
+			assert.Equal(t, "macTrunk", eniConfig.TrunkMACAddress, eniConfig)
+			assert.Equal(t, "1234", eniConfig.BranchVlanID)
+			assert.Equal(t, ipv4+"/24", eniConfig.BranchIPAddress)
+			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			// The second one should be for the Bridge.
+			var bridgeConfig ecscni.BridgeConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
+			require.NoError(t, err)
+			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+		})
+	}
 }

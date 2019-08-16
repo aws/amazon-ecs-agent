@@ -21,12 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_libcni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks_libcni"
 	"github.com/containernetworking/cni/libcni"
@@ -34,13 +36,25 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	eniID                       = "eni-12345678"
+	eniIPV4Address              = "172.31.21.40"
+	eniMACAddress               = "02:7b:64:49:b1:40"
+	eniSubnetGatewayIPV4Address = "172.31.1.1/20"
+	trunkENIMACAddress          = "02:7b:64:49:b2:40"
+	branchENIVLANID             = "42"
+	branchIPV4Address           = "172.31.21.40/20"
+	branchSubnetGatewayAddress  = "172.31.1.1"
 )
 
 func TestSetupNS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -66,15 +80,42 @@ func TestSetupNS(t *testing.T) {
 			}),
 	)
 
-	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+
+	_, err = ecscniClient.SetupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
+}
+
+func eniNetworkConfig(config *Config) *NetworkConfig {
+	_, eniNetworkConfig, _ := NewENINetworkConfig(
+		&eni.ENI{
+			ID: eniID,
+			IPV4Addresses: []*eni.ENIIPV4Address{
+				{Address: eniIPV4Address, Primary: true},
+			},
+			MacAddress:               eniMACAddress,
+			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+		},
+		config,
+	)
+	return &NetworkConfig{CNINetworkConfig: eniNetworkConfig}
+}
+
+func bridgeConfigWithIPAM(config *Config) *NetworkConfig {
+	_, bridgeNetworkConfig, _ := NewBridgeNetworkConfig(config, true)
+	return &NetworkConfig{CNINetworkConfig: bridgeNetworkConfig}
 }
 
 func TestSetupNSTrunk(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -100,16 +141,39 @@ func TestSetupNSTrunk(t *testing.T) {
 			}),
 	)
 
-	_, err = ecscniClient.SetupNS(context.TODO(), &Config{InterfaceAssociationProtocol: eni.VLANInterfaceAssociationProtocol,
-		AdditionalLocalRoutes: additionalRoutes, SubnetGatewayIPV4Address: "172.31.1.1/20"}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, branchENINetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	_, err = ecscniClient.SetupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
+}
+
+func branchENINetworkConfig(config *Config) *NetworkConfig {
+	_, eniNetworkConfig, _ := NewBranchENINetworkConfig(
+		&eni.ENI{
+			ID: eniID,
+			IPV4Addresses: []*eni.ENIIPV4Address{
+				{Address: eniIPV4Address, Primary: true},
+			},
+			MacAddress:               eniMACAddress,
+			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+			InterfaceVlanProperties: &eni.InterfaceVlanProperties{
+				TrunkInterfaceMacAddress: trunkENIMACAddress,
+				VlanID:                   branchENIVLANID,
+			},
+		},
+		config)
+	return &NetworkConfig{CNINetworkConfig: eniNetworkConfig}
 }
 
 func TestSetupNSAppMeshEnabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -139,16 +203,41 @@ func TestSetupNSAppMeshEnabled(t *testing.T) {
 				assert.Equal(t, ECSAppMeshPluginName, net.Network.Type, "third plugin should be app mesh")
 			}),
 	)
-
-	_, err = ecscniClient.SetupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes, AppMeshCNIEnabled: true}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, appMeshNetworkConfig(config))
+	_, err = ecscniClient.SetupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
+}
+
+func appMeshNetworkConfig(config *Config) *NetworkConfig {
+	_, appMeshNetworkConfig, _ := NewAppMeshConfig(&appmesh.AppMesh{
+		IgnoredUID:       "1337",
+		IgnoredGID:       "1448",
+		ProxyIngressPort: "15000",
+		ProxyEgressPort:  "15001",
+		AppPorts: []string{
+			"9000",
+		},
+		EgressIgnoredPorts: []string{
+			"9001",
+		},
+		EgressIgnoredIPs: []string{
+			"169.254.169.254",
+		},
+	}, config)
+	return &NetworkConfig{CNINetworkConfig: appMeshNetworkConfig}
 }
 
 func TestSetupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -161,7 +250,13 @@ func TestSetupNSTimeout(t *testing.T) {
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).MaxTimes(1),
 	)
 
-	_, err := ecscniClient.SetupNS(context.TODO(), &Config{}, time.Millisecond)
+	config := &Config{
+		NetworkConfigs: []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, appMeshNetworkConfig(config))
+	_, err := ecscniClient.SetupNS(context.TODO(), config, time.Millisecond)
 	assert.Error(t, err)
 }
 
@@ -169,7 +264,7 @@ func TestCleanupNS(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -179,7 +274,13 @@ func TestCleanupNS(t *testing.T) {
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
-	err = ecscniClient.CleanupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	err = ecscniClient.CleanupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -187,7 +288,7 @@ func TestCleanupNSTrunk(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -211,8 +312,13 @@ func TestCleanupNSTrunk(t *testing.T) {
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
-	err = ecscniClient.CleanupNS(context.TODO(), &Config{InterfaceAssociationProtocol: eni.VLANInterfaceAssociationProtocol,
-		AdditionalLocalRoutes: additionalRoutes, SubnetGatewayIPV4Address: "172.31.1.1/20"}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, branchENINetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	err = ecscniClient.CleanupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -220,7 +326,7 @@ func TestCleanupNSAppMeshEnabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -231,7 +337,14 @@ func TestCleanupNSAppMeshEnabled(t *testing.T) {
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
 	assert.NoError(t, err)
-	err = ecscniClient.CleanupNS(context.TODO(), &Config{AdditionalLocalRoutes: additionalRoutes, AppMeshCNIEnabled: true}, time.Second)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, appMeshNetworkConfig(config))
+	err = ecscniClient.CleanupNS(context.TODO(), config, time.Second)
 	assert.NoError(t, err)
 }
 
@@ -239,7 +352,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -254,7 +367,13 @@ func TestCleanupNSTimeout(t *testing.T) {
 	assert.NoError(t, err)
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
 	defer cancel()
-	err = ecscniClient.CleanupNS(ctx, &Config{AdditionalLocalRoutes: additionalRoutes}, time.Millisecond)
+	config := &Config{
+		AdditionalLocalRoutes: additionalRoutes,
+		NetworkConfigs:        []*NetworkConfig{},
+	}
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	config.NetworkConfigs = append(config.NetworkConfigs, bridgeConfigWithIPAM(config))
+	err = ecscniClient.CleanupNS(ctx, config, time.Millisecond)
 	assert.Error(t, err)
 }
 
@@ -262,7 +381,7 @@ func TestReleaseIPInIPAM(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ecscniClient := NewClient(&Config{})
+	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
@@ -275,77 +394,91 @@ func TestReleaseIPInIPAM(t *testing.T) {
 // TestConstructENINetworkConfig tests createENINetworkConfig creates the correct
 // configuration for eni plugin
 func TestConstructENINetworkConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
 	config := &Config{
-		ENIID:                    "eni-12345678",
-		ContainerID:              "containerid12",
-		ContainerPID:             "pid",
-		ENIIPV4Address:           "172.31.21.40",
-		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:            "02:7b:64:49:b1:40",
-		BlockInstanceMetdata:     true,
-		SubnetGatewayIPV4Address: "172.31.1.1/20",
+		ContainerID:           "containerid12",
+		ContainerPID:          "pid",
+		BlockInstanceMetadata: true,
 	}
 
-	_, eniNetworkConfig, err := ecscniClient.(*cniClient).createENINetworkConfig(config)
-	assert.NoError(t, err, "construct eni network config failed")
+	eniName, eniNetworkConfig, err := NewENINetworkConfig(
+		&eni.ENI{
+			ID: eniID,
+			IPV4Addresses: []*eni.ENIIPV4Address{
+				{Address: eniIPV4Address, Primary: true},
+			},
+			MacAddress:               eniMACAddress,
+			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+		},
+		config)
+	require.NoError(t, err, "Failed to construct eni network config")
+	assert.Equal(t, "eth0", eniName)
 	eniConfig := &ENIConfig{}
 	err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
-	assert.NoError(t, err, "unmarshal config from bytes failed")
-
-	assert.Equal(t, config.ENIID, eniConfig.ENIID)
-	assert.Equal(t, config.ENIIPV4Address, eniConfig.IPV4Address)
-	assert.Equal(t, config.ENIIPV6Address, eniConfig.IPV6Address)
-	assert.Equal(t, config.ENIMACAddress, eniConfig.MACAddress)
-	assert.True(t, eniConfig.BlockInstanceMetdata)
-	assert.Equal(t, config.SubnetGatewayIPV4Address, eniConfig.SubnetGatewayIPV4Address)
+	require.NoError(t, err, "unmarshal config from bytes failed")
+	assert.Equal(t, &ENIConfig{
+		Type:                     "ecs-eni",
+		ENIID:                    eniID,
+		IPV4Address:              eniIPV4Address,
+		MACAddress:               eniMACAddress,
+		BlockInstanceMetadata:    true,
+		SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+	}, eniConfig)
 }
 
 // TestConstructBranchENINetworkConfig tests createBranchENINetworkConfig creates the correct
 // configuration for eni plugin
 func TestConstructBranchENINetworkConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
 	config := &Config{
-		ENIID:                    "eni-12345678",
-		ContainerID:              "containerid12",
-		ContainerPID:             "pid",
-		ENIIPV4Address:           "172.31.21.40",
-		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:            "02:7b:64:49:b1:40",
-		BlockInstanceMetdata:     true,
-		SubnetGatewayIPV4Address: "172.31.1.1/20",
+		ContainerID:           "containerid12",
+		ContainerPID:          "pid",
+		BlockInstanceMetadata: true,
 	}
 
-	_, eniNetworkConfig, err := ecscniClient.(*cniClient).createBranchENINetworkConfig(config)
-	assert.NoError(t, err, "construct eni network config failed")
+	eniName, eniNetworkConfig, err := NewBranchENINetworkConfig(
+		&eni.ENI{
+			ID: eniID,
+			IPV4Addresses: []*eni.ENIIPV4Address{
+				{Address: eniIPV4Address, Primary: true},
+			},
+			MacAddress:               eniMACAddress,
+			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+			InterfaceVlanProperties: &eni.InterfaceVlanProperties{
+				TrunkInterfaceMacAddress: trunkENIMACAddress,
+				VlanID:                   branchENIVLANID,
+			},
+		},
+		config)
+	require.NoError(t, err, "Failed to construct eni network config")
+	assert.Equal(t, "eth0", eniName)
 	branchENIConfig := &BranchENIConfig{}
 	err = json.Unmarshal(eniNetworkConfig.Bytes, branchENIConfig)
-	assert.NoError(t, err, "unmarshal config from bytes failed")
-
-	assert.Equal(t, config.BranchVlanID, branchENIConfig.BranchVlanID)
-	assert.Equal(t, "172.31.21.40/20", branchENIConfig.BranchIPAddress)
-	assert.Equal(t, config.ENIMACAddress, branchENIConfig.BranchMACAddress)
-	assert.Equal(t, "172.31.1.1", branchENIConfig.BranchGatewayIPAddress)
+	require.NoError(t, err, "unmarshal config from bytes failed")
+	assert.Equal(t, &BranchENIConfig{
+		Type:                   "vpc-branch-eni",
+		BranchIPAddress:        branchIPV4Address,
+		BranchMACAddress:       eniMACAddress,
+		BlockInstanceMetadata:  true,
+		BranchGatewayIPAddress: branchSubnetGatewayAddress,
+		TrunkMACAddress:        trunkENIMACAddress,
+		BranchVlanID:           branchENIVLANID,
+		InterfaceType:          "vlan",
+	}, branchENIConfig)
 }
 
 // TestConstructBridgeNetworkConfigWithoutIPAM tests createBridgeNetworkConfigWithoutIPAM creates the right configuration for bridge plugin
 func TestConstructBridgeNetworkConfigWithoutIPAM(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
 	config := &Config{
 		ContainerID:  "containerid12",
 		ContainerPID: "pid",
 		BridgeName:   "bridge-test1",
 	}
 
-	_, bridgeNetworkConfig, err := ecscniClient.(*cniClient).createBridgeNetworkConfigWithoutIPAM(config)
-	assert.NoError(t, err, "construct bridge network config failed")
+	vethName, bridgeNetworkConfig, err := NewBridgeNetworkConfig(config, false)
+	require.NoError(t, err, "Failed to construct bridge network config")
+	assert.Equal(t, "ecs-eth0", vethName)
 	bridgeConfig := &BridgeConfig{}
 	err = json.Unmarshal(bridgeNetworkConfig.Bytes, bridgeConfig)
-
-	assert.NoError(t, err, "unmarshal bridge config from bytes failed")
+	require.NoError(t, err, "unmarshal bridge config from bytes failed")
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
 	assert.Equal(t, IPAMConfig{}, bridgeConfig.IPAM)
 }
@@ -353,14 +486,11 @@ func TestConstructBridgeNetworkConfigWithoutIPAM(t *testing.T) {
 // TestConstructAppMeshNetworkConfig tests createAppMeshConfig creates the correct
 // configuration for app mesh plugin
 func TestConstructAppMeshNetworkConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
-	config := &Config{
-		AppMeshCNIEnabled: true,
-		IgnoredUID:        "1337",
-		IgnoredGID:        "1448",
-		ProxyIngressPort:  "15000",
-		ProxyEgressPort:   "15001",
+	config := &appmesh.AppMesh{
+		IgnoredUID:       "1337",
+		IgnoredGID:       "1448",
+		ProxyIngressPort: "15000",
+		ProxyEgressPort:  "15001",
 		AppPorts: []string{
 			"9000",
 		},
@@ -372,12 +502,12 @@ func TestConstructAppMeshNetworkConfig(t *testing.T) {
 		},
 	}
 
-	_, appMeshNetworkConfig, err := ecscniClient.(*cniClient).createAppMeshConfig(config)
-
-	assert.NoError(t, err, "construct eni network config failed")
+	appMeshIfName, appMeshNetworkConfig, err := NewAppMeshConfig(config, &Config{})
+	require.NoError(t, err, "Failed to construct app mesh network config")
+	assert.Equal(t, "aws-appmesh", appMeshIfName)
 	appMeshConfig := &AppMeshConfig{}
 	err = json.Unmarshal(appMeshNetworkConfig.Bytes, appMeshConfig)
-	assert.NoError(t, err, "unmarshal config from bytes failed")
+	require.NoError(t, err, "unmarshal config from bytes failed")
 
 	assert.Equal(t, config.IgnoredUID, appMeshConfig.IgnoredUID)
 	assert.Equal(t, config.IgnoredGID, appMeshConfig.IgnoredGID)
@@ -390,40 +520,37 @@ func TestConstructAppMeshNetworkConfig(t *testing.T) {
 }
 
 func TestConstructIPAMNetworkConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
 	config := &Config{
-		ID:                       "02:7b:64:49:b1:40",
-		ENIID:                    "eni-12345678",
-		ContainerID:              "containerid12",
-		ContainerPID:             "pid",
-		ENIIPV4Address:           "172.31.21.40",
-		ENIIPV6Address:           "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
-		ENIMACAddress:            "02:7b:64:49:b1:40",
-		BlockInstanceMetdata:     true,
-		SubnetGatewayIPV4Address: "172.31.1.1/20",
+		ID:                    eniMACAddress,
+		ContainerID:           "containerid12",
+		ContainerPID:          "pid",
+		BlockInstanceMetadata: true,
 	}
 
-	_, networkConfig, err := ecscniClient.(*cniClient).createIPAMNetworkConfig(config)
-	assert.NoError(t, err, "construct network config failed")
+	vethName, networkConfig, err := NewIPAMNetworkConfig(config)
+	require.NoError(t, err, "Failed to construct network config")
+	assert.Equal(t, "ecs-eth0", vethName)
 	ipamNetworkConfig := &IPAMNetworkConfig{}
 	err = json.Unmarshal(networkConfig.Bytes, ipamNetworkConfig)
-	assert.NoError(t, err, "unmarshal config from bytes failed")
-
-	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.Name)
-	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.Type)
-	assert.NotNil(t, ipamNetworkConfig.IPAM)
-	assert.Equal(t, ECSIPAMPluginName, ipamNetworkConfig.IPAM.Type)
-	assert.Equal(t, config.ENIMACAddress, ipamNetworkConfig.IPAM.ID)
-	assert.Equal(t, 1, len(ipamNetworkConfig.IPAM.IPV4Routes))
-	assert.Equal(t, TaskIAMRoleEndpoint, ipamNetworkConfig.IPAM.IPV4Routes[0].Dst.String())
+	require.NoError(t, err, "unmarshal config from bytes failed")
+	_, dst, _ := net.ParseCIDR("169.254.170.2/32")
+	expectedConfig := &IPAMNetworkConfig{
+		Type: "ecs-ipam",
+		Name: "ecs-ipam",
+		IPAM: IPAMConfig{
+			Type:       "ecs-ipam",
+			ID:         eniMACAddress,
+			IPV4Subnet: "169.254.172.0/22",
+			IPV4Routes: []*cnitypes.Route{{Dst: *dst}},
+		},
+	}
+	expectedConfigBytes, _ := json.Marshal(expectedConfig)
+	assert.Equal(t, expectedConfigBytes, networkConfig.Bytes)
 }
 
 // TestConstructBridgeNetworkConfigWithIPAM tests createBridgeNetworkConfigWithIPAM
 // creates the correct configuration for bridge and ipam plugin
 func TestConstructNetworkConfig(t *testing.T) {
-	ecscniClient := NewClient(&Config{})
-
 	additionalRoutesJson := `["169.254.172.1/32", "10.11.12.13/32"]`
 	var additionalRoutes []cnitypes.IPNet
 	err := json.Unmarshal([]byte(additionalRoutesJson), &additionalRoutes)
@@ -436,13 +563,13 @@ func TestConstructNetworkConfig(t *testing.T) {
 		AdditionalLocalRoutes: additionalRoutes,
 	}
 
-	_, bridgeNetworkConfig, err := ecscniClient.(*cniClient).createBridgeNetworkConfigWithIPAM(config)
-	assert.NoError(t, err, "construct bridge plugins configuration failed")
-
+	vethName, bridgeNetworkConfig, err := NewBridgeNetworkConfig(config, true)
+	require.NoError(t, err, "construct bridge plugins configuration failed")
+	assert.Equal(t, "ecs-eth0", vethName)
 	bridgeConfig := &BridgeConfig{}
 	err = json.Unmarshal(bridgeNetworkConfig.Bytes, bridgeConfig)
-	assert.NoError(t, err, "unmarshal bridge config from bytes failed: %s", string(bridgeNetworkConfig.Bytes))
-
+	require.NoError(t, err, "unmarshal bridge config from bytes failed: %s",
+		string(bridgeNetworkConfig.Bytes))
 	assert.Equal(t, config.BridgeName, bridgeConfig.BridgeName)
 	assert.Equal(t, ecsSubnet, bridgeConfig.IPAM.IPV4Subnet)
 	assert.Equal(t, TaskIAMRoleEndpoint, bridgeConfig.IPAM.IPV4Routes[0].Dst.String())

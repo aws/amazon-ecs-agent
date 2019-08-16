@@ -337,10 +337,12 @@ var testTasks = []*apitask.Task{
 				Name: "awsvpc",
 			},
 		},
-		ENI: &apieni.ENI{
-			IPV4Addresses: []*apieni.ENIIPV4Address{
-				{
-					Address: eniIPV4Address,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPV4Address,
+					},
 				},
 			},
 		},
