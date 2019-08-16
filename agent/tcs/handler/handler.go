@@ -25,6 +25,7 @@ import (
 	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
@@ -187,5 +188,7 @@ func formatURL(endpoint string, cluster string, containerInstance string) string
 	query := url.Values{}
 	query.Set("cluster", cluster)
 	query.Set("containerInstance", containerInstance)
+	query.Set("agentVersion", version.Version)
+	query.Set("agentHash", version.GitHashString())
 	return tcsURL + "ws?" + query.Encode()
 }
