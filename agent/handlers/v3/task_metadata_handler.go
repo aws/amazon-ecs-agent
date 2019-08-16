@@ -56,7 +56,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 		}
 
 		task, _ := state.TaskByArn(taskARN)
-		if !task.IsNetworkModeVPC() {
+		if !task.IsNetworkModeAWSVPC() {
 			// fill in non-awsvpc network details for container responses here
 			responses := make([]v2.ContainerResponse, 0)
 			for _, containerResponse := range taskResponse.Containers {

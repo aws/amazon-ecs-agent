@@ -61,15 +61,17 @@ type cniClient struct {
 }
 
 // NewClient creates a client of ecscni which is used to invoke the plugin
-func NewClient(cfg *Config) CNIClient {
+func NewClient(pluginsPath string) CNIClient {
 	libcniConfig := &libcni.CNIConfig{
-		Path: []string{cfg.PluginsPath},
+		Path: []string{pluginsPath},
 	}
 
-	return &cniClient{
-		pluginsPath: cfg.PluginsPath,
+	cniClient := &cniClient{
+		pluginsPath: pluginsPath,
 		libcni:      libcniConfig,
 	}
+	cniClient.init()
+	return cniClient
 }
 
 func (client *cniClient) init() {
@@ -80,6 +82,8 @@ func (client *cniClient) init() {
 }
 
 // SetupNS sets up the network namespace of a task by invoking the given CNI network configurations.
+// It returns the result of the bridge plugin invocation as that result is used to parse the IPv4
+// address allocated to the veth device attached to the task by the task engine.
 func (client *cniClient) SetupNS(
 	ctx context.Context,
 	cfg *Config,
@@ -97,9 +101,7 @@ func (client *cniClient) SetupNS(
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
 
-	var result cnitypes.Result
-	var err error
-
+	var bridgeResult cnitypes.Result
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
@@ -107,35 +109,41 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 
 	// Execute all CNI network configurations serially, in the given order.
 	for _, networkConfig := range cfg.NetworkConfigs {
+		cniNetworkConfig := networkConfig.CNINetworkConfig
 		seelog.Debugf("[ECSCNI] Adding network %s type %s in the container namespace %s",
-			networkConfig.Network.Name,
-			networkConfig.Network.Type,
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
 			cfg.ContainerID)
-
-		result, err = client.libcni.AddNetwork(ctx, networkConfig, &runtimeConfig)
+		runtimeConfig.IfName = networkConfig.IfName
+		result, err := client.libcni.AddNetwork(ctx, cniNetworkConfig, &runtimeConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "add network failed")
 		}
+		// Save the result object from the bridge plugin execution. We need this later
+		// for inferring what IPv4 address was used to bring up the veth pair for task.
+		if cniNetworkConfig.Network.Type == ECSBridgePluginName {
+			bridgeResult = result
+		}
 
 		seelog.Debugf("[ECSCNI] Completed adding network %s type %s in the container namespace %s",
-			networkConfig.Network.Name,
-			networkConfig.Network.Type,
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
 			cfg.ContainerID)
 	}
 
-	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", result.String())
+	seelog.Debugf("[ECSCNI] Completed setting up the container namespace: %s", bridgeResult.String())
 
-	if _, err = result.GetAsVersion(currentCNISpec); err != nil {
+	if _, err := bridgeResult.GetAsVersion(currentCNISpec); err != nil {
 		seelog.Warnf("[ECSCNI] Unable to convert result to spec version %s; error: %v; result is of version: %s",
-			currentCNISpec, err, result.Version())
+			currentCNISpec, err, bridgeResult.Version())
 		return nil, err
 	}
 	var curResult *current.Result
-	curResult, ok := result.(*current.Result)
+	curResult, ok := bridgeResult.(*current.Result)
 	if !ok {
 		return nil, errors.Errorf(
 			"cni setup: unable to convert result to expected version '%s'",
-			result.String())
+			bridgeResult.String())
 	}
 
 	return curResult, nil
@@ -165,20 +173,20 @@ func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
 	// Execute all CNI network configurations serially, in the reverse order.
 	for i := len(cfg.NetworkConfigs) - 1; i >= 0; i-- {
 		networkConfig := cfg.NetworkConfigs[i]
-
+		cniNetworkConfig := networkConfig.CNINetworkConfig
 		seelog.Debugf("[ECSCNI] Deleting network %s type %s in the container namespace %s",
-			networkConfig.Network.Name,
-			networkConfig.Network.Type,
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
 			cfg.ContainerID)
-
-		err := client.libcni.DelNetwork(ctx, networkConfig, &runtimeConfig)
+		runtimeConfig.IfName = networkConfig.IfName
+		err := client.libcni.DelNetwork(ctx, cniNetworkConfig, &runtimeConfig)
 		if err != nil {
 			return errors.Wrap(err, "delete network failed")
 		}
 
 		seelog.Debugf("[ECSCNI] Completed deleting network %s type %s in the container namespace %s",
-			networkConfig.Network.Name,
-			networkConfig.Network.Type,
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
 			cfg.ContainerID)
 	}
 

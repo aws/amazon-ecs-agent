@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -178,10 +177,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 
 		containerChangeEventStream: containerChangeEventStream,
 		imageManager:               imageManager,
-		cniClient: ecscni.NewClient(&ecscni.Config{
-			PluginsPath:            cfg.CNIPluginsPath,
-			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
-		}),
+		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 
 		metadataManager:             metadataManager,
 		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
@@ -520,7 +516,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	for _, taskENI := range taskENIs {
 		// ENIs that exist only as logical associations on another interface do not have
 		// attachments that need to be removed.
-		if taskENI.InterfaceAssociationProtocol == eni.DefaultInterfaceAssociationProtocol {
+		if taskENI.IsStandardENI() {
 			seelog.Debugf("Task engine [%s]: removing eni %s from agent state",
 				task.Arn, taskENI.ID)
 			engine.state.RemoveENIAttachment(taskENI.MacAddress)
@@ -1116,20 +1112,17 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	task *apitask.Task,
 	container *apicontainer.Container,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
-
-	cfg, err := task.BuildCNIConfig(includeIPAMConfig)
-	if err != nil {
-		return nil, errors.Wrapf(err, "engine: build cni configuration from task failed")
+	cniConfig := &ecscni.Config{
+		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata,
+		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	}
-
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
 		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&
 		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.Mask) != 0 {
-		cfg.IPAMV4Address = engine.cfg.OverrideAWSVPCLocalIPv4Address
+		cniConfig.IPAMV4Address = engine.cfg.OverrideAWSVPCLocalIPv4Address
 	}
-
 	if len(engine.cfg.AWSVPCAdditionalLocalRoutes) != 0 {
-		cfg.AdditionalLocalRoutes = engine.cfg.AWSVPCAdditionalLocalRoutes
+		cniConfig.AdditionalLocalRoutes = engine.cfg.AWSVPCAdditionalLocalRoutes
 	}
 
 	// Get the pid of container
@@ -1151,11 +1144,15 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 		return nil, err
 	}
 
-	cfg.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
-	cfg.ContainerID = containerInspectOutput.ID
-	cfg.BlockInstanceMetadata = engine.cfg.AWSVPCBlockInstanceMetdata
+	cniConfig.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
+	cniConfig.ContainerID = containerInspectOutput.ID
 
-	return cfg, nil
+	cniConfig, err = task.BuildCNIConfig(includeIPAMConfig, cniConfig)
+	if err != nil {
+		return nil, errors.Wrapf(err, "engine: failed to build cni configuration from task")
+	}
+
+	return cniConfig, nil
 }
 
 func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {

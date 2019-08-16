@@ -107,6 +107,20 @@ func (eni *ENI) GetSubnetGatewayIPV4Address() string {
 	return eni.SubnetGatewayIPV4Address
 }
 
+// IsStandardENI returns true if the ENI is a standard/regular ENI. That is, if it
+// has its association protocol as standard. To be backwards compatible, if the
+// association protocol is not set for an ENI, it's considered a standard ENI as well.
+func (eni *ENI) IsStandardENI() bool {
+	switch eni.InterfaceAssociationProtocol {
+	case "", DefaultInterfaceAssociationProtocol:
+		return true
+	case VLANInterfaceAssociationProtocol:
+		return false
+	default:
+		return false
+	}
+}
+
 // String returns a human readable version of the ENI object
 func (eni *ENI) String() string {
 	var ipv4Addresses []string
