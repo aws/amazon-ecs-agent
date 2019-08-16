@@ -30,9 +30,11 @@ import (
 
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsmock "github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -88,23 +90,20 @@ func TestDisableMetrics(t *testing.T) {
 
 func TestFormatURL(t *testing.T) {
 	endpoint := "http://127.0.0.0.1/"
-	wsurl := formatURL(endpoint, testClusterArn, testInstanceArn)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 
+	taskEngine.EXPECT().Version().Return("Docker version result", nil)
+	wsurl := formatURL(endpoint, testClusterArn, testInstanceArn, taskEngine)
 	parsed, err := url.Parse(wsurl)
-	if err != nil {
-		t.Fatal("Should be able to parse url")
-	}
-
-	if parsed.Path != "/ws" {
-		t.Fatal("Wrong path")
-	}
-
-	if parsed.Query().Get("cluster") != testClusterArn {
-		t.Fatal("Wrong cluster")
-	}
-	if parsed.Query().Get("containerInstance") != testInstanceArn {
-		t.Fatal("Wrong cluster")
-	}
+	assert.NoError(t, err, "should be able to parse URL")
+	assert.Equal(t, "/ws", parsed.Path, "wrong path")
+	assert.Equal(t, testClusterArn, parsed.Query().Get("cluster"), "wrong cluster")
+	assert.Equal(t, testInstanceArn, parsed.Query().Get("containerInstance"), "wrong container instance")
+	assert.Equal(t, version.Version, parsed.Query().Get("agentVersion"), "wrong agent version")
+	assert.Equal(t, version.GitHashString(), parsed.Query().Get("agentHash"), "wrong agent hash")
+	assert.Equal(t, "Docker version result", parsed.Query().Get("dockerVersion"), "wrong docker version")
 }
 
 func TestStartSession(t *testing.T) {
