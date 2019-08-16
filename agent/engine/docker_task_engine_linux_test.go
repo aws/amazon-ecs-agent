@@ -146,8 +146,10 @@ func TestDeleteTask(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
 	task := &apitask.Task{
-		ENI: &apieni.ENI{
-			MacAddress: mac,
+		ENIs: []*apieni.ENI{
+			{
+				MacAddress: mac,
+			},
 		},
 	}
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
@@ -180,9 +182,11 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
 	task := &apitask.Task{
-		ENI: &apieni.ENI{
-			MacAddress:                   mac,
-			InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+		ENIs: []*apieni.ENI{
+			{
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+			},
 		},
 	}
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)

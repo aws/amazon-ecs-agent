@@ -75,7 +75,7 @@ func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
 
 func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 	testTask := &Task{
-		ENI: &apieni.ENI{},
+		ENIs: []*apieni.ENI{{}},
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -110,7 +110,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENI: &apieni.ENI{},
+		ENIs: []*apieni.ENI{{}},
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -156,7 +156,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENI: &apieni.ENI{},
+		ENIs: []*apieni.ENI{{}},
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",
@@ -192,7 +192,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) 
 		AppMesh: &apiappmesh.AppMesh{
 			ContainerName: proxyName,
 		},
-		ENI: &apieni.ENI{},
+		ENIs: []*apieni.ENI{{}},
 		Containers: []*apicontainer.Container{
 			{
 				Name:                      "c1",

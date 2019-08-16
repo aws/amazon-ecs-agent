@@ -332,7 +332,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
-				sleepTask.SetTaskENI(&apieni.ENI{
+				sleepTask.AddTaskENI(&apieni.ENI{
 					ID: "TestTaskWithSteadyStateResourcesProvisioned",
 					IPV4Addresses: []*apieni.ENIIPV4Address{
 						{
@@ -1065,7 +1065,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
-	sleepTask.SetTaskENI(&apieni.ENI{
+	sleepTask.AddTaskENI(&apieni.ENI{
 		ID:         "id",
 		MacAddress: "mac",
 		IPV4Addresses: []*apieni.ENIIPV4Address{
@@ -1181,117 +1181,58 @@ func TestPauseContainerHappyPath(t *testing.T) {
 }
 
 func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
-	for _, blockIMDS := range []bool{true, false} {
-		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			config := defaultConfig
-			config.AWSVPCBlockInstanceMetdata = blockIMDS
-			ctx, cancel := context.WithCancel(context.TODO())
-			defer cancel()
-			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
-			defer ctrl.Finish()
+	config := defaultConfig
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+	defer ctrl.Finish()
 
-			testTask := testdata.LoadTask("sleep5")
-			testTask.SetTaskENI(&apieni.ENI{
-				ID: "TestBuildCNIConfigFromTaskContainer",
-				IPV4Addresses: []*apieni.ENIIPV4Address{
-					{
-						Primary: true,
-						Address: ipv4,
-					},
-				},
-				MacAddress: mac,
-				IPV6Addresses: []*apieni.ENIIPV6Address{
-					{
-						Address: ipv6,
-					},
-				},
-			})
-			testTask.SetAppMesh(&appmesh.AppMesh{
-				IgnoredUID:       ignoredUID,
-				ProxyIngressPort: proxyIngressPort,
-				ProxyEgressPort:  proxyEgressPort,
-				AppPorts: []string{
-					appPort,
-				},
-				EgressIgnoredIPs: []string{
-					egressIgnoredIP,
-				},
-			})
-			container := &apicontainer.Container{
-				Name: "container",
-			}
-			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
-				Container:  container,
-				DockerName: dockerContainerName,
-			}, testTask)
-
-			dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: containerPid},
-				},
-			}, nil)
-
-			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
-			assert.NoError(t, err)
-			assert.Equal(t, containerID, cniConfig.ContainerID)
-			assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
-			assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-			assert.Equal(t, mac, cniConfig.ENIMACAddress)
-			assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
-			assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
-			assert.Equal(t, ignoredUID, cniConfig.IgnoredUID)
-			assert.Equal(t, proxyIngressPort, cniConfig.ProxyIngressPort)
-			assert.Equal(t, proxyEgressPort, cniConfig.ProxyEgressPort)
-			assert.Equal(t, appPort, cniConfig.AppPorts[0])
-			assert.Equal(t, egressIgnoredIP, cniConfig.EgressIgnoredIPs[0])
-			assert.Equal(t, blockIMDS, cniConfig.BlockInstanceMetdata)
-		})
+	testTask := testdata.LoadTask("sleep5")
+	testTask.AddTaskENI(&apieni.ENI{
+		ID: "TestBuildCNIConfigFromTaskContainer",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+	})
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+	container := &apicontainer.Container{
+		Name: "container",
 	}
-}
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+		Container:  container,
+		DockerName: dockerContainerName,
+	}, testTask)
 
-func TestBuildTrunkCNIConfigFromTaskContainer(t *testing.T) {
-	for _, blockIMDS := range []bool{true, false} {
-		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			config := defaultConfig
-			config.AWSVPCBlockInstanceMetdata = blockIMDS
-			ctx, cancel := context.WithCancel(context.TODO())
-			defer cancel()
-			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
-			defer ctrl.Finish()
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+		Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    containerID,
+				State: &types.ContainerState{Pid: containerPid},
+			},
+		}, nil)
 
-			testTask := testdata.LoadTask("sleep5")
-			testTask.SetTaskENI(&apieni.ENI{
-				ID:                           "TestBuildCNIConfigFromTaskContainer",
-				MacAddress:                   mac,
-				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
-				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
-					VlanID:                   "1234",
-					TrunkInterfaceMacAddress: "macTrunk",
-				},
-			})
-			container := &apicontainer.Container{
-				Name: "container",
-			}
-			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
-				Container:  container,
-				DockerName: dockerContainerName,
-			}, testTask)
-
-			dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: containerPid},
-				},
-			}, nil)
-
-			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
-			assert.NoError(t, err)
-			assert.Equal(t, "macTrunk", cniConfig.TrunkMACAddress)
-			assert.Equal(t, "1234", cniConfig.BranchVlanID)
-			assert.Equal(t, apieni.VLANInterfaceAssociationProtocol, cniConfig.InterfaceAssociationProtocol)
-		})
-	}
+	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container, true)
+	assert.NoError(t, err)
+	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+	// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+	// ENI, Bridge and Appmesh
+	require.Len(t, cniConfig.NetworkConfigs, 3)
 }
 
 func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
@@ -1301,7 +1242,7 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 	defer ctrl.Finish()
 
 	testTask := testdata.LoadTask("sleep5")
-	testTask.SetTaskENI(&apieni.ENI{})
+	testTask.AddTaskENI(&apieni.ENI{})
 	testTask.SetAppMesh(&appmesh.AppMesh{})
 	container := &apicontainer.Container{
 		Name: "container",
@@ -1313,7 +1254,7 @@ func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
 
 	dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(nil, errors.New("error"))
 
-	_, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
+	_, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container, true)
 	assert.Error(t, err)
 }
 
@@ -1333,7 +1274,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		Type: apicontainer.ContainerCNIPause,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
-	testTask.SetTaskENI(&apieni.ENI{
+	testTask.AddTaskENI(&apieni.ENI{
 		ID: "TestStopPauseContainerCleanupCalled",
 		IPV4Addresses: []*apieni.ENIIPV4Address{
 			{
@@ -1407,7 +1348,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 		Type: apicontainer.ContainerCNIPause,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
-	testTask.SetTaskENI(&apieni.ENI{
+	testTask.AddTaskENI(&apieni.ENI{
 		ID: "TestStopPauseContainerCleanupCalled",
 		IPV4Addresses: []*apieni.ENIIPV4Address{
 			{

@@ -105,10 +105,12 @@ var (
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENI: &apieni.ENI{
-			IPV4Addresses: []*apieni.ENIIPV4Address{
-				{
-					Address: eniIPv4Address,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
 				},
 			},
 		},
