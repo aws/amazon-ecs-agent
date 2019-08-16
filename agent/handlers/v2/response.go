@@ -128,9 +128,8 @@ func NewTaskResponse(taskARN string,
 		return resp, nil
 	}
 
-	enis := task.GetTaskENIs()
 	for _, dockerContainer := range containerNameToDockerContainer {
-		containerResponse := newContainerResponse(dockerContainer, enis, state)
+		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 		resp.Containers = append(resp.Containers, containerResponse)
 	}
 
@@ -177,12 +176,12 @@ func NewContainerResponse(containerID string,
 			"v2 container response: unable to find task for container '%s'", containerID)
 	}
 
-	resp := newContainerResponse(dockerContainer, task.GetTaskENIs(), state)
+	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 	return &resp, nil
 }
 
 func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
-	enis []*apieni.ENI,
+	eni *apieni.ENI,
 	state dockerstate.TaskEngineState) ContainerResponse {
 	container := dockerContainer.Container
 	resp := ContainerResponse{
@@ -221,14 +220,12 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 		resp.FinishedAt = &finishedAt
 	}
 
-	primaryENI := enis[0]
-
 	for _, binding := range container.Ports {
 		port := v1.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
 		}
-		if primaryENI == nil {
+		if eni == nil {
 			port.HostPort = binding.HostPort
 		} else {
 			port.HostPort = port.ContainerPort
@@ -237,15 +234,13 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 		resp.Ports = append(resp.Ports, port)
 	}
 
-	// Add a network response for each ENI.
-	if enis != nil {
-		for _, eni := range enis {
-			nw := containermetadata.Network{
+	if eni != nil {
+		resp.Networks = []containermetadata.Network{
+			{
 				NetworkMode:   utils.NetworkModeAWSVPC,
 				IPv4Addresses: eni.GetIPV4Addresses(),
 				IPv6Addresses: eni.GetIPV6Addresses(),
-			}
-			resp.Networks = append(resp.Networks, nw)
+			},
 		}
 	}
 

@@ -27,24 +27,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// newNetworkConfig converts a network config to libcni's NetworkConfig.
-func newNetworkConfig(netcfg interface{}, plugin string) (*libcni.NetworkConfig, error) {
-	configBytes, err := json.Marshal(netcfg)
-	if err != nil {
-		seelog.Errorf("[ECSCNI] Marshal configuration for plugin %s failed, error: %v", plugin, err)
-		return nil, err
-	}
-
-	netConfig := &libcni.NetworkConfig{
-		Network: &cnitypes.NetConf{
-			Type: plugin,
-		},
-		Bytes: configBytes,
-	}
-
-	return netConfig, nil
-}
-
 // NewBridgeNetworkConfig creates the config of bridge for ADD command, where
 // bridge plugin acquires the IP and route information from IPAM.
 func NewBridgeNetworkConfig(cfg *Config, includeIPAM bool) (string, *libcni.NetworkConfig, error) {
@@ -55,7 +37,6 @@ func NewBridgeNetworkConfig(cfg *Config, includeIPAM bool) (string, *libcni.Netw
 	}
 
 	bridgeConfig := BridgeConfig{
-		CNIVersion: cfg.MinSupportedCNIVersion,
 		Type:       ECSBridgePluginName,
 		BridgeName: bridgeName,
 	}
@@ -70,12 +51,31 @@ func NewBridgeNetworkConfig(cfg *Config, includeIPAM bool) (string, *libcni.Netw
 		bridgeConfig.IPAM = ipamConfig
 	}
 
-	networkConfig, err := newNetworkConfig(bridgeConfig, ECSBridgePluginName)
+	networkConfig, err := newNetworkConfig(bridgeConfig, ECSBridgePluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "NewBridgeNetworkConfig: construct bridge and ipam network configuration failed")
 	}
 
 	return defaultVethName, networkConfig, nil
+}
+
+// newNetworkConfig converts a network config to libcni's NetworkConfig.
+func newNetworkConfig(netcfg interface{}, plugin string, cniVersion string) (*libcni.NetworkConfig, error) {
+	configBytes, err := json.Marshal(netcfg)
+	if err != nil {
+		seelog.Errorf("[ECSCNI] Marshal configuration for plugin %s failed, error: %v", plugin, err)
+		return nil, err
+	}
+
+	netConfig := &libcni.NetworkConfig{
+		Network: &cnitypes.NetConf{
+			Type:       plugin,
+			CNIVersion: cniVersion,
+		},
+		Bytes: configBytes,
+	}
+
+	return netConfig, nil
 }
 
 // NewIPAMNetworkConfig creates the IPAM configuration accepted by libcni.
@@ -86,13 +86,12 @@ func NewIPAMNetworkConfig(cfg *Config) (string, *libcni.NetworkConfig, error) {
 	}
 
 	ipamNetworkConfig := IPAMNetworkConfig{
-		CNIVersion: cfg.MinSupportedCNIVersion,
-		Name:       ECSIPAMPluginName,
-		Type:       ECSIPAMPluginName,
-		IPAM:       ipamConfig,
+		Name: ECSIPAMPluginName,
+		Type: ECSIPAMPluginName,
+		IPAM: ipamConfig,
 	}
 
-	networkConfig, err := newNetworkConfig(ipamNetworkConfig, ECSIPAMPluginName)
+	networkConfig, err := newNetworkConfig(ipamNetworkConfig, ECSIPAMPluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "NewIPAMNetworkConfig: construct ipam network configuration failed")
 	}
@@ -119,7 +118,6 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 	}
 
 	ipamConfig := IPAMConfig{
-		CNIVersion:  cfg.MinSupportedCNIVersion,
 		Type:        ECSIPAMPluginName,
 		IPV4Subnet:  ecsSubnet,
 		IPV4Address: cfg.IPAMV4Address,
@@ -135,7 +133,6 @@ func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConf
 	ipv4Addr := eni.GetPrimaryIPv4Address()
 
 	eniConf := ENIConfig{
-		CNIVersion:               cfg.MinSupportedCNIVersion,
 		Type:                     ECSENIPluginName,
 		ENIID:                    eni.ID,
 		IPV4Address:              ipv4Addr,
@@ -145,9 +142,9 @@ func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConf
 		SubnetGatewayIPV4Address: eni.SubnetGatewayIPV4Address,
 	}
 
-	networkConfig, err := newNetworkConfig(eniConf, ECSENIPluginName)
+	networkConfig, err := newNetworkConfig(eniConf, ECSENIPluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
-		return "", nil, errors.Wrap(err, "NewENINetworkConfig: construct the eni network configuration failed")
+		return "", nil, errors.Wrap(err, "cni config: failed to create configuration")
 	}
 
 	return defaultENIName, networkConfig, nil
@@ -162,7 +159,6 @@ func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.Netwo
 	branchGatewayIPAddress := s[0]
 
 	eniConf := BranchENIConfig{
-		CNIVersion:             cfg.MinSupportedCNIVersion,
 		Type:                   ECSBranchENIPluginName,
 		TrunkMACAddress:        eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
 		BranchVlanID:           eni.InterfaceVlanProperties.VlanID,
@@ -173,7 +169,7 @@ func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.Netwo
 		BlockInstanceMetadata:  cfg.BlockInstanceMetadata,
 	}
 
-	networkConfig, err := newNetworkConfig(eniConf, ECSBranchENIPluginName)
+	networkConfig, err := newNetworkConfig(eniConf, ECSBranchENIPluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "NewBranchENINetworkConfig: construct the eni network configuration failed")
 	}
@@ -184,7 +180,6 @@ func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.Netwo
 // NewAppMeshConfig creates a new AppMesh CNI network configuration.
 func NewAppMeshConfig(appMesh *appmesh.AppMesh, cfg *Config) (string, *libcni.NetworkConfig, error) {
 	appMeshConfig := AppMeshConfig{
-		CNIVersion:         cfg.MinSupportedCNIVersion,
 		Type:               ECSAppMeshPluginName,
 		IgnoredUID:         appMesh.IgnoredUID,
 		IgnoredGID:         appMesh.IgnoredGID,
@@ -195,7 +190,7 @@ func NewAppMeshConfig(appMesh *appmesh.AppMesh, cfg *Config) (string, *libcni.Ne
 		EgressIgnoredIPs:   appMesh.EgressIgnoredIPs,
 	}
 
-	networkConfig, err := newNetworkConfig(appMeshConfig, ECSAppMeshPluginName)
+	networkConfig, err := newNetworkConfig(appMeshConfig, ECSAppMeshPluginName, cfg.MinSupportedCNIVersion)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "NewAppMeshConfig: construct the app mesh network configuration failed")
 	}

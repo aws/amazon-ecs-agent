@@ -200,5 +200,17 @@ type Config struct {
 	// AdditionalLocalRoutes specifies additional routes to be added to the task namespace
 	AdditionalLocalRoutes []cnitypes.IPNet
 	// NetworkConfigs is the list of CNI network configurations to be invoked
-	NetworkConfigs []*libcni.NetworkConfig
+	NetworkConfigs []*NetworkConfig
+}
+
+// NetworkConfig wraps CNI library's NetworkConfig object. It tracks the interface device
+// name (the IfName param required to invoke AddNetwork) along with libcni's NetworkConfig
+// object. The IfName is required to be set to invoke `AddNetwork` method when invoking
+// plugins to set up the network namespace.
+type NetworkConfig struct {
+	// IfName is the name of the network interface device, to be set within the
+	// network namespace.
+	IfName string
+	// CNINetworkConfig is the network configuration required to invoke the CNI plugin
+	CNINetworkConfig *libcni.NetworkConfig
 }

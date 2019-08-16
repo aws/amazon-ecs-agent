@@ -4,7 +4,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	http://aws.amazon.com/apache2.0/
+//     http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -206,8 +206,10 @@ type Task struct {
 	// used to look up the credentials for task in the credentials manager
 	credentialsID string
 
-	// ENIs is the list of Elastic Network Interfaces assigned to this task.
-	ENIs []*apieni.ENI
+	// ENIs is the list of Elastic Network Interfaces assigned to this task. The
+	// TaskENIs type is helpful when decoding state files which might have stored
+	// ENIs as a single ENI object instead of a list.
+	ENIs TaskENIs `json:"ENI"`
 
 	// AppMesh is the service mesh specified by the task
 	AppMesh *apiappmesh.AppMesh
@@ -987,61 +989,75 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfigType string, host
 
 // BuildCNIConfig builds a list of CNI network configurations for the task.
 // If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
-func (task *Task) BuildCNIConfig(includeIPAMConfig bool) (*ecscni.Config, error) {
-	if !task.IsNetworkModeVPC() {
-		return nil, errors.New("task config: task network mode is not VPC")
+func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+	if !task.IsNetworkModeAWSVPC() {
+		return nil, errors.New("task config: task network mode is not AWSVPC")
 	}
 
-	cfg := &ecscni.Config{}
 	var netconf *libcni.NetworkConfig
+	var ifName string
 	var err error
 
 	// Build a CNI network configuration for each ENI.
 	for _, eni := range task.ENIs {
 		switch eni.InterfaceAssociationProtocol {
-		case apieni.DefaultInterfaceAssociationProtocol:
-			_, netconf, err = ecscni.NewENINetworkConfig(eni, cfg)
+		// If the association protocol is set to "default" or unset (to preserve backwards
+		// compatibility), consider it a "standard" ENI attachment.
+		case "", apieni.DefaultInterfaceAssociationProtocol:
+			cniConfig.ID = eni.MacAddress
+			ifName, netconf, err = ecscni.NewENINetworkConfig(eni, cniConfig)
 		case apieni.VLANInterfaceAssociationProtocol:
-			_, netconf, err = ecscni.NewBranchENINetworkConfig(eni, cfg)
+			cniConfig.ID = eni.MacAddress
+			ifName, netconf, err = ecscni.NewBranchENINetworkConfig(eni, cniConfig)
 		default:
-			err = errors.New("task config: unknown interface association type")
+			err = errors.Errorf("task config: unknown interface association type: %s",
+				eni.InterfaceAssociationProtocol)
 		}
 
 		if err != nil {
 			return nil, err
 		}
 
-		cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           ifName,
+			CNINetworkConfig: netconf,
+		})
 	}
 
 	// Build the bridge CNI network configuration.
 	// All AWSVPC tasks have a bridge network.
-	_, netconf, err = ecscni.NewBridgeNetworkConfig(cfg, includeIPAMConfig)
+	ifName, netconf, err = ecscni.NewBridgeNetworkConfig(cniConfig, includeIPAMConfig)
 	if err != nil {
 		return nil, err
 	}
-	cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ifName,
+		CNINetworkConfig: netconf,
+	})
 
 	// Build a CNI network configuration for AppMesh if enabled.
 	appMeshConfig := task.GetAppMesh()
 	if appMeshConfig != nil {
-		_, netconf, err = ecscni.NewAppMeshConfig(appMeshConfig, cfg)
+		ifName, netconf, err = ecscni.NewAppMeshConfig(appMeshConfig, cniConfig)
 		if err != nil {
 			return nil, err
 		}
-		cfg.NetworkConfigs = append(cfg.NetworkConfigs, netconf)
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           ifName,
+			CNINetworkConfig: netconf,
+		})
 	}
 
-	return cfg, nil
+	return cniConfig, nil
 }
 
-// IsNetworkModeVPC checks if the task is configured to use the AWSVPC task networking feature.
-func (task *Task) IsNetworkModeVPC() bool {
+// IsNetworkModeAWSVPC checks if the task is configured to use the AWSVPC task networking feature.
+func (task *Task) IsNetworkModeAWSVPC() bool {
 	return len(task.ENIs) > 0
 }
 
 func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) error {
-	if !task.IsNetworkModeVPC() {
+	if !task.IsNetworkModeAWSVPC() {
 		return nil
 	}
 	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
@@ -1434,7 +1450,7 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 	// when using non docker daemon supported network modes, its existence
 	// indicates the need to configure the network mode outside of supported
 	// network drivers
-	if task.GetPrimaryENI() == nil {
+	if !task.IsNetworkModeAWSVPC() {
 		return false, ""
 	}
 
@@ -1902,6 +1918,9 @@ func (task *Task) AddTaskENI(eni *apieni.ENI) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
+	if task.ENIs == nil {
+		task.ENIs = make([]*apieni.ENI, 0)
+	}
 	task.ENIs = append(task.ENIs, eni)
 }
 
@@ -1914,11 +1933,15 @@ func (task *Task) GetTaskENIs() []*apieni.ENI {
 	return task.ENIs
 }
 
-// GetPrimaryENI returns the primary ENI of the task.
+// GetPrimaryENI returns the primary ENI of the task. Since ACS can potentially send
+// multiple ENIs to the agent, the first ENI in the list is considered as the primary ENI.
 func (task *Task) GetPrimaryENI() *apieni.ENI {
 	task.lock.RLock()
 	defer task.lock.RUnlock()
 
+	if len(task.ENIs) == 0 {
+		return nil
+	}
 	return task.ENIs[0]
 }
 

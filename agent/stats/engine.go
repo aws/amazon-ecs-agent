@@ -617,7 +617,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			seelog.Warnf("Task not found for container ID: %s", dockerID)
 		} else {
 			// send network stats for default/bridge/nat network modes
-			if !task.IsNetworkModeVPC() &&
+			if !task.IsNetworkModeAWSVPC() &&
 				container.containerMetadata.NetworkMode != hostNetworkMode &&
 				container.containerMetadata.NetworkMode != noneNetworkMode {
 				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
