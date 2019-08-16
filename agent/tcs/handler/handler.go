@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
@@ -95,7 +96,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 		seelog.Errorf("tcs: unable to discover poll endpoint: %v", err)
 		return err
 	}
-	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
+	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval,
 		params.DeregisterInstanceEventStream)
@@ -180,7 +181,7 @@ func anyMessageHandler(client wsclient.ClientServer) func(interface{}) {
 }
 
 // formatURL returns formatted url for tcs endpoint.
-func formatURL(endpoint string, cluster string, containerInstance string) string {
+func formatURL(endpoint string, cluster string, containerInstance string, taskEngine engine.TaskEngine) string {
 	tcsURL := endpoint
 	if !strings.HasSuffix(tcsURL, "/") {
 		tcsURL += "/"
@@ -190,5 +191,8 @@ func formatURL(endpoint string, cluster string, containerInstance string) string
 	query.Set("containerInstance", containerInstance)
 	query.Set("agentVersion", version.Version)
 	query.Set("agentHash", version.GitHashString())
+	if dockerVersion, err := taskEngine.Version(); err == nil {
+		query.Set("dockerVersion", dockerVersion)
+	}
 	return tcsURL + "ws?" + query.Encode()
 }
