@@ -33,7 +33,7 @@
       "image": "busybox:latest",
       "essential": true,
       "memory": 256,
-      "command": ["sh", "-c", "echo pass; echo filtered"],
+      "command": ["sh", "-c", "sleep 5s; echo pass; echo filtered"],
       "logConfiguration": {
         "logDriver": "awsfirelens",
         "options": {
