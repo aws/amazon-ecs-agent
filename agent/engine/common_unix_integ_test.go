@@ -37,6 +37,11 @@ func getLongRunningCommand() []string {
 	return []string{"-loop=true"}
 }
 
+// getAlternateExitCodeCommand will exit alternately each time running the command by saving exit code to a file
+func getAlternateExitCodeCommand() []string {
+	return []string{"read t < t.file && let 't=1-t' || t=0; echo $t > t.file; exit $t"}
+}
+
 func isDockerRunning() bool {
 	_, err := os.Stat("/var/run/docker.sock")
 	return err == nil

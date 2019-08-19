@@ -319,16 +319,14 @@ func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 		return false
 
 	case successCondition:
-		var dependencyStoppedSuccessfully bool
-
-		if dependsOnContainer.GetKnownExitCode() != nil {
-			dependencyStoppedSuccessfully = dependsOnContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
-				*dependsOnContainer.GetKnownExitCode() == successExitCode
+		if dependsOnContainer.GetRestartPolicy() == apicontainer.UnlessTaskStopped {
+			return false
 		}
-		return verifyContainerOrderingStatus(dependsOnContainer) || dependencyStoppedSuccessfully
+
+		return verifyContainerOrderingStatus(dependsOnContainer) || conrtainerStoppedSuccess(dependsOnContainer)
 
 	case completeCondition:
-		return verifyContainerOrderingStatus(dependsOnContainer)
+		return dependsOnContainer.GetRestartPolicy() != apicontainer.UnlessTaskStopped && verifyContainerOrderingStatus(dependsOnContainer)
 
 	case healthyCondition:
 		return verifyContainerOrderingStatus(dependsOnContainer) && dependsOnContainer.HealthStatusShouldBeReported()
@@ -357,7 +355,9 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 			// The 'target' container desires to be moved to 'Created' state.
 			// Allow this only if the known status of the linked container is
 			// 'Created' or if the dependency container is in 'steady state'
-			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerCreated || dependsOnContainer.IsKnownSteadyState()
+			return dependsOnContainerKnownStatus == apicontainerstatus.ContainerCreated ||
+				dependsOnContainerKnownStatus == apicontainerstatus.ContainerRestarting ||
+				dependsOnContainer.IsKnownSteadyState()
 		} else if targetDesiredStatus == target.GetSteadyStateStatus() {
 			// The 'target' container desires to be moved to its 'steady' state.
 			// Allow this only if the dependency container is in 'steady state' as well
@@ -452,4 +452,10 @@ func onSteadyStateCanResolve(target *apicontainer.Container, run *apicontainer.C
 func onSteadyStateIsResolved(target *apicontainer.Container, run *apicontainer.Container) bool {
 	return target.GetDesiredStatus() >= apicontainerstatus.ContainerCreated &&
 		run.GetKnownStatus() >= run.GetSteadyStateStatus()
+}
+
+func conrtainerStoppedSuccess(c *apicontainer.Container) bool {
+	return c.GetKnownExitCode() != nil &&
+		c.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+		*c.GetKnownExitCode() == successExitCode
 }

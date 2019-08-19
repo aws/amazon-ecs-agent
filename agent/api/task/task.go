@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -123,6 +125,11 @@ const (
 	awsExecutionEnvKey = "AWS_EXECUTION_ENV"
 	// ec2ExecutionEnv specifies the ec2 execution environment.
 	ec2ExecutionEnv = "AWS_ECS_EC2"
+
+	restartBackoffMin        = 10 * time.Second
+	restartBackoffMax        = 5 * time.Minute
+	restartBackoffJitter     = 0.2
+	restartBackoffMultiplier = 1.5
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -245,6 +252,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err != nil {
 		return nil, err
 	}
+
 	task := &Task{}
 	err = json.Unmarshal(data, task)
 	if err != nil {
@@ -257,11 +265,32 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	}
 
 	// Overrides the container command if it's set
-	for _, container := range task.Containers {
+	for i, container := range task.Containers {
 		if (container.Overrides != apicontainer.ContainerOverrides{}) && container.Overrides.Command != nil {
 			container.Command = *container.Overrides.Command
 		}
 		container.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+
+		if !container.Essential {
+			restartPolicy := apicontainer.Never
+			if acsTask.Containers[i].RestartPolicy != nil {
+				restartPolicy = apicontainer.RestartPolicyMap[*acsTask.Containers[i].RestartPolicy]
+			}
+			restartMaxAttempts := apicontainer.RestartCount(0)
+			if acsTask.Containers[i].RestartMaxAttempts != nil {
+				restartMaxAttempts = apicontainer.RestartCount(*acsTask.Containers[i].RestartMaxAttempts)
+			}
+
+			if restartPolicy == apicontainer.OnFailure && restartMaxAttempts == 0 {
+				restartMaxAttempts = apicontainer.DefaultRestartMaxAttemptsOnFailure
+			}
+
+			container.RestartInfo = &apicontainer.RestartInfo{
+				RestartPolicy:      restartPolicy,
+				RestartMaxAttempts: restartMaxAttempts,
+				RestartBackoff:     retry.NewExponentialBackoff(restartBackoffMin, restartBackoffMax, restartBackoffJitter, restartBackoffMultiplier),
+			}
+		}
 	}
 
 	//initialize resources map for task
@@ -1173,7 +1202,8 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 // It updates to the minimum of all containers no matter what
 // It returns a TaskStatus indicating what change occurred or TaskStatusNone if
 // there was no change
-// Invariant: task known status is the minimum of container known status
+// Task known status other than `Stopped` is the minimum of container known status which are not restarting
+// Task known status is `Stopped` when all containers are stopped
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	seelog.Debugf("api/task: Updating task's known status, task: %s", task.String())
 	// Set to a large 'impossible' status that can't be the min
@@ -1185,6 +1215,13 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 		if containerKnownStatus == apicontainerstatus.ContainerStopped && container.Essential {
 			essentialContainerStopped = true
 		}
+
+		// Skip restarted containers cause they can't be earliest unless all non-restarting containers are stopped, and
+		// this corner case is covered in task.getEarliestKnownTaskStatusForContainers()
+		if container.IsAutoRestartContainer() && container.GetRestartAttempts() > 0 {
+			continue
+		}
+
 		if containerKnownStatus < containerEarliestKnownStatus {
 			containerEarliestKnownStatus = containerKnownStatus
 			earliestKnownStatusContainer = container
@@ -1211,6 +1248,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	// defined. Instead we should get the task status for all containers' known
 	// statuses and compute the min of this
 	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
+
 	if task.GetKnownStatus() < earliestKnownTaskStatus {
 		seelog.Infof("api/task: Updating task's known status to: %s, task: %s",
 			earliestKnownTaskStatus.String(), task.String())
@@ -1781,6 +1819,10 @@ func (task *Task) updateContainerDesiredStatusUnsafe(taskDesiredStatus apitaskst
 		taskDesiredStatusToContainerStatus := apitaskstatus.MapTaskToContainerStatus(taskDesiredStatus, container.GetSteadyStateStatus())
 		if container.GetDesiredStatus() < taskDesiredStatusToContainerStatus {
 			container.SetDesiredStatus(taskDesiredStatusToContainerStatus)
+			if taskDesiredStatusToContainerStatus == apicontainerstatus.ContainerStopped &&
+				container.IsAutoRestartContainer() {
+				container.SetForceStop()
+			}
 		}
 	}
 }

@@ -210,6 +210,9 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilityAutoRestartNonEssentialContainers),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -226,8 +229,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
-	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	for _, expected := range expectedCapabilities {
+		assert.Contains(t, capabilities, expected)
 	}
 }

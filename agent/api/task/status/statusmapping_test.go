@@ -39,6 +39,10 @@ func TestTaskStatus(t *testing.T) {
 	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskCreated)
 	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerResourcesProvisioned), TaskCreated)
 
+	// When container state is RESTARTING, Task state is RUNNING
+	containerStatus = apicontainerstatus.ContainerRestarting
+	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskRunning)
+
 	containerStatus = apicontainerstatus.ContainerRunning
 	// When container state is RUNNING and steadyState is RUNNING, Task state is RUNNING as well
 	assert.Equal(t, MapContainerToTaskStatus(containerStatus, apicontainerstatus.ContainerRunning), TaskRunning)

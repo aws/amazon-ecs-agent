@@ -40,6 +40,9 @@ const (
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	// Testing type conversions, bleh. At least the type conversion itself
 	// doesn't look this messy.
+	boolptr := func(b bool) *bool {
+		return &b
+	}
 	taskFromAcs := ecsacs.Task{
 		Arn:           strptr("myArn"),
 		DesiredStatus: strptr("RUNNING"),
@@ -47,7 +50,8 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Version:       strptr("1"),
 		Containers: []*ecsacs.Container{
 			{
-				Name: strptr("myName"),
+				Name:      strptr("myName"),
+				Essential: boolptr(true),
 				MountPoints: []*ecsacs.MountPoint{
 					{
 						ContainerPath: strptr(`C:/Container/Path`),
@@ -73,7 +77,8 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Version:             "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "myName",
+				Name:      "myName",
+				Essential: true,
 				MountPoints: []apicontainer.MountPoint{
 					{
 						ContainerPath: `c:\container\path`,

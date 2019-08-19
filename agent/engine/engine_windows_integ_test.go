@@ -72,6 +72,11 @@ func getLongRunningCommand() []string {
 	return []string{"ping", "-t", "localhost"}
 }
 
+// getAlternateExitCodeCommand will exit alternately each time running the command by saving exit code to a file
+func getAlternateExitCodeCommand() []string {
+	return []string{"If($t = Get-Content test.txt) {$t=1-$t; echo $t} Else {$t=0}; echo $t > test.txt; exit $t"}
+}
+
 func createTestHostVolumeMountTask(tmpPath string) *apitask.Task {
 	testTask := createTestTask("testHostVolumeMount")
 	testTask.Volumes = []apitask.TaskVolume{{Name: "test-tmp", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: tmpPath}}}
