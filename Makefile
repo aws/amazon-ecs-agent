@@ -122,7 +122,7 @@ test:
 	${GOTEST} -tags unit -timeout=30s ./agent/...
 
 test-silent:
-	$(eval undefine VERBOSE)
+	$(eval VERBOSE=)
 	${GOTEST} -tags unit -timeout=30s ./agent/...
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
