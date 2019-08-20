@@ -1307,6 +1307,9 @@ func TestSwapConfigurationTask(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
 	testArn := "TestSwapMemory"
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
@@ -1314,9 +1317,6 @@ func TestSwapConfigurationTask(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 	verifyTaskIsRunning(stateChangeEvents, testTask)
-
-	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-	require.NoError(t, err, "Creating go docker client failed")
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
