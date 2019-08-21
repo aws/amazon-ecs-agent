@@ -38,7 +38,7 @@ import (
 
 const (
 	ecsMaxReasonLength    = 255
-	ecsMaxRuntimeIDLength = 255
+	ecsMaxRuntimeIdLength = 255
 	pollEndpointCacheSize = 1
 	pollEndpointCacheTTL  = 20 * time.Minute
 	roundtripTimeout      = 5 * time.Second
@@ -400,9 +400,9 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	statechange := &ecs.ContainerStateChange{
 		ContainerName: aws.String(change.ContainerName),
 	}
-	if change.RuntimeID != "" {
-		trimmedRuntimeID := trimString(change.RuntimeID, ecsMaxRuntimeIDLength)
-		statechange.RuntimeID = aws.String(trimmedRuntimeID)
+	if change.RuntimeId != "" {
+		trimmedRuntimeId := trimString(change.RuntimeId, ecsMaxRuntimeIdLength)
+		statechange.RuntimeId = aws.String(trimmedRuntimeId)
 	}
 	if change.Reason != "" {
 		trimmedReason := trimString(change.Reason, ecsMaxReasonLength)
@@ -447,9 +447,9 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 		Task:          &change.TaskArn,
 		ContainerName: &change.ContainerName,
 	}
-	if change.RuntimeID != "" {
-		trimmedRuntimeID := trimString(change.RuntimeID, ecsMaxRuntimeIDLength)
-		req.RuntimeID = &trimmedRuntimeID
+	if change.RuntimeId != "" {
+		trimmedRuntimeId := trimString(change.RuntimeId, ecsMaxRuntimeIdLength)
+		req.RuntimeId = &trimmedRuntimeId
 	}
 	if change.Reason != "" {
 		trimmedReason := trimString(change.Reason, ecsMaxReasonLength)

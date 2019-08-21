@@ -398,11 +398,11 @@ func TestLoadsDataForPerContainerTimeouts(t *testing.T) {
 	assert.Equal(t, uint(10), c1.StopTimeout)
 }
 
-func TestLoadsDataForContainerRuntimeID(t *testing.T) {
-	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v23", "perContainerRuntimeID", "ecs_agent_data.json"))
+func TestLoadsDataForContainerRuntimeId(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v23", "perContainerRuntimeId", "ecs_agent_data.json"))
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
-	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "perContainerRuntimeID")}
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "perContainerRuntimeId")}
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
@@ -426,5 +426,5 @@ func TestLoadsDataForContainerRuntimeID(t *testing.T) {
 	assert.Equal(t, "arn:aws:ecs:us-west-2:984736093387:task/70947c96-f64e-483a-a612-3fd4303546e7", task.Arn)
 	assert.Equal(t, "sleep360", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
-	assert.Equal(t, "c6b1ea1004c6de778bdc4c00bc15085ef16b4b259f7dfc198a0a36b6629a7f90", task.Containers[0].RuntimeID)
+	assert.Equal(t, "c6b1ea1004c6de778bdc4c00bc15085ef16b4b259f7dfc198a0a36b6629a7f90", task.Containers[0].RuntimeId)
 }

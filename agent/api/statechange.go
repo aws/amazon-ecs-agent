@@ -34,8 +34,8 @@ import (
 type ContainerStateChange struct {
 	// TaskArn is the unique identifier for the task
 	TaskArn string
-	// RuntimeID is the dockerID of the container
-	RuntimeID string
+	// RuntimeId is the dockerID of the container
+	RuntimeId string
 	// ContainerName is the name of the container
 	ContainerName string
 	// Status is the status to send
@@ -140,7 +140,7 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 	event = ContainerStateChange{
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
-		RuntimeID:     cont.GetRuntimeID(),
+		RuntimeId:     cont.GetRuntimeId(),
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  cont.GetKnownPortBindings(),

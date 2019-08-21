@@ -82,13 +82,13 @@ func verifyTaskRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected task to be RUNNING")
 }
 
-func verifyTaskRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
+func verifyTaskRunningStateChangeWithRuntimeId(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskRunning,
 		"Expected task to be RUNNING")
-	assert.NotEqualf(t, "", event.(api.TaskStateChange).Task.Containers[0].RuntimeID,
-		"Expected task with runtimeID per container should not empty when Running")
+	assert.NotEqualf(t, "", event.(api.TaskStateChange).Task.Containers[0].RuntimeId,
+		"Expected task with runtimeId per container should not empty when Running")
 }
 
 func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
@@ -98,13 +98,13 @@ func verifyTaskStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected task to be STOPPED")
 }
 
-func verifyTaskStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
+func verifyTaskStoppedStateChangeWithRuntimeId(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped,
 		"Expected task to be STOPPED")
-	assert.NotEqual(t, "", event.(api.TaskStateChange).Task.Containers[0].RuntimeID,
-		"Expected task with runtimeID per container should not empty when stopped")
+	assert.NotEqual(t, "", event.(api.TaskStateChange).Task.Containers[0].RuntimeId,
+		"Expected task with runtimeId per container should not empty when stopped")
 }
 
 func dialWithRetries(proto string, address string, tries int, timeout time.Duration) (net.Conn, error) {
@@ -282,18 +282,18 @@ func TestStartStopWithCredentials(t *testing.T) {
 	assert.False(t, ok, "Credentials not removed from credentials manager for stopped task")
 }
 
-// TestStartStopWithRuntimeID starts and stops a task for which runtimeID has been set.
-func TestStartStopWithRuntimeID(t *testing.T) {
+// TestStartStopWithRuntimeId starts and stops a task for which runtimeId has been set.
+func TestStartStopWithRuntimeId(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
 	testTask := createTestTask("testTaskWithContainerID")
 	go taskEngine.AddTask(testTask)
 
-	verifyContainerRunningStateChangeWithRuntimeID(t, taskEngine)
-	verifyTaskRunningStateChangeWithRuntimeID(t, taskEngine)
-	verifyContainerStoppedStateChangeWithRuntimeID(t, taskEngine)
-	verifyTaskStoppedStateChangeWithRuntimeID(t, taskEngine)
+	verifyContainerRunningStateChangeWithRuntimeId(t, taskEngine)
+	verifyTaskRunningStateChangeWithRuntimeId(t, taskEngine)
+	verifyContainerStoppedStateChangeWithRuntimeId(t, taskEngine)
+	verifyTaskStoppedStateChangeWithRuntimeId(t, taskEngine)
 }
 
 func TestTaskStopWhenPullImageFail(t *testing.T) {

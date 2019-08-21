@@ -63,13 +63,13 @@ func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected container to be RUNNING")
 }
 
-func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
+func verifyContainerRunningStateChangeWithRuntimeId(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning,
 		"Expected container to be RUNNING")
-	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
-		"Expected container runtimeID should not empty")
+	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeId,
+		"Expected container runtimeId should not empty")
 }
 
 func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
@@ -79,13 +79,13 @@ func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 		"Expected container to be STOPPED")
 }
 
-func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine TaskEngine) {
+func verifyContainerStoppedStateChangeWithRuntimeId(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
 	assert.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerStopped,
 		"Expected container to be STOPPED")
-	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeID,
-		"Expected container runtimeID should not empty")
+	assert.NotEqual(t, "", event.(api.ContainerStateChange).RuntimeId,
+		"Expected container runtimeId should not empty")
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {

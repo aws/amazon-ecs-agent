@@ -86,12 +86,12 @@ func TestSetTaskTimestamps(t *testing.T) {
 	assert.Equal(t, t3.UTC().String(), change.ExecutionStoppedAt.String())
 }
 
-func TestSetContainerRuntimeID(t *testing.T) {
+func TestSetContainerRuntimeId(t *testing.T) {
 	task := &apitask.Task{}
 	steadyStateStatus := apicontainerstatus.ContainerRunning
 	Containers := []*apicontainer.Container{
 		{
-			RuntimeID:               "222",
+			RuntimeId:               "222",
 			KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
 			SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
 			Type:                    apicontainer.ContainerNormal,
@@ -103,5 +103,5 @@ func TestSetContainerRuntimeID(t *testing.T) {
 	resp, ok := NewContainerStateChangeEvent(task, task.Containers[0], "")
 
 	assert.NoError(t, ok, "error create newContainerStateChangeEvent")
-	assert.Equal(t, "222", resp.RuntimeID)
+	assert.Equal(t, "222", resp.RuntimeId)
 }

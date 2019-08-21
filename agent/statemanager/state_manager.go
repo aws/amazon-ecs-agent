@@ -88,7 +88,7 @@ const (
 	//	 b) Add 'InterfaceAssociationProtocol' field to 'api.ENI'
 	//	 c) Add 'InterfaceVlanProperties' field to 'api.ENI'
 	// 23)
-	//	 a) Add 'RuntimeID' field to 'apicontainer.Container'
+	//	 a) Add 'runtimeId' field to 'apicontainer.Container'
 	//	 b) Add 'FirelensConfig' field to 'Container' struct
 	//	 c) Add 'firelens' field to 'resources'
 
