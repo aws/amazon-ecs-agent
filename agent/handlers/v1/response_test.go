@@ -21,25 +21,33 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	taskARN        = "t1"
-	family         = "sleep"
-	version        = "1"
-	containerID    = "cid"
-	containerName  = "sleepy"
-	eniIPv4Address = "10.0.0.2"
-	volName        = "volume1"
-	volSource      = "/var/lib/volume1"
-	volDestination = "/volume"
+	taskARN              = "t1"
+	family               = "sleep"
+	version              = "1"
+	containerID          = "cid"
+	containerName        = "sleepy"
+	eniIPv4Address       = "10.0.0.2"
+	volName              = "volume1"
+	volSource            = "/var/lib/volume1"
+	volDestination       = "/volume"
+	containerInstanceArn = "containerInstance-test"
 )
 
 func TestTaskResponse(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	expectedTaskResponseMap := map[string]interface{}{
 		"Arn":           "t1",
 		"DesiredStatus": "RUNNING",
@@ -76,7 +84,17 @@ func TestTaskResponse(t *testing.T) {
 				},
 			},
 		},
+		"ContainerInstanceTags": map[string]interface{}{
+			"ContainerInstanceTag1": "firstTag",
+			"ContainerInstanceTag2": "secondTag",
+		},
+		"TaskTags": map[string]interface{}{
+			"TaskTag1": "firstTag",
+			"TaskTag2": "secondTag",
+		},
 	}
+
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	task := &apitask.Task{
 		Arn:                 taskARN,
@@ -118,7 +136,30 @@ func TestTaskResponse(t *testing.T) {
 		},
 	}
 
-	taskResponse := NewTaskResponse(task, containerNameToDockerContainer)
+	gomock.InOrder(
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return([]*ecs.Tag{
+			&ecs.Tag{
+				Key:   aws.String("ContainerInstanceTag1"),
+				Value: aws.String("firstTag"),
+			},
+			&ecs.Tag{
+				Key:   aws.String("ContainerInstanceTag2"),
+				Value: aws.String("secondTag"),
+			},
+		}, nil),
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return([]*ecs.Tag{
+			&ecs.Tag{
+				Key:   aws.String("TaskTag1"),
+				Value: aws.String("firstTag"),
+			},
+			&ecs.Tag{
+				Key:   aws.String("TaskTag2"),
+				Value: aws.String("secondTag"),
+			},
+		}, nil),
+	)
+
+	taskResponse := NewTaskResponse(task, containerNameToDockerContainer, ecsClient, containerInstanceArn, true)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)
 	assert.NoError(t, err)

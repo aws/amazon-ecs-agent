@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
@@ -26,18 +27,29 @@ import (
 const (
 	// TaskContainerMetadataPath is the task/container metadata path for v1 handler.
 	TaskContainerMetadataPath = "/v1/tasks"
-	dockerIDQueryField        = "dockerid"
-	taskARNQueryField         = "taskarn"
-	dockerShortIDLen          = 12
+
+	// TaskWithTagsContainerMetadataPath is the task/container metadata path with
+	// Container Instance and Task Tags for v1 handler.
+	TaskWithTagsContainerMetadataPath = "/v1/tasksWithTags"
+
+	dockerIDQueryField = "dockerid"
+	taskARNQueryField  = "taskarn"
+	dockerShortIDLen   = 12
 )
 
 // createTaskResponse creates JSON response and sets the http status code for the task queried.
-func createTaskResponse(task *apitask.Task, found bool, resourceID string, state dockerstate.TaskEngineState) ([]byte, int) {
+func createTaskResponse(task *apitask.Task,
+	found bool,
+	resourceID string,
+	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
+	containerInstanceArn string,
+	propagateTags bool) ([]byte, int) {
 	var responseJSON []byte
 	status := http.StatusOK
 	if found {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
-		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap))
+		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap, ecsClient, containerInstanceArn, propagateTags))
 	} else {
 		seelog.Warn("Could not find requested resource: " + resourceID)
 		responseJSON, _ = json.Marshal(&TaskResponse{})
@@ -49,7 +61,10 @@ func createTaskResponse(task *apitask.Task, found bool, resourceID string, state
 // TaskContainerMetadataHandler creates response for the 'v1/tasks' API. Lists all tasks if the request
 // doesn't contain any fields. Returns a Task if either of 'dockerid' or
 // 'taskarn' are specified in the request.
-func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(http.ResponseWriter, *http.Request) {
+func TaskContainerMetadataHandler(containerInstanceArn string,
+	ecsClient api.ECSClient,
+	taskEngine utils.DockerStateResolver,
+	propagateTags bool) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var responseJSON []byte
 		dockerTaskEngineState := taskEngine.State()
@@ -83,16 +98,16 @@ func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(htt
 					return
 				}
 			}
-			responseJSON, status = createTaskResponse(task, found, dockerID, dockerTaskEngineState)
+			responseJSON, status = createTaskResponse(task, found, dockerID, dockerTaskEngineState, ecsClient, containerInstanceArn, propagateTags)
 			w.WriteHeader(status)
 		} else if taskARNExists {
 			// Create TaskResponse for the task arn in the query.
 			task, found := dockerTaskEngineState.TaskByArn(taskArn)
-			responseJSON, status = createTaskResponse(task, found, taskArn, dockerTaskEngineState)
+			responseJSON, status = createTaskResponse(task, found, taskArn, dockerTaskEngineState, ecsClient, containerInstanceArn, propagateTags)
 			w.WriteHeader(status)
 		} else {
 			// List all tasks.
-			responseJSON, _ = json.Marshal(NewTasksResponse(dockerTaskEngineState))
+			responseJSON, _ = json.Marshal(NewTasksResponse(dockerTaskEngineState, ecsClient, containerInstanceArn, propagateTags))
 		}
 		w.Write(responseJSON)
 	}

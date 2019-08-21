@@ -14,12 +14,14 @@
 package v1
 
 import (
+	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	"github.com/cihub/seelog"
 )
 
 // MetadataResponse is the schema for the metadata response JSON object
@@ -31,12 +33,14 @@ type MetadataResponse struct {
 
 // TaskResponse is the schema for the task response JSON object
 type TaskResponse struct {
-	Arn           string              `json:"Arn"`
-	DesiredStatus string              `json:"DesiredStatus,omitempty"`
-	KnownStatus   string              `json:"KnownStatus"`
-	Family        string              `json:"Family"`
-	Version       string              `json:"Version"`
-	Containers    []ContainerResponse `json:"Containers"`
+	Arn                   string              `json:"Arn"`
+	DesiredStatus         string              `json:"DesiredStatus,omitempty"`
+	KnownStatus           string              `json:"KnownStatus"`
+	Family                string              `json:"Family"`
+	Version               string              `json:"Version"`
+	Containers            []ContainerResponse `json:"Containers"`
+	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
+	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
 }
 
 // TasksResponse is the schema for the tasks response JSON object
@@ -70,7 +74,11 @@ type PortResponse struct {
 }
 
 // NewTaskResponse creates a TaskResponse for a task.
-func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.DockerContainer) *TaskResponse {
+func NewTaskResponse(task *apitask.Task,
+	containerMap map[string]*apicontainer.DockerContainer,
+	ecsClient api.ECSClient,
+	containerInstanceArn string,
+	propagateTags bool) *TaskResponse {
 	containers := []ContainerResponse{}
 	for _, container := range containerMap {
 		if container.Container.IsInternal() {
@@ -89,13 +97,41 @@ func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.D
 		desiredStatus = ""
 	}
 
-	return &TaskResponse{
+	resp := &TaskResponse{
 		Arn:           task.Arn,
 		DesiredStatus: desiredStatus,
 		KnownStatus:   knownBackendStatus,
 		Family:        task.Family,
 		Version:       task.Version,
 		Containers:    containers,
+	}
+
+	if propagateTags {
+		propagateTagsToMetadata(ecsClient, containerInstanceArn, task.Arn, resp)
+	}
+
+	return resp
+}
+
+func propagateTagsToMetadata(ecsClient api.ECSClient, containerInstanceArn, taskARN string, resp *TaskResponse) {
+	containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceArn)
+	if err == nil {
+		resp.ContainerInstanceTags = make(map[string]string)
+		for _, tag := range containerInstanceTags {
+			resp.ContainerInstanceTags[*tag.Key] = *tag.Value
+		}
+	} else {
+		seelog.Errorf("Could not get container instance tags for %s: %s", containerInstanceArn, err.Error())
+	}
+
+	taskTags, err := ecsClient.GetResourceTags(taskARN)
+	if err == nil {
+		resp.TaskTags = make(map[string]string)
+		for _, tag := range taskTags {
+			resp.TaskTags[*tag.Key] = *tag.Value
+		}
+	} else {
+		seelog.Errorf("Could not get task tags for %s: %s", taskARN, err.Error())
 	}
 }
 
@@ -173,12 +209,15 @@ func NewVolumesResponse(dockerContainer *apicontainer.DockerContainer) []VolumeR
 }
 
 // NewTasksResponse creates TasksResponse for all the tasks.
-func NewTasksResponse(state dockerstate.TaskEngineState) *TasksResponse {
+func NewTasksResponse(state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
+	containerInstanceArn string,
+	propagateTags bool) *TasksResponse {
 	allTasks := state.AllTasks()
 	taskResponses := make([]*TaskResponse, len(allTasks))
 	for ndx, task := range allTasks {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
-		taskResponses[ndx] = NewTaskResponse(task, containerMap)
+		taskResponses[ndx] = NewTaskResponse(task, containerMap, ecsClient, containerInstanceArn, propagateTags)
 	}
 
 	return &TasksResponse{Tasks: taskResponses}

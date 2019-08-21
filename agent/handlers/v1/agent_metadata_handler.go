@@ -26,11 +26,11 @@ import (
 const AgentMetadataPath = "/v1/metadata"
 
 // AgentMetadataHandler creates response for 'v1/metadata' API.
-func AgentMetadataHandler(containerInstanceArn *string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
+func AgentMetadataHandler(containerInstanceArn string, cfg *config.Config) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := &MetadataResponse{
 			Cluster:              cfg.Cluster,
-			ContainerInstanceArn: containerInstanceArn,
+			ContainerInstanceArn: &containerInstanceArn,
 			Version:              agentversion.String(),
 		}
 		responseJSON, _ := json.Marshal(resp)

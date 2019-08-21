@@ -584,7 +584,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.ServeIntrospectionHTTPEndpoint(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.ServeIntrospectionHTTPEndpoint(agent.containerInstanceARN, client, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 

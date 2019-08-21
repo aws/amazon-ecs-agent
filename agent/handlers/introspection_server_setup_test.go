@@ -24,13 +24,13 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_utils "github.com/aws/amazon-ecs-agent/agent/handlers/mocks"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +43,7 @@ const (
 )
 
 func TestMetadataHandler(t *testing.T) {
-	metadataHandler := v1.AgentMetadataHandler(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
+	metadataHandler := v1.AgentMetadataHandler(testContainerInstanceArn, &config.Config{Cluster: testClusterArn})
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(config.AgentIntrospectionPort), nil)
@@ -201,6 +201,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	containers := []*apicontainer.Container{
 		{
@@ -220,7 +221,7 @@ func TestBackendMismatchMapping(t *testing.T) {
 	stateSetupHelper(state, []*apitask.Task{testTask})
 
 	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := v1.TaskContainerMetadataHandler(mockStateResolver)
+	requestHandler := v1.TaskContainerMetadataHandler(testContainerInstanceArn, ecsClient, mockStateResolver, false)
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/v1/tasks", nil)
@@ -403,12 +404,13 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 	defer ctrl.Finish()
 
 	mockStateResolver := mock_utils.NewMockDockerStateResolver(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
 
 	state := dockerstate.NewTaskEngineState()
 	stateSetupHelper(state, testTasks)
 
 	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := introspectionServerSetup(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
+	requestHandler := introspectionServerSetup(testContainerInstanceArn, ecsClient, mockStateResolver, &config.Config{Cluster: testClusterArn})
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)
