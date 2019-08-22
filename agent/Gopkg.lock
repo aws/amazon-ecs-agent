@@ -10,7 +10,7 @@
   version = "v0.4.7"
 
 [[projects]]
-  digest = "1:1a734d8f35c6917ddd7b4900c71d42aba41804972c3e464dee419117eaefd86c"
+  digest = "1:cd3353d549a89516bacb79ff16a21eb7f926ca8d223620ad7d820c0449903257"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -32,6 +32,7 @@
     "aws/session",
     "aws/signer/v4",
     "internal/ini",
+    "internal/s3err",
     "internal/sdkio",
     "internal/sdkrand",
     "internal/sdkuri",
@@ -39,17 +40,23 @@
     "private/model/api",
     "private/protocol",
     "private/protocol/ec2query",
+    "private/protocol/eventstream",
+    "private/protocol/eventstream/eventstreamapi",
     "private/protocol/json/jsonutil",
     "private/protocol/jsonrpc",
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
     "private/util",
     "service/cloudwatch",
     "service/cloudwatchlogs",
     "service/ec2",
     "service/iam",
+    "service/s3",
+    "service/s3/s3iface",
+    "service/s3/s3manager",
     "service/secretsmanager",
     "service/secretsmanager/secretsmanageriface",
     "service/ssm",
@@ -511,6 +518,8 @@
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
     "github.com/aws/aws-sdk-go/service/ec2",
     "github.com/aws/aws-sdk-go/service/iam",
+    "github.com/aws/aws-sdk-go/service/s3",
+    "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/aws/aws-sdk-go/service/secretsmanager",
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",
     "github.com/aws/aws-sdk-go/service/ssm",
