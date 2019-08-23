@@ -294,4 +294,12 @@ type Config struct {
 
 	// CgroupCPUPeriod is config option to set different CFS quota and period values in microsecond, defaults to 100 ms
 	CgroupCPUPeriod time.Duration
+
+	// SpotInstanceDrainingEnabled, if true, agent will poll the container instance's metadata endpoint for an ec2 spot
+	//   instance termination notice. If EC2 sends a spot termination notice, then agent will set the instance's state
+	//   to DRAINING, which gracefully shuts down all running tasks on the instance.
+	// If the instance is not spot then the poller will still run but it will never receive a termination notice.
+	// Defaults to false.
+	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
+	SpotInstanceDrainingEnabled bool
 }

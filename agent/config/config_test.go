@@ -166,6 +166,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
+	assert.False(t, conf.SpotInstanceDrainingEnabled)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -194,10 +195,12 @@ func TestConfigBoolean(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DISABLE_DOCKER_HEALTH_CHECK", "true")()
 	defer setTestEnv("ECS_DISABLE_METRICS", "true")()
+	defer setTestEnv("ECS_ENABLE_SPOT_INSTANCE_DRAINING", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics)
 	assert.True(t, cfg.DisableDockerHealthCheck)
+	assert.True(t, cfg.SpotInstanceDrainingEnabled)
 }
 
 func TestBadLoggingDriverSerialization(t *testing.T) {
