@@ -165,7 +165,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
-			RuntimeID:     strptr("runtime id"),
+			RuntimeId:     strptr("runtime id"),
 			Status:        strptr("RUNNING"),
 			NetworkBindings: []*ecs.NetworkBinding{
 				{
@@ -219,7 +219,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
-			RuntimeID:     strptr("runtime id"),
+			RuntimeId:     strptr("runtime id"),
 			Status:        strptr("STOPPED"),
 			ExitCode:      int64ptr(&exitCode),
 			Reason:        strptr(reason),
@@ -951,7 +951,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 					Containers: []*ecs.ContainerStateChange{
 						{
 							ContainerName:   strptr("container"),
-							RuntimeID:       strptr("runtimeid"),
+							RuntimeId:       strptr("runtimeid"),
 							Status:          strptr("RUNNING"),
 							NetworkBindings: []*ecs.NetworkBinding{},
 						},

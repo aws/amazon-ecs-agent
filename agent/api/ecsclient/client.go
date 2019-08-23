@@ -402,7 +402,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	}
 	if change.RuntimeID != "" {
 		trimmedRuntimeID := trimString(change.RuntimeID, ecsMaxRuntimeIDLength)
-		statechange.RuntimeID = aws.String(trimmedRuntimeID)
+		statechange.RuntimeId = aws.String(trimmedRuntimeID)
 	}
 	if change.Reason != "" {
 		trimmedReason := trimString(change.Reason, ecsMaxReasonLength)
@@ -449,7 +449,7 @@ func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerState
 	}
 	if change.RuntimeID != "" {
 		trimmedRuntimeID := trimString(change.RuntimeID, ecsMaxRuntimeIDLength)
-		req.RuntimeID = &trimmedRuntimeID
+		req.RuntimeId = &trimmedRuntimeID
 	}
 	if change.Reason != "" {
 		trimmedReason := trimString(change.Reason, ecsMaxReasonLength)
