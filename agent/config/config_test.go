@@ -195,7 +195,7 @@ func TestConfigBoolean(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DISABLE_DOCKER_HEALTH_CHECK", "true")()
 	defer setTestEnv("ECS_DISABLE_METRICS", "true")()
-	defer setTestEnv("ECS_SPOT_INSTANCE_DRAINING_ENABLED", "true")()
+	defer setTestEnv("ECS_ENABLE_SPOT_INSTANCE_DRAINING", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics)
