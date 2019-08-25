@@ -672,6 +672,10 @@ func telemetryStorageStatsTest(t *testing.T, taskDefinition string) {
 	require.NoError(t, err, "Failed to create cluster")
 	defer func() {
 		DeleteCluster(t, newClusterName)
+		// Add delay due to container insights log is aggregated and sent to CW every 1 min
+		// and log group will be recreated if not existed. This can be removed once TACS updates
+		// their logic of handling this use case.
+		time.Sleep(1 * time.Minute)
 		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
 			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
@@ -755,6 +759,7 @@ func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition 
 	require.NoError(t, err, "Failed to create cluster")
 	defer func() {
 		DeleteCluster(t, newClusterName)
+		time.Sleep(1 * time.Minute)
 		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
 			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
