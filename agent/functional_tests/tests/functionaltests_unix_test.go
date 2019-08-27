@@ -102,7 +102,12 @@ func TestOOMContainer(t *testing.T) {
 	RequireMinimumMemory(t, 600)
 
 	RequireDockerVersion(t, "<1.9.0,>1.9.1") // https://github.com/docker/docker/issues/18510
-	agent := RunAgent(t, nil)
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_IMAGE_PULL_BEHAVIOR": "prefer-cached",
+		},
+	}
+	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
 	testTask, err := agent.StartTask(t, "oom-container")
@@ -116,7 +121,12 @@ func TestOOMTask(t *testing.T) {
 	// oom container task requires 500MB of memory; requires a bit more to be stable
 	RequireMinimumMemory(t, 600)
 
-	agent := RunAgent(t, nil)
+	agentOptions := &AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ECS_IMAGE_PULL_BEHAVIOR": "prefer-cached",
+		},
+	}
+	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
 	agent.RequireVersion(">=1.16.0")
