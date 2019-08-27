@@ -218,7 +218,8 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		return nil, nil
 	}
 
-	for _, dependency := range target.DependsOn {
+	targetDependencies := target.GetDependsOn()
+	for _, dependency := range targetDependencies {
 		dependencyContainer, ok := existingContainers[dependency.ContainerName]
 		if !ok {
 			return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] does not exist.", dependencyContainer, target)
@@ -421,7 +422,8 @@ func verifyShutdownOrder(target *apicontainer.Container, existingContainers map[
 	missingShutdownDependencies := []string{}
 
 	for _, existingContainer := range existingContainers {
-		for _, dependency := range existingContainer.DependsOn {
+		dependencies := existingContainer.GetDependsOn()
+		for _, dependency := range dependencies {
 			// If another container declares a dependency on our target, we will want to verify that the container is
 			// stopped.
 			if dependency.ContainerName == target.Name {

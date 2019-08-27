@@ -31,7 +31,7 @@ func TestFindClientAPIVersion(t *testing.T) {
 	mockClient := mock_sdkclient.NewMockClient(ctrl)
 	factory := NewFactory(ctx, expectedEndpoint)
 
-	for _, version := range getAgentVersions() {
+	for _, version := range getAgentSupportedDockerVersions() {
 		mockClient.EXPECT().ClientVersion().Return(string(version))
 		assert.Equal(t, version, factory.FindClientAPIVersion(mockClient))
 	}

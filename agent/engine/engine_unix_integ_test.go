@@ -253,93 +253,6 @@ func getGPUEnvVar(filename string) map[string]string {
 	return envVariables
 }
 
-// A map that stores statusChangeEvents for both Tasks and Containers
-// Organized first by EventType (Task or Container),
-// then by StatusType (i.e. RUNNING, STOPPED, etc)
-// then by Task/Container identifying string (TaskARN or ContainerName)
-//                   EventType
-//                  /         \
-//          TaskEvent         ContainerEvent
-//        /          \           /        \
-//    RUNNING      STOPPED   RUNNING      STOPPED
-//    /    \        /    \      |             |
-//  ARN1  ARN2    ARN3  ARN4  ARN:Cont1    ARN:Cont2
-type EventSet map[statechange.EventType]statusToName
-
-// Type definition for mapping a Status to a TaskARN/ContainerName
-type statusToName map[string]nameSet
-
-// Type definition for a generic set implemented as a map
-type nameSet map[string]bool
-
-// Holds the Events Map described above with a RW mutex
-type TestEvents struct {
-	RecordedEvents    EventSet
-	StateChangeEvents <-chan statechange.Event
-}
-
-// Initializes the TestEvents using the TaskEngine. Abstracts the overhead required to set up
-// collecting TaskEngine stateChangeEvents.
-// We must use the Golang assert library and NOT the require library to ensure the Go routine is
-// stopped at the end of our tests
-func InitEventCollection(taskEngine TaskEngine) *TestEvents {
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	recordedEvents := make(EventSet)
-	testEvents := &TestEvents{
-		RecordedEvents:    recordedEvents,
-		StateChangeEvents: stateChangeEvents,
-	}
-	return testEvents
-}
-
-// This method queries the TestEvents struct to check a Task Status.
-// This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyTaskStatus(status apitaskstatus.TaskStatus, taskARN string, testEvents *TestEvents, t *testing.T) error {
-	for {
-		if _, found := testEvents.RecordedEvents[statechange.TaskEvent][status.String()][taskARN]; found {
-			return nil
-		}
-		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
-	}
-}
-
-// This method queries the TestEvents struct to check a Task Status.
-// This method will block if there are no more stateChangeEvents from the DockerTaskEngine but is expected
-func VerifyContainerStatus(status apicontainerstatus.ContainerStatus, ARNcontName string, testEvents *TestEvents, t *testing.T) error {
-	for {
-		if _, found := testEvents.RecordedEvents[statechange.ContainerEvent][status.String()][ARNcontName]; found {
-			return nil
-		}
-		event := <-testEvents.StateChangeEvents
-		RecordEvent(testEvents, event)
-	}
-}
-
-// Will record the event that was just collected into the TestEvents struct's RecordedEvents map
-func RecordEvent(testEvents *TestEvents, event statechange.Event) {
-	switch event.GetEventType() {
-	case statechange.TaskEvent:
-		taskEvent := event.(api.TaskStateChange)
-		if _, exists := testEvents.RecordedEvents[statechange.TaskEvent]; !exists {
-			testEvents.RecordedEvents[statechange.TaskEvent] = make(statusToName)
-		}
-		if _, exists := testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()]; !exists {
-			testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()] = make(map[string]bool)
-		}
-		testEvents.RecordedEvents[statechange.TaskEvent][taskEvent.Status.String()][taskEvent.TaskARN] = true
-	case statechange.ContainerEvent:
-		containerEvent := event.(api.ContainerStateChange)
-		if _, exists := testEvents.RecordedEvents[statechange.ContainerEvent]; !exists {
-			testEvents.RecordedEvents[statechange.ContainerEvent] = make(statusToName)
-		}
-		if _, exists := testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()]; !exists {
-			testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()] = make(map[string]bool)
-		}
-		testEvents.RecordedEvents[statechange.ContainerEvent][containerEvent.Status.String()][containerEvent.TaskArn+":"+containerEvent.ContainerName] = true
-	}
-}
-
 // This Test starts an executable named pidNamespaceTest on one docker container.
 // Other containers will query the terminal for this process.
 func TestHostPIDNamespaceSharingInSingleTask(t *testing.T) {
@@ -1388,6 +1301,39 @@ func TestTaskLevelVolume(t *testing.T) {
 
 	client := taskEngine.(*DockerTaskEngine).client
 	client.RemoveVolume(context.TODO(), "TestTaskLevelVolume", 5*time.Second)
+}
+
+func TestSwapConfigurationTask(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	testArn := "TestSwapMemory"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	go taskEngine.AddTask(testTask)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+	assert.EqualValues(t, 314572800, state.HostConfig.MemorySwap)
+	assert.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
+
+	// Kill the existing container now
+	taskUpdate := createTestTask(testArn)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
 func TestGPUAssociationTask(t *testing.T) {

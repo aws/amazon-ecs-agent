@@ -96,39 +96,51 @@ func assertFileMode(t *testing.T, path string) {
 // verify that the state manager correctly loads the existing task networking related fields in state file.
 // if we change those fields in the future, we should modify this test to test the new fields
 func TestLoadsDataForAWSVPCTask(t *testing.T) {
-	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v11", "task-networking")}
+	testCases := []struct {
+		dir  string
+		name string
+	}{
+		{"task-networking", "original_v11_encoding_scheme"},
+		{"task-networking-refactor", "refactored_v11_encoding_scheme"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v11", tc.dir)}
 
-	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
-	var containerInstanceArn, cluster, savedInstanceID string
+			taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+			var containerInstanceArn, cluster, savedInstanceID string
 
-	stateManager, err := statemanager.NewStateManager(cfg,
-		statemanager.AddSaveable("TaskEngine", taskEngine),
-		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
-		statemanager.AddSaveable("Cluster", &cluster),
-		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
-	)
-	assert.NoError(t, err)
-	err = stateManager.Load()
-	assert.NoError(t, err)
+			stateManager, err := statemanager.NewStateManager(cfg,
+				statemanager.AddSaveable("TaskEngine", taskEngine),
+				statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+				statemanager.AddSaveable("Cluster", &cluster),
+				statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+			)
+			assert.NoError(t, err)
+			err = stateManager.Load()
+			assert.NoError(t, err)
 
-	assert.Equal(t, "state-file", cluster)
+			assert.Equal(t, "state-file", cluster)
 
-	tasks, err := taskEngine.ListTasks()
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(tasks))
+			tasks, err := taskEngine.ListTasks()
+			assert.NoError(t, err)
+			assert.Equal(t, 1, len(tasks))
 
-	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/fad405be-8705-4175-877b-db50109a15f2", task.Arn)
-	assert.Equal(t, "task-networking-state", task.Family)
-	assert.NotNil(t, task.ENI)
+			task := tasks[0]
+			assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/fad405be-8705-4175-877b-db50109a15f2", task.Arn)
+			assert.Equal(t, "task-networking-state", task.Family)
+			assert.NotNil(t, task.ENIs)
 
-	eni := task.ENI
-	assert.Equal(t, "eni-089ba8329b8e3f6ec", eni.ID)
-	assert.Equal(t, "ip-172-31-10-246.us-west-2.compute.internal", eni.GetHostname())
+			eni := task.ENIs[0]
+			assert.Equal(t, "eni-089ba8329b8e3f6ec", eni.ID)
+			assert.Equal(t, "ip-172-31-10-246.us-west-2.compute.internal", eni.GetHostname())
 
-	ipv4Addresses := eni.GetIPV4Addresses()
-	assert.Equal(t, 1, len(ipv4Addresses))
-	assert.Equal(t, "172.31.10.246", ipv4Addresses[0])
+			ipv4Addresses := eni.GetIPV4Addresses()
+			assert.Equal(t, 1, len(ipv4Addresses))
+			assert.Equal(t, "172.31.10.246", ipv4Addresses[0])
+		})
+	}
+
 }
 
 // verify that the state manager correctly loads gpu related fields in state file

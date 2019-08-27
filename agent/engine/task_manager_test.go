@@ -1221,7 +1221,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
 	}
-	mTask.SetTaskENI(&apieni.ENI{
+	mTask.AddTaskENI(&apieni.ENI{
 		ID: "TestCleanupTaskENIs",
 		IPV4Addresses: []*apieni.ENIIPV4Address{
 			{

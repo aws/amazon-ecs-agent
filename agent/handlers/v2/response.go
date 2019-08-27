@@ -128,9 +128,8 @@ func NewTaskResponse(taskARN string,
 		return resp, nil
 	}
 
-	eni := task.GetTaskENI()
 	for _, dockerContainer := range containerNameToDockerContainer {
-		containerResponse := newContainerResponse(dockerContainer, eni, state)
+		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 		resp.Containers = append(resp.Containers, containerResponse)
 	}
 
@@ -177,7 +176,7 @@ func NewContainerResponse(containerID string,
 			"v2 container response: unable to find task for container '%s'", containerID)
 	}
 
-	resp := newContainerResponse(dockerContainer, task.GetTaskENI(), state)
+	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 	return &resp, nil
 }
 
@@ -234,6 +233,7 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 
 		resp.Ports = append(resp.Ports, port)
 	}
+
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
 			{

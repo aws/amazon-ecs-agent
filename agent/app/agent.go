@@ -169,14 +169,11 @@ func newAgent(
 		stateManagerFactory:   factory.NewStateManager(),
 		saveableOptionFactory: factory.NewSaveableOption(),
 		pauseLoader:           pause.New(),
-		cniClient: ecscni.NewClient(&ecscni.Config{
-			PluginsPath:            cfg.CNIPluginsPath,
-			MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
-		}),
-		os:                 oswrapper.New(),
-		metadataManager:    metadataManager,
-		terminationHandler: sighandlers.StartDefaultTerminationHandler,
-		mobyPlugins:        mobypkgwrapper.NewPlugins(),
+		cniClient:             ecscni.NewClient(cfg.CNIPluginsPath),
+		os:                    oswrapper.New(),
+		metadataManager:       metadataManager,
+		terminationHandler:    sighandlers.StartDefaultTerminationHandler,
+		mobyPlugins:           mobypkgwrapper.NewPlugins(),
 	}, nil
 }
 

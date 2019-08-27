@@ -723,12 +723,14 @@
         "containerArn":{"shape":"String"},
         "taskArn":{"shape":"String"},
         "name":{"shape":"String"},
+        "runtimeId":{"shape": "String"},
         "lastStatus":{"shape":"String"},
         "exitCode":{"shape":"BoxedInteger"},
         "reason":{"shape":"String"},
         "networkBindings":{"shape":"NetworkBindings"},
         "networkInterfaces":{"shape":"NetworkInterfaces"},
-        "healthStatus":{"shape":"HealthStatus"}
+        "healthStatus":{"shape":"HealthStatus"},
+        "firelensConfiguration":{"shape":"FirelensConfiguration"}
       }
     },
     "ContainerCondition":{
@@ -780,7 +782,8 @@
         "logConfiguration":{"shape":"LogConfiguration"},
         "healthCheck":{"shape":"HealthCheck"},
         "systemControls":{"shape":"SystemControls"},
-        "resourceRequirements":{"shape":"ResourceRequirements"}
+        "resourceRequirements":{"shape":"ResourceRequirements"},
+        "firelensConfiguration":{"shape": "FirelensConfiguration"}
       }
     },
     "ContainerDefinitions":{
@@ -856,6 +859,7 @@
       "type":"structure",
       "members":{
         "containerName":{"shape":"String"},
+        "runtimeId":{"shape": "String"},
         "exitCode":{"shape":"BoxedInteger"},
         "networkBindings":{"shape":"NetworkBindings"},
         "reason":{"shape":"String"},
@@ -1447,8 +1451,29 @@
         "gelf",
         "fluentd",
         "awslogs",
-        "splunk"
+        "splunk",
+        "awsfirelens"
       ]
+    },
+    "FirelensConfiguration":{
+      "type":"structure",
+      "required":["type"],
+      "members":{
+        "type":{"shape":"FirelensConfigurationType"},
+        "options":{"shape":"FirelensConfigurationOptionsMap"}
+      }
+    },
+    "FirelensConfigurationType":{
+      "type":"string",
+      "enum":[
+        "fluentd",
+        "fluentbit"
+      ]
+    },
+    "FirelensConfigurationOptionsMap": {
+      "type":"map",
+      "key":{"shape":"String"},
+      "value":{"shape":"String"}
     },
     "Long":{"type":"long"},
     "MissingVersionException":{
@@ -1975,6 +2000,7 @@
         "cluster":{"shape":"String"},
         "task":{"shape":"String"},
         "containerName":{"shape":"String"},
+        "runtimeId":{"shape": "String"},
         "status":{"shape":"String"},
         "exitCode":{"shape":"BoxedInteger"},
         "reason":{"shape":"String"},

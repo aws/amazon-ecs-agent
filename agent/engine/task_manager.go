@@ -559,14 +559,16 @@ func (mtask *managedTask) isResourceFound(res taskresource.TaskResource) bool {
 	return false
 }
 
-// releaseIPInIPAM releases the ip used by the task for awsvpc
+// releaseIPInIPAM releases the IP address used by the task in awsvpc mode.
 func (mtask *managedTask) releaseIPInIPAM() {
-	if mtask.ENI == nil {
+	if !mtask.IsNetworkModeAWSVPC() {
 		return
 	}
 	seelog.Infof("Managed task [%s]: IPAM releasing ip for task eni", mtask.Arn)
 
-	cfg, err := mtask.BuildCNIConfig()
+	cfg, err := mtask.BuildCNIConfig(true, &ecscni.Config{
+		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
+	})
 	if err != nil {
 		seelog.Errorf("Managed task [%s]: failed to release ip; unable to build cni configuration: %v",
 			mtask.Arn, err)

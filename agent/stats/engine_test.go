@@ -447,18 +447,18 @@ func TestSynchronizeOnRestart(t *testing.T) {
 
 func TestTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENI         *apieni.ENI
+		ENIs        []*apieni.ENI
 		NetworkMode string
 		StatsEmpty  bool
 	}{
 		{nil, "default", false},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENI, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.StatsEmpty)
 	}
 }
 
-func testNetworkModeStats(t *testing.T, netMode string, eni *apieni.ENI, emptyStats bool) {
+func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, emptyStats bool) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
@@ -466,7 +466,7 @@ func testNetworkModeStats(t *testing.T, netMode string, eni *apieni.ENI, emptySt
 	t1 := &apitask.Task{
 		Arn:    "t1",
 		Family: "f1",
-		ENI:    eni,
+		ENIs:   enis,
 	}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{

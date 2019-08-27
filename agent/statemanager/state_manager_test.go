@@ -358,7 +358,7 @@ func TestLoadsDataForContainerOrdering(t *testing.T) {
 	assert.Equal(t, "container-ordering-state", task.Family)
 	assert.Equal(t, 2, len(task.Containers))
 
-	dependsOn := task.Containers[1].DependsOn
+	dependsOn := task.Containers[1].DependsOnUnsafe
 	assert.Equal(t, "container_1", dependsOn[0].ContainerName)
 	assert.Equal(t, "START", dependsOn[0].Condition)
 }
@@ -396,4 +396,35 @@ func TestLoadsDataForPerContainerTimeouts(t *testing.T) {
 	c1 := task.Containers[0]
 	assert.Equal(t, uint(10), c1.StartTimeout)
 	assert.Equal(t, uint(10), c1.StopTimeout)
+}
+
+func TestLoadsDataForContainerRuntimeID(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v23", "perContainerRuntimeID", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "perContainerRuntimeID")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:984736093387:task/70947c96-f64e-483a-a612-3fd4303546e7", task.Arn)
+	assert.Equal(t, "sleep360", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+	assert.Equal(t, "c6b1ea1004c6de778bdc4c00bc15085ef16b4b259f7dfc198a0a36b6629a7f90", task.Containers[0].RuntimeID)
 }

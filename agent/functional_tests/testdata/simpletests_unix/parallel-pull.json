@@ -4,7 +4,7 @@
   "TaskDefinition": "parallel-pull",
   "Version": ">=1.0.0",
   "DockerVersion": ">=1.11.1",
-  "Timeout": "1m",
+  "Timeout": "2m",
   "Count": 4,
   "Daemon": true,
   "MinimumMemory": "1300"

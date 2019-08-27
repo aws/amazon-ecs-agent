@@ -4177,6 +4177,8 @@ type Container struct {
 	// The exit code returned from the container.
 	ExitCode *int64 `locationName:"exitCode" type:"integer"`
 
+	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
+
 	// The health status of the container. If health checks are not configured for
 	// this container in its task definition, then it reports health status as UNKNOWN.
 	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
@@ -4196,6 +4198,8 @@ type Container struct {
 	// A short (255 max characters) human-readable string to provide additional
 	// details about a running or stopped container.
 	Reason *string `locationName:"reason" type:"string"`
+
+	RuntimeId *string `locationName:"runtimeId" type:"string"`
 
 	// The ARN of the task.
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -4220,6 +4224,12 @@ func (s *Container) SetContainerArn(v string) *Container {
 // SetExitCode sets the ExitCode field's value.
 func (s *Container) SetExitCode(v int64) *Container {
 	s.ExitCode = &v
+	return s
+}
+
+// SetFirelensConfiguration sets the FirelensConfiguration field's value.
+func (s *Container) SetFirelensConfiguration(v *FirelensConfiguration) *Container {
+	s.FirelensConfiguration = v
 	return s
 }
 
@@ -4256,6 +4266,12 @@ func (s *Container) SetNetworkInterfaces(v []*NetworkInterface) *Container {
 // SetReason sets the Reason field's value.
 func (s *Container) SetReason(v string) *Container {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeId sets the RuntimeId field's value.
+func (s *Container) SetRuntimeId(v string) *Container {
+	s.RuntimeId = &v
 	return s
 }
 
@@ -4431,6 +4447,8 @@ type ContainerDefinition struct {
 	//
 	// This parameter is not supported for Windows containers.
 	ExtraHosts []*HostEntry `locationName:"extraHosts" type:"list"`
+
+	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
 
 	// The health check command and associated configuration parameters for the
 	// container. This parameter maps to HealthCheck in the Create a container (https://docs.docker.com/engine/reference/api/docker_remote_api_v1.27/#create-a-container)
@@ -4733,6 +4751,11 @@ func (s *ContainerDefinition) Validate() error {
 			}
 		}
 	}
+	if s.FirelensConfiguration != nil {
+		if err := s.FirelensConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("FirelensConfiguration", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.HealthCheck != nil {
 		if err := s.HealthCheck.Validate(); err != nil {
 			invalidParams.AddNested("HealthCheck", err.(request.ErrInvalidParams))
@@ -4849,6 +4872,12 @@ func (s *ContainerDefinition) SetEssential(v bool) *ContainerDefinition {
 // SetExtraHosts sets the ExtraHosts field's value.
 func (s *ContainerDefinition) SetExtraHosts(v []*HostEntry) *ContainerDefinition {
 	s.ExtraHosts = v
+	return s
+}
+
+// SetFirelensConfiguration sets the FirelensConfiguration field's value.
+func (s *ContainerDefinition) SetFirelensConfiguration(v *FirelensConfiguration) *ContainerDefinition {
+	s.FirelensConfiguration = v
 	return s
 }
 
@@ -5355,6 +5384,8 @@ type ContainerStateChange struct {
 	// The reason for the state change.
 	Reason *string `locationName:"reason" type:"string"`
 
+	RuntimeId *string `locationName:"runtimeId" type:"string"`
+
 	// The status of the container.
 	Status *string `locationName:"status" type:"string"`
 }
@@ -5390,6 +5421,12 @@ func (s *ContainerStateChange) SetNetworkBindings(v []*NetworkBinding) *Containe
 // SetReason sets the Reason field's value.
 func (s *ContainerStateChange) SetReason(v string) *ContainerStateChange {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeId sets the RuntimeId field's value.
+func (s *ContainerStateChange) SetRuntimeId(v string) *ContainerStateChange {
+	s.RuntimeId = &v
 	return s
 }
 
@@ -6959,6 +6996,50 @@ func (s *Failure) SetArn(v string) *Failure {
 // SetReason sets the Reason field's value.
 func (s *Failure) SetReason(v string) *Failure {
 	s.Reason = &v
+	return s
+}
+
+type FirelensConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	Options map[string]*string `locationName:"options" type:"map"`
+
+	// Type is a required field
+	Type *string `locationName:"type" type:"string" required:"true" enum:"FirelensConfigurationType"`
+}
+
+// String returns the string representation
+func (s FirelensConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FirelensConfiguration) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *FirelensConfiguration) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "FirelensConfiguration"}
+	if s.Type == nil {
+		invalidParams.Add(request.NewErrParamRequired("Type"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetOptions sets the Options field's value.
+func (s *FirelensConfiguration) SetOptions(v map[string]*string) *FirelensConfiguration {
+	s.Options = v
+	return s
+}
+
+// SetType sets the Type field's value.
+func (s *FirelensConfiguration) SetType(v string) *FirelensConfiguration {
+	s.Type = &v
 	return s
 }
 
@@ -10654,6 +10735,8 @@ type SubmitContainerStateChangeInput struct {
 	// The reason for the state change request.
 	Reason *string `locationName:"reason" type:"string"`
 
+	RuntimeId *string `locationName:"runtimeId" type:"string"`
+
 	// The status of the state change request.
 	Status *string `locationName:"status" type:"string"`
 
@@ -10699,6 +10782,12 @@ func (s *SubmitContainerStateChangeInput) SetNetworkBindings(v []*NetworkBinding
 // SetReason sets the Reason field's value.
 func (s *SubmitContainerStateChangeInput) SetReason(v string) *SubmitContainerStateChangeInput {
 	s.Reason = &v
+	return s
+}
+
+// SetRuntimeId sets the RuntimeId field's value.
+func (s *SubmitContainerStateChangeInput) SetRuntimeId(v string) *SubmitContainerStateChangeInput {
+	s.RuntimeId = &v
 	return s
 }
 
@@ -12354,6 +12443,14 @@ const (
 )
 
 const (
+	// FirelensConfigurationTypeFluentd is a FirelensConfigurationType enum value
+	FirelensConfigurationTypeFluentd = "fluentd"
+
+	// FirelensConfigurationTypeFluentbit is a FirelensConfigurationType enum value
+	FirelensConfigurationTypeFluentbit = "fluentbit"
+)
+
+const (
 	// HealthStatusHealthy is a HealthStatus enum value
 	HealthStatusHealthy = "HEALTHY"
 
@@ -12404,6 +12501,9 @@ const (
 
 	// LogDriverSplunk is a LogDriver enum value
 	LogDriverSplunk = "splunk"
+
+	// LogDriverAwsfirelens is a LogDriver enum value
+	LogDriverAwsfirelens = "awsfirelens"
 )
 
 const (

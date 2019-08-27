@@ -1149,7 +1149,7 @@ func TestParallelPull(t *testing.T) {
 		}
 	}
 
-	timeout, err := time.ParseDuration("1m")
+	timeout, err := time.ParseDuration("2m")
 	if err != nil {
 		t.Fatalf("Could not parse timeout: %#v", err)
 	}

@@ -17,7 +17,6 @@
 set -e
 
 REGISTRY_IMAGE="registry:2.7.0"
-
 NGINX_IMAGE="nginx:1.15.8"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
@@ -45,6 +44,18 @@ mirror_local_image() {
   docker rmi $2
 }
 
+setup_parallel_pull_image() {
+  local image_name="127.0.0.1:51670/$1:parallel-pull-fts"
+  echo "Generating parallel pull image $image_name"
+ 
+  # Get new random bits every time we build 
+  head -c 25m < /dev/urandom > docker-context/random-bits
+  docker build -t "$image_name" docker-context
+
+  echo "Done generating parallel pull image $image_name"
+  mirror_local_image "$image_name" "$image_name"
+}
+
 for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" \
 				"amazon/amazon-ecs-ipc-namespace-test" "amazon/squid" "amazon/awscli" \
 				"amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
@@ -52,52 +63,33 @@ for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "ama
 				"amazon/amazon-ecs-taskmetadata-validator" "amazon/amazon-ecs-v3-task-endpoint-validator" \
 				"amazon/amazon-ecs-container-metadata-file-validator" "amazon/amazon-ecs-elastic-inference-validator" \
 				"amazon/amazon-appmesh-plugin-validator" "amazon/amazon-ecs-eni-trunking-validator"; do
-
-  mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
+				mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
-docker rmi amazon/image-cleanup-test-image1:make
-docker rmi amazon/image-cleanup-test-image2:make
-docker rmi amazon/image-cleanup-test-image3:make
+docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
 
-BUSYBOX_IMAGE="busybox:1.29.3"
-NGINX_IMAGE="nginx:1.15.8"
-PYTHON2_IMAGE="python:2.7.15"
-UBUNTU_IMAGE="ubuntu:16.04"
+mirror_image busybox:1.29.3 "127.0.0.1:51670/busybox:latest"
+mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
+mirror_image ubuntu:16.04 "127.0.0.1:51670/ubuntu:latest"
 
-PARALLEL_PULL_FTS_BUSYBOX=${BUSYBOX_IMAGE}
-PARALLEL_PULL_FTS_UBUNTU=${UBUNTU_IMAGE}
-PARALLEL_PULL_FTS_NGINX=${NGINX_IMAGE}
-PARALLEL_PULL_FTS_CONSUL="consul:1.3.0"
-PARALLEL_PULL_FTS_DEBIAN="debian:stable"
+# create a context folder used by docker build. It will only have a file
+# full of random bits so that the parallel pull images are different.
+mkdir -p docker-context
+cat << EOF > docker-context/Dockerfile
+FROM amazon/amazon-ecs-pause:0.1.0 
+ADD random-bits /random-bits
+EOF
 
-BUILD_PLATFORM=$(uname -m)
+for image in "busybox" "ubuntu" "consul" "debian" "httpd" "crux" "nginx" "redis"; do
+  setup_parallel_pull_image $image
+done
 
-if [[ "$BUILD_PLATFORM" == "aarch64" ]]; then
-    PARALLEL_PULL_FTS_HTTPD="arm64v8/httpd:2.4"
-else
-    PARALLEL_PULL_FTS_HTTPD="httpd@sha256:0d817a924bed1a216f12a0f4947b5f8a2f173bd5a9cebfe1382d024287154c99"
-fi
+# cleanup the context
+rm -rf docker-context 
 
-PARALLEL_PULL_FTS_CRUX="crux:3.0"
-PARALLEL_PULL_FTS_REDIS="redis:4.0.13"
-PARALLEL_PULL_FTS_REGISTRY=${REGISTRY_IMAGE}
-
-mirror_image ${BUSYBOX_IMAGE} "127.0.0.1:51670/busybox:latest"
-mirror_image ${NGINX_IMAGE} "127.0.0.1:51670/nginx:latest"
-mirror_image ${PYTHON2_IMAGE} "127.0.0.1:51670/python:2"
-mirror_image ${UBUNTU_IMAGE} "127.0.0.1:51670/ubuntu:latest"
-mirror_image ${PARALLEL_PULL_FTS_BUSYBOX} "127.0.0.1:51670/busybox:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_UBUNTU} "127.0.0.1:51670/ubuntu:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_CONSUL} "127.0.0.1:51670/consul:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_DEBIAN} "127.0.0.1:51670/debian:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_HTTPD} "127.0.0.1:51670/httpd:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_CRUX} "127.0.0.1:51670/crux:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_NGINX} "127.0.0.1:51670/nginx:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_REDIS} "127.0.0.1:51670/redis:parallel-pull-fts"
-mirror_local_image ${PARALLEL_PULL_FTS_REGISTRY} "127.0.0.1:51670/registry:parallel-pull-fts"
+mirror_local_image "${REGISTRY_IMAGE}" "127.0.0.1:51670/registry:parallel-pull-fts"
 
 
 # Now setup a v2 registry with auth... aka nginx with basic auth in front of it

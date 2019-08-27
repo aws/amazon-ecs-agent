@@ -36,7 +36,7 @@ const (
 	DockerReservedSSLPort = 2376
 	// DockerTagSeparator is the charactor used to separate names and tag in docker
 	DockerTagSeparator = ":"
-	// DockerDefaultTag is the default tag used by docker
+	// DefaultDockerTag is the default tag used by docker
 	DefaultDockerTag = "latest"
 
 	SSHPort = 22
@@ -75,7 +75,7 @@ const (
 	// image cleanup.
 	DefaultNumImagesToDeletePerCycle = 5
 
-	// DefaultNumImagesToDeletePerCycle specifies the default number of nonecs containers to delete when agent performs
+	// DefaultNumNonECSContainersToDeletePerCycle specifies the default number of nonecs containers to delete when agent performs
 	// nonecs containers cleanup.
 	DefaultNumNonECSContainersToDeletePerCycle = 5
 

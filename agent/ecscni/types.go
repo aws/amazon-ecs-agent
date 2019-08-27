@@ -14,6 +14,7 @@
 package ecscni
 
 import (
+	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
@@ -124,11 +125,9 @@ type ENIConfig struct {
 	IPV6Address string `json:"ipv6-address,omitempty"`
 	// MacAddress is the mac address of eni
 	MACAddress string `json:"mac"`
-	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
-	// blocked
-	BlockInstanceMetdata bool `json:"block-instance-metadata"`
-	// SubnetGatewayIPV4Address specifies the ipv4 address of the subnet gateway
-	// for the ENI
+	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
+	BlockInstanceMetadata bool `json:"block-instance-metadata"`
+	// SubnetGatewayIPV4Address specifies the IPv4 address of the subnet gateway for the ENI
 	SubnetGatewayIPV4Address string `json:"subnetgateway-ipv4-address"`
 }
 
@@ -175,9 +174,8 @@ type BranchENIConfig struct {
 	BranchGatewayIPAddress string `json:"branchGatewayIPAddress"`
 	// InterfaceType is the type of the interface to connect the branch ENI to
 	InterfaceType string `json:"interfaceType,omitempty"`
-	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
-	// blocked
-	BlockInstanceMetdata bool `json:"blockInstanceMetadata"`
+	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked.
+	BlockInstanceMetadata bool `json:"blockInstanceMetadata"`
 }
 
 // Config contains all the information to set up the container namespace using
@@ -187,55 +185,32 @@ type Config struct {
 	PluginsPath string
 	// MinSupportedCNIVersion is the minimum cni spec version supported
 	MinSupportedCNIVersion string
-	//  ENIID is the id of ec2 eni
-	ENIID string
-	// InterfaceAssociationProtocol is the type of eni, can be "default" or "vlan"
-	InterfaceAssociationProtocol string
-	// BranchVlanID is the VLAN ID to be used by a "vlan" ENI
-	BranchVlanID string `json:"branchVlandID,omitempty"`
-	// TrunkMACAddress is the MAC address of the associated Trunk ENI
-	// for an ENI of type "vlan"
-	TrunkMACAddress string `json:"trunkMACAddress,omitempty"`
 	// ContainerID is the id of container of which to set up the network namespace
 	ContainerID string
 	// ContainerPID is the pid of the container
 	ContainerPID string
-	// ENIIPV4Address is the ipv4 assigned to the eni
-	ENIIPV4Address string
-	//ENIIPV6Address is the ipv6 assigned to the eni
-	ENIIPV6Address string
-	// ENIMACAddress is the mac address of the eni
-	ENIMACAddress string
 	// BridgeName is the name used to create the bridge
 	BridgeName string
 	// IPAMV4Address is the ipv4 used to assign from ipam
 	IPAMV4Address *cnitypes.IPNet
 	// ID is the information associate with ip in ipam
 	ID string
-	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be
-	// blocked
-	BlockInstanceMetdata bool
+	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
+	BlockInstanceMetadata bool
 	// AdditionalLocalRoutes specifies additional routes to be added to the task namespace
 	AdditionalLocalRoutes []cnitypes.IPNet
-	// SubnetGatewayIPV4Address is the address to the subnet gate for the eni
-	SubnetGatewayIPV4Address string
-	// AppMeshCNIEnabled specifies if app mesh cni plugin is enabled
-	AppMeshCNIEnabled bool
-	// IgnoredUID specifies egress traffic from the processes owned
-	// by the UID will be ignored
-	IgnoredUID string
-	// IgnoredGID specifies egress traffic from the processes owned
-	// by the GID will be ignored
-	IgnoredGID string
-	// ProxyIngressPort is the ingress port number that proxy is listening on
-	ProxyIngressPort string
-	// ProxyEgressPort is the egress port number that proxy is listening on
-	ProxyEgressPort string
-	// AppPorts specifies port numbers that application is listening on
-	AppPorts []string
-	// EgressIgnoredPorts is the list of ports for which egress traffic
-	// will be ignored
-	EgressIgnoredPorts []string
-	// EgressIgnoredIPs is the list of IPs for which egress traffic will be ignored
-	EgressIgnoredIPs []string
+	// NetworkConfigs is the list of CNI network configurations to be invoked
+	NetworkConfigs []*NetworkConfig
+}
+
+// NetworkConfig wraps CNI library's NetworkConfig object. It tracks the interface device
+// name (the IfName param required to invoke AddNetwork) along with libcni's NetworkConfig
+// object. The IfName is required to be set to invoke `AddNetwork` method when invoking
+// plugins to set up the network namespace.
+type NetworkConfig struct {
+	// IfName is the name of the network interface device, to be set within the
+	// network namespace.
+	IfName string
+	// CNINetworkConfig is the network configuration required to invoke the CNI plugin
+	CNINetworkConfig *libcni.NetworkConfig
 }

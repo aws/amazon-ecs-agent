@@ -113,22 +113,29 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 		}
 	}
 
-	tmpdirOverride := os.Getenv("ECS_FTEST_TMP")
+	agentTempDir := ""
+	if options != nil && options.TempDirOverride != "" {
+		agentTempDir = options.TempDirOverride
+	} else {
+		tmpdirOverride := os.Getenv("ECS_FTEST_TMP")
 
-	agentTempdir, err := ioutil.TempDir(tmpdirOverride, "ecs_integ_testdata")
-	if err != nil {
-		t.Fatal("Could not create temp dir for test")
+		dir, err := ioutil.TempDir(tmpdirOverride, "ecs_integ_testdata")
+		if err != nil {
+			t.Fatal("Could not create temp dir for test")
+		}
+		agentTempDir = dir
 	}
-	logdir := filepath.Join(agentTempdir, "log")
-	datadir := filepath.Join(agentTempdir, "data")
+
+	logdir := filepath.Join(agentTempDir, "log")
+	datadir := filepath.Join(agentTempDir, "data")
 	os.Mkdir(logdir, 0755)
 	os.Mkdir(datadir, 0755)
-	agent.TestDir = agentTempdir
+	agent.TestDir = agentTempDir
 	agent.Options = options
 	if options == nil {
 		agent.Options = &AgentOptions{}
 	}
-	t.Logf("Created directory %s to store test data in", agentTempdir)
+	t.Logf("Created directory %s to store test data in", agentTempDir)
 
 	err = agent.StartAgent()
 	if err != nil {

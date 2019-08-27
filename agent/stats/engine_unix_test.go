@@ -23,16 +23,16 @@ import (
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
 	var networkModes = []struct {
-		ENI         *apieni.ENI
+		ENIs        []*apieni.ENI
 		NetworkMode string
 		StatsEmpty  bool
 	}{
-		{&apieni.ENI{ID: "ec2Id"}, "", true},
+		{[]*apieni.ENI{{ID: "ec2Id"}}, "", true},
 		{nil, "host", true},
 		{nil, "bridge", false},
 		{nil, "none", true},
 	}
 	for _, tc := range networkModes {
-		testNetworkModeStats(t, tc.NetworkMode, tc.ENI, tc.StatsEmpty)
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.StatsEmpty)
 	}
 }

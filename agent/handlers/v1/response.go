@@ -76,7 +76,7 @@ func NewTaskResponse(task *apitask.Task, containerMap map[string]*apicontainer.D
 		if container.Container.IsInternal() {
 			continue
 		}
-		containerResponse := NewContainerResponse(container, task.GetTaskENI())
+		containerResponse := NewContainerResponse(container, task.GetPrimaryENI())
 		containers = append(containers, containerResponse)
 	}
 

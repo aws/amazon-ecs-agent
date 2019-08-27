@@ -1,6 +1,6 @@
 .PHONY: all
 all:
-	docker build -t amazon/amazon-ecs-telemetry-test:make .
+	docker build -t amazon/amazon-ecs-stress:make .
 
 clean:
-	-docker rmi -f "amazon/amazon-ecs-telemetry-test:make"
+	-docker rmi -f "amazon/amazon-ecs-stress:make"
