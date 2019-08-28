@@ -82,8 +82,8 @@ func getCanonicalPath(path string) string {
 	}
 
 	if isNamedPipesPath(lowercasedPath) {
-        return lowercasedPath
-    }
+		return lowercasedPath
+	}
 
 	return filepath.Clean(lowercasedPath)
 }
@@ -99,11 +99,11 @@ func isBareDrive(path string) bool {
 func isNamedPipesPath(path string) bool {
 	matched, err := regexp.MatchString(`\\{2}\.[\\]pipe[\\].+`, path)
 
- 	if err != nil {
+	if err != nil {
 		return false
 	}
 
- 	return matched
+	return matched
 }
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
