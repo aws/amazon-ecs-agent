@@ -576,8 +576,5 @@ func (client *APIECSClient) UpdateContainerInstancesState(instanceARN string, st
 		Status:             aws.String(status),
 		Cluster:            &client.config.Cluster,
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

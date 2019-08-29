@@ -621,14 +621,14 @@ func (agent *ecsAgent) startAsyncRoutines(
 }
 
 func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
-	for !agent.spotTerminationTimeCheck(client) {
+	for !agent.spotInstanceDrainingPoller(client) {
 		time.Sleep(time.Second)
 	}
 }
 
-// spotTerminationTimeCheck returns true if spot instance termination time has been
-// set and the container instance state is successfully set.
-func (agent *ecsAgent) spotTerminationTimeCheck(client api.ECSClient) bool {
+// spotInstanceDrainingPoller returns true if spot instance termination time has been
+// set AND the container instance state is successfully updated to DRAINING.
+func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
 	// this endpoint 404s unless a termination time has been set, so expect failure in most cases.
 	termtime, err := agent.ec2MetadataClient.SpotTerminationTime()
 	if err == nil && len(termtime) > 0 {

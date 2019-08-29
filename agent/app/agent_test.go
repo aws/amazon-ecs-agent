@@ -1199,7 +1199,28 @@ func TestSpotTerminationTimeCheck_Yes(t *testing.T) {
 	ec2MetadataClient.EXPECT().SpotTerminationTime().Return("2019-08-26T18:21:08Z", nil)
 	ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
 
-	assert.True(t, agent.spotTerminationTimeCheck(ecsClient))
+	assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
+}
+
+func TestSpotTerminationTimeCheck_EmptyTimestamp(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	myARN := "myARN"
+	agent := &ecsAgent{
+		ec2MetadataClient:    ec2MetadataClient,
+		ec2Client:            ec2Client,
+		containerInstanceARN: myARN,
+	}
+	ec2MetadataClient.EXPECT().SpotTerminationTime().Return("", nil)
+	// Container state should NOT be updated because the termination time field is empty.
+	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
+
+	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
 func TestSpotTerminationTimeCheck_No(t *testing.T) {
@@ -1221,7 +1242,7 @@ func TestSpotTerminationTimeCheck_No(t *testing.T) {
 	// Container state should NOT be updated because there is no termination time.
 	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
 
-	assert.False(t, agent.spotTerminationTimeCheck(ecsClient))
+	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
 func getTestConfig() config.Config {
