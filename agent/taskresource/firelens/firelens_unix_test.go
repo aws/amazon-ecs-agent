@@ -50,7 +50,7 @@ func setup(t *testing.T) (*mock_oswrapper.MockOS, *mock_oswrapper.MockFile, *moc
 	return mockOS, mockFile, mockIOUtil, ctrl.Finish
 }
 
-func newMockFirelensResource(firelensConfigType string, lopOptions map[string]string, mockOS *mock_oswrapper.MockOS,
+func newMockFirelensResource(firelensConfigType, networkMode string, lopOptions map[string]string, mockOS *mock_oswrapper.MockOS,
 	mockIOUtil *mock_ioutilwrapper.MockIOUtil) *FirelensResource {
 	return &FirelensResource{
 		cluster:            testCluster,
@@ -62,16 +62,59 @@ func newMockFirelensResource(firelensConfigType string, lopOptions map[string]st
 		containerToLogOptions: map[string]map[string]string{
 			"container": lopOptions,
 		},
-		os:     mockOS,
-		ioutil: mockIOUtil,
+		os:          mockOS,
+		ioutil:      mockIOUtil,
+		networkMode: networkMode,
 	}
 }
 
-func TestCreateFirelensResourceFluentd(t *testing.T) {
+func TestCreateFirelensResourceFluentdBridgeMode(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
+
+	gomock.InOrder(
+		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
+		mockOS.EXPECT().MkdirAll(testResourceDir+"/socket", os.ModePerm),
+		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(mockFile, nil),
+		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
+		mockFile.EXPECT().Chmod(os.FileMode(configFilePerm)),
+		mockFile.EXPECT().Sync(),
+		mockFile.EXPECT().Name().Return(testTempFile),
+		mockOS.EXPECT().Rename(testTempFile, testResourceDir+"/config/fluent.conf"),
+		mockFile.EXPECT().Close(),
+	)
+
+	assert.NoError(t, firelensResource.Create())
+}
+
+func TestCreateFirelensResourceFluentdAWSVPCMode(t *testing.T) {
+	mockOS, mockFile, mockIOUtil, done := setup(t)
+	defer done()
+
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, awsvpcNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
+
+	gomock.InOrder(
+		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
+		mockOS.EXPECT().MkdirAll(testResourceDir+"/socket", os.ModePerm),
+		mockIOUtil.EXPECT().TempFile(testResourceDir, tempFile).Return(mockFile, nil),
+		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
+		mockFile.EXPECT().Chmod(os.FileMode(configFilePerm)),
+		mockFile.EXPECT().Sync(),
+		mockFile.EXPECT().Name().Return(testTempFile),
+		mockOS.EXPECT().Rename(testTempFile, testResourceDir+"/config/fluent.conf"),
+		mockFile.EXPECT().Close(),
+	)
+
+	assert.NoError(t, firelensResource.Create())
+}
+
+func TestCreateFirelensResourceFluentdDefaultMode(t *testing.T) {
+	mockOS, mockFile, mockIOUtil, done := setup(t)
+	defer done()
+
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, "", testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -92,7 +135,7 @@ func TestCreateFirelensResourceFluentbit(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentbit, testFluentbitOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentbit, bridgeNetworkMode, testFluentbitOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -113,7 +156,7 @@ func TestCreateFirelensResourceInvalidType(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 	firelensResource.firelensConfigType = "invalid"
 
 	assert.Error(t, firelensResource.Create())
@@ -124,7 +167,7 @@ func TestCreateFirelensResourceCreateConfigDirError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm).Return(errors.New("test error")),
@@ -138,7 +181,7 @@ func TestCreateFirelensResourceCreateSocketDirError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -153,7 +196,7 @@ func TestCreateFirelensResourceGenerateConfigError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 	firelensResource.containerToLogOptions = map[string]map[string]string{
 		"container": {},
 	}
@@ -171,7 +214,7 @@ func TestCreateFirelensResourceCreateTempFileError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -187,7 +230,7 @@ func TestCreateFirelensResourceWriteConfigFileError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -205,7 +248,7 @@ func TestCreateFirelensResourceChmodError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -224,7 +267,7 @@ func TestCreateFirelensResourceRenameError(t *testing.T) {
 	mockOS, mockFile, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(testResourceDir+"/config", os.ModePerm),
@@ -246,7 +289,7 @@ func TestCleanupFirelensResource(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	mockOS.EXPECT().RemoveAll(testResourceDir)
 
@@ -257,7 +300,7 @@ func TestCleanupFirelensResourceError(t *testing.T) {
 	mockOS, _, mockIOUtil, done := setup(t)
 	defer done()
 
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, mockOS, mockIOUtil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, mockOS, mockIOUtil)
 
 	mockOS.EXPECT().RemoveAll(testResourceDir).Return(errors.New("test error"))
 
@@ -265,7 +308,7 @@ func TestCleanupFirelensResourceError(t *testing.T) {
 }
 
 func TestInitializeFirelensResource(t *testing.T) {
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, nil, nil)
 	firelensResource.Initialize(&taskresource.ResourceFields{}, status.TaskRunning, status.TaskRunning)
 
 	assert.NotNil(t, firelensResource.statusToTransitions)
@@ -275,7 +318,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 }
 
 func TestSetKnownStatus(t *testing.T) {
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, nil, nil)
 	firelensResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(FirelensCreated)
 
 	firelensResource.SetKnownStatus(resourcestatus.ResourceStatus(FirelensCreated))
@@ -284,7 +327,7 @@ func TestSetKnownStatus(t *testing.T) {
 }
 
 func TestSetKnownStatusNoAppliedStatusUpdate(t *testing.T) {
-	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, testFluentdOptions, nil, nil)
+	firelensResource := newMockFirelensResource(FirelensConfigTypeFluentd, bridgeNetworkMode, testFluentdOptions, nil, nil)
 	firelensResource.appliedStatusUnsafe = resourcestatus.ResourceStatus(FirelensCreated)
 
 	firelensResource.SetKnownStatus(resourcestatus.ResourceStatus(FirelensStatusNone))

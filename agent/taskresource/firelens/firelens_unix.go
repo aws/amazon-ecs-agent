@@ -54,6 +54,7 @@ type FirelensResource struct {
 	containerToLogOptions map[string]map[string]string
 	os                    oswrapper.OS
 	ioutil                ioutilwrapper.IOUtil
+	networkMode           string
 
 	// Fields for the common functionality of task resource. Access to these fields are protected by lock.
 	createdAtUnsafe     time.Time
@@ -67,7 +68,7 @@ type FirelensResource struct {
 }
 
 // NewFirelensResource returns a new FirelensResource.
-func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType string,
+func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, networkMode string,
 	ecsMetadataEnabled bool, containerToLogOptions map[string]map[string]string) *FirelensResource {
 	firelensResource := &FirelensResource{
 		cluster:               cluster,
@@ -79,6 +80,7 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 		containerToLogOptions: containerToLogOptions,
 		os:                    oswrapper.NewOS(),
 		ioutil:                ioutilwrapper.NewIOUtil(),
+		networkMode:           networkMode,
 	}
 
 	fields := strings.Split(taskARN, "/")
@@ -141,6 +143,11 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 	firelens.initStatusToTransition()
 	firelens.os = oswrapper.NewOS()
 	firelens.ioutil = ioutilwrapper.NewIOUtil()
+}
+
+// GetNetworkMode returns the network mode of the task.
+func (firelens *FirelensResource) GetNetworkMode() string {
+	return firelens.networkMode
 }
 
 func (firelens *FirelensResource) initStatusToTransition() {

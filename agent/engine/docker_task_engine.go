@@ -68,6 +68,10 @@ const (
 	labelCluster                       = labelPrefix + "cluster"
 	cniSetupTimeout                    = 1 * time.Minute
 	cniCleanupTimeout                  = 30 * time.Second
+	minGetIPBridgeTimeout              = time.Second
+	maxGetIPBridgeTimeout              = 10 * time.Second
+	getIPBridgeRetryJitterMultiplier   = 0.2
+	getIPBridgeRetryDelayMultiplier    = 2
 	ipamCleanupTmeout                  = 5 * time.Second
 	minEngineConnectRetryDelay         = 200 * time.Second
 	maxEngineConnectRetryDelay         = 2 * time.Second
@@ -85,6 +89,12 @@ const (
 
 	// fluentTagDockerFormat is the format for the log tag, which is "containerName-firelens-taskID"
 	fluentTagDockerFormat = "%s-firelens-%s"
+
+	// Environment variables are needed for firelens
+	fluentNetworkHost      = "FLUENT_HOST"
+	fluentNetworkPort      = "FLUENT_PORT"
+	FluentNetworkPortValue = "24224"
+	FluentAWSVPCHostValue  = "127.0.0.1"
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -913,9 +923,26 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// If the container is using a special log driver type "awsfirelens", it means the container wants to use
 	// the firelens container to send logs. In this case, override the log driver type to be fluentd
 	// and specify appropriate tag and fluentd-address, so that the logs are sent to and routed by the firelens container.
-	// For reference - https://docs.docker.com/config/containers/logging/fluentd/.
+	// Update the environment variables FLUENT_HOST and FLUENT_PORT depending on the supported network modes - bridge
+	// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
 	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
 		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
+		if task.IsNetworkModeAWSVPC() {
+			container.MergeEnvironmentVariables(map[string]string{
+				fluentNetworkHost: FluentAWSVPCHostValue,
+				fluentNetworkPort: FluentNetworkPortValue,
+			})
+		} else if container.GetNetworkMode() == "" || container.GetNetworkMode() == apitask.BridgeNetworkMode {
+			ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
+			if !ok {
+				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
+			}
+			container.MergeEnvironmentVariables(map[string]string{
+				fluentNetworkHost: ipAddress,
+				fluentNetworkPort: FluentNetworkPortValue,
+			})
+		}
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
@@ -1054,6 +1081,40 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	}
 	seelog.Infof("Task engine [%s]: started docker container for task: %s -> %s, took %s",
 		task.Arn, container.Name, dockerContainerMD.DockerID, time.Since(startContainerBegin))
+
+	// If container is a firelens container, fluent host is needed to be added to the environment variable for the task.
+	// For the supported network mode - bridge and awsvpc, the awsvpc take the host 127.0.0.1 but in bridge mode,
+	// there is a need to wait for the IP to be present before the container using the firelens can be created.
+	if dockerContainerMD.Error == nil && container.GetFirelensConfig() != nil {
+		if !task.IsNetworkModeAWSVPC() && (container.GetNetworkMode() == "" || container.GetNetworkMode() == apitask.BridgeNetworkMode) {
+			_, gotContainerIP := getContainerHostIP(dockerContainerMD.NetworkSettings)
+			if !gotContainerIP {
+				getIPBridgeBackoff := retry.NewExponentialBackoff(minGetIPBridgeTimeout, maxGetIPBridgeTimeout, getIPBridgeRetryJitterMultiplier, getIPBridgeRetryDelayMultiplier)
+				contextWithTimeout, cancel := context.WithTimeout(engine.ctx, time.Minute)
+				defer cancel()
+				err := retry.RetryWithBackoffCtx(contextWithTimeout, getIPBridgeBackoff, func() error {
+					inspectOutput, err := engine.client.InspectContainer(engine.ctx, dockerContainerMD.DockerID,
+						dockerclient.InspectContainerTimeout)
+					if err != nil {
+						return err
+					}
+					_, gotIPBridge := getContainerHostIP(inspectOutput.NetworkSettings)
+					if gotIPBridge {
+						dockerContainerMD.NetworkSettings = inspectOutput.NetworkSettings
+						return nil
+					} else {
+						return errors.New("Bridge IP not available to use for firelens")
+					}
+				})
+				if err != nil {
+					return dockerapi.DockerContainerMetadata{
+						Error: dockerapi.CannotStartContainerError{FromError: err},
+					}
+				}
+			}
+
+		}
+	}
 	return dockerContainerMD
 }
 
@@ -1306,4 +1367,19 @@ func (engine *DockerTaskEngine) updateMetadataFile(task *apitask.Task, cont *api
 		seelog.Debugf("Task engine [%s]: updated metadata file for container %s",
 			task.Arn, cont.Container.Name)
 	}
+}
+
+func getContainerHostIP(networkSettings *types.NetworkSettings) (string, bool) {
+	if networkSettings == nil {
+		return "", false
+	} else if networkSettings.IPAddress != "" {
+		return networkSettings.IPAddress, true
+	} else if len(networkSettings.Networks) > 0 {
+		for mode, network := range networkSettings.Networks {
+			if mode == apitask.BridgeNetworkMode && network.IPAddress != "" {
+				return network.IPAddress, true
+			}
+		}
+	}
+	return "", false
 }

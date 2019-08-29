@@ -91,8 +91,9 @@ const (
 	//	 a) Add 'RuntimeID' field to 'apicontainer.Container'
 	//	 b) Add 'FirelensConfig' field to 'Container' struct
 	//	 c) Add 'firelens' field to 'resources'
+	// 24) Add 'NetworkMode' to firelens task resource.
 
-	ECSDataVersion = 23
+	ECSDataVersion = 24
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

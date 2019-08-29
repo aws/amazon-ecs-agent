@@ -37,7 +37,7 @@ const (
 type FirelensResource struct{}
 
 // NewFirelensResource returns a new FirelensResource.
-func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType string,
+func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, networkMode string,
 	ecsMetadataEnabled bool, containerToLogOptions map[string]map[string]string) *FirelensResource {
 	return &FirelensResource{}
 }

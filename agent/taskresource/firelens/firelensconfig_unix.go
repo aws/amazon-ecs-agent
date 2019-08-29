@@ -32,8 +32,8 @@ const (
 	// socketInputNameFluentd is the name of the socket input plugin for fluentd.
 	socketInputNameFluentd = "unix"
 
-	// socketInputNameFluentbit is the name of the socket input plugin for fluentbit.
-	socketInputNameFluentbit = "forward"
+	// inputNameForward is the name of the tcp socket input plugin for fluentd and fluentbit.
+	inputNameForward = "forward"
 
 	// socketInputPathOptionFluentd is the key for specifying socket path for fluentd.
 	socketInputPathOptionFluentd = "path"
@@ -58,6 +58,33 @@ const (
 
 	// fluentTagOutputFormat is the format for the log tag, which is container name with "-firelens" appended
 	fluentTagOutputFormat = "%s-firelens*"
+
+	// inputBindOptionFluentd is the key for specifying host for fluentd for tcp.
+	inputBindOptionFluentd = "bind"
+
+	// inputBridgeBindValue is the value for specifying host for Bridge mode.
+	inputBridgeBindValue = "0.0.0.0"
+
+	// inputAWSVPCBindValue is the value for specifying host for AWSVPC mode.
+	inputAWSVPCBindValue = "127.0.0.1"
+
+	// inputPortOptionFluentd is the key for specifying port for fluentd for tcp.
+	inputPortOptionFluentd = "port"
+
+	// inputPortValue is the value for specifying port for fluentd for tcp.
+	inputPortValue = "24224"
+
+	// inputListenOptionFluentbit is the key for the log option that specifies host for fluentbit.
+	inputListenOptionFluentbit = "Listen"
+
+	// inputPortOptionFluentbit is the key for the log option that specifies port for fluentbit.
+	inputPortOptionFluentbit = "Port"
+
+	// bridgeNetworkMode specifies bridge type mode for a task
+	bridgeNetworkMode = "bridge"
+
+	// specifies awsvpc type mode for a task
+	awsvpcNetworkMode = "awsvpc"
 )
 
 // generateConfig generates a FluentConfig object that contains all necessary information to construct
@@ -72,12 +99,37 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		inputName = socketInputNameFluentd
 		inputPathOption = socketInputPathOptionFluentd
 	} else {
-		inputName = socketInputNameFluentbit
+		inputName = inputNameForward
 		inputPathOption = socketInputPathOptionFluentbit
 	}
 	config.AddInput(inputName, "", map[string]string{
 		inputPathOption: socketPath,
 	})
+	// Specify log stream input of tcp socket kind that can be used for communication between the Firelens
+	// container and other containers if the network is bridge or awsvpc mode
+	if firelens.networkMode == bridgeNetworkMode || firelens.networkMode == awsvpcNetworkMode {
+		inputMap := map[string]string{}
+		var inputBindValue string
+		if firelens.networkMode == bridgeNetworkMode {
+			inputBindValue = inputBridgeBindValue
+		} else if firelens.networkMode == awsvpcNetworkMode {
+			inputBindValue = inputAWSVPCBindValue
+		}
+		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+			inputMap = map[string]string{
+				inputPortOptionFluentd: inputPortValue,
+				inputBindOptionFluentd: inputBindValue,
+			}
+			inputName = inputNameForward
+		} else {
+			inputName = inputNameForward
+			inputMap = map[string]string{
+				inputPortOptionFluentbit:   inputPortValue,
+				inputListenOptionFluentbit: inputBindValue,
+			}
+		}
+		config.AddInput(inputName, "", inputMap)
+	}
 
 	if firelens.ecsMetadataEnabled {
 		// Add ecs metadata fields to the log stream.
