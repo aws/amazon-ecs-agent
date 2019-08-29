@@ -762,9 +762,7 @@ func TestUpdateContainerInstancesState(t *testing.T) {
 	}).Return(&ecs.UpdateContainerInstancesStateOutput{}, nil)
 
 	err := client.UpdateContainerInstancesState(instanceARN, status)
-	if err != nil {
-		t.Errorf("Unexpected error calling UpdateContainerInstancesState: %s", err)
-	}
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling UpdateContainerInstancesState: %s", err))
 }
 
 func TestUpdateContainerInstancesStateError(t *testing.T) {
@@ -781,9 +779,7 @@ func TestUpdateContainerInstancesStateError(t *testing.T) {
 	}).Return(nil, fmt.Errorf("ERROR"))
 
 	err := client.UpdateContainerInstancesState(instanceARN, status)
-	if err == nil {
-		t.Errorf("Expected an error calling UpdateContainerInstancesState but got nil")
-	}
+	assert.Error(t, err, "Expected an error calling UpdateContainerInstancesState but got nil")
 }
 
 func TestGetResourceTags(t *testing.T) {
@@ -799,9 +795,7 @@ func TestGetResourceTags(t *testing.T) {
 	}, nil)
 
 	_, err := client.GetResourceTags(instanceARN)
-	if err != nil {
-		t.Errorf("Unexpected error calling GetResourceTags: %s", err)
-	}
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling GetResourceTags: %s", err))
 }
 
 func TestGetResourceTagsError(t *testing.T) {
@@ -815,9 +809,7 @@ func TestGetResourceTagsError(t *testing.T) {
 	}).Return(nil, fmt.Errorf("ERROR"))
 
 	_, err := client.GetResourceTags(instanceARN)
-	if err == nil {
-		t.Errorf("Expected an error calling GetResourceTags but got nil")
-	}
+	assert.Error(t, err, "Expected an error calling GetResourceTags but got nil")
 }
 
 func TestDiscoverPollEndpointCacheHit(t *testing.T) {
