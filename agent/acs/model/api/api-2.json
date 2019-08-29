@@ -693,6 +693,44 @@
         "host",
         "docker"
       ]
+    },
+    "TaskIdentifier": {
+      "type": "structure",
+      "members": {
+        "taskArn": {"shape":"String"},
+        "taskClusterArn": {"shape": "String"},
+        "desiredStatus": {"shape":"String"}
+      }
+    },
+    "TaskIdentifierList": {
+      "type": "list",
+      "member": {"shape": "TaskIdentifier"}
+    },
+    "TaskManifestMessage": {
+      "type": "structure",
+      "members": {
+        "containerInstanceArn": {"shape":"String"},
+        "clusterArn": {"shape":"String"},
+        "tasks": {"shape": "TaskIdentifierList"},
+        "generatedAt": {"shape": "Long"},
+        "messageId": {"shape": "String"},
+        "timeline": {"shape":"Long"}
+      }
+    },
+    "TaskStopVerificationAck": {
+      "type": "structure",
+      "members": {
+        "stopTasks": {"shape": "TaskIdentifierList"},
+        "generatedAt": {"shape": "Long"},
+        "messageId": {"shape": "String"}
+      }
+    },
+    "TaskStopVerificationMessage": {
+      "type": "structure",
+      "members": {
+        "stopCandidates": {"shape": "TaskIdentifierList"},
+        "messageId": {"shape": "String"}
+      }
     }
   }
 }

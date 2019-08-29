@@ -519,6 +519,9 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
 			},
 			{
+				Name: aws.String(attributePrefix + capabilityFullTaskSync),
+			},
+			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
 			},
 		}...)
@@ -599,6 +602,9 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),

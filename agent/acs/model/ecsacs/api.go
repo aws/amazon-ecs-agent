@@ -1263,6 +1263,90 @@ func (s Task) GoString() string {
 	return s.String()
 }
 
+type TaskIdentifier struct {
+	_ struct{} `type:"structure"`
+
+	DesiredStatus *string `locationName:"desiredStatus" type:"string"`
+
+	TaskArn *string `locationName:"taskArn" type:"string"`
+
+	TaskClusterArn *string `locationName:"taskClusterArn" type:"string"`
+}
+
+// String returns the string representation
+func (s TaskIdentifier) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskIdentifier) GoString() string {
+	return s.String()
+}
+
+type TaskManifestMessage struct {
+	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
+	ContainerInstanceArn *string `locationName:"containerInstanceArn" type:"string"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	Tasks []*TaskIdentifier `locationName:"tasks" type:"list"`
+
+	Timeline *int64 `locationName:"timeline" type:"long"`
+}
+
+// String returns the string representation
+func (s TaskManifestMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskManifestMessage) GoString() string {
+	return s.String()
+}
+
+type TaskStopVerificationAck struct {
+	_ struct{} `type:"structure"`
+
+	GeneratedAt *int64 `locationName:"generatedAt" type:"long"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	StopTasks []*TaskIdentifier `locationName:"stopTasks" type:"list"`
+}
+
+// String returns the string representation
+func (s TaskStopVerificationAck) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskStopVerificationAck) GoString() string {
+	return s.String()
+}
+
+type TaskStopVerificationMessage struct {
+	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+
+	StopCandidates []*TaskIdentifier `locationName:"stopCandidates" type:"list"`
+}
+
+// String returns the string representation
+func (s TaskStopVerificationMessage) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s TaskStopVerificationMessage) GoString() string {
+	return s.String()
+}
+
 type UpdateFailureInput struct {
 	_ struct{} `type:"structure"`
 

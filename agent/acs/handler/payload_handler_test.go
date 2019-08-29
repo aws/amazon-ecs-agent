@@ -69,6 +69,7 @@ func setup(t *testing.T) *testHelper {
 	credentialsManager := credentials.NewManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	latestSeqNumberTaskManifest := int64(10)
 
 	handler := newPayloadRequestHandler(
 		ctx,
@@ -80,7 +81,7 @@ func setup(t *testing.T) *testHelper {
 		stateManager,
 		refreshCredentialsHandler{},
 		credentialsManager,
-		taskHandler)
+		taskHandler, &latestSeqNumberTaskManifest)
 
 	return &testHelper{
 		ctrl:               ctrl,

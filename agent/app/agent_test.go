@@ -153,10 +153,11 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
 
 		// An error in creating the state manager should result in an
 		// error from newTaskEngine as well
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
@@ -192,7 +193,9 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
+
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
@@ -201,7 +204,9 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
+
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
@@ -407,7 +412,9 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
+
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
@@ -463,7 +470,8 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 				assert.True(t, ok)
 				*previousAZ = "us-west-2b"
 			}).Return(nil),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
@@ -517,8 +525,9 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 			}).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
 
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
@@ -555,7 +564,9 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
+
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("error")),
 	)
@@ -590,8 +601,9 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(stateManager, nil),
 		stateManager.EXPECT().Load().Return(errors.New("error")),
 	)
@@ -627,8 +639,9 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("availabilityZone", gomock.Any()).Return(nil),
+		saveableOptionFactory.EXPECT().AddSaveable("latestSeqNumberTaskManifest", gomock.Any()).Return(nil),
 		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(),
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 		).Return(statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),

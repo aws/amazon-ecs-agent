@@ -90,6 +90,7 @@ type session struct {
 	cancel                          context.CancelFunc
 	backoff                         retry.Backoff
 	resources                       sessionResources
+	latestSeqNumTaskManifest        *int64
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
 	_inactiveInstanceReconnectDelay time.Duration
@@ -143,7 +144,7 @@ func NewSession(ctx context.Context,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
-	taskHandler *eventhandler.TaskHandler) Session {
+	taskHandler *eventhandler.TaskHandler, latestSeqNumTaskManifest *int64) Session {
 	resources := newSessionResources(credentialsProvider)
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -164,6 +165,7 @@ func NewSession(ctx context.Context,
 		cancel:                          cancel,
 		backoff:                         backoff,
 		resources:                       resources,
+		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
@@ -294,6 +296,17 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
 
+	// Add TaskManifestHandler
+	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
+		client, acsSession.stateManager, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+
+	defer taskManifestHandler.clearAcks()
+	taskManifestHandler.start()
+	defer taskManifestHandler.stop()
+
+	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskManifestMessage())
+	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskStopVerificationMessage())
+
 	// Add request handler for handling payload messages from ACS
 	payloadHandler := newPayloadRequestHandler(
 		acsSession.ctx,
@@ -305,7 +318,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.stateManager,
 		refreshCredsHandler,
 		acsSession.credentialsManager,
-		acsSession.taskHandler)
+		acsSession.taskHandler, acsSession.latestSeqNumTaskManifest)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
