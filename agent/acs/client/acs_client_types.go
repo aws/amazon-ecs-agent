@@ -47,6 +47,9 @@ func init() {
 		ecsacs.ErrorMessage{},
 		ecsacs.AttachTaskNetworkInterfacesMessage{},
 		ecsacs.AttachInstanceNetworkInterfacesMessage{},
+		ecsacs.TaskManifestMessage{},
+		ecsacs.TaskStopVerificationAck{},
+		ecsacs.TaskStopVerificationMessage{},
 	}
 }
 

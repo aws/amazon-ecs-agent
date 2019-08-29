@@ -95,8 +95,9 @@ const (
 	//	 a) Add 'imageDigest' field to 'apicontainer.Container'
 	//	 b) Add 'Region', 'ExecutionCredentialsID', 'ExternalConfigType', 'ExternalConfigValue' and 'NetworkMode' to
 	//     firelens task resource.
+	// 25) Add `seqNumTaskManifest` int field
 
-	ECSDataVersion = 24
+	ECSDataVersion = 25
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"

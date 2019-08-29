@@ -47,7 +47,8 @@ func TestCompatibilityEnabledSuccess(t *testing.T) {
 
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).AnyTimes(),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
 		stateManager.EXPECT().Load().AnyTimes(),
 		state.EXPECT().AllTasks().Return([]*apitask.Task{}),
 	)
@@ -79,7 +80,8 @@ func TestCompatibilityDefaultEnabledFail(t *testing.T) {
 	}
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).AnyTimes(),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
 		stateManager.EXPECT().Load().AnyTimes(),
 		state.EXPECT().AllTasks().Return(getTaskListWithOneBadTask()),
 	)
@@ -110,7 +112,8 @@ func TestCompatibilityExplicitlyEnabledFail(t *testing.T) {
 	}
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).AnyTimes(),
-		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
+		stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(stateManager, nil),
 		stateManager.EXPECT().Load().AnyTimes(),
 		state.EXPECT().AllTasks().Return(getTaskListWithOneBadTask()),
 	)

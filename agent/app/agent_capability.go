@@ -55,6 +55,7 @@ const (
 	capabilityFirelensLoggingDriver             = "logging-driver.awsfirelens"
 	capabilityFirelensConfigFile                = "firelens.options.config.file"
 	capabilityFirelensConfigS3                  = "firelens.options.config.s3"
+	capabilityFullTaskSync                      = "full-sync"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -98,6 +99,7 @@ const (
 //    com.amazonaws.ecs.capability.logging-driver.awsfirelens
 //    ecs.capability.firelens.options.config.file
 //    ecs.capability.firelens.options.config.s3
+// 	  ecs.capability.full-sync
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -165,6 +167,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support container ordering in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
+
+	// support full task sync
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFullTaskSync)
 
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task

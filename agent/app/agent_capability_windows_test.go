@@ -210,6 +210,9 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilityFullTaskSync),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())

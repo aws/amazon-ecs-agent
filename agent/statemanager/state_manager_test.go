@@ -459,3 +459,30 @@ func TestLoadsDataForContainerImageDigest(t *testing.T) {
 	assert.Equal(t, 1, len(task.Containers))
 	assert.Equal(t, "sha256:9f1003c480699be56815db0f8146ad2e22efea85129b5b5983d0e0fb52d9ab70", task.Containers[0].ImageDigest)
 }
+
+func TestLoadsDataSeqTaskManifest(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v25", "seqNumTaskManifest", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v25", "seqNumTaskManifest")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber, seqNumTaskManifest int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+		statemanager.AddSaveable("seqNumTaskManifest", &seqNumTaskManifest),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	assert.EqualValues(t, 7, seqNumTaskManifest)
+}
