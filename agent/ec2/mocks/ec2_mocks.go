@@ -156,6 +156,21 @@ func (mr *MockEC2MetadataClientMockRecorder) InstanceIdentityDocument() *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceIdentityDocument", reflect.TypeOf((*MockEC2MetadataClient)(nil).InstanceIdentityDocument))
 }
 
+// OutpostARN mocks base method
+func (m *MockEC2MetadataClient) OutpostARN() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OutpostARN")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// OutpostARN indicates an expected call of OutpostARN
+func (mr *MockEC2MetadataClientMockRecorder) OutpostARN() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OutpostARN", reflect.TypeOf((*MockEC2MetadataClient)(nil).OutpostARN))
+}
+
 // PrimaryENIMAC mocks base method
 func (m *MockEC2MetadataClient) PrimaryENIMAC() (string, error) {
 	m.ctrl.T.Helper()

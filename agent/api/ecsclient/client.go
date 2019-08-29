@@ -110,8 +110,10 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 // ContainerInstanceARN if successful. Supplying a non-empty container
 // instance ARN allows a container instance to update its registered
 // resources.
-func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) (string, string, error) {
+func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecs.Attribute,
+	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice,
+	outpostARN string) (string, string, error) {
+
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
 	if clusterRef == "" {
@@ -122,7 +124,8 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		}()
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
-		containerInstanceArn, availabilityzone, err := client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken, platformDevices)
+		containerInstanceArn, availabilityzone, err := client.registerContainerInstance(clusterRef,
+			containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
 		if err == nil {
 			return containerInstanceArn, availabilityzone, nil
 		}
@@ -136,11 +139,14 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 			}
 		}
 	}
-	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken, platformDevices)
+	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken,
+		platformDevices, outpostARN)
 }
 
 func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
-	attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) (string, string, error) {
+	attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string,
+	platformDevices []*ecs.PlatformDevice, outpostARN string) (string, string, error) {
+
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
 	if containerInstanceArn != "" {
@@ -162,6 +168,8 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 
 	// Add additional attributes such as the os type
 	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
+	registrationAttributes = append(registrationAttributes, client.getOutpostAttribute(outpostARN)...)
+
 	registerRequest.Attributes = registrationAttributes
 	if len(tags) > 0 {
 		registerRequest.Tags = tags
@@ -317,10 +325,24 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecs.At
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	return []*ecs.Attribute{{
-		Name:  aws.String("ecs.os-type"),
-		Value: aws.String(config.OSType),
-	}}
+	return []*ecs.Attribute{
+		{
+			Name:  aws.String("ecs.os-type"),
+			Value: aws.String(config.OSType),
+		},
+	}
+}
+
+func (client *APIECSClient) getOutpostAttribute(outpostARN string) []*ecs.Attribute {
+	if len(outpostARN) > 0 {
+		return []*ecs.Attribute{
+			{
+				Name:  aws.String("ecs.outpost-arn"),
+				Value: aws.String(outpostARN),
+			},
+		}
+	}
+	return []*ecs.Attribute{}
 }
 
 func (client *APIECSClient) getCustomAttributes() []*ecs.Attribute {
