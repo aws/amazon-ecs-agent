@@ -175,6 +175,12 @@ var (
     Listen 0.0.0.0
     Port 24224
 
+[INPUT]
+    Name tcp
+    Tag firelens-healthcheck
+    Listen 127.0.0.1
+    Port 8877
+
 [FILTER]
     Name   grep
     Match container-firelens*
@@ -192,6 +198,10 @@ var (
     Record ecs_cluster mycluster
     Record ecs_task_arn arn:aws:ecs:us-east-2:01234567891011:task/mycluster/3de392df-6bfa-470b-97ed-aa6f482cd7a
     Record ecs_task_definition taskdefinition:1
+
+[OUTPUT]
+    Name null
+    Match firelens-healthcheck
 
 [OUTPUT]
     Name kinesis_firehose

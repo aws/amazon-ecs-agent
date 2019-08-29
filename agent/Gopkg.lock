@@ -61,11 +61,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:83cedb03ada7f52025f19d4e1fef1193b0c95dd3d1ec463488e5b9865bcf5af3"
+  digest = "1:8611d685d67d4d44786ca9fe2d9641647e60087bfcb71674fd3424c86617bbb4"
   name = "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
   packages = ["."]
   pruneopts = "UT"
-  revision = "d9b7ac1ed5905d5434dd21ebc1582389b4ae91d1"
+  revision = "55d4fd2e6f353637f53296306078fa4e9d753c1f"
 
 [[projects]]
   branch = "master"

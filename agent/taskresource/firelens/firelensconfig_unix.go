@@ -74,6 +74,18 @@ const (
 	// inputPortValue is the value for specifying port for fluentd for tcp.
 	inputPortValue = "24224"
 
+	// healthcheckInputNameFluentbit in the input plugin used to receive health check message for fluentbit.
+	healthcheckInputNameFluentbit = "tcp"
+	// healthcheckInputBindValue is the source where health check message comes from.
+	healthcheckInputBindValue = "127.0.0.1"
+	// healthcheckInputPortValue is the port for healthcheck.
+	healthcheckInputPortValue = "8877"
+	// healthcheckTag is the tag for health check message.
+	healthcheckTag = "firelens-healthcheck"
+	// healthcheckOutputName is the output plugin that health check message goes to. It's a black hole so that the health
+	// check messages don't go into logs.
+	healthcheckOutputName = "null"
+
 	// inputListenOptionFluentbit is the key for the log option that specifies host for fluentbit.
 	inputListenOptionFluentbit = "Listen"
 
@@ -106,7 +118,8 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		inputPathOption: socketPath,
 	})
 	// Specify log stream input of tcp socket kind that can be used for communication between the Firelens
-	// container and other containers if the network is bridge or awsvpc mode
+	// container and other containers if the network is bridge or awsvpc mode. Also add health check sections to support
+	// doing container health check on firlens container for these two modes.
 	if firelens.networkMode == bridgeNetworkMode || firelens.networkMode == awsvpcNetworkMode {
 		inputMap := map[string]string{}
 		var inputBindValue string
@@ -129,6 +142,8 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 			}
 		}
 		config.AddInput(inputName, "", inputMap)
+
+		firelens.addHealthcheckSections(config)
 	}
 
 	if firelens.ecsMetadataEnabled {
@@ -153,6 +168,25 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	}
 
 	return config, nil
+}
+
+// addHealthcheckSections adds a health check input section and a health check output section to the config.
+func (firelens *FirelensResource) addHealthcheckSections(config generator.FluentConfig) {
+	// Health check supported is only added for fluentbit.
+	if firelens.firelensConfigType != FirelensConfigTypeFluentbit {
+		return
+	}
+
+	// Add healthcheck input section.
+	inputName := healthcheckInputNameFluentbit
+	inputOptions := map[string]string{
+		inputPortOptionFluentbit:   healthcheckInputPortValue,
+		inputListenOptionFluentbit: healthcheckInputBindValue,
+	}
+	config.AddInput(inputName, healthcheckTag, inputOptions)
+
+	// Add healthcheck output section.
+	config.AddOutput(healthcheckOutputName, healthcheckTag, nil)
 }
 
 // addOutputSection adds an output section to the firelens container's config that specifies how it routes another
