@@ -24,6 +24,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/go-connections/nat"
+
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -45,15 +51,10 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
-	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 )
 
@@ -124,6 +125,12 @@ const (
 	awsExecutionEnvKey = "AWS_EXECUTION_ENV"
 	// ec2ExecutionEnv specifies the ec2 execution environment.
 	ec2ExecutionEnv = "AWS_ECS_EC2"
+
+	// specifies bridge type mode for a task
+	BridgeNetworkMode = "bridge"
+
+	// specifies awsvpc type mode for a task
+	AWSVPCNetworkMode = "awsvpc"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -339,7 +346,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	firelensContainer := task.getFirelensContainer()
+	firelensContainer := task.GetFirelensContainer()
 	if firelensContainer != nil {
 		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer)
 		if err != nil {
@@ -790,8 +797,8 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 	return reqs
 }
 
-// getFirelensContainer returns the firelens container in the task, if there is one.
-func (task *Task) getFirelensContainer() *apicontainer.Container {
+// GetFirelensContainer returns the firelens container in the task, if there is one.
+func (task *Task) GetFirelensContainer() *apicontainer.Container {
 	for _, container := range task.Containers {
 		if container.GetFirelensConfig() != nil { // This is a firelens container.
 			return container
@@ -834,9 +841,16 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			if firelensConfig.Options != nil && firelensConfig.Options["enable-ecs-log-metadata"] == "false" {
 				enableECSLogMetadata = false
 			}
-
+			var networkMode string
+			if task.IsNetworkModeAWSVPC() {
+				networkMode = AWSVPCNetworkMode
+			} else if container.GetNetworkMode() == "" {
+				networkMode = BridgeNetworkMode
+			} else {
+				networkMode = container.GetNetworkMode()
+			}
 			firelensResource = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
-				ec2InstanceID, config.DataDir, firelensConfig.Type, enableECSLogMetadata, containerToLogOptions)
+				ec2InstanceID, config.DataDir, firelensConfig.Type, networkMode, enableECSLogMetadata, containerToLogOptions)
 			task.AddResource(firelens.ResourceName, firelensResource)
 			container.BuildResourceDependency(firelensResource.GetName(), resourcestatus.ResourceCreated,
 				apicontainerstatus.ContainerCreated)

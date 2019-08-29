@@ -38,6 +38,7 @@ type firelensResourceJSON struct {
 	DesiredStatus *FirelensStatus
 	KnownStatus   *FirelensStatus
 	AppliedStatus *FirelensStatus
+	NetworkMode   string
 }
 
 // MarshalJSON marshals a FirelensResource object into bytes of json.
@@ -60,6 +61,7 @@ func (firelens *FirelensResource) MarshalJSON() ([]byte, error) {
 		ContainersToLogOptions: firelens.containerToLogOptions,
 		TerminalReason:         firelens.terminalReason,
 		CreatedAt:              firelens.createdAtUnsafe,
+		NetworkMode:            firelens.networkMode,
 		DesiredStatus: func() *FirelensStatus {
 			desiredStatus := firelens.desiredStatusUnsafe
 			s := FirelensStatus(desiredStatus)
@@ -105,6 +107,7 @@ func (firelens *FirelensResource) UnmarshalJSON(b []byte) error {
 	firelens.desiredStatusUnsafe = resourcestatus.ResourceStatus(*temp.DesiredStatus)
 	firelens.knownStatusUnsafe = resourcestatus.ResourceStatus(*temp.KnownStatus)
 	firelens.appliedStatusUnsafe = resourcestatus.ResourceStatus(*temp.AppliedStatus)
+	firelens.networkMode = temp.NetworkMode
 
 	return nil
 }

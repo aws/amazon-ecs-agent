@@ -45,6 +45,7 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		desiredStatusUnsafe:   resourcestatus.ResourceCreated,
 		knownStatusUnsafe:     resourcestatus.ResourceCreated,
 		appliedStatusUnsafe:   resourcestatus.ResourceCreated,
+		networkMode:           bridgeNetworkMode,
 	}
 
 	bytes, err := json.Marshal(firelensResIn)
@@ -65,4 +66,5 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, resourcestatus.ResourceCreated, firelensResOut.knownStatusUnsafe)
 	assert.Equal(t, resourcestatus.ResourceCreated, firelensResOut.appliedStatusUnsafe)
 	assert.Equal(t, testTerminalResason, firelensResOut.terminalReason)
+	assert.Equal(t, bridgeNetworkMode, firelensResOut.networkMode)
 }

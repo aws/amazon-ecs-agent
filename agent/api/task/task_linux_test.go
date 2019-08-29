@@ -666,7 +666,7 @@ func TestGetFirelensContainer(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.firelensContainer, tc.task.getFirelensContainer())
+			assert.Equal(t, tc.firelensContainer, tc.task.GetFirelensContainer())
 		})
 	}
 }
@@ -1073,6 +1073,7 @@ func getFirelensTask(t *testing.T) *Task {
 						Provider: apicontainer.SecretProviderSSM,
 					},
 				},
+				NetworkModeUnsafe:         BridgeNetworkMode,
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 			{
@@ -1086,6 +1087,7 @@ func getFirelensTask(t *testing.T) *Task {
 				Environment: map[string]string{
 					"AWS_EXECUTION_ENV": "AWS_ECS_EC2",
 				},
+				NetworkModeUnsafe:         BridgeNetworkMode,
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
