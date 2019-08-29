@@ -141,6 +141,12 @@ func (mr *MockEC2MetadataClientMockRecorder) InstanceID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceID", reflect.TypeOf((*MockEC2MetadataClient)(nil).InstanceID))
 }
 
+// outpostARN indicates an expected call of InstanceID
+func (mr *MockEC2MetadataClientMockRecorder) OutpostARN() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OutpostARN", reflect.TypeOf((*MockEC2MetadataClient)(nil).OutpostARN))
+}
+
 // InstanceIdentityDocument mocks base method
 func (m *MockEC2MetadataClient) InstanceIdentityDocument() (ec2metadata.EC2InstanceIdentityDocument, error) {
 	m.ctrl.T.Helper()
@@ -190,6 +196,15 @@ func (mr *MockEC2MetadataClientMockRecorder) PrivateIPv4Address() *gomock.Call {
 func (m *MockEC2MetadataClient) PublicIPv4Address() (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PublicIPv4Address")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// outpostARN mocks base method
+func (m *MockEC2MetadataClient) OutpostARN() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OutpostARN")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1

@@ -435,6 +435,17 @@ func (agent *ecsAgent) getEC2InstanceID() string {
 	return instanceID
 }
 
+// getoutpostARN gets the Outpost ID from the metadata service
+func (agent *ecsAgent) getoutpostARN() string {
+	outpostARN, err := agent.ec2MetadataClient.OutpostARN()
+	if err != nil {
+		seelog.Warnf(
+			"Unable to access EC2 Metadata service to determine Outpost ID: %v", err)
+		return ""
+	}
+	return outpostARN
+}
+
 // newStateManager creates a new state manager object for the task engine.
 // Rest of the parameters are pointers and it's expected that all of these
 // will be backfilled when state manager's Load() method is invoked
@@ -508,13 +519,15 @@ func (agent *ecsAgent) registerContainerInstance(
 
 	platformDevices := agent.getPlatformDevices()
 
+	outpostARN := agent.getoutpostARN()
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices)
+		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -541,9 +554,11 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) error {
-	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken, platformDevices)
+func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute,
+	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice, outpostARN string) error {
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags,
+		registrationToken, platformDevices, outpostARN)
+
 	//set az to agent
 	agent.availabilityZone = availabilityZone
 
