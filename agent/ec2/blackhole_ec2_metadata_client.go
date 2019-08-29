@@ -80,3 +80,7 @@ func (blackholeMetadataClient) PublicIPv4Address() (string, error) {
 func (blackholeMetadataClient) SpotInstanceAction() (string, error) {
 	return "", errors.New("blackholed")
 }
+
+func (blackholeMetadataClient) OutpostARN() (string, error) {
+	return "", errors.New("blackholed")
+}

@@ -27,7 +27,8 @@ type ECSClient interface {
 	// instance ARN allows a container instance to update its registered
 	// resources.
 	RegisterContainerInstance(existingContainerInstanceArn string,
-		attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) (string, string, error)
+		attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice,
+		outpostARN string) (string, string, error)
 	// SubmitTaskStateChange sends a state change and returns an error
 	// indicating if it was submitted
 	SubmitTaskStateChange(change TaskStateChange) error
