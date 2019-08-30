@@ -110,6 +110,8 @@ type Container struct {
 	Image string
 	// ImageID is the local ID of the image used in the container
 	ImageID string
+	// ImageDigest is the sha-256 digest of the container image as pulled from the repository
+	ImageDigest string
 	// Command is the command to run in the container which is specified in the task definition
 	Command []string
 	// CPU is the cpu limitation of the container which is specified in the task definition
@@ -604,6 +606,22 @@ func (c *Container) GetRuntimeID() string {
 	defer c.lock.RUnlock()
 
 	return c.RuntimeID
+}
+
+// SetImageDigest sets the ImageDigest for a container
+func (c *Container) SetImageDigest(ImageDigest string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.ImageDigest = ImageDigest
+}
+
+// GetImageDigest gets the ImageDigest for a container
+func (c *Container) GetImageDigest() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.ImageDigest
 }
 
 // GetLabels gets the labels for a container

@@ -527,6 +527,13 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
 }
 
+func TestSetImageDigestInContainer(t *testing.T) {
+	container := Container{}
+	container.SetImageDigest("sha256:123456789")
+	assert.Equal(t, "sha256:123456789", container.ImageDigest)
+	assert.Equal(t, "sha256:123456789", container.GetImageDigest())
+}
+
 func TestDependsOnContainer(t *testing.T) {
 	testCases := []struct {
 		name          string

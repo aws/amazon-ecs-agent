@@ -724,6 +724,7 @@
         "taskArn":{"shape":"String"},
         "name":{"shape":"String"},
         "runtimeId":{"shape": "String"},
+        "imageDigest": {"shape": "String"},
         "lastStatus":{"shape":"String"},
         "exitCode":{"shape":"BoxedInteger"},
         "reason":{"shape":"String"},
@@ -859,6 +860,7 @@
       "type":"structure",
       "members":{
         "containerName":{"shape":"String"},
+        "imageDigest":{"shape": "String"},
         "runtimeId":{"shape": "String"},
         "exitCode":{"shape":"BoxedInteger"},
         "networkBindings":{"shape":"NetworkBindings"},

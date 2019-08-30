@@ -4183,6 +4183,8 @@ type Container struct {
 	// this container in its task definition, then it reports health status as UNKNOWN.
 	HealthStatus *string `locationName:"healthStatus" type:"string" enum:"HealthStatus"`
 
+	ImageDigest *string `locationName:"imageDigest" type:"string"`
+
 	// The last known status of the container.
 	LastStatus *string `locationName:"lastStatus" type:"string"`
 
@@ -4236,6 +4238,12 @@ func (s *Container) SetFirelensConfiguration(v *FirelensConfiguration) *Containe
 // SetHealthStatus sets the HealthStatus field's value.
 func (s *Container) SetHealthStatus(v string) *Container {
 	s.HealthStatus = &v
+	return s
+}
+
+// SetImageDigest sets the ImageDigest field's value.
+func (s *Container) SetImageDigest(v string) *Container {
+	s.ImageDigest = &v
 	return s
 }
 
@@ -5378,6 +5386,8 @@ type ContainerStateChange struct {
 	// exiting.
 	ExitCode *int64 `locationName:"exitCode" type:"integer"`
 
+	ImageDigest *string `locationName:"imageDigest" type:"string"`
+
 	// Any network bindings associated with the container.
 	NetworkBindings []*NetworkBinding `locationName:"networkBindings" type:"list"`
 
@@ -5409,6 +5419,12 @@ func (s *ContainerStateChange) SetContainerName(v string) *ContainerStateChange 
 // SetExitCode sets the ExitCode field's value.
 func (s *ContainerStateChange) SetExitCode(v int64) *ContainerStateChange {
 	s.ExitCode = &v
+	return s
+}
+
+// SetImageDigest sets the ImageDigest field's value.
+func (s *ContainerStateChange) SetImageDigest(v string) *ContainerStateChange {
+	s.ImageDigest = &v
 	return s
 }
 
