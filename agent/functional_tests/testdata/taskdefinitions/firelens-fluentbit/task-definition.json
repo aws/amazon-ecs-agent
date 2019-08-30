@@ -6,11 +6,15 @@
   "containerDefinitions": [
     {
       "name": "firelens",
-      "image": "amazon/aws-for-fluent-bit:1.2.0",
+      "image": "127.0.0.1:51670/amazon/firelens-fluentbit:latest",
       "essential": true,
       "memory": 256,
       "firelensConfiguration": {
-        "type": "fluentbit"
+        "type": "fluentbit",
+        "options": {
+          "config-file-type": "file",
+          "config-file-value": "/tmp/local.conf"
+        }
       },
       "environment": [
         {
@@ -25,6 +29,11 @@
           "awslogs-region":"$$$TEST_REGION$$$",
           "awslogs-stream-prefix":"firelens-container"
         }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "echo '{\"health\": \"check\"}' | nc 127.0.0.1 8877 || exit 1"],
+        "interval": 5,
+        "retries": 5
       }
     },
     {
@@ -46,7 +55,13 @@
           "name": "$$$SECRET_OPTION_KEY$$$",
           "valueFrom": "$$$SECRET_OPTION_PARAM$$$"
         }]
-      }
+      },
+      "dependsOn": [
+        {
+          "containerName": "firelens",
+          "condition": "HEALTHY"
+        }
+      ]
     }
   ]
 }

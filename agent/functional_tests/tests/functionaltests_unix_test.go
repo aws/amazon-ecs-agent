@@ -1812,7 +1812,8 @@ func TestFirelensFluentd(t *testing.T) {
 		return message
 	}
 
-	testFirelens(t, "fluentd", "@type", "stdout", getLogSenderMessageFunc)
+	testFirelens(t, "fluentd", "@type", "stdout",
+		getLogSenderMessageFunc)
 }
 
 // TestFirelensFluentbit starts a task that has a log sender container and a firelens container with configuration type
@@ -1841,7 +1842,8 @@ func TestFirelensFluentbit(t *testing.T) {
 		return message
 	}
 
-	testFirelens(t, "fluentbit", "Name", "cloudwatch", getLogSenderMessageFunc)
+	testFirelens(t, "fluentbit", "Name", "cloudwatch",
+		getLogSenderMessageFunc)
 }
 
 func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLogOptionValue string,
@@ -1900,7 +1902,8 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.30.0")
+	// TODO: change to 1.31.0 before merging feature branch
+	agent.RequireVersion(">=1.29.1")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
@@ -1933,4 +1936,5 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	assert.Equal(t, agent.Cluster, jsonBlob["ecs_cluster"])
 	assert.Equal(t, *testTask.TaskArn, jsonBlob["ecs_task_arn"])
 	assert.Contains(t, *testTask.TaskDefinitionArn, jsonBlob["ecs_task_definition"])
+	assert.Equal(t, "external_config_value", jsonBlob["external_config_key"])
 }

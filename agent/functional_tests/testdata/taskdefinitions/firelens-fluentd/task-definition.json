@@ -6,11 +6,15 @@
   "containerDefinitions": [
     {
       "name": "firelens",
-      "image": "fluentd:v1.4-2",
+      "image": "127.0.0.1:51670/amazon/firelens-fluentd:latest",
       "essential": true,
       "memory": 256,
       "firelensConfiguration": {
-        "type": "fluentd"
+        "type": "fluentd",
+        "options": {
+          "config-file-type": "file",
+          "config-file-value": "/tmp/local.conf"
+        }
       },
       "environment": [
         {
