@@ -272,6 +272,74 @@ func TestAddContainerReferenceToExistingImageState(t *testing.T) {
 	}
 }
 
+func TestFetchRepoDigest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	imageManager := &dockerImageManager{client: client, state: dockerstate.NewTaskEngineState()}
+
+	testCases := []struct {
+		container      *apicontainer.Container
+		imageInspected *types.ImageInspect
+	}{
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer1",
+				Image:       "repo1",
+				ImageDigest: "digest1",
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer2",
+				Image:       "repo1:latest",
+				ImageDigest: "digest1",
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer3",
+				Image:       "repo1@sha256:12345",
+				ImageDigest: "sha256:12345",
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"repo1@sha256:12345", "repo2@digest2", "repo3"},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer4",
+				Image:       "mysql123",
+				ImageDigest: "",
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer5",
+				Image:       "mysql",
+				ImageDigest: "",
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"mysql", "repo2@digest2"},
+			},
+		},
+	}
+
+	for i, test := range testCases {
+		resultRepoDigest := imageManager.fetchRepoDigest(test.imageInspected, test.container)
+		assert.Equal(t, test.container.ImageDigest, resultRepoDigest, "incorrect repoDigest", i)
+	}
+}
+
 func TestAddContainerReferenceToExistingImageStateNoState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

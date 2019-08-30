@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -126,13 +128,34 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 		seelog.Errorf("Error inspecting image %v: %v", container.Image, err)
 		return err
 	}
-
 	container.ImageID = imageInspected.ID
+	imageDigest := imageManager.fetchRepoDigest(imageInspected, container)
+	container.SetImageDigest(imageDigest)
 	added := imageManager.addContainerReferenceToExistingImageState(container)
 	if !added {
 		imageManager.addContainerReferenceToNewImageState(container, imageInspected.Size)
 	}
 	return nil
+}
+
+// The helper function to fetch the RepoImageDigest when inspect the image
+func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *types.ImageInspect, container *apicontainer.Container) string {
+	imageRepoDigests := imageInspected.RepoDigests
+	resultRepoDigest := ""
+	imagePrefix := strings.Split(container.Image, ":")[0]
+	for _, imageRepoDigest := range imageRepoDigests {
+		if strings.HasPrefix(imageRepoDigest, imagePrefix) {
+			repoDigestSplitList := strings.Split(imageRepoDigest, "@")
+			if len(repoDigestSplitList) > 1 {
+				resultRepoDigest = repoDigestSplitList[1]
+				return resultRepoDigest
+			} else {
+				seelog.Warnf("ImageRepoDigest doesn't have the right format: %v", imageRepoDigest)
+				return ""
+			}
+		}
+	}
+	return resultRepoDigest
 }
 
 func (imageManager *dockerImageManager) addContainerReferenceToExistingImageState(container *apicontainer.Container) bool {

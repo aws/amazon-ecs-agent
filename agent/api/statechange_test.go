@@ -105,3 +105,23 @@ func TestSetContainerRuntimeID(t *testing.T) {
 	assert.NoError(t, ok, "error create newContainerStateChangeEvent")
 	assert.Equal(t, "222", resp.RuntimeID)
 }
+
+func TestSetImageDigest(t *testing.T) {
+	task := &apitask.Task{}
+	steadyStateStatus := apicontainerstatus.ContainerRunning
+	Containers := []*apicontainer.Container{
+		{
+			ImageDigest:             "sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
+			KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
+			SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
+			Type:                    apicontainer.ContainerNormal,
+			SteadyStateStatusUnsafe: &steadyStateStatus,
+		},
+	}
+
+	task.Containers = Containers
+	resp, ok := NewContainerStateChangeEvent(task, task.Containers[0], "")
+
+	assert.NoError(t, ok, "error create newContainerStateChangeEvent")
+	assert.Equal(t, "sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230", resp.ImageDigest)
+}
