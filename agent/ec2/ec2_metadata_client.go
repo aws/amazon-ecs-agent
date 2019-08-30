@@ -33,6 +33,7 @@ const (
 	AllMacResource                            = "network/interfaces/macs"
 	VPCIDResourceFormat                       = "network/interfaces/macs/%s/vpc-id"
 	SubnetIDResourceFormat                    = "network/interfaces/macs/%s/subnet-id"
+	SpotTerminationTimeResource               = "spot/termination-time"
 	InstanceIDResource                        = "instance-id"
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
@@ -76,6 +77,7 @@ type EC2MetadataClient interface {
 	Region() (string, error)
 	PrivateIPv4Address() (string, error)
 	PublicIPv4Address() (string, error)
+	SpotTerminationTime() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -183,4 +185,11 @@ func (c *ec2MetadataClientImpl) PublicIPv4Address() (string, error) {
 // PrivateIPv4Address returns the private IPv4 of this instance
 func (c *ec2MetadataClientImpl) PrivateIPv4Address() (string, error) {
 	return c.client.GetMetadata(PrivateIPv4Resource)
+}
+
+// SpotTerminationTime returns the spot termination time, if it has been set.
+// If the time has not been set (ie, the instance is not scheduled for termination)
+// then this function returns an error.
+func (c *ec2MetadataClientImpl) SpotTerminationTime() (string, error) {
+	return c.client.GetMetadata(SpotTerminationTimeResource)
 }

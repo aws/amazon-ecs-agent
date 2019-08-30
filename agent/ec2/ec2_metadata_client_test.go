@@ -224,3 +224,31 @@ func TestPublicIPv4Address(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, publicIP, publicIPResponse)
 }
+
+func TestSpotTerminationTime(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		ec2.SpotTerminationTimeResource).Return("2019-08-26T17:54:20Z", nil)
+	resp, err := testClient.SpotTerminationTime()
+	assert.NoError(t, err)
+	assert.Equal(t, "2019-08-26T17:54:20Z", resp)
+}
+
+func TestSpotTerminationTimeError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
+	testClient := ec2.NewEC2MetadataClient(mockGetter)
+
+	mockGetter.EXPECT().GetMetadata(
+		ec2.SpotTerminationTimeResource).Return("", fmt.Errorf("ERROR"))
+	resp, err := testClient.SpotTerminationTime()
+	assert.Error(t, err)
+	assert.Equal(t, "", resp)
+}

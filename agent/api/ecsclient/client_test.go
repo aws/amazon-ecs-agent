@@ -748,6 +748,70 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	}
 }
 
+func TestUpdateContainerInstancesState(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	status := "DRAINING"
+	mc.EXPECT().UpdateContainerInstancesState(&ecs.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
+		Cluster:            aws.String(configuredCluster),
+	}).Return(&ecs.UpdateContainerInstancesStateOutput{}, nil)
+
+	err := client.UpdateContainerInstancesState(instanceARN, status)
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling UpdateContainerInstancesState: %s", err))
+}
+
+func TestUpdateContainerInstancesStateError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	status := "DRAINING"
+	mc.EXPECT().UpdateContainerInstancesState(&ecs.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
+		Cluster:            aws.String(configuredCluster),
+	}).Return(nil, fmt.Errorf("ERROR"))
+
+	err := client.UpdateContainerInstancesState(instanceARN, status)
+	assert.Error(t, err, "Expected an error calling UpdateContainerInstancesState but got nil")
+}
+
+func TestGetResourceTags(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	mc.EXPECT().ListTagsForResource(&ecs.ListTagsForResourceInput{
+		ResourceArn: aws.String(instanceARN),
+	}).Return(&ecs.ListTagsForResourceOutput{
+		Tags: containerInstanceTags,
+	}, nil)
+
+	_, err := client.GetResourceTags(instanceARN)
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling GetResourceTags: %s", err))
+}
+
+func TestGetResourceTagsError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	mc.EXPECT().ListTagsForResource(&ecs.ListTagsForResourceInput{
+		ResourceArn: aws.String(instanceARN),
+	}).Return(nil, fmt.Errorf("ERROR"))
+
+	_, err := client.GetResourceTags(instanceARN)
+	assert.Error(t, err, "Expected an error calling GetResourceTags but got nil")
+}
+
 func TestDiscoverPollEndpointCacheHit(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

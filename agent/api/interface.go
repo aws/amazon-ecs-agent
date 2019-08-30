@@ -45,6 +45,9 @@ type ECSClient interface {
 	DiscoverTelemetryEndpoint(containerInstanceArn string) (string, error)
 	// GetResourceTags retrieves the Tags associated with a certain resource
 	GetResourceTags(resourceArn string) ([]*ecs.Tag, error)
+	// UpdateContainerInstancesState updates the given container Instance ID with
+	// the given status. Only valid statuses are ACTIVE and DRAINING.
+	UpdateContainerInstancesState(instanceARN, status string) error
 }
 
 // ECSSDK is an interface that specifies the subset of the AWS Go SDK's ECS
@@ -55,6 +58,7 @@ type ECSSDK interface {
 	RegisterContainerInstance(*ecs.RegisterContainerInstanceInput) (*ecs.RegisterContainerInstanceOutput, error)
 	DiscoverPollEndpoint(*ecs.DiscoverPollEndpointInput) (*ecs.DiscoverPollEndpointOutput, error)
 	ListTagsForResource(*ecs.ListTagsForResourceInput) (*ecs.ListTagsForResourceOutput, error)
+	UpdateContainerInstancesState(input *ecs.UpdateContainerInstancesStateInput) (*ecs.UpdateContainerInstancesStateOutput, error)
 }
 
 // ECSSubmitStateSDK is an interface with customized ecs client that

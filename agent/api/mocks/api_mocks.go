@@ -109,6 +109,21 @@ func (mr *MockECSSDKMockRecorder) RegisterContainerInstance(arg0 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterContainerInstance", reflect.TypeOf((*MockECSSDK)(nil).RegisterContainerInstance), arg0)
 }
 
+// UpdateContainerInstancesState mocks base method
+func (m *MockECSSDK) UpdateContainerInstancesState(arg0 *ecs.UpdateContainerInstancesStateInput) (*ecs.UpdateContainerInstancesStateOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", arg0)
+	ret0, _ := ret[0].(*ecs.UpdateContainerInstancesStateOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateContainerInstancesState indicates an expected call of UpdateContainerInstancesState
+func (mr *MockECSSDKMockRecorder) UpdateContainerInstancesState(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerInstancesState", reflect.TypeOf((*MockECSSDK)(nil).UpdateContainerInstancesState), arg0)
+}
+
 // MockECSSubmitStateSDK is a mock of ECSSubmitStateSDK interface
 type MockECSSubmitStateSDK struct {
 	ctrl     *gomock.Controller
@@ -301,4 +316,18 @@ func (m *MockECSClient) SubmitTaskStateChange(arg0 api.TaskStateChange) error {
 func (mr *MockECSClientMockRecorder) SubmitTaskStateChange(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitTaskStateChange", reflect.TypeOf((*MockECSClient)(nil).SubmitTaskStateChange), arg0)
+}
+
+// UpdateContainerInstancesState mocks base method
+func (m *MockECSClient) UpdateContainerInstancesState(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateContainerInstancesState", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateContainerInstancesState indicates an expected call of UpdateContainerInstancesState
+func (mr *MockECSClientMockRecorder) UpdateContainerInstancesState(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerInstancesState", reflect.TypeOf((*MockECSClient)(nil).UpdateContainerInstancesState), arg0, arg1)
 }
