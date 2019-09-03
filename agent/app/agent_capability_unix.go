@@ -156,3 +156,8 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.A
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }
+
+func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
+}

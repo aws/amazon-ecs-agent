@@ -815,3 +815,42 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 		})
 	}
 }
+
+func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	conf := &config.Config{
+		PrivilegedDisabled: true,
+	}
+
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+		}),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigFile)})
+	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigS3)})
+}
