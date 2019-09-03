@@ -901,7 +901,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	firelensConfig := container.GetFirelensConfig()
 	if firelensConfig != nil {
-		err := task.AddFirelensContainerBindMounts(firelensConfig.Type, hostConfig, engine.cfg)
+		err := task.AddFirelensContainerBindMounts(firelensConfig, hostConfig, engine.cfg)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
