@@ -31,6 +31,7 @@ type File interface {
 	Close() error
 	Chmod(os.FileMode) error
 	Write([]byte) (int, error)
+	WriteAt(b []byte, off int64) (n int, err error)
 	Sync() error
 }
 

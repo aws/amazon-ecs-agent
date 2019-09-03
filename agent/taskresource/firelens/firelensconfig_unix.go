@@ -17,6 +17,7 @@ package firelens
 import (
 	"fmt"
 
+	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
 	generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
@@ -55,6 +56,10 @@ const (
 
 	// socketPath is the path for socket file.
 	socketPath = "/var/run/fluent.sock"
+
+	// S3ConfigPathFluentd and S3ConfigPathFluentbit are the paths where we bind mount the config downloaded from S3 to.
+	S3ConfigPathFluentd   = "/fluentd/etc/external.conf"
+	S3ConfigPathFluentbit = "/fluent-bit/etc/external.conf"
 
 	// fluentTagOutputFormat is the format for the log tag, which is container name with "-firelens" appended
 	fluentTagOutputFormat = "%s-firelens*"
@@ -157,7 +162,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	}
 
 	// Specify log stream output. Each container that uses the firelens container to stream logs
-	// will have its own output section, with its own log options.
+	// may have its own output section with options, constructed from container's log options.
 	for containerName, logOptions := range firelens.containerToLogOptions {
 		tag := fmt.Sprintf(fluentTagOutputFormat, containerName) // Each output section is distinguished by a tag specific to a container.
 		newConfig, err := addOutputSection(tag, firelens.firelensConfigType, logOptions, config)
@@ -166,6 +171,20 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		}
 		config = newConfig
 	}
+
+	// Include external config file if specified.
+	if firelens.externalConfigType == ExternalConfigTypeFile {
+		config.AddExternalConfig(firelens.externalConfigValue, generator.AfterFilters)
+	} else if firelens.externalConfigType == ExternalConfigTypeS3 {
+		var s3ConfPath string
+		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+			s3ConfPath = S3ConfigPathFluentd
+		} else {
+			s3ConfPath = S3ConfigPathFluentbit
+		}
+		config.AddExternalConfig(s3ConfPath, generator.AfterFilters)
+	}
+	seelog.Infof("Included external firelens config file at: %s", firelens.externalConfigValue)
 
 	return config, nil
 }
@@ -192,7 +211,8 @@ func (firelens *FirelensResource) addHealthcheckSections(config generator.Fluent
 // addOutputSection adds an output section to the firelens container's config that specifies how it routes another
 // container's logs. It's constructed based on that container's log options.
 // logOptions is a set of key-value pairs, which includes the following:
-//     1. The name of the output plugin (required). For fluentd, the key is "@type", for fluentbit, the key is "Name".
+//     1. The name of the output plugin (required when there are output options specified, i.e. the ones in 4). For
+//     fluentd, the key is "@type", for fluentbit, the key is "Name".
 //     2. include-pattern (optional): a regex specifying the logs to be included.
 //     3. exclude-pattern (optional): a regex specifying the logs to be excluded.
 //     4. All other key-value pairs are customer specified options for the plugin. They are unique for each plugin and
@@ -203,13 +223,6 @@ func addOutputSection(tag, firelensConfigType string, logOptions map[string]stri
 		outputKey = outputTypeLogOptionKeyFluentd
 	} else {
 		outputKey = outputTypeLogOptionKeyFluentbit
-	}
-
-	output, ok := logOptions[outputKey]
-	if !ok {
-		return config, errors.New(
-			fmt.Sprintf("missing output option %s which is required for firelens configuration of type %s",
-				outputKey, firelensConfigType))
 	}
 
 	outputOptions := make(map[string]string)
@@ -226,6 +239,17 @@ func addOutputSection(tag, firelensConfigType string, logOptions map[string]stri
 		}
 	}
 
+	output, ok := logOptions[outputKey]
+	// If there are some output options specified, there must be an output key so that we know what is the output plugin.
+	if len(outputOptions) > 0 && !ok {
+		return config, errors.New(
+			fmt.Sprintf("missing output key %s which is required for firelens configuration of type %s",
+				outputKey, firelensConfigType))
+	} else if !ok { // Otherwise it's ok to not generate an output section, since customers may specify the output in external config.
+		return config, nil
+	}
+
+	// Output key is specified. Add an output section.
 	config.AddOutput(output, tag, outputOptions)
 	return config, nil
 }

@@ -32,20 +32,24 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 	}
 
 	firelensResIn := &FirelensResource{
-		cluster:               testCluster,
-		taskARN:               testTaskARN,
-		taskDefinition:        testTaskDefinition,
-		ec2InstanceID:         testEC2InstanceID,
-		resourceDir:           testResourceDir,
-		firelensConfigType:    FirelensConfigTypeFluentd,
-		ecsMetadataEnabled:    true,
-		containerToLogOptions: testContainerToLogOptions,
-		terminalReason:        testTerminalResason,
-		createdAtUnsafe:       testCreatedAt,
-		desiredStatusUnsafe:   resourcestatus.ResourceCreated,
-		knownStatusUnsafe:     resourcestatus.ResourceCreated,
-		appliedStatusUnsafe:   resourcestatus.ResourceCreated,
-		networkMode:           bridgeNetworkMode,
+		cluster:                testCluster,
+		taskARN:                testTaskARN,
+		taskDefinition:         testTaskDefinition,
+		ec2InstanceID:          testEC2InstanceID,
+		resourceDir:            testResourceDir,
+		firelensConfigType:     FirelensConfigTypeFluentd,
+		region:                 testRegion,
+		ecsMetadataEnabled:     true,
+		containerToLogOptions:  testContainerToLogOptions,
+		executionCredentialsID: testExecutionCredentialsID,
+		externalConfigType:     testExternalConfigType,
+		externalConfigValue:    testExternalConfigValue,
+		terminalReason:         testTerminalResason,
+		createdAtUnsafe:        testCreatedAt,
+		desiredStatusUnsafe:    resourcestatus.ResourceCreated,
+		knownStatusUnsafe:      resourcestatus.ResourceCreated,
+		appliedStatusUnsafe:    resourcestatus.ResourceCreated,
+		networkMode:            bridgeNetworkMode,
 	}
 
 	bytes, err := json.Marshal(firelensResIn)
@@ -57,8 +61,12 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, testCluster, firelensResOut.cluster)
 	assert.Equal(t, testTaskARN, firelensResOut.taskARN)
 	assert.Equal(t, testTaskDefinition, firelensResOut.taskDefinition)
+	assert.Equal(t, testRegion, firelensResOut.region)
 	assert.True(t, firelensResOut.ecsMetadataEnabled)
 	assert.Equal(t, testContainerToLogOptions, firelensResOut.containerToLogOptions)
+	assert.Equal(t, testExecutionCredentialsID, firelensResOut.executionCredentialsID)
+	assert.Equal(t, testExternalConfigType, firelensResOut.externalConfigType)
+	assert.Equal(t, testExternalConfigValue, firelensResOut.externalConfigValue)
 	assert.Equal(t, testTerminalResason, firelensResOut.terminalReason)
 	// Can't use assert.Equal for time here. See https://github.com/golang/go/issues/22957.
 	assert.True(t, testCreatedAt.Equal(firelensResOut.createdAtUnsafe))
