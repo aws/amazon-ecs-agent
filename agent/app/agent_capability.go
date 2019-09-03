@@ -53,6 +53,8 @@ const (
 	capabilityFirelensFluentd                   = "firelens.fluentd"
 	capabilityFirelensFluentbit                 = "firelens.fluentbit"
 	capabilityFirelensLoggingDriver             = "logging-driver.awsfirelens"
+	capabilityFirelensConfigFile                = "firelens.options.config.file"
+	capabilityFirelensConfigS3                  = "firelens.options.config.s3"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -94,6 +96,8 @@ const (
 //    ecs.capability.firelens.fluentd
 //    ecs.capability.firelens.fluentbit
 //    com.amazonaws.ecs.capability.logging-driver.awsfirelens
+//    ecs.capability.firelens.options.config.file
+//    ecs.capability.firelens.options.config.s3
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -180,6 +184,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support aws router capabilities for log driver router
 	capabilities = agent.appendFirelensLoggingDriverCapabilities(capabilities)
+
+	// support external firelens config
+	capabilities = agent.appendFirelensConfigCapabilities(capabilities)
 
 	return capabilities, nil
 }

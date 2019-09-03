@@ -91,7 +91,8 @@ const (
 	//	 a) Add 'RuntimeID' field to 'apicontainer.Container'
 	//	 b) Add 'FirelensConfig' field to 'Container' struct
 	//	 c) Add 'firelens' field to 'resources'
-	// 24) Add 'NetworkMode' to firelens task resource.
+	// 24) Add 'Region', 'ExecutionCredentialsID', 'ExternalConfigType', 'ExternalConfigValue' and 'NetworkMode' to
+	//     firelens task resource.
 
 	ECSDataVersion = 24
 
