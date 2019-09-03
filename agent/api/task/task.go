@@ -98,11 +98,17 @@ const (
 	ipcModeSharable = "shareable"
 	ipcModeNone     = "none"
 
-	// firelensConfigBindFormatFluentd and firelensConfigBindFormatFluentbit specifies the format of the firelens
+	// firelensConfigBindFormatFluentd and firelensConfigBindFormatFluentbit specify the format of the firelens
 	// config file bind mount for fluentd and fluentbit firelens container respectively.
 	// First placeholder is host data dir, second placeholder is taskID.
 	firelensConfigBindFormatFluentd   = "%s/data/firelens/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
 	firelensConfigBindFormatFluentbit = "%s/data/firelens/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
+
+	// firelensS3ConfigBindFormat specifies the format of the bind mount for the firelens config file downloaded from S3.
+	// First placeholder is host data dir, second placeholder is taskID, third placeholder is the s3 config path inside
+	// the firelens container.
+	firelensS3ConfigBindFormat = "%s/data/firelens/%s/config/external.conf:%s"
+
 	// firelensSocketBindFormat specifies the format for firelens container's socket directory bind mount.
 	// First placeholder is host data dir, second placeholder is taskID.
 	firelensSocketBindFormat = "%s/data/firelens/%s/socket/:/var/run/"
@@ -348,7 +354,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	firelensContainer := task.GetFirelensContainer()
 	if firelensContainer != nil {
-		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer)
+		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer, credentialsManager)
 		if err != nil {
 			return err
 		}
@@ -357,8 +363,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container) error {
-	err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer)
+	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
+	err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -810,7 +816,7 @@ func (task *Task) GetFirelensContainer() *apicontainer.Container {
 // initializeFirelensResource initializes the firelens task resource and adds it as a dependency of the
 // firelens container.
 func (task *Task) initializeFirelensResource(config *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container) error {
+	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
 	if firelensContainer.GetFirelensConfig() == nil {
 		return errors.New("firelens container config doesn't exist")
 	}
@@ -837,10 +843,6 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 				ec2InstanceID = resourceFields.EC2InstanceID
 			}
 
-			enableECSLogMetadata := true
-			if firelensConfig.Options != nil && firelensConfig.Options["enable-ecs-log-metadata"] == "false" {
-				enableECSLogMetadata = false
-			}
 			var networkMode string
 			if task.IsNetworkModeAWSVPC() {
 				networkMode = AWSVPCNetworkMode
@@ -849,8 +851,12 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			} else {
 				networkMode = container.GetNetworkMode()
 			}
-			firelensResource = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
-				ec2InstanceID, config.DataDir, firelensConfig.Type, networkMode, enableECSLogMetadata, containerToLogOptions)
+			firelensResource, err = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
+				credentialsManager, task.ExecutionCredentialsID)
+			if err != nil {
+				return errors.Wrap(err, "unable to initialize firelens resource")
+			}
 			task.AddResource(firelens.ResourceName, firelensResource)
 			container.BuildResourceDependency(firelensResource.GetName(), resourcestatus.ResourceCreated,
 				apicontainerstatus.ContainerCreated)
@@ -979,25 +985,32 @@ func (task *Task) collectFirelensLogEnvOptions(containerToLogOptions map[string]
 
 // AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
 // container's host config.
-func (task *Task) AddFirelensContainerBindMounts(firelensConfigType string, hostConfig *dockercontainer.HostConfig,
+func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
 	config *config.Config) *apierrors.HostConfigError {
 	// TODO: fix task.GetID(). It's currently incorrect when opted in task long arn format.
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
 
-	var configBind, socketBind string
-	switch firelensConfigType {
+	var configBind, s3ConfigBind, socketBind string
+	switch firelensConfig.Type {
 	case firelens.FirelensConfigTypeFluentd:
 		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentd)
 	case firelens.FirelensConfigTypeFluentbit:
 		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
 	default:
 		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
-			firelensConfigType)}
+			firelensConfig.Type)}
 	}
 	socketBind = fmt.Sprintf(firelensSocketBindFormat, config.DataDirOnHost, taskID)
 
 	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
+
+	// Add the s3 config bind mount if firelens container is using a config file from S3.
+	if firelensConfig.Options != nil && firelensConfig.Options[firelens.ExternalConfigTypeOption] == firelens.ExternalConfigTypeS3 {
+		hostConfig.Binds = append(hostConfig.Binds, s3ConfigBind)
+	}
 	return nil
 }
 

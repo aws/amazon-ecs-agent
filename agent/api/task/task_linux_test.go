@@ -53,12 +53,14 @@ const (
 
 	proxyName = "envoy"
 
-	testCluster        = "testCluster"
-	testDataDir        = "testDataDir"
-	testDataDirOnHost  = "testDataDirOnHost"
-	testInstanceID     = "testInstanceID"
-	testTaskDefFamily  = "testFamily"
-	testTaskDefVersion = "1"
+	testCluster                = "testCluster"
+	testDataDir                = "testDataDir"
+	testDataDirOnHost          = "testDataDirOnHost"
+	testInstanceID             = "testInstanceID"
+	testTaskDefFamily          = "testFamily"
+	testTaskDefVersion         = "1"
+	testRegion                 = "testRegion"
+	testExecutionCredentialsID = "testExecutionCredentialsID"
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {
@@ -571,6 +573,8 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 
 func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	task := getFirelensTask(t)
+	task.Containers[1].FirelensConfig.Options["config-file-type"] = "file"
+	task.Containers[1].FirelensConfig.Options["config-file-value"] = "/tmp/file"
 
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -578,8 +582,9 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{
-		DataDir: testDataDir,
-		Cluster: testCluster,
+		DataDir:   testDataDir,
+		Cluster:   testCluster,
+		AWSRegion: testRegion,
 	}
 	assert.NoError(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
 	resources := task.GetResources()
@@ -604,6 +609,10 @@ func TestPostUnmarshalWithFirelensContainer(t *testing.T) {
 	assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
 	assert.Equal(t, testInstanceID, firelensResource.GetEC2InstanceID())
 	assert.Equal(t, testDataDir+"/firelens/task-id", firelensResource.GetResourceDir())
+	assert.Equal(t, testRegion, firelensResource.GetRegion())
+	assert.Equal(t, testExecutionCredentialsID, firelensResource.GetExecutionCredentialsID())
+	assert.Equal(t, "file", firelensResource.GetExternalConfigType())
+	assert.Equal(t, "/tmp/file", firelensResource.GetExternalConfigValue())
 	assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 	assert.Equal(t, "value1", firelensResource.GetContainerToLogOptions()["logsender"]["key1"])
 	assert.Equal(t, "value2", firelensResource.GetContainerToLogOptions()["logsender"]["key2"])
@@ -673,8 +682,9 @@ func TestGetFirelensContainer(t *testing.T) {
 
 func TestInitializeFirelensResource(t *testing.T) {
 	cfg := &config.Config{
-		DataDir: testDataDir,
-		Cluster: testCluster,
+		DataDir:   testDataDir,
+		Cluster:   testCluster,
+		AWSRegion: testRegion,
 	}
 	resourceFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -772,7 +782,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1])
+			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1], nil)
 			if tc.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -787,6 +797,8 @@ func TestInitializeFirelensResource(t *testing.T) {
 				assert.Equal(t, validTaskArn, firelensResource.GetTaskARN())
 				assert.Equal(t, testTaskDefFamily+":"+testTaskDefVersion, firelensResource.GetTaskDefinition())
 				assert.Equal(t, testDataDir+"/firelens/task-id", firelensResource.GetResourceDir())
+				assert.Equal(t, testRegion, firelensResource.GetRegion())
+				assert.Equal(t, testExecutionCredentialsID, firelensResource.GetExecutionCredentialsID())
 				assert.NotNil(t, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, tc.expectedLogOptions, firelensResource.GetContainerToLogOptions())
 				assert.Equal(t, !tc.shouldDisableMetadata, firelensResource.GetECSMetadataEnabled())
@@ -796,6 +808,87 @@ func TestInitializeFirelensResource(t *testing.T) {
 				} else {
 					assert.Empty(t, firelensResource.GetEC2InstanceID())
 				}
+			}
+		})
+	}
+}
+
+func TestInitializeFirelensResourceWithExternalConfig(t *testing.T) {
+	cfg := &config.Config{
+		DataDir:   testDataDir,
+		Cluster:   testCluster,
+		AWSRegion: testRegion,
+	}
+	resourceFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			EC2InstanceID: testInstanceID,
+		},
+	}
+
+	testCases := []struct {
+		name                string
+		task                *Task
+		shouldFail          bool
+		expectedConfigType  string
+		expectedConfigValue string
+	}{
+		{
+			name: "test initialize firelens resource with external config type file",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "file"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "/tmp/file"
+				return task
+			}(),
+			expectedConfigType:  "file",
+			expectedConfigValue: "/tmp/file",
+		},
+		{
+			name: "test initialize firelens resource with external config type arn",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "s3"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "arn:aws:s3:::bucket/key"
+				return task
+			}(),
+			expectedConfigType:  "s3",
+			expectedConfigValue: "arn:aws:s3:::bucket/key",
+		},
+		{
+			name: "test initialize firelens resource missing config value",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "s3"
+				return task
+			}(),
+			shouldFail: true,
+		},
+		{
+			name: "test initialize firelens resource invalid firelens config type",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Type = "invalid"
+				return task
+			}(),
+			shouldFail: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1], nil)
+			if tc.shouldFail {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				resources := tc.task.GetResources()
+				assert.Equal(t, 1, len(resources))
+				assert.Equal(t, 1, len(tc.task.Containers[1].TransitionDependenciesMap))
+
+				firelensResource := resources[0].(*firelens.FirelensResource)
+				assert.Equal(t, tc.expectedConfigType, firelensResource.GetExternalConfigType())
+				assert.Equal(t, tc.expectedConfigValue, firelensResource.GetExternalConfigValue())
 			}
 		})
 	}
@@ -891,22 +984,26 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 	testCases := []struct {
 		name               string
 		task               *Task
-		firelensConfigType string
 		hostCfg            *dockercontainer.HostConfig
 		cfg                *config.Config
 		shouldFail         bool
 		expectedBindMounts []string
 	}{
 		{
-			name:               "test add bind mounts for fluentd firelens container",
-			task:               getFirelensTask(t),
-			firelensConfigType: firelens.FirelensConfigTypeFluentd,
-			hostCfg:            &dockercontainer.HostConfig{},
-			cfg:                cfg,
-			shouldFail:         false,
+			name: "test add bind mounts for fluentd firelens container",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "s3"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "arn:aws:s3:::bucket/key"
+				return task
+			}(),
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
 			expectedBindMounts: []string{
 				"testDataDirOnHost/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
 				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/firelens/task-id/config/external.conf:/fluentd/etc/external.conf",
 			},
 		},
 		{
@@ -914,15 +1011,17 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 			task: func() *Task {
 				task := getFirelensTask(t)
 				task.Containers[1].FirelensConfig.Type = firelens.FirelensConfigTypeFluentbit
+				task.Containers[1].FirelensConfig.Options["config-file-type"] = "s3"
+				task.Containers[1].FirelensConfig.Options["config-file-value"] = "arn:aws:s3:::bucket/key"
 				return task
 			}(),
-			firelensConfigType: firelens.FirelensConfigTypeFluentbit,
-			hostCfg:            &dockercontainer.HostConfig{},
-			cfg:                cfg,
-			shouldFail:         false,
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
 			expectedBindMounts: []string{
 				"testDataDirOnHost/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
 				"testDataDirOnHost/data/firelens/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/firelens/task-id/config/external.conf:/fluent-bit/etc/external.conf",
 			},
 		},
 		{
@@ -932,16 +1031,15 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 				task.Containers[1].FirelensConfig.Type = "invalid"
 				return task
 			}(),
-			firelensConfigType: "invalid",
-			hostCfg:            &dockercontainer.HostConfig{},
-			cfg:                cfg,
-			shouldFail:         true,
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.AddFirelensContainerBindMounts(tc.firelensConfigType, tc.hostCfg, tc.cfg)
+			err := tc.task.AddFirelensContainerBindMounts(tc.task.Containers[1].FirelensConfig, tc.hostCfg, tc.cfg)
 			if tc.shouldFail {
 				// assert.Error doesn't work with *apierrors.HostConfigError.
 				assert.NotNil(t, err)
@@ -1053,10 +1151,11 @@ func getFirelensTask(t *testing.T) *Task {
 	require.NoError(t, err)
 
 	return &Task{
-		Arn:                validTaskArn,
-		Family:             testTaskDefFamily,
-		Version:            testTaskDefVersion,
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Arn:                    validTaskArn,
+		Family:                 testTaskDefFamily,
+		Version:                testTaskDefVersion,
+		ResourcesMapUnsafe:     make(map[string][]taskresource.TaskResource),
+		ExecutionCredentialsID: testExecutionCredentialsID,
 		Containers: []*apicontainer.Container{
 			{
 				Name: "logsender",
