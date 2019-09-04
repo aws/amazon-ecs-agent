@@ -212,6 +212,8 @@
         "entryPoint":{"shape":"StringList"},
         "environment":{"shape":"EnvironmentVariables"},
         "essential":{"shape":"Boolean"},
+        "restartPolicy":{"shape":"RestartPolicy"},
+        "restartMaxAttempts":{"shape":"Integer"},
         "image":{"shape":"String"},
         "links":{"shape":"StringList"},
         "memory":{"shape":"Integer"},
@@ -230,6 +232,14 @@
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"}
       }
+    },
+    "RestartPolicy":{
+      "type":"string",
+      "enum":[
+        "NEVER",
+        "UNLESS_TASK_STOPPED",
+        "ON_FAILURE"
+      ]
     },
     "ContainerCondition":{
       "type":"string",

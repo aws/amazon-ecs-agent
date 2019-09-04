@@ -18,7 +18,8 @@ import (
 )
 
 // MapContainerToTaskStatus maps the container status to the corresponding task status. The
-// transition map is illustrated below.
+// transition map is illustrated below. ContainerRestarting will mapped as Running for get
+// the earliest container status mapped to task status
 //
 // Container: None -> Pulled -> Created -> Running -> Provisioned -> Stopped -> Zombie
 //
@@ -33,6 +34,8 @@ func MapContainerToTaskStatus(knownState apicontainerstatus.ContainerStatus, ste
 		return TaskCreated
 	case apicontainerstatus.ContainerStopped:
 		return TaskStopped
+	case apicontainerstatus.ContainerRestarting:
+		return TaskRunning
 	}
 
 	if knownState == apicontainerstatus.ContainerRunning && steadyState == apicontainerstatus.ContainerResourcesProvisioned {

@@ -78,6 +78,9 @@ func TestIsKnownSteadyState(t *testing.T) {
 	// Transition container to CREATED, still not in steady state
 	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	assert.False(t, container.IsKnownSteadyState())
+	// Transition container to RESTARTING, still not in steady state
+	container.SetKnownStatus(apicontainerstatus.ContainerRestarting)
+	assert.False(t, container.IsKnownSteadyState())
 	// Transition container to RUNNING, now we're in steady state
 	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	assert.True(t, container.IsKnownSteadyState())
@@ -102,6 +105,9 @@ func TestGetNextStateProgression(t *testing.T) {
 	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerCreated)
 	container.SetKnownStatus(apicontainerstatus.ContainerCreated)
 	// CREATED should transition to RUNNING
+	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerRunning)
+	// RESTARTING should transition to RUNNING
+	container.SetKnownStatus(apicontainerstatus.ContainerRestarting)
 	assert.Equal(t, container.GetNextKnownStateProgression(), apicontainerstatus.ContainerRunning)
 	container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	// RUNNING should transition to STOPPED

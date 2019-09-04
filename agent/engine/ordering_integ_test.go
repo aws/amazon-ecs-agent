@@ -433,6 +433,59 @@ func TestShutdownOrder(t *testing.T) {
 	waitFinished(t, finished, shutdownOrderingTimeout)
 }
 
+// TestDependencyInvalidRestartPolicy varify container restarting `UnlessTaskStopped` should not be a dependend in case of `SUCCESS` or `COMPLETE`
+func TestDependencyInvalidRestartPolicy(t *testing.T) {
+
+	conditions := []string{"SUCCESS", "COMPLETE"}
+	for _, condition := range conditions {
+
+		taskEngine, done, _ := setupWithDefaultConfig(t)
+		defer done()
+
+		stateChangeEvents := taskEngine.StateChangeEvents()
+
+		taskArn := "testDependencySuccessErrored"
+		testTask := createTestTask(taskArn)
+
+		parent := createTestContainerWithImageAndName(baseImageForOS, "parent")
+		dependency := createTestContainerWithImageAndName(baseImageForOS, "dependency")
+
+		dependency.Essential = false
+		dependency.RestartInfo = &apicontainer.RestartInfo{
+			RestartPolicy: apicontainer.UnlessTaskStopped,
+		}
+
+		parent.EntryPoint = &entryPointForOS
+		parent.Command = []string{"exit 0"}
+		parent.DependsOnUnsafe = []apicontainer.DependsOn{
+			{
+				ContainerName: "dependency",
+				Condition:     condition,
+			},
+		}
+
+		dependency.EntryPoint = &entryPointForOS
+		dependency.Command = []string{"sleep 10 && exit 1"}
+		dependency.Essential = false
+
+		testTask.Containers = []*apicontainer.Container{
+			parent,
+			dependency,
+		}
+
+		go taskEngine.AddTask(testTask)
+
+		finished := make(chan interface{})
+		go func() {
+			// task should transition to stopped due to invalid dependencies
+			verifyTaskIsStoppedWithReason(stateChangeEvents, testTask)
+			close(finished)
+		}()
+
+		waitFinished(t, finished, orderingTimeout)
+	}
+}
+
 func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
 	select {
 	case <-finished:

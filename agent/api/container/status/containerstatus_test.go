@@ -39,6 +39,10 @@ func TestShouldReportToBackend(t *testing.T) {
 	assert.False(t, containerStatus.ShouldReportToBackend(ContainerRunning))
 	assert.False(t, containerStatus.ShouldReportToBackend(ContainerResourcesProvisioned))
 
+	// ContainerRestarting is not reported to backend
+	containerStatus = ContainerRestarting
+	assert.False(t, containerStatus.ShouldReportToBackend(ContainerRunning))
+
 	containerStatus = ContainerRunning
 	// ContainerRunning is reported to backend if the steady state is RUNNING as well
 	assert.True(t, containerStatus.ShouldReportToBackend(ContainerRunning))

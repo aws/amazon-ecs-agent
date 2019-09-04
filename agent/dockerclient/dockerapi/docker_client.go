@@ -1332,7 +1332,6 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 					seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
 					return
 				}
-
 				statsChnl <- data
 				data = new(types.StatsJSON)
 			}

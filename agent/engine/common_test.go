@@ -92,7 +92,7 @@ func verifyTaskIsRunning(stateChangeEvents <-chan statechange.Event, task *apita
 			return nil
 		}
 		if taskEvent.Status > apitaskstatus.TaskRunning {
-			return fmt.Errorf("Task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
+			return fmt.Errorf("task went straight to %s without running, task: %s", taskEvent.Status.String(), task.Arn)
 		}
 	}
 }
@@ -105,6 +105,20 @@ func verifyTaskIsStopped(stateChangeEvents <-chan statechange.Event, task *apita
 		}
 		taskEvent := event.(api.TaskStateChange)
 		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= apitaskstatus.TaskStopped {
+			return
+		}
+	}
+}
+
+func verifyTaskIsStoppedWithReason(stateChangeEvents <-chan statechange.Event, task *apitask.Task) {
+	for {
+		event := <-stateChangeEvents
+		if event.GetEventType() != statechange.TaskEvent {
+			continue
+		}
+		taskEvent := event.(api.TaskStateChange)
+		if taskEvent.TaskARN == task.Arn && taskEvent.Status >= apitaskstatus.TaskStopped &&
+			taskEvent.Reason != "" {
 			return
 		}
 	}

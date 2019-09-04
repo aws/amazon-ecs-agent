@@ -51,6 +51,7 @@ const (
 	localhost              = "127.0.0.1"
 	waitForDockerDuration  = 50 * time.Millisecond
 	removeVolumeTimeout    = 5 * time.Second
+	restartingTimeout      = 60 * time.Second // Used in test auto restart non-essential containers
 
 	alwaysHealthyHealthCheckConfig = `{
 			"HealthCheck":{
@@ -474,4 +475,215 @@ func TestSharedDoNotAutoprovisionVolume(t *testing.T) {
 	assert.NoError(t, response.Error, "expect shared volume not removed")
 
 	cleanVolumes(testTask, taskEngine)
+}
+
+// TestAutoRestartNever is a happy-case integration test that ensure container is not restarted.
+func TestAutoRestartNever(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testAutoRestartNever"
+	testTask := createTestTask(taskArn)
+
+	container1 := createTestContainerWithImageAndName(baseImageForOS, "container1")
+	container2 := createTestContainerWithImageAndName(baseImageForOS, "container2")
+
+	container1.EntryPoint = &entryPointForOS
+	container1.Command = []string{"sleep 15"}
+	container1.Essential = true
+
+	container2.EntryPoint = &entryPointForOS
+	container2.Command = []string{"sleep 2; exit 1"}
+	container2.Essential = false
+	container2.RestartInfo = &apicontainer.RestartInfo{
+		RestartPolicy: apicontainer.Never,
+	}
+
+	testTask.Containers = []*apicontainer.Container{
+		container1,
+		container2,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// After exhausted all retries, container2 is stopped
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, restartingTimeout)
+}
+
+// TestAutoRestartOnFailure is a happy-case integration test that ensure container is restarted.
+// TODO: need to be updated after auto-restart CP changes
+func TestAutoRestartOnFailureExaustedAllAttempts(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testAutoRestartOnFailureExaustedAllAttempts"
+	testTask := createTestTask(taskArn)
+
+	container1 := createTestContainerWithImageAndName(baseImageForOS, "container1")
+	container2 := createTestContainerWithImageAndName(baseImageForOS, "container2")
+
+	container1.EntryPoint = &entryPointForOS
+	container1.Command = []string{"sleep 30"}
+	container1.Essential = true
+
+	var restartMaxAttempts apicontainer.RestartCount = 3
+	container2.EntryPoint = &entryPointForOS
+	container2.Command = []string{"sleep 2; exit 1"}
+	container2.Essential = false
+	container2.RestartInfo = &apicontainer.RestartInfo{
+		RestartPolicy:      apicontainer.OnFailure,
+		RestartMaxAttempts: restartMaxAttempts,
+	}
+
+	testTask.Containers = []*apicontainer.Container{
+		container1,
+		container2,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// Status changes monitored
+		// TODO: change to verify `Restarting` and `Running` change after CP changes
+		for i := 0; i < int(restartMaxAttempts); i++ {
+			verifyContainerRunningStateChange(t, taskEngine)
+		}
+
+		// After exhausted all retries, container2 is stopped
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+
+		assert.True(t, container2.GetRestartAttempts() > 0, "Did not restarted")
+		assert.Equal(t, restartMaxAttempts, container2.GetRestartAttempts(), "Did not exhaust all restart attempts")
+
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, restartingTimeout)
+}
+
+// TestAutoRestartOnFailureExitZero tests not restarting if exit code is 0.
+func TestAutoRestartOnFailureExitZero(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testAutoRestartOnFailureExitZero"
+	testTask := createTestTask(taskArn)
+
+	container1 := createTestContainerWithImageAndName(baseImageForOS, "container1")
+	container2 := createTestContainerWithImageAndName(baseImageForOS, "container2")
+
+	container1.EntryPoint = &entryPointForOS
+	container1.Command = []string{"sleep 15"}
+	container1.Essential = true
+
+	var restartMaxAttempts apicontainer.RestartCount = 3
+	container2.EntryPoint = &entryPointForOS
+	container2.Command = []string{"sleep 2; exit 0"}
+	container2.Essential = false
+	container2.RestartInfo = &apicontainer.RestartInfo{
+		RestartPolicy:      apicontainer.OnFailure,
+		RestartMaxAttempts: restartMaxAttempts,
+	}
+
+	testTask.Containers = []*apicontainer.Container{
+		container1,
+		container2,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// After exhausted all retries, container2 is stopped
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyContainerStoppedStateChange(t, taskEngine)
+
+		assert.True(t, container2.GetRestartAttempts() == 0, "Should not be restarted")
+
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, restartingTimeout)
+}
+
+// TestAutoRestartAlways tests restart no matter exit code.
+func TestAutoRestartAlways(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testAutoRestartAlways"
+	testTask := createTestTask(taskArn)
+
+	container1 := createTestContainerWithImageAndName(baseImageForOS, "container1")
+	container2 := createTestContainerWithImageAndName(baseImageForOS, "container2")
+
+	container1.EntryPoint = &entryPointForOS
+	container1.Command = []string{"sleep 15"}
+	container1.Essential = true
+
+	container2.EntryPoint = &entryPointForOS
+	container2.Command = getAlternateExitCodeCommand() // exit 0 or 1 alternately
+	container2.Essential = false
+	container2.RestartInfo = &apicontainer.RestartInfo{
+		RestartPolicy: apicontainer.UnlessTaskStopped,
+	}
+
+	testTask.Containers = []*apicontainer.Container{
+		container1,
+		container2,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		// Wait Container2 is stopped after Container1 is stopped
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, restartingTimeout)
+	assert.True(t, container2.GetKnownStatus() == apicontainerstatus.ContainerStopped, "Container is not stopped.")
+	assert.True(t, container2.GetRestartAttempts() > 0, "Didn't restarted")
 }

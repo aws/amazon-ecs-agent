@@ -46,6 +46,7 @@ const (
 	capabilityNvidiaDriverVersionInfix          = "nvidia-driver-version."
 	capabilityECREndpoint                       = "ecr-endpoint"
 	capabilityContainerOrdering                 = "container-ordering"
+	capabilityAutoRestartNonEssentialContainers = "auto-restart-non-essential-containers"
 	taskEIAAttributeSuffix                      = "task-eia"
 	taskEIAWithOptimizedCPU                     = "task-eia.optimized-cpu"
 	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
@@ -180,6 +181,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support aws router capabilities for log driver router
 	capabilities = agent.appendFirelensLoggingDriverCapabilities(capabilities)
+
+	// support auto restart non-essential container in agent
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityAutoRestartNonEssentialContainers)
 
 	return capabilities, nil
 }
