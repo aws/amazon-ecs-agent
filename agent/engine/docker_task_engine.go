@@ -302,13 +302,35 @@ func (engine *DockerTaskEngine) isTaskManaged(arn string) bool {
 
 // synchronizeState explicitly goes through each docker container stored in
 // "state" and updates its KnownStatus appropriately, as well as queueing up
-// events to push upstream.
+// events to push upstream. It also initializes some fields of task resources and eni attachments that won't be populated
+// from loading state file.
 func (engine *DockerTaskEngine) synchronizeState() {
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
 	imageStates := engine.state.AllImageStates()
 	if len(imageStates) != 0 {
 		engine.imageManager.AddAllImageStates(imageStates)
+	}
+	eniAttachments := engine.state.AllENIAttachments()
+	for _, eniAttachment := range eniAttachments {
+		timeoutFunc := func() {
+			eniAttachment, ok := engine.state.ENIByMac(eniAttachment.MACAddress)
+			if !ok {
+				seelog.Warnf("Ignoring unmanaged ENI attachment with MAC address: %s", eniAttachment.MACAddress)
+				return
+			}
+			if !eniAttachment.IsSent() {
+				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", eniAttachment.MACAddress)
+				engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
+			}
+		}
+		err := eniAttachment.Initialize(timeoutFunc)
+		if err != nil {
+			// The only case where we get an error from Initialize is that the attachment has expired. In that case, remove the expired
+			// attachment from state.
+			seelog.Warnf("ENI attachment with mac address %s has expired. Removing it from state.", eniAttachment.MACAddress)
+			engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
+		}
 	}
 
 	tasks := engine.state.AllTasks()

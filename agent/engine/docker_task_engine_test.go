@@ -2410,6 +2410,40 @@ func TestSynchronizeResource(t *testing.T) {
 	dockerTaskEngine.synchronizeState()
 }
 
+func TestSynchronizeENIAttachment(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+	state := dockerTaskEngine.State()
+	testTask := testdata.LoadTask("sleep5")
+	expiresAt := time.Now().Unix() + 1
+	attachment := &apieni.ENIAttachment{
+		TaskARN:       "TaskARN",
+		AttachmentARN: "AttachmentARN",
+		MACAddress:    "MACAddress",
+		Status:        apieni.ENIAttachmentNone,
+		ExpiresAt:     time.Unix(expiresAt, 0),
+	}
+	state.AddENIAttachment(attachment)
+
+	state.AddTask(testTask)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
+	dockerTaskEngine.synchronizeState()
+
+	// If the below call doesn't panic on NPE, it means the ENI attachment has been properly initialized in synchronizeState.
+	attachment.StopAckTimer()
+}
+
 func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	// metadata required for createContainer workflow validation
 	taskARN := "secretsTask"

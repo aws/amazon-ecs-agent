@@ -17,6 +17,7 @@ package eni
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
@@ -123,4 +124,48 @@ func TestHasExpired(t *testing.T) {
 			assert.Equal(t, tc.expected, attachment.HasExpired())
 		})
 	}
+}
+
+func TestInitialize(t *testing.T) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	timeoutFunc := func() {
+		wg.Done()
+	}
+
+	expiresAt := time.Now().Unix() + 1
+	attachment := &ENIAttachment{
+		TaskARN:       taskARN,
+		AttachmentARN: attachmentARN,
+		MACAddress:    mac,
+		Status:        ENIAttachmentNone,
+		ExpiresAt:     time.Unix(expiresAt, 0),
+	}
+	assert.NoError(t, attachment.Initialize(timeoutFunc))
+	wg.Wait()
+}
+
+func TestInitializeExpired(t *testing.T) {
+	expiresAt := time.Now().Unix() - 1
+	attachment := &ENIAttachment{
+		TaskARN:       taskARN,
+		AttachmentARN: attachmentARN,
+		MACAddress:    mac,
+		Status:        ENIAttachmentNone,
+		ExpiresAt:     time.Unix(expiresAt, 0),
+	}
+	assert.Error(t, attachment.Initialize(func() {}))
+}
+
+func TestInitializeExpiredButAlreadySent(t *testing.T) {
+	expiresAt := time.Now().Unix() - 1
+	attachment := &ENIAttachment{
+		TaskARN:          taskARN,
+		AttachmentARN:    attachmentARN,
+		AttachStatusSent: attachSent,
+		MACAddress:       mac,
+		Status:           ENIAttachmentNone,
+		ExpiresAt:        time.Unix(expiresAt, 0),
+	}
+	assert.NoError(t, attachment.Initialize(func() {}))
 }
