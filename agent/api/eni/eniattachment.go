@@ -75,6 +75,28 @@ func (eni *ENIAttachment) StartTimer(timeoutFunc func()) error {
 	return nil
 }
 
+// Initialize initializes the fields that can't be populated from loading state file.
+// Notably, this initializes the ack timer so that if we times out waiting for the eni to be attached, the attachment
+// can be removed from state.
+func (eni *ENIAttachment) Initialize(timeoutFunc func()) error {
+	eni.guard.Lock()
+	defer eni.guard.Unlock()
+
+	if eni.AttachStatusSent { // eni attachment status has been sent, no need to start ack timer.
+		return nil
+	}
+
+	now := time.Now()
+	duration := eni.ExpiresAt.Sub(now)
+	if duration <= 0 {
+		return errors.New("ENI attachment has already expired")
+	}
+
+	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.stringUnsafe())
+	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
+	return nil
+}
+
 // IsSent checks if the eni attached status has been sent
 func (eni *ENIAttachment) IsSent() bool {
 	eni.guard.RLock()

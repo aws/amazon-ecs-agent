@@ -346,6 +346,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()),
 		state.EXPECT().AllImageStates().Return(nil),
+		state.EXPECT().AllENIAttachments().Return(nil),
 		state.EXPECT().AllTasks().Return(nil),
 	)
 

@@ -111,6 +111,20 @@ func (mr *MockTaskEngineStateMockRecorder) AddTaskIPAddress(arg0, arg1 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTaskIPAddress", reflect.TypeOf((*MockTaskEngineState)(nil).AddTaskIPAddress), arg0, arg1)
 }
 
+// AllENIAttachments mocks base method
+func (m *MockTaskEngineState) AllENIAttachments() []*eni.ENIAttachment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllENIAttachments")
+	ret0, _ := ret[0].([]*eni.ENIAttachment)
+	return ret0
+}
+
+// AllENIAttachments indicates an expected call of AllENIAttachments
+func (mr *MockTaskEngineStateMockRecorder) AllENIAttachments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllENIAttachments", reflect.TypeOf((*MockTaskEngineState)(nil).AllENIAttachments))
+}
+
 // AllImageStates mocks base method
 func (m *MockTaskEngineState) AllImageStates() []*image.ImageState {
 	m.ctrl.T.Helper()

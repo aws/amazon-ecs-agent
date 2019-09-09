@@ -33,6 +33,8 @@ var log = logger.ForModule("dockerstate")
 type TaskEngineState interface {
 	// AllTasks returns all of the tasks
 	AllTasks() []*apitask.Task
+	// AllENIAttachments returns all of the eni attachments
+	AllENIAttachments() []*apieni.ENIAttachment
 	// AllImageStates returns all of the image.ImageStates
 	AllImageStates() []*image.ImageState
 	// GetAllContainerIDs returns all of the Container Ids
