@@ -932,7 +932,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				fluentNetworkHost: FluentAWSVPCHostValue,
 				fluentNetworkPort: FluentNetworkPortValue,
 			})
-		} else if container.GetNetworkMode() == "" || container.GetNetworkMode() == apitask.BridgeNetworkMode {
+		} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
 			ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
 			if !ok {
 				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
@@ -1086,7 +1086,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	// For the supported network mode - bridge and awsvpc, the awsvpc take the host 127.0.0.1 but in bridge mode,
 	// there is a need to wait for the IP to be present before the container using the firelens can be created.
 	if dockerContainerMD.Error == nil && container.GetFirelensConfig() != nil {
-		if !task.IsNetworkModeAWSVPC() && (container.GetNetworkMode() == "" || container.GetNetworkMode() == apitask.BridgeNetworkMode) {
+		if !task.IsNetworkModeAWSVPC() && (container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode) {
 			_, gotContainerIP := getContainerHostIP(dockerContainerMD.NetworkSettings)
 			if !gotContainerIP {
 				getIPBridgeBackoff := retry.NewExponentialBackoff(minGetIPBridgeTimeout, maxGetIPBridgeTimeout, getIPBridgeRetryJitterMultiplier, getIPBridgeRetryDelayMultiplier)

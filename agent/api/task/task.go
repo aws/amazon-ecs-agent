@@ -846,10 +846,10 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			var networkMode string
 			if task.IsNetworkModeAWSVPC() {
 				networkMode = AWSVPCNetworkMode
-			} else if container.GetNetworkMode() == "" {
+			} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == BridgeNetworkMode {
 				networkMode = BridgeNetworkMode
 			} else {
-				networkMode = container.GetNetworkMode()
+				networkMode = container.GetNetworkModeFromHostConfig()
 			}
 			firelensResource, err = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
