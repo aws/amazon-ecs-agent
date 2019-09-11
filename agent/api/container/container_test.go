@@ -615,3 +615,36 @@ func TestGetLogDriver(t *testing.T) {
 		})
 	}
 }
+
+func TestGetNetworkModeFromHostConfig(t *testing.T) {
+	getContainer := func(hostConfig string) *Container {
+		c := &Container{
+			Name: "c",
+		}
+		c.DockerConfig.HostConfig = &hostConfig
+		return c
+	}
+
+	testCases := []struct {
+		name           string
+		container      *Container
+		expectedOutput string
+	}{
+		{
+			name:           "bridge mode",
+			container:      getContainer("{\"NetworkMode\":\"bridge\"}"),
+			expectedOutput: "bridge",
+		},
+		{
+			name:           "invalid case",
+			container:      getContainer("invalid"),
+			expectedOutput: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.container.GetNetworkModeFromHostConfig())
+		})
+	}
+}
