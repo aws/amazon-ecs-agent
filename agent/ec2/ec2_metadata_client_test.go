@@ -225,7 +225,7 @@ func TestPublicIPv4Address(t *testing.T) {
 	assert.Equal(t, publicIP, publicIPResponse)
 }
 
-func TestSpotTerminationTime(t *testing.T) {
+func TestSpotInstanceAction(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -233,13 +233,13 @@ func TestSpotTerminationTime(t *testing.T) {
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	mockGetter.EXPECT().GetMetadata(
-		ec2.SpotTerminationTimeResource).Return("2019-08-26T17:54:20Z", nil)
-	resp, err := testClient.SpotTerminationTime()
+		ec2.SpotInstanceActionResource).Return("{\"action\": \"terminate\", \"time\": \"2017-09-18T08:22:00Z\"}", nil)
+	resp, err := testClient.SpotInstanceAction()
 	assert.NoError(t, err)
-	assert.Equal(t, "2019-08-26T17:54:20Z", resp)
+	assert.Equal(t, "{\"action\": \"terminate\", \"time\": \"2017-09-18T08:22:00Z\"}", resp)
 }
 
-func TestSpotTerminationTimeError(t *testing.T) {
+func TestSpotInstanceActionError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -247,8 +247,8 @@ func TestSpotTerminationTimeError(t *testing.T) {
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
 	mockGetter.EXPECT().GetMetadata(
-		ec2.SpotTerminationTimeResource).Return("", fmt.Errorf("ERROR"))
-	resp, err := testClient.SpotTerminationTime()
+		ec2.SpotInstanceActionResource).Return("", fmt.Errorf("ERROR"))
+	resp, err := testClient.SpotInstanceAction()
 	assert.Error(t, err)
 	assert.Equal(t, "", resp)
 }

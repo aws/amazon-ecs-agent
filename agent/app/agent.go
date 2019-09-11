@@ -630,7 +630,7 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
 // set AND the container instance state is successfully updated to DRAINING.
 func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
 	// this endpoint 404s unless a termination time has been set, so expect failure in most cases.
-	termtime, err := agent.ec2MetadataClient.SpotTerminationTime()
+	termtime, err := agent.ec2MetadataClient.SpotInstanceAction()
 	if err == nil && len(termtime) > 0 {
 		seelog.Infof("Received a spot termination time (%s), setting state to DRAINING", termtime)
 		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, "DRAINING")

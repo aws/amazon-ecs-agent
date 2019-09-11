@@ -1182,7 +1182,7 @@ func TestGetHostPublicIPv4AddressFromEC2MetadataFailWithError(t *testing.T) {
 	assert.Empty(t, agent.getHostPublicIPv4AddressFromEC2Metadata())
 }
 
-func TestSpotTerminationTimeCheck_Yes(t *testing.T) {
+func TestSpotInstanceActionCheck_Yes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1196,13 +1196,13 @@ func TestSpotTerminationTimeCheck_Yes(t *testing.T) {
 		ec2Client:            ec2Client,
 		containerInstanceARN: myARN,
 	}
-	ec2MetadataClient.EXPECT().SpotTerminationTime().Return("2019-08-26T18:21:08Z", nil)
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("{\"action\": \"terminate\", \"time\": \"2017-09-18T08:22:00Z\"}", nil)
 	ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
 
 	assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
-func TestSpotTerminationTimeCheck_EmptyTimestamp(t *testing.T) {
+func TestSpotInstanceActionCheck_EmptyTimestamp(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1216,14 +1216,14 @@ func TestSpotTerminationTimeCheck_EmptyTimestamp(t *testing.T) {
 		ec2Client:            ec2Client,
 		containerInstanceARN: myARN,
 	}
-	ec2MetadataClient.EXPECT().SpotTerminationTime().Return("", nil)
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("", nil)
 	// Container state should NOT be updated because the termination time field is empty.
 	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
 
 	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
-func TestSpotTerminationTimeCheck_No(t *testing.T) {
+func TestSpotInstanceActionCheck_No(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1237,7 +1237,7 @@ func TestSpotTerminationTimeCheck_No(t *testing.T) {
 		ec2Client:            ec2Client,
 		containerInstanceARN: myARN,
 	}
-	ec2MetadataClient.EXPECT().SpotTerminationTime().Return("", fmt.Errorf("404"))
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("", fmt.Errorf("404"))
 
 	// Container state should NOT be updated because there is no termination time.
 	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
