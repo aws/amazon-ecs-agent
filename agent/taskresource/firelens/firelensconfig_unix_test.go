@@ -52,7 +52,7 @@ var (
     port 24224
 </source>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <regexp>
         key log
@@ -60,7 +60,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <exclude>
         key log
@@ -68,7 +68,7 @@ var (
     </exclude>
 </filter>
 
-<filter *>
+<filter **>
     @type record_transformer
     <record>
         ec2_instance_id i-123456789a
@@ -80,7 +80,7 @@ var (
 
 @include /tmp/dummy.conf
 
-<match container-firelens*>
+<match container-firelens**>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2
@@ -98,7 +98,7 @@ var (
     port 24224
 </source>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <regexp>
         key log
@@ -106,7 +106,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <exclude>
         key log
@@ -114,7 +114,7 @@ var (
     </exclude>
 </filter>
 
-<filter *>
+<filter **>
     @type record_transformer
     <record>
         ec2_instance_id i-123456789a
@@ -126,7 +126,7 @@ var (
 
 @include /tmp/dummy.conf
 
-<match container-firelens*>
+<match container-firelens**>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2
@@ -138,7 +138,7 @@ var (
     path /var/run/fluent.sock
 </source>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <regexp>
         key log
@@ -146,7 +146,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <exclude>
         key log
@@ -154,7 +154,7 @@ var (
     </exclude>
 </filter>
 
-<filter *>
+<filter **>
     @type record_transformer
     <record>
         ec2_instance_id i-123456789a
@@ -166,7 +166,7 @@ var (
 
 @include /tmp/dummy.conf
 
-<match container-firelens*>
+<match container-firelens**>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2
@@ -230,7 +230,7 @@ var (
     port 24224
 </source>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <regexp>
         key log
@@ -238,7 +238,7 @@ var (
     </regexp>
 </filter>
 
-<filter container-firelens*>
+<filter container-firelens**>
     @type  grep
     <exclude>
         key log
@@ -248,7 +248,7 @@ var (
 
 @include /tmp/dummy.conf
 
-<match container-firelens*>
+<match container-firelens**>
     @type kinesis_firehose
     deliver_stream_name my-stream
     region us-west-2
