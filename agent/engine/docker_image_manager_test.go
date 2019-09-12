@@ -286,7 +286,7 @@ func TestFetchRepoDigest(t *testing.T) {
 			container: &apicontainer.Container{
 				Name:        "testContainer1",
 				Image:       "repo1",
-				ImageDigest: "digest1",
+				ImageDigest: "",
 			},
 			imageInspected: &types.ImageInspect{
 				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
@@ -296,7 +296,7 @@ func TestFetchRepoDigest(t *testing.T) {
 			container: &apicontainer.Container{
 				Name:        "testContainer2",
 				Image:       "repo1:latest",
-				ImageDigest: "digest1",
+				ImageDigest: "",
 			},
 			imageInspected: &types.ImageInspect{
 				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "repo3@digest3"},
@@ -306,7 +306,7 @@ func TestFetchRepoDigest(t *testing.T) {
 			container: &apicontainer.Container{
 				Name:        "testContainer3",
 				Image:       "repo1@sha256:12345",
-				ImageDigest: "sha256:12345",
+				ImageDigest: "",
 			},
 			imageInspected: &types.ImageInspect{
 				RepoDigests: []string{"repo1@sha256:12345", "repo2@digest2", "repo3"},
@@ -330,6 +330,38 @@ func TestFetchRepoDigest(t *testing.T) {
 			},
 			imageInspected: &types.ImageInspect{
 				RepoDigests: []string{"mysql", "repo2@digest2"},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer6",
+				Image:       "123456781234.dkr.ecr.us-west-2.amazonaws.com/test-rci@sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
+				ImageDigest: "sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230",
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &apicontainer.ECRAuthData{
+						RegistryID: "123456781234",
+					},
+				},
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "123456781234.dkr.ecr.us-west-2.amazonaws.com/test-rci@sha256:d1c14fcf2e9476ed58ebc4251b211f403f271e96b6c3d9ada0f1c5454ca4d230"},
+			},
+		},
+		{
+			container: &apicontainer.Container{
+				Name:        "testContainer7",
+				Image:       "123456781234.dkr.ecr.us-west-2.amazonaws.com/ubuntu:trusty",
+				ImageDigest: "sha256:2feffff9eeca4e736f9f8e57813a97fe930554f474f7795ffa5a9261adeaaf44",
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: "ecr",
+					ECRAuthData: &apicontainer.ECRAuthData{
+						RegistryID: "123456781234",
+					},
+				},
+			},
+			imageInspected: &types.ImageInspect{
+				RepoDigests: []string{"repo1@digest1", "repo2@digest2", "", "123456781234.dkr.ecr.us-west-2.amazonaws.com/ubuntu@sha256:2feffff9eeca4e736f9f8e57813a97fe930554f474f7795ffa5a9261adeaaf44"},
 			},
 		},
 	}

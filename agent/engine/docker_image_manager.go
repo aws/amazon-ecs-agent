@@ -138,20 +138,27 @@ func (imageManager *dockerImageManager) RecordContainerReference(container *apic
 	return nil
 }
 
+// check whether image pull from ECR
+func (imageManager *dockerImageManager) isImagePullFromECR(container *apicontainer.Container) bool {
+	return container.RegistryAuthentication != nil && container.RegistryAuthentication.ECRAuthData != nil && container.RegistryAuthentication.Type == apicontainer.AuthTypeECR
+}
+
 // The helper function to fetch the RepoImageDigest when inspect the image
 func (imageManager *dockerImageManager) fetchRepoDigest(imageInspected *types.ImageInspect, container *apicontainer.Container) string {
-	imageRepoDigests := imageInspected.RepoDigests
 	resultRepoDigest := ""
-	imagePrefix := strings.Split(container.Image, ":")[0]
-	for _, imageRepoDigest := range imageRepoDigests {
-		if strings.HasPrefix(imageRepoDigest, imagePrefix) {
-			repoDigestSplitList := strings.Split(imageRepoDigest, "@")
-			if len(repoDigestSplitList) > 1 {
-				resultRepoDigest = repoDigestSplitList[1]
-				return resultRepoDigest
-			} else {
-				seelog.Warnf("ImageRepoDigest doesn't have the right format: %v", imageRepoDigest)
-				return ""
+	if imageManager.isImagePullFromECR(container) {
+		imageRepoDigests := imageInspected.RepoDigests
+		imagePrefix := strings.Split(container.Image, "/")[0]
+		for _, imageRepoDigest := range imageRepoDigests {
+			if strings.HasPrefix(imageRepoDigest, imagePrefix) {
+				repoDigestSplitList := strings.Split(imageRepoDigest, "@")
+				if len(repoDigestSplitList) > 1 {
+					resultRepoDigest = repoDigestSplitList[1]
+					return resultRepoDigest
+				} else {
+					seelog.Warnf("ImageRepoDigest doesn't have the right format: %v", imageRepoDigest)
+					return ""
+				}
 			}
 		}
 	}
