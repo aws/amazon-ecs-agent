@@ -1182,7 +1182,7 @@ func TestGetHostPublicIPv4AddressFromEC2MetadataFailWithError(t *testing.T) {
 	assert.Empty(t, agent.getHostPublicIPv4AddressFromEC2Metadata())
 }
 
-func TestSpotInstanceActionCheck_Yes(t *testing.T) {
+func TestSpotInstanceActionCheck_Terminate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1202,7 +1202,47 @@ func TestSpotInstanceActionCheck_Yes(t *testing.T) {
 	assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
-func TestSpotInstanceActionCheck_EmptyTimestamp(t *testing.T) {
+func TestSpotInstanceActionCheck_Stop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	myARN := "myARN"
+	agent := &ecsAgent{
+		ec2MetadataClient:    ec2MetadataClient,
+		ec2Client:            ec2Client,
+		containerInstanceARN: myARN,
+	}
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("{\"action\": \"stop\", \"time\": \"2017-09-18T08:22:00Z\"}", nil)
+	ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
+
+	assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
+}
+
+func TestSpotInstanceActionCheck_Hibernate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	myARN := "myARN"
+	agent := &ecsAgent{
+		ec2MetadataClient:    ec2MetadataClient,
+		ec2Client:            ec2Client,
+		containerInstanceARN: myARN,
+	}
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("{\"action\": \"hibernate\", \"time\": \"2017-09-18T08:22:00Z\"}", nil)
+	ecsClient.EXPECT().UpdateContainerInstancesState(myARN, "DRAINING").Return(nil)
+
+	assert.True(t, agent.spotInstanceDrainingPoller(ecsClient))
+}
+
+func TestSpotInstanceActionCheck_EmptyJSON(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1217,6 +1257,48 @@ func TestSpotInstanceActionCheck_EmptyTimestamp(t *testing.T) {
 		containerInstanceARN: myARN,
 	}
 	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("", nil)
+	// Container state should NOT be updated because the termination time field is empty.
+	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
+
+	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
+}
+
+func TestSpotInstanceActionCheck_InvalidJSON(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	myARN := "myARN"
+	agent := &ecsAgent{
+		ec2MetadataClient:    ec2MetadataClient,
+		ec2Client:            ec2Client,
+		containerInstanceARN: myARN,
+	}
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("{\"action\": \"terminate\" \"time\": \"2017-09-18T08:22:00Z\"}", nil)
+	// Container state should NOT be updated because the termination time field is empty.
+	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
+
+	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
+}
+
+func TestSpotInstanceActionCheck_UnknownInstanceAction(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	ec2Client := mock_ec2.NewMockClient(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	myARN := "myARN"
+	agent := &ecsAgent{
+		ec2MetadataClient:    ec2MetadataClient,
+		ec2Client:            ec2Client,
+		containerInstanceARN: myARN,
+	}
+	ec2MetadataClient.EXPECT().SpotInstanceAction().Return("{\"action\": \"flip!\", \"time\": \"2017-09-18T08:22:00Z\"}", nil)
 	// Container state should NOT be updated because the termination time field is empty.
 	ecsClient.EXPECT().UpdateContainerInstancesState(gomock.Any(), gomock.Any()).Times(0)
 

@@ -15,6 +15,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -630,9 +631,28 @@ func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
 // set AND the container instance state is successfully updated to DRAINING.
 func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
 	// this endpoint 404s unless a interruption has been set, so expect failure in most cases.
-	termtime, err := agent.ec2MetadataClient.SpotInstanceAction()
-	if err == nil && len(termtime) > 0 {
-		seelog.Infof("Received a spot interruption (%s), setting state to DRAINING", termtime)
+	resp, err := agent.ec2MetadataClient.SpotInstanceAction()
+	if err == nil {
+		type InstanceAction struct {
+			Time   string
+			Action string
+		}
+		ia := InstanceAction{}
+
+		err := json.Unmarshal([]byte(resp), &ia)
+		if err != nil {
+			seelog.Errorf("Invalid response from /spot/instance-action endpoint: %s Error: %s", resp, err)
+			return false
+		}
+
+		switch ia.Action {
+		case "hibernate", "terminate", "stop":
+		default:
+			seelog.Errorf("Invalid response from /spot/instance-action endpoint: %s, Error: unrecognized action (%s)", resp, ia.Action)
+			return false
+		}
+
+		seelog.Infof("Received a spot interruption (%s) scheduled for %s, setting state to DRAINING", ia.Action, ia.Time)
 		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, "DRAINING")
 		if err != nil {
 			seelog.Errorf("Error setting instance [ARN: %s] state to DRAINING: %s", agent.containerInstanceARN, err)
