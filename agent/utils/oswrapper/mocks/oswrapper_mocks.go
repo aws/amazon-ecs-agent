@@ -120,6 +120,21 @@ func (mr *MockFileMockRecorder) Write(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockFile)(nil).Write), arg0)
 }
 
+// WriteAt mocks base method
+func (m *MockFile) WriteAt(arg0 []byte, arg1 int64) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteAt", arg0, arg1)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WriteAt indicates an expected call of WriteAt
+func (mr *MockFileMockRecorder) WriteAt(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteAt", reflect.TypeOf((*MockFile)(nil).WriteAt), arg0, arg1)
+}
+
 // MockOS is a mock of OS interface
 type MockOS struct {
 	ctrl     *gomock.Controller

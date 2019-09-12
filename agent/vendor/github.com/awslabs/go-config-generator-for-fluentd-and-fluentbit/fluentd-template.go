@@ -19,7 +19,9 @@ var fluentDConfigTemplate = `{{- range .IncludeConfigHeadOfFile -}}
 {{- range .Inputs }}
 <source>
     @type {{ .Name }}
-    {{- if .Tag }}tag {{ .Tag }}{{- end }}
+    {{- if .Tag }}
+    tag {{ .Tag }}
+    {{- end }}
     {{- range $key, $value := .Options }}
     {{ $key }} {{ $value }}
     {{- end }}
