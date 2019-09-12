@@ -425,6 +425,8 @@ func TestCreateFirelensContainer(t *testing.T) {
 						Type: firelensConfigType,
 						Options: map[string]string{
 							"enable-ecs-log-metadata": "true",
+							"config-file-type":        "s3",
+							"config-file-value":       "arn:aws:s3:::bucket/key",
 						},
 					},
 				},
@@ -456,25 +458,28 @@ func TestCreateFirelensContainer(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                 string
-		task                 *apitask.Task
-		expectedConfigBind   string
-		expectedSocketBind   string
-		expectedLogOptionEnv string
+		name                        string
+		task                        *apitask.Task
+		expectedGeneratedConfigBind string
+		expectedS3ConfigBind        string
+		expectedSocketBind          string
+		expectedLogOptionEnv        string
 	}{
 		{
-			name:                 "test create fluentd firelens container",
-			task:                 getTask(firelens.FirelensConfigTypeFluentd),
-			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
-			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
-			expectedLogOptionEnv: "secret-name_1=secret-val",
+			name:                        "test create fluentd firelens container",
+			task:                        getTask(firelens.FirelensConfigTypeFluentd),
+			expectedGeneratedConfigBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluentd/etc/fluent.conf",
+			expectedS3ConfigBind:        defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/external.conf:/fluentd/etc/external.conf",
+			expectedSocketBind:          defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
+			expectedLogOptionEnv:        "secret-name_1=secret-val",
 		},
 		{
-			name:                 "test create fluentbit firelens container",
-			task:                 getTask(firelens.FirelensConfigTypeFluentbit),
-			expectedConfigBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
-			expectedSocketBind:   defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
-			expectedLogOptionEnv: "secret-name_1=secret-val",
+			name:                        "test create fluentbit firelens container",
+			task:                        getTask(firelens.FirelensConfigTypeFluentbit),
+			expectedGeneratedConfigBind: defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf",
+			expectedS3ConfigBind:        defaultConfig.DataDirOnHost + "/data/firelens/task-id/config/external.conf:/fluent-bit/etc/external.conf",
+			expectedSocketBind:          defaultConfig.DataDirOnHost + "/data/firelens/task-id/socket/:/var/run/",
+			expectedLogOptionEnv:        "secret-name_1=secret-val",
 		},
 	}
 
@@ -493,7 +498,8 @@ func TestCreateFirelensContainer(t *testing.T) {
 					hostConfig *dockercontainer.HostConfig,
 					name string,
 					timeout time.Duration) {
-					assert.Contains(t, hostConfig.Binds, tc.expectedConfigBind)
+					assert.Contains(t, hostConfig.Binds, tc.expectedGeneratedConfigBind)
+					assert.Contains(t, hostConfig.Binds, tc.expectedS3ConfigBind)
 					assert.Contains(t, hostConfig.Binds, tc.expectedSocketBind)
 					assert.Contains(t, config.Env, tc.expectedLogOptionEnv)
 				})

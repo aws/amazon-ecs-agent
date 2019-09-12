@@ -1,4 +1,4 @@
-// +build !windows,unit
+// +build linux,unit
 
 // Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -26,6 +26,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	engine_testutils "github.com/aws/amazon-ecs-agent/agent/engine/testutils"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -187,4 +189,106 @@ func TestLoadsDataForGPU(t *testing.T) {
 	assert.Equal(t, "container_1", container.Name)
 	assert.Equal(t, []string{"0", "1"}, container.GPUIDs)
 	assert.Equal(t, "0,1", container.Environment["NVIDIA_VISIBLE_DEVICES"])
+}
+
+func TestLoadsDataForFirelensTask(t *testing.T) {
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v23", "firelens")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "test-logrouter-p2", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3", task.Arn)
+	assert.Len(t, task.Containers, 2)
+	foundFirelensContainer := false
+	for _, container := range task.Containers {
+		if container.FirelensConfig != nil {
+			foundFirelensContainer = true
+			assert.Equal(t, "fluentd", container.FirelensConfig.Type)
+			assert.Equal(t, "true", container.FirelensConfig.Options["enable-ecs-log-metadata"])
+		}
+	}
+	assert.True(t, foundFirelensContainer)
+
+	assert.Len(t, task.ResourcesMapUnsafe, 2)
+	assert.Len(t, task.ResourcesMapUnsafe["firelens"], 1)
+	firelensResource, ok := task.ResourcesMapUnsafe["firelens"][0].(*firelens.FirelensResource)
+	assert.True(t, ok)
+	assert.Equal(t, "test-logrouter-p2", firelensResource.GetCluster())
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3", firelensResource.GetTaskARN())
+	assert.Equal(t, "test-firelens-beta-2-bridge:1", firelensResource.GetTaskDefinition())
+	assert.Contains(t, firelensResource.GetContainerToLogOptions(), "app")
+	assert.True(t, firelensResource.GetECSMetadataEnabled())
+	assert.Equal(t, "i-1234567890", firelensResource.GetEC2InstanceID())
+	assert.Equal(t, "/data/firelens/265f161270634aeaab7d0e88c29389c3", firelensResource.GetResourceDir())
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetDesiredStatus())
+}
+
+func TestLoadsDataForFirelensTaskWithExternalConfig(t *testing.T) {
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v24", "firelens")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "test-logrouter-p2", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/027002862d4b485ba3da5e935e0bc10c", task.Arn)
+	assert.Len(t, task.Containers, 2)
+	foundFirelensContainer := false
+	for _, container := range task.Containers {
+		if container.FirelensConfig != nil {
+			foundFirelensContainer = true
+			assert.Equal(t, "fluentbit", container.FirelensConfig.Type)
+			assert.Equal(t, "file", container.FirelensConfig.Options["config-file-type"])
+			assert.Equal(t, "/tmp/dummy.conf", container.FirelensConfig.Options["config-file-value"])
+		}
+	}
+	assert.True(t, foundFirelensContainer)
+
+	assert.Len(t, task.ResourcesMapUnsafe, 2)
+	assert.Len(t, task.ResourcesMapUnsafe["firelens"], 1)
+	firelensResource, ok := task.ResourcesMapUnsafe["firelens"][0].(*firelens.FirelensResource)
+	assert.True(t, ok)
+	assert.Equal(t, "test-logrouter-p2", firelensResource.GetCluster())
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/027002862d4b485ba3da5e935e0bc10c", firelensResource.GetTaskARN())
+	assert.Equal(t, "test-firelens-local-bit:2", firelensResource.GetTaskDefinition())
+	assert.Contains(t, firelensResource.GetContainerToLogOptions(), "app")
+	assert.True(t, firelensResource.GetECSMetadataEnabled())
+	assert.Equal(t, "i-1234567890", firelensResource.GetEC2InstanceID())
+	assert.Equal(t, "/data/firelens/027002862d4b485ba3da5e935e0bc10c", firelensResource.GetResourceDir())
+	assert.Equal(t, "file", firelensResource.GetExternalConfigType())
+	assert.Equal(t, "/tmp/dummy.conf", firelensResource.GetExternalConfigValue())
+	assert.Equal(t, "xxx", firelensResource.GetExecutionCredentialsID())
+	assert.Equal(t, "us-west-2", firelensResource.GetRegion())
+	assert.Equal(t, "bridge", firelensResource.GetNetworkMode())
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetKnownStatus())
+	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetDesiredStatus())
 }

@@ -19,7 +19,9 @@ var fluentBitConfigTemplate = `{{- range .IncludeConfigHeadOfFile -}}
 {{- range .Inputs }}
 [INPUT]
     Name {{ .Name }}
-    {{- if .Tag }}Tag {{ .Tag }}{{- end }}
+    {{- if .Tag }}
+    Tag {{ .Tag }}
+    {{- end }}
     {{- range $key, $value := .Options }}
     {{ $key }} {{ $value }}
     {{- end }}

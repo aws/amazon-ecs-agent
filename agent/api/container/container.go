@@ -1008,6 +1008,26 @@ func (c *Container) GetLogDriver() string {
 	return hostConfig.LogConfig.Type
 }
 
+// GetNetworkModeFromHostConfig returns the network mode used by the container from the host config .
+func (c *Container) GetNetworkModeFromHostConfig() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.DockerConfig.HostConfig == nil {
+		return ""
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	// TODO return error to differentiate between error and default mode .
+	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
+	if err != nil {
+		seelog.Warnf("Encountered error when trying to get network mode for container %s: %v", err)
+		return ""
+	}
+
+	return hostConfig.NetworkMode.NetworkName()
+}
+
 // GetHostConfig returns the container's host config.
 func (c *Container) GetHostConfig() *string {
 	c.lock.RLock()

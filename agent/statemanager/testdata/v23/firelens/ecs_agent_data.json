@@ -1,0 +1,419 @@
+{
+  "Data": {
+    "Cluster": "test-logrouter-p2",
+    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:1234567890:container-instance/test-logrouter-p2/bf8f0029b6da498b8e3a167579c721d7",
+    "EC2InstanceID": "i-1234567890",
+    "TaskEngine": {
+      "ENIAttachments": null,
+      "IPToTask": {},
+      "IdToContainer": {
+        "6585bbdb401743666b9f9ac4063a36a2cb39524004802076dad6bda126493968": {
+          "Container": {
+            "ApplyingError": null,
+            "Command": null,
+            "Cpu": 0,
+            "EntryPoint": null,
+            "Essential": true,
+            "GPUIDs": null,
+            "Image": "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-color-logger:latest",
+            "ImageID": "sha256:0e26a3f19b993b2bddb414d4d489522e43de4219ec342801f21cd5936ffea7aa",
+            "IsInternal": "NORMAL",
+            "KnownExitCode": null,
+            "KnownPortBindings": null,
+            "KnownStatus": "RUNNING",
+            "Links": null,
+            "LogsAuthStrategy": "",
+            "Memory": 128,
+            "Name": "app",
+            "RunDependencies": null,
+            "RuntimeID": "6585bbdb401743666b9f9ac4063a36a2cb39524004802076dad6bda126493968",
+            "SentStatus": "RUNNING",
+            "StartTimeout": 0,
+            "StopTimeout": 0,
+            "TransitionDependencySet": {
+              "1": {
+                "ContainerDependencies": null,
+                "ResourceDependencies": [
+                  {
+                    "Name": "cgroup",
+                    "RequiredStatus": 1
+                  }
+                ]
+              }
+            },
+            "V3EndpointID": "d586807a-74cf-408f-80e3-c7cb913423bf",
+            "dependsOn": [
+              {
+                "condition": "START",
+                "containerName": "log_router"
+              }
+            ],
+            "desiredStatus": "RUNNING",
+            "dockerConfig": {
+              "config": "{}",
+              "hostConfig": "{\"LogConfig\":{\"Type\":\"awsfirelens\",\"Config\":{\"include-pattern\":\"^.*[aeiou]$\",\"log_group_name\":\"firelens-testing\",\"auto_create_stream\":\"true\",\"exclude-pattern\":\"^[a-z][aeiou].*$\",\"use_tag_as_stream\":\"true\",\"@type\":\"cloudwatch_logs\",\"region\":\"us-west-2\"}},\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+              "version": "1.19"
+            },
+            "environment": {
+              "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+              "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/d586807a-74cf-408f-80e3-c7cb913423bf"
+            },
+            "firelensConfiguration": null,
+            "metadataFileUpdated": false,
+            "mountPoints": [],
+            "overrides": {
+              "command": null
+            },
+            "portMappings": [],
+            "registryAuthentication": {
+              "asmAuthData": null,
+              "ecrAuthData": {
+                "endpointOverride": "",
+                "region": "us-west-2",
+                "registryId": "1234567890",
+                "useExecutionRole": false
+              },
+              "type": "ecr"
+            },
+            "secrets": null,
+            "volumesFrom": []
+          },
+          "DockerId": "6585bbdb401743666b9f9ac4063a36a2cb39524004802076dad6bda126493968",
+          "DockerName": "ecs-test-firelens-beta-2-bridge-1-app-c882f18df494a0bc5e00"
+        },
+        "7523c7b248edb5e51c3724d5d0216fab69f52504952560d63ce7b6d72a3c1228": {
+          "Container": {
+            "ApplyingError": null,
+            "Command": null,
+            "Cpu": 0,
+            "EntryPoint": null,
+            "Essential": true,
+            "GPUIDs": null,
+            "Image": "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-fluentd:latest",
+            "ImageID": "sha256:67e3b4c5816f0a114035084cb189c1051ec16fbfd669346ae6fef4b42e7820b8",
+            "IsInternal": "NORMAL",
+            "KnownExitCode": null,
+            "KnownPortBindings": null,
+            "KnownStatus": "RUNNING",
+            "Links": null,
+            "LogsAuthStrategy": "",
+            "Memory": 128,
+            "Name": "log_router",
+            "RunDependencies": null,
+            "RuntimeID": "7523c7b248edb5e51c3724d5d0216fab69f52504952560d63ce7b6d72a3c1228",
+            "SentStatus": "RUNNING",
+            "StartTimeout": 0,
+            "StopTimeout": 0,
+            "TransitionDependencySet": {
+              "1": {
+                "ContainerDependencies": null,
+                "ResourceDependencies": [
+                  {
+                    "Name": "cgroup",
+                    "RequiredStatus": 1
+                  }
+                ]
+              },
+              "2": {
+                "ContainerDependencies": null,
+                "ResourceDependencies": [
+                  {
+                    "Name": "firelens",
+                    "RequiredStatus": 1
+                  }
+                ]
+              }
+            },
+            "V3EndpointID": "f00460f5-99c5-47d3-98fd-4b252043ea24",
+            "desiredStatus": "RUNNING",
+            "dockerConfig": {
+              "config": "{\"User\":\"0\"}",
+              "hostConfig": "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+              "version": "1.17"
+            },
+            "environment": {
+              "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+              "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/f00460f5-99c5-47d3-98fd-4b252043ea24",
+              "FLUENT_UID": "0"
+            },
+            "firelensConfiguration": {
+              "options": {
+                "enable-ecs-log-metadata": "true"
+              },
+              "type": "fluentd"
+            },
+            "metadataFileUpdated": false,
+            "mountPoints": [],
+            "overrides": {
+              "command": null
+            },
+            "portMappings": [],
+            "registryAuthentication": {
+              "asmAuthData": null,
+              "ecrAuthData": {
+                "endpointOverride": "",
+                "region": "us-west-2",
+                "registryId": "1234567890",
+                "useExecutionRole": false
+              },
+              "type": "ecr"
+            },
+            "secrets": null,
+            "volumesFrom": []
+          },
+          "DockerId": "7523c7b248edb5e51c3724d5d0216fab69f52504952560d63ce7b6d72a3c1228",
+          "DockerName": "ecs-test-firelens-beta-2-bridge-1-logrouter-c6c4b6e0c5ebacdce401"
+        }
+      },
+      "IdToTask": {
+        "6585bbdb401743666b9f9ac4063a36a2cb39524004802076dad6bda126493968": "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3",
+        "7523c7b248edb5e51c3724d5d0216fab69f52504952560d63ce7b6d72a3c1228": "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3"
+      },
+      "ImageStates": [
+        {
+          "Image": {
+            "ImageID": "sha256:67e3b4c5816f0a114035084cb189c1051ec16fbfd669346ae6fef4b42e7820b8",
+            "Names": [
+              "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-fluentd:latest"
+            ],
+            "Size": 384467001
+          },
+          "LastUsedAt": "2019-09-03T18:24:49.202062631Z",
+          "PullSucceeded": true,
+          "PulledAt": "2019-09-03T18:24:49.202060787Z"
+        },
+        {
+          "Image": {
+            "ImageID": "sha256:0e26a3f19b993b2bddb414d4d489522e43de4219ec342801f21cd5936ffea7aa",
+            "Names": [
+              "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-color-logger:latest"
+            ],
+            "Size": 918081091
+          },
+          "LastUsedAt": "2019-09-03T18:24:49.718464448Z",
+          "PullSucceeded": true,
+          "PulledAt": "2019-09-03T18:24:49.718462609Z"
+        }
+      ],
+      "Tasks": [
+        {
+          "AppMesh": null,
+          "Arn": "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3",
+          "Containers": [
+            {
+              "ApplyingError": null,
+              "Command": null,
+              "Cpu": 0,
+              "EntryPoint": null,
+              "Essential": true,
+              "GPUIDs": null,
+              "Image": "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-color-logger:latest",
+              "ImageID": "sha256:0e26a3f19b993b2bddb414d4d489522e43de4219ec342801f21cd5936ffea7aa",
+              "IsInternal": "NORMAL",
+              "KnownExitCode": null,
+              "KnownPortBindings": null,
+              "KnownStatus": "RUNNING",
+              "Links": null,
+              "LogsAuthStrategy": "",
+              "Memory": 128,
+              "Name": "app",
+              "RunDependencies": null,
+              "RuntimeID": "6585bbdb401743666b9f9ac4063a36a2cb39524004802076dad6bda126493968",
+              "SentStatus": "RUNNING",
+              "StartTimeout": 0,
+              "StopTimeout": 0,
+              "TransitionDependencySet": {
+                "1": {
+                  "ContainerDependencies": null,
+                  "ResourceDependencies": [
+                    {
+                      "Name": "cgroup",
+                      "RequiredStatus": 1
+                    }
+                  ]
+                }
+              },
+              "V3EndpointID": "d586807a-74cf-408f-80e3-c7cb913423bf",
+              "dependsOn": [
+                {
+                  "condition": "START",
+                  "containerName": "log_router"
+                }
+              ],
+              "desiredStatus": "RUNNING",
+              "dockerConfig": {
+                "config": "{}",
+                "hostConfig": "{\"LogConfig\":{\"Type\":\"awsfirelens\",\"Config\":{\"include-pattern\":\"^.*[aeiou]$\",\"log_group_name\":\"firelens-testing\",\"auto_create_stream\":\"true\",\"exclude-pattern\":\"^[a-z][aeiou].*$\",\"use_tag_as_stream\":\"true\",\"@type\":\"cloudwatch_logs\",\"region\":\"us-west-2\"}},\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+                "version": "1.19"
+              },
+              "environment": {
+                "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+                "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/d586807a-74cf-408f-80e3-c7cb913423bf"
+              },
+              "firelensConfiguration": null,
+              "metadataFileUpdated": false,
+              "mountPoints": [],
+              "overrides": {
+                "command": null
+              },
+              "portMappings": [],
+              "registryAuthentication": {
+                "asmAuthData": null,
+                "ecrAuthData": {
+                  "endpointOverride": "",
+                  "region": "us-west-2",
+                  "registryId": "1234567890",
+                  "useExecutionRole": false
+                },
+                "type": "ecr"
+              },
+              "secrets": null,
+              "volumesFrom": []
+            },
+            {
+              "ApplyingError": null,
+              "Command": null,
+              "Cpu": 0,
+              "EntryPoint": null,
+              "Essential": true,
+              "GPUIDs": null,
+              "Image": "1234567890.dkr.ecr.us-west-2.amazonaws.com/firelens-fluentd:latest",
+              "ImageID": "sha256:67e3b4c5816f0a114035084cb189c1051ec16fbfd669346ae6fef4b42e7820b8",
+              "IsInternal": "NORMAL",
+              "KnownExitCode": null,
+              "KnownPortBindings": null,
+              "KnownStatus": "RUNNING",
+              "Links": null,
+              "LogsAuthStrategy": "",
+              "Memory": 128,
+              "Name": "log_router",
+              "RunDependencies": null,
+              "RuntimeID": "7523c7b248edb5e51c3724d5d0216fab69f52504952560d63ce7b6d72a3c1228",
+              "SentStatus": "RUNNING",
+              "StartTimeout": 0,
+              "StopTimeout": 0,
+              "TransitionDependencySet": {
+                "1": {
+                  "ContainerDependencies": null,
+                  "ResourceDependencies": [
+                    {
+                      "Name": "cgroup",
+                      "RequiredStatus": 1
+                    }
+                  ]
+                },
+                "2": {
+                  "ContainerDependencies": null,
+                  "ResourceDependencies": [
+                    {
+                      "Name": "firelens",
+                      "RequiredStatus": 1
+                    }
+                  ]
+                }
+              },
+              "V3EndpointID": "f00460f5-99c5-47d3-98fd-4b252043ea24",
+              "desiredStatus": "RUNNING",
+              "dockerConfig": {
+                "config": "{\"User\":\"0\"}",
+                "hostConfig": "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+                "version": "1.17"
+              },
+              "environment": {
+                "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+                "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/f00460f5-99c5-47d3-98fd-4b252043ea24",
+                "FLUENT_UID": "0"
+              },
+              "firelensConfiguration": {
+                "options": {
+                  "enable-ecs-log-metadata": "true"
+                },
+                "type": "fluentd"
+              },
+              "metadataFileUpdated": false,
+              "mountPoints": [],
+              "overrides": {
+                "command": null
+              },
+              "portMappings": [],
+              "registryAuthentication": {
+                "asmAuthData": null,
+                "ecrAuthData": {
+                  "endpointOverride": "",
+                  "region": "us-west-2",
+                  "registryId": "1234567890",
+                  "useExecutionRole": false
+                },
+                "type": "ecr"
+              },
+              "secrets": null,
+              "volumesFrom": []
+            }
+          ],
+          "DesiredStatus": "RUNNING",
+          "ENI": null,
+          "ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+          "Family": "test-firelens-beta-2-bridge",
+          "KnownStatus": "RUNNING",
+          "KnownTime": "2019-09-03T18:24:50.156251123Z",
+          "MemoryCPULimitsEnabled": true,
+          "PlatformFields": {},
+          "PullStartedAt": "2019-09-03T18:24:48.952680959Z",
+          "PullStoppedAt": "2019-09-03T18:24:49.723104163Z",
+          "SentStatus": "RUNNING",
+          "StartSequenceNumber": 2,
+          "StopSequenceNumber": 0,
+          "Version": "1",
+          "associations": [],
+          "executionCredentialsID": "",
+          "resources": {
+            "cgroup": [
+              {
+                "cgroupMountPath": "/sys/fs/cgroup",
+                "cgroupRoot": "/ecs/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3",
+                "createdAt": "0001-01-01T00:00:00Z",
+                "desiredStatus": "CREATED",
+                "knownStatus": "CREATED",
+                "resourceSpec": {
+                  "cpu": {
+                    "shares": 2
+                  }
+                }
+              }
+            ],
+            "firelens": [
+              {
+                "AppliedStatus": "NONE",
+                "Cluster": "test-logrouter-p2",
+                "ContainersToLogOptions": {
+                  "app": {
+                    "@type": "cloudwatch_logs",
+                    "auto_create_stream": "true",
+                    "exclude-pattern": "^[a-z][aeiou].*$",
+                    "include-pattern": "^.*[aeiou]$",
+                    "log_group_name": "firelens-testing",
+                    "region": "us-west-2",
+                    "use_tag_as_stream": "true"
+                  }
+                },
+                "CreatedAt": "0001-01-01T00:00:00Z",
+                "DesiredStatus": "CREATED",
+                "EC2InstanceID": "i-1234567890",
+                "ECSMetadataEnabled": true,
+                "FirelensConfigType": "fluentd",
+                "KnownStatus": "CREATED",
+                "ResourceDir": "/data/firelens/265f161270634aeaab7d0e88c29389c3",
+                "TaskARN": "arn:aws:ecs:us-west-2:1234567890:task/test-logrouter-p2/265f161270634aeaab7d0e88c29389c3",
+                "TaskDefinition": "test-firelens-beta-2-bridge:1",
+                "TerminalReason": ""
+              }
+            ]
+          },
+          "volumes": []
+        }
+      ]
+    },
+    "availabilityZone": "us-west-2c"
+  },
+  "Version": 23
+}
