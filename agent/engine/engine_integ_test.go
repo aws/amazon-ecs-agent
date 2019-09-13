@@ -37,6 +37,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -490,8 +491,7 @@ func TestLabels(t *testing.T) {
 	"Labels": {
 		"com.foo.label2": "value",
 		"label1":""
-	}
-}`)}
+	}}`)}
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
 	verifyTaskIsRunning(stateChangeEvents, testTask)
@@ -504,6 +504,51 @@ func TestLabels(t *testing.T) {
 	state, _ := client.ContainerInspect(ctx, cid)
 	assert.EqualValues(t, "value", state.Config.Labels["com.foo.label2"])
 	assert.EqualValues(t, "", state.Config.Labels["label1"])
+
+	// Kill the existing container now
+	taskUpdate := createTestTask(testArn)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+func TestLogDriverOptions(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
+		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	testArn := "TestLogdriverOptions"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{
+	"LogConfig": {
+		"Type": "json-file",
+		"Config": {
+			"max-file": "50",
+			"max-size": "50k"
+		}
+	}}`)}
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	go taskEngine.AddTask(testTask)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+
+	containerExpected := container.LogConfig{
+		Type:   "json-file",
+		Config: map[string]string{"max-file": "50", "max-size": "50k"},
+	}
+
+	assert.EqualValues(t, containerExpected, state.HostConfig.LogConfig)
 
 	// Kill the existing container now
 	taskUpdate := createTestTask(testArn)
