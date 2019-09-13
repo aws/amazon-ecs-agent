@@ -1,0 +1,54 @@
+{
+  "family": "ecsftest-firelens-fluentd-s3",
+  "networkMode": "bridge",
+  "taskRoleArn": "$$$TASK_ROLE$$$",
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$",
+  "containerDefinitions": [
+    {
+      "name": "firelens",
+      "image": "127.0.0.1:51670/amazon/firelens-fluentd:latest",
+      "essential": true,
+      "memory": 256,
+      "firelensConfiguration": {
+        "type": "fluentd",
+        "options": {
+          "config-file-type": "s3",
+          "config-file-value": "arn:aws:s3:::$$$TEST_S3_BUCKET$$$/testfiles/fluentd.conf"
+        }
+      },
+      "environment": [
+        {
+          "name": "FLUENTD_OPT",
+          "value": "-v"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"firelens-fluentd",
+          "awslogs-multiline-pattern":"^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}"
+        }
+      }
+    },
+    {
+      "name": "logsender",
+      "image": "busybox:latest",
+      "essential": true,
+      "memory": 256,
+      "command": ["sh", "-c", "sleep 5s; echo pass; echo filtered"],
+      "logConfiguration": {
+        "logDriver": "awsfirelens",
+        "options": {
+          "include-pattern": "pass",
+          "exclude-pattern": "filtered"
+        },
+        "secretOptions": [{
+          "name": "$$$SECRET_OPTION_KEY$$$",
+          "valueFrom": "$$$SECRET_OPTION_PARAM$$$"
+        }]
+      }
+    }
+  ]
+}
