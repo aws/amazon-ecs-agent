@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -29,7 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	ecsapi "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -845,8 +843,8 @@ func waitCloudwatchLogsWithFilter(client *cloudwatchlogs.CloudWatchLogs, params 
 		}
 	}()
 
-	select{
-	case err := <- waitEventErr:
+	select {
+	case err := <-waitEventErr:
 		return output, err
 	case <-timer.C:
 		cancelled = true
