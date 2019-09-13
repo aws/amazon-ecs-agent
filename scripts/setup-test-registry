@@ -63,7 +63,7 @@ for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "ama
 				"amazon/amazon-ecs-taskmetadata-validator" "amazon/amazon-ecs-v3-task-endpoint-validator" \
 				"amazon/amazon-ecs-container-metadata-file-validator" "amazon/amazon-ecs-elastic-inference-validator" \
 				"amazon/amazon-appmesh-plugin-validator" "amazon/amazon-ecs-eni-trunking-validator" \
-				"amazon/firelens-fluentd"; do
+				"amazon/firelens-fluentd" "amazon/fluent-logger"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
 
