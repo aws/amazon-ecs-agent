@@ -45,6 +45,7 @@ import (
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1754,7 +1755,17 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 // by querying cloudwatch logs.
 func TestFirelensFluentd(t *testing.T) {
 	testFirelens(t, "fluentd", "@type", "stdout",
-		getLogSenderMessageFluentd, "")
+		getLogSenderMessageFluentd, "", false, false)
+}
+
+func TestFirelensWithFluentLoggerForFluentdWithBridgeMode(t *testing.T) {
+	testFirelens(t, "fluentd", "@type", "stdout",
+		getLogSenderMessageFluentd, "", true, false)
+}
+
+func TestFirelensWithFluentLoggerForFluentdWithAWSVPCMode(t *testing.T) {
+	testFirelens(t, "fluentd", "@type", "stdout",
+		getLogSenderMessageFluentd, "", true, true)
 }
 
 // TestFirelensWithS3ConfigFluentd tests firelens fluentd functionality similar to TestFirelensFluentd, except
@@ -1778,13 +1789,13 @@ func TestFirelensWithS3ConfigFluentd(t *testing.T) {
 </filter>`
 	_, err := svc.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3Bucket),
-		Key: aws.String("testfiles/fluentd.conf"),
-		Body: strings.NewReader(content),
+		Key:    aws.String("testfiles/fluentd.conf"),
+		Body:   strings.NewReader(content),
 	})
 	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
 
 	testFirelens(t, "fluentd", "@type", "stdout",
-		getLogSenderMessageFluentd, s3Bucket)
+		getLogSenderMessageFluentd, s3Bucket, false, false)
 }
 
 // TestFirelensFluentbit starts a task that has a log sender container and a firelens container with configuration type
@@ -1797,7 +1808,26 @@ func TestFirelensFluentbit(t *testing.T) {
 	}
 
 	testFirelens(t, "fluentbit", "Name", "cloudwatch",
-		getLogSenderMessageFluentbit, "")
+		getLogSenderMessageFluentbit, "", false, false)
+}
+
+func TestFirelensWithFluentLoggerForFluentbitWithBridgeMode(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping the test as the fluentbit image doesn't support arm right now.")
+	}
+
+	testFirelens(t, "fluentbit", "Name", "cloudwatch",
+		getLogSenderMessageFluentbit, "", true, false)
+}
+
+func TestFirelensWithFluentLoggerForFluentbitWithAWSVPCMode(t *testing.T) {
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping the test as the fluentbit image doesn't support arm right now.")
+	}
+
+	testFirelens(t, "fluentbit", "", "",
+		getLogSenderMessageFluentbitLogger, "", true, true)
+
 }
 
 // TestFirelensWithS3ConfigFluentbit tests firelens fluentbit router similar to TestFirelensFluentbit, except
@@ -1824,17 +1854,17 @@ func TestFirelensWithS3ConfigFluentbit(t *testing.T) {
 `
 	_, err := svc.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3Bucket),
-		Key: aws.String("testfiles/fluentbit.conf"),
-		Body: strings.NewReader(content),
+		Key:    aws.String("testfiles/fluentbit.conf"),
+		Body:   strings.NewReader(content),
 	})
 	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
 
 	testFirelens(t, "fluentbit", "Name", "cloudwatch",
-		getLogSenderMessageFluentbit, s3Bucket)
+		getLogSenderMessageFluentbit, s3Bucket, false, false)
 }
 
 func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLogOptionValue string,
-	getLogSenderMessageFunc func(string, *testing.T)string, s3Bucket string) {
+	getLogSenderMessageFunc func(string, *testing.T) string, s3Bucket string, isUsingFluentLogger, isAWSVPC bool) {
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
 	}
@@ -1848,29 +1878,30 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	instanceID := iid.InstanceID
 
 	parameterName := fmt.Sprintf("FunctionalTest-FirelensLogOptionSecret-%s", firelensConfigType)
-	ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	input := &ssm.PutParameterInput{
-		Description: aws.String(
-			"Resource created for the ECS Agent Functional Tests: TestFirelensFluentd and TestFirelensFluentbit"),
-		Name:  aws.String(parameterName),
-		Value: aws.String(secretLogOptionValue),
-		Type:  aws.String("String"),
-	}
+	if secretLogOptionKey != "" {
+		ssmClient := ssm.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+		input := &ssm.PutParameterInput{
+			Description: aws.String(
+				"Resource created for the ECS Agent Functional Tests: TestFirelensFluentd and TestFirelensFluentbit"),
+			Name:  aws.String(parameterName),
+			Value: aws.String(secretLogOptionValue),
+			Type:  aws.String("String"),
+		}
 
-	// create parameter in parameter store if it does not exist
-	_, err := ssmClient.PutParameter(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case ssm.ErrCodeParameterAlreadyExists:
-				t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
-				break
-			default:
-				require.NoError(t, err, "SSM PutParameter call failed")
+		// create parameter in parameter store if it does not exist
+		_, err := ssmClient.PutParameter(input)
+		if err != nil {
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				case ssm.ErrCodeParameterAlreadyExists:
+					t.Logf("Parameter %v already exists in SSM Parameter Store", parameterName)
+					break
+				default:
+					require.NoError(t, err, "SSM PutParameter call failed")
+				}
 			}
 		}
 	}
-
 	// socket path has a length limit of 108 characters on Linux. The default temp data dir used in our functional
 	// tests unfortunately causes the socket used by firelens container to be slightly longer than that. So I have
 	// to override the path to be shorter.
@@ -1885,25 +1916,39 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 		},
 		TempDirOverride: tempDir,
 	}
+	if (isAWSVPC) {
+		agentOptions.EnableTaskENI = true
+	}
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
 	agent.RequireVersion(">=1.31.0")
-
+	uuid := uuid.New()
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
 	tdOverrides["$$$SECRET_OPTION_KEY$$$"] = secretLogOptionKey
 	tdOverrides["$$$SECRET_OPTION_PARAM$$$"] = parameterName
 	tdOverrides["$$$TASK_ROLE$$$"] = taskRoleArn
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
+	tdOverrides["$$$LOGGER_UUID$$$"] = uuid
 
 	tdSuffix := ""
 	if s3Bucket != "" {
 		tdSuffix = "-s3"
 		tdOverrides["$$$TEST_S3_BUCKET$$$"] = s3Bucket
 	}
-	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "firelens-"+firelensConfigType+tdSuffix, tdOverrides)
+	if isUsingFluentLogger {
+		tdSuffix = "-fluent-logger"
+	}
+
+	var testTask *TestTask
+	if isAWSVPC {
+		tdSuffix = tdSuffix + "-awsvpc"
+		testTask, err = agent.StartAWSVPCTask("firelens-"+firelensConfigType+tdSuffix, tdOverrides)
+	} else {
+		testTask, err = agent.StartTaskWithTaskDefinitionOverrides(t, "firelens-"+firelensConfigType+tdSuffix, tdOverrides)
+	}
 	require.NoError(t, err)
 
 	err = testTask.WaitStopped(waitTaskStateChangeDuration)
@@ -1911,36 +1956,43 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 
 	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
 	require.NoError(t, err)
-	message := getLogSenderMessageFunc(taskID, t)
+	var message string
+	if isUsingFluentLogger && firelensConfigType == "fluentbit" && !isAWSVPC {
+		message = getLogSenderMessageFunc(uuid, t)
+	} else {
+		message = getLogSenderMessageFunc(taskID, t)
+	}
 
 	// Message should be like: {"source":"stdout","log":"...","container_id":"...","container_name":"...","ec2_instance_id":"...","ecs_cluster":"...","ecs_task_arn":"...","ecs_task_definition":"..."}.
 	// Verify each of the field.
 	jsonBlob := make(map[string]string)
 	err = json.Unmarshal([]byte(message), &jsonBlob)
 	require.NoError(t, err)
-
-	assert.Equal(t, "stdout", jsonBlob["source"])
 	assert.Equal(t, "pass", jsonBlob["log"])
-	assert.Contains(t, jsonBlob, "container_id")
-	assert.Contains(t, jsonBlob["container_name"], "logsender")
 	assert.Equal(t, instanceID, jsonBlob["ec2_instance_id"])
 	assert.Equal(t, agent.Cluster, jsonBlob["ecs_cluster"])
 	assert.Equal(t, *testTask.TaskArn, jsonBlob["ecs_task_arn"])
 	assert.Contains(t, *testTask.TaskDefinitionArn, jsonBlob["ecs_task_definition"])
-	assert.Equal(t, "external_config_value", jsonBlob["external_config_key"])
+	if !isUsingFluentLogger {
+		assert.Equal(t, "external_config_value", jsonBlob["external_config_key"])
+		assert.Contains(t, jsonBlob, "container_id")
+		assert.Contains(t, jsonBlob["container_name"], "logsender")
+		assert.Equal(t, "stdout", jsonBlob["source"])
+
+	}
 }
 
 func getLogSenderMessageFluentd(taskID string, t *testing.T) string {
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	params := &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogGroupName:   aws.String(awslogsLogGroupName),
 		LogStreamNames: aws.StringSlice([]string{fmt.Sprintf("firelens-fluentd/firelens/%s", taskID)}),
 		// The firelens container's stdout contains both log sender's log and its own logs.
 		// Filter out the logs that belong to the firelens container itself.
 		FilterPattern: aws.String(`?"\"log\":\"pass\"" ?"\"log\":\"filtered\""`),
 	}
 
-	resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30 * time.Second)
+	resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30*time.Second)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 
 	// Expect one message sent from the log sender.
@@ -1962,11 +2014,33 @@ func getLogSenderMessageFluentbit(taskID string, t *testing.T) string {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("firelens-fluentbit-logsender-firelens-%s", taskID)),
 	}
-
 	// Expect one message sent from the log sender.
 	resp, err := waitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(resp.Events))
 	message := aws.StringValue(resp.Events[0].Message)
+	return message
+}
+
+func getLogSenderMessageFluentbitLogger(taskID string, t *testing.T) string {
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	params := &cloudwatchlogs.FilterLogEventsInput{
+		LogGroupName:   aws.String(awslogsLogGroupName),
+		LogStreamNames: aws.StringSlice([]string{fmt.Sprintf("firelens-fluentbit/firelens/%s", taskID)}),
+		// The firelens container's stdout contains both log sender's log and its own logs.
+		// Filter out the logs that belong to the firelens container itself.
+		FilterPattern: aws.String(`?"logsender"`),
+	}
+
+	resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30*time.Second)
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+
+	// Expect one message sent from the log sender.vv
+	assert.Equal(t, 1, len(resp.Events))
+	line := aws.StringValue(resp.Events[0].Message)
+	re := regexp.MustCompile(`(?m)\{([^\)]+)\}`)
+	// Message is like: {"log"=>"...","ec2_instance_id"=>"...","ecs_cluster"=>"...","ecs_task_arn"=>"...","ecs_task_definition"=>"..."}.
+	// We modify it so can be json parsed and then assert
+	message := strings.Replace(re.FindString(line), "=>", ":", -1)
 	return message
 }

@@ -235,13 +235,14 @@ namespace-tests:
 test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd \
 				agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator \
 				container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator \
-				eni-trunking-validator firelens-fluentbit-test-image firelens-fluentd-test-image
+				eni-trunking-validator firelens-fluentbit-test-image firelens-fluentd-test-image \
+				firelens-fluent-logger-test-image
 	@./scripts/setup-test-registry
 
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image firelens-fluentbit-test-image firelens-fluentd-test-image
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image firelens-fluentbit-test-image firelens-fluentd-test-image firelens-fluent-logger-test-image
 
 squid:
 	$(MAKE) -C misc/squid $(MFLAGS)
@@ -301,6 +302,9 @@ endif
 
 firelens-fluentd-test-image:
 	$(MAKE) -C misc/firelens-fluentd $(MFLAGS)
+
+firelens-fluent-logger-test-image:
+	$(MAKE) -C misc/fluent-logger $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
@@ -390,6 +394,7 @@ clean:
 	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/firelens-fluentbit $(MFLAGS) clean
 	-$(MAKE) -C misc/firelens-fluentd $(MFLAGS) clean
+	-$(MAKE) -C misc/fluent-logger $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
