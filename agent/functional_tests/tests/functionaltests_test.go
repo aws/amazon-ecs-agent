@@ -185,34 +185,6 @@ func TestPortResourceContention(t *testing.T) {
 	testTask2.WaitStopped(2 * time.Minute)
 }
 
-func TestLabels(t *testing.T) {
-	ctx := context.TODO()
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.5.0")
-
-	task, err := agent.StartTask(t, labelsTaskDefinition)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dockerId, err := agent.ResolveTaskDockerID(task, "labeled")
-	if err != nil {
-		t.Fatal(err)
-	}
-	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if container.Config.Labels["label1"] != "" || container.Config.Labels["com.foo.label2"] != "value" {
-		t.Fatalf("Labels did not match expected; expected to contain label1: com.foo.label2:value, got %v", container.Config.Labels)
-	}
-}
-
 func TestLogdriverOptions(t *testing.T) {
 	ctx := context.TODO()
 	agent := RunAgent(t, nil)
