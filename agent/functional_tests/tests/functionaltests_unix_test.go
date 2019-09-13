@@ -1920,8 +1920,7 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
-	// TODO: change to 1.31.0 when merging
-	agent.RequireVersion(">=1.29.1")
+	agent.RequireVersion(">=1.31.0")
 
 	tdOverrides := make(map[string]string)
 	tdOverrides["$$$TEST_REGION$$$"] = *ECS.Config.Region
