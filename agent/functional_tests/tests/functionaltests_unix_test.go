@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -529,34 +528,6 @@ func TestV3TaskEndpointTags(t *testing.T) {
 
 func TestContainerMetadataFile(t *testing.T) {
 	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
-}
-
-// TestMemoryOvercommit tests the MemoryReservation of container can be configured in task definition
-func TestMemoryOvercommit(t *testing.T) {
-	ctx := context.TODO()
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	memoryReservation := int64(50)
-	tdOverride := make(map[string]string)
-
-	tdOverride["$$$$MEMORY_RESERVATION$$$$"] = strconv.FormatInt(memoryReservation, 10)
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, "memory-overcommit", tdOverride)
-	require.NoError(t, err, "Error starting task")
-	defer task.Stop()
-
-	err = task.WaitRunning(waitTaskStateChangeDuration)
-	require.NoError(t, err, "Error waiting for running task")
-
-	containerId, err := agent.ResolveTaskDockerID(task, "memory-overcommit")
-	require.NoError(t, err, "Error resolving docker id for container in task")
-
-	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
-	require.NoError(t, err, "Could not inspect container for task")
-
-	require.Equal(t, memoryReservation*1024*1024, containerMetaData.HostConfig.MemoryReservation,
-		fmt.Sprintf("MemoryReservation in container metadata is not as expected: %v, expected: %v",
-			containerMetaData.HostConfig.MemoryReservation, memoryReservation*1024*1024))
 }
 
 // TestNetworkModeHost tests the container network can be configured
@@ -1882,9 +1853,9 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	input := &ssm.PutParameterInput{
 		Description: aws.String(
 			"Resource created for the ECS Agent Functional Tests: TestFirelensFluentd and TestFirelensFluentbit"),
-		Name:        aws.String(parameterName),
-		Value:       aws.String(secretLogOptionValue),
-		Type:        aws.String("String"),
+		Name:  aws.String(parameterName),
+		Value: aws.String(secretLogOptionValue),
+		Type:  aws.String("String"),
 	}
 
 	// create parameter in parameter store if it does not exist
@@ -1908,10 +1879,10 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	tempDir, err := ioutil.TempDir(tempDirPrefix, "")
 	agentOptions := &AgentOptions{
 		ExtraEnvironment: map[string]string{
-			"ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION": "1m",
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
+			"ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION":     "1m",
+			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
 			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
-			"ECS_ENABLE_TASK_IAM_ROLE": "true",
+			"ECS_ENABLE_TASK_IAM_ROLE":                  "true",
 		},
 		TempDirOverride: tempDir,
 	}
