@@ -216,19 +216,19 @@ func (mr *MockEC2MetadataClientMockRecorder) Region() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockEC2MetadataClient)(nil).Region))
 }
 
-// SpotTerminationTime mocks base method
-func (m *MockEC2MetadataClient) SpotTerminationTime() (string, error) {
+// SpotInstanceAction mocks base method
+func (m *MockEC2MetadataClient) SpotInstanceAction() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SpotTerminationTime")
+	ret := m.ctrl.Call(m, "SpotInstanceAction")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SpotTerminationTime indicates an expected call of SpotTerminationTime
-func (mr *MockEC2MetadataClientMockRecorder) SpotTerminationTime() *gomock.Call {
+// SpotInstanceAction indicates an expected call of SpotInstanceAction
+func (mr *MockEC2MetadataClientMockRecorder) SpotInstanceAction() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpotTerminationTime", reflect.TypeOf((*MockEC2MetadataClient)(nil).SpotTerminationTime))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpotInstanceAction", reflect.TypeOf((*MockEC2MetadataClient)(nil).SpotInstanceAction))
 }
 
 // SubnetID mocks base method
