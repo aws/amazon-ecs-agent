@@ -36,7 +36,6 @@ const (
 	savedStateTaskDefinition        = "savedstate-windows"
 	portResContentionTaskDefinition = "port-80-windows"
 	labelsTaskDefinition            = "labels-windows"
-	logDriverTaskDefinition         = "logdriver-jsonfile-windows"
 	cleanupTaskDefinition           = "cleanup-windows"
 	networkModeTaskDefinition       = "network-mode-windows"
 )

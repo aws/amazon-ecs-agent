@@ -185,37 +185,6 @@ func TestPortResourceContention(t *testing.T) {
 	testTask2.WaitStopped(2 * time.Minute)
 }
 
-func TestLogdriverOptions(t *testing.T) {
-	ctx := context.TODO()
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.5.0")
-
-	task, err := agent.StartTask(t, logDriverTaskDefinition)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = task.WaitStopped(2 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dockerId, err := agent.ResolveTaskDockerID(task, "exit")
-	if err != nil {
-		t.Fatal(err)
-	}
-	container, err := agent.DockerClient.ContainerInspect(ctx, dockerId)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if container.HostConfig.LogConfig.Type != "json-file" {
-		t.Errorf("Expected json-file type logconfig, was %v", container.HostConfig.LogConfig.Type)
-	}
-	if !reflect.DeepEqual(map[string]string{"max-file": "50", "max-size": "50k"}, container.HostConfig.LogConfig.Config) {
-		t.Errorf("Expected max-file:50 max-size:50k for logconfig options, got %v", container.HostConfig.LogConfig.Config)
-	}
-}
-
 func TestTaskCleanup(t *testing.T) {
 	ctx := context.TODO()
 	// Set the task cleanup time to just over a minute.
