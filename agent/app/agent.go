@@ -622,7 +622,6 @@ func (agent *ecsAgent) startAsyncRoutines(
 }
 
 func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
-	seelog.Warnf("DEBUG REMOVE TODO::::: STARTING THE SPOT INSTANCE DRAILING POLLER")
 	for !agent.spotInstanceDrainingPoller(client) {
 		time.Sleep(time.Second)
 	}
