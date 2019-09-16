@@ -573,3 +573,13 @@ func (client *APIECSClient) GetResourceTags(resourceArn string) ([]*ecs.Tag, err
 	}
 	return output.Tags, nil
 }
+
+func (client *APIECSClient) UpdateContainerInstancesState(instanceARN string, status string) error {
+	seelog.Debugf("Invoking UpdateContainerInstancesState, status='%s' instanceARN='%s'", status, instanceARN)
+	_, err := client.standardClient.UpdateContainerInstancesState(&ecs.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
+		Cluster:            &client.config.Cluster,
+	})
+	return err
+}

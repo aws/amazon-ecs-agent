@@ -15,8 +15,10 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 
@@ -578,6 +580,11 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go imageManager.StartImageCleanupProcess(agent.ctx)
 	}
 
+	// Start automatic spot instance draining poller routine
+	if agent.cfg.SpotInstanceDrainingEnabled {
+		go agent.startSpotInstanceDrainingPoller(client)
+	}
+
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
@@ -609,6 +616,48 @@ func (agent *ecsAgent) startAsyncRoutines(
 
 	// Start metrics session in a go routine
 	go tcshandler.StartMetricsSession(&telemetrySessionParams)
+}
+
+func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
+	for !agent.spotInstanceDrainingPoller(client) {
+		time.Sleep(time.Second)
+	}
+}
+
+// spotInstanceDrainingPoller returns true if spot instance interruption has been
+// set AND the container instance state is successfully updated to DRAINING.
+func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
+	// this endpoint 404s unless a interruption has been set, so expect failure in most cases.
+	resp, err := agent.ec2MetadataClient.SpotInstanceAction()
+	if err == nil {
+		type InstanceAction struct {
+			Time   string
+			Action string
+		}
+		ia := InstanceAction{}
+
+		err := json.Unmarshal([]byte(resp), &ia)
+		if err != nil {
+			seelog.Errorf("Invalid response from /spot/instance-action endpoint: %s Error: %s", resp, err)
+			return false
+		}
+
+		switch ia.Action {
+		case "hibernate", "terminate", "stop":
+		default:
+			seelog.Errorf("Invalid response from /spot/instance-action endpoint: %s, Error: unrecognized action (%s)", resp, ia.Action)
+			return false
+		}
+
+		seelog.Infof("Received a spot interruption (%s) scheduled for %s, setting state to DRAINING", ia.Action, ia.Time)
+		err = client.UpdateContainerInstancesState(agent.containerInstanceARN, "DRAINING")
+		if err != nil {
+			seelog.Errorf("Error setting instance [ARN: %s] state to DRAINING: %s", agent.containerInstanceARN, err)
+		} else {
+			return true
+		}
+	}
+	return false
 }
 
 // startACSSession starts a session with ECS's Agent Communication service. This
