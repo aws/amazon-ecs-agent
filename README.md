@@ -178,6 +178,7 @@ additional details on each available environment variable.
 | `ECS_EXCLUDE_UNTRACKED_IMAGE` | `alpine:latest` | Comma seperated list of `imageName:tag` of images that should not be deleted by the ECS agent if `ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP` is enabled. | | |
 | `ECS_DISABLE_DOCKER_HEALTH_CHECK` | `false` | Whether to disable the Docker Container health check for the ECS Agent. | `false` | `false` |
 | `ECS_NVIDIA_RUNTIME` | nvidia | The Nvidia Runtime to be used to pass Nvidia GPU devices to containers. | nvidia | Not Applicable |
+| `ECS_ENABLE_SPOT_INSTANCE_DRAINING` | `true` | Whether to enable Spot Instance draining for the container instance. If true, if the container instance receives a [spot interruption notice](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), agent will set the instance's status to [DRAINING](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html), which gracefully shuts down and replaces all tasks running on the instance that are part of a service. It is recommended that this be set to `true` when using spot instances. | `false` | `false` |
 
 ### Persistence
 
