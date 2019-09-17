@@ -172,4 +172,3 @@ func TestMapToTags(t *testing.T) {
 func TestNilMapToTags(t *testing.T) {
 	assert.Zero(t, len(MapToTags(nil)))
 }
-

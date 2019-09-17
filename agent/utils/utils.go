@@ -183,4 +183,3 @@ func WaitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatc
 
 	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
 }
-

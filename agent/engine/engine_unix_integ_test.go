@@ -1466,6 +1466,10 @@ func TestMemoryOverCommit(t *testing.T) {
 }
 
 func TestExecutionRole(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
@@ -1475,7 +1479,7 @@ func TestExecutionRole(t *testing.T) {
 
 	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
 	region, err := ec2Metadata.Region()
-	if err!= nil {
+	if err != nil {
 		region = "us-west-2" // fall back to us-west-2
 	}
 
@@ -1484,7 +1488,6 @@ func TestExecutionRole(t *testing.T) {
 	testTask.SetExecutionRoleCredentialsID(os.Getenv("ECS_FTS_EXECUTION_ROLE"))
 	testTask.Containers = []*apicontainer.Container{
 		createTestContainerWithImageAndName("amazon/executionrole:fts", "execution-role")}
-
 
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(fmt.Sprintf(`{
 	"LogConfig": {
