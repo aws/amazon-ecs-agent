@@ -382,7 +382,7 @@ func TestAWSLogsDriver(t *testing.T) {
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	}
 
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
@@ -736,7 +736,7 @@ func TestLogDriverSecretSupport(t *testing.T) {
 		LogStreamName: aws.String(fmt.Sprintf("1-new-awslogs-secret-multiline/awslogs-secret-support-multiline/%s", taskID)),
 	}
 
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "INFO: ECS Agent\nRunning\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
@@ -895,77 +895,6 @@ func TestTaskMetadataValidator(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
-// TestExecutionRole verifies that task can use the execution credentials to pull from ECR and
-// send logs to cloudwatch with awslogs driver
-func TestExecutionRole(t *testing.T) {
-	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
-		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
-	}
-
-	RequireDockerVersion(t, ">=17.06.2-ce") // awslogs drivers with execution role available from docker 17.06.2
-	accountID, err := GetAccountID()
-	assert.NoError(t, err, "acquiring account id failed")
-
-	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-
-	agentOptions := AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS":             `["awslogs"]`,
-			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
-		},
-	}
-
-	// Run the agent container with host network mode
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
-	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
-
-	agent := RunAgent(t, &agentOptions)
-	defer agent.Cleanup()
-	agent.RequireVersion(">=1.16.0")
-
-	tdOverrides := make(map[string]string)
-
-	testImage := ""
-
-	if runtime.GOARCH == "arm64" {
-		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:arm-fts", accountID, *ECS.Config.Region)
-	} else {
-		testImage = fmt.Sprintf("%s.dkr.ecr.%s.amazonaws.com/executionrole:fts", accountID, *ECS.Config.Region)
-	}
-
-	tdOverrides["$$$$TEST_REGION$$$$"] = aws.StringValue(ECS.Config.Region)
-	tdOverrides["$$$$EXECUTION_ROLE$$$$"] = os.Getenv("ECS_FTS_EXECUTION_ROLE")
-	tdOverrides["$$$$IMAGE$$$$"] = testImage
-
-	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "execution-role", tdOverrides)
-	require.NoError(t, err, "Expected to start task using awslogs driver failed")
-
-	// Wait for the container to start
-	testTask.WaitRunning(waitTaskStateChangeDuration)
-	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
-	require.NoError(t, err)
-
-	// Delete the log stream after the test
-	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
-		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
-	})
-
-	params := &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName:  aws.String(awslogsLogGroupName),
-		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/executionrole-awslogs-test/%s", taskID)),
-	}
-
-	resp, err := waitCloudwatchLogs(cwlClient, params)
-	require.NoError(t, err, "CloudWatchLogs get log failed")
-	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
-	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
-	// Search the audit log to verify the credential request from awslogs driver
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
-	require.NoError(t, err, "Verify credential request failed")
-}
-
 // TestAWSLogsDriverMultilinePattern verifies that multiple log lines with a certain
 // pattern, specified using 'awslogs-multiline-pattern' option, are sent to a single
 // CloudWatch log event
@@ -1025,7 +954,7 @@ func TestAWSLogsDriverMultilinePattern(t *testing.T) {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-multiline/%s", taskID)),
 	}
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "INFO: ECS Agent\nRunning\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
@@ -1091,7 +1020,7 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-datetime/%s", taskID)),
 	}
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "May 01, 2017 19:00:01 ECS\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
@@ -1779,8 +1708,8 @@ func TestFirelensWithS3ConfigFluentd(t *testing.T) {
 </filter>`
 	_, err := svc.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3Bucket),
-		Key: aws.String("testfiles/fluentd.conf"),
-		Body: strings.NewReader(content),
+		Key:    aws.String("testfiles/fluentd.conf"),
+		Body:   strings.NewReader(content),
 	})
 	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
 
@@ -1825,8 +1754,8 @@ func TestFirelensWithS3ConfigFluentbit(t *testing.T) {
 `
 	_, err := svc.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s3Bucket),
-		Key: aws.String("testfiles/fluentbit.conf"),
-		Body: strings.NewReader(content),
+		Key:    aws.String("testfiles/fluentbit.conf"),
+		Body:   strings.NewReader(content),
 	})
 	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
 
@@ -1835,7 +1764,7 @@ func TestFirelensWithS3ConfigFluentbit(t *testing.T) {
 }
 
 func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLogOptionValue string,
-	getLogSenderMessageFunc func(string, *testing.T)string, s3Bucket string) {
+	getLogSenderMessageFunc func(string, *testing.T) string, s3Bucket string) {
 	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
 		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
 	}
@@ -1934,14 +1863,14 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 func getLogSenderMessageFluentd(taskID string, t *testing.T) string {
 	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 	params := &cloudwatchlogs.FilterLogEventsInput{
-		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogGroupName:   aws.String(awslogsLogGroupName),
 		LogStreamNames: aws.StringSlice([]string{fmt.Sprintf("firelens-fluentd/firelens/%s", taskID)}),
 		// The firelens container's stdout contains both log sender's log and its own logs.
 		// Filter out the logs that belong to the firelens container itself.
 		FilterPattern: aws.String(`?"\"log\":\"pass\"" ?"\"log\":\"filtered\""`),
 	}
 
-	resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30 * time.Second)
+	resp, err := waitCloudwatchLogsWithFilter(cwlClient, params, 30*time.Second)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 
 	// Expect one message sent from the log sender.
@@ -1965,7 +1894,7 @@ func getLogSenderMessageFluentbit(taskID string, t *testing.T) string {
 	}
 
 	// Expect one message sent from the log sender.
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(resp.Events))
 	message := aws.StringValue(resp.Events[0].Message)

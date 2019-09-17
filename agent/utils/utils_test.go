@@ -17,13 +17,12 @@ package utils
 
 import (
 	"errors"
-	"sort"
-	"testing"
-
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/stretchr/testify/assert"
+	"sort"
+	"testing"
 )
 
 func TestDefaultIfBlank(t *testing.T) {
@@ -173,3 +172,4 @@ func TestMapToTags(t *testing.T) {
 func TestNilMapToTags(t *testing.T) {
 	assert.Zero(t, len(MapToTags(nil)))
 }
+

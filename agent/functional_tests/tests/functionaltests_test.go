@@ -799,25 +799,6 @@ func containerHealthMetricsTest(t *testing.T, taskDefinition string, overrides m
 	assert.NoError(t, err, "waiting for task stopped failed")
 }
 
-// waitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs
-func waitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	// The test could fail for timing issue, so retry for 30 seconds to make this test more stable
-	for i := 0; i < 30; i++ {
-		resp, err := client.GetLogEvents(params)
-		if err != nil {
-			awsError, ok := err.(awserr.Error)
-			if !ok || awsError.Code() != "ResourceNotFoundException" {
-				return nil, err
-			}
-		} else if len(resp.Events) > 0 {
-			return resp, nil
-		}
-		time.Sleep(time.Second)
-	}
-
-	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
-}
-
 func waitCloudwatchLogsWithFilter(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.FilterLogEventsInput,
 	timeout time.Duration) (*cloudwatchlogs.FilterLogEventsOutput, error) {
 	timer := time.NewTimer(timeout)

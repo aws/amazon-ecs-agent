@@ -44,6 +44,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1438,8 +1441,7 @@ func TestMemoryOverCommit(t *testing.T) {
 	testTask := createTestTask(testArn)
 
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{
-	"MemoryReservation": 52428800
-}`)}
+	"MemoryReservation": 52428800}`)}
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
@@ -1461,4 +1463,65 @@ func TestMemoryOverCommit(t *testing.T) {
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+func TestExecutionRole(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	_, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
+		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+	region, err := ec2Metadata.Region()
+	if err!= nil {
+		region = "us-west-2" // fall back to us-west-2
+	}
+
+	testArn := "arn:aws:ecs:us-west-2:12121212:task/1234567"
+	testTask := createTestTask(testArn)
+	testTask.SetExecutionRoleCredentialsID(os.Getenv("ECS_FTS_EXECUTION_ROLE"))
+	testTask.Containers = []*apicontainer.Container{
+		createTestContainerWithImageAndName("amazon/executionrole:fts", "execution-role")}
+
+
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(fmt.Sprintf(`{
+	"LogConfig": {
+		"Type": "awslogs",
+		"Config": {
+			"awslogs-region": "%s",
+			"awslogs-group": "ecs-functional-tests"
+		}
+	}}`, region))}
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	go taskEngine.AddTask(testTask)
+	verifyTaskIsRunning(stateChangeEvents, testTask)
+
+	_, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+
+	cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(region))
+	awslogsLogGroupName := "ecs-functional-tests"
+
+	// Delete the log stream after the test
+	defer cwlClient.DeleteLogStream(&cloudwatchlogs.DeleteLogStreamInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("%s", cid)),
+	})
+
+	params := &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(awslogsLogGroupName),
+		LogStreamName: aws.String(fmt.Sprintf("%s", cid)),
+	}
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
+
+	require.NoError(t, err, "CloudWatchLogs get log failed")
+	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
+	assert.Equal(t, *resp.Events[0].Message, "hello world",
+		fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 }

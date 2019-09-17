@@ -93,7 +93,7 @@ func TestAWSLogsDriver(t *testing.T) {
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs/%s", taskID)),
 	}
 
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 }
@@ -257,7 +257,7 @@ func TestAWSLogsDriverMultilinePattern(t *testing.T) {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-multiline-windows/%s", taskID)),
 	}
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "INFO: ECS Agent\nRunning\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
@@ -307,7 +307,7 @@ func TestAWSLogsDriverDatetimeFormat(t *testing.T) {
 		LogGroupName:  aws.String(awslogsLogGroupName),
 		LogStreamName: aws.String(fmt.Sprintf("ecs-functional-tests/awslogs-datetime-windows/%s", taskID)),
 	}
-	resp, err := waitCloudwatchLogs(cwlClient, params)
+	resp, err := utils.WaitCloudwatchLogs(cwlClient, params)
 	require.NoError(t, err, "CloudWatchLogs get log failed")
 	assert.Len(t, resp.Events, 2, fmt.Sprintf("Got unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "May 01, 2017 19:00:01 ECS\n", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))

@@ -17,11 +17,14 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"math"
 	"math/big"
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -160,3 +163,24 @@ func MapToTags(tagsMap map[string]string) []*ecs.Tag {
 
 	return tags
 }
+
+// WaitCloudwatchLogs wait until the logs has been sent to cloudwatchlogs
+func WaitCloudwatchLogs(client *cloudwatchlogs.CloudWatchLogs, params *cloudwatchlogs.GetLogEventsInput) (
+	*cloudwatchlogs.GetLogEventsOutput, error) {
+	// The test could fail for timing issue, so retry for 30 seconds to make this test more stable
+	for i := 0; i < 30; i++ {
+		resp, err := client.GetLogEvents(params)
+		if err != nil {
+			awsError, ok := err.(awserr.Error)
+			if !ok || awsError.Code() != "ResourceNotFoundException" {
+				return nil, err
+			}
+		} else if len(resp.Events) > 0 {
+			return resp, nil
+		}
+		time.Sleep(time.Second)
+	}
+
+	return nil, fmt.Errorf("Timeout waiting for the logs to be sent to cloud watch logs")
+}
+
