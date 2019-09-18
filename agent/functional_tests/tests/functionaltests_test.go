@@ -189,59 +189,6 @@ func TestPortResourceContention(t *testing.T) {
 	testTask2.WaitStopped(2 * time.Minute)
 }
 
-func TestTaskCleanup(t *testing.T) {
-	ctx := context.TODO()
-	// Set the task cleanup time to just over a minute.
-	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "70s")
-	agent := RunAgent(t, nil)
-	defer func() {
-		agent.Cleanup()
-		os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
-	}()
-
-	// Start a task and get the container id once the task transitions to RUNNING.
-	task, err := agent.StartTask(t, cleanupTaskDefinition)
-	if err != nil {
-		t.Fatalf("Error starting task: %v", err)
-	}
-
-	err = task.WaitRunning(2 * time.Minute)
-	if err != nil {
-		t.Fatalf("Error waiting for running task: %v", err)
-	}
-
-	dockerId, err := agent.ResolveTaskDockerID(task, cleanupTaskDefinition)
-	if err != nil {
-		t.Fatalf("Error resolving docker id for container in task: %v", err)
-	}
-
-	// We should be able to inspect the container ID from docker at this point.
-	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
-	if err != nil {
-		t.Fatalf("Error inspecting container in task: %v", err)
-	}
-
-	// Stop the task and sleep for 2 minutes to let the task be cleaned up.
-	containerStopTimeout := 1 * time.Second
-	err = agent.DockerClient.ContainerStop(ctx, dockerId, &containerStopTimeout)
-	if err != nil {
-		t.Fatalf("Error stoppping task: %v", err)
-	}
-
-	err = task.WaitStopped(1 * time.Minute)
-	if err != nil {
-		t.Fatalf("Error waiting for task stopped: %v", err)
-	}
-
-	time.Sleep(2 * time.Minute)
-
-	// We should not be able to describe the container now since it has been cleaned up.
-	_, err = agent.DockerClient.ContainerInspect(ctx, dockerId)
-	if err == nil {
-		t.Fatalf("Expected error inspecting container in task")
-	}
-}
-
 // TestNetworkModeNone tests if the 'none' contaienr network mode is configured
 // correctly in task definition
 func TestNetworkModeNone(t *testing.T) {

@@ -53,7 +53,6 @@ const (
 	savedStateTaskDefinition        = "nginx"
 	portResContentionTaskDefinition = "busybox-port-5180"
 	labelsTaskDefinition            = "labels"
-	cleanupTaskDefinition           = "nginx"
 	networkModeTaskDefinition       = "network-mode"
 	fluentdLogPath                  = "/tmp/ftslog"
 )

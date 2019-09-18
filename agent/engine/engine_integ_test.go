@@ -492,9 +492,9 @@ func TestLabels(t *testing.T) {
 		"com.foo.label2": "value",
 		"label1":""
 	}}`)}
-	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -506,9 +506,9 @@ func TestLabels(t *testing.T) {
 	assert.EqualValues(t, "", state.Config.Labels["label1"])
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -532,9 +532,9 @@ func TestLogDriverOptions(t *testing.T) {
 			"max-size": "50k"
 		}
 	}}`)}
-	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -551,10 +551,50 @@ func TestLogDriverOptions(t *testing.T) {
 	assert.EqualValues(t, containerExpected, state.HostConfig.LogConfig)
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
+	testUpdate := *testTask
+	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&testUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+func TestTaskCleanup(t *testing.T) {
+	os.Setenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "40s")
+	defer os.Unsetenv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION")
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(
+		sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	testArn := "TestTaskCleanup"
+	testTask := createTestTask(testArn)
+
+	go taskEngine.AddTask(testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	_, err = client.ContainerInspect(ctx, cid)
+	assert.NoError(t, err, "Inspect should work")
+
+	testUpdate := *testTask
+	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&testUpdate)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+
+	task, ok := taskEngine.(*DockerTaskEngine).State().TaskByArn(testArn)
+	assert.True(t, ok, "Expected task to be present still, but wasn't")
+	task.SetSentStatus(apitaskstatus.TaskStopped)   // cleanupTask waits for TaskStopped to be sent before cleaning
+	waitForTaskCleanup(t, taskEngine, testArn, 120) // 120 seconds
+
+	_, err = client.ContainerInspect(ctx, cid)
+	assert.Error(t, err, "Inspect should not work")
 }
