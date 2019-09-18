@@ -1441,9 +1441,9 @@ func TestMemoryOverCommit(t *testing.T) {
 	"MemoryReservation": 52428800
 }`)}
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1455,9 +1455,9 @@ func TestMemoryOverCommit(t *testing.T) {
 	assert.EqualValues(t, memoryReservation*1024*1024, state.HostConfig.MemoryReservation)
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
+	testUpdate := *testTask
+	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&testUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
