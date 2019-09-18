@@ -354,7 +354,6 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	// Cancel the context to cancel async routines
-	defer cancel()
 	agent := &ecsAgent{
 		ctx:                ctx,
 		cfg:                &cfg,
@@ -366,10 +365,17 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		ec2MetadataClient:  ec2MetadataClient,
 	}
 
-	go agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+	var agentW sync.WaitGroup
+	agentW.Add(1)
+	go func() {
+		agent.doStart(eventstream.NewEventStream("events", ctx),
+			credentialsManager, state, imageManager, client)
+		agentW.Done()
+	}()
 
 	discoverEndpointsInvoked.Wait()
+	cancel()
+	agentW.Wait()
 }
 
 func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *testing.T) {
