@@ -46,7 +46,7 @@ func testENIAckTimeout(t *testing.T, attachmentType string) {
 
 	taskEngineState := dockerstate.NewTaskEngineState()
 
-	expiresAt := time.Now().Add(time.Duration(waitTimeoutMillis) * time.Millisecond)
+	expiresAt := time.Now().Add(time.Millisecond * waitTimeoutMillis)
 	err := addENIAttachmentToState(attachmentType, attachmentArn, taskArn, randomMAC, expiresAt, taskEngineState)
 	assert.NoError(t, err)
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
@@ -73,7 +73,7 @@ func testENIAckWithinTimeout(t *testing.T, attachmentType string) {
 	defer ctrl.Finish()
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	expiresAt := time.Now().Add(time.Duration(waitTimeoutMillis) * time.Millisecond)
+	expiresAt := time.Now().Add(time.Millisecond * waitTimeoutMillis)
 	err := addENIAttachmentToState(attachmentType, attachmentArn, taskArn, randomMAC, expiresAt, taskEngineState)
 	assert.NoError(t, err)
 	assert.Len(t, taskEngineState.(*dockerstate.DockerTaskEngineState).AllENIAttachments(), 1)
@@ -101,7 +101,7 @@ func testHandleENIAttachment(t *testing.T, attachmentType, taskArn string) {
 	defer ctrl.Finish()
 
 	taskEngineState := dockerstate.NewTaskEngineState()
-	expiresAt := time.Now().Add(time.Duration(waitTimeoutMillis) * time.Millisecond)
+	expiresAt := time.Now().Add(time.Millisecond * waitTimeoutMillis)
 	stateManager := statemanager.NewNoopStateManager()
 	err := handleENIAttachment(attachmentType, attachmentArn, taskArn, randomMAC, expiresAt, taskEngineState, stateManager)
 	assert.NoError(t, err)

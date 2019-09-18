@@ -35,8 +35,8 @@ func TestTickerHappyCase(t *testing.T) {
 	defer cancel()
 	mTicker := NewJitteredTicker(ctx, 10*time.Millisecond, 100*time.Millisecond)
 
-	lowerTickLimit := 10
-	upperTickLimit := 100
+	lowerTickLimit := 7
+	upperTickLimit := 130
 
 	times := 0
 	for {
