@@ -48,6 +48,12 @@ const (
 	waitBusyMetricsInCloudwatchDuration    = 10 * time.Minute
 	awslogsLogGroupName                    = "ecs-functional-tests"
 
+	// Even when the test cluster is deleted, TACS could still post cluster
+	// metrics to CW due to eventual consistency for upto a maximum of 2 minutes.
+	// While doing this, it would recreate log groups even after their manual deletion.
+	// Hence, the wait before deleting the tests' log groups.
+	waitTimeBeforeDeletingCILogGroups = 2 * time.Minute
+
 	// 'awsvpc' test parameters
 	awsvpcTaskDefinition     = "nginx-awsvpc"
 	awsvpcIPv4AddressKey     = "privateIPv4Address"
@@ -611,10 +617,7 @@ func telemetryStorageStatsTest(t *testing.T, taskDefinition string) {
 	require.NoError(t, err, "Failed to create cluster")
 	defer func() {
 		DeleteCluster(t, newClusterName)
-		// Add delay due to container insights log is aggregated and sent to CW every 1 min
-		// and log group will be recreated if not existed. This can be removed once TACS updates
-		// their logic of handling this use case.
-		time.Sleep(1 * time.Minute)
+		time.Sleep(waitTimeBeforeDeletingCILogGroups)
 		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
 			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
@@ -698,7 +701,7 @@ func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition 
 	require.NoError(t, err, "Failed to create cluster")
 	defer func() {
 		DeleteCluster(t, newClusterName)
-		time.Sleep(1 * time.Minute)
+		time.Sleep(waitTimeBeforeDeletingCILogGroups)
 		cwlClient := cloudwatchlogs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
 		cwlClient.DeleteLogGroup(&cloudwatchlogs.DeleteLogGroupInput{
 			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
