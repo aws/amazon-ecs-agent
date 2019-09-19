@@ -1314,9 +1314,9 @@ func TestSwapConfigurationTask(t *testing.T) {
 	testTask := createTestTask(testArn)
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{"MemorySwap":314572800, "MemorySwappiness":90}`)}
 
-	stateChangeEvents := taskEngine.StateChangeEvents()
 	go taskEngine.AddTask(testTask)
-	verifyTaskIsRunning(stateChangeEvents, testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1328,9 +1328,9 @@ func TestSwapConfigurationTask(t *testing.T) {
 	assert.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
 
 	// Kill the existing container now
-	taskUpdate := createTestTask(testArn)
+	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)

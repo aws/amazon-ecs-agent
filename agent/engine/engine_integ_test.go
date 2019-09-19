@@ -16,6 +16,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -554,6 +555,66 @@ func TestLogDriverOptions(t *testing.T) {
 	testUpdate := *testTask
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&testUpdate)
+
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+}
+
+// TestNetworkModeBridge tests the container network can be configured
+// as bridge mode in task definition
+func TestNetworkModeHost(t *testing.T) {
+	testNetworkMode(t, "bridge")
+}
+
+// TestNetworkModeHost tests the container network can be configured
+// as host mode in task definition
+func TestNetworkModeBridge(t *testing.T) {
+	testNetworkMode(t, "host")
+}
+
+// TestNetworkModeHost tests the container network can be configured
+// as None mode in task definition
+func TestNetworkModeNone(t *testing.T) {
+	testNetworkMode(t, "none")
+}
+
+func testNetworkMode(t *testing.T, networkMode string) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
+		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	testArn := "TestNetworkMode"
+	testTask := createTestTask(testArn)
+	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
+		HostConfig: aws.String(fmt.Sprintf(`{"NetworkMode":"%s"}`, networkMode))}
+
+	go taskEngine.AddTask(testTask)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+
+	state, _ := client.ContainerInspect(ctx, cid)
+	assert.NotNil(t, state.NetworkSettings, "Couldn't find the container network setting info")
+
+	var networks []string
+	for key := range state.NetworkSettings.Networks {
+		networks = append(networks, key)
+	}
+	assert.Equal(t, 1, len(networks), "found multiple networks in container config")
+	assert.Equal(t, networkMode, networks[0], "did not found the expected network mode")
+
+	// Kill the existing container now
+	taskUpdate := *testTask
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)

@@ -54,7 +54,6 @@ const (
 	savedStateTaskDefinition        = "nginx"
 	portResContentionTaskDefinition = "busybox-port-5180"
 	labelsTaskDefinition            = "labels"
-	networkModeTaskDefinition       = "network-mode"
 	fluentdLogPath                  = "/tmp/ftslog"
 )
 
@@ -528,26 +527,6 @@ func TestV3TaskEndpointTags(t *testing.T) {
 
 func TestContainerMetadataFile(t *testing.T) {
 	testContainerMetadataFile(t, "container-metadata-file-validator", "ecs-functional-tests-container-metadata-file-validator")
-}
-
-// TestNetworkModeHost tests the container network can be configured
-// as host mode in task definition
-func TestNetworkModeHost(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	err := networkModeTest(t, agent, "host")
-	require.NoError(t, err, "Networking mode 'host' testing failed")
-}
-
-// TestNetworkModeBridge tests the container network can be configured
-// as bridge mode in task definition
-func TestNetworkModeBridge(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	err := networkModeTest(t, agent, "bridge")
-	require.NoError(t, err, "Networking mode 'bridge' testing failed")
 }
 
 func TestNetworkModeAWSVPC(t *testing.T) {
