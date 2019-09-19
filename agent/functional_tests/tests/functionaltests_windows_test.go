@@ -36,7 +36,6 @@ const (
 	savedStateTaskDefinition        = "savedstate-windows"
 	portResContentionTaskDefinition = "port-80-windows"
 	labelsTaskDefinition            = "labels-windows"
-	networkModeTaskDefinition       = "network-mode-windows"
 )
 
 // TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver

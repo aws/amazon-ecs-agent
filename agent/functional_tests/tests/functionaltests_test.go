@@ -189,56 +189,6 @@ func TestPortResourceContention(t *testing.T) {
 	testTask2.WaitStopped(2 * time.Minute)
 }
 
-// TestNetworkModeNone tests if the 'none' contaienr network mode is configured
-// correctly in task definition
-func TestNetworkModeNone(t *testing.T) {
-	agent := RunAgent(t, nil)
-	defer agent.Cleanup()
-
-	err := networkModeTest(t, agent, "none")
-	if err != nil {
-		t.Fatalf("Networking mode none testing failed, err: %v", err)
-	}
-}
-
-func networkModeTest(t *testing.T, agent *TestAgent, mode string) error {
-	tdOverride := make(map[string]string)
-
-	// Test the host network mode
-	tdOverride["$$$$NETWORK_MODE$$$$"] = mode
-	task, err := agent.StartTaskWithTaskDefinitionOverrides(t, networkModeTaskDefinition, tdOverride)
-	if err != nil {
-		return fmt.Errorf("error starting task with network %v, err: %v", mode, err)
-	}
-	defer func() {
-		if err := task.Stop(); err != nil {
-			return
-		}
-		task.WaitStopped(waitTaskStateChangeDuration)
-	}()
-
-	err = task.WaitRunning(waitTaskStateChangeDuration)
-	if err != nil {
-		return fmt.Errorf("error waiting for task running, err: %v", err)
-	}
-	containerId, err := agent.ResolveTaskDockerID(task, "network-"+mode)
-	if err != nil {
-		return fmt.Errorf("error resolving docker id for container \"network-%s\": %v", mode, err)
-	}
-
-	networks, err := agent.GetContainerNetworkMode(containerId)
-	if err != nil {
-		return err
-	}
-	if len(networks) != 1 {
-		return fmt.Errorf("found multiple networks in container config")
-	}
-	if networks[0] != mode {
-		return fmt.Errorf("did not found the expected network mode")
-	}
-	return nil
-}
-
 // awsvpcNetworkModeTest tests if the 'awsvpc' network mode works properly
 func awsvpcNetworkModeTest(t *testing.T, agent *TestAgent) error {
 	// Start task with network mode set to 'awsvpc'

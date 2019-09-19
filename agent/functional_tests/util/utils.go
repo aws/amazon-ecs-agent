@@ -811,26 +811,6 @@ func SearchStrInDir(dir, filePrefix, content string) error {
 	return nil
 }
 
-// GetContainerNetworkMode gets the container network mode, given container id
-func (agent *TestAgent) GetContainerNetworkMode(containerId string) ([]string, error) {
-	ctx := context.TODO()
-	containerMetaData, err := agent.DockerClient.ContainerInspect(ctx, containerId)
-	if err != nil {
-		return nil, fmt.Errorf("Could not inspect container for task: %v", err)
-	}
-
-	if containerMetaData.NetworkSettings == nil {
-		return nil, fmt.Errorf("Couldn't find the container network setting info")
-	}
-
-	var networks []string
-	for key := range containerMetaData.NetworkSettings.Networks {
-		networks = append(networks, key)
-	}
-
-	return networks, nil
-}
-
 // SweepTask removes all the containers belong to a task
 func (agent *TestAgent) SweepTask(task *TestTask) error {
 	bodyData, err := agent.callTaskIntrospectionApi(*task.TaskArn)
