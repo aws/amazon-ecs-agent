@@ -35,7 +35,7 @@ import (
 const (
 	eniMessageId      = "123"
 	randomMAC         = "00:0a:95:9d:68:16"
-	waitTimeoutMillis = 10
+	waitTimeoutMillis = 100
 )
 
 // TestAttachENIMessageWithNoMessageId checks the validator against an
