@@ -1462,3 +1462,15 @@ func TestMemoryOverCommit(t *testing.T) {
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
 }
+
+// TestNetworkModeHost tests the container network can be configured
+// as bridge mode in task definition
+func TestNetworkModeHost(t *testing.T) {
+	testNetworkMode(t, "bridge")
+}
+
+// TestNetworkModeBridge tests the container network can be configured
+// as host mode in task definition
+func TestNetworkModeBridge(t *testing.T) {
+	testNetworkMode(t, "host")
+}
