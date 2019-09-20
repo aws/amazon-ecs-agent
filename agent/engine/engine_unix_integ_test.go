@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"github.com/cihub/seelog"
 	"io/ioutil"
 	"net"
 	"os"
@@ -949,9 +950,13 @@ func TestLinking(t *testing.T) {
 }
 
 func TestDockerCfgAuth(t *testing.T) {
+	logdir := setupIntegTestLogs(t)
+	defer os.RemoveAll(logdir)
+
 	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
 	cfg := defaultTestConfigIntegTest()
-	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
+	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` +
+		testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
 	cfg.EngineAuthType = "dockercfg"
 
 	removeImage(t, testAuthRegistryImage)
@@ -977,79 +982,40 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
-}
 
-func TestDockerAuth(t *testing.T) {
-	cfg := defaultTestConfigIntegTest()
-	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` + testAuthRegistryHost + `":{"username":"` + testAuthUser + `","password":"` + testAuthPass + `"}}`))
-	cfg.EngineAuthType = "docker"
-	defer func() {
-		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
-		cfg.EngineAuthType = ""
-	}()
+	// Flushes all currently buffered logs
+	seelog.Flush()
 
-	taskEngine, done, _ := setup(cfg, nil, t)
-	defer done()
-	removeImage(t, testAuthRegistryImage)
-
-	testTask := createTestTask("testDockerAuth")
-	testTask.Containers[0].Image = testAuthRegistryImage
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-
-	taskUpdate := createTestTask("testDockerAuth")
-	taskUpdate.Containers[0].Image = testAuthRegistryImage
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
-
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-}
-
-func TestVolumesFrom(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	stateChangeEvents := taskEngine.StateChangeEvents()
-
-	testTask := createTestTask("testVolumeContainer")
-	testTask.Containers[0].Image = testVolumeImage
-	testTask.Containers = append(testTask.Containers, createTestContainer())
-	testTask.Containers[1].Name = "test2"
-	testTask.Containers[1].Image = testVolumeImage
-	testTask.Containers[1].VolumesFrom = []apicontainer.VolumeFrom{{SourceContainer: testTask.Containers[0].Name}}
-	testTask.Containers[1].Command = []string{"cat /data/test-file | nc -l -p 80"}
-	testTask.Containers[1].Ports = []apicontainer.PortBinding{{ContainerPort: 80, HostPort: containerPortOne}}
-
-	go taskEngine.AddTask(testTask)
-
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	time.Sleep(waitForDockerDuration) // wait for Docker
-	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", localhost, containerPortOne), 10, dialTimeout)
-	if err != nil {
-		t.Error("Could not dial listening container" + err.Error())
-	}
-
-	response, err := ioutil.ReadAll(conn)
-	if err != nil {
-		t.Error(err)
-	}
-	if strings.TrimSpace(string(response)) != "test" {
-		t.Error("Got response: " + strings.TrimSpace(string(response)) + " instead of 'test'")
-	}
-
-	taskUpdate := *testTask
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
-
-	verifyTaskIsStopped(stateChangeEvents, testTask)
+	// verify there's no sign of auth details in the config; action item taken as
+	// a result of accidentally logging them once
+	badStrings := []string{"user:swordfish", "swordfish", authString, "user"}
+	err := filepath.Walk(logdir, func(path string, info os.FileInfo, err error) error {
+		if info.IsDir() {
+			return nil
+		}
+		data, err := ioutil.ReadFile(path)
+		t.Log("Reading file:%s", path)
+		if err != nil {
+			return err
+		}
+		for _, badstring := range badStrings {
+			if strings.Contains(string(data), badstring) {
+				t.Fatalf("log data contained bad string: %v, %v", string(data), badstring)
+			}
+			if strings.Contains(string(data), fmt.Sprintf("%v", []byte(badstring))) {
+				t.Fatalf("log data contained byte-slice representation of bad string: %v, %v", string(data), badstring)
+			}
+			gobytes := fmt.Sprintf("%#v", []byte(badstring))
+			// format is []byte{0x12, 0x34}
+			// if it were json.RawMessage or another alias, it would print as json.RawMessage ... in the log
+			// Because of this, strip down to just the comma-separated hex and look for that
+			if strings.Contains(string(data), gobytes[len(`[]byte{`):len(gobytes)-1]) {
+				t.Fatalf("log data contained byte-hex representation of bad string: %v, %v", string(data), badstring)
+			}
+		}
+		return nil
+	})
+	assert.NoError(t, err)
 }
 
 func TestVolumesFromRO(t *testing.T) {
