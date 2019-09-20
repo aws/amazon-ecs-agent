@@ -156,56 +156,6 @@ func TestCommandOverrides(t *testing.T) {
 	assert.Equal(t, 21, exitCode, fmt.Sprintf("Expected exit code of 21; got %d", exitCode))
 }
 
-func TestDockerAuth(t *testing.T) {
-	agent := RunAgent(t, &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENGINE_AUTH_TYPE": "dockercfg",
-			"ECS_ENGINE_AUTH_DATA": `{"127.0.0.1:51671":{"auth":"dXNlcjpzd29yZGZpc2g=","email":"foo@example.com"}}`, // user:swordfish
-		},
-	})
-	defer agent.Cleanup()
-
-	task, err := agent.StartTask(t, "simple-exit-authed")
-	require.NoError(t, err)
-
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err)
-	exitCode, _ := task.ContainerExitcode("exit")
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
-
-	// verify there's no sign of auth details in the config; action item taken as
-	// a result of accidentally logging them once
-	logdir := agent.Logdir
-	badStrings := []string{"user:swordfish", "swordfish", "dXNlcjpzd29yZGZpc2g="}
-	err = filepath.Walk(logdir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		for _, badstring := range badStrings {
-			if strings.Contains(string(data), badstring) {
-				t.Fatalf("log data contained bad string: %v, %v", string(data), badstring)
-			}
-			if strings.Contains(string(data), fmt.Sprintf("%v", []byte(badstring))) {
-				t.Fatalf("log data contained byte-slice representation of bad string: %v, %v", string(data), badstring)
-			}
-			gobytes := fmt.Sprintf("%#v", []byte(badstring))
-			// format is []byte{0x12, 0x34}
-			// if it were json.RawMessage or another alias, it would print as json.RawMessage ... in the log
-			// Because of this, strip down to just the comma-separated hex and look for that
-			if strings.Contains(string(data), gobytes[len(`[]byte{`):len(gobytes)-1]) {
-				t.Fatalf("log data contained byte-hex representation of bad string: %v, %v", string(data), badstring)
-			}
-		}
-		return nil
-	})
-
-	assert.NoError(t, err, "Could not walk logdir")
-}
-
 func TestSquidProxy(t *testing.T) {
 	ctx := context.TODO()
 	// Run a squid proxy manually, verify that the agent can connect through it
