@@ -560,19 +560,7 @@ func TestLogDriverOptions(t *testing.T) {
 	verifyTaskStoppedStateChange(t, taskEngine)
 }
 
-// TestNetworkModeBridge tests the container network can be configured
-// as bridge mode in task definition
-func TestNetworkModeHost(t *testing.T) {
-	testNetworkMode(t, "bridge")
-}
-
-// TestNetworkModeHost tests the container network can be configured
-// as host mode in task definition
-func TestNetworkModeBridge(t *testing.T) {
-	testNetworkMode(t, "host")
-}
-
-// TestNetworkModeHost tests the container network can be configured
+// TestNetworkModeNone tests the container network can be configured
 // as None mode in task definition
 func TestNetworkModeNone(t *testing.T) {
 	testNetworkMode(t, "none")
@@ -609,7 +597,7 @@ func testNetworkMode(t *testing.T, networkMode string) {
 		networks = append(networks, key)
 	}
 	assert.Equal(t, 1, len(networks), "found multiple networks in container config")
-	assert.Equal(t, networkMode, networks[0], "did not found the expected network mode")
+	assert.Equal(t, networkMode, networks[0], "did not find the expected network mode")
 
 	// Kill the existing container now
 	taskUpdate := *testTask
