@@ -3,7 +3,7 @@
   "containerDefinitions": [{
     "image": "amazon/amazon-ecs-listen80",
     "name": "sleep",
-    "portBindings": [{
+    "portMappings": [{
       "containerPort": 80,
       "hostPort": 5180
     }],
