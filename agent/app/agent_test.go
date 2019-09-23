@@ -246,7 +246,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 			gomock.Any()).Return("", "", apierrors.NewAttributeError("error")),
 	)
 
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
@@ -287,7 +287,7 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 			gomock.Any()).Return("", "", errors.New("error")),
 	)
 
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -315,7 +315,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
-	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+	ec2MetadataClient.EXPECT().AWSARN().Return("", nil)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -690,8 +690,8 @@ func TestGetOupostIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
-	ec2MetadataClient.EXPECT().OutpostARN().Return("", errors.New("error"))
-	assert.Equal(t, "", agent.getoutpostARN())
+	ec2MetadataClient.EXPECT().AWSARN().Return("", errors.New("error"))
+	assert.Equal(t, "", agent.getAWSARN())
 }
 
 func TestReregisterContainerInstanceHappyPath(t *testing.T) {
@@ -721,7 +721,7 @@ func TestReregisterContainerInstanceHappyPath(t *testing.T) {
 	// Cancel the context to cancel async routines
 	defer cancel()
 
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	agent := &ecsAgent{
 		ctx:                ctx,
@@ -766,7 +766,7 @@ func TestReregisterContainerInstanceInstanceTypeChanged(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	agent := &ecsAgent{
 		ctx:                ctx,
@@ -805,7 +805,7 @@ func TestReregisterContainerInstanceAttributeError(t *testing.T) {
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return("", "", apierrors.NewAttributeError("error")),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -849,7 +849,7 @@ func TestReregisterContainerInstanceNonTerminalError(t *testing.T) {
 		client.EXPECT().RegisterContainerInstance(containerInstanceARN, gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return("", "", errors.New("error")),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -893,7 +893,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetHappyPath(t *t
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return(containerInstanceARN, availabilityZone, nil), stateManager.EXPECT().Save(),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -936,7 +936,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCanRetryError(
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return("", "", retriableError),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -979,7 +979,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetCannotRetryErr
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return("", "", cannotRetryError),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -1021,7 +1021,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 		client.EXPECT().RegisterContainerInstance("", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return("", "", apierrors.NewAttributeError("error")),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	cfg.Cluster = clusterName
@@ -1062,7 +1062,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return("", "", awserr.New("InvalidParameterException", "", nil)),
 	)
-	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
+	mockEC2Metadata.EXPECT().AWSARN().Return("", nil)
 
 	cfg := getTestConfig()
 	ctx, cancel := context.WithCancel(context.TODO())

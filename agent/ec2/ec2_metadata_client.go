@@ -37,7 +37,7 @@ const (
 	InstanceIDResource                        = "instance-id"
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
-	OutpostARN                                = "outpost-arn"
+	AWSARN                                = "AWS-arn"
 )
 
 const (
@@ -79,7 +79,7 @@ type EC2MetadataClient interface {
 	PrivateIPv4Address() (string, error)
 	PublicIPv4Address() (string, error)
 	SpotInstanceAction() (string, error)
-	OutpostARN() (string, error)
+	AWSARN() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -197,6 +197,6 @@ func (c *ec2MetadataClientImpl) SpotInstanceAction() (string, error) {
 	return c.client.GetMetadata(SpotInstanceActionResource)
 }
 
-func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
-	return c.client.GetMetadata(OutpostARN)
+func (c *ec2MetadataClientImpl) AWSARN() (string, error) {
+	return c.client.GetMetadata(AWSARN)
 }

@@ -337,7 +337,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           config.OSType,
 		"ecs.availability-zone": "us-west-2b",
-		"ecs.outpost-arn":			"test:arn:outpost",
+		"ecs.AWS-arn":			"test:arn:AWS",
 	}
 	for i := range fakeCapabilities {
 		expectedAttributes[fakeCapabilities[i]] = ""
@@ -385,7 +385,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	)
 
 	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities,
-		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
+		containerInstanceTags, registrationToken, nil, "test:arn:AWS")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
@@ -407,7 +407,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
-		"ecs.outpost-arn":			"test:arn:outpost",
+		"ecs.AWS-arn":			"test:arn:AWS",
 
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
@@ -463,7 +463,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 	)
 
 	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
-		containerInstanceTags, registrationToken, platformDevices, "test:arn:outpost")
+		containerInstanceTags, registrationToken, platformDevices, "test:arn:AWS")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -490,7 +490,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
-		"ecs.outpost-arn":			"test:arn:outpost",
+		"ecs.AWS-arn":			"test:arn:AWS",
 
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
@@ -529,7 +529,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 	)
 
 	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
-		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
+		containerInstanceTags, registrationToken, nil, "test:arn:AWS")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)

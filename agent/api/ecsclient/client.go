@@ -112,7 +112,7 @@ func (client *APIECSClient) CreateCluster(clusterName string) (string, error) {
 // resources.
 func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn string, attributes []*ecs.Attribute,
 	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice,
-	outpostARN string) (string, string, error) {
+	AWSARN string) (string, string, error) {
 
 	clusterRef := client.config.Cluster
 	// If our clusterRef is empty, we should try to create the default
@@ -125,7 +125,7 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		// Attempt to register without checking existence of the cluster so we don't require
 		// excess permissions in the case where the cluster already exists and is active
 		containerInstanceArn, availabilityzone, err := client.registerContainerInstance(clusterRef,
-			containerInstanceArn, attributes, tags, registrationToken, platformDevices, outpostARN)
+			containerInstanceArn, attributes, tags, registrationToken, platformDevices, AWSARN)
 		if err == nil {
 			return containerInstanceArn, availabilityzone, nil
 		}
@@ -140,12 +140,12 @@ func (client *APIECSClient) RegisterContainerInstance(containerInstanceArn strin
 		}
 	}
 	return client.registerContainerInstance(clusterRef, containerInstanceArn, attributes, tags, registrationToken,
-		platformDevices, outpostARN)
+		platformDevices, AWSARN)
 }
 
 func (client *APIECSClient) registerContainerInstance(clusterRef string, containerInstanceArn string,
 	attributes []*ecs.Attribute, tags []*ecs.Tag, registrationToken string,
-	platformDevices []*ecs.PlatformDevice, outpostARN string) (string, string, error) {
+	platformDevices []*ecs.PlatformDevice, AWSARN string) (string, string, error) {
 
 	registerRequest := ecs.RegisterContainerInstanceInput{Cluster: &clusterRef}
 	var registrationAttributes []*ecs.Attribute
@@ -168,7 +168,7 @@ func (client *APIECSClient) registerContainerInstance(clusterRef string, contain
 
 	// Add additional attributes such as the os type
 	registrationAttributes = append(registrationAttributes, client.getAdditionalAttributes()...)
-	registrationAttributes = append(registrationAttributes, client.getOutpostAttribute(outpostARN)...)
+	registrationAttributes = append(registrationAttributes, client.getAWSAttribute(AWSARN)...)
 
 	registerRequest.Attributes = registrationAttributes
 	if len(tags) > 0 {
@@ -334,12 +334,12 @@ func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 	}
 }
 
-func (client *APIECSClient) getOutpostAttribute(outpostARN string) []*ecs.Attribute {
-	if len(outpostARN) > 0 {
+func (client *APIECSClient) getAWSAttribute(AWSARN string) []*ecs.Attribute {
+	if len(AWSARN) > 0 {
 		return []*ecs.Attribute{
 			{
-				Name:  aws.String("ecs.outpost-arn"),
-				Value: aws.String(outpostARN),
+				Name:  aws.String("ecs.AWS-arn"),
+				Value: aws.String(AWSARN),
 			},
 		}
 	}

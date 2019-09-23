@@ -262,9 +262,9 @@ func (mr *MockECSClientMockRecorder) GetResourceTags(arg0 interface{}) *gomock.C
 
 // RegisterContainerInstance mocks base method
 func (m *MockECSClient) RegisterContainerInstance(arg0 string, arg1 []*ecs.Attribute, arg2 []*ecs.Tag, arg3 string,
-	arg4 []*ecs.PlatformDevice, outpostARN string) (string, string, error) {
+	arg4 []*ecs.PlatformDevice, AWSARN string) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2, arg3, arg4, outpostARN)
+	ret := m.ctrl.Call(m, "RegisterContainerInstance", arg0, arg1, arg2, arg3, arg4, AWSARN)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
