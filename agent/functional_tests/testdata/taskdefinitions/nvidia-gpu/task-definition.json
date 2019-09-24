@@ -7,8 +7,8 @@
       "memory": 100,
       "resourceRequirements": [{
         "type":"GPU",
-        "value": "2"
+        "value": "1"
       }],
-      "command": ["sh", "-c", "nvidia-smi -L | wc -l | grep -w \"2\" && exit 42 || exit 1"]
+      "command": ["sh", "-c", "nvidia-smi -L | wc -l | grep -w \"1\" && exit 42 || exit 1"]
     }]
 }

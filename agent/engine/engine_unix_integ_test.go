@@ -78,7 +78,7 @@ const (
 
 var (
 	endpoint            = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
-	TestGPUInstanceType = []string{"p2", "p3", "g3"}
+	TestGPUInstanceType = []string{"p2", "p3", "g3", "g4dn"}
 )
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
