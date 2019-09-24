@@ -1488,14 +1488,14 @@ func TestASMSecretsARN(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
-// Note: This functional test requires ECS GPU instance which has atleast 2 GPUs
+// Note: This functional test requires ECS GPU instance which has at least 1 GPU.
 func TestRunGPUTask(t *testing.T) {
-	gpuInstances := []string{"p2", "p3", "g3"}
+	gpuInstances := []string{"p2", "p3", "g3", "g4dn"}
 	var isGPUInstance bool
 	iid, _ := ec2.NewEC2MetadataClient(nil).InstanceIdentityDocument()
 	for _, gpuInstance := range gpuInstances {
 		if strings.HasPrefix(iid.InstanceType, gpuInstance) {
-			// GPU test should only run on p2/p3/g3 ECS instances
+			// GPU test should only run on p2/p3/g3/g4dn ECS instances
 			isGPUInstance = true
 			break
 		}
