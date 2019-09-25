@@ -31,7 +31,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.31.0
+Version:        1.32.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -254,6 +254,9 @@ fi
 %endif
 
 %changelog
+* Wed Sep 25 2019 Cameron Sparr <cssparr@amazon.com> - 1.32.0-1
+- Cache Agent version 1.32.0
+
 * Thu Sep 13 2019 Yajie Chu <cya@amazon.com> - 1.31.0-1
 - Cache Agent version 1.31.0
 

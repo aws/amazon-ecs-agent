@@ -1,3 +1,9 @@
+amazon-ecs-init (1.32.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.32.0
+
+  -- Cameron Sparr <cssparr@amazon.com> Wed, 25 Sep 2019 10:00:00 -0800
+
 amazon-ecs-init (1.31.0-1) trusty; urgency=medium
      
   * Cache Agent version 1.31.0
