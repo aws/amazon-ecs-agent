@@ -1,4 +1,9 @@
 # Changelog
+
+## 1.32.0
+* Feature - Add support for automatic spot instance draining [#2205](https://github.com/aws/amazon-ecs-agent/pull/2205)
+* Bug - Fixed a bug where the agent might crash if it's restarted right after launching a task in awsvpc network mode [#2219](https://github.com/aws/amazon-ecs-agent/pull/2219)
+
 ## 1.31.0
 * Feature - Add support for showing container's ImageDigest Pulled from ECR in ECS DescribeTasks [#2201](https://github.com/aws/amazon-ecs-agent/pull/2201)
 * Enhancement - Add more functionalities to firelens (log router) feature: allow including external config from s3 and local file; add fluent logger support for bridge and awsvpc network mode; add health check support for aws-for-fluent-bit image
