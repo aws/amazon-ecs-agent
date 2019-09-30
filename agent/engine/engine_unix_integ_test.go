@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/cihub/seelog"
 	"io/ioutil"
 	"net"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/cihub/seelog"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -975,10 +976,9 @@ func TestDockerCfgAuth(t *testing.T) {
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
-	taskUpdate := createTestTask("testDockerCfgAuth")
-	taskUpdate.Containers[0].Image = testAuthRegistryImage
+	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
+	go taskEngine.AddTask(&taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -988,7 +988,7 @@ func TestDockerCfgAuth(t *testing.T) {
 
 	// verify there's no sign of auth details in the config; action item taken as
 	// a result of accidentally logging them once
-	badStrings := []string{"user:swordfish", "swordfish", authString, "user"}
+	badStrings := []string{"user:swordfish", "swordfish", authString}
 	err := filepath.Walk(logdir, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
