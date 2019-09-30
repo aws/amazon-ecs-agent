@@ -17,11 +17,13 @@ package engine
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -65,34 +67,28 @@ func setupIntegTestLogs(t *testing.T) string {
 	require.NoError(t, err, "Unable to create directory for storing test logs")
 
 	logger, err := log.LoggerFromConfigAsString(loggerConfigIntegrationTest(testLogDir))
-	if err != nil {
-		t.Log("initialisation failed: %s", err)
-	}
+	assert.NoError(t, err, "initialisation failed")
 
 	err = log.ReplaceLogger(logger)
-	if err != nil {
-		t.Log("Unable to replace logger: %v", err)
-	}
+	assert.NoError(t, err, "unable to replace logger")
+
 	return testLogDir
 }
 
 func loggerConfigIntegrationTest(logfile string) string {
-	config := `
+	config := fmt.Sprintf(`
 	<seelog type="asyncloop" minlevel="debug">
 		<outputs formatid="main">
-			<console />`
-	if logfile != "" {
-		config += `<rollingfile filename="` + logfile + `/ecs-agent-log.log" type="date"
-			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />`
-	}
-	config += `
+			<console />
+			<rollingfile filename="%s/ecs-agent-log.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
 		</outputs>
 		<formats>
-			<format id="main" format="%UTCDate(2006-01-02T15:04:05Z07:00) [%LEVEL] %Msg%n" />
-			<format id="windows" format="%Msg" />
+			<format id="main" format="%%UTCDate(2006-01-02T15:04:05Z07:00) [%%LEVEL] %%Msg%%n" />
+			<format id="windows" format="%%Msg" />
 		</formats>
-	</seelog>
-`
+	</seelog>`, logfile)
+
 	return config
 }
 
