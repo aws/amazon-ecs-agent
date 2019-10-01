@@ -54,7 +54,6 @@ const (
 	savedStateTaskDefinition        = "nginx"
 	portResContentionTaskDefinition = "busybox-port-5180"
 	labelsTaskDefinition            = "labels"
-	fluentdLogPath                  = "/tmp/ftslog"
 )
 
 var trunkingInstancePrefixes = []string{"c5.", "m5."}
@@ -455,7 +454,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
 
 	// Search the audit log to verify the credential request
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -487,84 +486,6 @@ func TestNetworkModeAWSVPC(t *testing.T) {
 
 	err := awsvpcNetworkModeTest(t, agent)
 	require.NoError(t, err, "Networking mode 'awsvpc' testing failed")
-}
-
-// TestFluentdTag tests the fluentd logging driver option "tag"
-func TestFluentdTag(t *testing.T) {
-	// tag was added in docker 1.9.0
-	RequireDockerVersion(t, ">=1.9.0")
-
-	// Skipping the test for arm as they do not have official support for Arm images
-	if runtime.GOARCH == "arm64" {
-		t.Skip("Skipping test, unsupported image for arm64")
-	}
-
-	fluentdDriverTest("fluentd-tag", t)
-}
-
-// TestFluentdLogTag tests the fluentd logging driver option "log-tag"
-func TestFluentdLogTag(t *testing.T) {
-	// fluentd was added in docker 1.8.0
-	// and deprecated in 1.12.0
-	RequireDockerVersion(t, ">=1.8.0")
-	RequireDockerVersion(t, "<1.12.0")
-
-	// Skipping the test for arm as they do not have official support for Arm images
-	if runtime.GOARCH == "arm64" {
-		t.Skip("Skipping test, unsupported image for arm64")
-	}
-
-	fluentdDriverTest("fluentd-log-tag", t)
-}
-
-func fluentdDriverTest(taskDefinition string, t *testing.T) {
-	ctx := context.TODO()
-
-	agentOptions := AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
-		},
-	}
-	agent := RunAgent(t, &agentOptions)
-	defer agent.Cleanup()
-
-	// fluentd is supported in agnet >=1.5.0
-	agent.RequireVersion(">=1.5.0")
-
-	driverTask, err := agent.StartTask(t, "fluentd-driver")
-	require.NoError(t, err)
-
-	err = driverTask.WaitRunning(2 * time.Minute)
-	require.NoError(t, err)
-
-	testTask, err := agent.StartTask(t, taskDefinition)
-	require.NoError(t, err)
-
-	err = testTask.WaitRunning(2 * time.Minute)
-	assert.NoError(t, err)
-
-	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
-	assert.NoError(t, err, "failed to resolve the container id from agent state")
-
-	container, err := agent.DockerClient.ContainerInspect(ctx, dockerID)
-	assert.NoError(t, err, "failed to inspect the container")
-
-	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)
-
-	// clean up
-	err = testTask.WaitStopped(1 * time.Minute)
-	assert.NoError(t, err, "task failed to be stopped")
-
-	driverTask.Stop()
-	err = driverTask.WaitStopped(1 * time.Minute)
-	assert.NoError(t, err, "task failed to be stopped")
-
-	// Verify the log file existed and also the content contains the expected format
-	err = SearchStrInDir(fluentdLogPath, "ecsfts", "hello, this is fluentd functional test")
-	assert.NoError(t, err, "failed to find the content in the fluent log file")
-
-	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
-	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
 // TestLogDriverSecretSupport tests the log driver secret support using
@@ -890,8 +811,8 @@ func TestExecutionRole(t *testing.T) {
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 	// Search the audit log to verify the credential request from awslogs driver
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 

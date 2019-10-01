@@ -22,7 +22,9 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -59,6 +61,8 @@ const (
 	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 	testPIDNamespaceImage = "127.0.0.1:51670/amazon/amazon-ecs-pid-namespace-test:latest"
 	testIPCNamespaceImage = "127.0.0.1:51670/amazon/amazon-ecs-ipc-namespace-test:latest"
+	testUbuntuImage       = "127.0.0.1:51670/ubuntu:latest"
+	testFluentdImage      = "127.0.0.1:51670/amazon/fluentd:latest"
 	testAuthUser          = "user"
 	testAuthPass          = "swordfish"
 
@@ -1404,8 +1408,7 @@ func TestMemoryOverCommit(t *testing.T) {
 	testTask := createTestTask(testArn)
 
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{HostConfig: aws.String(`{
-	"MemoryReservation": 52428800
-}`)}
+	"MemoryReservation": 52428800 }`)}
 
 	go taskEngine.AddTask(testTask)
 	verifyContainerRunningStateChange(t, taskEngine)
@@ -1439,4 +1442,79 @@ func TestNetworkModeHost(t *testing.T) {
 // as host mode in task definition
 func TestNetworkModeBridge(t *testing.T) {
 	testNetworkMode(t, "host")
+}
+
+func TestFluentdTag(t *testing.T) {
+	// Skipping the test for arm as they do not have official support for Arm images
+	if runtime.GOARCH == "arm64" {
+		t.Skip("Skipping test, unsupported image for arm64")
+	}
+
+	logdir := os.TempDir()
+	logdir = path.Join(logdir, "ftslog")
+	defer os.RemoveAll(logdir)
+
+	os.Setenv("ECS_AVAILABLE_LOGGING_DRIVERS", `["fluentd"]`)
+	defer os.Unsetenv("ECS_AVAILABLE_LOGGING_DRIVERS")
+
+	taskEngine, _, _ := setupWithDefaultConfig(t)
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint),
+		sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	// start Fluentd driver task
+	testTaskFleuntdDriver := createTestTask("testFleuntdDriver")
+	testTaskFleuntdDriver.Volumes = []apitask.TaskVolume{{Name: "logs", Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/tmp"}}}
+	testTaskFleuntdDriver.Containers[0].Image = testFluentdImage
+	testTaskFleuntdDriver.Containers[0].MountPoints = []apicontainer.MountPoint{{ContainerPath: "/fluentd/log",
+		SourceVolume: "logs"}}
+	testTaskFleuntdDriver.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: 24224, HostPort: 24224}}
+	go taskEngine.AddTask(testTaskFleuntdDriver)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	// Sleep before starting the test task so that fluentd driver is setup
+	time.Sleep(30 * time.Second)
+
+	// start fluentd log task
+	testTaskFluentdLogTag := createTestTask("testFleuntdTag")
+	testTaskFluentdLogTag.Containers[0].Command = []string{"sh", "-c", `echo hello, this is fluentd integration test`}
+	testTaskFluentdLogTag.Containers[0].Image = testUbuntuImage
+	testTaskFluentdLogTag.Containers[0].DockerConfig = apicontainer.DockerConfig{
+		HostConfig: aws.String(`{"LogConfig": {
+		"Type": "fluentd",
+		"Config": {
+               "fluentd-address":"0.0.0.0:24224",
+               "tag":"ecs.{{.Name}}.{{.FullID}}"
+		}
+	}}`)}
+
+	go taskEngine.AddTask(testTaskFluentdLogTag)
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTaskFluentdLogTag.Arn)
+	cid := containerMap[testTaskFluentdLogTag.Containers[0].Name].DockerID
+	state, _ := client.ContainerInspect(ctx, cid)
+
+	// Kill the fluentd driver task
+	testUpdate := *testTaskFleuntdDriver
+	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(&testUpdate)
+	verifyContainerStoppedStateChange(t, taskEngine)
+	verifyTaskStoppedStateChange(t, taskEngine)
+
+	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(state.Name,
+		"/", "", 1), cid)
+
+	// Verify the log file existed and also the content contains the expected format
+	err = utils.SearchStrInDir(logdir, "ecsfts", "hello, this is fluentd integration test")
+	assert.NoError(t, err, "failed to find the content in the fluent log file")
+
+	err = utils.SearchStrInDir(logdir, "ecsfts", logTag)
+	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
