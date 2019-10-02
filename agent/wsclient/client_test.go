@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,6 +48,17 @@ const dockerEndpoint = "/var/run/docker.sock"
 // TestSetReadDeadline* tests
 func (cs *ClientServerImpl) Close() error {
 	return cs.Disconnect()
+}
+
+func TestClientProxy(t *testing.T) {
+	proxy_url := "127.0.0.1:1234"
+	os.Setenv("HTTP_PROXY", proxy_url)
+	defer os.Unsetenv("HTTP_PROXY")
+
+	cs := getClientServer("http://www.amazon.com")
+	err := cs.Connect()
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
 }
 
 // TestConcurrentWritesDontPanic will force a panic in the websocket library if
