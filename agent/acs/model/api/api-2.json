@@ -300,6 +300,14 @@
       }
     },
 
+    "EFSVolumeConfiguration": {
+      "type":"structure",
+      "members":{
+        "filesystem":{"shape":"String"},
+        "rootDirectory":{"shape":"String"},
+        "readonly":{"shape":"Boolean"}
+      }
+    },
     "ElasticNetworkInterface":{
       "type":"structure",
       "members":{
@@ -669,7 +677,8 @@
         "name":{"shape":"String"},
         "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
-        "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"}
+        "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
+        "EFSVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
