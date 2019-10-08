@@ -95,6 +95,39 @@ func TestAppMeshFromACSNonAppMeshProxyInput(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestAppMeshEmptyAppPorts(t *testing.T) {
+	emptyAppPorts := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[appPorts] = &emptyAppPorts
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(appMesh.AppPorts))
+}
+
+func TestAppMeshEmptyIgnoredIPs(t *testing.T) {
+	emptyIgnoredIPs := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[egressIgnoredIPs] = &emptyIgnoredIPs
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(appMesh.EgressIgnoredIPs))
+}
+
+func TestAppMeshEmptyIgnoredPorts(t *testing.T) {
+	emptyIgnoredPorts := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[egressIgnoredPorts] = &emptyIgnoredPorts
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(appMesh.EgressIgnoredPorts))
+}
+
 func prepareProxyConfig() ecsacs.ProxyConfiguration {
 
 	return ecsacs.ProxyConfiguration{

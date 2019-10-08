@@ -608,7 +608,7 @@ func TestCNIPluginVersion(t *testing.T) {
 // Asserts that CNI plugin version matches the expected version
 func TestCNIPluginVersionNumber(t *testing.T) {
 	versionStr := getCNIVersionString(t)
-	assert.Equal(t, currentECSCNIVersion, versionStr)
+	assert.Equal(t, versionStr, currentECSCNIVersion)
 }
 
 // Asserts that CNI plugin version is upgraded when new commits are made to CNI plugin submodule
