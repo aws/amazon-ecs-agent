@@ -34,7 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -275,7 +275,7 @@ func (agent *TestAgent) startAWSVPCTask(taskDefinition string) (*TestTask, error
 	agent.t.Logf("Task definition: %s", taskDefinition)
 	// Get the subnet ID, which is a required parameter for starting
 	// tasks in 'awsvpc' network mode
-	subnet, err := getSubnetID()
+	subnet, err := GetSubnetID()
 	if err != nil {
 		return nil, err
 	}
@@ -809,8 +809,8 @@ func AttributesToMap(attributes []*ecs.Attribute) map[string]string {
 	return attributeMap
 }
 
-// getSubnetID gets the subnet id for the instance from ec2 instance metadata
-func getSubnetID() (string, error) {
+// GetSubnetID gets the subnet id for the instance from ec2 instance metadata
+func GetSubnetID() (string, error) {
 	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
 	mac, err := ec2Metadata.GetMetadata("mac")
 	if err != nil {

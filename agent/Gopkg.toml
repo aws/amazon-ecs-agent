@@ -19,7 +19,7 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
-required = ["github.com/golang/mock/mockgen/model", "github.com/aws/aws-sdk-go/service/efs"]
+required = ["github.com/golang/mock/mockgen/model"]
 
 [prune]
   go-tests = true
