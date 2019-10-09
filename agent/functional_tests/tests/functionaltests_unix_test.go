@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -1359,6 +1360,21 @@ func TestASMSecretsARN(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
+// TestRunEFSVolumeTask TODO
+func TestRunEFSVolumeTask(t *testing.T) {
+	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
+		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
+	}
+
+	if IsCNPartition() {
+		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
+	}
+
+	_ = efs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	_ = &efs.CreateFileSystemInput{}
+	return
+}
+
 // Note: This functional test requires ECS GPU instance which has at least 1 GPU.
 func TestRunGPUTask(t *testing.T) {
 	gpuInstances := []string{"p2", "p3", "g3", "g4dn"}
@@ -1766,7 +1782,7 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 		},
 		TempDirOverride: tempDir,
 	}
-	if (isAWSVPC) {
+	if isAWSVPC {
 		agentOptions.EnableTaskENI = true
 	}
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
