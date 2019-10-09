@@ -285,6 +285,22 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
+func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	return nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
@@ -326,18 +342,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
+	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
+		return err
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
+
 	if cfg.GPUSupportEnabled {
 		err = task.addGPUResource()
 		if err != nil {
