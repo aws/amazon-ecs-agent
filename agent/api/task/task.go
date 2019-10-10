@@ -544,7 +544,8 @@ func (task *Task) addEFSVolumes(
 	vol *TaskVolume,
 	efsvol *taskresourcevolume.EFSVolumeConfig,
 ) error {
-	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,ro", efsvol.Filesystem, cfg.AWSRegion)
+	// TODO CN and gov partition logic
+	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.Filesystem, cfg.AWSRegion)
 	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,

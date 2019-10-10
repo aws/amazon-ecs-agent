@@ -223,7 +223,7 @@ func TestInitializeEFSVolume(t *testing.T) {
 
 	dockervol, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
 	assert.True(t, ok)
-	assert.Equal(t, "addr=fs-12345.efs.us-west-1.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,ro", dockervol.DriverOpts["o"])
+	assert.Equal(t, "addr=fs-12345.efs.us-west-1.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", dockervol.DriverOpts["o"])
 	assert.Equal(t, ":/my/root/dir", dockervol.DriverOpts["device"])
 }
 
