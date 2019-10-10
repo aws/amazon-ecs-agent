@@ -303,7 +303,7 @@
     "EFSVolumeConfiguration": {
       "type":"structure",
       "members":{
-        "filesystem":{"shape":"String"},
+        "filesystemId":{"shape":"String"},
         "rootDirectory":{"shape":"String"}
       }
     },
@@ -699,7 +699,8 @@
       "type":"string",
       "enum":[
         "host",
-        "docker"
+        "docker",
+        "efs"
       ]
     }
   }
