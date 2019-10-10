@@ -304,8 +304,7 @@
       "type":"structure",
       "members":{
         "filesystem":{"shape":"String"},
-        "rootDirectory":{"shape":"String"},
-        "readonly":{"shape":"Boolean"}
+        "rootDirectory":{"shape":"String"}
       }
     },
     "ElasticNetworkInterface":{
