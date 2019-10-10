@@ -545,6 +545,8 @@ func (task *Task) addEFSVolumes(
 	efsvol *taskresourcevolume.EFSVolumeConfig,
 ) error {
 	// TODO CN and gov partition logic
+	// These are the NFS options recommended by EFS, see:
+	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
 	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.Filesystem, cfg.AWSRegion)
 	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
