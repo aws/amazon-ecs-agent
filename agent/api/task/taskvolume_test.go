@@ -68,7 +68,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 			{Name: "1", Type: HostVolumeType, Volume: &taskresourcevolume.LocalDockerVolume{}},
 			{Name: "2", Type: HostVolumeType, Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
 			{Name: "3", Type: DockerVolumeType, Volume: &taskresourcevolume.DockerVolumeConfig{Scope: "task", Driver: "local"}},
-			{Name: "4", Type: EFSVolumeType, Volume: &taskresourcevolume.EFSVolumeConfig{Filesystem: "fs-12345", RootDirectory: "/tmp", ReadOnly: true}},
+			{Name: "4", Type: EFSVolumeType, Volume: &taskresourcevolume.EFSVolumeConfig{Filesystem: "fs-12345", RootDirectory: "/tmp"}},
 		},
 	}
 
@@ -206,7 +206,6 @@ func TestInitializeEFSVolume(t *testing.T) {
 				Type: "efs",
 				Volume: &taskresourcevolume.EFSVolumeConfig{
 					Filesystem:    "fs-12345",
-					ReadOnly:      true,
 					RootDirectory: "/my/root/dir",
 				},
 			},
@@ -286,7 +285,6 @@ func TestInitializeEFSVolume_WrongVolumeType(t *testing.T) {
 				Type: "docker",
 				Volume: &taskresourcevolume.EFSVolumeConfig{
 					Filesystem:    "fs-12345",
-					ReadOnly:      true,
 					RootDirectory: "/my/root/dir",
 				},
 			},

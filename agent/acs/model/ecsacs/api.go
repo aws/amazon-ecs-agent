@@ -418,8 +418,6 @@ type EFSVolumeConfiguration struct {
 
 	Filesystem *string `locationName:"filesystem" type:"string"`
 
-	Readonly *bool `locationName:"readonly" type:"boolean"`
-
 	RootDirectory *string `locationName:"rootDirectory" type:"string"`
 }
 

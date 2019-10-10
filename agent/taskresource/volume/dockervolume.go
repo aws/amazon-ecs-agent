@@ -86,7 +86,6 @@ type DockerVolumeConfig struct {
 type EFSVolumeConfig struct {
 	Filesystem    string `json:"filesystem"`
 	RootDirectory string `json:"rootDirectory"`
-	ReadOnly      bool   `json:"readonly"`
 	// DockerVolumeName is internal docker name for this volume.
 	DockerVolumeName string `json:"dockerVolumeName"`
 }
