@@ -54,6 +54,7 @@ const (
 	savedStateTaskDefinition        = "nginx"
 	portResContentionTaskDefinition = "busybox-port-5180"
 	labelsTaskDefinition            = "labels"
+	errCodeAccessDenied             = "AccessDenied"
 )
 
 var trunkingInstancePrefixes = []string{"c5.", "m5."}
@@ -1642,7 +1643,13 @@ func TestFirelensWithS3ConfigFluentd(t *testing.T) {
 		Key:    aws.String("testfiles/fluentd.conf"),
 		Body:   strings.NewReader(content),
 	})
-	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == errCodeAccessDenied {
+			t.Skip("Skipping the test since lacking necessary s3 access permission")
+		} else {
+			t.Fatalf("Unable to upload config file to s3 which is needed for the test: %v", err)
+		}
+	}
 
 	testFirelens(t, "fluentd", "@type", "stdout",
 		getLogSenderMessageFluentd, s3Bucket, false, false)
@@ -1707,7 +1714,13 @@ func TestFirelensWithS3ConfigFluentbit(t *testing.T) {
 		Key:    aws.String("testfiles/fluentbit.conf"),
 		Body:   strings.NewReader(content),
 	})
-	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == errCodeAccessDenied {
+			t.Skip("Skipping the test since lacking necessary s3 access permission")
+		} else {
+			t.Fatalf("Unable to upload config file to s3 which is needed for the test: %v", err)
+		}
+	}
 
 	testFirelens(t, "fluentbit", "Name", "cloudwatch",
 		getLogSenderMessageFluentbit, s3Bucket, false, false)
