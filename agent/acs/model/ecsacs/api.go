@@ -415,6 +415,24 @@ func (s ECRAuthData) GoString() string {
 	return s.String()
 }
 
+type EFSVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	FileSystemId *string `locationName:"fileSystemId" type:"string"`
+
+	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+}
+
+// String returns the string representation
+func (s EFSVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EFSVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type ElasticNetworkInterface struct {
 	_ struct{} `type:"structure"`
 
@@ -1425,6 +1443,8 @@ type Volume struct {
 	_ struct{} `type:"structure"`
 
 	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
+
+	EFSVolumeConfiguration *EFSVolumeConfiguration `type:"structure"`
 
 	Host *HostVolumeProperties `locationName:"host" type:"structure"`
 

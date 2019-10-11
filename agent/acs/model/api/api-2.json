@@ -300,6 +300,13 @@
       }
     },
 
+    "EFSVolumeConfiguration": {
+      "type":"structure",
+      "members":{
+        "fileSystemId":{"shape":"String"},
+        "rootDirectory":{"shape":"String"}
+      }
+    },
     "ElasticNetworkInterface":{
       "type":"structure",
       "members":{
@@ -669,7 +676,8 @@
         "name":{"shape":"String"},
         "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
-        "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"}
+        "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
+        "EFSVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -691,7 +699,8 @@
       "type":"string",
       "enum":[
         "host",
-        "docker"
+        "docker",
+        "efs"
       ]
     },
     "TaskIdentifier": {

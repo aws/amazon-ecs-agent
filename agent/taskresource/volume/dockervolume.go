@@ -82,6 +82,14 @@ type DockerVolumeConfig struct {
 	DockerVolumeName string `json:"dockerVolumeName"`
 }
 
+// EFSVolumeConfig represents efs volume configuration.
+type EFSVolumeConfig struct {
+	Filesystem    string `json:"filesystem"`
+	RootDirectory string `json:"rootDirectory"`
+	// DockerVolumeName is internal docker name for this volume.
+	DockerVolumeName string `json:"dockerVolumeName"`
+}
+
 // NewVolumeResource returns a docker volume wrapper object
 func NewVolumeResource(ctx context.Context,
 	name string,
@@ -129,6 +137,11 @@ func (vol *VolumeResource) initStatusToTransitions() {
 	}
 
 	vol.statusToTransitions = statusToTransitions
+}
+
+// Source returns the name of the volume resource which is used as the source of the volume mount
+func (cfg *EFSVolumeConfig) Source() string {
+	return cfg.DockerVolumeName
 }
 
 // Source returns the name of the volume resource which is used as the source of the volume mount
