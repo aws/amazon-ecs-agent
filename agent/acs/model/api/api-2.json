@@ -303,7 +303,7 @@
     "EFSVolumeConfiguration": {
       "type":"structure",
       "members":{
-        "filesystemId":{"shape":"String"},
+        "fileSystemId":{"shape":"String"},
         "rootDirectory":{"shape":"String"}
       }
     },

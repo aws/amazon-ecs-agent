@@ -416,7 +416,7 @@ func (s ECRAuthData) GoString() string {
 type EFSVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	FilesystemId *string `locationName:"filesystemId" type:"string"`
+	FileSystemId *string `locationName:"fileSystemId" type:"string"`
 
 	RootDirectory *string `locationName:"rootDirectory" type:"string"`
 }
