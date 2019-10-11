@@ -285,6 +285,22 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
+func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	return nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
@@ -326,14 +342,10 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
+	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
+		return err
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
+
 	if cfg.GPUSupportEnabled {
 		err = task.addGPUResource()
 		if err != nil {
@@ -497,6 +509,68 @@ func (task *Task) initializeDockerVolumes(sharedVolumeMatchFullConfig bool, dock
 			}
 		}
 	}
+	return nil
+}
+
+// initializeEFSVolumes inspects the volume definitions in the task definition.
+// If it finds EFS volumes in the task definition, then it converts it to a docker
+// volume definition.
+func (task *Task) initializeEFSVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	for i, vol := range task.Volumes {
+		// No need to do this for non-efs volume, eg: host bind/empty volume
+		if vol.Type != EFSVolumeType {
+			continue
+		}
+
+		efsvol, ok := vol.Volume.(*taskresourcevolume.EFSVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 'efs'")
+		}
+
+		err := task.addEFSVolumes(ctx, cfg, dockerClient, &task.Volumes[i], efsvol)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addEFSVolumes converts the EFS task definition into an internal docker 'local' volume
+// mounted with NFS struct and updates container dependency
+func (task *Task) addEFSVolumes(
+	ctx context.Context,
+	cfg *config.Config,
+	dockerClient dockerapi.DockerClient,
+	vol *TaskVolume,
+	efsvol *taskresourcevolume.EFSVolumeConfig,
+) error {
+	// TODO CN and gov partition logic
+	// These are the NFS options recommended by EFS, see:
+	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
+	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.Filesystem, cfg.AWSRegion)
+	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
+	volumeResource, err := taskresourcevolume.NewVolumeResource(
+		ctx,
+		vol.Name,
+		task.volumeName(vol.Name),
+		"task",
+		false,
+		"local",
+		map[string]string{
+			"type":   "nfs",
+			"device": devstr,
+			"o":      ostr,
+		},
+		map[string]string{},
+		dockerClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &volumeResource.VolumeConfig
+	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+	task.updateContainerVolumeDependency(vol.Name)
 	return nil
 }
 
