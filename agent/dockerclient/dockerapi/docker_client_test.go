@@ -761,15 +761,18 @@ func TestContainerEventsEOFError(t *testing.T) {
 
 	eventsChan := make(chan events.Message, dockerEventBufferSize)
 	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
+	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
 
 	dockerEvents, err := client.ContainerEvents(context.TODO())
 	require.NoError(t, err, "Could not get container events")
 	go func() {
 		errChan <- io.EOF
+		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
 	}()
 
-	assert.Equal(t, len(dockerEvents), 0, "Wrong number of docker events")
+	event := <-dockerEvents
+	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
+	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
 }
 
 func TestContainerEventsStreamError(t *testing.T) {

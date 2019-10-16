@@ -863,22 +863,26 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 		for {
 			select {
 			case err := <-eventErr:
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					seelog.Info("DockerGoClient: All events have been received")
-					cancel()
+				// If parent ctx has been canceled, stop listening and return. Otherwise reopen the stream.
+				if ctx.Err() != nil {
 					return
-				} else {
-					// If an error is returned, we need to reopen channel to continue listening
-					seelog.Errorf("DockerGoClient: error while listening to Docker Events : %v", err)
-					nextCtx, nextCancel := context.WithCancel(ctx)
-					dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
-					// Cache the event from docker client.
-					go buffer.StartListening(nextCtx, dockerEvents)
-					// Close previous stream after starting to listen on new one
-					cancel()
-					// Reassign cancel variable next Cancel function to setup next iteration of loop.
-					cancel = nextCancel
 				}
+
+				if err == io.EOF {
+					seelog.Infof("DockerGoClient: Docker events stream closed with: %v", err)
+				} else {
+					seelog.Errorf("DockerGoClient: Docker events stream closed with error: %v", err)
+				}
+
+				// Reopen a new event stream to continue listening.
+				nextCtx, nextCancel := context.WithCancel(ctx)
+				dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
+				// Cache the event from docker client.
+				go buffer.StartListening(nextCtx, dockerEvents)
+				// Close previous stream after starting to listen on new one
+				cancel()
+				// Reassign cancel variable next Cancel function to setup next iteration of loop.
+				cancel = nextCancel
 			case <-ctx.Done():
 				return
 			}
