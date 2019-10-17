@@ -129,41 +129,44 @@ func (handler *attachmentHandler) submitAttachmentEvent(attachmentChange *api.At
 	seelog.Debugf("AttachmentHandler: acquired attachment lock for attachment %s", handler.attachmentARN)
 	defer handler.lock.Unlock()
 
-	// TODO: refactor multiple anonymous functions below to named methods (doesn't seem trivial for now since
-	// RetryWithBackoffCtx only takes a function without argument); tracked in https://github.com/aws/amazon-ecs-agent/issues/1894
 	retry.RetryWithBackoffCtx(handler.ctx, handler.backoff, func() error {
-		if !attachmentChangeShouldBeSent(attachmentChange) {
-			seelog.Debugf("AttachmentHandler: not sending attachment state change [%s] as it should not be sent", attachmentChange.String())
-			// if the attachment state change should not be sent, we don't need to retry anymore so return nil here
-			return nil
-		}
-
-		seelog.Infof("AttachmentHandler: sending attachment state change: %s", attachmentChange.String())
-		if err := handler.client.SubmitAttachmentStateChange(*attachmentChange); err != nil {
-			seelog.Errorf("AttachmentHandler: error submitting attachment state change [%s]: %v", attachmentChange.String(), err)
-			return err
-		}
-		seelog.Debugf("AttachmentHandler: submitted attachment state change: %s", attachmentChange.String())
-
-		attachmentChange.Attachment.SetSentStatus()
-		attachmentChange.Attachment.StopAckTimer()
-
-		err := handler.stateSaver.Save()
-		if err != nil {
-			// saving state error more often than not is caused by running out of disk space and it's unlikely to succeed by
-			// retry, so just retry a few times and give up. and we don't need to hold the attachment lock here, so retry in
-			// a separate go routine and return nil for the outer retry loop
-			seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-			go func() {
-				retry.RetryNWithBackoffCtx(handler.ctx, handler.backoff, saveAttachmentStateRetryNum, func() error {
-					err = handler.stateSaver.Save()
-					seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-					return err
-				})
-			}()
-		}
-		return nil
+		return handler.submitAttachmentEventOnce(attachmentChange)
 	})
+}
+
+func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *api.AttachmentStateChange) error {
+	if !attachmentChangeShouldBeSent(attachmentChange) {
+		seelog.Debugf("AttachmentHandler: not sending attachment state change [%s] as it should not be sent", attachmentChange.String())
+		// if the attachment state change should not be sent, we don't need to retry anymore so return nil here
+		return nil
+	}
+
+	seelog.Infof("AttachmentHandler: sending attachment state change: %s", attachmentChange.String())
+	if err := handler.client.SubmitAttachmentStateChange(*attachmentChange); err != nil {
+		seelog.Errorf("AttachmentHandler: error submitting attachment state change [%s]: %v", attachmentChange.String(), err)
+		return err
+	}
+	seelog.Debugf("AttachmentHandler: submitted attachment state change: %s", attachmentChange.String())
+
+	attachmentChange.Attachment.SetSentStatus()
+	attachmentChange.Attachment.StopAckTimer()
+
+	err := handler.stateSaver.Save()
+	if err != nil {
+		// saving state error more often than not is caused by running out of disk space and it's unlikely to succeed by
+		// retry, so just retry a few times and give up. and we don't need to hold the attachment lock here, so retry in
+		// a separate go routine and return nil for the outer retry loop
+		seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+		go handler.retrySavingState(attachmentChange)
+	}
+	return nil
+}
+
+func (handler *attachmentHandler) retrySavingState(attachmentChange *api.AttachmentStateChange) {
+	err := retry.RetryNWithBackoffCtx(handler.ctx, handler.backoff, saveAttachmentStateRetryNum, handler.stateSaver.Save)
+	if err != nil {
+		seelog.Errorf("AttachmentHandler: failed to save state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
+	}
 }
 
 // attachmentChangeShouldBeSent checks whether an attachment state change should be sent to backend
