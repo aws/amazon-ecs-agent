@@ -283,23 +283,21 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 			},
 		},
 		PlatformFields: PlatformFields{
-			RamUnbounded: false,
+			MemoryUnbounded: false,
 		},
 	}
 
-	// With RamUnbounded set to false, MemoryReservation is not overridden
+	// With MemoryUnbounded set to false, MemoryReservation is not overridden
 	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+
+	assert.Nil(t, configErr)
 	assert.EqualValues(t, nonZeroMemoryReservationValue, config.MemoryReservation)
 
-	// With RamUnbounded set to true, tasks with no memory hard limit will have their memory reservation set to zero
-	testTask.PlatformFields.RamUnbounded = true
+	// With MemoryUnbounded set to true, tasks with no memory hard limit will have their memory reservation set to zero
+	testTask.PlatformFields.MemoryUnbounded = true
 	config, configErr = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
-	if configErr != nil {
-		t.Fatal(configErr)
-	}
+
+	assert.Nil(t, configErr)
 	assert.EqualValues(t, expectedMemoryReservationValue, config.MemoryReservation)
 }
 

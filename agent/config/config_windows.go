@@ -58,8 +58,8 @@ func DefaultConfig() Config {
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
 	platformVariables := PlatformVariables{
-		CPUUnbounded: false,
-		RAMUnbounded: false,
+		CPUUnbounded:    false,
+		MemoryUnbounded: false,
 	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
@@ -119,10 +119,11 @@ func (cfg *Config) platformOverrides() {
 	cfg.TaskCPUMemLimit = ExplicitlyDisabled
 
 	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
-	ramUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_RAM_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	memoryUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+
 	platformVariables := PlatformVariables{
-		CPUUnbounded: cpuUnbounded,
-		RAMUnbounded: ramUnbounded,
+		CPUUnbounded:    cpuUnbounded,
+		MemoryUnbounded: memoryUnbounded,
 	}
 	cfg.PlatformVariables = platformVariables
 }
