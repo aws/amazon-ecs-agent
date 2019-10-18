@@ -66,6 +66,7 @@ type dockerImageManager struct {
 	deleteNonECSImagesEnabled          bool
 	nonECSContainerCleanupWaitDuration time.Duration
 	numNonECSContainersToDelete        int
+	nonECSMinimumAgeBeforeDeletion     time.Duration
 }
 
 // ImageStatesForDeletion is used for implementing the sort interface
@@ -84,6 +85,7 @@ func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state do
 		deleteNonECSImagesEnabled:          cfg.DeleteNonECSImagesEnabled,
 		nonECSContainerCleanupWaitDuration: cfg.TaskCleanupWaitDuration,
 		numNonECSContainersToDelete:        cfg.NumNonECSContainersToDeletePerCycle,
+		nonECSMinimumAgeBeforeDeletion:     cfg.NonECSMinimumImageDeletionAge,
 	}
 }
 
@@ -273,6 +275,12 @@ func (imageManager *dockerImageManager) isImageOldEnough(imageState *image.Image
 	return ageOfImage > imageManager.minimumAgeBeforeDeletion
 }
 
+//TODO: change image createdTime to image lastUsedTime when docker support it in the future
+func (imageManager *dockerImageManager) nonECSImageOldEnough(NonECSImage ImageWithSizeID) bool {
+	ageOfImage := time.Now().Sub(NonECSImage.createdTime)
+	return ageOfImage > imageManager.nonECSMinimumAgeBeforeDeletion
+}
+
 // Implementing sort interface based on last used times of the images
 func (imageStates ImageStatesForDeletion) Len() int {
 	return len(imageStates)
@@ -419,9 +427,10 @@ func (imageManager *dockerImageManager) getNonECSContainerIDs(ctx context.Contex
 }
 
 type ImageWithSizeID struct {
-	RepoTags []string
-	ImageID  string
-	Size     int64
+	RepoTags    []string
+	ImageID     string
+	Size        int64
+	createdTime time.Time
 }
 
 func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, nonECSImagesNumToDelete int) {
@@ -440,6 +449,10 @@ func (imageManager *dockerImageManager) removeNonECSImages(ctx context.Context, 
 	for _, image := range nonECSImages {
 		if numImagesAlreadyDeleted >= nonECSImagesNumToDelete {
 			break
+		}
+		// use current time - image creation time to determine if image is old enough to be deleted.
+		if !imageManager.nonECSImageOldEnough(image) {
+			continue
 		}
 		if len(image.RepoTags) > 1 {
 			seelog.Debugf("Non-ECS image has more than one tag Image: %s (Tags: %s)", image.ImageID, image.RepoTags)
@@ -476,11 +489,17 @@ func (imageManager *dockerImageManager) getNonECSImages(ctx context.Context) []I
 			seelog.Errorf("Error inspecting non-ECS image: (ImageID: %s), %s", imageID, err)
 			continue
 		}
+		createTime := time.Time{}
+		createTime, err = time.Parse(time.RFC3339, resp.Created)
+		if err != nil {
+			seelog.Warnf("Error parse the inspected non-ECS image created time (ImageID: %s), %v", imageID, err)
+		}
 		allImages = append(allImages,
 			ImageWithSizeID{
-				ImageID:  imageID,
-				Size:     resp.Size,
-				RepoTags: resp.RepoTags,
+				ImageID:     imageID,
+				Size:        resp.Size,
+				RepoTags:    resp.RepoTags,
+				createdTime: createTime,
 			})
 	}
 
