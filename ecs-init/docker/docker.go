@@ -14,6 +14,7 @@
 package docker
 
 import (
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"strings"
@@ -91,9 +92,9 @@ const (
 	// the following libDirs  specify the location of shared libraries on the
 	// host and in the Agent container required for the execution of the iptables
 	// executable. Some OS like AL2 moved lib64 to /usr/lib64 (and lib to /usr/lib)
-	iptablesLibDir = "/lib"
-	iptablesUsrLibDir = "/usr/lib"
-	iptablesLib64Dir = "/lib64"
+	iptablesLibDir      = "/lib"
+	iptablesUsrLibDir   = "/usr/lib"
+	iptablesLib64Dir    = "/lib64"
 	iptablesUsrLib64Dir = "/usr/lib64"
 )
 
@@ -221,6 +222,7 @@ func (c *Client) getContainerConfig() *godocker.Config {
 		"ECS_AVAILABLE_LOGGING_DRIVERS":         `["json-file","syslog","awslogs","none"]`,
 		"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
+		"ECS_AGENT_LABELS":                      "",
 	}
 
 	// for al, al2 add host ssl cert directory envvar if available
@@ -243,10 +245,27 @@ func (c *Client) getContainerConfig() *godocker.Config {
 	for envKey, envValue := range envVariables {
 		env = append(env, envKey+"="+envValue)
 	}
-
-	return &godocker.Config{
+	cfg := &godocker.Config{
 		Env:   env,
 		Image: config.AgentImageName,
+	}
+	setLabels(cfg, envVariables["ECS_AGENT_LABELS"])
+	return cfg
+}
+
+func setLabels(cfg *godocker.Config, labelsStringRaw string) {
+	// Is there labels to add?
+	if len(labelsStringRaw) > 0 {
+		labels, err := generateLabelMap(labelsStringRaw)
+		if err != nil {
+			// Are the labels valid?
+			log.Errorf("Failed to decode the container labels, skipping labels. Error: %s", err)
+			return
+		}
+		// Stops `{}` from being valid
+		if len(labels) > 0 {
+			cfg.Labels = labels
+		}
 	}
 }
 
@@ -300,6 +319,12 @@ func (c *Client) getEnvVars(filename string) map[string]string {
 	}
 
 	return envVariables
+}
+
+func generateLabelMap(jsonBlock string) (map[string]string, error) {
+	out := map[string]string{}
+	err := json.Unmarshal([]byte(jsonBlock), &out)
+	return out, err
 }
 
 func (c *Client) getHostConfig() *godocker.HostConfig {
