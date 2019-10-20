@@ -35,6 +35,9 @@ import (
 
 const (
 	minDockerClientAPIVersion = dockerclient.Version_1_24
+
+	nonZeroMemoryReservationValue  = 1
+	expectedMemoryReservationValue = 0
 )
 
 func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
@@ -252,6 +255,50 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 			assert.Equal(t, tc.cpuPercent, hostconfig.CPUPercent)
 		})
 	}
+}
+
+func TestWindowsMemoryReservationOption(t *testing.T) {
+	// Testing sending a task to windows overriding MemoryReservation value
+	rawHostConfigInput := dockercontainer.HostConfig{
+		Resources: dockercontainer.Resources{
+			MemoryReservation: nonZeroMemoryReservationValue,
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testTask := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "myFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+		PlatformFields: PlatformFields{
+			MemoryUnbounded: false,
+		},
+	}
+
+	// With MemoryUnbounded set to false, MemoryReservation is not overridden
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+
+	assert.Nil(t, configErr)
+	assert.EqualValues(t, nonZeroMemoryReservationValue, config.MemoryReservation)
+
+	// With MemoryUnbounded set to true, tasks with no memory hard limit will have their memory reservation set to zero
+	testTask.PlatformFields.MemoryUnbounded = true
+	config, configErr = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+
+	assert.Nil(t, configErr)
+	assert.EqualValues(t, expectedMemoryReservationValue, config.MemoryReservation)
 }
 
 func TestGetCanonicalPath(t *testing.T) {

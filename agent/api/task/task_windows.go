@@ -42,6 +42,9 @@ type PlatformFields struct {
 	// CpuUnbounded determines whether a mix of unbounded and bounded CPU tasks
 	// are allowed to run in the instance
 	CpuUnbounded bool `json:"cpuUnbounded"`
+	// MemoryUnbounded determines whether a mix of unbounded and bounded Memory tasks
+	// are allowed to run in the instance
+	MemoryUnbounded bool `json:"memoryUnbounded"`
 }
 
 var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
@@ -50,7 +53,8 @@ var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.downcaseAllVolumePaths()
 	platformFields := PlatformFields{
-		CpuUnbounded: cfg.PlatformVariables.CPUUnbounded,
+		CpuUnbounded:    cfg.PlatformVariables.CPUUnbounded,
+		MemoryUnbounded: cfg.PlatformVariables.MemoryUnbounded,
 	}
 	task.PlatformFields = platformFields
 }
@@ -119,6 +123,13 @@ func (task *Task) platformHostConfigOverride(hostConfig *dockercontainer.HostCon
 		hostConfig.CPUPercent = minimumCPUPercent
 	}
 	hostConfig.CPUShares = 0
+
+	if hostConfig.Memory <= 0 && task.PlatformFields.MemoryUnbounded {
+		// As of version  17.06.2-ee-6 of docker. MemoryReservation is not supported on windows. This ensures that
+		// this parameter is not passed, allowing to launch a container without a hard limit.
+		hostConfig.MemoryReservation = 0
+	}
+
 	return nil
 }
 

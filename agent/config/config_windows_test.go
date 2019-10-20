@@ -113,3 +113,20 @@ func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
 }
+
+func TestMemoryUnboundedSet(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.True(t, cfg.PlatformVariables.MemoryUnbounded)
+}
+
+func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.False(t, cfg.PlatformVariables.MemoryUnbounded)
+}
