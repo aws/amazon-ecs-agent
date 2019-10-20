@@ -17,12 +17,10 @@ package app
 
 import (
 	"fmt"
-	"net/http"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
@@ -36,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -133,14 +132,13 @@ func (agent *ecsAgent) setVPCSubnet() (error, bool) {
 	return nil, false
 }
 
-// isInstanceLaunchedInVPC returns false when the http status code is set to
-// 'not found' (404) when querying the vpc id from instance metadata
+// isInstanceLaunchedInVPC returns false when the awserr returned is an EC2MetadataError
+// when querying the vpc id from instance metadata
 func isInstanceLaunchedInVPC(err error) bool {
-	if metadataErr, ok := err.(*ec2.MetadataError); ok &&
-		metadataErr.GetStatusCode() == http.StatusNotFound {
+	if aerr, ok := err.(awserr.Error); ok &&
+		aerr.Code() == "EC2MetadataError" {
 		return false
 	}
-
 	return true
 }
 

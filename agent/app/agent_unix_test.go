@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"sync"
 	"testing"
@@ -28,7 +27,6 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/app/oswrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -46,6 +44,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -271,7 +270,7 @@ func TestSetVPCSubnetClassicEC2(t *testing.T) {
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
-		mockMetadata.EXPECT().VPCID(mac).Return("", ec2.NewMetadataError(http.StatusNotFound)),
+		mockMetadata.EXPECT().VPCID(mac).Return("", awserr.New("EC2MetadataError", "failed to make EC2Metadata request", nil)),
 	)
 	agent := &ecsAgent{ec2MetadataClient: mockMetadata}
 	err, ok := agent.setVPCSubnet()
