@@ -15,6 +15,8 @@ package engine
 
 import (
 	"context"
+	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -666,10 +668,20 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 		container.SetKnownStatus(currentKnownStatus)
 		container.SetDesiredStatus(apicontainerstatus.ContainerStopped)
 		errorName := event.Error.ErrorName()
+		errorStr := event.Error.Error()
+		shouldForceStop := false
 		if errorName == dockerapi.DockerTimeoutErrorName || errorName == dockerapi.CannotInspectContainerErrorName {
 			// If there's an error with inspecting the container or in case of timeout error,
-			// we'll also assume that the container has transitioned to RUNNING and issue
+			// we'll assume that the container has transitioned to RUNNING and issue
 			// a stop. See #1043 for details
+			shouldForceStop = true
+		} else if errorName == dockerapi.CannotStartContainerErrorName && strings.HasSuffix(errorStr, io.EOF.Error()) {
+			// If we get an EOF error from Docker when starting the container, we don't really know whether the
+			// container is started anyway. So issuing a stop here as well. See #1708.
+			shouldForceStop = true
+		}
+
+		if shouldForceStop {
 			seelog.Warnf("Managed task [%s]: forcing container [%s] to stop",
 				mtask.Arn, container.Name)
 			go mtask.engine.transitionContainer(mtask.Task, container, apicontainerstatus.ContainerStopped)
