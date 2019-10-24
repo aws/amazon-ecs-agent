@@ -792,6 +792,9 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityFirelensFluentbit),
 			},
 			{
+				Name: aws.String(attributePrefix + capabilityEFS),
+			},
+			{
 				Name: aws.String(capabilityPrefix + capabilityFirelensLoggingDriver),
 			},
 		}...)
