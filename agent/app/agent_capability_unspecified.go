@@ -94,6 +94,10 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.A
 	return capabilities
 }
 
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
