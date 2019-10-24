@@ -1602,9 +1602,56 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
+	require.NoError(t, err)
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+			},
+		},
+		ExecutionCredentialsID: credentialsIDInTask,
 	}
+
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
+	}
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	assert.Nil(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	assert.Nil(t, err)
+
+	endpoint, ok := config.LogConfig.Config["awslogs-credentials-endpoint"]
+	assert.True(t, ok)
+	assert.Equal(t, expectedEndpoint, endpoint)
+}
+
+func TestApplyExecutionRoleLogsAuthNoConfigInHostConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIDInTask := "credsid"
+	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: "foo",
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
 
 	task := &Task{
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
@@ -1651,9 +1698,7 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	task := &Task{
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
@@ -1693,9 +1738,7 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 	}
 
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	task := &Task{
 		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
@@ -2545,7 +2588,9 @@ func TestPopulateSecrets(t *testing.T) {
 	hostConfig := &dockercontainer.HostConfig{}
 	logDriverName := "splunk"
 	hostConfig.LogConfig.Type = logDriverName
-	configMap := map[string]string{}
+	configMap := map[string]string{
+		"splunk-option": "option",
+	}
 	hostConfig.LogConfig.Config = configMap
 
 	ssmRes := &ssmsecret.SSMSecretResource{}
@@ -2564,6 +2609,40 @@ func TestPopulateSecrets(t *testing.T) {
 	assert.Equal(t, "secretValue2", container.Environment["secret2"])
 	assert.Equal(t, "", container.Environment["secret3"])
 	assert.Equal(t, "secretValue3", hostConfig.LogConfig.Config["splunk-token"])
+	assert.Equal(t, "option", hostConfig.LogConfig.Config["splunk-option"])
+}
+
+func TestPopulateSecretsNoConfigInHostConfig(t *testing.T) {
+	secret1 := apicontainer.Secret{
+		Provider:  "ssm",
+		Name:      "splunk-token",
+		Region:    "us-west-1",
+		Target:    "LOG_DRIVER",
+		ValueFrom: "/test/secretName1",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "myName",
+		Image:                     "image:tag",
+		Secrets:                   []apicontainer.Secret{secret1},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "test",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	hostConfig := &dockercontainer.HostConfig{}
+	logDriverName := "splunk"
+	hostConfig.LogConfig.Type = logDriverName
+
+	ssmRes := &ssmsecret.SSMSecretResource{}
+	ssmRes.SetCachedSecretValue(secKeyLogDriver, "secretValue1")
+	task.AddResource(ssmsecret.ResourceName, ssmRes)
+	task.PopulateSecrets(hostConfig, container)
+	assert.Equal(t, "secretValue1", hostConfig.LogConfig.Config["splunk-token"])
 }
 
 func TestPopulateSecretsAsEnvOnlySSM(t *testing.T) {

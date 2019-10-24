@@ -896,7 +896,7 @@ func (c *Container) ShouldCreateWithASMSecret() bool {
 }
 
 // MergeEnvironmentVariables appends additional envVarName:envVarValue pairs to
-// the the container's enviornment values structure
+// the the container's environment values structure
 func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
