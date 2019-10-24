@@ -12,6 +12,12 @@ The script will clean up any previous copies of the Amazon ECS Container Agent, 
 the RPM are available at `/var/log/ecs/ecs-init.log`, while logs from the Amazon ECS Container Agent are available at
 `/var/log/ecs/ecs-agent.log`.  The Amazon ECS RPM makes the Amazon ECS Container Agent introspection endpoint available
 at `http://127.0.0.1:51678/v1`.  Configuration for the Amazon ECS Container Agent is read from `/etc/ecs/ecs.config`.
+All of the configurations in this file are used as environment variables of the ECS Agent container. Additionally, some 
+configurations can be used to configure other properties of the ECS Agent container, as described below.
+
+| Configuration Key | Example Value(s)            | Description | Default value |
+|:----------------|:----------------------------|:------------|:-----------------------|
+| `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
 
 ## Usage
 The upstart script installed by the Amazon Elastic Container Service RPM can be started or stopped with the following commands respectively:
