@@ -1378,9 +1378,8 @@ func TestRunEFSVolumeTask(t *testing.T) {
 	defer agent.Cleanup()
 
 	efsClient := efs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
-	fsID, mtID := createEFSFileSystem(t, efsClient)
-	defer deleteEFSFileSystem(fsID, efsClient)
-	defer deleteEFSMountTarget(mtID, efsClient)
+	fsID := createEFSFileSystem(t, efsClient)
+	createMountTarget(t, efsClient, fsID)
 
 	// start writer task first
 	overrides := map[string]string{
@@ -1408,80 +1407,76 @@ func TestRunEFSVolumeTask(t *testing.T) {
 	return
 }
 
-// createEFSFileSystem creates a new EFS file system with a mount target
-// It will wait until both the filesystem and mount target are 'available' so
-// it is completely usable once it returns.
-// returns (FileSystemId, MountTargetId).
-func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) (string, string) {
-	creationToken := uuid.New()
-	fs, err := efsClient.CreateFileSystem(&efs.CreateFileSystemInput{
+// createEFSFileSystem creates a new EFS file system and returns the FileSystemId.
+// will ignore already-created filesystems
+// also will wait until filesystem is "available" before returning
+func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
+	creationToken := "efs-func-tests"
+	_, err := efsClient.CreateFileSystem(&efs.CreateFileSystemInput{
 		CreationToken: aws.String(creationToken),
 	})
-	require.NoError(t, err, "Error creating EFS filesystem")
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case efs.ErrCodeFileSystemAlreadyExists:
+				t.Logf("EFS filesystem already exists")
+				out, err := efsClient.DescribeFileSystems(&efs.DescribeFileSystemsInput{
+					CreationToken: aws.String(creationToken),
+				})
+				require.NoError(t, err, "Unexpected error from DescribeFileSystems: %s", err)
+				return *out.FileSystems[0].FileSystemId
+			default:
+				require.NoError(t, err, "Error creating EFS Filesystem")
+			}
+		}
+	}
 
 	// Wait for filesystem to be "available"
 	for true {
-		time.Sleep(time.Second * 30)
 		out, err := efsClient.DescribeFileSystems(&efs.DescribeFileSystemsInput{
 			CreationToken: aws.String(creationToken),
 		})
 		require.NoError(t, err, "Unexpected error from DescribeFileSystems: %s", err)
 		if *out.FileSystems[0].LifeCycleState == efs.LifeCycleStateAvailable {
-			break
+			return *out.FileSystems[0].FileSystemId
 		}
+		time.Sleep(time.Second * 30)
 	}
 
-	// create mount target
+	return ""
+}
+
+// createMountTarget attempts to create a mount target on the given filesystem ID
+// if it already exists, the error code (MountTargetConflict) is ignored.
+func createMountTarget(t *testing.T, efsClient *efs.EFS, fsID string) {
 	subnetID, err := GetSubnetID()
-	require.NoError(t, err, "Could not get the instance's subnet ID")
+	require.NoError(t, err)
 	mt, err := efsClient.CreateMountTarget(&efs.CreateMountTargetInput{
-		FileSystemId: fs.FileSystemId,
+		FileSystemId: aws.String(fsID),
 		SubnetId:     aws.String(subnetID),
 	})
-	require.NoError(t, err, "Error creating filesystem's mount target")
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case efs.ErrCodeMountTargetConflict:
+				t.Logf("EFS mount target already exists")
+				return
+			default:
+				require.NoError(t, err, "Error creating EFS mount target")
+			}
+		}
+	}
 	// Wait for mount target to be "available"
 	for true {
-		time.Sleep(time.Second * 30)
 		out, err := efsClient.DescribeMountTargets(&efs.DescribeMountTargetsInput{
 			MountTargetId: mt.MountTargetId,
 		})
 		require.NoError(t, err, "Unexpected error from DescribeMountTargets: %s", err)
 		if *out.MountTargets[0].LifeCycleState == efs.LifeCycleStateAvailable {
-			break
+			return
 		}
-	}
-
-	return *fs.FileSystemId, *mt.MountTargetId
-}
-
-func deleteEFSFileSystem(fsID string, efsClient *efs.EFS) {
-	_, err := efsClient.DeleteFileSystem(&efs.DeleteFileSystemInput{
-		FileSystemId: aws.String(fsID),
-	})
-	if err != nil {
-		fmt.Printf("Cleanup ERROR, deleting file system: %s\n", err)
-	}
-}
-
-func deleteEFSMountTarget(mtID string, efsClient *efs.EFS) {
-	_, err := efsClient.DeleteMountTarget(&efs.DeleteMountTargetInput{
-		MountTargetId: aws.String(mtID),
-	})
-	if err != nil {
-		fmt.Printf("Cleanup ERROR, deleting mount target: %s\n", err)
-	}
-	// wait for mount target to be "deleted" (or just disappear)
-	for true {
 		time.Sleep(time.Second * 30)
-		out, err := efsClient.DescribeMountTargets(&efs.DescribeMountTargetsInput{
-			MountTargetId: aws.String(mtID),
-		})
-		if err != nil {
-			return
-		}
-		if *out.MountTargets[0].LifeCycleState == efs.LifeCycleStateDeleted {
-			return
-		}
 	}
 }
 
