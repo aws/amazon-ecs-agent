@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"text/template"
 )
@@ -25,6 +26,7 @@ type EventStreamAPI struct {
 // modeled events that are known for the stream.
 type EventStream struct {
 	Name       string
+	RefName    string
 	Shape      *Shape
 	Events     []*Event
 	Exceptions []*Event
@@ -42,7 +44,7 @@ type Event struct {
 func (esAPI *EventStreamAPI) ShapeDoc() string {
 	tmpl := template.Must(template.New("eventStreamShapeDoc").Parse(`
 {{- $.Name }} provides handling of EventStreams for
-the {{ $.Operation.ExportedName }} API. 
+the {{ $.Operation.ExportedName }} API.
 {{- if $.Inbound }}
 
 Use this type to receive {{ $.Inbound.Name }} events. The events
@@ -57,7 +59,7 @@ The events that can be received are:
 
 {{- if $.Outbound }}
 
-Use this type to send {{ $.Outbound.Name }} events. The events 
+Use this type to send {{ $.Outbound.Name }} events. The events
 can be sent with the Send method.
 
 The events that can be sent are:
@@ -89,10 +91,10 @@ func eventStreamAPIShapeRefDoc(refName string) string {
 	return commentify(fmt.Sprintf("Use %s to use the API's stream.", refName))
 }
 
-func (a *API) setupEventStreams() {
+func (a *API) setupEventStreams() error {
 	const eventStreamMemberName = "EventStream"
 
-	for _, op := range a.Operations {
+	for opName, op := range a.Operations {
 		outbound := setupEventStream(op.InputRef.Shape)
 		inbound := setupEventStream(op.OutputRef.Shape)
 
@@ -101,15 +103,26 @@ func (a *API) setupEventStreams() {
 		}
 
 		if outbound != nil {
-			panic(fmt.Sprintf("Outbound stream support not implemented, %s, %s",
-				outbound.Name, outbound.Shape.ShapeName))
+			err := fmt.Errorf("Outbound stream support not implemented, %s, %s",
+				outbound.Name, outbound.Shape.ShapeName)
+
+			if a.IgnoreUnsupportedAPIs {
+				fmt.Fprintf(os.Stderr, "removing operation, %s, %v\n", opName, err)
+				delete(a.Operations, opName)
+				continue
+			}
+			return UnsupportedAPIModelError{
+				Err: err,
+			}
 		}
 
 		switch a.Metadata.Protocol {
 		case `rest-json`, `rest-xml`, `json`:
 		default:
-			panic(fmt.Sprintf("EventStream not supported for protocol %v",
-				a.Metadata.Protocol))
+			return UnsupportedAPIModelError{
+				Err: fmt.Errorf("EventStream not supported for protocol %v",
+					a.Metadata.Protocol),
+			}
 		}
 
 		op.EventStreamAPI = &EventStreamAPI{
@@ -130,32 +143,35 @@ func (a *API) setupEventStreams() {
 			MemberRefs: map[string]*ShapeRef{
 				"Inbound": &ShapeRef{
 					ShapeName: inbound.Shape.ShapeName,
+					Shape:     inbound.Shape,
 				},
 			},
 		}
+		// persist reference to the original inbound shape so its event types
+		// can be walked during generation.
 		inbound.Shape.refs = append(inbound.Shape.refs, streamShape.MemberRefs["Inbound"])
+
 		streamShapeRef := &ShapeRef{
 			API:           a,
 			ShapeName:     streamShape.ShapeName,
 			Shape:         streamShape,
-			Documentation: eventStreamAPIShapeRefDoc(eventStreamMemberName),
+			Documentation: eventStreamAPIShapeRefDoc(inbound.RefName),
 		}
 		streamShape.refs = []*ShapeRef{streamShapeRef}
 		op.EventStreamAPI.Shape = streamShape
 
-		if _, ok := op.OutputRef.Shape.MemberRefs[eventStreamMemberName]; ok {
-			panic(fmt.Sprintf("shape ref already exists, %s.%s",
-				op.OutputRef.Shape.ShapeName, eventStreamMemberName))
-		}
-		op.OutputRef.Shape.MemberRefs[eventStreamMemberName] = streamShapeRef
-		op.OutputRef.Shape.EventStreamsMemberName = eventStreamMemberName
-		if _, ok := a.Shapes[streamShape.ShapeName]; ok {
-			panic("shape already exists, " + streamShape.ShapeName)
+		op.OutputRef.Shape.MemberRefs[inbound.RefName] = streamShapeRef
+		op.OutputRef.Shape.EventStreamsMemberName = inbound.RefName
+
+		if s, ok := a.Shapes[streamShape.ShapeName]; ok {
+			s.Rename(streamShape.ShapeName + "Data")
 		}
 		a.Shapes[streamShape.ShapeName] = streamShape
 
 		a.HasEventStream = true
 	}
+
+	return nil
 }
 
 func setupEventStream(topShape *Shape) *EventStream {
@@ -165,13 +181,15 @@ func setupEventStream(topShape *Shape) *EventStream {
 			continue
 		}
 		if eventStream != nil {
+			// Only on event stream member within an Input/Output shape is valid.
 			panic(fmt.Sprintf("multiple shape ref eventstreams, %s, prev: %s",
 				refName, eventStream.Name))
 		}
 
 		eventStream = &EventStream{
-			Name:  ref.Shape.ShapeName,
-			Shape: ref.Shape,
+			Name:    ref.Shape.ShapeName,
+			RefName: refName,
+			Shape:   ref.Shape,
 		}
 
 		if topShape.API.Metadata.Protocol == "json" {
@@ -190,7 +208,7 @@ func setupEventStream(topShape *Shape) *EventStream {
 			eventRef.Shape.EventFor = append(eventRef.Shape.EventFor, eventStream)
 
 			// Exceptions and events are two different lists to allow the SDK
-			// to easly generate code with the two handled differently.
+			// to easily generate code with the two handled differently.
 			event := &Event{
 				Name:  eventRefName,
 				Shape: eventRef.Shape,
@@ -203,7 +221,8 @@ func setupEventStream(topShape *Shape) *EventStream {
 			}
 		}
 
-		// Remove the eventstream references as they will be added elsewhere.
+		// Remove the event stream member and shape as they will be added
+		// elsewhere.
 		ref.Shape.removeRef(ref)
 		delete(topShape.MemberRefs, refName)
 		delete(topShape.API.Shapes, ref.Shape.ShapeName)
@@ -233,14 +252,15 @@ func updateEventPayloadRef(parent *Shape) {
 
 func renderEventStreamAPIShape(w io.Writer, s *Shape) error {
 	// Imports needed by the EventStream APIs.
-	s.API.imports["fmt"] = true
-	s.API.imports["bytes"] = true
-	s.API.imports["io"] = true
-	s.API.imports["sync"] = true
-	s.API.imports["sync/atomic"] = true
-	s.API.imports["github.com/aws/aws-sdk-go/aws/awserr"] = true
-	s.API.imports["github.com/aws/aws-sdk-go/private/protocol/eventstream"] = true
-	s.API.imports["github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi"] = true
+	s.API.AddImport("fmt")
+	s.API.AddImport("bytes")
+	s.API.AddImport("io")
+	s.API.AddImport("sync")
+	s.API.AddImport("sync/atomic")
+	s.API.AddSDKImport("aws")
+	s.API.AddSDKImport("aws/awserr")
+	s.API.AddSDKImport("private/protocol/eventstream")
+	s.API.AddSDKImport("private/protocol/eventstream/eventstreamapi")
 
 	return eventStreamAPIShapeTmpl.Execute(w, s)
 }
@@ -307,7 +327,7 @@ type {{ $.ShapeName }} struct {
 //
 // Close must be called when done using the EventStream API. Not calling Close
 // may result in resource leaks.
-func (es *{{ $.ShapeName }}) Close() (err error) { 
+func (es *{{ $.ShapeName }}) Close() (err error) {
 	{{- if $.EventStreamAPI.Inbound }}
 		es.Reader.Close()
 	{{ end -}}
@@ -315,12 +335,14 @@ func (es *{{ $.ShapeName }}) Close() (err error) {
 		es.Writer.Close()
 	{{ end -}}
 
+	es.StreamCloser.Close()
+
 	return es.Err()
 }
 
 // Err returns any error that occurred while reading EventStream Events from
 // the service API's response. Returns nil if there were no errors.
-func (es *{{ $.ShapeName }}) Err() error { 
+func (es *{{ $.ShapeName }}) Err() error {
 	{{- if $.EventStreamAPI.Outbound }}
 		if err := es.Writer.Err(); err != nil {
 			return err
@@ -333,13 +355,11 @@ func (es *{{ $.ShapeName }}) Err() error {
 		}
 	{{ end -}}
 
-	es.StreamCloser.Close()
-
 	return nil
 }
 
 {{ if $.EventStreamAPI.Inbound }}
-	// Events returns a channel to read EventStream Events from the 
+	// Events returns a channel to read EventStream Events from the
 	// {{ $.EventStreamAPI.Operation.ExportedName }} API.
 	//
 	// These events are:
@@ -391,7 +411,7 @@ type {{ $.ShapeName }}Reader interface {
 	// HTTP this will also close the HTTP connection.
 	Close() error
 
-	// Returns any error that has occured while reading from the event stream.
+	// Returns any error that has occurred while reading from the event stream.
 	Err() error
 }
 
@@ -556,11 +576,11 @@ func (s *{{ $.ShapeName }}) runEventStreamLoop(r *request.Request) {
 		// Wait for the initial response event, which must be the first event to be
 		// received from the API.
 		select {
-		case event, ok := <-s.EventStream.Events():
+		case event, ok := <-s.{{ $.EventStreamsMemberName }}.Events():
 			if !ok {
 				return
 			}
-			es := s.EventStream
+			es := s.{{ $.EventStreamsMemberName }}
 			v, ok := event.(*{{ $.ShapeName }})
 			if !ok || v == nil {
 				r.Error = awserr.New(
@@ -571,7 +591,7 @@ func (s *{{ $.ShapeName }}) runEventStreamLoop(r *request.Request) {
 				return
 			}
 			*s = *v
-			s.EventStream = es
+			s.{{ $.EventStreamsMemberName }} = es
 		}
 	}
 {{ end -}}
@@ -705,21 +725,22 @@ func (a *API) APIEventStreamTestGoCode() string {
 	var buf bytes.Buffer
 
 	a.resetImports()
-	a.imports["bytes"] = true
-	a.imports["io/ioutil"] = true
-	a.imports["net/http"] = true
-	a.imports["reflect"] = true
-	a.imports["testing"] = true
-	a.imports["time"] = true
-	a.imports["github.com/aws/aws-sdk-go/aws/corehandlers"] = true
-	a.imports["github.com/aws/aws-sdk-go/aws/request"] = true
-	a.imports["github.com/aws/aws-sdk-go/aws/awserr"] = true
-	a.imports["github.com/aws/aws-sdk-go/awstesting/unit"] = true
-	a.imports["github.com/aws/aws-sdk-go/private/protocol"] = true
-	a.imports["github.com/aws/aws-sdk-go/private/protocol/"+a.ProtocolPackage()] = true
-	a.imports["github.com/aws/aws-sdk-go/private/protocol/eventstream"] = true
-	a.imports["github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi"] = true
-	a.imports["github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamtest"] = true
+	a.AddImport("bytes")
+	a.AddImport("io/ioutil")
+	a.AddImport("net/http")
+	a.AddImport("reflect")
+	a.AddImport("testing")
+	a.AddImport("time")
+	a.AddSDKImport("aws")
+	a.AddSDKImport("aws/corehandlers")
+	a.AddSDKImport("aws/request")
+	a.AddSDKImport("aws/awserr")
+	a.AddSDKImport("awstesting/unit")
+	a.AddSDKImport("private/protocol")
+	a.AddSDKImport("private/protocol/", a.ProtocolPackage())
+	a.AddSDKImport("private/protocol/eventstream")
+	a.AddSDKImport("private/protocol/eventstream/eventstreamapi")
+	a.AddSDKImport("private/protocol/eventstream/eventstreamtest")
 
 	unused := `
 	var _ time.Time
@@ -843,7 +864,7 @@ var eventStreamTestTmpl = template.Must(
 		"ValueForType":               valueForType,
 		"HasNonBlobPayloadMembers":   eventHasNonBlobPayloadMembers,
 		"SetEventHeaderValueForType": setEventHeaderValueForType,
-		"Map": templateMap,
+		"Map":                        templateMap,
 		"OptionalAddInt": func(do bool, a, b int) int {
 			if !do {
 				return a
@@ -880,6 +901,7 @@ func (c *loopReader) Read(p []byte) (int, error) {
 }
 
 {{ define "event stream inbound tests" }}
+    {{- $esMemberName := $.Operation.OutputRef.Shape.EventStreamsMemberName }}
 	func Test{{ $.Operation.ExportedName }}_Read(t *testing.T) {
 		expectEvents, eventMsgs := mock{{ $.Operation.ExportedName }}ReadEvents()
 		sess, cleanupFn, err := eventstreamtest.SetupEventStreamSession(t,
@@ -899,15 +921,17 @@ func (c *loopReader) Read(p []byte) (int, error) {
 		if err != nil {
 			t.Fatalf("expect no error got, %v", err)
 		}
-		defer resp.EventStream.Close()
+		defer resp.{{ $esMemberName }}.Close()
 
-		{{- if and (eq $.Operation.API.Metadata.Protocol "json") (HasNonEventStreamMember $.Operation.OutputRef.Shape) }}
-			expectResp := expectEvents[0].(*{{ $.Operation.OutputRef.Shape.ShapeName }})
-			{{- range $name, $ref := $.Operation.OutputRef.Shape.MemberRefs }}
-				{{- if not $ref.Shape.IsEventStream }}
-					if e, a := expectResp.{{ $name }}, resp.{{ $name }}; !reflect.DeepEqual(e,a) {
-						t.Errorf("expect %v, got %v", e, a)
-					}
+		{{- if eq $.Operation.API.Metadata.Protocol "json" }}
+			{{- if HasNonEventStreamMember $.Operation.OutputRef.Shape }}
+				expectResp := expectEvents[0].(*{{ $.Operation.OutputRef.Shape.ShapeName }})
+				{{- range $name, $ref := $.Operation.OutputRef.Shape.MemberRefs }}
+					{{- if not $ref.Shape.IsEventStream }}
+						if e, a := expectResp.{{ $name }}, resp.{{ $name }}; !reflect.DeepEqual(e,a) {
+							t.Errorf("expect %v, got %v", e, a)
+						}
+					{{- end }}
 				{{- end }}
 			{{- end }}
 			// Trim off response output type pseudo event so only event messages remain.
@@ -915,7 +939,7 @@ func (c *loopReader) Read(p []byte) (int, error) {
 		{{ end }}
 
 		var i int
-		for event := range resp.EventStream.Events() {
+		for event := range resp.{{ $esMemberName }}.Events() {
 			if event == nil {
 				t.Errorf("%d, expect event, got nil", i)
 			}
@@ -925,7 +949,7 @@ func (c *loopReader) Read(p []byte) (int, error) {
 			i++
 		}
 
-		if err := resp.EventStream.Err(); err != nil {
+		if err := resp.{{ $esMemberName }}.Err(); err != nil {
 			t.Errorf("expect no error, %v", err)
 		}
 	}
@@ -950,10 +974,22 @@ func (c *loopReader) Read(p []byte) (int, error) {
 			t.Fatalf("expect no error got, %v", err)
 		}
 
-		resp.EventStream.Close()
-		<-resp.EventStream.Events()
+		{{ if gt (len $.Inbound.Events) 0 -}}
+			// Assert calling Err before close does not close the stream.
+			resp.{{ $esMemberName }}.Err()
+			select {
+			case _, ok := <-resp.{{ $esMemberName }}.Events():
+				if !ok {
+					t.Fatalf("expect stream not to be closed, but was")
+				}
+			default:
+			}
+		{{- end }}
 
-		if err := resp.EventStream.Err(); err != nil {
+		resp.{{ $esMemberName }}.Close()
+		<-resp.{{ $esMemberName }}.Events()
+
+		if err := resp.{{ $esMemberName }}.Err(); err != nil {
 			t.Errorf("expect no error, %v", err)
 		}
 	}
@@ -991,16 +1027,16 @@ func (c *loopReader) Read(p []byte) (int, error) {
 		if err != nil {
 			b.Fatalf("failed to create request, %v", err)
 		}
-		defer resp.EventStream.Close()
+		defer resp.{{ $esMemberName }}.Close()
 		b.ResetTimer()
 
 		for i := 0; i < b.N; i++ {
-			if err = resp.EventStream.Err(); err != nil {
+			if err = resp.{{ $esMemberName }}.Err(); err != nil {
 				b.Fatalf("expect no error, got %v", err)
 			}
-			event := <-resp.EventStream.Events()
+			event := <-resp.{{ $esMemberName }}.Events()
 			if event == nil {
-				b.Fatalf("expect event, got nil, %v, %d", resp.EventStream.Err(), i)
+				b.Fatalf("expect event, got nil, %v, %d", resp.{{ $esMemberName }}.Err(), i)
 			}
 		}
 	}
@@ -1083,11 +1119,11 @@ func (c *loopReader) Read(p []byte) (int, error) {
 				t.Fatalf("expect no error got, %v", err)
 			}
 
-			defer resp.EventStream.Close()
+			defer resp.{{ $esMemberName }}.Close()
 
-			<-resp.EventStream.Events()
+			<-resp.{{ $esMemberName }}.Events()
 
-			err = resp.EventStream.Err()
+			err = resp.{{ $esMemberName }}.Err()
 			if err == nil {
 				t.Fatalf("expect err, got none")
 			}
@@ -1168,7 +1204,7 @@ func (c *loopReader) Read(p []byte) (int, error) {
 	{{- $payloadMemName := $.parentShape.PayloadRefName }}
 	{{- if HasNonBlobPayloadMembers $.parentShape }}
 		Payload: eventstreamtest.MarshalEventPayload(payloadMarshaler, expectEvents[{{ $.idx }}]),
-	{{- else if $payloadMemName }} 
+	{{- else if $payloadMemName }}
 		{{- $shapeType := (index $.parentShape.MemberRefs $payloadMemName).Shape.Type }}
 		{{- if eq $shapeType "blob" }}
 			Payload: expectEvents[{{ $.idx }}].({{ $.parentShape.GoType }}).{{ $payloadMemName }},
