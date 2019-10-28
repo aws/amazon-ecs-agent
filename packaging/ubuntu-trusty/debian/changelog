@@ -1,3 +1,10 @@
+amazon-ecs-init (1.32.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.32.1
+  * Add the ability to set Agent container's labels
+
+  -- Shubham Goyal <shugy@amazon.com>  Mon, 28 Oct 2019 02:32:00 -0800
+
 amazon-ecs-init (1.32.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.32.0
