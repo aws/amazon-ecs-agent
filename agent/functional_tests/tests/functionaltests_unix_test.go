@@ -1366,10 +1366,8 @@ func TestASMSecretsARN(t *testing.T) {
 //   3. spins up a task to mount and read from the filesystem.
 //   4. TODO: do this via EFSVolumeConfiguration instead of via NFS/Docker.
 func TestRunEFSVolumeTask(t *testing.T) {
-	if os.Getenv("TEST_DISABLE_EXECUTION_ROLE") == "true" {
-		t.Skip("TEST_DISABLE_EXECUTION_ROLE was set to true")
-	}
-
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
 	if IsCNPartition() {
 		t.Skip("Skip TestRunEFSVolumeTask in China partition")
 	}
@@ -1393,7 +1391,7 @@ func TestRunEFSVolumeTask(t *testing.T) {
 	require.NoError(t, wErr, "Error waiting for task to transition to STOPPED")
 	wExitCode, ok := wTask.ContainerExitcode("task-efs-vol-write")
 	require.True(t, ok, "Error code for container [task-efs-vol-write] not found, check the logs")
-	assert.Equal(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+	require.Equal(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
 
 	// then reader task try to read from the volume
 	rTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "task-efs-vol-read", overrides)
@@ -1403,7 +1401,7 @@ func TestRunEFSVolumeTask(t *testing.T) {
 	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
 	rExitCode, ok := rTask.ContainerExitcode("task-efs-vol-read")
 	require.True(t, ok, "Error code for container [task-efs-vol-read] not found, check the logs")
-	assert.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
+	require.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
 	return
 }
 
