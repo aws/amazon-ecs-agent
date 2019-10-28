@@ -824,6 +824,21 @@ func GetSubnetID() (string, error) {
 	return subnet, nil
 }
 
+// GetSecurityGroupIDs returns all of the security group IDs that the instance is in.
+func GetSecurityGroupIDs() ([]string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+	mac, err := ec2Metadata.GetMetadata("mac")
+	if err != nil {
+		return []string{}, errors.Wrapf(err, "unable to get mac from ec2 metadata")
+	}
+	sgroups, err := ec2Metadata.GetMetadata("network/interfaces/macs/" + mac + "/security-group-ids")
+	if err != nil {
+		return []string{}, errors.Wrapf(err, "unable to get security group ids from ec2 metadata")
+	}
+
+	return strings.Fields(sgroups), nil
+}
+
 // GetAccountID returns the aws account id from the instance metadata
 func GetAccountID() (string, error) {
 	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))

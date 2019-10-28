@@ -1371,7 +1371,7 @@ func TestRunEFSVolumeTask(t *testing.T) {
 	}
 
 	if IsCNPartition() {
-		t.Skip("Skip TestSSMSecretsEncryptedParameter in China partition")
+		t.Skip("Skip TestRunEFSVolumeTask in China partition")
 	}
 
 	agent := RunAgent(t, nil)
@@ -1412,7 +1412,7 @@ func TestRunEFSVolumeTask(t *testing.T) {
 // also will wait until filesystem is "available" before returning
 func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
 	creationToken := "efs-func-tests"
-	_, err := efsClient.CreateFileSystem(&efs.CreateFileSystemInput{
+	fs, err := efsClient.CreateFileSystem(&efs.CreateFileSystemInput{
 		CreationToken: aws.String(creationToken),
 	})
 
@@ -1433,7 +1433,7 @@ func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
 	}
 
 	// Wait for filesystem to be "available"
-	for true {
+	for i := 0; i < 20; i++ {
 		out, err := efsClient.DescribeFileSystems(&efs.DescribeFileSystemsInput{
 			CreationToken: aws.String(creationToken),
 		})
@@ -1444,6 +1444,7 @@ func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
 		time.Sleep(time.Second * 30)
 	}
 
+	t.Fatalf("Test timed out waiting for EFS Filesystem [%s] to become 'available'", *fs.FileSystemId)
 	return ""
 }
 
@@ -1452,9 +1453,16 @@ func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
 func createMountTarget(t *testing.T, efsClient *efs.EFS, fsID string) {
 	subnetID, err := GetSubnetID()
 	require.NoError(t, err)
+	sgroups, err := GetSecurityGroupIDs()
+	require.NoError(t, err)
+	sgroupsP := []*string{}
+	for _, sgroup := range sgroups {
+		sgroupsP = append(sgroupsP, aws.String(sgroup))
+	}
 	mt, err := efsClient.CreateMountTarget(&efs.CreateMountTargetInput{
-		FileSystemId: aws.String(fsID),
-		SubnetId:     aws.String(subnetID),
+		FileSystemId:   aws.String(fsID),
+		SubnetId:       aws.String(subnetID),
+		SecurityGroups: sgroupsP,
 	})
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -1468,7 +1476,7 @@ func createMountTarget(t *testing.T, efsClient *efs.EFS, fsID string) {
 		}
 	}
 	// Wait for mount target to be "available"
-	for true {
+	for i := 0; i < 20; i++ {
 		out, err := efsClient.DescribeMountTargets(&efs.DescribeMountTargetsInput{
 			MountTargetId: mt.MountTargetId,
 		})
@@ -1478,6 +1486,8 @@ func createMountTarget(t *testing.T, efsClient *efs.EFS, fsID string) {
 		}
 		time.Sleep(time.Second * 30)
 	}
+
+	t.Fatalf("Test timed out waiting for EFS mount target [%s] to become 'available'", *mt.MountTargetId)
 }
 
 // Note: This functional test requires ECS GPU instance which has at least 1 GPU.
