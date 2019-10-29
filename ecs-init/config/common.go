@@ -69,6 +69,9 @@ const (
 	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
 	// GPUSupportEnvVar indicates that the AMI has support for GPU
 	GPUSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
+
+	// DockerHostEnvVar is the environment variable that specifies the location of the Docker daemon socket.
+	DockerHostEnvVar = "DOCKER_HOST"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -165,9 +168,9 @@ func DesiredImageLocatorFile() string {
 	return CacheDirectory() + "/desired-image"
 }
 
-// DockerUnixSocket returns the docker socket endpoint and whether it's read from DOCKER_HOST
+// DockerUnixSocket returns the docker socket endpoint and whether it's read from DockerHostEnvVar
 func DockerUnixSocket() (string, bool) {
-	if dockerHost := os.Getenv("DOCKER_HOST"); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
+	if dockerHost := os.Getenv(DockerHostEnvVar); strings.HasPrefix(dockerHost, UnixSocketPrefix) {
 		return strings.TrimPrefix(dockerHost, UnixSocketPrefix), true
 	}
 	// return /var/run instead of /var/run/docker.sock, in case the /var/run/docker.sock is deleted and recreated

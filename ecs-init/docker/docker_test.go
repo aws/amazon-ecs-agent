@@ -15,6 +15,7 @@ package docker
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
@@ -465,7 +466,8 @@ func TestGetContainerConfigWithFileOverrides(t *testing.T) {
 	client := &Client{
 		fs: mockFS,
 	}
-	cfg := client.getContainerConfig()
+	envVarsFromFiles := client.LoadEnvVars()
+	cfg := client.getContainerConfig(envVarsFromFiles)
 
 	envVariables := make(map[string]struct{})
 	for _, envVar := range cfg.Env {
@@ -500,7 +502,8 @@ func TestGetInstanceConfig(t *testing.T) {
 	client := &Client{
 		fs: mockFS,
 	}
-	cfg := client.getContainerConfig()
+	envVarsFromFiles := client.LoadEnvVars()
+	cfg := client.getContainerConfig(envVarsFromFiles)
 
 	envVariables := make(map[string]struct{})
 	for _, envVar := range cfg.Env {
@@ -530,7 +533,8 @@ func TestGetNonGPUInstanceConfig(t *testing.T) {
 	client := &Client{
 		fs: mockFS,
 	}
-	cfg := client.getContainerConfig()
+	envVarsFromFiles := client.LoadEnvVars()
+	cfg := client.getContainerConfig(envVarsFromFiles)
 
 	envVariables := make(map[string]struct{})
 	for _, envVar := range cfg.Env {
@@ -556,7 +560,8 @@ func TestGetConfigOverrides(t *testing.T) {
 	client := &Client{
 		fs: mockFS,
 	}
-	cfg := client.getContainerConfig()
+	envVarsFromFiles := client.LoadEnvVars()
+	cfg := client.getContainerConfig(envVarsFromFiles)
 
 	envVariables := make(map[string]struct{})
 	for _, envVar := range cfg.Env {
@@ -692,5 +697,55 @@ func TestContainerLabelsBadData(t *testing.T) {
 	if err == nil {
 		t.Logf("Didn't get a error while getting lables on badly formatted data, error: %s", err)
 		t.Fail()
+	}
+}
+
+func TestGetDockerSocketBind(t *testing.T) {
+	testCases := []struct {
+		name                     string
+		dockerHostFromEnv        string
+		dockerHostFromConfigFile string
+		expectedBind             string
+	}{
+		{
+			name:                     "No Docker host from env",
+			dockerHostFromEnv:        "",
+			dockerHostFromConfigFile: "dummy",
+			expectedBind:             "/var/run:/var/run",
+		},
+		{
+			name:                     "Invalid Docker host from env",
+			dockerHostFromEnv:        "invalid",
+			dockerHostFromConfigFile: "dummy",
+			expectedBind:             "/var/run:/var/run",
+		},
+		{
+			name:                     "Docker host from env, no Docker host from config file",
+			dockerHostFromEnv:        "unix:///var/run/docker.sock",
+			dockerHostFromConfigFile: "",
+			expectedBind:             "/var/run/docker.sock:/var/run/docker.sock",
+		},
+		{
+			name:                     "Docker host from env, invalid Docker host from config file",
+			dockerHostFromEnv:        "unix:///var/run/docker.sock",
+			dockerHostFromConfigFile: "invalid",
+			expectedBind:             "/var/run/docker.sock:/var/run/docker.sock",
+		},
+		{
+			name:                     "Docker host from env, Docker host from config file",
+			dockerHostFromEnv:        "unix:///var/run/docker.sock.1",
+			dockerHostFromConfigFile: "unix:///var/run/docker.sock.1",
+			expectedBind:             "/var/run/docker.sock.1:/var/run/docker.sock.1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv("DOCKER_HOST", tc.dockerHostFromEnv)
+			defer os.Unsetenv("DOCKER_HOST")
+
+			bind := getDockerSocketBind(map[string]string{"DOCKER_HOST": tc.dockerHostFromConfigFile})
+			assert.Equal(t, tc.expectedBind, bind)
+		})
 	}
 }

@@ -29,7 +29,7 @@ static:
 	./scripts/gobuild.sh
 
 gotest:
-	go test -short -v -cover ./...
+	go test -count=1 -short -v -cover ./...
 
 test: generate lint gotest
 
