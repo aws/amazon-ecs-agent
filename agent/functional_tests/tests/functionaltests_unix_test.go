@@ -37,6 +37,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
@@ -1359,6 +1360,134 @@ func TestASMSecretsARN(t *testing.T) {
 	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
 }
 
+// TestRunEFSVolumeTask does the following:
+//   1. creates an EFS filesystem with a mount target.
+//   2. spins up a task to mount and write to the filesystem.
+//   3. spins up a task to mount and read from the filesystem.
+//   4. TODO: do this via EFSVolumeConfiguration instead of via NFS/Docker.
+func TestRunEFSVolumeTask(t *testing.T) {
+	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
+	if IsCNPartition() {
+		t.Skip("Skip TestRunEFSVolumeTask in China partition")
+	}
+
+	agent := RunAgent(t, nil)
+	defer agent.Cleanup()
+
+	efsClient := efs.New(session.New(), aws.NewConfig().WithRegion(*ECS.Config.Region))
+	fsID := createEFSFileSystem(t, efsClient)
+	createMountTarget(t, efsClient, fsID)
+
+	// start writer task first
+	overrides := map[string]string{
+		"FILESYSTEM_ID": fsID,
+		"TEST_REGION":   *ECS.Config.Region,
+	}
+	wTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "task-efs-vol-write", overrides)
+	require.NoError(t, err, "Register task definition failed")
+	// Wait for the first task to create the volume
+	wErr := wTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, wErr, "Error waiting for task to transition to STOPPED")
+	wExitCode, ok := wTask.ContainerExitcode("task-efs-vol-write")
+	require.True(t, ok, "Error code for container [task-efs-vol-write] not found, check the logs")
+	require.Equal(t, 42, wExitCode, fmt.Sprintf("Expected exit code of 42; got %d", wExitCode))
+
+	// then reader task try to read from the volume
+	rTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "task-efs-vol-read", overrides)
+	require.NoError(t, err, "Register task definition failed")
+
+	rErr := rTask.WaitStopped(waitTaskStateChangeDuration)
+	require.NoError(t, rErr, "Error waiting for task to transition to STOPPED")
+	rExitCode, ok := rTask.ContainerExitcode("task-efs-vol-read")
+	require.True(t, ok, "Error code for container [task-efs-vol-read] not found, check the logs")
+	require.Equal(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
+	return
+}
+
+// createEFSFileSystem creates a new EFS file system and returns the FileSystemId.
+// will ignore already-created filesystems
+// also will wait until filesystem is "available" before returning
+func createEFSFileSystem(t *testing.T, efsClient *efs.EFS) string {
+	creationToken := "efs-func-tests"
+	fs, err := efsClient.CreateFileSystem(&efs.CreateFileSystemInput{
+		CreationToken: aws.String(creationToken),
+	})
+
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case efs.ErrCodeFileSystemAlreadyExists:
+				t.Logf("EFS filesystem already exists")
+				out, err := efsClient.DescribeFileSystems(&efs.DescribeFileSystemsInput{
+					CreationToken: aws.String(creationToken),
+				})
+				require.NoError(t, err, "Unexpected error from DescribeFileSystems: %s", err)
+				return *out.FileSystems[0].FileSystemId
+			default:
+				require.NoError(t, err, "Error creating EFS Filesystem")
+			}
+		}
+	}
+
+	// Wait for filesystem to be "available"
+	for i := 0; i < 20; i++ {
+		out, err := efsClient.DescribeFileSystems(&efs.DescribeFileSystemsInput{
+			CreationToken: aws.String(creationToken),
+		})
+		require.NoError(t, err, "Unexpected error from DescribeFileSystems: %s", err)
+		if *out.FileSystems[0].LifeCycleState == efs.LifeCycleStateAvailable {
+			return *out.FileSystems[0].FileSystemId
+		}
+		time.Sleep(time.Second * 30)
+	}
+
+	t.Fatalf("Test timed out waiting for EFS Filesystem [%s] to become 'available'", *fs.FileSystemId)
+	return ""
+}
+
+// createMountTarget attempts to create a mount target on the given filesystem ID
+// if it already exists, the error code (MountTargetConflict) is ignored.
+func createMountTarget(t *testing.T, efsClient *efs.EFS, fsID string) {
+	subnetID, err := GetSubnetID()
+	require.NoError(t, err)
+	sgroups, err := GetSecurityGroupIDs()
+	require.NoError(t, err)
+	sgroupsP := []*string{}
+	for _, sgroup := range sgroups {
+		sgroupsP = append(sgroupsP, aws.String(sgroup))
+	}
+	mt, err := efsClient.CreateMountTarget(&efs.CreateMountTargetInput{
+		FileSystemId:   aws.String(fsID),
+		SubnetId:       aws.String(subnetID),
+		SecurityGroups: sgroupsP,
+	})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case efs.ErrCodeMountTargetConflict:
+				t.Logf("EFS mount target already exists")
+				return
+			default:
+				require.NoError(t, err, "Error creating EFS mount target")
+			}
+		}
+	}
+	// Wait for mount target to be "available"
+	for i := 0; i < 20; i++ {
+		out, err := efsClient.DescribeMountTargets(&efs.DescribeMountTargetsInput{
+			MountTargetId: mt.MountTargetId,
+		})
+		require.NoError(t, err, "Unexpected error from DescribeMountTargets: %s", err)
+		if *out.MountTargets[0].LifeCycleState == efs.LifeCycleStateAvailable {
+			return
+		}
+		time.Sleep(time.Second * 30)
+	}
+
+	t.Fatalf("Test timed out waiting for EFS mount target [%s] to become 'available'", *mt.MountTargetId)
+}
+
 // Note: This functional test requires ECS GPU instance which has at least 1 GPU.
 func TestRunGPUTask(t *testing.T) {
 	gpuInstances := []string{"p2", "p3", "g3", "g4dn"}
@@ -1766,7 +1895,7 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 		},
 		TempDirOverride: tempDir,
 	}
-	if (isAWSVPC) {
+	if isAWSVPC {
 		agentOptions.EnableTaskENI = true
 	}
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
