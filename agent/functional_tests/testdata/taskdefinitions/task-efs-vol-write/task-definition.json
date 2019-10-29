@@ -1,0 +1,38 @@
+{
+    "family": "ecsftest-task-efs-volume",
+    "containerDefinitions": [
+        {
+            "name": "task-efs-vol-write",
+            "image": "127.0.0.1:51670/busybox:latest",
+            "cpu": 10,
+            "command": ["sh", "-c", "echo 'can you read me'> /ecs/success; [ -f /ecs/success ] && exit 42 || exit 1"],
+            "memory": 256,
+            "memoryReservation": 128,
+            "mountPoints": [
+                {
+                  "sourceVolume": "task-efs-shared",
+                  "containerPath": "/ecs/"
+                }
+            ]
+        }
+    ],
+    "volumes":[
+        {
+            "name": "task-efs-shared",
+            "host": null,
+            "dockerVolumeConfiguration" : {
+                "scope": "shared",
+                "autoprovision": true,
+                "driver": "local",
+                "labels": {
+                    "mylabels": "test"
+                },
+                "driverOpts": {
+                    "type": "nfs",
+                    "device": ":/",
+                    "o": "addr=FILESYSTEM_ID.efs.TEST_REGION.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
+                }
+            }
+        }
+    ]
+}
