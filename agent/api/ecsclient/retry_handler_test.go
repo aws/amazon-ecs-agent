@@ -38,7 +38,7 @@ func TestOneDayRetrier(t *testing.T) {
 		request.Error = errors.New("")
 		request.Retryable = aws.Bool(true)
 		request.HTTPResponse = &http.Response{StatusCode: 500}
-		if request.WillRetry() && retrier.ShouldRetry(request) {
+		if request.WillRetry() && request.IsErrorRetryable() {
 			totalDelay += retrier.RetryRules(request)
 			request.RetryCount++
 		}
