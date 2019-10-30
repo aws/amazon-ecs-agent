@@ -44,7 +44,6 @@ execution behavior:
 * `ECS_FTEST_TMP`: Override the default temporary directory used for storing
   test logs and data files
 * `ECS_FTEST_AGENT_ARGS`: Pass additional command-line arguments to the agent
-* `ECS_FTEST_FORCE_NET_HOST`: Run the agent with `--net=host`
 
 #### Additional setup for IAM roles
 In order to run TaskIamRole functional tests, the following steps should be

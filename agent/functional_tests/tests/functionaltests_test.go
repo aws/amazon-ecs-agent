@@ -604,7 +604,7 @@ func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition 
 			LogGroupName: aws.String(fmt.Sprintf("/aws/ecs/containerinsights/%s/performance", newClusterName)),
 		})
 	}()
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
+
 	agentOptions := AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -760,7 +760,6 @@ func testV3TaskEndpoint(t *testing.T, taskName, containerName, networkMode, awsl
 		},
 	}
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
