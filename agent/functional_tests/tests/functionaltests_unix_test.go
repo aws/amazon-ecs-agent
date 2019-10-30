@@ -192,16 +192,21 @@ func TestSquidProxy(t *testing.T) {
 	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
+	squidIP := ""
+	if squidContainerJSON.NetworkSettings != nil {
+		squidIP = squidContainerJSON.NetworkSettings.IPAddress
+	}
+	require.NotEmpty(t, squidIP, "Need to have squid proxy container's ip but it's empty")
+
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainerJSON.Name)
+	t.Logf("Started squid container: %s", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
-			"HTTP_PROXY": "squid:3128",
+			"HTTP_PROXY": fmt.Sprintf("http://%s:3128", squidIP),
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
