@@ -192,16 +192,21 @@ func TestSquidProxy(t *testing.T) {
 	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
+	squidIP := ""
+	if squidContainerJSON.NetworkSettings != nil {
+		squidIP = squidContainerJSON.NetworkSettings.IPAddress
+	}
+	require.NotEmpty(t, squidIP, "Need to have squid proxy container's ip but it's empty")
+
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainerJSON.Name)
+	t.Logf("Started squid container: %s", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
-			"HTTP_PROXY": "squid:3128",
+			"HTTP_PROXY": fmt.Sprintf("http://%s:3128", squidIP),
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
@@ -380,7 +385,6 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -398,7 +402,6 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -554,9 +557,6 @@ func TestLogDriverSecretSupport(t *testing.T) {
 		},
 	}
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
-	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
-
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.25.0")
@@ -644,7 +644,6 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
 	assert.NoError(t, err)
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -713,7 +712,6 @@ func TestTaskMetadataValidator(t *testing.T) {
 	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(awslogsLogGroupName),
 	})
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -765,10 +763,6 @@ func TestExecutionRole(t *testing.T) {
 			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
 		},
 	}
-
-	// Run the agent container with host network mode
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
-	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
 
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
@@ -1421,7 +1415,6 @@ func TestElasticInferenceValidator(t *testing.T) {
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
@@ -1458,7 +1451,6 @@ func TestServerEndpointValidator(t *testing.T) {
 		},
 	}
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -1549,7 +1541,6 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 	agentOptions := &AgentOptions{
 		EnableTaskENI: true,
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 
 	agent := RunAgent(t, agentOptions)
 	defer func() {
@@ -1782,7 +1773,6 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 	if (isAWSVPC) {
 		agentOptions.EnableTaskENI = true
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 

@@ -144,8 +144,15 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 
 	if options != nil && options.EnableTaskENI {
 		// if task networking is enabled, needs to wait for container instance to become active
-		err = agent.WaitContainerInstanceStatus("ACTIVE")
-		require.NoError(t, err)
+		err = agent.WaitContainerInstanceStatus("ACTIVE", t)
+		// If we get an error here, we need to stop the agent before failing, since the caller won't be stopping it.
+		if err != nil {
+			t.Logf("Failed to wait for container instance to reach ACTIVE: %v",  err)
+			t.Logf("Stopping agent container: %s", agent.DockerID)
+			errS := agent.StopAgent()
+			require.NoError(t, errS)
+			t.Fatalf("Failed to wait for container instance to reach ACTIVE: %v", err)
+		}
 	}
 	return agent
 }
@@ -190,11 +197,7 @@ func (agent *TestAgent) StartAgent() error {
 		PortBindings: map[nat.Port][]nat.PortBinding{
 			"51678/tcp": {{HostIP: "0.0.0.0"}},
 		},
-		Links: agent.Options.ContainerLinks,
-	}
-
-	if os.Getenv("ECS_FTEST_FORCE_NET_HOST") != "" {
-		hostConfig.NetworkMode = "host"
+		NetworkMode: "host",
 	}
 
 	if agent.Options != nil {
@@ -335,6 +338,6 @@ func (agent *TestAgent) Cleanup() {
 	require.NoError(agent.t, err)
 
 	// wait for container instance to reach INACTIVE
-	err = agent.WaitContainerInstanceStatus("INACTIVE")
+	err = agent.WaitContainerInstanceStatus("INACTIVE", agent.t)
 	require.NoError(agent.t, err)
 }

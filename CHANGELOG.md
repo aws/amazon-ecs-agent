@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.32.1
+* Enhancement - Add `ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND` flag which when set ignores the memory reservation 
+parameter along with memory bounded tasks in windows [@julienduchesne](https://github.com/julienduchesn) [#2239](https://github.com/aws/amazon-ecs-agent/pull/2239)
+* Bug - Fixed a bug when config attribute in hostConfig is nil when starting a task [#2249](https://github.com/aws/amazon-ecs-agent/pull/2249)
+* Bug - Fixed a bug where start container failed with EOF and container is started anyways [#2245](https://github.com/aws/amazon-ecs-agent/pull/2245) 
+* Bug - Fixed a bug where incorrect error type was detected when the `vpc-id` could not be detected on ec2-classic [#2243](https://github.com/aws/amazon-ecs-agent/pull/2243)
+* Bug - Fixed a bug where Agent did not reopen Docker event stream when it gets EOF/UnexpectedEOF error [#2240](https://github.com/aws/amazon-ecs-agent/pull/2240)
+
 ## 1.32.0
 * Feature - Add support for automatic spot instance draining [#2205](https://github.com/aws/amazon-ecs-agent/pull/2205)
 * Bug - Fixed a bug where the agent might crash if it's restarted right after launching a task in awsvpc network mode [#2219](https://github.com/aws/amazon-ecs-agent/pull/2219)
