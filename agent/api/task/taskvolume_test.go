@@ -17,6 +17,8 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"runtime"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -101,8 +103,15 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"executionCredentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
-		"PlatformFields": {}
+		"PlatformFields": %s
 	  }`
+	if runtime.GOOS == "windows" {
+		// windows task defs have a special 'cpu unbounded' field added.
+		// see https://github.com/aws/amazon-ecs-agent/pull/1227
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, `{"cpuUnbounded": false}`)
+	} else {
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, "{}")
+	}
 	require.JSONEq(t, expectedTaskDef, string(marshal))
 }
 
