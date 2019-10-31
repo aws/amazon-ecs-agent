@@ -1444,7 +1444,7 @@ type Volume struct {
 
 	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
 
-	EFSVolumeConfiguration *EFSVolumeConfiguration `type:"structure"`
+	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
 
 	Host *HostVolumeProperties `locationName:"host" type:"structure"`
 

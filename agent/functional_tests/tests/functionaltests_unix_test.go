@@ -1359,7 +1359,7 @@ func TestASMSecretsARN(t *testing.T) {
 //   1. creates an EFS filesystem with a mount target.
 //   2. spins up a task to mount and write to the filesystem.
 //   3. spins up a task to mount and read from the filesystem.
-//   4. TODO: do this via EFSVolumeConfiguration instead of via NFS/Docker.
+//   4. TODO: do this via efsVolumeConfiguration instead of via NFS/Docker.
 func TestRunEFSVolumeTask(t *testing.T) {
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
