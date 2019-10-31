@@ -84,7 +84,7 @@ type DockerVolumeConfig struct {
 
 // EFSVolumeConfig represents efs volume configuration.
 type EFSVolumeConfig struct {
-	Filesystem    string `json:"filesystem"`
+	FileSystemID  string `json:"fileSystemId"`
 	RootDirectory string `json:"rootDirectory"`
 	// DockerVolumeName is internal docker name for this volume.
 	DockerVolumeName string `json:"dockerVolumeName"`

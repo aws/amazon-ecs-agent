@@ -677,7 +677,7 @@
         "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
-        "EFSVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
+        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
       }
     },
     "VolumeFrom":{

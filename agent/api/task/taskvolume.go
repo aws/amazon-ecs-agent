@@ -66,7 +66,7 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 	case DockerVolumeType:
 		return tv.unmarshalDockerVolume(intermediate["dockerVolumeConfiguration"])
 	case EFSVolumeType:
-		return tv.unmarshalEFSVolume(intermediate["EFSVolumeConfiguration"])
+		return tv.unmarshalEFSVolume(intermediate["efsVolumeConfiguration"])
 	default:
 		return errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
@@ -89,7 +89,7 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	case HostVolumeType:
 		result["host"] = tv.Volume
 	case EFSVolumeType:
-		result["EFSVolumeConfiguration"] = tv.Volume
+		result["efsVolumeConfiguration"] = tv.Volume
 	default:
 		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
