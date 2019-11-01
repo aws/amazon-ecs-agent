@@ -91,6 +91,7 @@ func DefaultConfig() Config {
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                false,
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
+		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,

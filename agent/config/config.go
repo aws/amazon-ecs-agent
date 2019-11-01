@@ -83,6 +83,10 @@ const (
 	// has been pulled before it can be deleted.
 	DefaultImageDeletionAge = 1 * time.Hour
 
+	// DefaultNonECSImageDeletionAge specifies the default value for minimum amount of elapsed time after an image
+	// has been created before it can be deleted
+	DefaultNonECSImageDeletionAge = 1 * time.Hour
+
 	// minimumTaskCleanupWaitDuration specifies the minimum duration to wait before cleaning up
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
 	minimumTaskCleanupWaitDuration = 1 * time.Minute
@@ -520,6 +524,7 @@ func environmentConfig() (Config, error) {
 		TaskIAMRoleEnabledForNetworkHost:    utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
 		ImageCleanupDisabled:                utils.ParseBool(os.Getenv("ECS_DISABLE_IMAGE_CLEANUP"), false),
 		MinimumImageDeletionAge:             parseEnvVariableDuration("ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
+		NonECSMinimumImageDeletionAge:       parseEnvVariableDuration("NON_ECS_IMAGE_MINIMUM_CLEANUP_AGE"),
 		ImageCleanupInterval:                parseEnvVariableDuration("ECS_IMAGE_CLEANUP_INTERVAL"),
 		NumImagesToDeletePerCycle:           parseNumImagesToDeletePerCycle(),
 		NumNonECSContainersToDeletePerCycle: parseNumNonECSContainersToDeletePerCycle(),

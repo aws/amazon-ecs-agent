@@ -171,6 +171,9 @@ type Config struct {
 	// before it can be deleted
 	MinimumImageDeletionAge time.Duration
 
+	// NonECSMinimumImageDeletionAge specifies the minimum time since non ecs images created before it can be deleted
+	NonECSMinimumImageDeletionAge time.Duration
+
 	// ImageCleanupInterval specifies the time to wait before performing the image
 	// cleanup since last time it was executed
 	ImageCleanupInterval time.Duration
