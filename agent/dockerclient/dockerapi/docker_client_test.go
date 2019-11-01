@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -181,6 +182,12 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 			}
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, client.config.ImagePullInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1083,6 +1090,13 @@ func TestStatsInactivityTimeout(t *testing.T) {
 			delay: 300 * time.Millisecond,
 		},
 	}, nil)
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, shortInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats(ctx, "foo", shortInactivityTimeout)
