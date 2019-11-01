@@ -5,7 +5,7 @@
             "name": "task-efs-vol-read",
             "image": "127.0.0.1:51670/busybox:latest",
             "cpu": 10,
-            "command": ["sh", "-c", "while true; do sleep 1; [ -f /ecs/success ] && if grep -q 'can you read me' /ecs/success; then exit 42; fi done"],
+            "command": ["sh", "-c", "while true;  do sleep 1; [ -f /ecs/success ] && if grep -q 'can you read me' /ecs/success; then exit 42; fi done"],
             "memory": 256,
             "memoryReservation": 128,
             "mountPoints": [
