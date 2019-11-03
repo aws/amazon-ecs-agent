@@ -19,10 +19,10 @@
 package mock_s3
 
 import (
+	context "context"
 	io "io"
 	reflect "reflect"
 
-	aws "github.com/aws/aws-sdk-go/aws"
 	s3 "github.com/aws/aws-sdk-go/service/s3"
 	s3manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
 	gomock "github.com/golang/mock/gomock"
@@ -52,7 +52,7 @@ func (m *MockS3Client) EXPECT() *MockS3ClientMockRecorder {
 }
 
 // DownloadWithContext mocks base method
-func (m *MockS3Client) DownloadWithContext(arg0 aws.Context, arg1 io.WriterAt, arg2 *s3.GetObjectInput, arg3 ...func(*s3manager.Downloader)) (int64, error) {
+func (m *MockS3Client) DownloadWithContext(arg0 context.Context, arg1 io.WriterAt, arg2 *s3.GetObjectInput, arg3 ...func(*s3manager.Downloader)) (int64, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {

@@ -604,7 +604,7 @@ type IAMRoleCredentials struct {
 
 	RoleArn *string `locationName:"roleArn" type:"string"`
 
-	SecretAccessKey *string `locationName:"secretAccessKey" type:"string"`
+	SecretAccessKey *string `locationName:"secretAccessKey" type:"string" sensitive:"true"`
 
 	SessionToken *string `locationName:"sessionToken" type:"string"`
 }

@@ -19,9 +19,9 @@
 package mock_secretsmanageriface
 
 import (
+	context "context"
 	reflect "reflect"
 
-	aws "github.com/aws/aws-sdk-go/aws"
 	request "github.com/aws/aws-sdk-go/aws/request"
 	secretsmanager "github.com/aws/aws-sdk-go/service/secretsmanager"
 	gomock "github.com/golang/mock/gomock"
@@ -81,7 +81,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) CancelRotateSecretRequest(arg0 inte
 }
 
 // CancelRotateSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) CancelRotateSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.CancelRotateSecretInput, arg2 ...request.Option) (*secretsmanager.CancelRotateSecretOutput, error) {
+func (m *MockSecretsManagerAPI) CancelRotateSecretWithContext(arg0 context.Context, arg1 *secretsmanager.CancelRotateSecretInput, arg2 ...request.Option) (*secretsmanager.CancelRotateSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -131,7 +131,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) CreateSecretRequest(arg0 interface{
 }
 
 // CreateSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) CreateSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.CreateSecretInput, arg2 ...request.Option) (*secretsmanager.CreateSecretOutput, error) {
+func (m *MockSecretsManagerAPI) CreateSecretWithContext(arg0 context.Context, arg1 *secretsmanager.CreateSecretInput, arg2 ...request.Option) (*secretsmanager.CreateSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -181,7 +181,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) DeleteResourcePolicyRequest(arg0 in
 }
 
 // DeleteResourcePolicyWithContext mocks base method
-func (m *MockSecretsManagerAPI) DeleteResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.DeleteResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.DeleteResourcePolicyOutput, error) {
+func (m *MockSecretsManagerAPI) DeleteResourcePolicyWithContext(arg0 context.Context, arg1 *secretsmanager.DeleteResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.DeleteResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -231,7 +231,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) DeleteSecretRequest(arg0 interface{
 }
 
 // DeleteSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) DeleteSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.DeleteSecretInput, arg2 ...request.Option) (*secretsmanager.DeleteSecretOutput, error) {
+func (m *MockSecretsManagerAPI) DeleteSecretWithContext(arg0 context.Context, arg1 *secretsmanager.DeleteSecretInput, arg2 ...request.Option) (*secretsmanager.DeleteSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -281,7 +281,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) DescribeSecretRequest(arg0 interfac
 }
 
 // DescribeSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) DescribeSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.DescribeSecretInput, arg2 ...request.Option) (*secretsmanager.DescribeSecretOutput, error) {
+func (m *MockSecretsManagerAPI) DescribeSecretWithContext(arg0 context.Context, arg1 *secretsmanager.DescribeSecretInput, arg2 ...request.Option) (*secretsmanager.DescribeSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -331,7 +331,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) GetRandomPasswordRequest(arg0 inter
 }
 
 // GetRandomPasswordWithContext mocks base method
-func (m *MockSecretsManagerAPI) GetRandomPasswordWithContext(arg0 aws.Context, arg1 *secretsmanager.GetRandomPasswordInput, arg2 ...request.Option) (*secretsmanager.GetRandomPasswordOutput, error) {
+func (m *MockSecretsManagerAPI) GetRandomPasswordWithContext(arg0 context.Context, arg1 *secretsmanager.GetRandomPasswordInput, arg2 ...request.Option) (*secretsmanager.GetRandomPasswordOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -381,7 +381,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) GetResourcePolicyRequest(arg0 inter
 }
 
 // GetResourcePolicyWithContext mocks base method
-func (m *MockSecretsManagerAPI) GetResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.GetResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.GetResourcePolicyOutput, error) {
+func (m *MockSecretsManagerAPI) GetResourcePolicyWithContext(arg0 context.Context, arg1 *secretsmanager.GetResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.GetResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -431,7 +431,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) GetSecretValueRequest(arg0 interfac
 }
 
 // GetSecretValueWithContext mocks base method
-func (m *MockSecretsManagerAPI) GetSecretValueWithContext(arg0 aws.Context, arg1 *secretsmanager.GetSecretValueInput, arg2 ...request.Option) (*secretsmanager.GetSecretValueOutput, error) {
+func (m *MockSecretsManagerAPI) GetSecretValueWithContext(arg0 context.Context, arg1 *secretsmanager.GetSecretValueInput, arg2 ...request.Option) (*secretsmanager.GetSecretValueOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -480,7 +480,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) ListSecretVersionIdsPages(arg0, arg
 }
 
 // ListSecretVersionIdsPagesWithContext mocks base method
-func (m *MockSecretsManagerAPI) ListSecretVersionIdsPagesWithContext(arg0 aws.Context, arg1 *secretsmanager.ListSecretVersionIdsInput, arg2 func(*secretsmanager.ListSecretVersionIdsOutput, bool) bool, arg3 ...request.Option) error {
+func (m *MockSecretsManagerAPI) ListSecretVersionIdsPagesWithContext(arg0 context.Context, arg1 *secretsmanager.ListSecretVersionIdsInput, arg2 func(*secretsmanager.ListSecretVersionIdsOutput, bool) bool, arg3 ...request.Option) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -514,7 +514,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) ListSecretVersionIdsRequest(arg0 in
 }
 
 // ListSecretVersionIdsWithContext mocks base method
-func (m *MockSecretsManagerAPI) ListSecretVersionIdsWithContext(arg0 aws.Context, arg1 *secretsmanager.ListSecretVersionIdsInput, arg2 ...request.Option) (*secretsmanager.ListSecretVersionIdsOutput, error) {
+func (m *MockSecretsManagerAPI) ListSecretVersionIdsWithContext(arg0 context.Context, arg1 *secretsmanager.ListSecretVersionIdsInput, arg2 ...request.Option) (*secretsmanager.ListSecretVersionIdsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -563,7 +563,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) ListSecretsPages(arg0, arg1 interfa
 }
 
 // ListSecretsPagesWithContext mocks base method
-func (m *MockSecretsManagerAPI) ListSecretsPagesWithContext(arg0 aws.Context, arg1 *secretsmanager.ListSecretsInput, arg2 func(*secretsmanager.ListSecretsOutput, bool) bool, arg3 ...request.Option) error {
+func (m *MockSecretsManagerAPI) ListSecretsPagesWithContext(arg0 context.Context, arg1 *secretsmanager.ListSecretsInput, arg2 func(*secretsmanager.ListSecretsOutput, bool) bool, arg3 ...request.Option) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -597,7 +597,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) ListSecretsRequest(arg0 interface{}
 }
 
 // ListSecretsWithContext mocks base method
-func (m *MockSecretsManagerAPI) ListSecretsWithContext(arg0 aws.Context, arg1 *secretsmanager.ListSecretsInput, arg2 ...request.Option) (*secretsmanager.ListSecretsOutput, error) {
+func (m *MockSecretsManagerAPI) ListSecretsWithContext(arg0 context.Context, arg1 *secretsmanager.ListSecretsInput, arg2 ...request.Option) (*secretsmanager.ListSecretsOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -647,7 +647,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) PutResourcePolicyRequest(arg0 inter
 }
 
 // PutResourcePolicyWithContext mocks base method
-func (m *MockSecretsManagerAPI) PutResourcePolicyWithContext(arg0 aws.Context, arg1 *secretsmanager.PutResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.PutResourcePolicyOutput, error) {
+func (m *MockSecretsManagerAPI) PutResourcePolicyWithContext(arg0 context.Context, arg1 *secretsmanager.PutResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.PutResourcePolicyOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -697,7 +697,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) PutSecretValueRequest(arg0 interfac
 }
 
 // PutSecretValueWithContext mocks base method
-func (m *MockSecretsManagerAPI) PutSecretValueWithContext(arg0 aws.Context, arg1 *secretsmanager.PutSecretValueInput, arg2 ...request.Option) (*secretsmanager.PutSecretValueOutput, error) {
+func (m *MockSecretsManagerAPI) PutSecretValueWithContext(arg0 context.Context, arg1 *secretsmanager.PutSecretValueInput, arg2 ...request.Option) (*secretsmanager.PutSecretValueOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -747,7 +747,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) RestoreSecretRequest(arg0 interface
 }
 
 // RestoreSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) RestoreSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.RestoreSecretInput, arg2 ...request.Option) (*secretsmanager.RestoreSecretOutput, error) {
+func (m *MockSecretsManagerAPI) RestoreSecretWithContext(arg0 context.Context, arg1 *secretsmanager.RestoreSecretInput, arg2 ...request.Option) (*secretsmanager.RestoreSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -797,7 +797,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) RotateSecretRequest(arg0 interface{
 }
 
 // RotateSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) RotateSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.RotateSecretInput, arg2 ...request.Option) (*secretsmanager.RotateSecretOutput, error) {
+func (m *MockSecretsManagerAPI) RotateSecretWithContext(arg0 context.Context, arg1 *secretsmanager.RotateSecretInput, arg2 ...request.Option) (*secretsmanager.RotateSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -847,7 +847,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) TagResourceRequest(arg0 interface{}
 }
 
 // TagResourceWithContext mocks base method
-func (m *MockSecretsManagerAPI) TagResourceWithContext(arg0 aws.Context, arg1 *secretsmanager.TagResourceInput, arg2 ...request.Option) (*secretsmanager.TagResourceOutput, error) {
+func (m *MockSecretsManagerAPI) TagResourceWithContext(arg0 context.Context, arg1 *secretsmanager.TagResourceInput, arg2 ...request.Option) (*secretsmanager.TagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -897,7 +897,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) UntagResourceRequest(arg0 interface
 }
 
 // UntagResourceWithContext mocks base method
-func (m *MockSecretsManagerAPI) UntagResourceWithContext(arg0 aws.Context, arg1 *secretsmanager.UntagResourceInput, arg2 ...request.Option) (*secretsmanager.UntagResourceOutput, error) {
+func (m *MockSecretsManagerAPI) UntagResourceWithContext(arg0 context.Context, arg1 *secretsmanager.UntagResourceInput, arg2 ...request.Option) (*secretsmanager.UntagResourceOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -977,7 +977,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) UpdateSecretVersionStageRequest(arg
 }
 
 // UpdateSecretVersionStageWithContext mocks base method
-func (m *MockSecretsManagerAPI) UpdateSecretVersionStageWithContext(arg0 aws.Context, arg1 *secretsmanager.UpdateSecretVersionStageInput, arg2 ...request.Option) (*secretsmanager.UpdateSecretVersionStageOutput, error) {
+func (m *MockSecretsManagerAPI) UpdateSecretVersionStageWithContext(arg0 context.Context, arg1 *secretsmanager.UpdateSecretVersionStageInput, arg2 ...request.Option) (*secretsmanager.UpdateSecretVersionStageOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -997,7 +997,7 @@ func (mr *MockSecretsManagerAPIMockRecorder) UpdateSecretVersionStageWithContext
 }
 
 // UpdateSecretWithContext mocks base method
-func (m *MockSecretsManagerAPI) UpdateSecretWithContext(arg0 aws.Context, arg1 *secretsmanager.UpdateSecretInput, arg2 ...request.Option) (*secretsmanager.UpdateSecretOutput, error) {
+func (m *MockSecretsManagerAPI) UpdateSecretWithContext(arg0 context.Context, arg1 *secretsmanager.UpdateSecretInput, arg2 ...request.Option) (*secretsmanager.UpdateSecretOutput, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
