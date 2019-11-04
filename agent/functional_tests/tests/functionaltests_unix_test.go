@@ -1395,11 +1395,9 @@ func TestRunGPUTask(t *testing.T) {
 	defer agent.SweepTask(testTask)
 }
 
-// TestElasticInferenceValidator tests the workflow of an elastic inference task
-func TestElasticInferenceValidator(t *testing.T) {
-	t.Skip("Skipping the test until EI is fully supported in all AZs of some regions")
-
-	supportedRegions := []string{"us-west-2", "us-east-1", "ap-northeast-2"}
+// TestRunEIATask tests the workflow of an elastic inference task
+func TestRunEIATask(t *testing.T) {
+	supportedRegions := []string{"us-east-1", "us-east-2", "us-west-2", "eu-west-1", "ap-northeast-1", "ap-northeast-2"}
 	RequireRegions(t, supportedRegions, *ECS.Config.Region)
 
 	// Best effort to create a log group. It should be safe to even not do this
@@ -1429,7 +1427,17 @@ func TestElasticInferenceValidator(t *testing.T) {
 	var err error
 
 	task, err = agent.StartAWSVPCTask("task-elastic-inference", tdOverrides)
-	require.NoError(t, err, "Error starting elastic inference task")
+	if err != nil && (strings.Contains(err.Error(), "ATTRIBUTE") || strings.Contains(err.Error(), "not available")) {
+		// There are multiple factors that might cause failure in starting a task that uses EIA:
+		//   1. Instance type lacks certain cpu flags (and therefore agent lacks the 'ecs.capability.task-eia.optimized-cpu' capability);
+		//   2. Availability zone doesn't have any EIA;
+		//   3. Even if availability zone has EIA, it has very limited quota and we can easily run out of quota when many tests
+		//   run in parallel.
+		// Skip the tests on the above failure.
+		t.Skipf("Skipping the test due to start task failure: %v", err)
+	} else {
+		require.NoError(t, err, "Error starting elastic inference task")
+	}
 
 	err = task.WaitStopped(waitTaskStateChangeDuration)
 	require.NoError(t, err, "Error waiting for task to transition to STOPPED")

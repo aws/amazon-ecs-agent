@@ -5,7 +5,12 @@
     {
       "image": "127.0.0.1:51670/amazon/amazon-ecs-elastic-inference-validator:latest",
       "name": "container_1",
-      "inferenceDevices": ["device_1"],
+      "resourceRequirements": [
+        {
+          "type": "InferenceAccelerator",
+          "value": "device_1"
+        }
+      ],
       "memory": 50,
       "logConfiguration": {
         "logDriver": "awslogs",
