@@ -24,6 +24,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -77,7 +78,7 @@ func (task *Task) requiresCredentialSpecResource() bool {
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
-	return nil
+	return errors.New("task credentialspec only supported on windows")
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task

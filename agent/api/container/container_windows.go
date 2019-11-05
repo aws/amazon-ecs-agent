@@ -42,7 +42,7 @@ func (c *Container) RequiresCredentialSpec() bool {
 	hostConfig := &dockercontainer.HostConfig{}
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get hostConfig for container %s: %v", err)
+		seelog.Warnf("Encountered error when trying to get hostConfig for container %s: %v", c.Name, err)
 		return false
 	}
 
@@ -71,7 +71,7 @@ func (c *Container) GetCredentialSpec() (string, error) {
 	hostConfig := &dockercontainer.HostConfig{}
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get hostConfig for container %s: %v", err)
+		seelog.Warnf("Encountered error when trying to get hostConfig for container %s: %v", c.Name, err)
 		return "", errors.New("unable to unmarshal container hostConfig")
 	}
 

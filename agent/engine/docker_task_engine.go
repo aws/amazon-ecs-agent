@@ -982,7 +982,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Populate credentialspec resource
 	if container.RequiresCredentialSpec() {
-		seelog.Infof("Obtained container %s with credentialspec resource requirement.", container.Name)
+		seelog.Debugf("Obtained container %s with credentialspec resource requirement for task %s.", container.Name, task.Arn)
 		var credSpecResource *credentialspec.CredentialSpecResource
 		resource, ok := task.GetCredentialSpecResource()
 		if !ok {
@@ -995,6 +995,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 		containerCredSpec, err := container.GetCredentialSpec()
 		if err != nil && containerCredSpec != "" {
+			// CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
 			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
 			if err != nil || desiredCredSpecInjection == "" {
 				missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec mapping"}
@@ -1003,7 +1004,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 			// Inject containers' hostConfig.SecurityOpt with the credentialspec resource
 			seelog.Infof("Injecting container %s with credentialspec %s.", container.Name, desiredCredSpecInjection)
-			if len(hostConfig.SecurityOpt) == 0 {
+			if hostConfig != nil && len(hostConfig.SecurityOpt) == 0 {
 				hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
 			} else {
 				hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, desiredCredSpecInjection)

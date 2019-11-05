@@ -169,6 +169,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// support container ordering in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
 
+	// support full task sync
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFullTaskSync)
+
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
 	capabilities = agent.appendPIDAndIPCNamespaceSharingCapabilities(capabilities)

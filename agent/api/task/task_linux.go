@@ -228,8 +228,8 @@ func (task *Task) requiresCredentialSpecResource() bool {
 
 // initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
-	resourceFields *taskresource.ResourceFields) {
-	return
+	resourceFields *taskresource.ResourceFields) error {
+	return errors.New("task credentialspec only supported on windows")
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
