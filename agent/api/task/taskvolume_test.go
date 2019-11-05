@@ -106,9 +106,9 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"PlatformFields": %s
 	  }`
 	if runtime.GOOS == "windows" {
-		// windows task defs have a special 'cpu unbounded' field added.
+		// windows task defs have a special 'cpu/memory unbounded' field added.
 		// see https://github.com/aws/amazon-ecs-agent/pull/1227
-		expectedTaskDef = fmt.Sprintf(expectedTaskDef, `{"cpuUnbounded": false}`)
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, `{"cpuUnbounded": false, "memoryUnbounded": false}`)
 	} else {
 		expectedTaskDef = fmt.Sprintf(expectedTaskDef, "{}")
 	}
