@@ -103,6 +103,7 @@ func DefaultConfig() Config {
 		SharedVolumeMatchFullConfig:         false, //only requiring shared volumes to match on name, which is default docker behavior
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
+		GMSACapable:                         true,
 	}
 }
 

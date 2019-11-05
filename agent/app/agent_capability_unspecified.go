@@ -101,3 +101,7 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*e
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}

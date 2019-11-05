@@ -29,7 +29,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -211,6 +213,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			IOUtil:             ioutilwrapper.NewIOUtil(),
 			ASMClientCreator:   asmfactory.NewClientCreator(),
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
+			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
 			EC2InstanceID:      agent.getEC2InstanceID(),
 		},

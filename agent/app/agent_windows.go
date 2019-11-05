@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -257,6 +258,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			ASMClientCreator:   asmfactory.NewClientCreator(),
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
+			S3ClientCreator:    s3factory.NewS3ClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
 		Ctx:          agent.ctx,
