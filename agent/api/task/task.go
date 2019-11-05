@@ -359,6 +359,15 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return err
 		}
 	}
+
+	if task.requiresCredentialSpecResource() {
+		err = task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields)
+		if err != nil {
+			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
+
 	return nil
 }
 

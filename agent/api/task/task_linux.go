@@ -19,8 +19,10 @@ import (
 	"path/filepath"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -216,4 +218,26 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 		return 2
 	}
 	return int64(containerCPU)
+}
+
+// requiresCredentialSpecResource returns true if at least one container in the task
+// needs a valid credentialspec resource
+func (task *Task) requiresCredentialSpecResource() bool {
+	return false
+}
+
+// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
+func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	return
+}
+
+// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
+func (task *Task) getAllCredentialSpecRequirements() map[string][]*apicontainer.Container {
+	return nil
+}
+
+// GetCredentialSpecResource retrieves credentialspec resource from resource map
+func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
+	return []taskresource.TaskResource{}, false
 }
