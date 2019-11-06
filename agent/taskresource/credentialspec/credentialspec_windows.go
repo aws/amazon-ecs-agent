@@ -512,6 +512,10 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 	defer cs.lock.Unlock()
 
 	for key, value := range cs.CredSpecMap {
+		if strings.HasPrefix(key, "credentialspec:file://") {
+			seelog.Debugf("Skipping cleanup of local credentialspec file option: %s", key)
+			continue
+		}
 		credSpecSplit := strings.SplitAfterN(value, "credentialspec=", 2)
 		localCredentialSpecFile := credSpecSplit[1]
 		err := cs.os.Remove(localCredentialSpecFile)

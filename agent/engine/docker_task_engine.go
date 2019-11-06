@@ -991,6 +991,10 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 
 		// Setup credentialSpec resource object for injection
+		if len(resource) <= 0 {
+			resMissingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch task resource credentialspec"}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(resMissingErr)}
+		}
 		credSpecResource = resource[0].(*credentialspec.CredentialSpecResource)
 
 		containerCredSpec, err := container.GetCredentialSpec()
@@ -1004,11 +1008,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 			// Inject containers' hostConfig.SecurityOpt with the credentialspec resource
 			seelog.Infof("Injecting container %s with credentialspec %s.", container.Name, desiredCredSpecInjection)
-			if hostConfig != nil && len(hostConfig.SecurityOpt) == 0 {
+			if len(hostConfig.SecurityOpt) == 0 {
 				hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
 			} else {
 				for idx, opt := range hostConfig.SecurityOpt {
-					if strings.Contains(opt, "credentialspec:") {
+					if strings.HasPrefix(opt, "credentialspec:") {
 						hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
 					}
 				}

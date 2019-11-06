@@ -64,7 +64,7 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(credspecRes.CredSpecMap))
+	assert.Equal(t, 1, len(credspecRes.CredSpecMap))
 }
 
 func TestClearCredentialSpecDataErr(t *testing.T) {
@@ -85,13 +85,13 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 	}
 
 	gomock.InOrder(
-		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).Times(2),
+		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).Times(1),
 		mockOS.EXPECT().Remove(gomock.Any()).Return(errors.New("test error")),
 	)
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(credspecRes.CredSpecMap))
+	assert.Equal(t, 1, len(credspecRes.CredSpecMap))
 }
 
 func TestInitialize(t *testing.T) {
