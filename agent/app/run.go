@@ -38,6 +38,8 @@ func Run(arguments []string) int {
 		return printLicense()
 	} else if *parsedArgs.Version {
 		return version.PrintVersion()
+	} else if *parsedArgs.Healthcheck {
+		return runHealthcheck()
 	}
 
 	logger.SetLevel(*parsedArgs.LogLevel)
