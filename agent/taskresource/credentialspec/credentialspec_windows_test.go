@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/pkg/errors"
+
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -31,6 +31,9 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -38,20 +41,57 @@ const (
 	executionCredentialsID = "exec-creds-id"
 )
 
-func TestClearCredentialSpecData(t *testing.T) {
+func TestClearCredentialSpecDataHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockOS := mock_oswrapper.NewMockOS(ctrl)
+
 	credSpecMapData := map[string]string{
-		"credentialspec:file://localfilePath.json": "credentialspec:file://localfilePath.json",
+		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
 		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
 		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
 	}
 
 	credspecRes := &CredentialSpecResource{
-		credSpecMap: credSpecMapData,
+		CredSpecMap: credSpecMapData,
+		os:          mockOS,
 	}
+
+	gomock.InOrder(
+		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).AnyTimes(),
+	)
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(credspecRes.credSpecMap))
+	assert.Equal(t, 0, len(credspecRes.CredSpecMap))
+}
+
+func TestClearCredentialSpecDataErr(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockOS := mock_oswrapper.NewMockOS(ctrl)
+
+	credSpecMapData := map[string]string{
+		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
+		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
+		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
+	}
+
+	credspecRes := &CredentialSpecResource{
+		CredSpecMap: credSpecMapData,
+		os:          mockOS,
+	}
+
+	gomock.InOrder(
+		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).Times(2),
+		mockOS.EXPECT().Remove(gomock.Any()).Return(errors.New("test error")),
+	)
+
+	err := credspecRes.Cleanup()
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(credspecRes.CredSpecMap))
 }
 
 func TestInitialize(t *testing.T) {

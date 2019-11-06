@@ -100,6 +100,7 @@ const (
 //    com.amazonaws.ecs.capability.logging-driver.awsfirelens
 //    ecs.capability.firelens.options.config.file
 //    ecs.capability.firelens.options.config.s3
+//    ecs.capability.full-sync
 //    ecs.capability.gMSA
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute

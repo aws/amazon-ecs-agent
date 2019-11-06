@@ -399,6 +399,60 @@ func TestGetAllCredentialSpecRequirements(t *testing.T) {
 	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
 }
 
+func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *testing.T) {
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
+	c1 := &apicontainer.Container{}
+	c1.DockerConfig.HostConfig = &hostConfig
+
+	c2 := &apicontainer.Container{}
+	c2.DockerConfig.HostConfig = &hostConfig
+
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{c1, c2},
+	}
+
+	allCredSpecReq := task.getAllCredentialSpecRequirements()
+
+	credentialspec := "credentialspec:file://gmsa_gmsa-acct.json"
+	expectedCredSpecReq := map[string][]*apicontainer.Container{}
+	expectedCredSpecReq[credentialspec] = append(expectedCredSpecReq[credentialspec], c1)
+	expectedCredSpecReq[credentialspec] = append(expectedCredSpecReq[credentialspec], c2)
+
+	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
+}
+
+func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
+	hostConfig1 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-1.json\"]}"
+	hostConfig2 := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct-2.json\"]}"
+
+	c1 := &apicontainer.Container{}
+	c1.DockerConfig.HostConfig = &hostConfig1
+
+	c2 := &apicontainer.Container{}
+	c2.DockerConfig.HostConfig = &hostConfig1
+
+	c3 := &apicontainer.Container{}
+	c3.DockerConfig.HostConfig = &hostConfig2
+
+	task := &Task{
+		Arn:        "test",
+		Containers: []*apicontainer.Container{c1, c2, c3},
+	}
+
+	allCredSpecReq := task.getAllCredentialSpecRequirements()
+
+	credentialspec1 := "credentialspec:file://gmsa_gmsa-acct-1.json"
+	credentialspec2 := "credentialspec:file://gmsa_gmsa-acct-2.json"
+
+	expectedCredSpecReq := map[string][]*apicontainer.Container{}
+	expectedCredSpecReq[credentialspec1] = append(expectedCredSpecReq[credentialspec1], c1)
+	expectedCredSpecReq[credentialspec1] = append(expectedCredSpecReq[credentialspec1], c2)
+	expectedCredSpecReq[credentialspec2] = append(expectedCredSpecReq[credentialspec2], c3)
+
+	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
+}
+
 func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"
 	container := &apicontainer.Container{

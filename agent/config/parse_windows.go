@@ -30,12 +30,12 @@ func parseGMSACapability() bool {
 		// If gMSA feature is explicitly enabled, check if container instance is domain joined.
 		// If container instance is not domain joined, explicitly disable feature configuration.
 		status, err := isDomainJoined()
-		if err != nil || status != true {
-			return false
+		if err == nil && status == true {
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 // isDomainJoined is used to validate if container instance is part of a valid active directory.

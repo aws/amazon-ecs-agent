@@ -994,7 +994,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		credSpecResource = resource[0].(*credentialspec.CredentialSpecResource)
 
 		containerCredSpec, err := container.GetCredentialSpec()
-		if err != nil && containerCredSpec != "" {
+		if err == nil && containerCredSpec != "" {
 			// CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
 			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
 			if err != nil || desiredCredSpecInjection == "" {
@@ -1007,7 +1007,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			if hostConfig != nil && len(hostConfig.SecurityOpt) == 0 {
 				hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
 			} else {
-				hostConfig.SecurityOpt = append(hostConfig.SecurityOpt, desiredCredSpecInjection)
+				for idx, opt := range hostConfig.SecurityOpt {
+					if strings.Contains(opt, "credentialspec:") {
+						hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
+					}
+				}
 			}
 
 		} else {

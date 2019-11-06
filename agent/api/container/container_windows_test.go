@@ -56,8 +56,18 @@ func TestRequiresCredentialSpec(t *testing.T) {
 			expectedOutput: false,
 		},
 		{
-			name:           "valid_credentialspec",
+			name:           "valid_credentialspec_file",
 			container:      getContainer("{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}"),
+			expectedOutput: true,
+		},
+		{
+			name:           "valid_credentialspec_s3",
+			container:      getContainer("{\"SecurityOpt\": [\"credentialspec:arn:aws:s3:::${BucketName}/${ObjectName}\"]}"),
+			expectedOutput: true,
+		},
+		{
+			name:           "valid_credentialspec_ssm",
+			container:      getContainer("{\"SecurityOpt\": [\"credentialspec:arn:aws:ssm:region:aws_account_id:parameter/parameter_name\"]}"),
 			expectedOutput: true,
 		},
 	}

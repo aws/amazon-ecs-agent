@@ -86,7 +86,7 @@ type CredentialSpecResource struct {
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
 	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
-	credSpecMap map[string]string
+	CredSpecMap map[string]string
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
@@ -108,7 +108,7 @@ func NewCredentialSpecResource(taskARN, region string,
 		executionCredentialsID:  executionCredentialsID,
 		ssmClientCreator:        ssmClientCreator,
 		s3ClientCreator:         s3ClientCreator,
-		credSpecMap:             make(map[string]string),
+		CredSpecMap:             make(map[string]string),
 	}
 
 	err := s.setCredentialSpecResourceLocation()
@@ -398,7 +398,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 		return err
 	}
 
-	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", localCredSpecFilePath)
+	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", filepath.Base(localCredSpecFilePath))
 	cs.updateCredSpecMapping(originalCredentialspec, dockerHostconfigSecOptCredSpec)
 
 	return nil
@@ -432,7 +432,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 		return err
 	}
 
-	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", localCredSpecFilePath)
+	dockerHostconfigSecOptCredSpec := fmt.Sprintf("credentialspec=file://%s", filepath.Base(localCredSpecFilePath))
 	cs.updateCredSpecMapping(originalCredentialspec, dockerHostconfigSecOptCredSpec)
 
 	return nil
@@ -477,14 +477,14 @@ func (cs *CredentialSpecResource) getCredSpecMap() map[string]string {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	return cs.credSpecMap
+	return cs.CredSpecMap
 }
 
 func (cs *CredentialSpecResource) GetTargetMapping(credSpecInput string) (string, error) {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
-	targetCredSpecMapping, ok := cs.credSpecMap[credSpecInput]
+	targetCredSpecMapping, ok := cs.CredSpecMap[credSpecInput]
 	if !ok {
 		return "", errors.New("unable to obtain credentialspec mapping")
 	}
@@ -496,7 +496,7 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, targetCre
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
-	cs.credSpecMap[credSpecInput] = targetCredSpec
+	cs.CredSpecMap[credSpecInput] = targetCredSpec
 }
 
 // Cleanup removes the credentialspec created for the task
@@ -511,9 +511,14 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
-	for key := range cs.credSpecMap {
-		// TODO: Cleanup file on container instance (optional)
-		delete(cs.credSpecMap, key)
+	for key, value := range cs.CredSpecMap {
+		credSpecSplit := strings.SplitAfterN(value, "credentialspec=", 2)
+		localCredentialSpecFile := credSpecSplit[1]
+		err := cs.os.Remove(localCredentialSpecFile)
+		if err != nil {
+			seelog.Debugf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
+		}
+		delete(cs.CredSpecMap, key)
 	}
 }
 
@@ -524,7 +529,7 @@ type CredentialSpecResourceJSON struct {
 	DesiredStatus           *CredentialSpecStatus                `json:"desiredStatus"`
 	KnownStatus             *CredentialSpecStatus                `json:"knownStatus"`
 	RequiredCredentialSpecs map[string][]*apicontainer.Container `json:"credentialSpecResources"`
-	CredSpecMap             map[string]string                    `json:"credSpecMap"`
+	CredSpecMap             map[string]string                    `json:"CredSpecMap"`
 	ExecutionCredentialsID  string                               `json:"executionCredentialsID"`
 }
 
@@ -580,16 +585,12 @@ func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 }
 
 func (cs *CredentialSpecResource) setCredentialSpecResourceLocation() error {
-	// TODO: Use registry
+	// TODO: Use registry to setup credentialspec resource location
 	// This should always be available on Windows instances
-	appDataDir := os.Getenv("APPDATA")
-	if appDataDir != "" {
-		cs.credentialSpecResourceLocation = appDataDir
-	} else {
-		tempDir := os.Getenv("TEMP")
-		if tempDir != "" {
-			cs.credentialSpecResourceLocation = tempDir
-		}
+	programDataDir := os.Getenv(envProgramData)
+	if programDataDir != "" {
+		// Sample resource location: C:\ProgramData\docker\credentialspecs
+		cs.credentialSpecResourceLocation = filepath.Join(programDataDir, dockerCredentialSpecDataDir)
 	}
 
 	if cs.credentialSpecResourceLocation == "" {

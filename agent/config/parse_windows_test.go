@@ -1,3 +1,5 @@
+// +build windows,unit
+
 // Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,22 +13,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package credentialspec
+package config
 
-import "time"
+import (
+	"os"
+	"testing"
 
-const (
-	// ResourceName is the name of the credentialspec resource
-	ResourceName = "credentialspec"
-
-	tempFileName = "temp_file"
-
-	// filePerm is the permission for the credentialspec file.
-	filePerm = 0755
-
-	s3DownloadTimeout = 30 * time.Second
-
-	// Environment variables to setup resource location
-	envProgramData              = "ProgramData"
-	dockerCredentialSpecDataDir = "docker/credentialspecs"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestParseGMSACapability(t *testing.T) {
+	os.Setenv("ECS_GMSA_SUPPORTED", "False")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	assert.False(t, parseGMSACapability())
+}
