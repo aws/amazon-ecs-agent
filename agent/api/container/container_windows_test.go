@@ -88,13 +88,13 @@ func TestGetCredentialSpecErr(t *testing.T) {
 			name:                 "invalid_case",
 			container:            getContainer("invalid"),
 			expectedOutputString: "",
-			expectedErrorString:  "unable to unmarshal container hostConfig",
+			expectedErrorString:  "unable to obtain security options from container hostConfig",
 		},
 		{
 			name:                 "empty_sec_opt",
 			container:            getContainer("{\"NetworkMode\":\"bridge\"}"),
 			expectedOutputString: "",
-			expectedErrorString:  "unable to find container security options",
+			expectedErrorString:  "unable to obtain security options from container hostConfig",
 		},
 		{
 			name:                 "missing_credentialspec",
