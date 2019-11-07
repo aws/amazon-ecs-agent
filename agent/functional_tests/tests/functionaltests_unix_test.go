@@ -1770,7 +1770,7 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 		},
 		TempDirOverride: tempDir,
 	}
-	if (isAWSVPC) {
+	if isAWSVPC {
 		agentOptions.EnableTaskENI = true
 	}
 	agent := RunAgent(t, agentOptions)
