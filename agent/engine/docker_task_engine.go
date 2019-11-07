@@ -985,13 +985,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		seelog.Debugf("Obtained container %s with credentialspec resource requirement for task %s.", container.Name, task.Arn)
 		var credSpecResource *credentialspec.CredentialSpecResource
 		resource, ok := task.GetCredentialSpecResource()
-		if !ok {
-			okErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch task credentialspec resource"}
-			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(okErr)}
-		}
-
-		// Setup credentialSpec resource object for injection
-		if len(resource) <= 0 {
+		if !ok || len(resource) <= 0 {
 			resMissingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch task resource credentialspec"}
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(resMissingErr)}
 		}
