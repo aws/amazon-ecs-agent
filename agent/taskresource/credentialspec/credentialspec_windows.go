@@ -42,52 +42,42 @@ import (
 
 // CredentialSpecResource is the abstraction for credentialspec resources
 type CredentialSpecResource struct {
-	taskARN string
-	region  string
-
-	credentialsManager     credentials.Manager
+	taskARN                string
+	region                 string
 	executionCredentialsID string
-
-	ioutil ioutilwrapper.IOUtil
-	os     oswrapper.OS
-
-	createdAt           time.Time
-	desiredStatusUnsafe resourcestatus.ResourceStatus
-	knownStatusUnsafe   resourcestatus.ResourceStatus
+	credentialsManager     credentials.Manager
+	ioutil                 ioutilwrapper.IOUtil
+	os                     oswrapper.OS
+	createdAt              time.Time
+	desiredStatusUnsafe    resourcestatus.ResourceStatus
+	knownStatusUnsafe      resourcestatus.ResourceStatus
 	// appliedStatus is the status that has been "applied" (e.g., we've called some
 	// operation such as 'Create' on the resource) but we don't yet know that the
 	// application was successful, which may then change the known status. This is
 	// used while progressing resource states in progressTask() of task manager
 	appliedStatus                      resourcestatus.ResourceStatus
 	resourceStatusToTransitionFunction map[resourcestatus.ResourceStatus]func() error
-
 	// terminalReason should be set for resource creation failures. This ensures
 	// the resource object carries some context for why provisioning failed.
 	terminalReason     string
 	terminalReasonOnce sync.Once
-
 	// ssmClientCreator is a factory interface that creates new SSM clients. This is
 	// needed mostly for testing.
 	ssmClientCreator ssmfactory.SSMClientCreator
-
 	// s3ClientCreator is a factory interface that creates new S3 clients. This is
 	// needed mostly for testing.
 	s3ClientCreator s3factory.S3ClientCreator
-
 	// credentialSpecResourceLocation is the location for all the tasks' credentialspec artifacts
 	credentialSpecResourceLocation string
-
 	// required for processing credentialspecs, key is input credentialspec
 	// Example key := credentialspec:file://credentialspec.json
 	requiredCredentialSpecs map[string][]*apicontainer.Container
-
 	// map to transform credentialspec values, key is a input credentialspec
 	// Examples:
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
 	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
 	CredSpecMap map[string]string
-
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -152,7 +142,7 @@ func (cs *CredentialSpecResource) GetTerminalReason() string {
 
 func (cs *CredentialSpecResource) setTerminalReason(reason string) {
 	cs.terminalReasonOnce.Do(func() {
-		seelog.Infof("credentialspec resource: setting terminal reason for credentialspec resource in task: [%s]", cs.taskARN)
+		seelog.Debugf("credentialspec resource: setting terminal reason for credentialspec resource in task: [%s]", cs.taskARN)
 		cs.terminalReason = reason
 	})
 }
@@ -315,11 +305,12 @@ func (cs *CredentialSpecResource) GetName() string {
 
 // Create is used to create all the credentialspec resources for a given task
 func (cs *CredentialSpecResource) Create() error {
+	var err error
 	// To fail fast, check execution role first
 	executionCredentials, ok := cs.credentialsManager.GetTaskCredentials(cs.getExecutionCredentialsID())
 	if !ok {
 		// No need to log here. managedTask.applyResourceState already does that
-		err := errors.New("credentialspec resource: unable to find execution role credentials")
+		err = errors.New("credentialspec resource: unable to find execution role credentials")
 		cs.setTerminalReason(err.Error())
 		return err
 	}
@@ -328,13 +319,18 @@ func (cs *CredentialSpecResource) Create() error {
 	for credSpecStr, _ := range cs.requiredCredentialSpecs {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
 		if len(credSpecSplit) != 2 {
-			seelog.Errorf("Invalid credentialspec: %v", credSpecStr)
+			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
 			continue
 		}
 		credSpecValue := credSpecSplit[1]
 
 		if strings.HasPrefix(credSpecValue, "file://") {
-			return cs.handleCredentialspecFile(credSpecStr)
+			err = cs.handleCredentialspecFile(credSpecStr)
+			if err != nil {
+				cs.setTerminalReason(err.Error())
+				return err
+			}
+			continue
 		}
 
 		parsedARN, err := arn.Parse(credSpecValue)
@@ -345,11 +341,19 @@ func (cs *CredentialSpecResource) Create() error {
 
 		parsedARNService := parsedARN.Service
 		if parsedARNService == "s3" {
-			return cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
+			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
+			if err != nil {
+				cs.setTerminalReason(err.Error())
+				return err
+			}
 		} else if parsedARNService == "ssm" {
-			return cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
+			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
+			if err != nil {
+				cs.setTerminalReason(err.Error())
+				return err
+			}
 		} else {
-			err := errors.New("unsupported credentialspec ARN, only s3/ssm ARNs are valid")
+			err = errors.New("unsupported credentialspec ARN, only s3/ssm ARNs are valid")
 			cs.setTerminalReason(err.Error())
 			return err
 		}
@@ -360,6 +364,10 @@ func (cs *CredentialSpecResource) Create() error {
 
 func (cs *CredentialSpecResource) handleCredentialspecFile(credentialspec string) error {
 	credSpecSplit := strings.SplitAfterN(credentialspec, "credentialspec:", 2)
+	if len(credSpecSplit) != 2 {
+		seelog.Errorf("Invalid credentialspec: %s", credentialspec)
+		return errors.New("invalid credentialspec file specification")
+	}
 	credSpecFile := credSpecSplit[1]
 
 	if !strings.HasPrefix(credSpecFile, "file://") {
