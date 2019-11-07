@@ -22,14 +22,6 @@ import (
 )
 
 func TestRequiresCredentialSpec(t *testing.T) {
-	getContainer := func(hostConfig string) *Container {
-		c := &Container{
-			Name: "c",
-		}
-		c.DockerConfig.HostConfig = &hostConfig
-		return c
-	}
-
 	testCases := []struct {
 		name           string
 		container      *Container
@@ -80,14 +72,6 @@ func TestRequiresCredentialSpec(t *testing.T) {
 }
 
 func TestGetCredentialSpecErr(t *testing.T) {
-	getContainer := func(hostConfig string) *Container {
-		c := &Container{
-			Name: "c",
-		}
-		c.DockerConfig.HostConfig = &hostConfig
-		return c
-	}
-
 	testCases := []struct {
 		name                 string
 		container            *Container
@@ -130,14 +114,6 @@ func TestGetCredentialSpecErr(t *testing.T) {
 }
 
 func TestGetCredentialSpecHappyPath(t *testing.T) {
-	getContainer := func(hostConfig string) *Container {
-		c := &Container{
-			Name: "c",
-		}
-		c.DockerConfig.HostConfig = &hostConfig
-		return c
-	}
-
 	c := getContainer("{\"SecurityOpt\": [\"credentialspec:file://gmsa_gmsa-acct.json\"]}")
 
 	expectedCredentialSpec := "credentialspec:file://gmsa_gmsa-acct.json"
@@ -145,4 +121,12 @@ func TestGetCredentialSpecHappyPath(t *testing.T) {
 	credentialspec, err := c.GetCredentialSpec()
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedCredentialSpec, credentialspec)
+}
+
+func getContainer(hostConfig string) *Container {
+	c := &Container{
+		Name: "c",
+	}
+	c.DockerConfig.HostConfig = &hostConfig
+	return c
 }

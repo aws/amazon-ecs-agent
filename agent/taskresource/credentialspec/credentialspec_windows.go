@@ -327,6 +327,10 @@ func (cs *CredentialSpecResource) Create() error {
 
 	for credSpecStr, _ := range cs.requiredCredentialSpecs {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
+		if len(credSpecSplit) != 2 {
+			seelog.Errorf("Invalid credentialspec: %v", credSpecStr)
+			continue
+		}
 		credSpecValue := credSpecSplit[1]
 
 		if strings.HasPrefix(credSpecValue, "file://") {

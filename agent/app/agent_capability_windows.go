@@ -62,5 +62,9 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attr
 }
 
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
+	if agent.cfg.GMSACapable {
+		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
+	}
+
+	return capabilities
 }

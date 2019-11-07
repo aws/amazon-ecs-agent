@@ -195,12 +195,11 @@ func (task *Task) getAllCredentialSpecRequirements() map[string][]*apicontainer.
 	reqs := map[string][]*apicontainer.Container{}
 
 	for _, container := range task.Containers {
-		if container.RequiresCredentialSpec() {
-			credentialSpec, err := container.GetCredentialSpec()
-			if err == nil && credentialSpec != "" {
-				reqs[credentialSpec] = append(reqs[credentialSpec], container)
-			}
+		credentialSpec, err := container.GetCredentialSpec()
+		if err == nil && credentialSpec != "" {
+			reqs[credentialSpec] = append(reqs[credentialSpec], container)
 		}
+
 	}
 
 	return reqs

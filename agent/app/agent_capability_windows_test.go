@@ -246,7 +246,12 @@ func TestAppendGMSACapabilities(t *testing.T) {
 			},
 		}...)
 
-	agent := &ecsAgent{}
+	agent := &ecsAgent{
+		cfg: &config.Config{
+			GMSACapable: true,
+		},
+	}
+
 	capabilities := agent.appendGMSACapabilities(inputCapabilities)
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))

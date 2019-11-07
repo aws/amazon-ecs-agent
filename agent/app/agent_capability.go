@@ -195,9 +195,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// support external firelens config
 	capabilities = agent.appendFirelensConfigCapabilities(capabilities)
 
-	if agent.cfg.GMSACapable {
-		capabilities = agent.appendGMSACapabilities(capabilities)
-	}
+	// support GMSA capabilities
+	capabilities = agent.appendGMSACapabilities(capabilities)
 
 	return capabilities, nil
 }
