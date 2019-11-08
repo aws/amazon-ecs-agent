@@ -147,7 +147,7 @@ func RunAgent(t *testing.T, options *AgentOptions) *TestAgent {
 		err = agent.WaitContainerInstanceStatus("ACTIVE", t)
 		// If we get an error here, we need to stop the agent before failing, since the caller won't be stopping it.
 		if err != nil {
-			t.Logf("Failed to wait for container instance to reach ACTIVE: %v",  err)
+			t.Logf("Failed to wait for container instance to reach ACTIVE: %v", err)
 			t.Logf("Stopping agent container: %s", agent.DockerID)
 			errS := agent.StopAgent()
 			require.NoError(t, errS)
@@ -308,7 +308,7 @@ func (agent *TestAgent) getBindMounts() []string {
 }
 
 func (agent *TestAgent) Cleanup() {
-	if agent.Options == nil || ! agent.Options.EnableTaskENI {
+	if agent.Options == nil || !agent.Options.EnableTaskENI {
 		// if task networking is not enabled, do the usual cleanup
 		agent.platformIndependentCleanup()
 		return
