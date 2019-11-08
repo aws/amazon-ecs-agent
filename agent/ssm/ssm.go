@@ -25,36 +25,24 @@ import (
 // GetSecretFromSSM makes the api call to the AWS SSM parameter store to
 // retrieve secrets value in batches
 func GetSecretsFromSSM(names []string, client SSMClient) (map[string]string, error) {
-	var secretNames []*string
-	for _, name := range names {
-		secretNames = append(secretNames, aws.String(name))
-	}
-
-	in := &ssm.GetParametersInput{
-		Names:          secretNames,
-		WithDecryption: aws.Bool(true),
-	}
-
-	out, err := client.GetParameters(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return extractSSMValues(out)
+	return getParameters(names, client, true)
 }
 
-// TODO: Refactor GetSecretsFromSSM to parameterize `WithDecryption`
 // GetParametersFromSSM makes the api call to the AWS SSM parameter store to
 // retrieve parameter value in batches
 func GetParametersFromSSM(names []string, client SSMClient) (map[string]string, error) {
-	var paramNames []*string
+	return getParameters(names, client, false)
+}
+
+func getParameters(names []string, client SSMClient, withDecryption bool) (map[string]string, error) {
+	var params []*string
 	for _, name := range names {
-		paramNames = append(paramNames, aws.String(name))
+		params = append(params, aws.String(name))
 	}
 
 	in := &ssm.GetParametersInput{
-		Names:          paramNames,
-		WithDecryption: aws.Bool(false),
+		Names:          params,
+		WithDecryption: aws.Bool(withDecryption),
 	}
 
 	out, err := client.GetParameters(in)
