@@ -532,7 +532,7 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 		localCredentialSpecFile := credSpecSplit[1]
 		err := cs.os.Remove(localCredentialSpecFile)
 		if err != nil {
-			seelog.Debugf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
+			seelog.Warnf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
 		}
 		delete(cs.CredSpecMap, key)
 	}
@@ -593,6 +593,9 @@ func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 	}
 	if temp.RequiredCredentialSpecs != nil {
 		cs.requiredCredentialSpecs = temp.RequiredCredentialSpecs
+	}
+	if temp.CredSpecMap != nil {
+		cs.CredSpecMap = temp.CredSpecMap
 	}
 	cs.taskARN = temp.TaskARN
 	cs.executionCredentialsID = temp.ExecutionCredentialsID

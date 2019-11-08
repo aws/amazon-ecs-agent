@@ -125,11 +125,15 @@ func TestInitialize(t *testing.T) {
 func TestMarshalUnmarshalJSON(t *testing.T) {
 	requiredCredentialSpecs := make(map[string][]*apicontainer.Container)
 	testCredSpec := "credentialspec:file://test.json"
+	targetCredSpec := "credentialspec=file://test.json"
 	testContainer := &apicontainer.Container{
 		Name: "test-container",
 	}
 
 	requiredCredentialSpecs[testCredSpec] = append(requiredCredentialSpecs[testCredSpec], testContainer)
+
+	credSpecMap := map[string]string{}
+	credSpecMap[testCredSpec] = targetCredSpec
 
 	credspecIn := &CredentialSpecResource{
 		taskARN:                 taskARN,
@@ -138,6 +142,7 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
 		desiredStatusUnsafe:     resourcestatus.ResourceCreated,
 		requiredCredentialSpecs: requiredCredentialSpecs,
+		CredSpecMap:             credSpecMap,
 	}
 
 	bytes, err := json.Marshal(credspecIn)
@@ -152,6 +157,8 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, credspecIn.knownStatusUnsafe, credSpecOut.knownStatusUnsafe)
 	assert.Equal(t, credspecIn.executionCredentialsID, credSpecOut.executionCredentialsID)
 	assert.Equal(t, len(credspecIn.requiredCredentialSpecs), len(credSpecOut.requiredCredentialSpecs))
+	assert.Equal(t, len(credspecIn.CredSpecMap), len(credSpecOut.CredSpecMap))
+	assert.EqualValues(t, credspecIn.CredSpecMap, credSpecOut.CredSpecMap)
 }
 
 func TestHandleCredentialspecFile(t *testing.T) {
