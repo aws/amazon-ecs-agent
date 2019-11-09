@@ -125,13 +125,6 @@ func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.Resour
 	cs.ssmClientCreator = resourceFields.SSMClientCreator
 	cs.s3ClientCreator = resourceFields.S3ClientCreator
 
-	// if task hasn't turn to 'created' status, and it's desire status is 'running'
-	// the resource status needs to be reset to 'NONE' status so the cs value
-	// will be retrieved again
-	if taskKnownStatus < status.TaskCreated &&
-		taskDesiredStatus <= status.TaskRunning {
-		cs.SetKnownStatus(resourcestatus.ResourceStatusNone)
-	}
 }
 
 // GetTerminalReason returns an error string to propagate up through to task
