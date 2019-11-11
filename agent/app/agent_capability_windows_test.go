@@ -242,7 +242,7 @@ func TestAppendGMSACapabilities(t *testing.T) {
 	expectedCapabilities = append(expectedCapabilities,
 		[]*ecs.Attribute{
 			{
-				Name: aws.String("ecs.capability.gMSA"),
+				Name: aws.String(attributePrefix + capabilityGMSA),
 			},
 		}...)
 

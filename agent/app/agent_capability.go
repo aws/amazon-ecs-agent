@@ -56,7 +56,7 @@ const (
 	capabilityFirelensConfigFile                = "firelens.options.config.file"
 	capabilityFirelensConfigS3                  = "firelens.options.config.s3"
 	capabilityFullTaskSync                      = "full-sync"
-	capabilityGMSA                              = "gMSA"
+	capabilityGMSA                              = "gmsa"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
