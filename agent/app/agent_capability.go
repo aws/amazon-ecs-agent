@@ -101,7 +101,7 @@ const (
 //    ecs.capability.firelens.options.config.file
 //    ecs.capability.firelens.options.config.s3
 //    ecs.capability.full-sync
-//    ecs.capability.gMSA
+//    ecs.capability.gmsa
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 

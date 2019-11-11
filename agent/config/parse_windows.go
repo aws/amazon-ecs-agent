@@ -33,9 +33,8 @@ func parseGMSACapability() bool {
 		status, err := isDomainJoined()
 		if err == nil && status == true {
 			return true
-		} else {
-			seelog.Errorf("Unable to determine valid domain join: %v", err)
 		}
+		seelog.Errorf("Unable to determine valid domain join: %v", err)
 	}
 
 	return false

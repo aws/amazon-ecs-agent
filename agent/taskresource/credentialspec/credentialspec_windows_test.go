@@ -113,9 +113,9 @@ func TestInitialize(t *testing.T) {
 	credspecRes.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	assert.NotNil(t, credspecRes.credentialsManager)
@@ -218,9 +218,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -287,9 +287,9 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
@@ -328,9 +328,9 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -385,9 +385,9 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
@@ -445,9 +445,9 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
@@ -488,9 +488,9 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	gomock.InOrder(
@@ -533,9 +533,9 @@ func TestCreateSSM(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	testData := "test-cred-spec-data"
@@ -595,9 +595,9 @@ func TestCreateS3(t *testing.T) {
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
 	creds := credentials.TaskIAMRoleCredentials{

@@ -476,9 +476,9 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 	resFields := &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			SSMClientCreator:   ssmClientCreator,
-			S3ClientCreator:    s3ClientCreator,
 			CredentialsManager: credentialsManager,
 		},
+		S3ClientCreator: s3ClientCreator,
 	}
 
 	task.initializeCredentialSpecResource(cfg, credentialsManager, resFields)
