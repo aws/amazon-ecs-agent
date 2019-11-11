@@ -818,6 +818,63 @@ func TestDockerVersion(t *testing.T) {
 	assert.Equal(t, "1.6.0", str, "Got unexpected version string: "+str)
 }
 
+func TestDockerInfo(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{SecurityOptions: []string{"selinux"}}, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"selinux"}, info.SecurityOptions)
+}
+
+func TestDockerInfoError(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	errorMsg := "Error getting  docker info"
+
+	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{}, errors.New(errorMsg))
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.Error(t, err, errorMsg)
+	assert.Equal(t, types.Info{}, info)
+}
+
+func TestDockerInfoClientError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	errorMsg := "Error getting client"
+
+	// Mock SDKFactory
+	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Return the Docker Go client for the first call
+	sdkFactory.EXPECT().GetDefaultClient().Times(1).Return(mockDockerSDK, nil)
+	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
+	assert.NoError(t, err)
+
+	// Throw error when `Info` tries to get the client
+	sdkFactory.EXPECT().GetDefaultClient().Return(nil, errors.New(errorMsg))
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.Error(t, err, errorMsg)
+	assert.Equal(t, types.Info{}, info)
+}
+
 func TestDockerVersionCached(t *testing.T) {
 	_, client, _, _, _, done := dockerClientSetup(t)
 	defer done()

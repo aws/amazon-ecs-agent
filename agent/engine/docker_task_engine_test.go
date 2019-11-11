@@ -228,12 +228,14 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
-							gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
+							gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
 						metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(),
 							gomock.Any()).Return(tc.metadataUpdateError)
 					})
 			}
 
+			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
+				types.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
@@ -722,6 +724,48 @@ func TestCreateContainerForceSave(t *testing.T) {
 	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
 	if metadata.Error != nil {
 		t.Error("Unexpected error", metadata.Error)
+	}
+}
+
+func TestCreateContainerMetadata(t *testing.T) {
+	testcases := []struct {
+		name  string
+		info  types.Info
+		error error
+	}{
+		{
+			name:  "Selinux Security Option",
+			info:  types.Info{SecurityOptions: []string{"selinux"}},
+			error: nil,
+		},
+		{
+			name:  "Docker Info Error",
+			info:  types.Info{},
+			error: errors.New("Error getting docker info"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, privateTaskEngine, _, _, metadataManager := mocks(t, ctx, &config.Config{})
+			defer ctrl.Finish()
+
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine.cfg.ContainerMetadataEnabled = true
+
+			sleepTask := testdata.LoadTask("sleep5")
+			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
+			client.EXPECT().Info(ctx, dockerclient.InfoTimeout).Return(tc.info, tc.error)
+			metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), tc.info.SecurityOptions)
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+
+			metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+			assert.NoError(t, metadata.Error)
+		})
 	}
 }
 
