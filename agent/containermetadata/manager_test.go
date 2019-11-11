@@ -102,9 +102,10 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	mockTaskARN := invalidTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
+	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	newManager := &metadataManager{}
-	err := newManager.Create(nil, nil, mockTask, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
 	assert.Error(t, err)
 }
 
@@ -116,6 +117,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
+	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(errors.New("err")),
@@ -124,7 +126,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	newManager := &metadataManager{
 		osWrap: mockOS,
 	}
-	err := newManager.Create(nil, nil, mockTask, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
 	assert.Error(t, err)
 }
 

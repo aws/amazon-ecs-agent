@@ -42,7 +42,7 @@ type Manager interface {
 	SetAvailabilityZone(string)
 	SetHostPrivateIPv4Address(string)
 	SetHostPublicIPv4Address(string)
-	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
+	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string, []string) error
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
 }
@@ -113,7 +113,8 @@ func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
 // Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, task *apitask.Task, containerName string) error {
+func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig,
+	task *apitask.Task, containerName string, dockerSecurityOptions []string) error {
 	// Create task and container directories if they do not yet exist
 	metadataDirectoryPath, err := getMetadataFilePath(task.Arn, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason
@@ -135,7 +136,7 @@ func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfi
 
 	// Add the directory of this container's metadata to the container's mount binds
 	// Then add the destination directory as an environment variable in the container $METADATA
-	binds, env := createBindsEnv(hostConfig.Binds, config.Env, manager.dataDirOnHost, metadataDirectoryPath)
+	binds, env := createBindsEnv(hostConfig.Binds, config.Env, manager.dataDirOnHost, metadataDirectoryPath, dockerSecurityOptions)
 	config.Env = env
 	hostConfig.Binds = binds
 	return nil

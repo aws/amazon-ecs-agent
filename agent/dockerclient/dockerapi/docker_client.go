@@ -182,6 +182,9 @@ type DockerClient interface {
 
 	// LoadImage loads an image from an input stream. A timeout value and a context should be provided for the request.
 	LoadImage(context.Context, io.Reader, time.Duration) error
+
+	// Info returns the information of the Docker server.
+	Info(context.Context, time.Duration) (types.Info, error)
 }
 
 // DockerGoClient wraps the underlying go-dockerclient and docker/docker library.
@@ -1073,6 +1076,22 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 	version = info.Version
 	dg.setDaemonVersion(version)
 	return version, nil
+}
+
+func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (types.Info, error) {
+	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return types.Info{}, err
+	}
+	info, infoErr := client.Info(derivedCtx)
+	if infoErr != nil {
+		return types.Info{}, infoErr
+	}
+
+	return info, nil
 }
 
 func (dg *dockerGoClient) getDaemonVersion() string {
