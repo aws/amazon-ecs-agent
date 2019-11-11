@@ -131,6 +131,15 @@ func StrSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
+func StrSliceContains(strs []string, s string) bool {
+	for _, a := range strs {
+		if a == s {
+			return true
+		}
+	}
+	return false
+}
+
 func ParseBool(str string, default_ bool) bool {
 	res, err := strconv.ParseBool(strings.TrimSpace(str))
 	if err != nil {

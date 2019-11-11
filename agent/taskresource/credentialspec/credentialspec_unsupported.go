@@ -18,7 +18,6 @@ package credentialspec
 import (
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
@@ -34,12 +33,12 @@ type CredentialSpecResource struct {
 
 // NewCredentialSpecResource creates a new CredentialSpecResource object
 func NewCredentialSpecResource(taskARN, region string,
-	credentialSpecs map[string][]*apicontainer.Container,
+	credentialSpecs []string,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
-	s3ClientCreator s3factory.S3ClientCreator) *CredentialSpecResource {
-	return nil
+	s3ClientCreator s3factory.S3ClientCreator) (*CredentialSpecResource, error) {
+	return nil, errors.New("not supported")
 }
 
 func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,

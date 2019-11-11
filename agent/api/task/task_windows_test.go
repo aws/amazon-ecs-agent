@@ -393,8 +393,7 @@ func TestGetAllCredentialSpecRequirements(t *testing.T) {
 	allCredSpecReq := task.getAllCredentialSpecRequirements()
 
 	credentialspec := "credentialspec:file://gmsa_gmsa-acct.json"
-	expectedCredSpecReq := map[string][]*apicontainer.Container{}
-	expectedCredSpecReq[credentialspec] = append(expectedCredSpecReq[credentialspec], container)
+	expectedCredSpecReq := []string{credentialspec}
 
 	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
 }
@@ -415,10 +414,9 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *
 	allCredSpecReq := task.getAllCredentialSpecRequirements()
 
 	credentialspec := "credentialspec:file://gmsa_gmsa-acct.json"
-	expectedCredSpecReq := map[string][]*apicontainer.Container{}
-	expectedCredSpecReq[credentialspec] = append(expectedCredSpecReq[credentialspec], c1)
-	expectedCredSpecReq[credentialspec] = append(expectedCredSpecReq[credentialspec], c2)
+	expectedCredSpecReq := []string{credentialspec}
 
+	assert.Equal(t, len(expectedCredSpecReq), len(allCredSpecReq))
 	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
 }
 
@@ -445,10 +443,7 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
 	credentialspec1 := "credentialspec:file://gmsa_gmsa-acct-1.json"
 	credentialspec2 := "credentialspec:file://gmsa_gmsa-acct-2.json"
 
-	expectedCredSpecReq := map[string][]*apicontainer.Container{}
-	expectedCredSpecReq[credentialspec1] = append(expectedCredSpecReq[credentialspec1], c1)
-	expectedCredSpecReq[credentialspec1] = append(expectedCredSpecReq[credentialspec1], c2)
-	expectedCredSpecReq[credentialspec2] = append(expectedCredSpecReq[credentialspec2], c3)
+	expectedCredSpecReq := []string{credentialspec1, credentialspec2}
 
 	assert.EqualValues(t, expectedCredSpecReq, allCredSpecReq)
 }

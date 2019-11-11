@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/cihub/seelog"
 )
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
@@ -32,6 +33,8 @@ func parseGMSACapability() bool {
 		status, err := isDomainJoined()
 		if err == nil && status == true {
 			return true
+		} else {
+			seelog.Errorf("Unable to determine valid domain join: %v", err)
 		}
 	}
 
@@ -49,7 +52,10 @@ func isDomainJoined() (bool, error) {
 		return false, err
 	}
 
-	syscall.NetApiBufferFree((*byte)(unsafe.Pointer(domain)))
+	err = syscall.NetApiBufferFree((*byte)(unsafe.Pointer(domain)))
+	if err != nil {
+		return false, err
+	}
 
 	return status == syscall.NetSetupDomainName, nil
 }

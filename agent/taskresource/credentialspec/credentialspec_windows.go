@@ -24,7 +24,6 @@ import (
 	"sync"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
@@ -69,9 +68,9 @@ type CredentialSpecResource struct {
 	s3ClientCreator s3factory.S3ClientCreator
 	// credentialSpecResourceLocation is the location for all the tasks' credentialspec artifacts
 	credentialSpecResourceLocation string
-	// required for processing credentialspecs, key is input credentialspec
-	// Example key := credentialspec:file://credentialspec.json
-	requiredCredentialSpecs map[string][]*apicontainer.Container
+	// required for processing credentialspecs
+	// Example item := credentialspec:file://credentialspec.json
+	requiredCredentialSpecs []string
 	// map to transform credentialspec values, key is a input credentialspec
 	// Examples:
 	// * key := credentialspec:file://credentialspec.json, value := credentialspec=file://credentialspec.json
@@ -84,7 +83,7 @@ type CredentialSpecResource struct {
 
 // NewCredentialSpecResource creates a new CredentialSpecResource object
 func NewCredentialSpecResource(taskARN, region string,
-	credentialSpecs map[string][]*apicontainer.Container,
+	credentialSpecs []string,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
@@ -120,11 +119,11 @@ func (cs *CredentialSpecResource) initStatusToTransition() {
 func (cs *CredentialSpecResource) Initialize(resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
-	cs.initStatusToTransition()
+
 	cs.credentialsManager = resourceFields.CredentialsManager
 	cs.ssmClientCreator = resourceFields.SSMClientCreator
 	cs.s3ClientCreator = resourceFields.S3ClientCreator
-
+	cs.initStatusToTransition()
 }
 
 // GetTerminalReason returns an error string to propagate up through to task
@@ -273,7 +272,7 @@ func (cs *CredentialSpecResource) GetCreatedAt() time.Time {
 }
 
 // getRequiredCredentialSpecs returns the requiredCredentialSpecs field of credentialspec task resource
-func (cs *CredentialSpecResource) getRequiredCredentialSpecs() map[string][]*apicontainer.Container {
+func (cs *CredentialSpecResource) getRequiredCredentialSpecs() []string {
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
 
@@ -309,7 +308,7 @@ func (cs *CredentialSpecResource) Create() error {
 	}
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
-	for credSpecStr, _ := range cs.requiredCredentialSpecs {
+	for _, credSpecStr := range cs.requiredCredentialSpecs {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
 		if len(credSpecSplit) != 2 {
 			seelog.Errorf("Invalid credentialspec: %s", credSpecStr)
@@ -533,13 +532,13 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 
 // CredentialSpecResourceJSON is the json representation of the credentialspec resource
 type CredentialSpecResourceJSON struct {
-	TaskARN                 string                               `json:"taskARN"`
-	CreatedAt               *time.Time                           `json:"createdAt,omitempty"`
-	DesiredStatus           *CredentialSpecStatus                `json:"desiredStatus"`
-	KnownStatus             *CredentialSpecStatus                `json:"knownStatus"`
-	RequiredCredentialSpecs map[string][]*apicontainer.Container `json:"credentialSpecResources"`
-	CredSpecMap             map[string]string                    `json:"CredSpecMap"`
-	ExecutionCredentialsID  string                               `json:"executionCredentialsID"`
+	TaskARN                 string                `json:"taskARN"`
+	CreatedAt               *time.Time            `json:"createdAt,omitempty"`
+	DesiredStatus           *CredentialSpecStatus `json:"desiredStatus"`
+	KnownStatus             *CredentialSpecStatus `json:"knownStatus"`
+	RequiredCredentialSpecs []string              `json:"credentialSpecResources"`
+	CredSpecMap             map[string]string     `json:"CredSpecMap"`
+	ExecutionCredentialsID  string                `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serialises the CredentialSpecResourceJSON struct to JSON

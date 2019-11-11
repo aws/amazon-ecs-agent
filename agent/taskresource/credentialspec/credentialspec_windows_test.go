@@ -22,7 +22,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
@@ -118,19 +117,18 @@ func TestInitialize(t *testing.T) {
 			CredentialsManager: credentialsManager,
 		},
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
-	assert.Equal(t, resourcestatus.ResourceStatusNone, credspecRes.GetKnownStatus())
-	assert.Equal(t, resourcestatus.ResourceCreated, credspecRes.GetDesiredStatus())
+
+	assert.NotNil(t, credspecRes.credentialsManager)
+	assert.NotNil(t, credspecRes.ssmClientCreator)
+	assert.NotNil(t, credspecRes.s3ClientCreator)
+	assert.NotNil(t, credspecRes.resourceStatusToTransitionFunction)
 }
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
-	requiredCredentialSpecs := make(map[string][]*apicontainer.Container)
 	testCredSpec := "credentialspec:file://test.json"
 	targetCredSpec := "credentialspec=file://test.json"
-	testContainer := &apicontainer.Container{
-		Name: "test-container",
-	}
 
-	requiredCredentialSpecs[testCredSpec] = append(requiredCredentialSpecs[testCredSpec], testContainer)
+	requiredCredentialSpecs := []string{testCredSpec}
 
 	credSpecMap := map[string]string{}
 	credSpecMap[testCredSpec] = targetCredSpec
@@ -165,9 +163,7 @@ func TestHandleCredentialspecFile(t *testing.T) {
 	fileCredentialSpec := "credentialspec:file://test.json"
 	expectedFileCredentialSpec := "credentialspec=file://test.json"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		fileCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{fileCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		requiredCredentialSpecs: requiredCredSpec,
@@ -184,9 +180,7 @@ func TestHandleCredentialspecFile(t *testing.T) {
 
 func TestHandleCredentialspecFileErr(t *testing.T) {
 	fileCredentialSpec := "credentialspec:invalid-file://test.json"
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		fileCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{fileCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		requiredCredentialSpecs: requiredCredSpec,
@@ -211,9 +205,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	expectedFileCredentialSpec := "credentialspec=file://ssm_task1_test.json"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		ssmCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{ssmCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -283,9 +275,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		ssmCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{ssmCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -325,9 +315,7 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		ssmCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{ssmCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -383,9 +371,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 	expectedFileCredentialSpec := "credentialspec=file://s3_task1_test.json"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		s3CredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{s3CredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -488,9 +474,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		s3CredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{s3CredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -536,9 +520,7 @@ func TestCreateSSM(t *testing.T) {
 	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
 
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		ssmCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{ssmCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -599,9 +581,7 @@ func TestCreateS3(t *testing.T) {
 
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		s3CredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{s3CredentialSpec}
 
 	cs := &CredentialSpecResource{
 		knownStatusUnsafe:       resourcestatus.ResourceCreated,
@@ -651,9 +631,7 @@ func TestCreateFile(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
 	fileCredentialSpec := "credentialspec:file://test.json"
-	requiredCredSpec := map[string][]*apicontainer.Container{
-		fileCredentialSpec: []*apicontainer.Container{},
-	}
+	requiredCredSpec := []string{fileCredentialSpec}
 
 	cs := &CredentialSpecResource{
 		credentialsManager:      credentialsManager,

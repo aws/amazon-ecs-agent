@@ -1013,7 +1013,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			}
 
 		} else {
-			emptyErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec"}
+			emptyErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec: " + err.Error()}
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(emptyErr)}
 		}
 	}

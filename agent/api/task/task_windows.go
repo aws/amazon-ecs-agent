@@ -23,7 +23,8 @@ import (
 	"strings"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -191,15 +192,14 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() map[string][]*apicontainer.Container {
-	reqs := map[string][]*apicontainer.Container{}
+func (task *Task) getAllCredentialSpecRequirements() []string {
+	reqs := []string{}
 
 	for _, container := range task.Containers {
 		credentialSpec, err := container.GetCredentialSpec()
-		if err == nil && credentialSpec != "" {
-			reqs[credentialSpec] = append(reqs[credentialSpec], container)
+		if err == nil && credentialSpec != "" && !utils.StrSliceContains(reqs, credentialSpec) {
+			reqs = append(reqs, credentialSpec)
 		}
-
 	}
 
 	return reqs

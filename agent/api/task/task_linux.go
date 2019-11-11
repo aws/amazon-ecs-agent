@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -233,7 +232,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 }
 
 // getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() map[string][]*apicontainer.Container {
+func (task *Task) getAllCredentialSpecRequirements() []string {
 	return nil
 }
 
