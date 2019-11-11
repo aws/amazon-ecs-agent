@@ -22,6 +22,7 @@
 %endif
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
+%global no_exec_perm 644
 
 %ifarch x86_64
 %global agent_image %{SOURCE3}
@@ -159,7 +160,7 @@ required routes among its preparation steps.
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
-install -D scripts/amazon-ecs-init.1 %{buildroot}%{_mandir}/man1/amazon-ecs-init.1
+install -m %{no_exec_perm} -D scripts/amazon-ecs-init.1 %{buildroot}%{_mandir}/man1/amazon-ecs-init.1
 
 mkdir -p %{buildroot}%{_sysconfdir}/ecs
 touch %{buildroot}%{_sysconfdir}/ecs/ecs.config
@@ -169,14 +170,14 @@ touch %{buildroot}%{_sysconfdir}/ecs/ecs.config.json
 mkdir -p %{buildroot}%{_cachedir}/ecs
 echo 2 > %{buildroot}%{_cachedir}/ecs/state
 # Add a bundled ECS container agent image
-install %{agent_image} %{buildroot}%{_cachedir}/ecs/
+install -m %{no_exec_perm} %{agent_image} %{buildroot}%{_cachedir}/ecs/
 
 mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 
 %if %{with systemd}
-install -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
+install -m %{no_exec_perm} -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
 %else
-install -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
+install -m %{no_exec_perm} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
 %endif
 
 %files
