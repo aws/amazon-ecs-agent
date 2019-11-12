@@ -570,78 +570,89 @@ func TestGetConfigOverrides(t *testing.T) {
 	expectKey("ECS_ENABLE_GPU_SUPPORT=false", envVariables, t)
 }
 
-func TestStopAgentError(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockDocker := NewMockdockerclient(mockCtrl)
-
-	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
-		All: true,
-		Filters: map[string][]string{
-			"status": []string{},
-		},
-	}).Return(nil, errors.New("test error"))
-
-	client := &Client{
-		docker: mockDocker,
-	}
-
-	err := client.StopAgent()
-	if err == nil {
-		t.Error("Error should be returned")
-	}
-}
-
-func TestStopAgentNone(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockDocker := NewMockdockerclient(mockCtrl)
-
-	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
-		All: true,
-		Filters: map[string][]string{
-			"status": []string{},
-		},
-	}).Return([]godocker.APIContainers{godocker.APIContainers{}}, nil)
-
-	client := &Client{
-		docker: mockDocker,
-	}
-
-	err := client.StopAgent()
-	if err != nil {
-		t.Error("Error should not be returned")
-	}
-}
-
 func TestStopAgent(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockDocker := NewMockdockerclient(mockCtrl)
-
-	mockDocker.EXPECT().ListContainers(godocker.ListContainersOptions{
-		All: true,
-		Filters: map[string][]string{
-			"status": []string{},
+	testCases := []struct {
+		name                 string
+		listFailed           bool
+		listEmpty            bool
+		stopFailedNotRunning bool
+		stopFailedOther      bool
+		expectedError        bool
+	}{
+		{
+			name: "List containers succeeded, stop agent succeeded",
 		},
-	}).Return([]godocker.APIContainers{
-		godocker.APIContainers{
-			Names: []string{"/" + config.AgentContainerName},
-			ID:    "id",
+		{
+			name:       "List containers failed",
+			listFailed: true,
 		},
-	}, nil)
-	mockDocker.EXPECT().StopContainer("id", uint(10))
-
-	client := &Client{
-		docker: mockDocker,
+		{
+			name:      "List containers no agent present",
+			listEmpty: true,
+		},
+		{
+			name:                 "List containers succeeded, stop agent failed on container not running",
+			stopFailedNotRunning: true,
+		},
+		{
+			name:            "List containers succeeded, stop agent failed on error other than not running",
+			stopFailedOther: true,
+		},
 	}
 
-	err := client.StopAgent()
-	if err != nil {
-		t.Error("Error should not be returned")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
+			mockDocker := NewMockdockerclient(mockCtrl)
+			client := &Client{
+				docker: mockDocker,
+			}
+
+			var listInput godocker.ListContainersOptions
+			var listOutput []godocker.APIContainers
+			var listErr error
+			listInput = godocker.ListContainersOptions{
+				All: true,
+				Filters: map[string][]string{
+					"status": {},
+				},
+			}
+			if tc.listEmpty || tc.listFailed {
+				listOutput = []godocker.APIContainers{{}}
+			} else {
+				listOutput = []godocker.APIContainers{
+					{
+						Names: []string{"/" + config.AgentContainerName},
+						ID:    "id",
+					},
+				}
+			}
+
+			if tc.listFailed {
+				listErr = errors.New("test error")
+			}
+
+			mockDocker.EXPECT().ListContainers(listInput).Return(listOutput, listErr)
+
+			var stopErr error
+			if tc.stopFailedNotRunning {
+				stopErr = &godocker.ContainerNotRunning{ID: "id"}
+			} else if tc.stopFailedOther {
+				stopErr = errors.New("test error")
+			}
+
+			if !tc.listEmpty && !tc.listFailed {
+				mockDocker.EXPECT().StopContainer("id", uint(10)).Return(stopErr)
+			}
+
+			if tc.listFailed || tc.stopFailedOther {
+				assert.Error(t, client.StopAgent())
+			} else {
+				assert.NoError(t, client.StopAgent())
+			}
+		})
 	}
 }
 

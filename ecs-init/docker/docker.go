@@ -423,5 +423,12 @@ func (c *Client) StopAgent() error {
 		return nil
 	}
 	stopContainerTimeoutSeconds := uint(10)
-	return c.docker.StopContainer(id, stopContainerTimeoutSeconds)
+	err = c.docker.StopContainer(id, stopContainerTimeoutSeconds)
+	if err != nil {
+		if _, ok := err.(*godocker.ContainerNotRunning); ok {
+			log.Info("Agent is already stopped")
+			return nil
+		}
+	}
+	return err
 }
