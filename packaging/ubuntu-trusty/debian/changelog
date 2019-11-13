@@ -1,3 +1,10 @@
+amazon-ecs-init (1.33.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.33.0
+  * Fix destination path in docker socket bind mount to match the one specified using DOCKER_HOST on Amazon Linux 2
+
+  -- Shubham Goyal <shugy@amazon.com>  Mon, 11 Nov 2019 11:05:00 -0800
+
 amazon-ecs-init (1.32.1-1) trusty; urgency=medium
 
   * Cache Agent version 1.32.1
