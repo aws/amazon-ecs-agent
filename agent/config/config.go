@@ -551,6 +551,7 @@ func environmentConfig() (Config, error) {
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),
 		CgroupCPUPeriod:                     parseCgroupCPUPeriod(),
 		SpotInstanceDrainingEnabled:         utils.ParseBool(os.Getenv("ECS_ENABLE_SPOT_INSTANCE_DRAINING"), false),
+		GMSACapable:                         parseGMSACapability(),
 	}, err
 }
 
