@@ -24,10 +24,23 @@ import (
 	"github.com/cihub/seelog"
 )
 
+const (
+	// envSkipDomainJoinCheck is an environment setting that can be used to skip
+	// domain join check validation. This is useful for integration and
+	// functional-tests but should not be set for any non-test use-case.
+	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+)
+
 // parseGMSACapability is used to determine if gMSA support can be enabled
 func parseGMSACapability() bool {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
 	if envStatus {
+		// Check if domain join check override is present
+		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
+		if skipDomainJoinCheck {
+			seelog.Debug("Skipping domain join validation based on environment override")
+			return true
+		}
 		// If gMSA feature is explicitly enabled, check if container instance is domain joined.
 		// If container instance is not domain joined, explicitly disable feature configuration.
 		status, err := isDomainJoined()
