@@ -21,6 +21,7 @@ import (
 	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -39,6 +40,8 @@ const (
 	ASMSecretKey = asmsecretres.ResourceName
 	// FirelensKey is the string used in resources map to represent firelens resource
 	FirelensKey = firelens.ResourceName
+	// CredentialSpecKey is the string used in resources map to represent credentialspec resource
+	CredentialSpecKey = credentialspec.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -76,6 +79,8 @@ func unmarshalResource(key string, value json.RawMessage, result map[string][]ta
 		return unmarshalASMSecretKey(key, value, result)
 	case FirelensKey:
 		return unmarshalFirelensKey(key, value, result)
+	case CredentialSpecKey:
+		return unmarshalCredentialSpecKey(key, value, result)
 	default:
 		return errors.New("Unsupported resource type")
 	}
@@ -183,6 +188,24 @@ func unmarshalFirelensKey(key string, value json.RawMessage, result map[string][
 			return err
 		}
 
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalCredentialSpecKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var credentialSpecs []json.RawMessage
+	err := json.Unmarshal(value, &credentialSpecs)
+	if err != nil {
+		return err
+	}
+
+	for _, credSpec := range credentialSpecs {
+		res := &credentialspec.CredentialSpecResource{}
+		err := res.UnmarshalJSON(credSpec)
+		if err != nil {
+			return err
+		}
 		result[key] = append(result[key], res)
 	}
 	return nil
