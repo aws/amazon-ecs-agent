@@ -17,6 +17,7 @@ package statemanager_test
 
 import (
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -485,4 +487,52 @@ func TestLoadsDataSeqTaskManifest(t *testing.T) {
 	assert.Equal(t, "state-file", cluster)
 	assert.EqualValues(t, 0, sequenceNumber)
 	assert.EqualValues(t, 7, seqNumTaskManifest)
+}
+
+func TestLoadsDataForGMSATask(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip()
+	}
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v26", "gmsa", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v26", "gmsa")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	assert.Equal(t, "gmsa-test", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	task := tasks[0]
+
+	assert.Equal(t, "arn:aws:ecs:ap-northeast-1:1234567890:task/b8e2bd3c-c82a-4b43-9bde-199ae05b49a5", task.Arn)
+	assert.Equal(t, "gmsa-test", task.Family)
+	assert.Equal(t, 1, len(task.Containers))
+	container := task.Containers[0]
+	assert.Equal(t, "windows_sample_app", container.Name)
+	assert.NotNil(t, container.DockerConfig.HostConfig)
+
+	resource, ok := task.GetCredentialSpecResource()
+	assert.True(t, ok)
+	assert.NotEmpty(t, resource)
+
+	credSpecResource := resource[0].(*credentialspec.CredentialSpecResource)
+	credSpecMap := credSpecResource.CredSpecMap
+
+	inputCredSpec := "credentialspec:file://WebApp01.json"
+	targetCredSpec := "credentialspec=file://WebApp01.json"
+
+	assert.Equal(t, targetCredSpec, credSpecMap[inputCredSpec])
 }
