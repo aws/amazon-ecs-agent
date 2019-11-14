@@ -77,7 +77,10 @@ type CredentialSpecResource struct {
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
 	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
 	CredSpecMap map[string]string
-	// datalock should protect the CredSpecMap
+	// datalock should protect the credentialspec data
+	// updateCredSpecMapping() and GetDesiredStatus() could potentially deadlock
+	// if they depend on the same mutex. However, the credential spec data can be
+	// updated independently to prevent lock contention.
 	datalock sync.RWMutex
 
 	// lock is used for fields that are accessed and updated concurrently
