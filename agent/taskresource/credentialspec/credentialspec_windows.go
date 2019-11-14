@@ -77,6 +77,9 @@ type CredentialSpecResource struct {
 	// * key := credentialspec:s3ARN, value := credentialspec=file://CredentialSpecResourceLocation/s3_taskARN_fileName.json
 	// * key := credentialspec:ssmARN, value := credentialspec=file://CredentialSpecResourceLocation/ssm_taskARN_param.json
 	CredSpecMap map[string]string
+	// datalock should protect the CredSpecMap
+	datalock sync.RWMutex
+
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 }
@@ -98,6 +101,8 @@ func NewCredentialSpecResource(taskARN, region string,
 		ssmClientCreator:        ssmClientCreator,
 		s3ClientCreator:         s3ClientCreator,
 		CredSpecMap:             make(map[string]string),
+		os:                      oswrapper.NewOS(),
+		ioutil:                  ioutilwrapper.NewIOUtil(),
 	}
 
 	err := s.setCredentialSpecResourceLocation()
@@ -273,8 +278,8 @@ func (cs *CredentialSpecResource) GetCreatedAt() time.Time {
 
 // getRequiredCredentialSpecs returns the requiredCredentialSpecs field of credentialspec task resource
 func (cs *CredentialSpecResource) getRequiredCredentialSpecs() []string {
-	cs.lock.RLock()
-	defer cs.lock.RUnlock()
+	cs.datalock.RLock()
+	defer cs.datalock.RUnlock()
 
 	return cs.requiredCredentialSpecs
 }
@@ -478,15 +483,15 @@ func (cs *CredentialSpecResource) writeSSMFile(ssmParamData, filePath string) er
 }
 
 func (cs *CredentialSpecResource) getCredSpecMap() map[string]string {
-	cs.lock.RLock()
-	defer cs.lock.RUnlock()
+	cs.datalock.RLock()
+	defer cs.datalock.RUnlock()
 
 	return cs.CredSpecMap
 }
 
 func (cs *CredentialSpecResource) GetTargetMapping(credSpecInput string) (string, error) {
-	cs.lock.RLock()
-	defer cs.lock.RUnlock()
+	cs.datalock.RLock()
+	defer cs.datalock.RUnlock()
 
 	targetCredSpecMapping, ok := cs.CredSpecMap[credSpecInput]
 	if !ok {
@@ -497,8 +502,8 @@ func (cs *CredentialSpecResource) GetTargetMapping(credSpecInput string) (string
 }
 
 func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, targetCredSpec string) {
-	cs.lock.Lock()
-	defer cs.lock.Unlock()
+	cs.datalock.Lock()
+	defer cs.datalock.Unlock()
 
 	cs.CredSpecMap[credSpecInput] = targetCredSpec
 }
@@ -512,8 +517,8 @@ func (cs *CredentialSpecResource) Cleanup() error {
 // clearCredentialSpec cycles through the collection of credentialspec data and
 // removes them from the task
 func (cs *CredentialSpecResource) clearCredentialSpec() {
-	cs.lock.Lock()
-	defer cs.lock.Unlock()
+	cs.datalock.Lock()
+	defer cs.datalock.Unlock()
 
 	for key, value := range cs.CredSpecMap {
 		if strings.HasPrefix(key, "credentialspec:file://") {
