@@ -495,6 +495,9 @@ func (cs *CredentialSpecResource) GetTargetMapping(credSpecInput string) (string
 }
 
 func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, targetCredSpec string) {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+
 	seelog.Debugf("Updating credentialspec mapping for %s with %s", credSpecInput, targetCredSpec)
 	cs.CredSpecMap[credSpecInput] = targetCredSpec
 }
