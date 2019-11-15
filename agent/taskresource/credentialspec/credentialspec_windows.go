@@ -298,15 +298,6 @@ func (cs *CredentialSpecResource) GetName() string {
 // Create is used to create all the credentialspec resources for a given task
 func (cs *CredentialSpecResource) Create() error {
 	var err error
-	// To fail fast, check execution role first
-	executionCredentials, ok := cs.credentialsManager.GetTaskCredentials(cs.getExecutionCredentialsID())
-	if !ok {
-		// No need to log here. managedTask.applyResourceState already does that
-		err = errors.New("credentialspec resource: unable to find execution role credentials")
-		cs.setTerminalReason(err.Error())
-		return err
-	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
 	for _, credSpecStr := range cs.requiredCredentialSpecs {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
@@ -324,6 +315,16 @@ func (cs *CredentialSpecResource) Create() error {
 			}
 			continue
 		}
+
+		// To fail fast, check execution role
+		executionCredentials, ok := cs.credentialsManager.GetTaskCredentials(cs.getExecutionCredentialsID())
+		if !ok {
+			// No need to log here. managedTask.applyResourceState already does that
+			err = errors.New("credentialspec resource: unable to find execution role credentials")
+			cs.setTerminalReason(err.Error())
+			return err
+		}
+		iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
 		parsedARN, err := arn.Parse(credSpecValue)
 		if err != nil {
