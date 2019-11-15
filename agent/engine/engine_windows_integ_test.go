@@ -657,10 +657,9 @@ func TestGMSATaskFile(t *testing.T) {
                                                                       }
                                                                   ]
                               }
-}
-`)
+}`)
 
-	err := ioutil.WriteFile(testCredSpecFilePath, []byte(testCredSpecData), 0755)
+	err := ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
 	require.NoError(t, err)
 
 	testContainer := createTestContainer()
