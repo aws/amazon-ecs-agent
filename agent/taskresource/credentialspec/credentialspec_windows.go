@@ -98,6 +98,8 @@ func NewCredentialSpecResource(taskARN, region string,
 		ssmClientCreator:        ssmClientCreator,
 		s3ClientCreator:         s3ClientCreator,
 		CredSpecMap:             make(map[string]string),
+		os:                      oswrapper.NewOS(),
+		ioutil:                  ioutilwrapper.NewIOUtil(),
 	}
 
 	err := s.setCredentialSpecResourceLocation()
