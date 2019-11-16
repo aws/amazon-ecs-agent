@@ -624,7 +624,7 @@ func TestTaskLevelVolume(t *testing.T) {
 }
 
 func TestGMSATaskFile(t *testing.T) {
-	taskEngine, done, _ := setupWithGMSA(t)
+	taskEngine, done, _ := setupGMSA(defaultTestConfigIntegTestGMSA(), nil, t)
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -688,7 +688,8 @@ func TestGMSATaskFile(t *testing.T) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 
-	err = verifyContainerCredentialSpec(client, cid)
+	testCredentialSpecOption := "credentialspec=file://test-gmsa.json"
+	err = verifyContainerCredentialSpec(client, cid, testCredentialSpecOption)
 	assert.NoError(t, err)
 
 	// Kill the existing container now
@@ -753,18 +754,14 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 	}, credentialsManager
 }
 
-func setupWithGMSA(t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	return setupGMSA(defaultTestConfigIntegTestGMSA(), nil, t)
-}
-
-func verifyContainerCredentialSpec(client *sdkClient.Client, id string) error {
+func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecOpt string) error {
 	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
 	if err != nil {
 		return err
 	}
 
 	for _, opt := range dockerContainer.HostConfig.SecurityOpt {
-		if strings.HasPrefix(opt, "credentialspec=") {
+		if strings.HasPrefix(opt, "credentialspec=") && opt == credentialspecOpt {
 			return nil
 		}
 	}
