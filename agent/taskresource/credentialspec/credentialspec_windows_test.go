@@ -240,7 +240,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
 	assert.NoError(t, err)
 
 	targetCredentialSpecFile, err := cs.GetTargetMapping(ssmCredentialSpec)
@@ -258,7 +258,7 @@ func TestHandleSSMCredentialspecFileARNParseErr(t *testing.T) {
 		terminalReason: termReason,
 	}
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -297,7 +297,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -350,7 +350,7 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -402,7 +402,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
 	assert.NoError(t, err)
 
 	targetCredentialSpecFile, err := cs.GetTargetMapping(s3CredentialSpec)
@@ -421,7 +421,7 @@ func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
 		terminalReason: termReason,
 	}
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -454,7 +454,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -505,7 +505,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
 	assert.Error(t, err)
 }
 
