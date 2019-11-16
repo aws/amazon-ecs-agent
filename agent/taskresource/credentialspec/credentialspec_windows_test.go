@@ -199,7 +199,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
-	iamCredentials := credentials.IAMRoleCredentials{}
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
@@ -240,7 +242,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
 	assert.NoError(t, err)
 
 	targetCredentialSpecFile, err := cs.GetTargetMapping(ssmCredentialSpec)
@@ -249,7 +251,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 }
 
 func TestHandleSSMCredentialspecFileARNParseErr(t *testing.T) {
-	iamCredentials := credentials.IAMRoleCredentials{}
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecSSMARN := "arn:aws:ssm:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 
@@ -258,7 +262,7 @@ func TestHandleSSMCredentialspecFileARNParseErr(t *testing.T) {
 		terminalReason: termReason,
 	}
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -270,8 +274,9 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
-	iamCredentials := credentials.IAMRoleCredentials{}
-
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 
@@ -297,7 +302,7 @@ func TestHandleSSMCredentialspecFileGetSSMParamErr(t *testing.T) {
 		mockSSMClient.EXPECT().GetParameters(gomock.Any()).Return(nil, errors.New("test-error")).Times(1),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -310,8 +315,9 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
 	mockSSMClient := mock_ssmiface.NewMockSSMClient(ctrl)
-	iamCredentials := credentials.IAMRoleCredentials{}
-
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
 
@@ -350,7 +356,18 @@ func TestHandleSSMCredentialspecFileIOErr(t *testing.T) {
 		mockIO.EXPECT().WriteFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
 	)
 
-	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, &iamCredentials)
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
+	assert.Error(t, err)
+}
+
+func TestHandlerSSMCredentialspecCredMissingErr(t *testing.T) {
+	cs := &CredentialSpecResource{}
+
+	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
+	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
+	iamCredentials := credentials.IAMRoleCredentials{}
+
+	err := cs.handleSSMCredentialspecFile(ssmCredentialSpec, credentialSpecSSMARN, iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -365,8 +382,9 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	mockOS := mock_oswrapper.NewMockOS(ctrl)
 	mockFile := mock_oswrapper.NewMockFile(ctrl)
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
-	iamCredentials := credentials.IAMRoleCredentials{}
-
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 	expectedFileCredentialSpec := "credentialspec=file://s3_task1_test.json"
@@ -402,7 +420,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
 	assert.NoError(t, err)
 
 	targetCredentialSpecFile, err := cs.GetTargetMapping(s3CredentialSpec)
@@ -411,8 +429,9 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 }
 
 func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
-	iamCredentials := credentials.IAMRoleCredentials{}
-
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecS3ARN := "arn:aws:/test"
 	s3CredentialSpec := "credentialspec:arn:/test"
 
@@ -421,7 +440,7 @@ func TestHandleS3CredentialspecFileARNParseErr(t *testing.T) {
 		terminalReason: termReason,
 	}
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -433,8 +452,9 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
-	iamCredentials := credentials.IAMRoleCredentials{}
-
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
@@ -454,7 +474,7 @@ func TestHandleS3CredentialspecFileS3ClientErr(t *testing.T) {
 		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, errors.New("test-error")),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
 	assert.Error(t, err)
 }
 
@@ -470,7 +490,9 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	mockFile := mock_oswrapper.NewMockFile(ctrl)
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
 
-	iamCredentials := credentials.IAMRoleCredentials{}
+	iamCredentials := credentials.IAMRoleCredentials{
+		CredentialsID: "test-cred-id",
+	}
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
 
@@ -505,7 +527,18 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		mockFile.EXPECT().Close(),
 	)
 
-	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, &iamCredentials)
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
+	assert.Error(t, err)
+}
+
+func TestHandlerS3CredentialspecCredMissingErr(t *testing.T) {
+	cs := &CredentialSpecResource{}
+
+	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
+	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
+	iamCredentials := credentials.IAMRoleCredentials{}
+
+	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
 	assert.Error(t, err)
 }
 

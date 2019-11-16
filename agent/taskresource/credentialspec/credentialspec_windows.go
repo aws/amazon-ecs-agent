@@ -329,13 +329,13 @@ func (cs *CredentialSpecResource) Create() error {
 
 		parsedARNService := parsedARN.Service
 		if parsedARNService == "s3" {
-			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, &iamCredentials)
+			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
 				cs.setTerminalReason(err.Error())
 				return err
 			}
 		} else if parsedARNService == "ssm" {
-			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, &iamCredentials)
+			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
 				cs.setTerminalReason(err.Error())
 				return err
@@ -368,8 +368,8 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(credentialspec string
 	return nil
 }
 
-func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialspec, credentialspecS3ARN string, iamCredentials *credentials.IAMRoleCredentials) error {
-	if iamCredentials == nil {
+func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialspec, credentialspecS3ARN string, iamCredentials credentials.IAMRoleCredentials) error {
+	if iamCredentials == (credentials.IAMRoleCredentials{}) {
 		err := errors.New("credentialspec resource: unable to find execution role credentials")
 		cs.setTerminalReason(err.Error())
 		return err
@@ -387,7 +387,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 		return err
 	}
 
-	s3Client, err := cs.s3ClientCreator.NewS3ClientForBucket(bucket, cs.region, *iamCredentials)
+	s3Client, err := cs.s3ClientCreator.NewS3ClientForBucket(bucket, cs.region, iamCredentials)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
 		return err
@@ -410,8 +410,8 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	return nil
 }
 
-func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialspec, credentialspecSSMARN string, iamCredentials *credentials.IAMRoleCredentials) error {
-	if iamCredentials == nil {
+func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialspec, credentialspecSSMARN string, iamCredentials credentials.IAMRoleCredentials) error {
+	if iamCredentials == (credentials.IAMRoleCredentials{}) {
 		err := errors.New("credentialspec resource: unable to find execution role credentials")
 		cs.setTerminalReason(err.Error())
 		return err
@@ -423,7 +423,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 		return err
 	}
 
-	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, *iamCredentials)
+	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
 
 	ssmParam := filepath.Base(parsedARN.Resource)
 	ssmParams := []string{ssmParam}
