@@ -18,6 +18,8 @@ package credentialspec
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hectane/go-acl"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -394,8 +396,13 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	}
 
 	resourceBase := filepath.Base(parsedARN.Resource)
-	localCredSpecFilePath := fmt.Sprintf("%s/s3_%s_%s.json", cs.credentialSpecResourceLocation, cs.taskARN, resourceBase)
+	taskArnSplit := strings.SplitN(cs.taskARN, "/", 2)
+	if (len(taskArnSplit) != 2) {
+		seelog.Errorf("Failed to retrieve taskId from taskArn.")
+		return errors.New("Failed to retrieve taskId from taskArn.")
+	}
 
+	localCredSpecFilePath := fmt.Sprintf("%s\\s3_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[1], resourceBase)
 	err = cs.writeS3File(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, localCredSpecFilePath)
@@ -436,8 +443,12 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 
 	ssmParamData := ssmParamMap[ssmParam]
 
-	localCredSpecFilePath := fmt.Sprintf("%s/ssm_%s_%s.json", cs.credentialSpecResourceLocation, cs.taskARN, ssmParam)
-
+	taskArnSplit := strings.SplitN(cs.taskARN, "/", 2)
+	if (len(taskArnSplit) != 2) {
+		seelog.Errorf("Failed to retrieve taskId from taskArn.")
+		return errors.New("Failed to retrieve taskId from taskArn.")
+	}
+	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[1], ssmParam)
 	err = cs.writeSSMFile(ssmParamData, localCredSpecFilePath)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -455,14 +466,8 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 	if err != nil {
 		return err
 	}
-	defer temp.Close()
 
 	err = writeFunc(temp)
-	if err != nil {
-		return err
-	}
-
-	err = temp.Chmod(os.FileMode(filePerm))
 	if err != nil {
 		return err
 	}
@@ -473,8 +478,30 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
-	err = cs.os.Rename(temp.Name(), filePath)
+	input, err := ioutil.ReadFile(temp.Name())
 	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(filePath, input, 0644)
+	if err != nil {
+		return err
+	}
+
+	err = acl.Chmod(filePath, filePerm);
+	if err != nil {
+		return err
+	}
+
+	err = temp.Close()
+	if err != nil {
+		seelog.Errorf("Error while closing the handle to file:%v", temp.Name())
+		return err
+	}
+
+	err = os.Remove(temp.Name())
+	if err != nil {
+		seelog.Errorf("Error while removing the temporary file:%v", temp.Name())
 		return err
 	}
 
