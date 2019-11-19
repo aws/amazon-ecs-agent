@@ -171,6 +171,9 @@ type Config struct {
 	// before it can be deleted
 	MinimumImageDeletionAge time.Duration
 
+	// NonECSMinimumImageDeletionAge specifies the minimum time since non ecs images created before it can be deleted
+	NonECSMinimumImageDeletionAge time.Duration
+
 	// ImageCleanupInterval specifies the time to wait before performing the image
 	// cleanup since last time it was executed
 	ImageCleanupInterval time.Duration
@@ -302,4 +305,8 @@ type Config struct {
 	// Defaults to false.
 	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
 	SpotInstanceDrainingEnabled bool
+
+	// GMSACapable is the config option to indicate if gMSA is supported.
+	// It should be enabled by default only if the container instance is part of a valid active directory domain.
+	GMSACapable bool
 }

@@ -359,6 +359,15 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 			return err
 		}
 	}
+
+	if task.requiresCredentialSpecResource() {
+		err = task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields)
+		if err != nil {
+			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1357,6 +1366,9 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 		return &apierrors.HostConfigError{Msg: "Unable to get execution role credentials for task"}
 	}
 	credentialsEndpointRelativeURI := executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+	if hostConfig.LogConfig.Config == nil {
+		hostConfig.LogConfig.Config = map[string]string{}
+	}
 	hostConfig.LogConfig.Config[awslogsCredsEndpointOpt] = credentialsEndpointRelativeURI
 	return nil
 }
@@ -2289,6 +2301,9 @@ func populateContainerSecrets(hostConfig *dockercontainer.HostConfig, container 
 			// Check if all the name and secret value for the log driver do exist
 			// And add the secret value for this log driver into container's HostConfig
 			if hostConfig.LogConfig.Type != "" && logDriverTokenName != "" && logDriverTokenSecretValue != "" {
+				if hostConfig.LogConfig.Config == nil {
+					hostConfig.LogConfig.Config = map[string]string{}
+				}
 				hostConfig.LogConfig.Config[logDriverTokenName] = logDriverTokenSecretValue
 			}
 		}

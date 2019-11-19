@@ -17,9 +17,13 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -36,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	log "github.com/cihub/seelog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,6 +59,37 @@ func createTestTask(arn string) *apitask.Task {
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
+}
+
+func setupIntegTestLogs(t *testing.T) string {
+	// Create a directory for storing test logs.
+	testLogDir, err := ioutil.TempDir("", "ecs-integ-test")
+	require.NoError(t, err, "Unable to create directory for storing test logs")
+
+	logger, err := log.LoggerFromConfigAsString(loggerConfigIntegrationTest(testLogDir))
+	assert.NoError(t, err, "initialisation failed")
+
+	err = log.ReplaceLogger(logger)
+	assert.NoError(t, err, "unable to replace logger")
+
+	return testLogDir
+}
+
+func loggerConfigIntegrationTest(logfile string) string {
+	config := fmt.Sprintf(`
+	<seelog type="asyncloop" minlevel="debug">
+		<outputs formatid="main">
+			<console />
+			<rollingfile filename="%s/ecs-agent-log.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</outputs>
+		<formats>
+			<format id="main" format="%%UTCDate(2006-01-02T15:04:05Z07:00) [%%LEVEL] %%Msg%%n" />
+			<format id="windows" format="%%Msg" />
+		</formats>
+	</seelog>`, logfile)
+
+	return config
 }
 
 func verifyContainerRunningStateChange(t *testing.T, taskEngine TaskEngine) {

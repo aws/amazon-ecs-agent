@@ -43,12 +43,13 @@ type payloadRequestHandler struct {
 	saver       statemanager.Saver
 	taskHandler *eventhandler.TaskHandler
 	// cancel is used to stop go routines started by start() method
-	cancel               context.CancelFunc
-	cluster              string
-	containerInstanceArn string
-	acsClient            wsclient.ClientServer
-	refreshHandler       refreshCredentialsHandler
-	credentialsManager   credentials.Manager
+	cancel                      context.CancelFunc
+	cluster                     string
+	containerInstanceArn        string
+	acsClient                   wsclient.ClientServer
+	refreshHandler              refreshCredentialsHandler
+	credentialsManager          credentials.Manager
+	latestSeqNumberTaskManifest *int64
 }
 
 // newPayloadRequestHandler returns a new payloadRequestHandler object
@@ -62,23 +63,24 @@ func newPayloadRequestHandler(
 	saver statemanager.Saver,
 	refreshHandler refreshCredentialsHandler,
 	credentialsManager credentials.Manager,
-	taskHandler *eventhandler.TaskHandler) payloadRequestHandler {
+	taskHandler *eventhandler.TaskHandler, seqNumTaskManifest *int64) payloadRequestHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return payloadRequestHandler{
-		messageBuffer:        make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize),
-		ackRequest:           make(chan string, payloadMessageBufferSize),
-		taskEngine:           taskEngine,
-		ecsClient:            ecsClient,
-		saver:                saver,
-		taskHandler:          taskHandler,
-		ctx:                  derivedContext,
-		cancel:               cancel,
-		cluster:              cluster,
-		containerInstanceArn: containerInstanceArn,
-		acsClient:            acsClient,
-		refreshHandler:       refreshHandler,
-		credentialsManager:   credentialsManager,
+		messageBuffer:               make(chan *ecsacs.PayloadMessage, payloadMessageBufferSize),
+		ackRequest:                  make(chan string, payloadMessageBufferSize),
+		taskEngine:                  taskEngine,
+		ecsClient:                   ecsClient,
+		saver:                       saver,
+		taskHandler:                 taskHandler,
+		ctx:                         derivedContext,
+		cancel:                      cancel,
+		cluster:                     cluster,
+		containerInstanceArn:        containerInstanceArn,
+		acsClient:                   acsClient,
+		refreshHandler:              refreshHandler,
+		credentialsManager:          credentialsManager,
+		latestSeqNumberTaskManifest: seqNumTaskManifest,
 	}
 }
 
@@ -151,10 +153,19 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 	}
 	seelog.Debugf("Received payload message, message id: %s", aws.StringValue(payload.MessageId))
 	credentialsAcks, allTasksHandled := payloadHandler.addPayloadTasks(payload)
+
+	// Update latestSeqNumberTaskManifest for it to get updated in state file
+	if payloadHandler.latestSeqNumberTaskManifest != nil && payload.SeqNum != nil &&
+		*payloadHandler.latestSeqNumberTaskManifest < *payload.SeqNum {
+
+		*payloadHandler.latestSeqNumberTaskManifest = *payload.SeqNum
+	}
+
 	// save the state of tasks we know about after passing them to the task engine
 	err := payloadHandler.saver.Save()
 	if err != nil {
-		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err, aws.StringValue(payload.MessageId))
+		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err,
+			aws.StringValue(payload.MessageId))
 		// Don't ack; maybe we can save it in the future.
 		return fmt.Errorf("error saving state for payload message, with messageId: %s", aws.StringValue(payload.MessageId))
 	}

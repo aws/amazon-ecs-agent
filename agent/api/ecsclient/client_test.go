@@ -64,6 +64,7 @@ var (
 		},
 	}
 	containerInstanceTagsMap = map[string]string{
+
 		"my_key1": "my_val1",
 		"my_key2": "my_val2",
 	}
@@ -336,6 +337,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           config.OSType,
 		"ecs.availability-zone": "us-west-2b",
+		"ecs.outpost-arn":       "test:arn:outpost",
 	}
 	for i := range fakeCapabilities {
 		expectedAttributes[fakeCapabilities[i]] = ""
@@ -355,8 +357,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// "ecs.os-type" and the 2 that we specified as additionalAttributes
-			assert.Equal(t, 3, len(req.Attributes), "Wrong number of Attributes")
+			// "ecs.os-type", ecs.outpost-arn and the 2 that we specified as additionalAttributes
+			assert.Equal(t, 4, len(req.Attributes), "Wrong number of Attributes")
 			reqAttributes := func() map[string]string {
 				rv := make(map[string]string, len(req.Attributes))
 				for i := range req.Attributes {
@@ -382,7 +384,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, registrationToken, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities,
+		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
@@ -404,6 +407,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
+		"ecs.outpost-arn":           "test:arn:outpost",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 	platformDevices := []*ecs.PlatformDevice{
@@ -434,8 +438,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 2 from additionalAttributes
-			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			// 3 from expectedAttributes and 3 from additionalAttributes
+			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
 					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
@@ -457,7 +461,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, platformDevices)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
+		containerInstanceTags, registrationToken, platformDevices, "test:arn:outpost")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -484,6 +489,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
+		"ecs.outpost-arn":           "test:arn:outpost",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 
@@ -498,8 +504,8 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 2 from additionalAttributes
-			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			// 3 from expectedAttributes and 3 from additionalAttributes
+			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
 					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
@@ -520,7 +526,8 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
+		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -547,7 +554,8 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, _, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	_, _, err := client.RegisterContainerInstance("", nil, nil,
+		"", nil, "")
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -577,7 +585,8 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			nil),
 	)
 
-	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), "", nil)
+	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0),
+		"", nil, "")
 	assert.NoError(t, err)
 }
 
@@ -651,7 +660,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil,
+		"", nil, "")
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -705,7 +715,8 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 			nil),
 	)
 
-	arn, _, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	arn, _, err := client.RegisterContainerInstance("", nil, nil, "",
+		nil, "")
 	assert.NoError(t, err, "Should not return error")
 	assert.Equal(t, "registerArn", arn, "Wrong arn")
 }

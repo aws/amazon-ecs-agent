@@ -140,6 +140,18 @@ func TestHandleEventError(t *testing.T) {
 			ExpectedOK:                            false,
 		},
 		{
+			Name:                        "Start failed with EOF error",
+			EventStatus:                 apicontainerstatus.ContainerRunning,
+			CurrentContainerKnownStatus: apicontainerstatus.ContainerCreated,
+			Error: &dockerapi.CannotStartContainerError{
+				FromError: errors.New("error during connect: Post http://%2Fvar%2Frun%2Fdocker.sock/v1.19/containers/containerid/start: EOF"),
+			},
+			ExpectedContainerKnownStatusSet:       true,
+			ExpectedContainerKnownStatus:          apicontainerstatus.ContainerCreated,
+			ExpectedContainerDesiredStatusStopped: true,
+			ExpectedOK:                            false,
+		},
+		{
 			Name:                        "Inspect failed during create",
 			EventStatus:                 apicontainerstatus.ContainerCreated,
 			CurrentContainerKnownStatus: apicontainerstatus.ContainerPulled,

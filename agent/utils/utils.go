@@ -17,8 +17,11 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
+	"io/ioutil"
 	"math"
 	"math/big"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -128,6 +131,15 @@ func StrSliceEqual(s1, s2 []string) bool {
 	return true
 }
 
+func StrSliceContains(strs []string, s string) bool {
+	for _, a := range strs {
+		if a == s {
+			return true
+		}
+	}
+	return false
+}
+
 func ParseBool(str string, default_ bool) bool {
 	res, err := strconv.ParseBool(strings.TrimSpace(str))
 	if err != nil {
@@ -159,4 +171,40 @@ func MapToTags(tagsMap map[string]string) []*ecs.Tag {
 	}
 
 	return tags
+}
+
+// SearchStrInDir searches the files in directory for specific content
+func SearchStrInDir(dir, filePrefix, content string) error {
+	logfiles, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("Error reading the directory, err %v", err)
+	}
+
+	var desiredFile string
+	found := false
+
+	for _, file := range logfiles {
+		if strings.HasPrefix(file.Name(), filePrefix) {
+			desiredFile = file.Name()
+			if ZeroOrNil(desiredFile) {
+				return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
+			}
+
+			data, err := ioutil.ReadFile(filepath.Join(dir, desiredFile))
+			if err != nil {
+				return fmt.Errorf("Failed to read file, err: %v", err)
+			}
+
+			if strings.Contains(string(data), content) {
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("Could not find the content: %v in the file: %v", content, desiredFile)
+	}
+
+	return nil
 }

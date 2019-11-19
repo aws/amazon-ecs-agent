@@ -28,6 +28,9 @@ You should run following commands to set up the IP tables rules:
 * `iptables -t nat -A PREROUTING -p tcp -d 169.254.170.2 --dport 80 -j DNAT --to-destination 127.0.0.1:51679`
 * `iptables -t nat -A OUTPUT -d 169.254.170.2 -p tcp -m tcp --dport 80 -j REDIRECT --to-ports 51679`
 
+For Amazon Linux 2 operating system, following additional step is required:
+* `export CGROUP_PATH="/sys/fs/cgroup"`
+
 #### Environment variables
 In order to run telemetry functional test in non Amazon Linux AMI environment
 with older versions of the ECS agent (pre-1.10.0), the following environment
@@ -44,7 +47,6 @@ execution behavior:
 * `ECS_FTEST_TMP`: Override the default temporary directory used for storing
   test logs and data files
 * `ECS_FTEST_AGENT_ARGS`: Pass additional command-line arguments to the agent
-* `ECS_FTEST_FORCE_NET_HOST`: Run the agent with `--net=host`
 
 #### Additional setup for IAM roles
 In order to run TaskIamRole functional tests, the following steps should be

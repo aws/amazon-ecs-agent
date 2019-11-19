@@ -93,6 +93,8 @@ const (
 
 var ctxTimeoutStopContainer = dockerclient.StopContainerTimeout
 
+type inactivityTimeoutHandlerFunc func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{})
+
 // DockerClient interface to make testing it easier
 type DockerClient interface {
 	// SupportedVersions returns a slice of the supported docker versions (or at least supposedly supported).
@@ -201,14 +203,15 @@ type DockerClient interface {
 // Implements DockerClient
 // TODO Remove clientfactory field once all API calls are migrated to sdkclientFactory
 type dockerGoClient struct {
-	sdkClientFactory sdkclientfactory.Factory
-	version          dockerclient.DockerVersion
-	ecrClientFactory ecr.ECRFactory
-	auth             dockerauth.DockerAuthProvider
-	ecrTokenCache    async.Cache
-	config           *config.Config
-	context          context.Context
-	imagePullBackoff retry.Backoff
+	sdkClientFactory         sdkclientfactory.Factory
+	version                  dockerclient.DockerVersion
+	ecrClientFactory         ecr.ECRFactory
+	auth                     dockerauth.DockerAuthProvider
+	ecrTokenCache            async.Cache
+	config                   *config.Config
+	context                  context.Context
+	imagePullBackoff         retry.Backoff
+	inactivityTimeoutHandler inactivityTimeoutHandlerFunc
 
 	_time     ttime.Time
 	_timeOnce sync.Once
@@ -276,6 +279,7 @@ func NewDockerGoClient(sdkclientFactory sdkclientfactory.Factory,
 		context:          ctx,
 		imagePullBackoff: retry.NewExponentialBackoff(minimumPullRetryDelay, maximumPullRetryDelay,
 			pullRetryJitterMultiplier, pullRetryDelayMultiplier),
+		inactivityTimeoutHandler: handleInactivityTimeout,
 	}, nil
 }
 
@@ -388,7 +392,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 		// handle inactivity timeout
 		var canceled uint32
 		var ch chan<- struct{}
-		reader, ch = handleInactivityTimeout(reader, dg.config.ImagePullInactivityTimeout, cancelRequest, &canceled)
+		reader, ch = dg.inactivityTimeoutHandler(reader, dg.config.ImagePullInactivityTimeout, cancelRequest, &canceled)
 		defer reader.Close()
 		defer close(ch)
 		decoder := json.NewDecoder(reader)
@@ -863,22 +867,26 @@ func (dg *dockerGoClient) ContainerEvents(ctx context.Context) (<-chan DockerCon
 		for {
 			select {
 			case err := <-eventErr:
-				if err == io.EOF || err == io.ErrUnexpectedEOF {
-					seelog.Info("DockerGoClient: All events have been received")
-					cancel()
+				// If parent ctx has been canceled, stop listening and return. Otherwise reopen the stream.
+				if ctx.Err() != nil {
 					return
-				} else {
-					// If an error is returned, we need to reopen channel to continue listening
-					seelog.Errorf("DockerGoClient: error while listening to Docker Events : %v", err)
-					nextCtx, nextCancel := context.WithCancel(ctx)
-					dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
-					// Cache the event from docker client.
-					go buffer.StartListening(nextCtx, dockerEvents)
-					// Close previous stream after starting to listen on new one
-					cancel()
-					// Reassign cancel variable next Cancel function to setup next iteration of loop.
-					cancel = nextCancel
 				}
+
+				if err == io.EOF {
+					seelog.Infof("DockerGoClient: Docker events stream closed with: %v", err)
+				} else {
+					seelog.Errorf("DockerGoClient: Docker events stream closed with error: %v", err)
+				}
+
+				// Reopen a new event stream to continue listening.
+				nextCtx, nextCancel := context.WithCancel(ctx)
+				dockerEvents, eventErr = client.Events(nextCtx, types.EventsOptions{})
+				// Cache the event from docker client.
+				go buffer.StartListening(nextCtx, dockerEvents)
+				// Close previous stream after starting to listen on new one
+				cancel()
+				// Reassign cancel variable next Cancel function to setup next iteration of loop.
+				cancel = nextCancel
 			case <-ctx.Done():
 				return
 			}
@@ -1316,7 +1324,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			// handle inactivity timeout
 			var canceled uint32
 			var ch chan<- struct{}
-			resp.Body, ch = handleInactivityTimeout(resp.Body, inactivityTimeout, cancelRequest, &canceled)
+			resp.Body, ch = dg.inactivityTimeoutHandler(resp.Body, inactivityTimeout, cancelRequest, &canceled)
 			defer resp.Body.Close()
 			defer close(ch)
 

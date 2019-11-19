@@ -60,6 +60,7 @@ func DefaultConfig() Config {
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                false,
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
+		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
@@ -81,6 +82,7 @@ func DefaultConfig() Config {
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
+		GMSACapable:                         false,
 	}
 }
 

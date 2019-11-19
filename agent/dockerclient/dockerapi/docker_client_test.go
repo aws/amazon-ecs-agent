@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -181,6 +182,12 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 			}
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, client.config.ImagePullInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -755,41 +762,47 @@ func TestContainerEvents(t *testing.T) {
 		}
 	}
 }
-func TestContainerEventsEOFError(t *testing.T) {
-	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
 
-	eventsChan := make(chan events.Message, dockerEventBufferSize)
-	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
+func TestContainerEventsError(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "EOF error",
+			err:  io.EOF,
+		},
+		{
+			name: "Unexpected EOF error",
+			err:  io.ErrUnexpectedEOF,
+		},
+		{
+			name: "other error",
+			err:  errors.New("test error"),
+		},
+	}
 
-	dockerEvents, err := client.ContainerEvents(context.TODO())
-	require.NoError(t, err, "Could not get container events")
-	go func() {
-		errChan <- io.EOF
-	}()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+			defer done()
 
-	assert.Equal(t, len(dockerEvents), 0, "Wrong number of docker events")
-}
+			eventsChan := make(chan events.Message, dockerEventBufferSize)
+			errChan := make(chan error)
+			mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
 
-func TestContainerEventsStreamError(t *testing.T) {
-	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
+			dockerEvents, err := client.ContainerEvents(context.TODO())
+			require.NoError(t, err, "Could not get container events")
+			go func() {
+				errChan <- tc.err
+				eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
+			}()
 
-	eventsChan := make(chan events.Message, dockerEventBufferSize)
-	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
-
-	dockerEvents, err := client.ContainerEvents(context.TODO())
-	require.NoError(t, err, "Could not get container events")
-	go func() {
-		errChan <- errors.New("some error happened")
-		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
-	}()
-
-	event := <-dockerEvents
-	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+			event := <-dockerEvents
+			assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
+			assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+		})
+	}
 }
 
 func TestDockerVersion(t *testing.T) {
@@ -1077,6 +1090,13 @@ func TestStatsInactivityTimeout(t *testing.T) {
 			delay: 300 * time.Millisecond,
 		},
 	}, nil)
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, shortInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	stats, err := client.Stats(ctx, "foo", shortInactivityTimeout)

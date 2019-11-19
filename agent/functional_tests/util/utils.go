@@ -136,7 +136,6 @@ type TestAgent struct {
 
 type AgentOptions struct {
 	ExtraEnvironment map[string]string
-	ContainerLinks   []string
 	PortBindings     map[nat.Port]map[string]string
 	EnableTaskENI    bool
 	GPUEnabled       bool
@@ -176,7 +175,8 @@ func (agent *TestAgent) verifyIntrospectionAPI() error {
 	agent.ContainerInstanceArn = *localMetadata.ContainerInstanceArn
 	agent.Cluster = localMetadata.Cluster
 	agent.Version = utils.ExtractVersion(localMetadata.Version)
-	agent.t.Logf("Found agent metadata: %+v", localMetadata)
+	agent.t.Logf("Found agent metadata: ContainerInstanceArn: %s, Cluster: %s, Version: %s",
+		agent.ContainerInstanceArn, agent.Cluster, agent.Version)
 	return nil
 }
 
@@ -775,42 +775,6 @@ func GetInstanceIAMRole() (*iam.Role, error) {
 	return instanceRole.Role, nil
 }
 
-// SearchStrInDir searches the files in directory for specific content
-func SearchStrInDir(dir, filePrefix, content string) error {
-	logfiles, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("Error reading the directory, err %v", err)
-	}
-
-	var desiredFile string
-	found := false
-
-	for _, file := range logfiles {
-		if strings.HasPrefix(file.Name(), filePrefix) {
-			desiredFile = file.Name()
-			if utils.ZeroOrNil(desiredFile) {
-				return fmt.Errorf("File with prefix: %v does not exist", filePrefix)
-			}
-
-			data, err := ioutil.ReadFile(filepath.Join(dir, desiredFile))
-			if err != nil {
-				return fmt.Errorf("Failed to read file, err: %v", err)
-			}
-
-			if strings.Contains(string(data), content) {
-				found = true
-				break
-			}
-		}
-	}
-
-	if !found {
-		return fmt.Errorf("Could not find the content: %v in the file: %v", content, desiredFile)
-	}
-
-	return nil
-}
-
 // SweepTask removes all the containers belong to a task
 func (agent *TestAgent) SweepTask(task *TestTask) error {
 	bodyData, err := agent.callTaskIntrospectionApi(*task.TaskArn)
@@ -902,7 +866,7 @@ func GetTaskID(taskARN string) (string, error) {
 }
 
 // WaitContainerInstanceStatus waits for a container instance to reach certain status by polling its status
-func (agent *TestAgent) WaitContainerInstanceStatus(desiredStatus string) error {
+func (agent *TestAgent) WaitContainerInstanceStatus(desiredStatus string, t *testing.T) error {
 	timer := time.NewTimer(waitContainerInstanceStatusDuration)
 	errChan := make(chan error, 1)
 	containerInstanceStatus := ""
@@ -912,8 +876,19 @@ func (agent *TestAgent) WaitContainerInstanceStatus(desiredStatus string) error 
 		for !cancelled {
 			status, err := agent.getContainerInstanceStatus()
 			if err != nil {
-				errChan <- err
-				return
+				t.Logf("Failed to get container instance status: %v", err)
+				// There's eventual consistent issue in backend such that after we register a new container instance
+				// and immediately describe it, that container instance might not be found. In that case, retry instead of
+				// failing.
+				retriable := false
+				if strings.Contains(err.Error(), "MISSING") && desiredStatus == "ACTIVE" {
+					retriable = true
+				}
+
+				if !retriable {
+					errChan <- err
+					return
+				}
 			}
 			containerInstanceStatus = status
 

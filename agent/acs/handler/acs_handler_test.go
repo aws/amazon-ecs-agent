@@ -47,6 +47,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -365,6 +366,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		ctx:                             ctx,
 		cancel:                          cancel,
 		resources:                       &mockSessionResources{mockWsClient},
+		latestSeqNumTaskManifest:        aws.Int64(10),
 		_heartbeatTimeout:               20 * time.Millisecond,
 		_heartbeatJitter:                10 * time.Millisecond,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
@@ -833,18 +835,19 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	go func() {
 
 		acsSession := session{
-			containerInstanceARN: "myArn",
-			credentialsProvider:  testCreds,
-			agentConfig:          testConfig,
-			taskEngine:           taskEngine,
-			ecsClient:            ecsClient,
-			stateManager:         stateManager,
-			taskHandler:          taskHandler,
-			ctx:                  ctx,
-			_heartbeatTimeout:    1 * time.Second,
-			backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-			resources:            newSessionResources(testCreds),
-			credentialsManager:   rolecredentials.NewManager(),
+			containerInstanceARN:     "myArn",
+			credentialsProvider:      testCreds,
+			agentConfig:              testConfig,
+			taskEngine:               taskEngine,
+			ecsClient:                ecsClient,
+			stateManager:             stateManager,
+			taskHandler:              taskHandler,
+			ctx:                      ctx,
+			_heartbeatTimeout:        1 * time.Second,
+			backoff:                  retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+			resources:                newSessionResources(testCreds),
+			credentialsManager:       rolecredentials.NewManager(),
+			latestSeqNumTaskManifest: aws.Int64(12),
 		}
 		acsSession.Start()
 		ended <- true
@@ -914,6 +917,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
+	latestSeqNumberTaskManifest := int64(10)
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(ctx,
@@ -926,7 +930,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			stateManager,
 			taskEngine,
 			credentialsManager,
-			taskHandler,
+			taskHandler, &latestSeqNumberTaskManifest,
 		)
 		acsSession.Start()
 		// StartSession should never return unless the context is canceled

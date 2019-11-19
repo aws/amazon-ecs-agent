@@ -323,7 +323,7 @@ func TestCredentialsV2RequestWithNoArguments(t *testing.T) {
 func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
 		Code:          v1.ErrInvalidIDInRequest,
-		Message:       fmt.Sprintf("CredentialsV1Request: ID not found"),
+		Message:       fmt.Sprintf("CredentialsV1Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
 	path := credentials.V1CredentialsPath + "?id=" + credentialsID
@@ -337,7 +337,7 @@ func TestCredentialsV1RequestWhenCredentialsIdNotFound(t *testing.T) {
 func TestCredentialsV2RequestWhenCredentialsIdNotFound(t *testing.T) {
 	expectedErrorMessage := &utils.ErrorMessage{
 		Code:          v1.ErrInvalidIDInRequest,
-		Message:       fmt.Sprintf("CredentialsV2Request: ID not found"),
+		Message:       fmt.Sprintf("CredentialsV2Request: Credentials not found"),
 		HTTPErrorCode: http.StatusBadRequest,
 	}
 	path := credentials.V2CredentialsPath + "/" + credentialsID

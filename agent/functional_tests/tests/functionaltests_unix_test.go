@@ -54,7 +54,7 @@ const (
 	savedStateTaskDefinition        = "nginx"
 	portResContentionTaskDefinition = "busybox-port-5180"
 	labelsTaskDefinition            = "labels"
-	fluentdLogPath                  = "/tmp/ftslog"
+	errCodeAccessDenied             = "AccessDenied"
 )
 
 var trunkingInstancePrefixes = []string{"c5.", "m5."}
@@ -156,56 +156,6 @@ func TestCommandOverrides(t *testing.T) {
 	assert.Equal(t, 21, exitCode, fmt.Sprintf("Expected exit code of 21; got %d", exitCode))
 }
 
-func TestDockerAuth(t *testing.T) {
-	agent := RunAgent(t, &AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_ENGINE_AUTH_TYPE": "dockercfg",
-			"ECS_ENGINE_AUTH_DATA": `{"127.0.0.1:51671":{"auth":"dXNlcjpzd29yZGZpc2g=","email":"foo@example.com"}}`, // user:swordfish
-		},
-	})
-	defer agent.Cleanup()
-
-	task, err := agent.StartTask(t, "simple-exit-authed")
-	require.NoError(t, err)
-
-	err = task.WaitStopped(2 * time.Minute)
-	require.NoError(t, err)
-	exitCode, _ := task.ContainerExitcode("exit")
-	assert.Equal(t, 42, exitCode, fmt.Sprintf("Expected exit code of 42; got %d", exitCode))
-
-	// verify there's no sign of auth details in the config; action item taken as
-	// a result of accidentally logging them once
-	logdir := agent.Logdir
-	badStrings := []string{"user:swordfish", "swordfish", "dXNlcjpzd29yZGZpc2g="}
-	err = filepath.Walk(logdir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		data, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		for _, badstring := range badStrings {
-			if strings.Contains(string(data), badstring) {
-				t.Fatalf("log data contained bad string: %v, %v", string(data), badstring)
-			}
-			if strings.Contains(string(data), fmt.Sprintf("%v", []byte(badstring))) {
-				t.Fatalf("log data contained byte-slice representation of bad string: %v, %v", string(data), badstring)
-			}
-			gobytes := fmt.Sprintf("%#v", []byte(badstring))
-			// format is []byte{0x12, 0x34}
-			// if it were json.RawMessage or another alias, it would print as json.RawMessage ... in the log
-			// Because of this, strip down to just the comma-separated hex and look for that
-			if strings.Contains(string(data), gobytes[len(`[]byte{`):len(gobytes)-1]) {
-				t.Fatalf("log data contained byte-hex representation of bad string: %v, %v", string(data), badstring)
-			}
-		}
-		return nil
-	})
-
-	assert.NoError(t, err, "Could not walk logdir")
-}
-
 func TestSquidProxy(t *testing.T) {
 	ctx := context.TODO()
 	// Run a squid proxy manually, verify that the agent can connect through it
@@ -242,16 +192,21 @@ func TestSquidProxy(t *testing.T) {
 	squidContainerJSON, err := client.ContainerInspect(ctx, squidContainer.ID)
 	require.NoError(t, err)
 
+	squidIP := ""
+	if squidContainerJSON.NetworkSettings != nil {
+		squidIP = squidContainerJSON.NetworkSettings.IPAddress
+	}
+	require.NotEmpty(t, squidIP, "Need to have squid proxy container's ip but it's empty")
+
 	// Squid startup time
 	time.Sleep(1 * time.Second)
-	t.Logf("Started squid container: %v", squidContainerJSON.Name)
+	t.Logf("Started squid container: %s", squidContainerJSON.Name)
 
 	agent := RunAgent(t, &AgentOptions{
 		ExtraEnvironment: map[string]string{
-			"HTTP_PROXY": "squid:3128",
+			"HTTP_PROXY": fmt.Sprintf("http://%s:3128", squidIP),
 			"NO_PROXY":   "169.254.169.254,/var/run/docker.sock",
 		},
-		ContainerLinks: []string{squidContainerJSON.Name + ":squid"},
 	})
 	defer agent.Cleanup()
 	agent.RequireVersion(">1.5.0")
@@ -430,7 +385,6 @@ func TestTaskIAMRolesNetHostMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -448,7 +402,6 @@ func TestTaskIAMRolesDefaultNetworkMode(t *testing.T) {
 			"ECS_ENABLE_TASK_IAM_ROLE": "true",
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -505,7 +458,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
 
 	// Search the audit log to verify the credential request
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -537,84 +490,6 @@ func TestNetworkModeAWSVPC(t *testing.T) {
 
 	err := awsvpcNetworkModeTest(t, agent)
 	require.NoError(t, err, "Networking mode 'awsvpc' testing failed")
-}
-
-// TestFluentdTag tests the fluentd logging driver option "tag"
-func TestFluentdTag(t *testing.T) {
-	// tag was added in docker 1.9.0
-	RequireDockerVersion(t, ">=1.9.0")
-
-	// Skipping the test for arm as they do not have official support for Arm images
-	if runtime.GOARCH == "arm64" {
-		t.Skip("Skipping test, unsupported image for arm64")
-	}
-
-	fluentdDriverTest("fluentd-tag", t)
-}
-
-// TestFluentdLogTag tests the fluentd logging driver option "log-tag"
-func TestFluentdLogTag(t *testing.T) {
-	// fluentd was added in docker 1.8.0
-	// and deprecated in 1.12.0
-	RequireDockerVersion(t, ">=1.8.0")
-	RequireDockerVersion(t, "<1.12.0")
-
-	// Skipping the test for arm as they do not have official support for Arm images
-	if runtime.GOARCH == "arm64" {
-		t.Skip("Skipping test, unsupported image for arm64")
-	}
-
-	fluentdDriverTest("fluentd-log-tag", t)
-}
-
-func fluentdDriverTest(taskDefinition string, t *testing.T) {
-	ctx := context.TODO()
-
-	agentOptions := AgentOptions{
-		ExtraEnvironment: map[string]string{
-			"ECS_AVAILABLE_LOGGING_DRIVERS": `["fluentd"]`,
-		},
-	}
-	agent := RunAgent(t, &agentOptions)
-	defer agent.Cleanup()
-
-	// fluentd is supported in agnet >=1.5.0
-	agent.RequireVersion(">=1.5.0")
-
-	driverTask, err := agent.StartTask(t, "fluentd-driver")
-	require.NoError(t, err)
-
-	err = driverTask.WaitRunning(2 * time.Minute)
-	require.NoError(t, err)
-
-	testTask, err := agent.StartTask(t, taskDefinition)
-	require.NoError(t, err)
-
-	err = testTask.WaitRunning(2 * time.Minute)
-	assert.NoError(t, err)
-
-	dockerID, err := agent.ResolveTaskDockerID(testTask, "fluentd-test")
-	assert.NoError(t, err, "failed to resolve the container id from agent state")
-
-	container, err := agent.DockerClient.ContainerInspect(ctx, dockerID)
-	assert.NoError(t, err, "failed to inspect the container")
-
-	logTag := fmt.Sprintf("ecs.%v.%v", strings.Replace(container.Name, "/", "", 1), dockerID)
-
-	// clean up
-	err = testTask.WaitStopped(1 * time.Minute)
-	assert.NoError(t, err, "task failed to be stopped")
-
-	driverTask.Stop()
-	err = driverTask.WaitStopped(1 * time.Minute)
-	assert.NoError(t, err, "task failed to be stopped")
-
-	// Verify the log file existed and also the content contains the expected format
-	err = SearchStrInDir(fluentdLogPath, "ecsfts", "hello, this is fluentd functional test")
-	assert.NoError(t, err, "failed to find the content in the fluent log file")
-
-	err = SearchStrInDir(fluentdLogPath, "ecsfts", logTag)
-	assert.NoError(t, err, "failed to find the log tag specified in the task definition")
 }
 
 // TestLogDriverSecretSupport tests the log driver secret support using
@@ -681,9 +556,6 @@ func TestLogDriverSecretSupport(t *testing.T) {
 			"ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE": "true",
 		},
 	}
-
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
-	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
 
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
@@ -772,7 +644,6 @@ func TestRunAWSVPCTaskWithENITrunkingEndPointValidation(t *testing.T) {
 	_, err := ECS.PutAccountSetting(&putAccountSettingInput)
 	assert.NoError(t, err)
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -841,7 +712,6 @@ func TestTaskMetadataValidator(t *testing.T) {
 	cwlClient.CreateLogGroup(&cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(awslogsLogGroupName),
 	})
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, &AgentOptions{
 		EnableTaskENI: true,
 		ExtraEnvironment: map[string]string{
@@ -894,10 +764,6 @@ func TestExecutionRole(t *testing.T) {
 		},
 	}
 
-	// Run the agent container with host network mode
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
-	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
-
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 	agent.RequireVersion(">=1.16.0")
@@ -940,8 +806,8 @@ func TestExecutionRole(t *testing.T) {
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 	// Search the audit log to verify the credential request from awslogs driver
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
-	err = SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -1549,7 +1415,6 @@ func TestElasticInferenceValidator(t *testing.T) {
 			"ECS_AVAILABLE_LOGGING_DRIVERS": `["awslogs"]`,
 		},
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
@@ -1586,7 +1451,6 @@ func TestServerEndpointValidator(t *testing.T) {
 		},
 	}
 
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 
@@ -1677,7 +1541,6 @@ func TestTrunkENIAttachDetachWorkflow(t *testing.T) {
 	agentOptions := &AgentOptions{
 		EnableTaskENI: true,
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 
 	agent := RunAgent(t, agentOptions)
 	defer func() {
@@ -1771,7 +1634,13 @@ func TestFirelensWithS3ConfigFluentd(t *testing.T) {
 		Key:    aws.String("testfiles/fluentd.conf"),
 		Body:   strings.NewReader(content),
 	})
-	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == errCodeAccessDenied {
+			t.Skip("Skipping the test since lacking necessary s3 access permission")
+		} else {
+			t.Fatalf("Unable to upload config file to s3 which is needed for the test: %v", err)
+		}
+	}
 
 	testFirelens(t, "fluentd", "@type", "stdout",
 		getLogSenderMessageFluentd, s3Bucket, false, false)
@@ -1836,7 +1705,13 @@ func TestFirelensWithS3ConfigFluentbit(t *testing.T) {
 		Key:    aws.String("testfiles/fluentbit.conf"),
 		Body:   strings.NewReader(content),
 	})
-	require.NoError(t, err, "unable to upload config file to s3 which is needed for the test")
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == errCodeAccessDenied {
+			t.Skip("Skipping the test since lacking necessary s3 access permission")
+		} else {
+			t.Fatalf("Unable to upload config file to s3 which is needed for the test: %v", err)
+		}
+	}
 
 	testFirelens(t, "fluentbit", "Name", "cloudwatch",
 		getLogSenderMessageFluentbit, s3Bucket, false, false)
@@ -1895,10 +1770,9 @@ func testFirelens(t *testing.T, firelensConfigType, secretLogOptionKey, secretLo
 		},
 		TempDirOverride: tempDir,
 	}
-	if (isAWSVPC) {
+	if isAWSVPC {
 		agentOptions.EnableTaskENI = true
 	}
-	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	agent := RunAgent(t, agentOptions)
 	defer agent.Cleanup()
 

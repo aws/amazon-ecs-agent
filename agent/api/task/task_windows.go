@@ -23,8 +23,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -42,6 +48,9 @@ type PlatformFields struct {
 	// CpuUnbounded determines whether a mix of unbounded and bounded CPU tasks
 	// are allowed to run in the instance
 	CpuUnbounded bool `json:"cpuUnbounded"`
+	// MemoryUnbounded determines whether a mix of unbounded and bounded Memory tasks
+	// are allowed to run in the instance
+	MemoryUnbounded bool `json:"memoryUnbounded"`
 }
 
 var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
@@ -50,7 +59,8 @@ var cpuShareScaleFactor = runtime.NumCPU() * cpuSharesPerCore
 func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.downcaseAllVolumePaths()
 	platformFields := PlatformFields{
-		CpuUnbounded: cfg.PlatformVariables.CPUUnbounded,
+		CpuUnbounded:    cfg.PlatformVariables.CPUUnbounded,
+		MemoryUnbounded: cfg.PlatformVariables.MemoryUnbounded,
 	}
 	task.PlatformFields = platformFields
 }
@@ -119,6 +129,13 @@ func (task *Task) platformHostConfigOverride(hostConfig *dockercontainer.HostCon
 		hostConfig.CPUPercent = minimumCPUPercent
 	}
 	hostConfig.CPUShares = 0
+
+	if hostConfig.Memory <= 0 && task.PlatformFields.MemoryUnbounded {
+		// As of version  17.06.2-ee-6 of docker. MemoryReservation is not supported on windows. This ensures that
+		// this parameter is not passed, allowing to launch a container without a hard limit.
+		hostConfig.MemoryReservation = 0
+	}
+
 	return nil
 }
 
@@ -138,4 +155,61 @@ func (task *Task) dockerCPUShares(containerCPU uint) int64 {
 
 func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
 	return errors.New("unsupported platform")
+}
+
+// requiresCredentialSpecResource returns true if at least one container in the task
+// needs a valid credentialspec resource
+func (task *Task) requiresCredentialSpecResource() bool {
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeCredentialSpecResource builds the resource dependency map for the credentialspec resource
+func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) error {
+	credentialspecResource, err := credentialspec.NewCredentialSpecResource(task.Arn, config.AWSRegion, task.getAllCredentialSpecRequirements(),
+		task.ExecutionCredentialsID, credentialsManager, resourceFields.SSMClientCreator, resourceFields.S3ClientCreator)
+	if err != nil {
+		return err
+	}
+
+	task.AddResource(credentialspec.ResourceName, credentialspecResource)
+
+	// for every container that needs credential spec vending, it needs to wait for all credential spec resources
+	for _, container := range task.Containers {
+		if container.RequiresCredentialSpec() {
+			container.BuildResourceDependency(credentialspecResource.GetName(),
+				resourcestatus.ResourceStatus(credentialspec.CredentialSpecCreated),
+				apicontainerstatus.ContainerCreated)
+		}
+	}
+
+	return nil
+}
+
+// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
+func (task *Task) getAllCredentialSpecRequirements() []string {
+	reqs := []string{}
+
+	for _, container := range task.Containers {
+		credentialSpec, err := container.GetCredentialSpec()
+		if err == nil && credentialSpec != "" && !utils.StrSliceContains(reqs, credentialSpec) {
+			reqs = append(reqs, credentialSpec)
+		}
+	}
+
+	return reqs
+}
+
+// GetCredentialSpecResource retrieves credentialspec resource from resource map
+func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[credentialspec.ResourceName]
+	return res, ok
 }

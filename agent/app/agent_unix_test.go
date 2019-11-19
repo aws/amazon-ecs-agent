@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"reflect"
 	"sync"
 	"testing"
@@ -28,7 +27,6 @@ import (
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/app/oswrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -46,6 +44,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -58,10 +57,10 @@ const (
 )
 
 func TestDoStartHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+	ctrl, credentialsManager, state, imageManager, client, dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	var discoverEndpointsInvoked sync.WaitGroup
@@ -87,6 +86,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	}).Return("telemetry-endpoint", nil)
 	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 		"tele-endpoint", nil).AnyTimes()
+	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
 
 	gomock.InOrder(
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
@@ -95,7 +95,8 @@ func TestDoStartHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("arn", "", nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
@@ -113,6 +114,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		dockerClient:       dockerClient,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 		mobyPlugins:        mockMobyPlugins,
+		ec2MetadataClient:  ec2MetadataClient,
 	}
 
 	var agentW sync.WaitGroup
@@ -168,6 +170,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	}).Return("telemetry-endpoint", nil)
 	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
 		"tele-endpoint", nil).AnyTimes()
+	mockMetadata.EXPECT().OutpostARN().Return("", nil)
 
 	gomock.InOrder(
 		mockOS.EXPECT().Getpid().Return(10),
@@ -189,8 +192,10 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(x interface{}, attributes []*ecs.Attribute, y interface{}, z interface{}, w interface{}) {
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any()).Do(
+			func(x interface{}, attributes []*ecs.Attribute, y interface{}, z interface{}, w interface{},
+				outpostARN interface{}) {
 				vpcFound := false
 				subnetFound := false
 				for _, attribute := range attributes {
@@ -271,7 +276,7 @@ func TestSetVPCSubnetClassicEC2(t *testing.T) {
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
-		mockMetadata.EXPECT().VPCID(mac).Return("", ec2.NewMetadataError(http.StatusNotFound)),
+		mockMetadata.EXPECT().VPCID(mac).Return("", awserr.New("EC2MetadataError", "failed to make EC2Metadata request", nil)),
 	)
 	agent := &ecsAgent{ec2MetadataClient: mockMetadata}
 	err, ok := agent.setVPCSubnet()
@@ -523,10 +528,12 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	discoverEndpointsInvoked.Add(2)
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
 
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
 	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
 
 	gomock.InOrder(
 		mockControl.EXPECT().Init().Return(nil),
@@ -536,7 +543,8 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("arn", "", nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
@@ -567,6 +575,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		dockerClient:       dockerClient,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 		mobyPlugins:        mockMobyPlugins,
+		ec2MetadataClient:  ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -636,6 +645,8 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+
 	devices := []*ecs.PlatformDevice{
 		{
 			Id:   aws.String("id1"),
@@ -658,6 +669,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
+	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
 
 	gomock.InOrder(
 		mockGPUManager.EXPECT().Initialize().Return(nil),
@@ -669,7 +681,8 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		mockGPUManager.EXPECT().GetDriverVersion().Return("396.44"),
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), devices).Return("arn", "", nil),
+		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetSaver(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
@@ -701,6 +714,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		dockerClient:       dockerClient,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 		mobyPlugins:        mockMobyPlugins,
+		ec2MetadataClient:  ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},

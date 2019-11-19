@@ -24,6 +24,8 @@ const (
 	DockerTimeoutErrorName = "DockerTimeoutError"
 	// CannotInspectContainerErrorName is the name of container inspect error.
 	CannotInspectContainerErrorName = "CannotInspectContainerError"
+	// CannotStartContainerErrorName is the name of container start error.
+	CannotStartContainerErrorName = "CannotStartContainerError"
 	// CannotDescribeContainerErrorName is the name of describe container error.
 	CannotDescribeContainerErrorName = "CannotDescribeContainerError"
 )
@@ -201,7 +203,7 @@ func (err CannotStartContainerError) Error() string {
 
 // ErrorName returns name of the CannotStartContainerError
 func (err CannotStartContainerError) ErrorName() string {
-	return "CannotStartContainerError"
+	return CannotStartContainerErrorName
 }
 
 // CannotInspectContainerError indicates any error when trying to inspect a container

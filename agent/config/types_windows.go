@@ -19,4 +19,7 @@ type PlatformVariables struct {
 	// CPUUnbounded specifies if agent can run a mix of CPU bounded and
 	// unbounded tasks for windows
 	CPUUnbounded bool
+	// MemoryUnbounded specifies if agent can run a mix of Memory bounded and
+	// unbounded tasks for windows
+	MemoryUnbounded bool
 }

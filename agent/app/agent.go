@@ -93,26 +93,27 @@ type agent interface {
 // after creating it via
 // the newAgent() method
 type ecsAgent struct {
-	ctx                   context.Context
-	ec2MetadataClient     ec2.EC2MetadataClient
-	ec2Client             ec2.Client
-	cfg                   *config.Config
-	dockerClient          dockerapi.DockerClient
-	containerInstanceARN  string
-	credentialProvider    *aws_credentials.Credentials
-	stateManagerFactory   factory.StateManager
-	saveableOptionFactory factory.SaveableOption
-	pauseLoader           pause.Loader
-	cniClient             ecscni.CNIClient
-	os                    oswrapper.OS
-	vpc                   string
-	subnet                string
-	mac                   string
-	metadataManager       containermetadata.Manager
-	terminationHandler    sighandlers.TerminationHandler
-	mobyPlugins           mobypkgwrapper.Plugins
-	resourceFields        *taskresource.ResourceFields
-	availabilityZone      string
+	ctx                         context.Context
+	ec2MetadataClient           ec2.EC2MetadataClient
+	ec2Client                   ec2.Client
+	cfg                         *config.Config
+	dockerClient                dockerapi.DockerClient
+	containerInstanceARN        string
+	credentialProvider          *aws_credentials.Credentials
+	stateManagerFactory         factory.StateManager
+	saveableOptionFactory       factory.SaveableOption
+	pauseLoader                 pause.Loader
+	cniClient                   ecscni.CNIClient
+	os                          oswrapper.OS
+	vpc                         string
+	subnet                      string
+	mac                         string
+	metadataManager             containermetadata.Manager
+	terminationHandler          sighandlers.TerminationHandler
+	mobyPlugins                 mobypkgwrapper.Plugins
+	resourceFields              *taskresource.ResourceFields
+	availabilityZone            string
+	latestSeqNumberTaskManifest *int64
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -158,6 +159,7 @@ func newAgent(
 		metadataManager = containermetadata.NewManager(dockerClient, cfg)
 	}
 
+	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
 		ec2MetadataClient: ec2MetadataClient,
@@ -167,15 +169,16 @@ func newAgent(
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
-		credentialProvider:    defaults.CredChain(defaults.Config(), defaults.Handlers()),
-		stateManagerFactory:   factory.NewStateManager(),
-		saveableOptionFactory: factory.NewSaveableOption(),
-		pauseLoader:           pause.New(),
-		cniClient:             ecscni.NewClient(cfg.CNIPluginsPath),
-		os:                    oswrapper.New(),
-		metadataManager:       metadataManager,
-		terminationHandler:    sighandlers.StartDefaultTerminationHandler,
-		mobyPlugins:           mobypkgwrapper.NewPlugins(),
+		credentialProvider:          defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		stateManagerFactory:         factory.NewStateManager(),
+		saveableOptionFactory:       factory.NewSaveableOption(),
+		pauseLoader:                 pause.New(),
+		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
+		os:                          oswrapper.New(),
+		metadataManager:             metadataManager,
+		terminationHandler:          sighandlers.StartDefaultTerminationHandler,
+		mobyPlugins:                 mobypkgwrapper.NewPlugins(),
+		latestSeqNumberTaskManifest: &initialSeqNumber,
 	}, nil
 }
 
@@ -250,8 +253,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	agent.initMetricsEngine()
 
 	// Initialize the state manager
-	stateManager, err := agent.newStateManager(taskEngine,
-		&agent.cfg.Cluster, &agent.containerInstanceARN, &currentEC2InstanceID, &agent.availabilityZone)
+	stateManager, err := agent.newStateManager(taskEngine, &agent.cfg.Cluster, &agent.containerInstanceARN,
+		&currentEC2InstanceID, &agent.availabilityZone, agent.latestSeqNumberTaskManifest)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return exitcodes.ExitTerminal
@@ -344,7 +347,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	// previousStateManager is used to verify that our current runtime configuration is
 	// compatible with our past configuration as reflected by our state-file
 	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ)
+		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ, agent.latestSeqNumberTaskManifest)
 	if err != nil {
 		seelog.Criticalf("Error creating state manager: %v", err)
 		return nil, "", err
@@ -435,6 +438,17 @@ func (agent *ecsAgent) getEC2InstanceID() string {
 	return instanceID
 }
 
+// getoutpostARN gets the Outpost ARN from the metadata service
+func (agent *ecsAgent) getoutpostARN() string {
+	outpostARN, err := agent.ec2MetadataClient.OutpostARN()
+	if err != nil {
+		seelog.Warnf(
+			"Unable to obtain Outpost ARN from EC2 Metadata: %v", err)
+		return ""
+	}
+	return outpostARN
+}
+
 // newStateManager creates a new state manager object for the task engine.
 // Rest of the parameters are pointers and it's expected that all of these
 // will be backfilled when state manager's Load() method is invoked
@@ -443,7 +457,7 @@ func (agent *ecsAgent) newStateManager(
 	cluster *string,
 	containerInstanceArn *string,
 	savedInstanceID *string,
-	availabilityZone *string) (statemanager.StateManager, error) {
+	availabilityZone *string, latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
 
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
@@ -458,6 +472,7 @@ func (agent *ecsAgent) newStateManager(
 		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
 		agent.saveableOptionFactory.AddSaveable("availabilityZone", availabilityZone),
+		agent.saveableOptionFactory.AddSaveable("latestSeqNumberTaskManifest", latestSeqNumberTaskManifest),
 	)
 }
 
@@ -508,13 +523,16 @@ func (agent *ecsAgent) registerContainerInstance(
 
 	platformDevices := agent.getPlatformDevices()
 
+	outpostARN := agent.getoutpostARN()
+
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices)
+		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	}
 
 	seelog.Info("Registering Instance with ECS")
-	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("", capabilities, tags, uuid.New(), platformDevices)
+	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("",
+		capabilities, tags, uuid.New(), platformDevices, outpostARN)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {
@@ -541,9 +559,11 @@ func (agent *ecsAgent) registerContainerInstance(
 // reregisterContainerInstance registers a container instance that has already been
 // registered with ECS. This is for cases where the ECS Agent is being restored
 // from a check point.
-func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient,
-	capabilities []*ecs.Attribute, tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice) error {
-	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags, registrationToken, platformDevices)
+func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabilities []*ecs.Attribute,
+	tags []*ecs.Tag, registrationToken string, platformDevices []*ecs.PlatformDevice, outpostARN string) error {
+	_, availabilityZone, err := client.RegisterContainerInstance(agent.containerInstanceARN, capabilities, tags,
+		registrationToken, platformDevices, outpostARN)
+
 	//set az to agent
 	agent.availabilityZone = availabilityZone
 
@@ -683,6 +703,7 @@ func (agent *ecsAgent) startACSSession(
 		taskEngine,
 		credentialsManager,
 		taskHandler,
+		agent.latestSeqNumberTaskManifest,
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()

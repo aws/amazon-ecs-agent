@@ -126,13 +126,13 @@ test-silent:
 	${GOTEST} -tags unit -timeout=60s ./agent/...
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=25m ./agent/...
+	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
 
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
 run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
-	${GOTEST} -tags functional -timeout=100m ./agent/functional_tests/...
+	${GOTEST} -p 1 -tags functional -timeout=100m ./agent/functional_tests/...
 
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
@@ -313,7 +313,7 @@ GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 15 ${GOFILES}
+	gocyclo -over 17 ${GOFILES}
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet

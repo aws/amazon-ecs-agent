@@ -519,6 +519,9 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
 			},
 			{
+				Name: aws.String(attributePrefix + capabilityFullTaskSync),
+			},
+			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
 			},
 		}...)
@@ -599,6 +602,9 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilityContainerOrdering),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
@@ -853,4 +859,14 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 
 	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigFile)})
 	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigS3)})
+}
+
+func TestAppendGMSACapabilities(t *testing.T) {
+	var inputCapabilities []*ecs.Attribute
+
+	agent := &ecsAgent{}
+
+	capabilities := agent.appendGMSACapabilities(inputCapabilities)
+	assert.Equal(t, len(inputCapabilities), len(capabilities))
+	assert.EqualValues(t, capabilities, inputCapabilities)
 }

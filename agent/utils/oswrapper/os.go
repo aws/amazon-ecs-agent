@@ -21,6 +21,7 @@ type OS interface {
 	OpenFile(string, int, os.FileMode) (File, error)
 	Rename(string, string) error
 	MkdirAll(string, os.FileMode) error
+	Remove(string) error
 	RemoveAll(string) error
 	IsNotExist(error) bool
 }
@@ -56,6 +57,10 @@ func (*_os) Rename(name1 string, name2 string) error {
 
 func (*_os) MkdirAll(name string, perm os.FileMode) error {
 	return os.MkdirAll(name, perm)
+}
+
+func (*_os) Remove(name string) error {
+	return os.Remove(name)
 }
 
 func (*_os) RemoveAll(name string) error {

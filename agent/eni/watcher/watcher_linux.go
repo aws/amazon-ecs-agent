@@ -192,9 +192,11 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 			// skip logging status sent error as it's redundant and doesn't really indicate a problem
 			if strings.Contains(err.Error(), eniStatusSentMsg) {
 				continue
+			} else if _, ok := err.(*unmanagedENIError); ok {
+				log.Debugf("Udev watcher reconciliation: unable to send state change: %v", err)
+			} else {
+				log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
 			}
-
-			log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
 		}
 	}
 	return nil

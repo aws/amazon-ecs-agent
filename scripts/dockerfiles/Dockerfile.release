@@ -28,4 +28,7 @@ COPY out/cni-plugins /amazon-ecs-cni-plugins
 COPY misc/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 EXPOSE 51678 51679
+
+HEALTHCHECK CMD ["/agent", "--healthcheck"]
+
 ENTRYPOINT ["/agent"]
