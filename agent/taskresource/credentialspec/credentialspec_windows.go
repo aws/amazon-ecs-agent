@@ -18,7 +18,6 @@ package credentialspec
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hectane/go-acl"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -317,6 +316,7 @@ func (cs *CredentialSpecResource) Create() error {
 		if strings.HasPrefix(credSpecValue, "file://") {
 			err = cs.handleCredentialspecFile(credSpecStr)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file,Error:%v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -333,12 +333,14 @@ func (cs *CredentialSpecResource) Create() error {
 		if parsedARNService == "s3" {
 			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file from s3,Error:%v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
 		} else if parsedARNService == "ssm" {
 			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file from SSM,Error:%v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -397,7 +399,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 
 	resourceBase := filepath.Base(parsedARN.Resource)
 	taskArnSplit := strings.SplitN(cs.taskARN, "/", 2)
-	if (len(taskArnSplit) != 2) {
+	if len(taskArnSplit) != 2 {
 		seelog.Errorf("Failed to retrieve taskId from taskArn.")
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
@@ -442,13 +444,13 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 
 	ssmParamData := ssmParamMap[ssmParam]
-
-	taskArnSplit := strings.SplitN(cs.taskARN, "/", 2)
-	if (len(taskArnSplit) != 2) {
+	taskArnSplit := strings.SplitN(cs.taskARN, "/", -1)
+	length := len(taskArnSplit)
+	if length < 2 {
 		seelog.Errorf("Failed to retrieve taskId from taskArn.")
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
-	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[1], ssmParam)
+	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParam)
 	err = cs.writeSSMFile(ssmParamData, localCredSpecFilePath)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -483,12 +485,7 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
-	err = ioutil.WriteFile(filePath, input, 0644)
-	if err != nil {
-		return err
-	}
-
-	err = acl.Chmod(filePath, filePerm);
+	err = ioutil.WriteFile(filePath, input, filePerm)
 	if err != nil {
 		return err
 	}

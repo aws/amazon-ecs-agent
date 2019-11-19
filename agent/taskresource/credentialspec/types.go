@@ -22,7 +22,7 @@ const (
 	tempFileName = "temp_file"
 
 	// filePerm is the permission for the credentialspec file.
-	filePerm = 0755
+	filePerm = 0644
 
 	s3DownloadTimeout = 30 * time.Second
 
