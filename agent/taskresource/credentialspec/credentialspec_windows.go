@@ -498,7 +498,7 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
-	err = os.Remove(temp.Name())
+	err = cs.os.Remove(temp.Name())
 	if err != nil {
 		seelog.Errorf("Error while removing the temporary file:%v", temp.Name())
 		return err
