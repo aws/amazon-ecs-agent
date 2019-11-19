@@ -529,9 +529,15 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 			seelog.Debugf("Skipping cleanup of local credentialspec file option: %s", key)
 			continue
 		}
-		credSpecSplit := strings.SplitAfterN(value, "credentialspec=", 2)
+		// Split credentialspec to obtain local file-name
+		credSpecSplit := strings.SplitAfterN(value, "credentialspec=file://", 2)
+		if len(credSpecSplit) != 2 {
+			seelog.Warnf("Unable to parse target credentialspec: %s", value)
+			continue
+		}
 		localCredentialSpecFile := credSpecSplit[1]
-		err := cs.os.Remove(localCredentialSpecFile)
+		localCredentialSpecFilePath := filepath.Join(cs.credentialSpecResourceLocation, localCredentialSpecFile)
+		err := cs.os.Remove(localCredentialSpecFilePath)
 		if err != nil {
 			seelog.Warnf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
 		}
