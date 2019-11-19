@@ -405,7 +405,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
 
-	localCredSpecFilePath := fmt.Sprintf("%s\\s3_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[1], resourceBase)
+	localCredSpecFilePath := fmt.Sprintf("%s\\s3_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], resourceBase)
 	err = cs.writeS3File(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, localCredSpecFilePath)
