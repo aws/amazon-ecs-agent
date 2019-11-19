@@ -98,6 +98,8 @@ func NewCredentialSpecResource(taskARN, region string,
 		ssmClientCreator:        ssmClientCreator,
 		s3ClientCreator:         s3ClientCreator,
 		CredSpecMap:             make(map[string]string),
+		os:                      oswrapper.NewOS(),
+		ioutil:                  ioutilwrapper.NewIOUtil(),
 	}
 
 	err := s.setCredentialSpecResourceLocation()
@@ -184,9 +186,6 @@ func (cs *CredentialSpecResource) NextKnownState() resourcestatus.ResourceStatus
 
 // ApplyTransition calls the function required to move to the specified status
 func (cs *CredentialSpecResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
-	cs.lock.Lock()
-	defer cs.lock.Unlock()
-
 	transitionFunc, ok := cs.resourceStatusToTransitionFunction[nextState]
 	if !ok {
 		err := errors.Errorf("resource [%s]: transition to %s impossible", cs.GetName(),
@@ -298,15 +297,12 @@ func (cs *CredentialSpecResource) GetName() string {
 // Create is used to create all the credentialspec resources for a given task
 func (cs *CredentialSpecResource) Create() error {
 	var err error
-	// To fail fast, check execution role first
+	var iamCredentials credentials.IAMRoleCredentials
+
 	executionCredentials, ok := cs.credentialsManager.GetTaskCredentials(cs.getExecutionCredentialsID())
-	if !ok {
-		// No need to log here. managedTask.applyResourceState already does that
-		err = errors.New("credentialspec resource: unable to find execution role credentials")
-		cs.setTerminalReason(err.Error())
-		return err
+	if ok {
+		iamCredentials = executionCredentials.GetIAMRoleCredentials()
 	}
-	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 
 	for _, credSpecStr := range cs.requiredCredentialSpecs {
 		credSpecSplit := strings.SplitAfterN(credSpecStr, "credentialspec:", 2)
@@ -373,6 +369,12 @@ func (cs *CredentialSpecResource) handleCredentialspecFile(credentialspec string
 }
 
 func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentialspec, credentialspecS3ARN string, iamCredentials credentials.IAMRoleCredentials) error {
+	if iamCredentials == (credentials.IAMRoleCredentials{}) {
+		err := errors.New("credentialspec resource: unable to find execution role credentials")
+		cs.setTerminalReason(err.Error())
+		return err
+	}
+
 	parsedARN, err := arn.Parse(credentialspecS3ARN)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -409,6 +411,12 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 }
 
 func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredentialspec, credentialspecSSMARN string, iamCredentials credentials.IAMRoleCredentials) error {
+	if iamCredentials == (credentials.IAMRoleCredentials{}) {
+		err := errors.New("credentialspec resource: unable to find execution role credentials")
+		cs.setTerminalReason(err.Error())
+		return err
+	}
+
 	parsedARN, err := arn.Parse(credentialspecSSMARN)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -500,6 +508,7 @@ func (cs *CredentialSpecResource) updateCredSpecMapping(credSpecInput, targetCre
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 
+	seelog.Debugf("Updating credentialspec mapping for %s with %s", credSpecInput, targetCredSpec)
 	cs.CredSpecMap[credSpecInput] = targetCredSpec
 }
 

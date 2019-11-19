@@ -96,8 +96,9 @@ const (
 	//	 b) Add 'Region', 'ExecutionCredentialsID', 'ExternalConfigType', 'ExternalConfigValue' and 'NetworkMode' to
 	//     firelens task resource.
 	// 25) Add `seqNumTaskManifest` int field
+	// 26) Add 'credentialspec' field to 'resources'
 
-	ECSDataVersion = 25
+	ECSDataVersion = 26
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
