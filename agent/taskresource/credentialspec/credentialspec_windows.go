@@ -18,7 +18,6 @@ package credentialspec
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -475,35 +474,17 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
-	// Persist the file to disk.
-	err = temp.Sync()
-	if err != nil {
-		return err
-	}
-
-	//Read the file to a new chunk to avoid access violation issues.
-	input, err := ioutil.ReadFile(temp.Name())
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(filePath, input, filePerm)
-	if err != nil {
-		return err
-	}
-
 	err = temp.Close()
 	if err != nil {
 		seelog.Errorf("Error while closing the handle to file:%v", temp.Name())
 		return err
 	}
 
-	err = os.Remove(temp.Name())
+	err = cs.os.Rename(temp.Name(), filePath)
 	if err != nil {
 		seelog.Errorf("Error while removing the temporary file:%v", temp.Name())
 		return err
 	}
-
 	return nil
 }
 
