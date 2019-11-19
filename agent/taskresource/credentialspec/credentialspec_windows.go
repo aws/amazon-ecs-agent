@@ -398,8 +398,9 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	}
 
 	resourceBase := filepath.Base(parsedARN.Resource)
-	taskArnSplit := strings.SplitN(cs.taskARN, "/", 2)
-	if len(taskArnSplit) != 2 {
+	taskArnSplit := strings.SplitN(cs.taskARN, "/", -1)
+	length := len(taskArnSplit)
+	if length < 2 {
 		seelog.Errorf("Failed to retrieve taskId from taskArn.")
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
