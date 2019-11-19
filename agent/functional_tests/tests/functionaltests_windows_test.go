@@ -17,17 +17,22 @@ package functional_tests
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	. "github.com/aws/amazon-ecs-agent/agent/functional_tests/util"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	sdkClient "github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +41,11 @@ const (
 	savedStateTaskDefinition        = "savedstate-windows"
 	portResContentionTaskDefinition = "port-80-windows"
 	labelsTaskDefinition            = "labels-windows"
+	dockerEndpoint                  = "npipe:////./pipe/docker_engine"
+	DockerEndpointEnvVariable       = "DOCKER_HOST"
 )
+
+var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
 
 // TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
 func TestAWSLogsDriver(t *testing.T) {
@@ -343,4 +352,101 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 	assert.NoError(t, rErr, "Expect task to be stopped")
 	rExitCode := rTask.Containers[0].ExitCode
 	assert.NotEqual(t, 42, rExitCode, fmt.Sprintf("Expected exit code of 42; got %d", rExitCode))
+}
+
+func TestGMSAFile(t *testing.T) {
+	RequireDockerAPIVersion(t, ">=1.30")
+
+	agentOptions := AgentOptions{
+		ExtraEnvironment: map[string]string{
+			"ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION": "true",
+		},
+	}
+	agent := RunAgent(t, &agentOptions)
+	defer agent.Cleanup()
+
+	agent.RequireVersion(">=1.26.0")
+
+	// Setup test gmsa file
+	envProgramData := "ProgramData"
+	dockerCredentialSpecDataDir := "docker/credentialspecs"
+	programDataDir := os.Getenv(envProgramData)
+	if programDataDir == "" {
+		programDataDir = "C:/ProgramData"
+	}
+	testFileName := "test-gmsa.json"
+	testCredSpecFilePath := filepath.Join(programDataDir, dockerCredentialSpecDataDir, testFileName)
+	testCredSpecData := []byte(`{
+    "CmsPlugins":  [
+                       "ActiveDirectory"
+                   ],
+    "DomainJoinConfig":  {
+                             "Sid":  "S-1-5-21-975084816-3050680612-2826754290",
+                             "MachineAccountName":  "gmsa-acct-test",
+                             "Guid":  "92a07e28-bd9f-4bf3-b1f7-0894815a5257",
+                             "DnsTreeName":  "gmsa.test.com",
+                             "DnsName":  "gmsa.test.com",
+                             "NetBiosName":  "gmsa"
+                         },
+    "ActiveDirectoryConfig":  {
+                                  "GroupManagedServiceAccounts":  [
+                                                                      {
+                                                                          "Name":  "gmsa-acct-test",
+                                                                          "Scope":  "gmsa.test.com"
+                                                                      }
+                                                                  ]
+                              }
+}`)
+
+	err := ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
+	require.NoError(t, err)
+
+	tdOverrides := make(map[string]string)
+	tdOverrides["$$$TEST_REGION$$$"] = aws.StringValue(ECS.Config.Region)
+
+	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "gmsa-localfile", tdOverrides)
+	require.NoError(t, err)
+
+	// Wait for the container to start
+	testTask.WaitRunning(waitTaskStateChangeDuration)
+	taskID, err := GetTaskID(aws.StringValue(testTask.TaskArn))
+	require.NoError(t, err)
+	assert.NotEmpty(t, taskID)
+
+	// Verify container metadata
+	cid, err := agent.ResolveTaskDockerID(testTask, "windows_sample_app")
+	require.NoError(t, err, "Error resolving docker id for container in task")
+	assert.NotEmpty(t, cid)
+
+	// Setup docker client to validate credentialspec
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+
+	testCredentialSpecOption := "credentialspec=file://test-gmsa.json"
+	err = verifyContainerCredentialSpec(client, cid, testCredentialSpecOption)
+	assert.NoError(t, err)
+
+	// Stop test task
+	testTask.Stop()
+
+	err = testTask.WaitStopped(waitTaskStateChangeDuration)
+	assert.NoError(t, err)
+
+	// Cleanup the test file
+	err = os.Remove(testCredSpecFilePath)
+	assert.NoError(t, err)
+}
+
+func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecOpt string) error {
+	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	if err != nil {
+		return err
+	}
+
+	for _, opt := range dockerContainer.HostConfig.SecurityOpt {
+		if strings.HasPrefix(opt, "credentialspec=") && opt == credentialspecOpt {
+			return nil
+		}
+	}
+
+	return errors.New("unable to obtain credentialspec")
 }
