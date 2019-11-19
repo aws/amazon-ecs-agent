@@ -480,6 +480,7 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
+	//Read the file to a new chunk to avoid access violation issues.
 	input, err := ioutil.ReadFile(temp.Name())
 	if err != nil {
 		return err
