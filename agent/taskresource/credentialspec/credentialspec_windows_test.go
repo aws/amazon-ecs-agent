@@ -68,10 +68,10 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 
 	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
 	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
-	gomock.InOrder(
-		mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil),
-		mockOS.EXPECT().Remove(expectedSSMFilePath).Return(nil),
-	)
+
+	// Mock returns for test
+	mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil)
+	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(nil)
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
@@ -86,7 +86,6 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
-		"credentialspec:s3ARN":                     "credentialspec=file://s3_taskARN_fileName.json",
 		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
@@ -97,12 +96,10 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
-	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
 	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
-	gomock.InOrder(
-		mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil),
-		mockOS.EXPECT().Remove(expectedSSMFilePath).Return(errors.New("test-error")),
-	)
+
+	// Mock returns for test
+	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(errors.New("test-error"))
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
