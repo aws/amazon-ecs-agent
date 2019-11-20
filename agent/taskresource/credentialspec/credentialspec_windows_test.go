@@ -520,7 +520,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
 		mockFile.EXPECT().Close(),
 		mockFile.EXPECT().Name().Return(tempFileName),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(errors.New("test-error")).AnyTimes(),
+		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
 		mockFile.EXPECT().Name().Return(tempFileName),
 	)
 
@@ -645,7 +645,7 @@ func TestCreateS3(t *testing.T) {
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
 		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name().AnyTimes(),
+		mockFile.EXPECT().Name(),
 		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 	)
 

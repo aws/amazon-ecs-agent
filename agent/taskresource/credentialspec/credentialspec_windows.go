@@ -315,7 +315,7 @@ func (cs *CredentialSpecResource) Create() error {
 		if strings.HasPrefix(credSpecValue, "file://") {
 			err = cs.handleCredentialspecFile(credSpecStr)
 			if err != nil {
-				seelog.Errorf("Failed to handle the credentialspec file,Error:%v", err)
+				seelog.Errorf("Failed to handle the credentialspec file: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -332,14 +332,14 @@ func (cs *CredentialSpecResource) Create() error {
 		if parsedARNService == "s3" {
 			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
-				seelog.Errorf("Failed to handle the credentialspec file from s3,Error:%v", err)
+				seelog.Errorf("Failed to handle the credentialspec file from s3: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
 		} else if parsedARNService == "ssm" {
 			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
-				seelog.Errorf("Failed to handle the credentialspec file from SSM,Error:%v", err)
+				seelog.Errorf("Failed to handle the credentialspec file from SSM: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -400,7 +400,6 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	taskArnSplit := strings.Split(cs.taskARN, "/")
 	length := len(taskArnSplit)
 	if length < 2 {
-		seelog.Errorf("Failed to retrieve taskId from taskArn.")
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
 
@@ -447,7 +446,6 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	taskArnSplit := strings.Split(cs.taskARN, "/")
 	length := len(taskArnSplit)
 	if length < 2 {
-		seelog.Errorf("Failed to retrieve taskId from taskArn.")
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
 	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParam)
@@ -476,13 +474,13 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 
 	err = temp.Close()
 	if err != nil {
-		seelog.Errorf("Error while closing the handle to file:%v", temp.Name())
+		seelog.Errorf("Error while closing the handle to file %s: %v", temp.Name(), err)
 		return err
 	}
 
 	err = cs.os.Rename(temp.Name(), filePath)
 	if err != nil {
-		seelog.Errorf("Error while renaming the temporary file:%v", temp.Name())
+		seelog.Errorf("Error while renaming the temporary file %s: %v", temp.Name(), err)
 		return err
 	}
 	return nil
