@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	taskARN                = "task1"
+	taskARN                = "arn:aws:ecs:us-west-2:123456789012:task/12345-678901234-56789"
 	executionCredentialsID = "exec-creds-id"
 	testTempFile           = "testtempfile"
 )
@@ -205,7 +205,7 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 
 	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
 	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
-	expectedFileCredentialSpec := "credentialspec=file://ssm_task1_test.json"
+	expectedFileCredentialSpec := "credentialspec=file://ssm_12345-678901234-56789_test"
 
 	requiredCredSpec := []string{ssmCredentialSpec}
 
@@ -387,7 +387,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	}
 	credentialSpecS3ARN := "arn:aws:s3:::bucket_name/test"
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
-	expectedFileCredentialSpec := "credentialspec=file://s3_task1_test.json"
+	expectedFileCredentialSpec := "credentialspec=file://s3_12345-678901234-56789_test"
 
 	requiredCredSpec := []string{s3CredentialSpec}
 
@@ -413,11 +413,9 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),
-		mockFile.EXPECT().Sync().Return(nil),
+		mockFile.EXPECT().Close(),
 		mockFile.EXPECT().Name().Return(testTempFile),
 		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
-		mockFile.EXPECT().Close(),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -520,11 +518,10 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),
-		mockFile.EXPECT().Sync().Return(nil),
-		mockFile.EXPECT().Name().Return(testTempFile),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
 		mockFile.EXPECT().Close(),
+		mockFile.EXPECT().Name().Return(tempFileName),
+		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(errors.New("test-error")).AnyTimes(),
+		mockFile.EXPECT().Name().Return(tempFileName),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -647,11 +644,9 @@ func TestCreateS3(t *testing.T) {
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),
-		mockFile.EXPECT().Sync().Return(nil),
-		mockFile.EXPECT().Name().Return(testTempFile),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 		mockFile.EXPECT().Close(),
+		mockFile.EXPECT().Name().AnyTimes(),
+		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 	)
 
 	assert.NoError(t, cs.Create())
