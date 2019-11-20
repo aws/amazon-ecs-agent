@@ -42,10 +42,8 @@ const (
 	portResContentionTaskDefinition = "port-80-windows"
 	labelsTaskDefinition            = "labels-windows"
 	dockerEndpoint                  = "npipe:////./pipe/docker_engine"
-	DockerEndpointEnvVariable       = "DOCKER_HOST"
+	dockerEndpointEnvVariable       = "DOCKER_HOST"
 )
-
-var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
 
 // TestAWSLogsDriver verifies that container logs are sent to Amazon CloudWatch Logs with awslogs as the log driver
 func TestAWSLogsDriver(t *testing.T) {
@@ -355,7 +353,7 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 }
 
 func TestGMSAFile(t *testing.T) {
-	RequireDockerAPIVersion(t, ">=1.30")
+	RequireDockerAPIVersion(t, ">=1.40")
 
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -365,7 +363,7 @@ func TestGMSAFile(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.26.0")
+	agent.RequireVersion(">=1.33.0")
 
 	// Setup test gmsa file
 	envProgramData := "ProgramData"
@@ -419,6 +417,7 @@ func TestGMSAFile(t *testing.T) {
 	assert.NotEmpty(t, cid)
 
 	// Setup docker client to validate credentialspec
+	endpoint := utils.DefaultIfBlank(os.Getenv(dockerEndpointEnvVariable), dockerEndpoint)
 	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 
 	testCredentialSpecOption := "credentialspec=file://test-gmsa.json"
