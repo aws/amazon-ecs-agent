@@ -397,7 +397,7 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	}
 
 	resourceBase := filepath.Base(parsedARN.Resource)
-	taskArnSplit := strings.SplitN(cs.taskARN, "/", -1)
+	taskArnSplit := strings.Split(cs.taskARN, "/")
 	length := len(taskArnSplit)
 	if length < 2 {
 		seelog.Errorf("Failed to retrieve taskId from taskArn.")
@@ -444,7 +444,7 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 
 	ssmParamData := ssmParamMap[ssmParam]
-	taskArnSplit := strings.SplitN(cs.taskARN, "/", -1)
+	taskArnSplit := strings.Split(cs.taskARN, "/")
 	length := len(taskArnSplit)
 	if length < 2 {
 		seelog.Errorf("Failed to retrieve taskId from taskArn.")
@@ -482,7 +482,7 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 
 	err = cs.os.Rename(temp.Name(), filePath)
 	if err != nil {
-		seelog.Errorf("Error while removing the temporary file:%v", temp.Name())
+		seelog.Errorf("Error while renaming the temporary file:%v", temp.Name())
 		return err
 	}
 	return nil
