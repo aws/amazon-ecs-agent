@@ -54,8 +54,8 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
-		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
-		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
+		"credentialspec:s3ARN":                     "credentialspec=file://s3_taskARN_fileName.json",
+		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
 	credspecRes := &CredentialSpecResource{
@@ -80,8 +80,8 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
-		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
-		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
+		"credentialspec:s3ARN":                     "credentialspec=file://s3_taskARN_fileName.json",
+		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
 	credspecRes := &CredentialSpecResource{
