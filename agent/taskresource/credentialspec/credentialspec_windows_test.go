@@ -17,6 +17,7 @@ package credentialspec
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -58,13 +59,18 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
+	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap: credSpecMapData,
-		os:          mockOS,
+		CredSpecMap:                    credSpecMapData,
+		os:                             mockOS,
+		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
+	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
+	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
 	gomock.InOrder(
-		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).AnyTimes(),
+		mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil),
+		mockOS.EXPECT().Remove(expectedSSMFilePath).Return(nil),
 	)
 
 	err := credspecRes.Cleanup()
@@ -84,14 +90,18 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
+	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap: credSpecMapData,
-		os:          mockOS,
+		CredSpecMap:                    credSpecMapData,
+		os:                             mockOS,
+		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
+	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
+	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
 	gomock.InOrder(
-		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).Times(1),
-		mockOS.EXPECT().Remove(gomock.Any()).Return(errors.New("test error")),
+		mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil),
+		mockOS.EXPECT().Remove(expectedSSMFilePath).Return(errors.New("test-error")),
 	)
 
 	err := credspecRes.Cleanup()
