@@ -506,7 +506,7 @@ func TestGMSASSMFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Obtain ARN of SSM param
-	gmSAParameterARN := *data.Parameter.ARN
+	gMSASSMParameterARN := *data.Parameter.ARN
 
 	// Setup agent
 	RequireDockerAPIVersion(t, ">=1.40")
@@ -525,9 +525,8 @@ func TestGMSASSMFile(t *testing.T) {
 
 	// Setup taskdef
 	tdOverrides := make(map[string]string)
-	tdOverrides["$$$TEST_REGION$$$"] = aws.StringValue(ECS.Config.Region)
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = executionRole
-	tdOverrides["$$$TEST_SSM_ARN$$$"] = gmSAParameterARN
+	tdOverrides["$$$TEST_SSM_ARN$$$"] = gMSASSMParameterARN
 
 	testTask, err := agent.StartTaskWithTaskDefinitionOverrides(t, "gmsa-ssm", tdOverrides)
 	require.NoError(t, err)
@@ -644,7 +643,6 @@ func TestGMSAS3File(t *testing.T) {
 
 	// Setup taskdef overrides
 	tdOverrides := make(map[string]string)
-	tdOverrides["$$$TEST_REGION$$$"] = aws.StringValue(ECS.Config.Region)
 	tdOverrides["$$$EXECUTION_ROLE$$$"] = executionRole
 	tdOverrides["$$$TEST_S3_BUCKET$$$"] = s3Bucket
 
