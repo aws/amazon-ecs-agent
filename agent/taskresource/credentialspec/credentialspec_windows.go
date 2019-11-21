@@ -315,6 +315,7 @@ func (cs *CredentialSpecResource) Create() error {
 		if strings.HasPrefix(credSpecValue, "file://") {
 			err = cs.handleCredentialspecFile(credSpecStr)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -331,12 +332,14 @@ func (cs *CredentialSpecResource) Create() error {
 		if parsedARNService == "s3" {
 			err = cs.handleS3CredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file from s3: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
 		} else if parsedARNService == "ssm" {
 			err = cs.handleSSMCredentialspecFile(credSpecStr, credSpecValue, iamCredentials)
 			if err != nil {
+				seelog.Errorf("Failed to handle the credentialspec file from SSM: %v", err)
 				cs.setTerminalReason(err.Error())
 				return err
 			}
@@ -394,8 +397,13 @@ func (cs *CredentialSpecResource) handleS3CredentialspecFile(originalCredentials
 	}
 
 	resourceBase := filepath.Base(parsedARN.Resource)
-	localCredSpecFilePath := fmt.Sprintf("%s/s3_%s_%s.json", cs.credentialSpecResourceLocation, cs.taskARN, resourceBase)
+	taskArnSplit := strings.Split(cs.taskARN, "/")
+	length := len(taskArnSplit)
+	if length < 2 {
+		return errors.New("Failed to retrieve taskId from taskArn.")
+	}
 
+	localCredSpecFilePath := fmt.Sprintf("%s\\s3_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], resourceBase)
 	err = cs.writeS3File(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, localCredSpecFilePath)
@@ -435,9 +443,12 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	}
 
 	ssmParamData := ssmParamMap[ssmParam]
-
-	localCredSpecFilePath := fmt.Sprintf("%s/ssm_%s_%s.json", cs.credentialSpecResourceLocation, cs.taskARN, ssmParam)
-
+	taskArnSplit := strings.Split(cs.taskARN, "/")
+	length := len(taskArnSplit)
+	if length < 2 {
+		return errors.New("Failed to retrieve taskId from taskArn.")
+	}
+	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParam)
 	err = cs.writeSSMFile(ssmParamData, localCredSpecFilePath)
 	if err != nil {
 		cs.setTerminalReason(err.Error())
@@ -455,29 +466,23 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 	if err != nil {
 		return err
 	}
-	defer temp.Close()
 
 	err = writeFunc(temp)
 	if err != nil {
 		return err
 	}
 
-	err = temp.Chmod(os.FileMode(filePerm))
+	err = temp.Close()
 	if err != nil {
-		return err
-	}
-
-	// Persist the file to disk.
-	err = temp.Sync()
-	if err != nil {
+		seelog.Errorf("Error while closing the handle to file %s: %v", temp.Name(), err)
 		return err
 	}
 
 	err = cs.os.Rename(temp.Name(), filePath)
 	if err != nil {
+		seelog.Errorf("Error while renaming the temporary file %s: %v", temp.Name(), err)
 		return err
 	}
-
 	return nil
 }
 
