@@ -17,6 +17,7 @@ package credentialspec
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -54,18 +55,23 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
-		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
-		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
+		"credentialspec:s3ARN":                     "credentialspec=file://s3_taskARN_fileName.json",
+		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
+	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap: credSpecMapData,
-		os:          mockOS,
+		CredSpecMap:                    credSpecMapData,
+		os:                             mockOS,
+		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
-	gomock.InOrder(
-		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).AnyTimes(),
-	)
+	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
+	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
+
+	// Mock returns for test
+	mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil)
+	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(nil)
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
@@ -80,19 +86,20 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
-		"credentialspec:s3ARN":                     "credentialspec=file://ResourceDir/s3_taskARN_fileName.json",
-		"credentialspec:ssmARN":                    "credentialspec=file://ResourceDir/ssm_taskARN_fileName.json",
+		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
 	}
 
+	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
-		CredSpecMap: credSpecMapData,
-		os:          mockOS,
+		CredSpecMap:                    credSpecMapData,
+		os:                             mockOS,
+		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
-	gomock.InOrder(
-		mockOS.EXPECT().Remove(gomock.Any()).Return(nil).Times(1),
-		mockOS.EXPECT().Remove(gomock.Any()).Return(errors.New("test error")),
-	)
+	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
+
+	// Mock returns for test
+	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(errors.New("test-error"))
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
