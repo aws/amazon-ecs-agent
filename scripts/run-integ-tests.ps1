@@ -21,6 +21,9 @@ if ($Platform -like "windows2016") {
 } elseif ($Platform -like "windows2019")  {
   $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2019"
   $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:e20960b4c06acee08af55164e3abc37b39cdc128ce2f5fcdf3397c738cb91069"
+} elseif ($Platform -like "windows1909") {
+  $BaseImageName="mcr.microsoft.com/windows/servercore:1909"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:8d89f487982ba44ad954d899e99056ce9e8be955bf01c78685d80d6ab6ac23a0"
 } else {
   echo "Invalid platform parameter"
   exit 1
