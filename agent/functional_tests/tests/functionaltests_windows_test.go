@@ -358,7 +358,7 @@ func TestTwoTasksSharedLocalVolume(t *testing.T) {
 }
 
 func TestGMSAFile(t *testing.T) {
-	RequireDockerAPIVersion(t, ">=1.39")
+	RequireDockerAPIVersion(t, ">=1.37")
 
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -509,7 +509,7 @@ func TestGMSASSMFile(t *testing.T) {
 	gMSASSMParameterARN := *data.Parameter.ARN
 
 	// Setup agent
-	RequireDockerAPIVersion(t, ">=1.39")
+	RequireDockerAPIVersion(t, ">=1.37")
 
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
@@ -627,7 +627,7 @@ func TestGMSAS3File(t *testing.T) {
 	}
 
 	// Setup agent
-	RequireDockerAPIVersion(t, ">=1.39")
+	RequireDockerAPIVersion(t, ">=1.37")
 
 	agentOptions := AgentOptions{
 		ExtraEnvironment: map[string]string{
