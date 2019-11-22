@@ -368,7 +368,7 @@ func TestGMSAFile(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.33.0")
+	agent.RequireVersion(">=1.32.1")
 
 	// Setup test gmsa file
 	envProgramData := "ProgramData"
@@ -521,7 +521,7 @@ func TestGMSASSMFile(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.33.0")
+	agent.RequireVersion(">=1.32.1")
 
 	// Setup taskdef
 	tdOverrides := make(map[string]string)
@@ -639,7 +639,7 @@ func TestGMSAS3File(t *testing.T) {
 	agent := RunAgent(t, &agentOptions)
 	defer agent.Cleanup()
 
-	agent.RequireVersion(">=1.33.0")
+	agent.RequireVersion(">=1.32.1")
 
 	// Setup taskdef overrides
 	tdOverrides := make(map[string]string)
