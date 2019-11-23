@@ -32,7 +32,7 @@ const (
 
 // createBindsEnv will do the appropriate formatting to add a new mount in a container's HostConfig
 // and add the metadata file path as an environment variable ECS_CONTAINER_METADATA_FILE
-func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadataDirectoryPath string) ([]string, []string) {
+func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadataDirectoryPath string, dockerSecurityOptions []string) ([]string, []string) {
 	randID := uuid.New()
 	instanceBind := fmt.Sprintf(`%s:%s\%s`, metadataDirectoryPath, mountPoint, randID)
 	metadataEnvVariable := fmt.Sprintf(`%s=%s\%s\%s`, metadataEnvironmentVariable, mountPoint, randID, metadataFile)

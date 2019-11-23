@@ -29,6 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	sdkClient "github.com/docker/docker/client"
@@ -322,4 +324,8 @@ func (engine *MockTaskEngine) Capabilities() []*ecs.Attribute {
 }
 
 func (engine *MockTaskEngine) Disable() {
+}
+
+func (engine *MockTaskEngine) Info() (types.Info, error) {
+	return types.Info{}, nil
 }

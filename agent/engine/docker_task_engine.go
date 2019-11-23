@@ -1055,7 +1055,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
 	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
-		mderr := engine.metadataManager.Create(config, hostConfig, task, container.Name)
+		info, infoErr := engine.client.Info(engine.ctx, dockerclient.InfoTimeout)
+		if infoErr != nil {
+			seelog.Warnf("Task engine [%s]: unable to get docker info : %v",
+				task.Arn, infoErr)
+		}
+		mderr := engine.metadataManager.Create(config, hostConfig, task, container.Name, info.SecurityOptions)
 		if mderr != nil {
 			seelog.Warnf("Task engine [%s]: unable to create metadata for container %s: %v",
 				task.Arn, container.Name, mderr)

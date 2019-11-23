@@ -55,4 +55,5 @@ type Client interface {
 	VolumeInspect(ctx context.Context, volumeID string) (types.Volume, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
 	ServerVersion(ctx context.Context) (types.Version, error)
+	Info(ctx context.Context) (types.Info, error)
 }

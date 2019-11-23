@@ -66,4 +66,7 @@ const (
 
 	// VersionTimeout is the timeout for the Version API
 	VersionTimeout = 10 * time.Second
+
+	// InfoTimeout is the timeout for the Info API
+	InfoTimeout = 10 * time.Second
 )

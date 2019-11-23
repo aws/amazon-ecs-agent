@@ -67,17 +67,17 @@ func (mr *MockManagerMockRecorder) Clean(arg0 interface{}) *gomock.Call {
 }
 
 // Create mocks base method
-func (m *MockManager) Create(arg0 *container.Config, arg1 *container.HostConfig, arg2 *task.Task, arg3 string) error {
+func (m *MockManager) Create(arg0 *container.Config, arg1 *container.HostConfig, arg2 *task.Task, arg3 string, arg4 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Create indicates an expected call of Create
-func (mr *MockManagerMockRecorder) Create(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) Create(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManager)(nil).Create), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockManager)(nil).Create), arg0, arg1, arg2, arg3, arg4)
 }
 
 // SetAvailabilityZone mocks base method
