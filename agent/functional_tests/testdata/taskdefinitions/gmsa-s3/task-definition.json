@@ -1,0 +1,36 @@
+{
+  "containerDefinitions": [
+    {
+      "entryPoint": [
+        "powershell",
+        "-Command"
+      ],
+      "portMappings": [
+        {
+          "hostPort": 8080,
+          "protocol": "tcp",
+          "containerPort": 80
+        }
+      ],
+      "command": [
+        "New-Item -Path C:\\inetpub\\wwwroot\\index.html -ItemType file -Value '<html> <head> <title>Amazon ECS Sample App</title> <style>body {margin-top: 40px; background-color: #333;} </style> </head><body> <div style=color:white;text-align:center> <h1>Amazon ECS Sample App</h1> <h2>Congratulations!</h2> <p>Your application is now running on a container in Amazon ECS.</p>' -Force ; C:\\ServiceMonitor.exe w3svc"
+      ],
+      "cpu": 512,
+      "environment": [],
+      "mountPoints": [],
+      "dockerSecurityOptions": [
+        "credentialspec:arn:aws:s3:::$$$TEST_S3_BUCKET$$$/gmsa-test-file.json"
+      ],
+      "memory": 768,
+      "volumesFrom": [],
+      "image": "microsoft/iis",
+      "essential": true,
+      "name": "windows_sample_app"
+    }
+  ],
+  "placementConstraints": [],
+  "family": "gmsa-s3-test",
+  "requiresCompatibilities": [],
+  "volumes": [],
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$"
+}
