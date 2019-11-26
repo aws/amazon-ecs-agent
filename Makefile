@@ -320,8 +320,7 @@ gocyclo:
 govet:
 	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-GOFMTSTRING:='{{$$dir := .Dir}}{{range $$f := .GoFiles}}{{$$dir}}/{{$$f}} {{end}}{{range $$f := .IgnoredGoFiles}}{{$$dir}}/{{$$f}} {{end}}'
-GOFMTFILES:=$(shell go list -f $(GOFMTSTRING) ./agent/...)
+GOFMTFILES:=$(shell find ./agent -not -path './agent/vendor/*' -type f -iregex '.*\.go')
 .PHONY: fmtcheck
 fmtcheck:
 	$(eval DIFFS:=$(shell gofmt -l $(GOFMTFILES)))
