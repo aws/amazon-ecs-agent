@@ -441,12 +441,12 @@ func (agent *ecsAgent) getEC2InstanceID() string {
 // getoutpostARN gets the Outpost ARN from the metadata service
 func (agent *ecsAgent) getoutpostARN() string {
 	outpostARN, err := agent.ec2MetadataClient.OutpostARN()
-	if err != nil {
-		seelog.Warnf(
-			"Unable to obtain Outpost ARN from EC2 Metadata: %v", err)
-		return ""
+	if err == nil {
+		seelog.Infof(
+			"Outpost ARN from EC2 Metadata: %s", outpostARN)
+		return outpostARN
 	}
-	return outpostARN
+	return ""
 }
 
 // newStateManager creates a new state manager object for the task engine.
