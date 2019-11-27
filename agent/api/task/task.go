@@ -334,14 +334,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	if cfg.GPUSupportEnabled {
-		err = task.addGPUResource()
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-		task.NvidiaRuntime = cfg.NvidiaRuntime
+
+	err = task.addGPUResource(cfg)
+	if err != nil {
+		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
 	}
+
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	err = task.addNetworkResourceProvisioningDependency(cfg)
@@ -352,12 +351,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	firelensContainer := task.GetFirelensContainer()
-	if firelensContainer != nil {
-		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer, credentialsManager)
-		if err != nil {
-			return err
-		}
+	err = task.applyFirelensSetup(cfg, resourceFields, credentialsManager)
+	if err != nil {
+		return err
 	}
 
 	if task.requiresCredentialSpecResource() {
@@ -372,38 +368,43 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
-	err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	err = task.addFirelensContainerDependency()
-	if err != nil {
-		return errors.New("unable to add firelens container dependency")
+	credentialsManager credentials.Manager) error {
+	firelensContainer := task.GetFirelensContainer()
+	if firelensContainer != nil {
+		err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
+		if err != nil {
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+		err = task.addFirelensContainerDependency()
+		if err != nil {
+			return errors.New("unable to add firelens container dependency")
+		}
 	}
 
 	return nil
 }
 
-func (task *Task) addGPUResource() error {
-	for _, association := range task.Associations {
-		// One GPU can be associated with only one container
-		// That is why validating if association.Containers is of length 1
-		if association.Type == GPUAssociationType {
-			if len(association.Containers) == 1 {
+func (task *Task) addGPUResource(cfg *config.Config) error {
+	if cfg.GPUSupportEnabled {
+		for _, association := range task.Associations {
+			// One GPU can be associated with only one container
+			// That is why validating if association.Containers is of length 1
+			if association.Type == GPUAssociationType {
+				if len(association.Containers) != 1 {
+					return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				}
+
 				container, ok := task.ContainerByName(association.Containers[0])
 				if !ok {
 					return fmt.Errorf("could not find container with name %s for associating GPU %s",
 						association.Containers[0], association.Name)
-				} else {
-					container.GPUIDs = append(container.GPUIDs, association.Name)
 				}
-			} else {
-				return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
+		task.populateGPUEnvironmentVariables()
+		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
-	task.populateGPUEnvironmentVariables()
 	return nil
 }
 
