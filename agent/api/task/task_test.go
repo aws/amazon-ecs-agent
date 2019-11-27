@@ -2744,7 +2744,8 @@ func TestAddGPUResource(t *testing.T) {
 		Associations:       association,
 	}
 
-	err := task.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
 
 	assert.Equal(t, []string{"gpu1", "gpu2"}, container.GPUIDs)
 	assert.Equal(t, []string(nil), container1.GPUIDs)
@@ -2777,7 +2778,8 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 		Associations:       association,
 	}
-	err := task.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
 	assert.Error(t, err)
 }
 
@@ -2834,7 +2836,8 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 		NvidiaRuntime: config.DefaultNvidiaRuntime,
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
+	testTask.addGPUResource(cfg)
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Equal(t, testTask.NvidiaRuntime, dockerHostConfig.Runtime)
 }
@@ -2850,7 +2853,8 @@ func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 		},
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	testTask.addGPUResource(cfg)
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Equal(t, "", dockerHostConfig.Runtime)
 }
@@ -2880,7 +2884,8 @@ func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
 		},
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	testTask.addGPUResource(cfg)
 	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Error(t, err)
 }
