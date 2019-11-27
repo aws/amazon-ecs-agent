@@ -321,10 +321,6 @@ govet:
 	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
 GOFMTFILES:=$(shell find ./agent -not -path './agent/vendor/*' -type f -iregex '.*\.go')
-.PHONY: fmtcheck
-fmtcheck:
-	$(eval DIFFS:=$(shell gofmt -l $(GOFMTFILES)))
-	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
 
 .PHONY: importcheck
 importcheck:
@@ -332,15 +328,11 @@ importcheck:
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
 
 .PHONY: static-check
-static-check: gocyclo fmtcheck govet importcheck
+static-check: gocyclo govet importcheck
 
 .PHONY: goimports
 goimports:
 	goimports -w $(GOFMTFILES)
-
-.PHONY: gofmt
-gofmt:
-	go fmt ./agent/...
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
