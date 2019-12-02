@@ -262,8 +262,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		return nil, err
 	}
 	task := &Task{}
-	err = json.Unmarshal(data, task)
-	if err != nil {
+	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
 	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
@@ -295,21 +294,18 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// hook into this
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
-		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields)
-		if err != nil {
+		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
 			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
 
-	err := task.initializeContainerOrderingForVolumes()
-	if err != nil {
+	if err := task.initializeContainerOrderingForVolumes(); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize volumes dependency for container: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	err = task.initializeContainerOrderingForLinks()
-	if err != nil {
+	if err := task.initializeContainerOrderingForLinks(); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize links dependency for container: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -326,39 +322,33 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
-	if err != nil {
+	if err := task.initializeDockerLocalVolumes(dockerClient, ctx); err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
-	if err != nil {
+	if err := task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx); err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	err = task.addGPUResource(cfg)
-	if err != nil {
+	if err := task.addGPUResource(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
-	err = task.addNetworkResourceProvisioningDependency(cfg)
-	if err != nil {
+	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	err = task.applyFirelensSetup(cfg, resourceFields, credentialsManager)
-	if err != nil {
+	if err := task.applyFirelensSetup(cfg, resourceFields, credentialsManager); err != nil {
 		return err
 	}
 
 	if task.requiresCredentialSpecResource() {
-		err = task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields)
-		if err != nil {
+		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
 			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
@@ -371,12 +361,10 @@ func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskres
 	credentialsManager credentials.Manager) error {
 	firelensContainer := task.GetFirelensContainer()
 	if firelensContainer != nil {
-		err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
-		if err != nil {
+		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
-		err = task.addFirelensContainerDependency()
-		if err != nil {
+		if err := task.addFirelensContainerDependency(); err != nil {
 			return errors.New("unable to add firelens container dependency")
 		}
 	}
@@ -495,14 +483,12 @@ func (task *Task) initializeDockerVolumes(sharedVolumeMatchFullConfig bool, dock
 		}
 		// Agent needs to create task-scoped volume
 		if dockerVolume.Scope == taskresourcevolume.TaskScope {
-			err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		} else {
 			// Agent needs to create shared volume if that's auto provisioned
-			err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		}
@@ -833,18 +819,15 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 
 	containerToLogOptions := make(map[string]map[string]string)
 	// Collect plain text log options.
-	err := task.collectFirelensLogOptions(containerToLogOptions)
-	if err != nil {
+	if err := task.collectFirelensLogOptions(containerToLogOptions); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
 	// Collect secret log options.
-	err = task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type)
-	if err != nil {
+	if err := task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
-	var firelensResource *firelens.FirelensResource
 	for _, container := range task.Containers {
 		firelensConfig := container.GetFirelensConfig()
 		if firelensConfig != nil {
@@ -861,7 +844,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			} else {
 				networkMode = container.GetNetworkModeFromHostConfig()
 			}
-			firelensResource, err = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
 				credentialsManager, task.ExecutionCredentialsID)
 			if err != nil {
@@ -910,8 +893,7 @@ func (task *Task) addFirelensContainerDependency() error {
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*containerHostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*containerHostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -940,8 +922,7 @@ func (task *Task) collectFirelensLogOptions(containerToLogOptions map[string]map
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -1118,8 +1099,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-			if err != nil {
+			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1312,8 +1292,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
@@ -1418,8 +1397,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig)
-	if err != nil {
+	if err := task.platformHostConfigOverride(hostConfig); err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
