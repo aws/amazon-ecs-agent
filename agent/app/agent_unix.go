@@ -18,6 +18,8 @@ package app
 import (
 	"fmt"
 
+	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
+
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -25,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
@@ -86,8 +87,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, true
 	}
 
-	// Load the pause container's image from the 'disk'
-	if _, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient); err != nil {
+	if isLoaded, err := agent.pauseLoader.IsLoaded(agent.dockerClient); err != nil || !isLoaded {
 		if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
 			// If the pause container's image tarball doesn't exist or if the
 			// invocation is done for an unsupported platform, we cannot recover.
@@ -250,4 +250,11 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 		}
 	}
 	return nil
+}
+
+func (agent *ecsAgent) loadPauseContainer() error {
+	// Load the pause container's image from the 'disk'
+	_, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient)
+
+	return err
 }

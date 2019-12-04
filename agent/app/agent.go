@@ -260,6 +260,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	err = agent.loadPauseContainer()
+	if err != nil {
+		seelog.Error("Failed to load pause container: %v", err)
+	}
+
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled {

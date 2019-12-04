@@ -40,6 +40,22 @@ func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient d
 		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
 }
 
+func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	image, err := getPauseContainerImage(
+		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
+
+	if err != nil {
+		return false, errors.Wrapf(err,
+			"pause container inspect: failed to inspect image: %s", config.DefaultPauseContainerImageName)
+	}
+
+	if image == nil || image.ID == "" {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {
 	pauseContainerReader, err := fs.Open(path)
 	if err != nil {

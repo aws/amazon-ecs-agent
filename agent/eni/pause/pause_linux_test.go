@@ -154,3 +154,73 @@ func TestGetPauseContainerHappyPath(t *testing.T) {
 	_, err = getPauseContainerImage(pauseName, pauseTag, client)
 	assert.NoError(t, err)
 }
+
+func TestIsLoadedHappyPath(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	pauseLoader := New()
+	defer ctrl.Finish()
+
+	// Docker SDK tests
+	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
+	assert.NoError(t, err)
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(types.ImageInspect{ID: "test123"}, nil, nil)
+
+	isLoaded, err := pauseLoader.IsLoaded(client)
+	assert.NoError(t, err)
+	assert.True(t, isLoaded)
+}
+
+func TestIsLoadedNotLoaded(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	pauseLoader := New()
+	defer ctrl.Finish()
+
+	// Docker SDK tests
+	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
+	assert.NoError(t, err)
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(types.ImageInspect{}, nil, nil)
+
+	isLoaded, err := pauseLoader.IsLoaded(client)
+	assert.NoError(t, err)
+	assert.False(t, isLoaded)
+}
+
+func TestIsLoadedError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	pauseLoader := New()
+	defer ctrl.Finish()
+
+	// Docker SDK tests
+	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+	sdkFactory.EXPECT().GetDefaultClient().AnyTimes().Return(mockDockerSDK, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	client, err := dockerapi.NewDockerGoClient(sdkFactory, &defaultConfig, ctx)
+	assert.NoError(t, err)
+	mockDockerSDK.EXPECT().ImageInspectWithRaw(gomock.Any(), gomock.Any()).Return(
+		types.ImageInspect{}, nil, errors.New("error"))
+
+	isLoaded, err := pauseLoader.IsLoaded(client)
+	assert.Error(t, err)
+	assert.False(t, isLoaded)
+}

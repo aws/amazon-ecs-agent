@@ -111,6 +111,11 @@ func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []*ecs
 }
 
 func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	isLoaded, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
+	if !isLoaded || err != nil {
+		seelog.Warnf("Pause container is not loaded, did not append PID and IPC capabilities: %v", err)
+		return capabilities
+	}
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
 }
 
