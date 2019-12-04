@@ -342,13 +342,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return err
 	}
 
-	if cfg.GPUSupportEnabled {
-		err = task.addGPUResource()
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-		task.NvidiaRuntime = cfg.NvidiaRuntime
+	if err := task.addGPUResource(cfg); err != nil {
+		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
+		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
