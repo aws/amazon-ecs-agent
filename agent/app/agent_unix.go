@@ -18,8 +18,6 @@ package app
 import (
 	"fmt"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
-
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -85,16 +83,6 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		// An error here is terminal as it means that the plugins
 		// do not support the ENI capability
 		return err, true
-	}
-
-	if isLoaded, err := agent.pauseLoader.IsLoaded(agent.dockerClient); err != nil || !isLoaded {
-		if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-			// If the pause container's image tarball doesn't exist or if the
-			// invocation is done for an unsupported platform, we cannot recover.
-			// Return the error as terminal for these cases
-			return err, true
-		}
-		return err, false
 	}
 
 	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
