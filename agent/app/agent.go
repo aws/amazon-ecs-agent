@@ -260,9 +260,23 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 
+	loadPauseErr := agent.loadPauseContainer()
+	if loadPauseErr != nil {
+		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
+	}
+
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
 	if agent.cfg.TaskENIEnabled {
+		// check pause container image load
+		if loadPauseErr != nil {
+			if pause.IsNoSuchFileError(loadPauseErr) || pause.UnsupportedPlatform(loadPauseErr) {
+				return exitcodes.ExitTerminal
+			} else {
+				return exitcodes.ExitError
+			}
+		}
+
 		err, terminal := agent.initializeTaskENIDependencies(state, taskEngine)
 		switch err {
 		case nil:

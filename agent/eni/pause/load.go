@@ -25,6 +25,7 @@ import (
 // to facilitate mocking and testing of the LoadImage method
 type Loader interface {
 	LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error)
+	IsLoaded(dockerClient dockerapi.DockerClient) (bool, error)
 }
 
 type loader struct{}

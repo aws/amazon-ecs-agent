@@ -277,3 +277,7 @@ func (agent *ecsAgent) initializeGPUManager() error {
 func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 	return nil
 }
+
+func (agent *ecsAgent) loadPauseContainer() error {
+	return nil
+}
