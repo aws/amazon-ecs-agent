@@ -6981,6 +6981,36 @@ func (s *DockerVolumeConfiguration) SetScope(v string) *DockerVolumeConfiguratio
 	return s
 }
 
+type EFSVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	FileSystemId *string `locationName:"fileSystemId" type:"string"`
+
+	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+}
+
+// String returns the string representation
+func (s EFSVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EFSVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
+// SetFileSystemId sets the FileSystemId field's value.
+func (s *EFSVolumeConfiguration) SetFileSystemId(v string) *EFSVolumeConfiguration {
+	s.FileSystemId = &v
+	return s
+}
+
+// SetRootDirectory sets the RootDirectory field's value.
+func (s *EFSVolumeConfiguration) SetRootDirectory(v string) *EFSVolumeConfiguration {
+	s.RootDirectory = &v
+	return s
+}
+
 // A failed resource.
 type Failure struct {
 	_ struct{} `type:"structure"`
@@ -12281,6 +12311,8 @@ type Volume struct {
 
 	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
 
+	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
+
 	// The contents of the host parameter determine whether your data volume persists
 	// on the host container instance and where it is stored. If the host parameter
 	// is empty, then the Docker daemon assigns a host path for your data volume,
@@ -12312,6 +12344,12 @@ func (s Volume) GoString() string {
 // SetDockerVolumeConfiguration sets the DockerVolumeConfiguration field's value.
 func (s *Volume) SetDockerVolumeConfiguration(v *DockerVolumeConfiguration) *Volume {
 	s.DockerVolumeConfiguration = v
+	return s
+}
+
+// SetEfsVolumeConfiguration sets the EfsVolumeConfiguration field's value.
+func (s *Volume) SetEfsVolumeConfiguration(v *EFSVolumeConfiguration) *Volume {
+	s.EfsVolumeConfiguration = v
 	return s
 }
 

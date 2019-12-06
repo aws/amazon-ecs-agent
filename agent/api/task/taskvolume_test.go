@@ -17,10 +17,13 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"runtime"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -60,6 +63,104 @@ func TestMarshalUnmarshalOldTaskVolumes(t *testing.T) {
 	assert.Equal(t, "", v2.Volume.Source(), "Expected v2 to have 'sourcepath' work correctly")
 }
 
+func TestMarshalTaskVolumesEFS(t *testing.T) {
+	task := &Task{
+		Arn: "test",
+		Volumes: []TaskVolume{
+			{Name: "1", Type: EFSVolumeType, Volume: &taskresourcevolume.EFSVolumeConfig{FileSystemID: "fs-12345", RootDirectory: "/tmp"}},
+		},
+	}
+
+	marshal, err := json.Marshal(task)
+	require.NoError(t, err, "Could not marshal task")
+	expectedTaskDef := `{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"efsVolumeConfiguration": {
+			  "fileSystemId": "fs-12345",
+			  "rootDirectory": "/tmp",
+			  "dockerVolumeName": ""
+			},
+			"name": "1",
+			"type": "efs"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"StartSequenceNumber": 0,
+		"StopSequenceNumber": 0,
+		"executionCredentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": %s
+	  }`
+	if runtime.GOOS == "windows" {
+		// windows task defs have a special 'cpu/memory unbounded' field added.
+		// see https://github.com/aws/amazon-ecs-agent/pull/1227
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, `{"cpuUnbounded": false, "memoryUnbounded": false}`)
+	} else {
+		expectedTaskDef = fmt.Sprintf(expectedTaskDef, "{}")
+	}
+	require.JSONEq(t, expectedTaskDef, string(marshal))
+}
+
+func TestUnmarshalTaskVolumesEFS(t *testing.T) {
+	taskDef := []byte(`{
+		"Arn": "test",
+		"Family": "",
+		"Version": "",
+		"Containers": null,
+		"associations": null,
+		"resources": null,
+		"volumes": [
+		  {
+			"efsVolumeConfiguration": {
+			  "fileSystemId": "fs-12345",
+			  "rootDirectory": "/tmp",
+			  "dockerVolumeName": ""
+			},
+			"name": "1",
+			"type": "efs"
+		  }
+		],
+		"DesiredStatus": "NONE",
+		"KnownStatus": "NONE",
+		"KnownTime": "0001-01-01T00:00:00Z",
+		"PullStartedAt": "0001-01-01T00:00:00Z",
+		"PullStoppedAt": "0001-01-01T00:00:00Z",
+		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+		"SentStatus": "NONE",
+		"StartSequenceNumber": 0,
+		"StopSequenceNumber": 0,
+		"executionCredentialsID": "",
+		"ENI": null,
+		"AppMesh": null,
+		"PlatformFields": {}
+	  }`)
+	var task Task
+	err := json.Unmarshal(taskDef, &task)
+	require.NoError(t, err, "Could not unmarshal task")
+
+	require.Len(t, task.Volumes, 1)
+	require.Equal(t, "efs", task.Volumes[0].Type)
+	require.Equal(t, "1", task.Volumes[0].Name)
+	efsConfig, ok := task.Volumes[0].Volume.(*taskresourcevolume.EFSVolumeConfig)
+	require.True(t, ok)
+	require.Equal(t, "fs-12345", efsConfig.FileSystemID)
+	require.Equal(t, "/tmp", efsConfig.RootDirectory)
+}
+
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	task := &Task{
 		Arn: "test",
@@ -67,6 +168,7 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 			{Name: "1", Type: HostVolumeType, Volume: &taskresourcevolume.LocalDockerVolume{}},
 			{Name: "2", Type: HostVolumeType, Volume: &taskresourcevolume.FSHostVolume{FSSourcePath: "/path"}},
 			{Name: "3", Type: DockerVolumeType, Volume: &taskresourcevolume.DockerVolumeConfig{Scope: "task", Driver: "local"}},
+			{Name: "4", Type: EFSVolumeType, Volume: &taskresourcevolume.EFSVolumeConfig{FileSystemID: "fs-12345", RootDirectory: "/tmp"}},
 		},
 	}
 
@@ -76,9 +178,9 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	var out Task
 	err = json.Unmarshal(marshal, &out)
 	require.NoError(t, err, "Could not unmarshal task")
-	require.Len(t, out.Volumes, 3, "Incorrect number of volumes")
+	require.Len(t, out.Volumes, 4, "Incorrect number of volumes")
 
-	var v1, v2, v3 TaskVolume
+	var v1, v2, v3, v4 TaskVolume
 
 	for _, v := range out.Volumes {
 		switch v.Name {
@@ -88,6 +190,8 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 			v2 = v
 		case "3":
 			v3 = v
+		case "4":
+			v4 = v
 		}
 	}
 
@@ -102,6 +206,11 @@ func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
 	assert.True(t, ok, "incorrect DockerVolumeConfig type")
 	assert.Equal(t, "task", dockerVolume.Scope)
 	assert.Equal(t, "local", dockerVolume.Driver)
+
+	efsVolume, ok := v4.Volume.(*taskresourcevolume.EFSVolumeConfig)
+	assert.True(t, ok, "incorrect EFSVolumeConfig type")
+	assert.Equal(t, "fs-12345", efsVolume.FileSystemID)
+	assert.Equal(t, "/tmp", efsVolume.RootDirectory)
 }
 
 func TestInitializeLocalDockerVolume(t *testing.T) {
@@ -171,6 +280,125 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 0, "no volume resource should be provisioned by agent")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
+}
+
+func TestInitializeEFSVolume(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "efs-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "efs-volume-test",
+				Type: "efs",
+				Volume: &taskresourcevolume.EFSVolumeConfig{
+					FileSystemID:  "fs-12345",
+					RootDirectory: "/my/root/dir",
+				},
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		AWSRegion: "us-west-1",
+	}
+	err := testTask.initializeEFSVolumes(cfg, dockerClient, nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, testTask.Volumes, 1)
+
+	dockervol, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
+	assert.True(t, ok)
+	assert.Equal(t, "addr=fs-12345.efs.us-west-1.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", dockervol.DriverOpts["o"])
+	assert.Equal(t, ":/my/root/dir", dockervol.DriverOpts["device"])
+}
+
+func TestInitializeEFSVolume_WrongVolumeConfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "efs-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name:   "efs-volume-test",
+				Type:   "efs",
+				Volume: &taskresourcevolume.DockerVolumeConfig{},
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		AWSRegion: "us-west-1",
+	}
+	err := testTask.initializeEFSVolumes(cfg, dockerClient, nil)
+
+	assert.Error(t, err)
+}
+
+func TestInitializeEFSVolume_WrongVolumeType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := &Task{
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers: []*apicontainer.Container{
+			{
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "efs-volume-test",
+						ContainerPath: "/ecs",
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+		Volumes: []TaskVolume{
+			{
+				Name: "efs-volume-test",
+				Type: "docker",
+				Volume: &taskresourcevolume.EFSVolumeConfig{
+					FileSystemID:  "fs-12345",
+					RootDirectory: "/my/root/dir",
+				},
+			},
+		},
+	}
+
+	cfg := &config.Config{
+		AWSRegion: "us-west-1",
+	}
+	err := testTask.initializeEFSVolumes(cfg, dockerClient, nil)
+
+	assert.NoError(t, err)
+	err = testTask.initializeDockerVolumes(true, dockerClient, nil)
+	assert.Error(t, err)
 }
 
 func TestInitializeSharedProvisionedVolumeError(t *testing.T) {
