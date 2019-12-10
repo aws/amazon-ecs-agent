@@ -60,6 +60,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.False(t, cfg.GMSACapable, "Default gMSA capability set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -130,4 +131,12 @@ func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.MemoryUnbounded)
+}
+
+func TestGMSACapableDisabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_GMSA_SUPPORTED", "false")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.False(t, cfg.GMSACapable)
 }
