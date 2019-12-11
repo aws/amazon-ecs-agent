@@ -51,6 +51,7 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
@@ -541,10 +542,10 @@ func (task *Task) addEFSVolumes(
 	vol *TaskVolume,
 	efsvol *taskresourcevolume.EFSVolumeConfig,
 ) error {
-	// TODO CN and gov partition logic
 	// These are the NFS options recommended by EFS, see:
 	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
-	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.FileSystemID, cfg.AWSRegion)
+	domain := getDomainForPartition(cfg.AWSRegion)
+	ostr := fmt.Sprintf("addr=%s.efs.%s.%s,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.FileSystemID, cfg.AWSRegion, domain)
 	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
@@ -2537,4 +2538,13 @@ func (task *Task) GetContainerIndex(containerName string) int {
 		idx++
 	}
 	return -1
+}
+
+func getDomainForPartition(region string) string {
+	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
+	if !ok {
+		seelog.Warnf("No partition resolved for region (%s). Using AWS default (%s)", region, endpoints.AwsPartition().DNSSuffix())
+		return endpoints.AwsPartition().DNSSuffix()
+	}
+	return partition.DNSSuffix()
 }
