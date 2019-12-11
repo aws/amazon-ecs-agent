@@ -10,7 +10,7 @@
   version = "v0.4.7"
 
 [[projects]]
-  digest = "1:a480a2e6b64d122e4dd03dff0aaa2ee342a12f0bb5984032f242f09043a7d434"
+  digest = "1:dc032a34ef4d303739c77ec93053abf28c49402e85e7256715b1a5fdb93d1b30"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -49,12 +49,14 @@
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
+    "private/protocol/restjson",
     "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
     "private/util",
     "service/cloudwatch",
     "service/cloudwatchlogs",
     "service/ec2",
+    "service/efs",
     "service/iam",
     "service/s3",
     "service/s3/s3iface",
@@ -520,6 +522,7 @@
     "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
     "github.com/aws/aws-sdk-go/service/ec2",
+    "github.com/aws/aws-sdk-go/service/efs",
     "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/s3",
     "github.com/aws/aws-sdk-go/service/s3/s3manager",

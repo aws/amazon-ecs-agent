@@ -262,8 +262,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		return nil, err
 	}
 	task := &Task{}
-	err = json.Unmarshal(data, task)
-	if err != nil {
+	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
 	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
@@ -285,6 +284,22 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
+func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	return nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
@@ -295,21 +310,18 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// hook into this
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
-		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields)
-		if err != nil {
+		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
 			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
 
-	err := task.initializeContainerOrderingForVolumes()
-	if err != nil {
+	if err := task.initializeContainerOrderingForVolumes(); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize volumes dependency for container: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	err = task.initializeContainerOrderingForLinks()
-	if err != nil {
+	if err := task.initializeContainerOrderingForLinks(); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize links dependency for container: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
@@ -326,43 +338,30 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
-	if err != nil {
+	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
+		return err
+	}
+
+	if err := task.addGPUResource(cfg); err != nil {
+		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	if cfg.GPUSupportEnabled {
-		err = task.addGPUResource()
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-		task.NvidiaRuntime = cfg.NvidiaRuntime
-	}
+
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
-	err = task.addNetworkResourceProvisioningDependency(cfg)
-	if err != nil {
+	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	firelensContainer := task.GetFirelensContainer()
-	if firelensContainer != nil {
-		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer, credentialsManager)
-		if err != nil {
-			return err
-		}
+	if err := task.applyFirelensSetup(cfg, resourceFields, credentialsManager); err != nil {
+		return err
 	}
 
 	if task.requiresCredentialSpecResource() {
-		err = task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields)
-		if err != nil {
+		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
 			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
@@ -372,38 +371,41 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
-	err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	err = task.addFirelensContainerDependency()
-	if err != nil {
-		return errors.New("unable to add firelens container dependency")
+	credentialsManager credentials.Manager) error {
+	firelensContainer := task.GetFirelensContainer()
+	if firelensContainer != nil {
+		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+		if err := task.addFirelensContainerDependency(); err != nil {
+			return errors.New("unable to add firelens container dependency")
+		}
 	}
 
 	return nil
 }
 
-func (task *Task) addGPUResource() error {
-	for _, association := range task.Associations {
-		// One GPU can be associated with only one container
-		// That is why validating if association.Containers is of length 1
-		if association.Type == GPUAssociationType {
-			if len(association.Containers) == 1 {
+func (task *Task) addGPUResource(cfg *config.Config) error {
+	if cfg.GPUSupportEnabled {
+		for _, association := range task.Associations {
+			// One GPU can be associated with only one container
+			// That is why validating if association.Containers is of length 1
+			if association.Type == GPUAssociationType {
+				if len(association.Containers) != 1 {
+					return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				}
+
 				container, ok := task.ContainerByName(association.Containers[0])
 				if !ok {
 					return fmt.Errorf("could not find container with name %s for associating GPU %s",
 						association.Containers[0], association.Name)
-				} else {
-					container.GPUIDs = append(container.GPUIDs, association.Name)
 				}
-			} else {
-				return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
+		task.populateGPUEnvironmentVariables()
+		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
-	task.populateGPUEnvironmentVariables()
 	return nil
 }
 
@@ -494,18 +496,78 @@ func (task *Task) initializeDockerVolumes(sharedVolumeMatchFullConfig bool, dock
 		}
 		// Agent needs to create task-scoped volume
 		if dockerVolume.Scope == taskresourcevolume.TaskScope {
-			err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		} else {
 			// Agent needs to create shared volume if that's auto provisioned
-			err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+// initializeEFSVolumes inspects the volume definitions in the task definition.
+// If it finds EFS volumes in the task definition, then it converts it to a docker
+// volume definition.
+func (task *Task) initializeEFSVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	for i, vol := range task.Volumes {
+		// No need to do this for non-efs volume, eg: host bind/empty volume
+		if vol.Type != EFSVolumeType {
+			continue
+		}
+
+		efsvol, ok := vol.Volume.(*taskresourcevolume.EFSVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 'efs'")
+		}
+
+		err := task.addEFSVolumes(ctx, cfg, dockerClient, &task.Volumes[i], efsvol)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addEFSVolumes converts the EFS task definition into an internal docker 'local' volume
+// mounted with NFS struct and updates container dependency
+func (task *Task) addEFSVolumes(
+	ctx context.Context,
+	cfg *config.Config,
+	dockerClient dockerapi.DockerClient,
+	vol *TaskVolume,
+	efsvol *taskresourcevolume.EFSVolumeConfig,
+) error {
+	// TODO CN and gov partition logic
+	// These are the NFS options recommended by EFS, see:
+	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
+	ostr := fmt.Sprintf("addr=%s.efs.%s.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.FileSystemID, cfg.AWSRegion)
+	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
+	volumeResource, err := taskresourcevolume.NewVolumeResource(
+		ctx,
+		vol.Name,
+		task.volumeName(vol.Name),
+		"task",
+		false,
+		"local",
+		map[string]string{
+			"type":   "nfs",
+			"device": devstr,
+			"o":      ostr,
+		},
+		map[string]string{},
+		dockerClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &volumeResource.VolumeConfig
+	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+	task.updateContainerVolumeDependency(vol.Name)
 	return nil
 }
 
@@ -832,18 +894,15 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 
 	containerToLogOptions := make(map[string]map[string]string)
 	// Collect plain text log options.
-	err := task.collectFirelensLogOptions(containerToLogOptions)
-	if err != nil {
+	if err := task.collectFirelensLogOptions(containerToLogOptions); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
 	// Collect secret log options.
-	err = task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type)
-	if err != nil {
+	if err := task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
-	var firelensResource *firelens.FirelensResource
 	for _, container := range task.Containers {
 		firelensConfig := container.GetFirelensConfig()
 		if firelensConfig != nil {
@@ -860,7 +919,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			} else {
 				networkMode = container.GetNetworkModeFromHostConfig()
 			}
-			firelensResource, err = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
 				credentialsManager, task.ExecutionCredentialsID)
 			if err != nil {
@@ -909,8 +968,7 @@ func (task *Task) addFirelensContainerDependency() error {
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*containerHostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*containerHostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -939,8 +997,7 @@ func (task *Task) collectFirelensLogOptions(containerToLogOptions map[string]map
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -1117,8 +1174,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-			if err != nil {
+			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1311,8 +1367,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
@@ -1417,8 +1472,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig)
-	if err != nil {
+	if err := task.platformHostConfigOverride(hostConfig); err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 

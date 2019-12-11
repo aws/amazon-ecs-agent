@@ -688,6 +688,80 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 	assert.Equal(t, DockerVolumeType, taskVol.Type)
 }
 
+// Test that the PostUnmarshal function properly changes EfsVolumeConfiguration
+// task definitions into a dockerVolumeConfiguration task resource.
+func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{DockerVolume: &types.Volume{}})
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: strptr("myName1"),
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr("/some/path"),
+						SourceVolume:  strptr("efsvolume"),
+					},
+				},
+			},
+		},
+		Volumes: []*ecsacs.Volume{
+			{
+				Name: strptr("efsvolume"),
+				Type: strptr("efs"),
+				EfsVolumeConfiguration: &ecsacs.EFSVolumeConfiguration{
+					FileSystemId:  strptr("fs-12345"),
+					RootDirectory: strptr("/tmp"),
+				},
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
+	cfg := config.Config{}
+	cfg.AWSRegion = "us-west-2"
+	task.PostUnmarshalTask(&cfg, nil, nil, dockerClient, nil)
+	assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
+	taskVol := task.Volumes[0]
+	assert.Equal(t, "efsvolume", taskVol.Name)
+	assert.Equal(t, "efs", taskVol.Type)
+
+	resources := task.GetResources()
+	assert.Len(t, resources, 1)
+	vol, ok := resources[0].(*taskresourcevolume.VolumeResource)
+	require.True(t, ok)
+	dockerVolName := vol.VolumeConfig.DockerVolumeName
+	b, err := json.Marshal(resources[0])
+	require.NoError(t, err)
+	require.JSONEq(t, fmt.Sprintf(`{
+		"name": "efsvolume",
+		"dockerVolumeConfiguration": {
+		  "scope": "task",
+		  "autoprovision": false,
+		  "mountPoint": "",
+		  "driver": "local",
+		  "driverOpts": {
+			"device": ":/tmp",
+			"o": "addr=fs-12345.efs.us-west-2.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport",
+			"type": "nfs"
+		  },
+		  "labels": {},
+		  "dockerVolumeName": "%s"
+		},
+		"createdAt": "0001-01-01T00:00:00Z",
+		"desiredStatus": "NONE",
+		"knownStatus": "NONE"
+	  }`, dockerVolName), string(b))
+}
+
 func TestInitializeContainersV3MetadataEndpoint(t *testing.T) {
 	task := Task{
 		Containers: []*apicontainer.Container{
@@ -2744,7 +2818,8 @@ func TestAddGPUResource(t *testing.T) {
 		Associations:       association,
 	}
 
-	err := task.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
 
 	assert.Equal(t, []string{"gpu1", "gpu2"}, container.GPUIDs)
 	assert.Equal(t, []string(nil), container1.GPUIDs)
@@ -2777,7 +2852,8 @@ func TestAddGPUResourceWithInvalidContainer(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 		Associations:       association,
 	}
-	err := task.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	err := task.addGPUResource(cfg)
 	assert.Error(t, err)
 }
 
@@ -2834,7 +2910,8 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 		NvidiaRuntime: config.DefaultNvidiaRuntime,
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
+	testTask.addGPUResource(cfg)
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Equal(t, testTask.NvidiaRuntime, dockerHostConfig.Runtime)
 }
@@ -2850,7 +2927,8 @@ func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 		},
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	testTask.addGPUResource(cfg)
 	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Equal(t, "", dockerHostConfig.Runtime)
 }
@@ -2880,7 +2958,8 @@ func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
 		},
 	}
 
-	testTask.addGPUResource()
+	cfg := &config.Config{GPUSupportEnabled: true}
+	testTask.addGPUResource(cfg)
 	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Error(t, err)
 }
