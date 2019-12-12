@@ -26,8 +26,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
+
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -106,8 +107,6 @@ const (
 	// minSaveInterval specifies how frequently to flush to disk
 	minSaveInterval = 10 * time.Second
 )
-
-var log = logger.ForModule("statemanager")
 
 // Saveable types should be able to be json serializable and deserializable
 // Properly, this should have json.Marshaler/json.Unmarshaler here, but string
@@ -210,7 +209,7 @@ func AddSaveable(name string, saveable Saveable) Option {
 	return (Option)(func(m StateManager) {
 		manager, ok := m.(*basicStateManager)
 		if !ok {
-			log.Crit("Unable to add to state manager; unknown instantiation")
+			seelog.Critical("Unable to add to state manager; unknown instantiation")
 			return
 		}
 		manager.state.Data[name] = &saveable
@@ -253,13 +252,13 @@ func (manager *basicStateManager) Save() error {
 func (manager *basicStateManager) ForceSave() error {
 	manager.savingLock.Lock()
 	defer manager.savingLock.Unlock()
-	log.Info("Saving state!")
+	seelog.Info("Saving state!")
 	s := manager.state
 	s.Version = ECSDataVersion
 
 	data, err := json.Marshal(s)
 	if err != nil {
-		log.Error("Error saving state; could not marshal data; this is odd", "err", err)
+		seelog.Error("Error saving state; could not marshal data; this is odd", "err", err)
 		return err
 	}
 	return manager.writeFile(data)
@@ -269,10 +268,10 @@ func (manager *basicStateManager) ForceSave() error {
 // the passed State object.
 func (manager *basicStateManager) Load() error {
 	s := manager.state
-	log.Info("Loading state!")
+	seelog.Info("Loading state!")
 	data, err := manager.readFile()
 	if err != nil {
-		log.Error("Error reading existing state file", "err", err)
+		seelog.Error("Error reading existing state file", "err", err)
 		return err
 	}
 	if data == nil {
@@ -293,24 +292,24 @@ func (manager *basicStateManager) Load() error {
 	var intermediate intermediateState
 	err = json.Unmarshal(data, &intermediate)
 	if err != nil {
-		log.Debug("Could not unmarshal into intermediate")
+		seelog.Debug("Could not unmarshal into intermediate")
 		return err
 	}
 
 	for key, rawJSON := range intermediate.Data {
 		actualPointer, ok := manager.state.Data[key]
 		if !ok {
-			log.Error("Loading state: potentially malformed json key of " + key)
+			seelog.Error("Loading state: potentially malformed json key of " + key)
 			continue
 		}
 		err = json.Unmarshal(rawJSON, actualPointer)
 		if err != nil {
-			log.Debug("Could not unmarshal into actual")
+			seelog.Debug("Could not unmarshal into actual")
 			return err
 		}
 	}
 
-	log.Debug("Loaded state!", "state", s)
+	seelog.Debug("Loaded state!", "state", s)
 	return nil
 }
 
@@ -319,7 +318,7 @@ func (manager *basicStateManager) dryRun(data []byte) error {
 	tmps := versionOnlyState{}
 	err := json.Unmarshal(data, &tmps)
 	if err != nil {
-		log.Crit("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
+		seelog.Critical("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
 		return err
 	}
 	if tmps.Version > ECSDataVersion {
