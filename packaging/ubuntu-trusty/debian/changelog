@@ -1,3 +1,9 @@
+amazon-ecs-init (1.35.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.35.0
+  * Fix bug where stopping agent gracefully would still restart ecs-init
+
+  -- Derek Petersen <petderek@amazon.com>  Thu, 12 Dec 2019 09:00:00 -0800
 amazon-ecs-init (1.33.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.33.0

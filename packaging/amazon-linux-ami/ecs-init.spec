@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.33.0
+Version:        1.35.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -255,6 +255,10 @@ fi
 %endif
 
 %changelog
+* Thu Dec 12 2019 Derek Petersen <petderek@amazon.com> - 1.35.0-1
+- Cache Agent version 1.35.0
+- Fix bug where stopping agent gracefully would still restart ecs-init
+
 * Mon Nov 11 2019 Shubham Goyal <shugy@amazon.com> - 1.33.0-1
 - Cache Agent version 1.33.0
 - Fix destination path in docker socket bind mount to match the one specified using DOCKER_HOST on Amazon Linux 2
