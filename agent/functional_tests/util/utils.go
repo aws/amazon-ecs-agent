@@ -992,3 +992,17 @@ func WaitNetworkInterfaceCount(desiredCount int, timeout time.Duration) error {
 			desiredCount, networkInterfaceCount)
 	}
 }
+
+func IsEFSCapable() bool {
+	// TODO: make this list betterer
+	// Grabbed from the following page on 12/12/2019
+	// https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
+	acceptableEFSRegions := []string{"us-east-1", "us-east-2", "us-west-2", "us-west-1", "ca-central-1", "sa-east-1", "us-gov-west-1", "eu-west-1", "eu-central-1", "eu-west-2", "eu-west-3", "eu-north-1", "me-south-1", "ap-southeast-1", "ap-northeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1", "ap-east-1"}
+
+	for _, r := range acceptableEFSRegions {
+		if *ECS.Config.Region == r {
+			return true
+		}
+	}
+	return false
+}
