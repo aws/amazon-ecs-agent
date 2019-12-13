@@ -31,7 +31,7 @@ required = ["github.com/golang/mock/mockgen/model"]
 
 [[constraint]]
   name = "github.com/cihub/seelog"
-  version ="2.6"
+  revision = "f561c5e57575bb1e0a2167028b7339b3a8d16fb4"
 
 [[constraint]]
   name = "github.com/containerd/cgroups"
