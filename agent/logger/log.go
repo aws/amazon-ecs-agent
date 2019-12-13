@@ -16,6 +16,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,21 +25,27 @@ import (
 )
 
 const (
-	LOGLEVEL_ENV_VAR          = "ECS_LOGLEVEL"
-	LOGFILE_ENV_VAR           = "ECS_LOGFILE"
-	LOG_ROLLOVER_ENV_VAR      = "ECS_LOG_ROLLOVER_BEHAVIOR"
-	LOG_OUTPUT_FORMAT_ENV_VAR = "ECS_LOG_OUTPUT_FORMAT"
+	LOGLEVEL_ENV_VAR           = "ECS_LOGLEVEL"
+	LOGFILE_ENV_VAR            = "ECS_LOGFILE"
+	LOG_ROLLOVER_TYPE_ENV_VAR  = "ECS_LOG_ROLLOVER_TYPE"
+	LOG_OUTPUT_FORMAT_ENV_VAR  = "ECS_LOG_OUTPUT_FORMAT"
+	LOG_MAX_FILE_SIZE_ENV_VAR  = "ECS_LOG_MAX_FILE_SIZE_MB"
+	LOG_MAX_ROLL_COUNT_ENV_VAR = "ECS_LOG_MAX_ROLL_COUNT"
 
-	DEFAULT_LOGLEVEL      = "info"
-	DEFAULT_ROLLOVER      = "date"
-	DEFAULT_OUTPUT_FORMAT = "logfmt"
+	DEFAULT_LOGLEVEL               = "info"
+	DEFAULT_ROLLOVER_TYPE          = "date"
+	DEFAULT_OUTPUT_FORMAT          = "logfmt"
+	DEFAULT_MAX_FILE_SIZE  float64 = 10
+	DEFAULT_MAX_ROLL_COUNT int     = 24
 )
 
 type logConfig struct {
-	logfile      string
-	level        string
-	rollover     string
-	outputFormat string
+	logfile       string
+	level         string
+	rolloverType  string
+	outputFormat  string
+	maxRollCount  int
+	maxFileSizeMB float64
 	sync.Mutex
 }
 
@@ -74,14 +81,14 @@ func seelogConfig() string {
 		<console />`
 	c += platformLogConfig()
 	if config.logfile != "" {
-		if config.rollover == "size" {
+		if config.rolloverType == "size" {
 			c += `
 		<rollingfile filename="` + config.logfile + `" type="size"
-		 maxsize="10000000" archivetype="none" maxrolls="24" />`
+		 maxsize="` + strconv.Itoa(int(config.maxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(config.maxRollCount) + `" />`
 		} else {
 			c += `
 		<rollingfile filename="` + config.logfile + `" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />`
+		 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(config.maxRollCount) + `" />`
 		}
 	}
 	c += `
@@ -124,18 +131,36 @@ func GetLevel() string {
 
 func init() {
 	config = &logConfig{
-		logfile:      os.Getenv(LOGFILE_ENV_VAR),
-		level:        DEFAULT_LOGLEVEL,
-		rollover:     DEFAULT_ROLLOVER,
-		outputFormat: DEFAULT_OUTPUT_FORMAT,
+		logfile:       os.Getenv(LOGFILE_ENV_VAR),
+		level:         DEFAULT_LOGLEVEL,
+		rolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		maxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		maxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 	}
 
 	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR))
-	if rollover := os.Getenv(LOG_ROLLOVER_ENV_VAR); rollover != "" {
-		config.rollover = rollover
+	if rolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); rolloverType != "" {
+		config.rolloverType = rolloverType
 	}
 	if outputFormat := os.Getenv(LOG_OUTPUT_FORMAT_ENV_VAR); outputFormat != "" {
 		config.outputFormat = outputFormat
+	}
+	if maxRollCount := os.Getenv(LOG_MAX_ROLL_COUNT_ENV_VAR); maxRollCount != "" {
+		i, err := strconv.Atoi(maxRollCount)
+		if err == nil {
+			config.maxRollCount = i
+		} else {
+			seelog.Error("Invalid value for "+LOG_MAX_ROLL_COUNT_ENV_VAR, err)
+		}
+	}
+	if maxFileSizeMB := os.Getenv(LOG_MAX_FILE_SIZE_ENV_VAR); maxFileSizeMB != "" {
+		f, err := strconv.ParseFloat(maxFileSizeMB, 64)
+		if err == nil {
+			config.maxFileSizeMB = f
+		} else {
+			seelog.Error("Invalid value for "+LOG_MAX_FILE_SIZE_ENV_VAR, err)
+		}
 	}
 
 	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
