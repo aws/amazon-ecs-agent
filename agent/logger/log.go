@@ -40,16 +40,16 @@ const (
 )
 
 type logConfig struct {
+	RolloverType  string
+	MaxRollCount  int
+	MaxFileSizeMB float64
 	logfile       string
 	level         string
-	rolloverType  string
 	outputFormat  string
-	maxRollCount  int
-	maxFileSizeMB float64
-	sync.Mutex
+	lock          sync.Mutex
 }
 
-var config *logConfig
+var Config *logConfig
 
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
@@ -76,19 +76,19 @@ func reloadConfig() {
 
 func seelogConfig() string {
 	c := `
-<seelog type="asyncloop" minlevel="` + config.level + `">
-	<outputs formatid="` + config.outputFormat + `">
+<seelog type="asyncloop" minlevel="` + Config.level + `">
+	<outputs formatid="` + Config.outputFormat + `">
 		<console />`
 	c += platformLogConfig()
-	if config.logfile != "" {
-		if config.rolloverType == "size" {
+	if Config.logfile != "" {
+		if Config.RolloverType == "size" {
 			c += `
-		<rollingfile filename="` + config.logfile + `" type="size"
-		 maxsize="` + strconv.Itoa(int(config.maxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(config.maxRollCount) + `" />`
+		<rollingfile filename="` + Config.logfile + `" type="size"
+		 maxsize="` + strconv.Itoa(int(Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
 		} else {
 			c += `
-		<rollingfile filename="` + config.logfile + `" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(config.maxRollCount) + `" />`
+		<rollingfile filename="` + Config.logfile + `" type="date"
+		 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
 		}
 	}
 	c += `
@@ -114,50 +114,50 @@ func SetLevel(logLevel string) {
 	parsedLevel, ok := levels[strings.ToLower(logLevel)]
 
 	if ok {
-		config.Lock()
-		defer config.Unlock()
-		config.level = parsedLevel
+		Config.lock.Lock()
+		defer Config.lock.Unlock()
+		Config.level = parsedLevel
 		reloadConfig()
 	}
 }
 
 // GetLevel gets the log level
 func GetLevel() string {
-	config.Lock()
-	defer config.Unlock()
+	Config.lock.Lock()
+	defer Config.lock.Unlock()
 
-	return config.level
+	return Config.level
 }
 
 func init() {
-	config = &logConfig{
+	Config = &logConfig{
 		logfile:       os.Getenv(LOGFILE_ENV_VAR),
 		level:         DEFAULT_LOGLEVEL,
-		rolloverType:  DEFAULT_ROLLOVER_TYPE,
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
-		maxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
-		maxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 	}
 
 	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR))
-	if rolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); rolloverType != "" {
-		config.rolloverType = rolloverType
+	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
+		Config.RolloverType = RolloverType
 	}
 	if outputFormat := os.Getenv(LOG_OUTPUT_FORMAT_ENV_VAR); outputFormat != "" {
-		config.outputFormat = outputFormat
+		Config.outputFormat = outputFormat
 	}
-	if maxRollCount := os.Getenv(LOG_MAX_ROLL_COUNT_ENV_VAR); maxRollCount != "" {
-		i, err := strconv.Atoi(maxRollCount)
+	if MaxRollCount := os.Getenv(LOG_MAX_ROLL_COUNT_ENV_VAR); MaxRollCount != "" {
+		i, err := strconv.Atoi(MaxRollCount)
 		if err == nil {
-			config.maxRollCount = i
+			Config.MaxRollCount = i
 		} else {
 			seelog.Error("Invalid value for "+LOG_MAX_ROLL_COUNT_ENV_VAR, err)
 		}
 	}
-	if maxFileSizeMB := os.Getenv(LOG_MAX_FILE_SIZE_ENV_VAR); maxFileSizeMB != "" {
-		f, err := strconv.ParseFloat(maxFileSizeMB, 64)
+	if MaxFileSizeMB := os.Getenv(LOG_MAX_FILE_SIZE_ENV_VAR); MaxFileSizeMB != "" {
+		f, err := strconv.ParseFloat(MaxFileSizeMB, 64)
 		if err == nil {
-			config.maxFileSizeMB = f
+			Config.MaxFileSizeMB = f
 		} else {
 			seelog.Error("Invalid value for "+LOG_MAX_FILE_SIZE_ENV_VAR, err)
 		}
