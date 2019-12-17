@@ -48,6 +48,7 @@ func (m *MockGPUManager) EXPECT() *MockGPUManagerMockRecorder {
 
 // Setup mocks base method
 func (m *MockGPUManager) Setup() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Setup")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -55,11 +56,13 @@ func (m *MockGPUManager) Setup() error {
 
 // Setup indicates an expected call of Setup
 func (mr *MockGPUManagerMockRecorder) Setup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Setup", reflect.TypeOf((*MockGPUManager)(nil).Setup))
 }
 
 // Initialize mocks base method
 func (m *MockGPUManager) Initialize() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Initialize")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -67,11 +70,13 @@ func (m *MockGPUManager) Initialize() error {
 
 // Initialize indicates an expected call of Initialize
 func (mr *MockGPUManagerMockRecorder) Initialize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockGPUManager)(nil).Initialize))
 }
 
 // Shutdown mocks base method
 func (m *MockGPUManager) Shutdown() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Shutdown")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -79,11 +84,13 @@ func (m *MockGPUManager) Shutdown() error {
 
 // Shutdown indicates an expected call of Shutdown
 func (mr *MockGPUManagerMockRecorder) Shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockGPUManager)(nil).Shutdown))
 }
 
 // GetGPUDeviceIDs mocks base method
 func (m *MockGPUManager) GetGPUDeviceIDs() ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGPUDeviceIDs")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -92,11 +99,13 @@ func (m *MockGPUManager) GetGPUDeviceIDs() ([]string, error) {
 
 // GetGPUDeviceIDs indicates an expected call of GetGPUDeviceIDs
 func (mr *MockGPUManagerMockRecorder) GetGPUDeviceIDs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGPUDeviceIDs", reflect.TypeOf((*MockGPUManager)(nil).GetGPUDeviceIDs))
 }
 
 // GetDriverVersion mocks base method
 func (m *MockGPUManager) GetDriverVersion() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDriverVersion")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -105,11 +114,13 @@ func (m *MockGPUManager) GetDriverVersion() (string, error) {
 
 // GetDriverVersion indicates an expected call of GetDriverVersion
 func (mr *MockGPUManagerMockRecorder) GetDriverVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDriverVersion", reflect.TypeOf((*MockGPUManager)(nil).GetDriverVersion))
 }
 
 // DetectGPUDevices mocks base method
 func (m *MockGPUManager) DetectGPUDevices() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetectGPUDevices")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -117,11 +128,13 @@ func (m *MockGPUManager) DetectGPUDevices() error {
 
 // DetectGPUDevices indicates an expected call of DetectGPUDevices
 func (mr *MockGPUManagerMockRecorder) DetectGPUDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectGPUDevices", reflect.TypeOf((*MockGPUManager)(nil).DetectGPUDevices))
 }
 
 // SaveGPUState mocks base method
 func (m *MockGPUManager) SaveGPUState() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveGPUState")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -129,5 +142,6 @@ func (m *MockGPUManager) SaveGPUState() error {
 
 // SaveGPUState indicates an expected call of SaveGPUState
 func (mr *MockGPUManagerMockRecorder) SaveGPUState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveGPUState", reflect.TypeOf((*MockGPUManager)(nil).SaveGPUState))
 }

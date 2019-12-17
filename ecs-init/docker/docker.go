@@ -14,6 +14,7 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"path/filepath"
@@ -213,6 +214,31 @@ func (c *Client) StartAgent() (int, error) {
 		return 0, err
 	}
 	return c.docker.WaitContainer(container.ID)
+}
+
+// GetContainerLogTail will return the last logWindowSize lines of logs for
+// the Agent Container.
+func (c *Client) GetContainerLogTail(logWindowSize string) string {
+	containerToLog, _ := c.findAgentContainer()
+	if containerToLog == "" {
+		log.Info("No existing container to take logs from.")
+                return ""
+	}
+	// we want to capture some logs from our removed containers in case of failure
+	var containerLogBuf bytes.Buffer
+	err := c.docker.Logs(godocker.LogsOptions{
+		Container:    containerToLog,
+		OutputStream: &containerLogBuf,
+		Stdout:       true,
+		Stderr:       true,
+		Tail:         logWindowSize,
+		Timestamps:   true,
+	})
+	// we're ok if grabbing the container's logs fails
+	if err != nil {
+		log.Infof("Unable to tail logs for container ID: %s", containerToLog)
+	}
+	return containerLogBuf.String()
 }
 
 func (c *Client) getContainerConfig(envVarsFromFiles map[string]string) *godocker.Config {

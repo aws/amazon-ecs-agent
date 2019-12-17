@@ -50,6 +50,7 @@ func (m *Mockdownloader) EXPECT() *MockdownloaderMockRecorder {
 
 // IsAgentCached mocks base method
 func (m *Mockdownloader) IsAgentCached() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAgentCached")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -57,11 +58,13 @@ func (m *Mockdownloader) IsAgentCached() bool {
 
 // IsAgentCached indicates an expected call of IsAgentCached
 func (mr *MockdownloaderMockRecorder) IsAgentCached() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentCached", reflect.TypeOf((*Mockdownloader)(nil).IsAgentCached))
 }
 
 // DownloadAgent mocks base method
 func (m *Mockdownloader) DownloadAgent() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadAgent")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -69,11 +72,13 @@ func (m *Mockdownloader) DownloadAgent() error {
 
 // DownloadAgent indicates an expected call of DownloadAgent
 func (mr *MockdownloaderMockRecorder) DownloadAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadAgent", reflect.TypeOf((*Mockdownloader)(nil).DownloadAgent))
 }
 
 // LoadCachedAgent mocks base method
 func (m *Mockdownloader) LoadCachedAgent() (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadCachedAgent")
 	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
@@ -82,11 +87,13 @@ func (m *Mockdownloader) LoadCachedAgent() (io.ReadCloser, error) {
 
 // LoadCachedAgent indicates an expected call of LoadCachedAgent
 func (mr *MockdownloaderMockRecorder) LoadCachedAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadCachedAgent", reflect.TypeOf((*Mockdownloader)(nil).LoadCachedAgent))
 }
 
 // LoadDesiredAgent mocks base method
 func (m *Mockdownloader) LoadDesiredAgent() (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadDesiredAgent")
 	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
@@ -95,11 +102,13 @@ func (m *Mockdownloader) LoadDesiredAgent() (io.ReadCloser, error) {
 
 // LoadDesiredAgent indicates an expected call of LoadDesiredAgent
 func (mr *MockdownloaderMockRecorder) LoadDesiredAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDesiredAgent", reflect.TypeOf((*Mockdownloader)(nil).LoadDesiredAgent))
 }
 
 // RecordCachedAgent mocks base method
 func (m *Mockdownloader) RecordCachedAgent() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RecordCachedAgent")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -107,11 +116,13 @@ func (m *Mockdownloader) RecordCachedAgent() error {
 
 // RecordCachedAgent indicates an expected call of RecordCachedAgent
 func (mr *MockdownloaderMockRecorder) RecordCachedAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCachedAgent", reflect.TypeOf((*Mockdownloader)(nil).RecordCachedAgent))
 }
 
 // AgentCacheStatus mocks base method
 func (m *Mockdownloader) AgentCacheStatus() cache.CacheStatus {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentCacheStatus")
 	ret0, _ := ret[0].(cache.CacheStatus)
 	return ret0
@@ -119,6 +130,7 @@ func (m *Mockdownloader) AgentCacheStatus() cache.CacheStatus {
 
 // AgentCacheStatus indicates an expected call of AgentCacheStatus
 func (mr *MockdownloaderMockRecorder) AgentCacheStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentCacheStatus", reflect.TypeOf((*Mockdownloader)(nil).AgentCacheStatus))
 }
 
@@ -145,8 +157,23 @@ func (m *MockdockerClient) EXPECT() *MockdockerClientMockRecorder {
 	return m.recorder
 }
 
+// GetContainerLogTail mocks base method
+func (m *MockdockerClient) GetContainerLogTail(logWindowSize string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContainerLogTail", logWindowSize)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetContainerLogTail indicates an expected call of GetContainerLogTail
+func (mr *MockdockerClientMockRecorder) GetContainerLogTail(logWindowSize interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerLogTail", reflect.TypeOf((*MockdockerClient)(nil).GetContainerLogTail), logWindowSize)
+}
+
 // IsAgentImageLoaded mocks base method
 func (m *MockdockerClient) IsAgentImageLoaded() (bool, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsAgentImageLoaded")
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
@@ -155,11 +182,13 @@ func (m *MockdockerClient) IsAgentImageLoaded() (bool, error) {
 
 // IsAgentImageLoaded indicates an expected call of IsAgentImageLoaded
 func (mr *MockdockerClientMockRecorder) IsAgentImageLoaded() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentImageLoaded", reflect.TypeOf((*MockdockerClient)(nil).IsAgentImageLoaded))
 }
 
 // LoadImage mocks base method
 func (m *MockdockerClient) LoadImage(image io.Reader) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadImage", image)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -167,11 +196,13 @@ func (m *MockdockerClient) LoadImage(image io.Reader) error {
 
 // LoadImage indicates an expected call of LoadImage
 func (mr *MockdockerClientMockRecorder) LoadImage(image interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockdockerClient)(nil).LoadImage), image)
 }
 
 // RemoveExistingAgentContainer mocks base method
 func (m *MockdockerClient) RemoveExistingAgentContainer() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveExistingAgentContainer")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -179,11 +210,13 @@ func (m *MockdockerClient) RemoveExistingAgentContainer() error {
 
 // RemoveExistingAgentContainer indicates an expected call of RemoveExistingAgentContainer
 func (mr *MockdockerClientMockRecorder) RemoveExistingAgentContainer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveExistingAgentContainer", reflect.TypeOf((*MockdockerClient)(nil).RemoveExistingAgentContainer))
 }
 
 // StartAgent mocks base method
 func (m *MockdockerClient) StartAgent() (int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartAgent")
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
@@ -192,11 +225,13 @@ func (m *MockdockerClient) StartAgent() (int, error) {
 
 // StartAgent indicates an expected call of StartAgent
 func (mr *MockdockerClientMockRecorder) StartAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartAgent", reflect.TypeOf((*MockdockerClient)(nil).StartAgent))
 }
 
 // StopAgent mocks base method
 func (m *MockdockerClient) StopAgent() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StopAgent")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -204,11 +239,13 @@ func (m *MockdockerClient) StopAgent() error {
 
 // StopAgent indicates an expected call of StopAgent
 func (mr *MockdockerClientMockRecorder) StopAgent() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopAgent", reflect.TypeOf((*MockdockerClient)(nil).StopAgent))
 }
 
 // LoadEnvVars mocks base method
 func (m *MockdockerClient) LoadEnvVars() map[string]string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LoadEnvVars")
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
@@ -216,6 +253,7 @@ func (m *MockdockerClient) LoadEnvVars() map[string]string {
 
 // LoadEnvVars indicates an expected call of LoadEnvVars
 func (mr *MockdockerClientMockRecorder) LoadEnvVars() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadEnvVars", reflect.TypeOf((*MockdockerClient)(nil).LoadEnvVars))
 }
 
@@ -244,6 +282,7 @@ func (m *MockloopbackRouting) EXPECT() *MockloopbackRoutingMockRecorder {
 
 // Enable mocks base method
 func (m *MockloopbackRouting) Enable() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enable")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -251,11 +290,13 @@ func (m *MockloopbackRouting) Enable() error {
 
 // Enable indicates an expected call of Enable
 func (mr *MockloopbackRoutingMockRecorder) Enable() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enable", reflect.TypeOf((*MockloopbackRouting)(nil).Enable))
 }
 
 // RestoreDefault mocks base method
 func (m *MockloopbackRouting) RestoreDefault() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RestoreDefault")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -263,6 +304,7 @@ func (m *MockloopbackRouting) RestoreDefault() error {
 
 // RestoreDefault indicates an expected call of RestoreDefault
 func (mr *MockloopbackRoutingMockRecorder) RestoreDefault() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestoreDefault", reflect.TypeOf((*MockloopbackRouting)(nil).RestoreDefault))
 }
 
@@ -291,6 +333,7 @@ func (m *MockcredentialsProxyRoute) EXPECT() *MockcredentialsProxyRouteMockRecor
 
 // Create mocks base method
 func (m *MockcredentialsProxyRoute) Create() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -298,11 +341,13 @@ func (m *MockcredentialsProxyRoute) Create() error {
 
 // Create indicates an expected call of Create
 func (mr *MockcredentialsProxyRouteMockRecorder) Create() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Create))
 }
 
 // Remove mocks base method
 func (m *MockcredentialsProxyRoute) Remove() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Remove")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -310,5 +355,6 @@ func (m *MockcredentialsProxyRoute) Remove() error {
 
 // Remove indicates an expected call of Remove
 func (mr *MockcredentialsProxyRouteMockRecorder) Remove() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Remove))
 }

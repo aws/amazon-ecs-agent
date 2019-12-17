@@ -48,6 +48,7 @@ func (m *MockCmd) EXPECT() *MockCmdMockRecorder {
 
 // CombinedOutput mocks base method
 func (m *MockCmd) CombinedOutput() ([]byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CombinedOutput")
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -56,11 +57,13 @@ func (m *MockCmd) CombinedOutput() ([]byte, error) {
 
 // CombinedOutput indicates an expected call of CombinedOutput
 func (mr *MockCmdMockRecorder) CombinedOutput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CombinedOutput", reflect.TypeOf((*MockCmd)(nil).CombinedOutput))
 }
 
 // Output mocks base method
 func (m *MockCmd) Output() ([]byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Output")
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -69,5 +72,6 @@ func (m *MockCmd) Output() ([]byte, error) {
 
 // Output indicates an expected call of Output
 func (mr *MockCmdMockRecorder) Output() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Output", reflect.TypeOf((*MockCmd)(nil).Output))
 }

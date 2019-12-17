@@ -32,6 +32,7 @@ import (
 type dockerclient interface {
 	ListImages(opts godocker.ListImagesOptions) ([]godocker.APIImages, error)
 	LoadImage(opts godocker.LoadImageOptions) error
+	Logs(opts godocker.LogsOptions) error
 	ListContainers(opts godocker.ListContainersOptions) ([]godocker.APIContainers, error)
 	RemoveContainer(opts godocker.RemoveContainerOptions) error
 	CreateContainer(opts godocker.CreateContainerOptions) (*godocker.Container, error)
@@ -89,6 +90,10 @@ func (d *_dockerclient) ListImages(opts godocker.ListImagesOptions) ([]godocker.
 
 func (d *_dockerclient) LoadImage(opts godocker.LoadImageOptions) error {
 	return d.docker.LoadImage(opts)
+}
+
+func (d *_dockerclient) Logs(opts godocker.LogsOptions) error {
+	return d.docker.Logs(opts)
 }
 
 func (d *_dockerclient) ListContainers(opts godocker.ListContainersOptions) ([]godocker.APIContainers, error) {

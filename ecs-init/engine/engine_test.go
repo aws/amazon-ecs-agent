@@ -257,6 +257,27 @@ func TestStartSupervisedExitsWhenTerminalFailure(t *testing.T) {
 	}
 }
 
+func TestLogContainerFailureAgentExitCodeFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockDocker := NewMockdockerClient(mockCtrl)
+
+	mockDocker.EXPECT().RemoveExistingAgentContainer()
+	mockDocker.EXPECT().StartAgent().Return(2, nil)
+	mockDocker.EXPECT().GetContainerLogTail(gomock.Any())
+	mockDocker.EXPECT().RemoveExistingAgentContainer()
+	mockDocker.EXPECT().StartAgent().Return(0, errors.New("test error"))
+
+	engine := &Engine{
+		docker: mockDocker,
+	}
+	err := engine.StartSupervised()
+	if err == nil {
+		t.Error("Expected error to be returned but was nil")
+	}
+}
+
 func TestStartSupervisedExitsWhenTerminalSuccess(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()

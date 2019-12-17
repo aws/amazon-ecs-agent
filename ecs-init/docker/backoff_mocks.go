@@ -49,6 +49,7 @@ func (m *MockBackoff) EXPECT() *MockBackoffMockRecorder {
 
 // Duration mocks base method
 func (m *MockBackoff) Duration() time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Duration")
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -56,11 +57,13 @@ func (m *MockBackoff) Duration() time.Duration {
 
 // Duration indicates an expected call of Duration
 func (mr *MockBackoffMockRecorder) Duration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Duration", reflect.TypeOf((*MockBackoff)(nil).Duration))
 }
 
 // ShouldRetry mocks base method
 func (m *MockBackoff) ShouldRetry() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRetry")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -68,5 +71,6 @@ func (m *MockBackoff) ShouldRetry() bool {
 
 // ShouldRetry indicates an expected call of ShouldRetry
 func (mr *MockBackoffMockRecorder) ShouldRetry() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldRetry", reflect.TypeOf((*MockBackoff)(nil).ShouldRetry))
 }

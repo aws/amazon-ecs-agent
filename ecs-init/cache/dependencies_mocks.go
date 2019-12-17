@@ -52,6 +52,7 @@ func (m *Mocks3API) EXPECT() *Mocks3APIMockRecorder {
 
 // Download mocks base method
 func (m *Mocks3API) Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (int64, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{w, input}
 	for _, a := range options {
 		varargs = append(varargs, a)
@@ -64,6 +65,7 @@ func (m *Mocks3API) Download(w io.WriterAt, input *s3.GetObjectInput, options ..
 
 // Download indicates an expected call of Download
 func (mr *Mocks3APIMockRecorder) Download(w, input interface{}, options ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{w, input}, options...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*Mocks3API)(nil).Download), varargs...)
 }
@@ -93,16 +95,19 @@ func (m *Mocks3DownloaderAPI) EXPECT() *Mocks3DownloaderAPIMockRecorder {
 
 // addBucketDownloader mocks base method
 func (m *Mocks3DownloaderAPI) addBucketDownloader(bucketDownloader *s3BucketDownloader) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "addBucketDownloader", bucketDownloader)
 }
 
 // addBucketDownloader indicates an expected call of addBucketDownloader
 func (mr *Mocks3DownloaderAPIMockRecorder) addBucketDownloader(bucketDownloader interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "addBucketDownloader", reflect.TypeOf((*Mocks3DownloaderAPI)(nil).addBucketDownloader), bucketDownloader)
 }
 
 // downloadFile mocks base method
 func (m *Mocks3DownloaderAPI) downloadFile(fileName string) (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "downloadFile", fileName)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -111,6 +116,7 @@ func (m *Mocks3DownloaderAPI) downloadFile(fileName string) (string, error) {
 
 // downloadFile indicates an expected call of downloadFile
 func (mr *Mocks3DownloaderAPIMockRecorder) downloadFile(fileName interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "downloadFile", reflect.TypeOf((*Mocks3DownloaderAPI)(nil).downloadFile), fileName)
 }
 
@@ -139,6 +145,7 @@ func (m *MockfileSystem) EXPECT() *MockfileSystemMockRecorder {
 
 // MkdirAll mocks base method
 func (m *MockfileSystem) MkdirAll(path string, perm os.FileMode) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MkdirAll", path, perm)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -146,11 +153,13 @@ func (m *MockfileSystem) MkdirAll(path string, perm os.FileMode) error {
 
 // MkdirAll indicates an expected call of MkdirAll
 func (mr *MockfileSystemMockRecorder) MkdirAll(path, perm interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockfileSystem)(nil).MkdirAll), path, perm)
 }
 
 // TempFile mocks base method
 func (m *MockfileSystem) TempFile(dir, prefix string) (*os.File, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TempFile", dir, prefix)
 	ret0, _ := ret[0].(*os.File)
 	ret1, _ := ret[1].(error)
@@ -159,21 +168,25 @@ func (m *MockfileSystem) TempFile(dir, prefix string) (*os.File, error) {
 
 // TempFile indicates an expected call of TempFile
 func (mr *MockfileSystemMockRecorder) TempFile(dir, prefix interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TempFile", reflect.TypeOf((*MockfileSystem)(nil).TempFile), dir, prefix)
 }
 
 // Remove mocks base method
 func (m *MockfileSystem) Remove(path string) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Remove", path)
 }
 
 // Remove indicates an expected call of Remove
 func (mr *MockfileSystemMockRecorder) Remove(path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockfileSystem)(nil).Remove), path)
 }
 
 // TeeReader mocks base method
 func (m *MockfileSystem) TeeReader(r io.Reader, w io.Writer) io.Reader {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TeeReader", r, w)
 	ret0, _ := ret[0].(io.Reader)
 	return ret0
@@ -181,11 +194,13 @@ func (m *MockfileSystem) TeeReader(r io.Reader, w io.Writer) io.Reader {
 
 // TeeReader indicates an expected call of TeeReader
 func (mr *MockfileSystemMockRecorder) TeeReader(r, w interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TeeReader", reflect.TypeOf((*MockfileSystem)(nil).TeeReader), r, w)
 }
 
 // Copy mocks base method
 func (m *MockfileSystem) Copy(dst io.Writer, src io.Reader) (int64, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Copy", dst, src)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(error)
@@ -194,11 +209,13 @@ func (m *MockfileSystem) Copy(dst io.Writer, src io.Reader) (int64, error) {
 
 // Copy indicates an expected call of Copy
 func (mr *MockfileSystemMockRecorder) Copy(dst, src interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockfileSystem)(nil).Copy), dst, src)
 }
 
 // Rename mocks base method
 func (m *MockfileSystem) Rename(oldpath, newpath string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Rename", oldpath, newpath)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -206,11 +223,13 @@ func (m *MockfileSystem) Rename(oldpath, newpath string) error {
 
 // Rename indicates an expected call of Rename
 func (mr *MockfileSystemMockRecorder) Rename(oldpath, newpath interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rename", reflect.TypeOf((*MockfileSystem)(nil).Rename), oldpath, newpath)
 }
 
 // ReadAll mocks base method
 func (m *MockfileSystem) ReadAll(r io.Reader) ([]byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAll", r)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -219,11 +238,13 @@ func (m *MockfileSystem) ReadAll(r io.Reader) ([]byte, error) {
 
 // ReadAll indicates an expected call of ReadAll
 func (mr *MockfileSystemMockRecorder) ReadAll(r interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadAll", reflect.TypeOf((*MockfileSystem)(nil).ReadAll), r)
 }
 
 // Open mocks base method
 func (m *MockfileSystem) Open(name string) (io.ReadCloser, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Open", name)
 	ret0, _ := ret[0].(io.ReadCloser)
 	ret1, _ := ret[1].(error)
@@ -232,11 +253,13 @@ func (m *MockfileSystem) Open(name string) (io.ReadCloser, error) {
 
 // Open indicates an expected call of Open
 func (mr *MockfileSystemMockRecorder) Open(name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockfileSystem)(nil).Open), name)
 }
 
 // Stat mocks base method
 func (m *MockfileSystem) Stat(name string) (fileSizeInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stat", name)
 	ret0, _ := ret[0].(fileSizeInfo)
 	ret1, _ := ret[1].(error)
@@ -245,11 +268,13 @@ func (m *MockfileSystem) Stat(name string) (fileSizeInfo, error) {
 
 // Stat indicates an expected call of Stat
 func (mr *MockfileSystemMockRecorder) Stat(name interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stat", reflect.TypeOf((*MockfileSystem)(nil).Stat), name)
 }
 
 // Base mocks base method
 func (m *MockfileSystem) Base(path string) string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Base", path)
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -257,11 +282,13 @@ func (m *MockfileSystem) Base(path string) string {
 
 // Base indicates an expected call of Base
 func (mr *MockfileSystemMockRecorder) Base(path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Base", reflect.TypeOf((*MockfileSystem)(nil).Base), path)
 }
 
 // WriteFile mocks base method
 func (m *MockfileSystem) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteFile", filename, data, perm)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -269,6 +296,7 @@ func (m *MockfileSystem) WriteFile(filename string, data []byte, perm os.FileMod
 
 // WriteFile indicates an expected call of WriteFile
 func (mr *MockfileSystemMockRecorder) WriteFile(filename, data, perm interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteFile", reflect.TypeOf((*MockfileSystem)(nil).WriteFile), filename, data, perm)
 }
 
@@ -297,6 +325,7 @@ func (m *MockfileSizeInfo) EXPECT() *MockfileSizeInfoMockRecorder {
 
 // Size mocks base method
 func (m *MockfileSizeInfo) Size() int64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Size")
 	ret0, _ := ret[0].(int64)
 	return ret0
@@ -304,6 +333,7 @@ func (m *MockfileSizeInfo) Size() int64 {
 
 // Size indicates an expected call of Size
 func (mr *MockfileSizeInfoMockRecorder) Size() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Size", reflect.TypeOf((*MockfileSizeInfo)(nil).Size))
 }
 
@@ -332,6 +362,7 @@ func (m *MockinstanceMetadata) EXPECT() *MockinstanceMetadataMockRecorder {
 
 // Region mocks base method
 func (m *MockinstanceMetadata) Region() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Region")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -340,5 +371,6 @@ func (m *MockinstanceMetadata) Region() (string, error) {
 
 // Region indicates an expected call of Region
 func (mr *MockinstanceMetadataMockRecorder) Region() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Region", reflect.TypeOf((*MockinstanceMetadata)(nil).Region))
 }

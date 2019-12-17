@@ -31,6 +31,7 @@ type downloader interface {
 }
 
 type dockerClient interface {
+	GetContainerLogTail(logWindowSize string) string
 	IsAgentImageLoaded() (bool, error)
 	LoadImage(image io.Reader) error
 	RemoveExistingAgentContainer() error

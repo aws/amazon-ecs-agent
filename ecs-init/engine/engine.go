@@ -33,14 +33,16 @@ import (
 )
 
 const (
-	terminalSuccessAgentExitCode = 0
-	terminalFailureAgentExitCode = 5
-	upgradeAgentExitCode         = 42
-	serviceStartMinRetryTime     = time.Millisecond * 500
-	serviceStartMaxRetryTime     = time.Second * 15
-	serviceStartRetryJitter      = 0.10
-	serviceStartRetryMultiplier  = 2.0
-	serviceStartMaxRetries       = math.MaxInt64 // essentially retry forever
+	terminalSuccessAgentExitCode  = 0
+	containerFailureAgentExitCode = 2
+	terminalFailureAgentExitCode  = 5
+	upgradeAgentExitCode          = 42
+	serviceStartMinRetryTime      = time.Millisecond * 500
+	serviceStartMaxRetryTime      = time.Second * 15
+	serviceStartRetryJitter       = 0.10
+	serviceStartRetryMultiplier   = 2.0
+	serviceStartMaxRetries        = math.MaxInt64 // essentially retry forever
+	failedContainerLogWindowSize  = "200"         // as string for log config
 )
 
 // Engine contains methods invoked when ecs-init is run
@@ -200,6 +202,11 @@ func (e *Engine) StartSupervised() error {
 				// continuing here because a successful upgrade doesn't need to backoff retries
 				continue
 			}
+		case containerFailureAgentExitCode:
+			// capture the tail of the failed agent container
+			log.Infof("Captured the last %s lines of the agent container logs====>\n", failedContainerLogWindowSize)
+			log.Info(e.docker.GetContainerLogTail(failedContainerLogWindowSize))
+			log.Infof("<====end %s lines of the failed agent container logs\n", failedContainerLogWindowSize)
 		case terminalFailureAgentExitCode:
 			return errors.New("agent exited with terminal exit code")
 		case terminalSuccessAgentExitCode:
