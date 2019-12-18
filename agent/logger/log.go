@@ -54,14 +54,14 @@ var Config *logConfig
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s
-`, level.String(), time.Now().UTC().Format(time.RFC3339), message, context.FileName())
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
 	}
 }
 
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q}
-`, level.String(), time.Now().UTC().Format(time.RFC3339), message, context.FileName())
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
 	}
 }
 
