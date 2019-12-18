@@ -16,6 +16,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,24 +54,32 @@ var Config *logConfig
 
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
+		cc, ok := context.CustomContext().(map[string]string)
+		var customContext string
+		if ok && len(cc) > 0 {
+			var sortedContext []string
+			for k, v := range cc {
+				sortedContext = append(sortedContext, k+"="+v)
+			}
+			sort.Strings(sortedContext)
+			customContext = " " + strings.Join(sortedContext, " ")
+		}
+		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s%s
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
 	}
 }
 
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q}
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
-	}
-}
-
-func reloadConfig() {
-	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
-	if err == nil {
-		seelog.ReplaceLogger(logger)
-	} else {
-		seelog.Error(err)
+		cc, ok := context.CustomContext().(map[string]string)
+		var customContext string
+		if ok && len(cc) > 0 {
+			for k, v := range cc {
+				customContext += fmt.Sprintf(", %q: %q", k, v)
+			}
+		}
+		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q%s}
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
 	}
 }
 
@@ -117,7 +126,7 @@ func SetLevel(logLevel string) {
 		Config.lock.Lock()
 		defer Config.lock.Unlock()
 		Config.level = parsedLevel
-		reloadConfig()
+		reloadMainConfig()
 	}
 }
 
@@ -127,6 +136,24 @@ func GetLevel() string {
 	defer Config.lock.Unlock()
 
 	return Config.level
+}
+
+func InitLogger() seelog.LoggerInterface {
+	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
+	if err != nil {
+		seelog.Errorf("Error creating seelog logger: %s", err)
+		return seelog.Default
+	}
+	return logger
+}
+
+func reloadMainConfig() {
+	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
+	if err == nil {
+		seelog.ReplaceLogger(logger)
+	} else {
+		seelog.Error(err)
+	}
 }
 
 func init() {
@@ -139,7 +166,9 @@ func init() {
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 	}
 
-	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR))
+	if level := os.Getenv(LOGLEVEL_ENV_VAR); level != "" {
+		SetLevel(level)
+	}
 	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
 		Config.RolloverType = RolloverType
 	}
@@ -169,7 +198,6 @@ func init() {
 	if err := seelog.RegisterCustomFormatter("EcsAgentJson", jsonFormatter); err != nil {
 		seelog.Error(err)
 	}
-
 	registerPlatformLogger()
-	reloadConfig()
+	seelog.ReplaceLogger(InitLogger())
 }

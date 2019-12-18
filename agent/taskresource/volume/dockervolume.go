@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/cihub/seelog"
@@ -63,6 +64,9 @@ type VolumeResource struct {
 
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
+
+	// log is a custom logger with extra context specific to the volume resource struct
+	log seelog.LoggerInterface
 }
 
 // DockerVolumeConfig represents docker volume configuration
@@ -119,7 +123,20 @@ func NewVolumeResource(ctx context.Context,
 		ctx:    ctx,
 	}
 	v.initStatusToTransitions()
+	v.initLog()
 	return v, nil
+}
+
+func (vol *VolumeResource) initLog() {
+	if vol.log == nil {
+		vol.log = logger.InitLogger()
+		vol.log.SetContext(map[string]string{
+			"volumeName":       vol.Name,
+			"dockerVolumeName": vol.VolumeConfig.DockerVolumeName,
+			"dockerScope":      vol.VolumeConfig.Scope,
+			"resourceName":     "volume",
+		})
+	}
 }
 
 func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields,
@@ -173,7 +190,7 @@ func (vol *VolumeResource) GetTerminalReason() string {
 
 func (vol *VolumeResource) setTerminalReason(reason string) {
 	vol.terminalReasonOnce.Do(func() {
-		seelog.Infof("Volume Resource [%s]: setting terminal reason for volume resource", vol.Name)
+		vol.log.Infof("setting terminal reason [%s] for volume resource", reason)
 		vol.terminalReason = reason
 	})
 }
@@ -309,7 +326,7 @@ func (vol *VolumeResource) SourcePath() string {
 
 // Create performs resource creation
 func (vol *VolumeResource) Create() error {
-	seelog.Debugf("Creating volume with name %s using driver %s", vol.VolumeConfig.DockerVolumeName, vol.VolumeConfig.Driver)
+	vol.log.Infof("Creating volume using driver %s", vol.VolumeConfig.Driver)
 	volumeResponse := vol.client.CreateVolume(
 		vol.ctx,
 		vol.VolumeConfig.DockerVolumeName,
@@ -332,11 +349,11 @@ func (vol *VolumeResource) Create() error {
 func (vol *VolumeResource) Cleanup() error {
 	// Enable volume clean up if it's task scoped
 	if vol.VolumeConfig.Scope != TaskScope {
-		seelog.Debugf("Volume [%s] is shared, not removing", vol.Name)
+		vol.log.Infof("Volume is shared, not removing")
 		return nil
 	}
 
-	seelog.Debugf("Removing volume with name %s", vol.Name)
+	vol.log.Infof("Removing volume")
 	err := vol.client.RemoveVolume(vol.ctx, vol.VolumeConfig.DockerVolumeName, dockerclient.RemoveVolumeTimeout)
 
 	if err != nil {
@@ -385,5 +402,6 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 	if temp.KnownStatus != nil {
 		vol.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
+	vol.initLog()
 	return nil
 }

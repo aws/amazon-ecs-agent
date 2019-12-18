@@ -28,3 +28,13 @@ func (t *Task) MarshalJSON() ([]byte, error) {
 
 	return json.Marshal((*jTask)(t))
 }
+
+// UnmarshalJSON wraps Go's unmarshalling logic to guarantee that the logger gets created
+func (t *Task) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, (*jTask)(t))
+	if err != nil {
+		return err
+	}
+	t.initLog()
+	return nil
+}

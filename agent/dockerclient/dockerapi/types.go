@@ -153,3 +153,15 @@ func (event *DockerContainerChangeEvent) String() string {
 
 	return res
 }
+
+// String returns a short human readable string of the container change event
+func (event *DockerContainerChangeEvent) ShortString() string {
+	res := fmt.Sprintf("event type: %s, event container status: %s, docker ID: %s",
+		event.Type.String(), event.Status.String(), event.DockerID)
+
+	if event.ExitCode != nil {
+		res += fmt.Sprintf(", ExitCode: %d", aws.IntValue(event.ExitCode))
+	}
+
+	return res
+}
