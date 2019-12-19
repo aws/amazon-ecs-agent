@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
@@ -629,4 +631,26 @@ func (cs *CredentialSpecResource) setCredentialSpecResourceLocation() error {
 	}
 
 	return nil
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (cs *CredentialSpecResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
+}
+
+func (cs *CredentialSpecResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (cs *CredentialSpecResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (cs *CredentialSpecResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
+}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (cs *CredentialSpecResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
 }

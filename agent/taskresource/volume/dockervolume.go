@@ -19,6 +19,8 @@ import (
 	"sync"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -36,12 +38,14 @@ const (
 	// DockerLocalVolumeDriver is the name of the docker default volume driver
 	DockerLocalVolumeDriver   = "local"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
+	EFSVolumeType             = "efs"
 )
 
 // VolumeResource represents volume resource
 type VolumeResource struct {
 	// Name is the name of the docker volume
-	Name string
+	Name       string
+	VolumeType string
 	// VolumeConfig contains docker specific volume fields
 	VolumeConfig        DockerVolumeConfig
 	createdAtUnsafe     time.Time
@@ -55,6 +59,10 @@ type VolumeResource struct {
 	statusToTransitions map[resourcestatus.ResourceStatus]func() error
 	client              dockerapi.DockerClient
 	ctx                 context.Context
+
+	// TransitionDependenciesMap is a map of the dependent container status to other
+	// dependencies that must be satisfied in order for this container to transition.
+	transitionDependenciesMap taskresource.TransitionDependenciesMap
 
 	// terminalReason should be set for resource creation failures. This ensures
 	// the resource object carries some context for why provisoning failed.
@@ -93,6 +101,7 @@ type EFSVolumeConfig struct {
 // NewVolumeResource returns a docker volume wrapper object
 func NewVolumeResource(ctx context.Context,
 	name string,
+	volumeType string,
 	dockerVolumeName string,
 	scope string,
 	autoprovision bool,
@@ -106,7 +115,8 @@ func NewVolumeResource(ctx context.Context,
 	}
 
 	v := &VolumeResource{
-		Name: name,
+		Name:       name,
+		VolumeType: volumeType,
 		VolumeConfig: DockerVolumeConfig{
 			Scope:            scope,
 			Autoprovision:    autoprovision,
@@ -115,8 +125,9 @@ func NewVolumeResource(ctx context.Context,
 			Labels:           labels,
 			DockerVolumeName: dockerVolumeName,
 		},
-		client: client,
-		ctx:    ctx,
+		client:                    client,
+		ctx:                       ctx,
+		transitionDependenciesMap: make(map[resourcestatus.ResourceStatus]taskresource.TransitionDependencySet),
 	}
 	v.initStatusToTransitions()
 	return v, nil
@@ -386,4 +397,68 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 		vol.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
 	return nil
+}
+
+// updateAppliedStatusUnsafe updates the resource transitioning status
+func (vol *VolumeResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
+	if vol.appliedStatusUnsafe == resourcestatus.ResourceStatus(VolumeStatusNone) {
+		return
+	}
+
+	// Check if the resource transition has already finished
+	if vol.appliedStatusUnsafe <= knownStatus {
+		vol.appliedStatusUnsafe = resourcestatus.ResourceStatus(VolumeStatusNone)
+	}
+}
+
+func (vol *VolumeResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	return vol.appliedStatusUnsafe
+}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (vol *VolumeResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	vol.appliedStatusUnsafe = status
+}
+
+// DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
+func (vol *VolumeResource) DependOnTaskNetwork() bool {
+	return vol.VolumeType == EFSVolumeType
+}
+
+func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	// No op for non-EFS volume type
+	if vol.VolumeType != EFSVolumeType {
+		return nil
+	}
+
+	contDep := apicontainer.ContainerDependency{
+		ContainerName:   containerName,
+		SatisfiedStatus: satisfied,
+	}
+	if _, ok := vol.transitionDependenciesMap[dependent]; !ok {
+		vol.transitionDependenciesMap[dependent] = taskresource.TransitionDependencySet{}
+	}
+	deps := vol.transitionDependenciesMap[dependent]
+	deps.ContainerDependencies = append(deps.ContainerDependencies, contDep)
+	vol.transitionDependenciesMap[dependent] = deps
+	return nil
+}
+
+func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	// No op for non-EFS volume type
+	if vol.VolumeType != EFSVolumeType {
+		return nil
+	}
+
+	if _, ok := vol.transitionDependenciesMap[dependent]; !ok {
+		return nil
+	}
+	return vol.transitionDependenciesMap[dependent].ContainerDependencies
 }

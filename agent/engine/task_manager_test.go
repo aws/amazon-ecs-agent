@@ -1074,6 +1074,7 @@ func TestCleanupTask(t *testing.T) {
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().Cleanup()
 	mockResource.EXPECT().GetName()
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
@@ -1448,6 +1449,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().GetName()
 	mockResource.EXPECT().Cleanup().Return(nil)
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
@@ -1510,6 +1512,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockResource.EXPECT().GetName()
 	mockResource.EXPECT().Cleanup().Return(errors.New("cleanup error"))
+	mockResource.EXPECT().DependOnTaskNetwork().Return(false)
 	mTask.cleanupTask(taskStoppedDuration)
 }
 

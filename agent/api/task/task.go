@@ -464,7 +464,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 		vol, _ := task.HostVolumeByName(volumeName)
 		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
 		scope := taskresourcevolume.TaskScope
-		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName,
+		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName, HostVolumeType,
 			vol.Source(), scope, false,
 			taskresourcevolume.DockerLocalVolumeDriver,
 			make(map[string]string), make(map[string]string), dockerClient)
@@ -550,6 +550,7 @@ func (task *Task) addEFSVolumes(
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
 		vol.Name,
+		EFSVolumeType,
 		task.volumeName(vol.Name),
 		"task",
 		false,
@@ -580,6 +581,7 @@ func (task *Task) addTaskScopedVolumes(ctx context.Context, dockerClient dockera
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
 		vol.Name,
+		DockerVolumeType,
 		task.volumeName(vol.Name),
 		volumeConfig.Scope, volumeConfig.Autoprovision,
 		volumeConfig.Driver, volumeConfig.DriverOpts,
@@ -624,6 +626,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 		volumeResource, err := taskresourcevolume.NewVolumeResource(
 			ctx,
 			vol.Name,
+			DockerVolumeType,
 			vol.Name,
 			volumeConfig.Scope, volumeConfig.Autoprovision,
 			volumeConfig.Driver, volumeConfig.DriverOpts,
@@ -1206,6 +1209,13 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 		container.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
+
+	for _, resource := range task.GetResources() {
+		if resource.DependOnTaskNetwork() {
+			seelog.Debugf("Task [%s]: adding network pause container dependency to resource [%s]", task.Arn, resource.GetName())
+			resource.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
+		}
+	}
 	return nil
 }
 
@@ -1228,6 +1238,13 @@ func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) 
 		}
 		container.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled)
 		namespacePauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+	}
+
+	for _, resource := range task.GetResources() {
+		if resource.DependOnTaskNetwork() {
+			seelog.Debugf("Task [%s]: adding namespace pause container dependency to resource [%s]", task.Arn, resource.GetName())
+			resource.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
+		}
 	}
 }
 

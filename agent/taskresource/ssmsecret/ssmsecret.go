@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ssm"
@@ -478,4 +479,33 @@ func (secret *SSMSecretResource) UnmarshalJSON(b []byte) error {
 	secret.executionCredentialsID = temp.ExecutionCredentialsID
 
 	return nil
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (secret *SSMSecretResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	return secret.appliedStatus
+}
+
+func (secret *SSMSecretResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (secret *SSMSecretResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (secret *SSMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
+}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (secret *SSMSecretResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	secret.appliedStatus = status
 }
