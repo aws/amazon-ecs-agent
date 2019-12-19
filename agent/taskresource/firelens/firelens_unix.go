@@ -26,6 +26,8 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
@@ -549,4 +551,22 @@ func (firelens *FirelensResource) Cleanup() error {
 
 	seelog.Infof("Removed firelens resource directory at %s", firelens.resourceDir)
 	return nil
+}
+
+func (firelens *FirelensResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (firelens *FirelensResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
+}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (firelens *FirelensResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
+	firelens.SetAppliedStatus(status)
 }

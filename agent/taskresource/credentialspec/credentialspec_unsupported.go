@@ -18,6 +18,8 @@ package credentialspec
 import (
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
@@ -152,4 +154,26 @@ func (cs *CredentialSpecResource) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON deserialises the raw JSON to a CredentialSpecResourceJSON struct
 func (cs *CredentialSpecResource) UnmarshalJSON(b []byte) error {
 	return errors.New("not implemented")
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (cs *CredentialSpecResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
+}
+
+func (cs *CredentialSpecResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (cs *CredentialSpecResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (cs *CredentialSpecResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
+}
+
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (cs *CredentialSpecResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
 }

@@ -18,6 +18,8 @@ import (
 	"errors"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -84,6 +86,14 @@ func (c *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	return resourcestatus.ResourceStatusNone
 }
 
+// UpdateAppliedStatus safely updates the applied status of the resource
+func (c *CgroupResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (c *CgroupResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
+}
+
 // SetCreatedAt sets the timestamp for resource's creation time
 func (c *CgroupResource) SetCreatedAt(createdAt time.Time) {}
 
@@ -125,4 +135,17 @@ func (c *CgroupResource) UnmarshalJSON(b []byte) error {
 func (cgroup *CgroupResource) Initialize(resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
+}
+
+func (cgroup *CgroupResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (cgroup *CgroupResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) error {
+	return errors.New("Not implemented")
+}
+
+func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
 }
