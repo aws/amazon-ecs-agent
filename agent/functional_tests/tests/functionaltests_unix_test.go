@@ -459,7 +459,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
 
 	// Search the audit log to verify the credential request
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -807,8 +807,8 @@ func TestExecutionRole(t *testing.T) {
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 	// Search the audit log to verify the credential request from awslogs driver
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", "GetCredentialsExecutionRole")
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", *testTask.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
