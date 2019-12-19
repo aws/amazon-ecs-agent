@@ -1223,7 +1223,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 			containerEarliestKnownStatus.String(), task)
 		return apitaskstatus.TaskStatusNone
 	}
-	seelog.Debugf("api/task: Container with earliest known container is %s for task: %s",
+	seelog.Debugf("api/task: Container with earliest known container is %s for task: [%s]",
 		earliestKnownStatusContainer.String(), task.String())
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
