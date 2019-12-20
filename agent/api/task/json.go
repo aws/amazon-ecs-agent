@@ -35,6 +35,10 @@ func (t *Task) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	t.initLog()
+	t.log.SetContext(map[string]string{
+		"taskARN":     t.Arn,
+		"taskFamily":  t.Family,
+		"taskVersion": t.Version,
+	})
 	return nil
 }

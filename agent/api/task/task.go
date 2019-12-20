@@ -256,7 +256,7 @@ type Task struct {
 	lock sync.RWMutex
 
 	// log is a custom logger with extra context specific to the task struct
-	log seelog.LoggerInterface
+	log logger.Contextual
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -270,6 +270,11 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
+	task.log.SetContext(map[string]string{
+		"taskARN":     task.Arn,
+		"taskFamily":  task.Family,
+		"taskVersion": task.Version,
+	})
 	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
@@ -286,19 +291,7 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 
 	//initialize resources map for task
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	task.initLog()
 	return task, nil
-}
-
-func (task *Task) initLog() {
-	if task.log == nil {
-		task.log = logger.InitLogger()
-		task.log.SetContext(map[string]string{
-			"taskARN":     task.Arn,
-			"taskFamily":  task.Family,
-			"taskVersion": task.Version,
-		})
-	}
 }
 
 func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
@@ -325,7 +318,6 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	dockerClient dockerapi.DockerClient, ctx context.Context) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
-	task.initLog()
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
 		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
@@ -1311,7 +1303,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 		}
 	}
 	if earliestKnownStatusContainer == nil {
-		task.log.Criticalf(
+		task.log.Errorf(
 			"Impossible state found while updating tasks's known status, earliest state recorded as %s",
 			containerEarliestKnownStatus.String())
 		return apitaskstatus.TaskStatusNone
@@ -1342,7 +1334,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 // based on the known statuses of all containers in the task
 func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskStatus {
 	if len(task.Containers) == 0 {
-		task.log.Criticalf("No containers in the task")
+		task.log.Errorf("No containers in the task")
 		return apitaskstatus.TaskStatusNone
 	}
 	// Set earliest container status to an impossible to reach 'high' task status
@@ -1571,13 +1563,13 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 		}
 	}
 	if pauseContName == "" {
-		task.log.Critical("Pause container required, but not found in the task")
+		task.log.Error("Pause container required, but not found in the task")
 		return false, ""
 	}
 	pauseContainer, ok := dockerContainerMap[pauseContName]
 	if !ok || pauseContainer == nil {
 		// This should never be the case and implies a code-bug.
-		task.log.Criticalf("Pause container required, but not found in container map for container: [%s]",
+		task.log.Errorf("Pause container required, but not found in container map for container: [%s]",
 			container.String())
 		return false, ""
 	}
@@ -1660,14 +1652,14 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 	case pidModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			task.log.Criticalf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nil or not exist if the Container definition within task exists; implies code-bug
-			task.log.Criticalf("Namespace Pause docker container not found in the task; Setting Task's Desired Status to Stopped")
+			task.log.Errorf("Namespace Pause docker container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
@@ -1713,14 +1705,14 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 	case ipcModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			task.log.Criticalf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nill or not exist if the Container definition within task exists; implies code-bug
-			task.log.Criticalf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}

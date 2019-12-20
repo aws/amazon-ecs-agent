@@ -25,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -66,7 +65,7 @@ type VolumeResource struct {
 	lock sync.RWMutex
 
 	// log is a custom logger with extra context specific to the volume resource struct
-	log seelog.LoggerInterface
+	log logger.Contextual
 }
 
 // DockerVolumeConfig represents docker volume configuration
@@ -128,15 +127,12 @@ func NewVolumeResource(ctx context.Context,
 }
 
 func (vol *VolumeResource) initLog() {
-	if vol.log == nil {
-		vol.log = logger.InitLogger()
-		vol.log.SetContext(map[string]string{
-			"volumeName":       vol.Name,
-			"dockerVolumeName": vol.VolumeConfig.DockerVolumeName,
-			"dockerScope":      vol.VolumeConfig.Scope,
-			"resourceName":     "volume",
-		})
-	}
+	vol.log.SetContext(map[string]string{
+		"volumeName":       vol.Name,
+		"dockerVolumeName": vol.VolumeConfig.DockerVolumeName,
+		"dockerScope":      vol.VolumeConfig.Scope,
+		"resourceName":     "volume",
+	})
 }
 
 func (vol *VolumeResource) Initialize(resourceFields *taskresource.ResourceFields,

@@ -23,7 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -92,7 +91,7 @@ type FirelensResource struct {
 	terminalReasonOnce  sync.Once
 	lock                sync.RWMutex
 	// log is a custom logger with extra context specific to the firelens struct
-	log seelog.LoggerInterface
+	log logger.Contextual
 }
 
 // NewFirelensResource returns a new FirelensResource.
@@ -130,14 +129,11 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 }
 
 func (firelens *FirelensResource) initLog() {
-	if firelens.log == nil {
-		firelens.log = logger.InitLogger()
-		firelens.log.SetContext(map[string]string{
-			"taskARN":      firelens.taskARN,
-			"configType":   firelens.firelensConfigType,
-			"resourceName": ResourceName,
-		})
-	}
+	firelens.log.SetContext(map[string]string{
+		"taskARN":      firelens.taskARN,
+		"configType":   firelens.firelensConfigType,
+		"resourceName": ResourceName,
+	})
 }
 
 func (firelens *FirelensResource) parseOptions(options map[string]string) error {

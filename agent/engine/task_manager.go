@@ -40,7 +40,6 @@ import (
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
@@ -127,7 +126,7 @@ type managedTask struct {
 	*apitask.Task
 	ctx    context.Context
 	cancel context.CancelFunc
-	log    seelog.LoggerInterface
+	log    logger.Contextual
 
 	engine             *DockerTaskEngine
 	cfg                *config.Config
@@ -167,18 +166,11 @@ type managedTask struct {
 // This method must only be called when the engine.processTasks write lock is
 // already held.
 func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
-	log := logger.InitLogger()
-	log.SetContext(map[string]string{
-		"taskARN":     task.Arn,
-		"taskFamily":  task.Family,
-		"taskVersion": task.Version,
-	})
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
 		ctx:                        ctx,
 		cancel:                     cancel,
 		Task:                       task,
-		log:                        log,
 		acsMessages:                make(chan acsTransition),
 		dockerMessages:             make(chan dockerContainerChange),
 		resourceStateChangeEvent:   make(chan resourceStateChange),
@@ -192,6 +184,11 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		taskStopWG:                 engine.taskStopGroup,
 		steadyStatePollInterval:    engine.taskSteadyStatePollInterval,
 	}
+	t.log.SetContext(map[string]string{
+		"taskARN":     task.Arn,
+		"taskFamily":  task.Family,
+		"taskVersion": task.Version,
+	})
 	engine.managedTasks[task.Arn] = t
 	return t
 }
@@ -502,8 +499,7 @@ func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		mtask.log.Infof("unable to create task state change event [%s]: %v",
-			task.Arn, reason, err)
+		mtask.log.Infof("unable to create task state change event [%s]: %v", reason, err)
 		return
 	}
 	mtask.log.Infof("sending task change event [%s]", event.String())
@@ -516,8 +512,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		mtask.log.Infof("unable to create state change event for container [%s]: %v",
-			task.Arn, cont.Name, err)
+		mtask.log.Infof("unable to create state change event for container [%s]: %v", cont.Name, err)
 		return
 	}
 
@@ -575,14 +570,12 @@ func (mtask *managedTask) releaseIPInIPAM() {
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	})
 	if err != nil {
-		mtask.log.Errorf("failed to release ip; unable to build cni configuration: %v",
-			err)
+		mtask.log.Errorf("failed to release ip; unable to build cni configuration: %v", err)
 		return
 	}
 	err = mtask.cniClient.ReleaseIPResource(mtask.ctx, cfg, ipamCleanupTmeout)
 	if err != nil {
-		mtask.log.Errorf("failed to release ip; IPAM error: %v",
-			err)
+		mtask.log.Errorf("failed to release ip; IPAM error: %v", err)
 		return
 	}
 }

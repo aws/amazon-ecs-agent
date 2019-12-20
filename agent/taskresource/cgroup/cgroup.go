@@ -28,7 +28,6 @@ import (
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -66,7 +65,7 @@ type CgroupResource struct {
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
 	// log is a custom logger with extra context specific to the cgroup struct
-	log seelog.LoggerInterface
+	log logger.Contextual
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
@@ -85,20 +84,13 @@ func NewCgroupResource(taskARN string,
 		resourceSpec:    resourceSpec,
 	}
 	c.initializeResourceStatusToTransitionFunction()
-	c.initLog()
+	c.log.SetContext(map[string]string{
+		"taskARN":         taskARN,
+		"cgroupRoot":      cgroupRoot,
+		"cgroupMountPath": cgroupMountPath,
+		"resourceName":    resourceName,
+	})
 	return c
-}
-
-func (cgroup *CgroupResource) initLog() {
-	if cgroup.log == nil {
-		cgroup.log = logger.InitLogger()
-		cgroup.log.SetContext(map[string]string{
-			"taskARN":         cgroup.taskARN,
-			"cgroupRoot":      cgroup.cgroupRoot,
-			"cgroupMountPath": cgroup.cgroupMountPath,
-			"resourceName":    resourceName,
-		})
-	}
 }
 
 // GetTerminalReason returns an error string to propagate up through to task
@@ -358,7 +350,12 @@ func (cgroup *CgroupResource) UnmarshalJSON(b []byte) error {
 	if temp.KnownStatus != nil {
 		cgroup.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
-	cgroup.initLog()
+	cgroup.log.SetContext(map[string]string{
+		"taskARN":         cgroup.taskARN,
+		"cgroupRoot":      cgroup.cgroupRoot,
+		"cgroupMountPath": cgroup.cgroupMountPath,
+		"resourceName":    resourceName,
+	})
 	return nil
 }
 

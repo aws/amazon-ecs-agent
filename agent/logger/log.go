@@ -55,31 +55,40 @@ var Config *logConfig
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		cc, ok := context.CustomContext().(map[string]string)
-		var customContext string
-		if ok && len(cc) > 0 {
-			var sortedContext []string
-			for k, v := range cc {
-				sortedContext = append(sortedContext, k+"="+v)
-			}
-			sort.Strings(sortedContext)
-			customContext = " " + strings.Join(sortedContext, " ")
+		if !ok {
+			cc = map[string]string{}
 		}
-		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s%s
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
+		if _, ok = cc["module"]; !ok {
+			cc["module"] = context.FileName()
+		}
+
+		var ccStr string
+		var ccSorted []string
+		for k, v := range cc {
+			ccSorted = append(ccSorted, k+"="+v)
+		}
+		sort.Strings(ccSorted)
+		ccStr = " " + strings.Join(ccSorted, " ")
+		return fmt.Sprintf(`level=%s time=%s msg=%q%s
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, ccStr)
 	}
 }
 
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		cc, ok := context.CustomContext().(map[string]string)
-		var customContext string
-		if ok && len(cc) > 0 {
-			for k, v := range cc {
-				customContext += fmt.Sprintf(", %q: %q", k, v)
-			}
+		if !ok {
+			cc = map[string]string{}
 		}
-		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q%s}
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName(), customContext)
+		if _, ok = cc["module"]; !ok {
+			cc["module"] = context.FileName()
+		}
+		var ccStr string
+		for k, v := range cc {
+			ccStr += fmt.Sprintf(", %q: %q", k, v)
+		}
+		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q%s}
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, ccStr)
 	}
 }
 
