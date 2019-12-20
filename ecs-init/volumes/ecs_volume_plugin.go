@@ -82,6 +82,7 @@ func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver
 func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+
 	// get driver type from options to get the corresponding volume driver
 	var driverType string
 	for k, v := range r.Options {
@@ -100,10 +101,13 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	if volDriver == nil {
 		return fmt.Errorf("no volume driver found for type %s", driverType)
 	}
+
+	// create the mount path on the host for the volume to be created
 	volPath, err := a.GetMountPath(r.Name)
 	if err != nil {
 		return err
 	}
+
 	req := &CreateRequest{
 		Name:    r.Name,
 		Path:    volPath,
@@ -118,6 +122,8 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		Path:    volPath,
 		Options: r.Options,
 	}
+
+	// record the volume information
 	a.volumes[r.Name] = vol
 	return nil
 }
@@ -125,27 +131,27 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 // GetMountPath returns the host path where volume will be mounted
 func (a *AmazonECSVolumePlugin) GetMountPath(name string) (string, error) {
 	path := VolumeMountPathPrefix + name
-	err := CreateMountPath(path)
+	err := createMountPath(path)
 	if err != nil {
 		return "", fmt.Errorf("cannot create mount point for volume: %s", err)
 	}
 	return path, nil
 }
 
-var CreateMountPath = CreateMountDir
+var createMountPath = createMountDir
 
-func CreateMountDir(path string) error {
+func createMountDir(path string) error {
 	return os.MkdirAll(path, FilePerm)
 }
 
 // CleanupMountPath cleans up the volume's host path
 func (a *AmazonECSVolumePlugin) CleanupMountPath(name string) error {
-	return RemoveMountPath(name)
+	return removeMountPath(name)
 }
 
-var RemoveMountPath = DeleteMountPath
+var removeMountPath = deleteMountPath
 
-func DeleteMountPath(path string) error {
+func deleteMountPath(path string) error {
 	return os.Remove(path)
 }
 
@@ -175,10 +181,13 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+
 	vol, ok := a.volumes[r.Name]
 	if !ok {
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
+
+	// get corresponding volume driver to unmount
 	volDriver, err := a.getVolumeDriver(vol.Type)
 	if err != nil {
 		return err
@@ -186,6 +195,7 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	if volDriver == nil {
 		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
 	}
+
 	req := &RemoveRequest{
 		Name: r.Name,
 	}
@@ -193,7 +203,11 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	if err != nil {
 		return err
 	}
+
+	// remove the volume information
 	delete(a.volumes, r.Name)
+
+	// cleanup the volume's host mount path
 	err = a.CleanupMountPath(vol.Path)
 	// TODO: capture error for above and log
 	return nil

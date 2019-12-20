@@ -23,7 +23,7 @@ const (
 	// MountBinary is the binary name of EFS Mount
 	MountBinary = "mount"
 	// UnmountBinary is the binary name for EFS Unmount
-	UnmountBinary = "unmount"
+	UnmountBinary = "umount"
 )
 
 // MountHelper contains fields and methods for mounting and unmounting EFS volumes
@@ -49,12 +49,12 @@ func (m *MountHelper) Mount() error {
 	if err := m.Validate(); err != nil {
 		return err
 	}
-	return RunMount(args)
+	return runMount(args)
 }
 
-var RunMount = RunMountCommand
+var runMount = runMountCommand
 
-func RunMountCommand(args []string) error {
+func runMountCommand(args []string) error {
 	mountcmd := exec.Command(MountBinary, args...)
 	return mountcmd.Run()
 }
@@ -79,22 +79,22 @@ func (m *MountHelper) Validate() error {
 
 // Unmount helps unmount EFS volumes
 func (m *MountHelper) Unmount() error {
-	path, err := LookPath(UnmountBinary)
+	path, err := lookPath(UnmountBinary)
 	if err != nil {
 		return err
 	}
-	return RunUnmount(path, m.Target)
+	return runUnmount(path, m.Target)
 }
 
-var LookPath = GetPath
+var lookPath = getPath
 
-func GetPath(binary string) (string, error) {
+func getPath(binary string) (string, error) {
 	return exec.LookPath(binary)
 }
 
-var RunUnmount = RunUnmountCommand
+var runUnmount = runUnmountCommand
 
-func RunUnmountCommand(path string, target string) error {
+func runUnmountCommand(path string, target string) error {
 	umountCmd := exec.Command(path, target)
 	return umountCmd.Run()
 }
