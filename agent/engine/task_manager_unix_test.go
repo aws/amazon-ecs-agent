@@ -21,6 +21,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
@@ -74,6 +75,7 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
+				log:    logger.InitLogger(),
 			}
 			mtask.AddResource("cgroup", res)
 			mtask.engine.SetSaver(mockSaver)
@@ -125,6 +127,7 @@ func TestHandleResourceStateChangeNoSave(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
+				log: logger.InitLogger(),
 			}
 			mtask.AddResource("cgroup", res)
 			mtask.handleResourceStateChange(resourceStateChange{
@@ -166,6 +169,7 @@ func TestResourceNextState(t *testing.T) {
 			res.SetDesiredStatus(tc.ResDesiredStatus)
 			mtask := managedTask{
 				Task: &apitask.Task{},
+				log:  logger.InitLogger(),
 			}
 			transition := mtask.resourceNextState(&res)
 			assert.Equal(t, tc.NextState, transition.nextState)
@@ -265,6 +269,7 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 				},
 				ctx:                      ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),
+				log:                      logger.InitLogger(),
 			}
 			mtask.Task.AddResource("cgroup", res)
 			canTransition, transitions := mtask.startResourceTransitions(

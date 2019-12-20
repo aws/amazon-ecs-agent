@@ -259,6 +259,16 @@ type Task struct {
 	log seelog.LoggerInterface
 }
 
+func NewTask(taskARN, taskFamily, taskVersion string) *Task {
+	t := Task{
+		Arn:     taskARN,
+		Family:  taskFamily,
+		Version: taskVersion,
+	}
+	t.initLog()
+	return &t
+}
+
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
 // ecsacs.Task to json and unmarshaling it as apitask.Task
 func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, error) {
@@ -1295,6 +1305,7 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 // there was no change
 // Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
+	task.initLog()
 	task.log.Debugf("api/task: Updating task's known status")
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
@@ -1878,6 +1889,7 @@ func (task *Task) UpdateDesiredStatus() {
 // updateTaskDesiredStatusUnsafe determines what status the task should properly be at based on the containers' statuses
 // Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatusUnsafe() {
+	task.initLog()
 	task.log.Debugf("Updating task")
 
 	// A task's desired status is stopped if any essential container is stopped
@@ -2248,6 +2260,7 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 // SetTerminalReason sets the terminalReason string and this can only be set
 // once per the task's lifecycle. This field does not accept updates.
 func (task *Task) SetTerminalReason(reason string) {
+	task.initLog()
 	task.log.Infof("attempting to set terminal reason for task [%s]", reason)
 	task.terminalReasonOnce.Do(func() {
 		task.log.Infof("setting terminal reason for task [%s]", reason)

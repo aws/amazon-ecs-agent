@@ -516,6 +516,7 @@ func TestInitializeSharedNonProvisionedVolumeValidateNameOnly(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	// Expect the volume already exists on the instance
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
@@ -561,6 +562,7 @@ func TestInitializeSharedAutoprovisionVolumeNotFoundError(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{Error: errors.New("not found")})
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, dockerClient, nil)
@@ -599,6 +601,7 @@ func TestInitializeSharedAutoprovisionVolumeNotMatchError(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
 		DockerVolume: &types.Volume{
@@ -639,6 +642,7 @@ func TestInitializeSharedAutoprovisionVolumeTimeout(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{
 		Error: &dockerapi.DockerTimeoutError{},
@@ -672,6 +676,7 @@ func TestInitializeTaskVolume(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	err := testTask.initializeDockerVolumes(sharedVolumeMatchFullConfig, nil, nil)
 	assert.NoError(t, err)

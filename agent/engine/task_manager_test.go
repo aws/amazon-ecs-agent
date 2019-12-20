@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -207,6 +208,7 @@ func TestHandleEventError(t *testing.T) {
 				engine: &DockerTaskEngine{},
 				cfg:    &config.Config{ImagePullBehavior: tc.ImagePullBehavior},
 			}
+			mtask.log = logger.InitLogger()
 			ok := mtask.handleEventError(containerChange, tc.CurrentContainerKnownStatus)
 			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")
 			if tc.ExpectedContainerKnownStatusSet {
@@ -339,6 +341,7 @@ func TestContainerNextState(t *testing.T) {
 					},
 					engine: &DockerTaskEngine{},
 				}
+				task.log = logger.InitLogger()
 				transition := task.containerNextState(container)
 				t.Logf("%s %v %v", transition.nextState, transition.actionRequired, transition.reason)
 				assert.Equal(t, tc.expectedContainerStatus, transition.nextState, "Mismatch for expected next state")
@@ -446,6 +449,7 @@ func TestContainerNextStateWithTransitionDependencies(t *testing.T) {
 				},
 				engine: &DockerTaskEngine{},
 			}
+			task.log = logger.InitLogger()
 			transition := task.containerNextState(container)
 			assert.Equal(t, tc.expectedContainerStatus, transition.nextState,
 				"Expected next state [%s] != Retrieved next state [%s]",
@@ -500,6 +504,7 @@ func TestContainerNextStateWithDependencies(t *testing.T) {
 				},
 				engine: &DockerTaskEngine{},
 			}
+			task.log = logger.InitLogger()
 			transition := task.containerNextState(container)
 			assert.Equal(t, tc.expectedContainerStatus, transition.nextState,
 				"Expected next state [%s] != Retrieved next state [%s]",
@@ -575,6 +580,7 @@ func TestContainerNextStateWithPullCredentials(t *testing.T) {
 				engine:             taskEngine,
 				credentialsManager: taskEngine.credentialsManager,
 			}
+			task.log = logger.InitLogger()
 
 			transition := task.containerNextState(container)
 			assert.Equal(t, tc.expectedContainerStatus, transition.nextState, "Mismatch container status")
@@ -601,6 +607,7 @@ func TestContainerNextStateWithAvoidingDanglingContainers(t *testing.T) {
 		},
 		engine: &DockerTaskEngine{},
 	}
+	task.log = logger.InitLogger()
 	transition := task.containerNextState(container)
 	assert.Equal(t, apicontainerstatus.ContainerStatusNone, transition.nextState,
 		"Expected next state [%s] != Retrieved next state [%s]",
@@ -635,6 +642,7 @@ func TestStartContainerTransitionsWhenForwardTransitionPossible(t *testing.T) {
 				},
 				engine: &DockerTaskEngine{},
 			}
+			task.log = logger.InitLogger()
 
 			pauseContainerName := "pause"
 			waitForAssertions := sync.WaitGroup{}
@@ -709,6 +717,7 @@ func TestStartContainerTransitionsWhenForwardTransitionIsNotPossible(t *testing.
 		},
 		engine: &DockerTaskEngine{},
 	}
+	task.log = logger.InitLogger()
 
 	canTransition, _, transitions, _ := task.startContainerTransitions(
 		func(cont *apicontainer.Container, nextStatus apicontainerstatus.ContainerStatus) {
@@ -755,6 +764,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		containerChangeEventStream: containerChangeEventStream,
 		dockerMessages:             make(chan dockerContainerChange),
 	}
+	task.log = logger.InitLogger()
 
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(2)
@@ -800,6 +810,7 @@ func TestWaitForContainerTransitionsForNonTerminalTask(t *testing.T) {
 			Containers: []*apicontainer.Container{},
 		},
 	}
+	task.log = logger.InitLogger()
 
 	transitionChange := make(chan struct{}, 2)
 	transitionChangeContainer := make(chan string, 2)
@@ -846,6 +857,7 @@ func TestWaitForContainerTransitionsForTerminalTask(t *testing.T) {
 			KnownStatusUnsafe: apitaskstatus.TaskStopped,
 		},
 		ctx: ctx,
+		log: logger.InitLogger(),
 	}
 
 	transitionChange := make(chan struct{}, 2)
@@ -878,6 +890,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 			stateChangeEvents: stateChangeEvents,
 		},
 		stateChangeEvents: stateChangeEvents,
+		log:               logger.InitLogger(),
 	}
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(1)
@@ -908,6 +921,7 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 			},
 			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
+		log: logger.InitLogger(),
 	}
 
 	task.handleContainersUnableToTransitionState()
@@ -953,6 +967,7 @@ func TestHandleStoppedToSteadyStateTransition(t *testing.T) {
 		dockerMessages: make(chan dockerContainerChange),
 		saver:          taskEngine.saver,
 		ctx:            ctx,
+		log:            logger.InitLogger(),
 	}
 	taskEngine.managedTasks = make(map[string]*managedTask)
 	taskEngine.managedTasks["task1"] = mTask
@@ -1047,6 +1062,7 @@ func TestCleanupTask(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
@@ -1108,6 +1124,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
 	mTask.SetSentStatus(apitaskstatus.TaskRunning)
@@ -1176,6 +1193,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		dockerMessages: make(chan dockerContainerChange),
 		cfg:            taskEngine.cfg,
 		saver:          taskEngine.saver,
+		log:            logger.InitLogger(),
 	}
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
 	mTask.SetSentStatus(apitaskstatus.TaskRunning)
@@ -1232,6 +1250,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 	mTask.AddTaskENI(&apieni.ENI{
 		ID: "TestCleanupTaskENIs",
@@ -1320,6 +1339,7 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 				},
 				_time:       mockTime,
 				acsMessages: make(chan acsTransition),
+				log:         logger.InitLogger(),
 			}
 			if tc.result {
 				mockTime.EXPECT().AfterFunc(gomock.Any(), gomock.Any()).Return(mockTimer)
@@ -1362,6 +1382,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
@@ -1421,6 +1442,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
@@ -1483,6 +1505,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 		saver:                    taskEngine.saver,
+		log:                      logger.InitLogger(),
 	}
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	mTask.AddResource("mockResource", mockResource)
@@ -1524,6 +1547,7 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 		Task:                       testdata.LoadTask("sleep5TaskCgroup"),
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
+		log:                        logger.InitLogger(),
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1565,6 +1589,7 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 		Task:                       testdata.LoadTask("sleep5TaskCgroup"),
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
+		log:                        logger.InitLogger(),
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1617,6 +1642,7 @@ func TestWaitForHostResources(t *testing.T) {
 		Task: &apitask.Task{
 			StartSequenceNumber: 1,
 		},
+		log: logger.InitLogger(),
 	}
 
 	var waitForHostResourcesWG sync.WaitGroup
@@ -1635,6 +1661,7 @@ func TestWaitForResourceTransition(t *testing.T) {
 		Task: &apitask.Task{
 			ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		},
+		log: logger.InitLogger(),
 	}
 	transition := make(chan struct{}, 1)
 	transitionChangeResource := make(chan string, 1)
@@ -1665,6 +1692,7 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 			Arn:                "arn",
 			ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		},
+		log: logger.InitLogger(),
 	}
 	gomock.InOrder(
 		mockResource.EXPECT().GetName(),
@@ -1702,6 +1730,7 @@ func TestApplyResourceStateFailures(t *testing.T) {
 					Arn:                "arn",
 					ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 				},
+				log: logger.InitLogger(),
 			}
 			gomock.InOrder(
 				mockResource.EXPECT().GetName(),
@@ -1755,6 +1784,7 @@ func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{},
+				log:    logger.InitLogger(),
 			}
 			mtask.AddResource(volumeName, res)
 			mtask.engine.SetSaver(mockSaver)
@@ -1807,6 +1837,7 @@ func TestHandleVolumeResourceStateChangeNoSave(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
+				log: logger.InitLogger(),
 			}
 			mtask.AddResource(volumeName, res)
 			mtask.handleResourceStateChange(resourceStateChange{
@@ -1848,6 +1879,7 @@ func TestVolumeResourceNextState(t *testing.T) {
 			res.SetDesiredStatus(tc.ResDesiredStatus)
 			mtask := managedTask{
 				Task: &apitask.Task{},
+				log:  logger.InitLogger(),
 			}
 			transition := mtask.resourceNextState(&res)
 			assert.Equal(t, tc.NextState, transition.nextState)
@@ -1888,6 +1920,7 @@ func TestStartVolumeResourceTransitionsHappyPath(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
+				log: logger.InitLogger(),
 			}
 			task.AddResource(volumeName, res)
 			wg := sync.WaitGroup{}
@@ -1949,6 +1982,7 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 				},
 				ctx:                      ctx,
 				resourceStateChangeEvent: make(chan resourceStateChange),
+				log:                      logger.InitLogger(),
 			}
 			mtask.Task.AddResource(volumeName, res)
 			canTransition, transitions := mtask.startResourceTransitions(
@@ -2009,6 +2043,7 @@ func TestContainerNextStateDependsStoppedContainer(t *testing.T) {
 			Containers: []*apicontainer.Container{containerRunning, containerToBeStopped},
 		},
 		engine: &DockerTaskEngine{},
+		log:    logger.InitLogger(),
 	}
 
 	for _, tc := range testCases {

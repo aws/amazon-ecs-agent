@@ -2750,35 +2750,32 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		}
 		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 		require.NoError(t, err)
-		return &apitask.Task{
-			Arn:     taskARN,
-			Version: taskVersion,
-			Family:  taskFamily,
-			Containers: []*apicontainer.Container{
-				{
-					Name: taskName,
-					DockerConfig: apicontainer.DockerConfig{
-						HostConfig: func() *string {
-							s := string(rawHostConfig)
-							return &s
-						}(),
-					},
-					NetworkModeUnsafe: networkMode,
+		task := apitask.NewTask(taskARN, taskFamily, taskVersion)
+		task.Containers = []*apicontainer.Container{
+			{
+				Name: taskName,
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+						s := string(rawHostConfig)
+						return &s
+					}(),
 				},
-				{
-					Name: "test-container",
-					FirelensConfig: &apicontainer.FirelensConfig{
-						Type: "fluentd",
-					},
-					NetworkModeUnsafe: networkMode,
-					NetworkSettingsUnsafe: &types.NetworkSettings{
-						DefaultNetworkSettings: types.DefaultNetworkSettings{
-							IPAddress: bridgeIPAddr,
-						},
+				NetworkModeUnsafe: networkMode,
+			},
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+				NetworkModeUnsafe: networkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
 					},
 				},
 			},
 		}
+		return task
 	}
 	getTaskWithENI := func(logDriverType string, networkMode string) *apitask.Task {
 		rawHostConfigInput := dockercontainer.HostConfig{
@@ -2792,44 +2789,41 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		}
 		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 		require.NoError(t, err)
-		return &apitask.Task{
-			Arn:     taskARN,
-			Version: taskVersion,
-			Family:  taskFamily,
-			ENIs: []*apieni.ENI{
-				{
-					IPV4Addresses: []*apieni.ENIIPV4Address{
-						{
-							Address: eniIPv4Address,
-						},
-					},
-				},
-			},
-			Containers: []*apicontainer.Container{
-				{
-					Name: taskName,
-					DockerConfig: apicontainer.DockerConfig{
-						HostConfig: func() *string {
-							s := string(rawHostConfig)
-							return &s
-						}(),
-					},
-					NetworkModeUnsafe: networkMode,
-				},
-				{
-					Name: "test-container",
-					FirelensConfig: &apicontainer.FirelensConfig{
-						Type: "fluentd",
-					},
-					NetworkModeUnsafe: networkMode,
-					NetworkSettingsUnsafe: &types.NetworkSettings{
-						DefaultNetworkSettings: types.DefaultNetworkSettings{
-							IPAddress: bridgeIPAddr,
-						},
+		task := apitask.NewTask(taskARN, taskFamily, taskVersion)
+		task.ENIs = []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
 					},
 				},
 			},
 		}
+		task.Containers = []*apicontainer.Container{
+			{
+				Name: taskName,
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+						s := string(rawHostConfig)
+						return &s
+					}(),
+				},
+				NetworkModeUnsafe: networkMode,
+			},
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+				NetworkModeUnsafe: networkMode,
+				NetworkSettingsUnsafe: &types.NetworkSettings{
+					DefaultNetworkSettings: types.DefaultNetworkSettings{
+						IPAddress: bridgeIPAddr,
+					},
+				},
+			},
+		}
+		return task
 	}
 	testCases := []struct {
 		name                           string

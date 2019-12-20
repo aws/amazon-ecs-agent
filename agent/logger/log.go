@@ -84,8 +84,13 @@ func jsonFormatter(params string) seelog.FormatterFunc {
 }
 
 func seelogConfig() string {
+	// seelog type=sync is being used because we create separate loggers for structs
+	// with custom context. seelog's asyncloop logger would create a separate
+	// goroutine for each struct, so we want to avoid runaway goroutines by using
+	// a sync logger.
+	// see https://github.com/cihub/seelog/wiki/Logger-types-reference
 	c := `
-<seelog type="asyncloop" minlevel="` + Config.level + `">
+<seelog type="sync" minlevel="` + Config.level + `">
 	<outputs formatid="` + Config.outputFormat + `">
 		<console />`
 	c += platformLogConfig()
@@ -148,12 +153,7 @@ func InitLogger() seelog.LoggerInterface {
 }
 
 func reloadMainConfig() {
-	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
-	if err == nil {
-		seelog.ReplaceLogger(logger)
-	} else {
-		seelog.Error(err)
-	}
+	seelog.ReplaceLogger(InitLogger())
 }
 
 func init() {

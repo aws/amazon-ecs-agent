@@ -617,6 +617,7 @@ func TestGetDockerResourcesMemoryTooLow(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 	resources := testTask.getDockerResources(testTask.Containers[0])
 	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
 	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), resources.Memory,
@@ -635,6 +636,7 @@ func TestGetDockerResourcesUnspecifiedMemory(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 	resources := testTask.getDockerResources(testTask.Containers[0])
 	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
 	assert.Equal(t, int64(0), resources.Memory, "Wrong amount of memory")
@@ -1277,6 +1279,7 @@ func TestTaskFromACS(t *testing.T) {
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	expectedTask.log = task.log
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedTask, task)
@@ -1298,6 +1301,7 @@ func TestTaskUpdateKnownStatusHappyPath(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	newStatus := testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskCreated, newStatus, "task status should depend on the earlist container status")
@@ -1323,6 +1327,7 @@ func TestTaskUpdateKnownStatusNotChangeToRunningWithEssentialContainerStopped(t 
 			},
 		},
 	}
+	testTask.initLog()
 
 	newStatus := testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskStatusNone, newStatus, "task status should not move to running if essential container is stopped")
@@ -1348,6 +1353,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStopped(t *testing.
 			},
 		},
 	}
+	testTask.initLog()
 
 	newStatus := testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
@@ -1377,6 +1383,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 			},
 		},
 	}
+	testTask.initLog()
 
 	newStatus := testTask.updateTaskKnownStatus()
 	assert.Equal(t, apitaskstatus.TaskCreated, newStatus)
@@ -1388,6 +1395,7 @@ func TestTaskUpdateKnownStatusToPendingWithEssentialContainerStoppedWhenSteadySt
 // a task with no containers
 func TestGetEarliestTaskStatusForContainersEmptyTask(t *testing.T) {
 	testTask := &Task{}
+	testTask.initLog()
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
@@ -1402,6 +1410,7 @@ func TestGetEarliestTaskStatusForContainersWhenKnownStatusIsNotSetForContainers(
 			{},
 		},
 	}
+	testTask.initLog()
 	assert.Equal(t, testTask.getEarliestKnownTaskStatusForContainers(), apitaskstatus.TaskStatusNone)
 }
 
@@ -1417,6 +1426,7 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsRunning(t *testing.T
 			},
 		},
 	}
+	testTask.initLog()
 
 	// Since a container is still in CREATED state, the earliest known status
 	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
@@ -1444,6 +1454,7 @@ func TestGetEarliestTaskStatusForContainersWhenSteadyStateIsResourceProvisioned(
 			},
 		},
 	}
+	testTask.initLog()
 
 	// Since a container is still in CREATED state, the earliest known status
 	// for the task based on its container statuses must be `apitaskstatus.TaskCreated`
@@ -1475,6 +1486,7 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToRunning(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	// One of the containers is in CREATED state, expect task to be updated
 	// to apitaskstatus.TaskCreated
@@ -1510,6 +1522,7 @@ func TestTaskUpdateKnownStatusChecksSteadyStateWhenSetToResourceProvisioned(t *t
 			},
 		},
 	}
+	testTask.initLog()
 
 	// One of the containers is in CREATED state, expect task to be updated
 	// to apitaskstatus.TaskCreated
@@ -1860,6 +1873,7 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
@@ -1892,6 +1906,7 @@ func TestContainerHealthConfig(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	config, err := testTask.DockerConfig(testTask.Containers[0], defaultDockerClientAPIVersion)
 	assert.Nil(t, err)
@@ -1933,6 +1948,7 @@ func TestRecordExecutionStoppedAt(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Container status: %s, essential: %v, executionStoppedAt should be set: %v", tc.status, tc.essential, tc.executionStoppedAtSet), func(t *testing.T) {
 			task := &Task{}
+			task.initLog()
 			task.RecordExecutionStoppedAt(&apicontainer.Container{
 				Essential:         tc.essential,
 				KnownStatusUnsafe: tc.status,
@@ -2021,6 +2037,7 @@ func TestSetTerminalReason(t *testing.T) {
 	overrideTerminalReason := "should not override terminal reason"
 
 	task := &Task{}
+	task.initLog()
 
 	// set terminal reason string
 	task.SetTerminalReason(expectedTerminalReason)
@@ -2920,6 +2937,7 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 		},
 		NvidiaRuntime: config.DefaultNvidiaRuntime,
 	}
+	testTask.initLog()
 
 	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
 	testTask.addGPUResource(cfg)
@@ -2937,6 +2955,7 @@ func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	cfg := &config.Config{GPUSupportEnabled: true}
 	testTask.addGPUResource(cfg)
@@ -2968,6 +2987,7 @@ func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
 			},
 		},
 	}
+	testTask.initLog()
 
 	cfg := &config.Config{GPUSupportEnabled: true}
 	testTask.addGPUResource(cfg)

@@ -83,7 +83,7 @@ func setup(t *testing.T) (*mock_oswrapper.MockOS, *mock_oswrapper.MockFile, *moc
 func newMockFirelensResource(firelensConfigType, networkMode string, lopOptions map[string]string, mockOS *mock_oswrapper.MockOS,
 	mockIOUtil *mock_ioutilwrapper.MockIOUtil, mockCredentialsManager *mock_credentials.MockManager,
 	mockS3ClientCreator *mock_factory.MockS3ClientCreator) *FirelensResource {
-	return &FirelensResource{
+	f := &FirelensResource{
 		cluster:            testCluster,
 		taskARN:            testTaskARN,
 		taskDefinition:     testTaskDefinition,
@@ -101,6 +101,8 @@ func newMockFirelensResource(firelensConfigType, networkMode string, lopOptions 
 		ioutil:                 mockIOUtil,
 		s3ClientCreator:        mockS3ClientCreator,
 	}
+	f.initLog()
+	return f
 }
 
 func TestParseOptions(t *testing.T) {

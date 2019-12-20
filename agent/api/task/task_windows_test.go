@@ -26,6 +26,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -184,6 +185,7 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 				Name: "c2",
 			},
 		},
+		log: logger.InitLogger(),
 	}
 
 	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
@@ -255,6 +257,7 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 				PlatformFields: PlatformFields{
 					CpuUnbounded: tc.cpuUnbounded,
 				},
+				log: logger.InitLogger(),
 			}
 
 			hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
@@ -293,6 +296,7 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 		PlatformFields: PlatformFields{
 			MemoryUnbounded: false,
 		},
+		log: logger.InitLogger(),
 	}
 
 	// With MemoryUnbounded set to false, MemoryReservation is not overridden
@@ -353,6 +357,7 @@ func TestRequiresCredentialSpecResource(t *testing.T) {
 	task2 := &Task{
 		Arn:        "test",
 		Containers: []*apicontainer.Container{container2},
+		log:        logger.InitLogger(),
 	}
 
 	testCases := []struct {
@@ -409,6 +414,7 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainersUsingSameSpec(t *
 	task := &Task{
 		Arn:        "test",
 		Containers: []*apicontainer.Container{c1, c2},
+		log:        logger.InitLogger(),
 	}
 
 	allCredSpecReq := task.getAllCredentialSpecRequirements()
@@ -436,6 +442,7 @@ func TestGetAllCredentialSpecRequirementsWithMultipleContainers(t *testing.T) {
 	task := &Task{
 		Arn:        "test",
 		Containers: []*apicontainer.Container{c1, c2, c3},
+		log:        logger.InitLogger(),
 	}
 
 	allCredSpecReq := task.getAllCredentialSpecRequirements()
@@ -460,6 +467,7 @@ func TestInitializeAndGetCredentialSpecResource(t *testing.T) {
 		Arn:                "test",
 		Containers:         []*apicontainer.Container{container},
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		log:                logger.InitLogger(),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -498,6 +506,7 @@ func TestGetCredentialSpecResource(t *testing.T) {
 	credentialspecResource := &credentialspec.CredentialSpecResource{}
 	task := &Task{
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		log:                logger.InitLogger(),
 	}
 	task.AddResource(credentialspec.ResourceName, credentialspecResource)
 

@@ -1150,7 +1150,7 @@ func getFirelensTask(t *testing.T) *Task {
 	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
 	require.NoError(t, err)
 
-	return &Task{
+	task := &Task{
 		Arn:                    validTaskArn,
 		Family:                 testTaskDefFamily,
 		Version:                testTaskDefVersion,
@@ -1191,4 +1191,6 @@ func getFirelensTask(t *testing.T) *Task {
 			},
 		},
 	}
+	task.initLog()
+	return task
 }
