@@ -584,7 +584,7 @@ func telemetryNetworkStatsTest(t *testing.T, networkMode string, taskDefinition 
 	// telemetry task requires 2GB of memory (for either linux or windows); requires a bit more to be stable
 	RequireMinimumMemory(t, 2200)
 
-	newClusterName := "ecstest-networkstats-" + uuid.New()
+	newClusterName := "ecstest-networkstats-" + networkMode + "-" + uuid.New()
 	putAccountInsights := ecsapi.PutAccountSettingInput{
 		Name:  aws.String("containerInsights"),
 		Value: aws.String("enabled"),
