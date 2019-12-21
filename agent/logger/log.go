@@ -55,7 +55,7 @@ var Config *logConfig
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		cc, ok := context.CustomContext().(map[string]string)
-		if !ok {
+		if !ok || len(cc) == 0 {
 			cc = map[string]string{}
 		}
 		if _, ok = cc["module"]; !ok {
@@ -77,7 +77,7 @@ func logfmtFormatter(params string) seelog.FormatterFunc {
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
 		cc, ok := context.CustomContext().(map[string]string)
-		if !ok {
+		if !ok || len(cc) == 0 {
 			cc = map[string]string{}
 		}
 		if _, ok = cc["module"]; !ok {
@@ -94,7 +94,7 @@ func jsonFormatter(params string) seelog.FormatterFunc {
 
 func seelogConfig() string {
 	c := `
-<seelog type="asyncloop" minlevel="` + Config.level + `">
+<seelog type="sync" minlevel="` + Config.level + `">
 	<outputs formatid="` + Config.outputFormat + `">
 		<console />`
 	c += platformLogConfig()
@@ -114,6 +114,7 @@ func seelogConfig() string {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`
 	return c

@@ -1277,6 +1277,7 @@ func TestTaskFromACS(t *testing.T) {
 
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	expectedTask.log = task.log
 
 	assert.NoError(t, err)
 	assert.EqualValues(t, expectedTask, task)

@@ -1,4 +1,4 @@
-// +build !windows
+// +build !windows,unit
 
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -115,7 +115,7 @@ func TestSeelogConfig_Default(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="sync" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -124,6 +124,7 @@ func TestSeelogConfig_Default(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -139,7 +140,7 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="debug">
+<seelog type="sync" minlevel="debug">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -148,6 +149,7 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -163,7 +165,7 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="sync" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -172,6 +174,7 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -187,7 +190,7 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="sync" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -196,6 +199,7 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -211,7 +215,7 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="sync" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -220,6 +224,7 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -235,7 +240,7 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="sync" minlevel="info">
 	<outputs formatid="json">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -244,6 +249,7 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
