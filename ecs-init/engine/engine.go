@@ -216,7 +216,6 @@ func (e *Engine) StartSupervised() error {
 		log.Warnf("ECS Agent failed to start, retrying in %s", d)
 		time.Sleep(d)
 	}
-	return nil
 }
 
 func (e *Engine) upgradeAgent() error {
