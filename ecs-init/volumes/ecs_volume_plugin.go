@@ -259,5 +259,6 @@ func (a *AmazonECSVolumePlugin) Path(r *volume.PathRequest) (*volume.PathRespons
 
 // Capabilities implements Docker volume plugin's Capabilities Method
 func (a *AmazonECSVolumePlugin) Capabilities() *volume.CapabilitiesResponse {
+	// Note: This is currently not supported
 	return nil
 }
