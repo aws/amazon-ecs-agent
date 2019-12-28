@@ -33,21 +33,25 @@ const (
 type AmazonECSVolumePlugin struct {
 	volumeDrivers map[string]VolumeDriver
 	volumes       map[string]*Volume
+	state         *StateManager
 	lock          sync.RWMutex
 }
 
 // NewAmazonECSVolumePlugin initiates the volume drivers
 func NewAmazonECSVolumePlugin() *AmazonECSVolumePlugin {
-	return &AmazonECSVolumePlugin{
+	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]VolumeDriver{
 			"efs": NewECSVolumeDriver(),
 		},
 		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
 	}
+	return plugin
 }
 
 // VolumeDriver contains the methods for volume drivers to implement
 type VolumeDriver interface {
+	Setup(string, *Volume)
 	Create(*CreateRequest) error
 	Remove(*RemoveRequest) error
 }
@@ -71,6 +75,37 @@ type RemoveRequest struct {
 	Name string
 }
 
+// LoadState loads past state information of the plugin
+func (a *AmazonECSVolumePlugin) LoadState() error {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	oldState := &VolumeState{}
+	if !fileExists(PluginStateFileAbsPath) {
+		return nil
+	}
+	if err := a.state.load(oldState); err != nil {
+		return fmt.Errorf("could not load state: %v", err)
+	}
+	// empty state file
+	if oldState.Volumes == nil {
+		return nil
+	}
+	for volName, vol := range oldState.Volumes {
+		voldriver, err := a.getVolumeDriver(vol.Type)
+		if err != nil {
+			return fmt.Errorf("could not load state: %v", err)
+		}
+		volume := &Volume{
+			Type:    vol.Type,
+			Path:    vol.Path,
+			Options: vol.Options,
+		}
+		a.volumes[volName] = volume
+		voldriver.Setup(volName, volume)
+	}
+	return nil
+}
+
 func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver, error) {
 	if _, ok := a.volumeDrivers[driverType]; !ok {
 		return nil, fmt.Errorf("no volume driver found for type %s", driverType)
@@ -82,6 +117,11 @@ func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver
 func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+
+	_, ok := a.volumes[r.Name]
+	if ok {
+		return fmt.Errorf("volume %s already exists", r.Name)
+	}
 
 	// get driver type from options to get the corresponding volume driver
 	var driverType string
@@ -125,6 +165,12 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 
 	// record the volume information
 	a.volumes[r.Name] = vol
+
+	// save the state of new volume
+	err = a.state.recordVolume(r.Name, vol)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -207,6 +253,11 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	// remove the volume information
 	delete(a.volumes, r.Name)
 
+	// remove the state of deleted volume
+	err = a.state.removeVolume(r.Name)
+	if err != nil {
+		return err
+	}
 	// cleanup the volume's host mount path
 	err = a.CleanupMountPath(vol.Path)
 	// TODO: capture error for above and log

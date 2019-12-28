@@ -15,6 +15,7 @@ package volumes
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 )
@@ -32,6 +33,20 @@ func NewECSVolumeDriver() *ECSVolumeDriver {
 	}
 }
 
+// Setup creates the mount helper
+func (e *ECSVolumeDriver) Setup(name string, v *Volume) {
+	e.lock.Lock()
+	defer e.lock.Unlock()
+
+	if _, ok := e.volumeMounts[name]; ok {
+		log.Printf("volume already exists: %s", name)
+	}
+	mnt := setOptions(v.Options)
+
+	mnt.Target = v.Path
+	e.volumeMounts[name] = mnt
+}
+
 // Create implements ECSVolumeDriver's Create volume method
 func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
 	e.lock.Lock()
@@ -41,13 +56,24 @@ func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
 		return fmt.Errorf("volume already exists: %s", r.Name)
 	}
 
+	mnt := setOptions(r.Options)
+	mnt.Target = r.Path
+
+	if err := mnt.Validate(); err != nil {
+		return err
+	}
+
+	err := mnt.Mount()
+	if err != nil {
+		return err
+	}
+	e.volumeMounts[r.Name] = mnt
+	return nil
+}
+
+func setOptions(options map[string]string) *MountHelper {
 	mnt := &MountHelper{}
-	var opts string
-	for k, v := range r.Options {
-		if opts != "" {
-			opts += ", "
-		}
-		opts += k + ":" + v
+	for k, v := range options {
 		switch k {
 		case "type":
 			mnt.MountType = v
@@ -60,19 +86,7 @@ func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
 			mnt.Device = v
 		}
 	}
-	mnt.Target = r.Path
-	opts += ", target:" + r.Path
-
-	if err := mnt.Validate(); err != nil {
-		return err
-	}
-
-	err := mnt.Mount()
-	if err != nil {
-		return err
-	}
-	e.volumeMounts[r.Name] = mnt
-	return nil
+	return mnt
 }
 
 // Remove implements ECSVolumeDriver's Remove volume method

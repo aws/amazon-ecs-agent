@@ -14,6 +14,7 @@
 package main
 
 import (
+	"os"
 	"os/user"
 	"strconv"
 
@@ -23,6 +24,9 @@ import (
 
 func main() {
 	plugin := volumes.NewAmazonECSVolumePlugin()
+	if err := plugin.LoadState(); err != nil {
+		os.Exit(1)
+	}
 	handler := volume.NewHandler(plugin)
 	rootUser, _ := user.Lookup("root")
 	gid, _ := strconv.Atoi(rootUser.Gid)
