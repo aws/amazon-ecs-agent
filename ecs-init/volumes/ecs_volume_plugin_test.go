@@ -36,6 +36,10 @@ func (t *TestVolumeDriver) Remove(r *RemoveRequest) error {
 	return nil
 }
 
+func (t *TestVolumeDriver) Setup(n string, v *Volume) {
+	return
+}
+
 // TestVolumeDriverError implements VolumeDriver interface for testing
 // Returns error for all methods
 type TestVolumeDriverError struct{}
@@ -52,12 +56,17 @@ func (t *TestVolumeDriverError) Remove(r *RemoveRequest) error {
 	return errors.New("remove error")
 }
 
+func (t *TestVolumeDriverError) Setup(n string, v *Volume) {
+	return
+}
+
 func TestVolumeCreateHappyPath(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
@@ -68,11 +77,53 @@ func TestVolumeCreateHappyPath(t *testing.T) {
 	createMountPath = func(path string) error {
 		return nil
 	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
 	defer func() {
 		createMountPath = createMountDir
+		saveStateToDisk = saveState
 	}()
 	err := plugin.Create(req)
 	assert.NoError(t, err, "create volume should be successful")
+	assert.Len(t, plugin.volumes, 1)
+	vol, ok := plugin.volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", vol.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"vol", vol.Path)
+	assert.Len(t, plugin.state.VolState.Volumes, 1)
+	volInfo, ok := plugin.state.VolState.Volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", volInfo.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
+}
+
+func TestVolumeCreateSaveFailure(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewTestVolumeDriver(),
+		},
+		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
+	}
+	req := &volume.CreateRequest{
+		Name: "vol",
+		Options: map[string]string{
+			"type": "efs",
+		},
+	}
+	createMountPath = func(path string) error {
+		return nil
+	}
+	saveStateToDisk = func(b []byte) error {
+		return errors.New("save to disk failure")
+	}
+	defer func() {
+		createMountPath = createMountDir
+		saveStateToDisk = saveState
+	}()
+	err := plugin.Create(req)
+	assert.Error(t, err, "create volume failed due to state save failure")
 	assert.Len(t, plugin.volumes, 1)
 	vol, ok := plugin.volumes["vol"]
 	assert.True(t, ok)
@@ -285,16 +336,22 @@ func TestVolumeRemoveHappyPath(t *testing.T) {
 		volumes: map[string]*Volume{
 			volName: vol,
 		},
+		state: NewStateManager(),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	removeMountPath = func(path string) error {
 		return nil
 	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
 	defer func() {
 		removeMountPath = deleteMountPath
+		saveStateToDisk = saveState
 	}()
 	assert.NoError(t, plugin.Remove(req))
 	assert.Len(t, plugin.volumes, 0)
+	assert.Len(t, plugin.state.VolState.Volumes, 0)
 }
 
 func TestVolumeRemoveFailure(t *testing.T) {
@@ -311,7 +368,14 @@ func TestVolumeRemoveFailure(t *testing.T) {
 		volumes: map[string]*Volume{
 			volName: vol,
 		},
+		state: NewStateManager(),
 	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		saveStateToDisk = saveState
+	}()
 	req := &volume.RemoveRequest{Name: volName}
 	assert.Error(t, plugin.Remove(req), "expected error when remove volume fails")
 	assert.Len(t, plugin.volumes, 1)
@@ -323,6 +387,7 @@ func TestRemoveVolumeNotFound(t *testing.T) {
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: map[string]*Volume{},
+		state:   NewStateManager(),
 	}
 	req := &volume.RemoveRequest{Name: "vol"}
 	assert.Error(t, plugin.Remove(req), "expected error when volume to remove is not found")
@@ -342,6 +407,7 @@ func TestRemoveVolumeDriverNotFound(t *testing.T) {
 		volumes: map[string]*Volume{
 			volName: vol,
 		},
+		state: NewStateManager(),
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	assert.Error(t, plugin.Remove(req), "expected error when corresponding volume driver not found")
@@ -432,4 +498,110 @@ func TestCapabilities(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{}
 	resp := plugin.Capabilities()
 	assert.Nil(t, resp)
+}
+
+func TestPluginLoadState(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewECSVolumeDriver(),
+		},
+		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
+	}
+	fileExists = func(path string) bool {
+		return true
+	}
+	readStateFile = func() ([]byte, error) {
+		return []byte(`{"volumes":{"efsVolume":{"type":"efs","path":"/var/lib/ecs/volumes/efsVolume","options":{"device":"fs-123","o":"tls","type":"efs"}}}}`), nil
+	}
+	defer func() {
+		fileExists = checkFile
+		readStateFile = readFile
+	}()
+	assert.NoError(t, plugin.LoadState(), "expected no error when loading state")
+	assert.Len(t, plugin.volumes, 1)
+	vol, ok := plugin.volumes["efsVolume"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", vol.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"efsVolume", vol.Path)
+}
+
+func TestPluginNoStateFile(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		state: NewStateManager(),
+	}
+	fileExists = func(path string) bool {
+		return false
+	}
+	defer func() {
+		fileExists = checkFile
+	}()
+	assert.NoError(t, plugin.LoadState())
+}
+
+func TestPluginInvalidState(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		state: NewStateManager(),
+	}
+	fileExists = func(path string) bool {
+		return true
+	}
+	readStateFile = func() ([]byte, error) {
+		return []byte(`{"junk"}`), nil
+	}
+	defer func() {
+		fileExists = checkFile
+		readStateFile = readFile
+	}()
+	assert.Error(t, plugin.LoadState(), "expected error when loading invalid state")
+}
+
+func TestPluginEmptyState(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewTestVolumeDriver(),
+		},
+		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
+	}
+	fileExists = func(path string) bool {
+		return true
+	}
+	readStateFile = func() ([]byte, error) {
+		return []byte(`{}`), nil
+	}
+	defer func() {
+		fileExists = checkFile
+		readStateFile = readFile
+	}()
+	assert.NoError(t, plugin.LoadState(), "expected no error when loading empty state")
+	assert.Len(t, plugin.volumes, 0)
+	req := &volume.CreateRequest{
+		Name: "vol",
+		Options: map[string]string{
+			"type": "efs",
+		},
+	}
+	createMountPath = func(path string) error {
+		return nil
+	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		createMountPath = createMountDir
+		saveStateToDisk = saveState
+	}()
+	err := plugin.Create(req)
+	assert.NoError(t, err, "create volume should be successful after loading empty state")
+	assert.Len(t, plugin.volumes, 1)
+	vol, ok := plugin.volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", vol.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"vol", vol.Path)
+	assert.Len(t, plugin.state.VolState.Volumes, 1)
+	volInfo, ok := plugin.state.VolState.Volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", volInfo.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
 }

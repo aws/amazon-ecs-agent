@@ -82,7 +82,12 @@ func (s *StateManager) save() error {
 	if err != nil {
 		return fmt.Errorf("could not marshal data to save state: %v", err)
 	}
+	return saveStateToDisk(b)
+}
 
+var saveStateToDisk = saveState
+
+func saveState(b []byte) error {
 	// Make our temp-file on the same volume as our data-file to ensure we can
 	// actually move it atomically; cross-device renaming will error out
 	tmpfile, err := ioutil.TempFile(PluginStatePath, "tmp_ecs_volume_plugin")
@@ -97,7 +102,7 @@ func (s *StateManager) save() error {
 	// flush temp state file to disk
 	err = tmpfile.Sync()
 	if err != nil {
-		return fmt.Errorf("error flusing state file, err: %v", err)
+		return fmt.Errorf("error flushing state file, err: %v", err)
 	}
 
 	err = os.Rename(tmpfile.Name(), filepath.Join(PluginStatePath, PluginStateFile))
@@ -115,10 +120,12 @@ func (s *StateManager) save() error {
 	if err != nil {
 		return fmt.Errorf("error syncing state file directory entry, err: %v", err)
 	}
-	return err
+	return nil
 }
 
-func fileExists(filename string) bool {
+var fileExists = checkFile
+
+func checkFile(filename string) bool {
 	_, err := os.Stat(filename)
 	return !os.IsNotExist(err)
 }
@@ -128,14 +135,19 @@ func (s *StateManager) load(a interface{}) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	f, err := os.Open(PluginStateFileAbsPath)
+	b, err := readStateFile()
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	err = json.NewDecoder(f).Decode(a)
+	err = json.Unmarshal(b, a)
 	if err != nil {
 		return fmt.Errorf("could not unmarshal state: %v", err)
 	}
 	return err
+}
+
+var readStateFile = readFile
+
+func readFile() ([]byte, error) {
+	return ioutil.ReadFile(PluginStateFileAbsPath)
 }
