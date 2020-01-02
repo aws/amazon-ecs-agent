@@ -1,4 +1,4 @@
-# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2014-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -50,6 +50,9 @@ sources.tgz:
 	cp packaging/amazon-linux-ami/ecs-init.spec ecs-init.spec
 	cp packaging/amazon-linux-ami/ecs.conf ecs.conf
 	cp packaging/amazon-linux-ami/ecs.service ecs.service
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.conf amazon-ecs-volume-plugin.conf
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/amazon-linux-ami/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
 	tar -czf ./sources.tgz ecs-init scripts
 
 # Hook to perform preparation steps prior to the sources target.
@@ -94,6 +97,9 @@ clean:
 	-rm -f ecs-init.spec
 	-rm -f ecs.conf
 	-rm -f ecs.service
+	-rm -f amazon-ecs-volume-plugin.conf
+	-rm -f amazon-ecs-volume-plugin.service
+	-rm -f amazon-ecs-volume-plugin.socket
 	-rm -f ./sources.tgz
 	-rm -f ./amazon-ecs-init
 	-rm -f ./ecs-agent-*.tar

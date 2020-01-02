@@ -1,4 +1,4 @@
-# Copyright 2014-2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the
 # "License"). You may not use this file except in compliance
@@ -10,24 +10,18 @@
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License
 
 [Unit]
-Description=Amazon Elastic Container Service - container agent
-Documentation=https://aws.amazon.com/documentation/ecs/
-Requires=docker.service
-After=docker.service
-After=cloud-final.service
+Description=Amazon Elastic Container Service Volume Plugin
+After=network.target amazon-ecs-volume-plugin.socket
+Requires=amazon-ecs-volume-plugin.socket
 
 [Service]
 Type=simple
 Restart=on-failure
 RestartSec=10s
-EnvironmentFile=-/etc/ecs/ecs.config
-ExecStartPre=/usr/libexec/amazon-ecs-init pre-start
-ExecStart=/usr/libexec/amazon-ecs-init start
-ExecStop=/usr/libexec/amazon-ecs-init stop
-ExecStopPost=/usr/libexec/amazon-ecs-init post-stop
+ExecStart=/usr/libexec/amazon-ecs-volume-plugin
 
 [Install]
 WantedBy=multi-user.target
