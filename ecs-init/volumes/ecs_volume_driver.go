@@ -15,9 +15,10 @@ package volumes
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"sync"
+
+	"github.com/cihub/seelog"
 )
 
 // ECSVolumeDriver holds mount helper and methods for different Volume Mounts
@@ -39,7 +40,7 @@ func (e *ECSVolumeDriver) Setup(name string, v *Volume) {
 	defer e.lock.Unlock()
 
 	if _, ok := e.volumeMounts[name]; ok {
-		log.Printf("volume already exists: %s", name)
+		seelog.Warnf("Volume %s mount already exists", name)
 	}
 	mnt := setOptions(v.Options)
 
@@ -53,19 +54,21 @@ func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
 	defer e.lock.Unlock()
 
 	if _, ok := e.volumeMounts[r.Name]; ok {
-		return fmt.Errorf("volume already exists: %s", r.Name)
+		return fmt.Errorf("volume already exists")
 	}
 
 	mnt := setOptions(r.Options)
 	mnt.Target = r.Path
 
+	seelog.Infof("Validating create options for volume %s", r.Name)
 	if err := mnt.Validate(); err != nil {
 		return err
 	}
 
+	seelog.Infof("Mounting volume %s at path %s with options %s", r.Name, mnt.Target, mnt.Options)
 	err := mnt.Mount()
 	if err != nil {
-		return err
+		return fmt.Errorf("mounting volume failed: %v", err)
 	}
 	e.volumeMounts[r.Name] = mnt
 	return nil
@@ -95,11 +98,11 @@ func (e *ECSVolumeDriver) Remove(req *RemoveRequest) error {
 	defer e.lock.Unlock()
 	mnt, ok := e.volumeMounts[req.Name]
 	if !ok {
-		return fmt.Errorf("volume %s not found", req.Name)
+		return fmt.Errorf("volume not found")
 	}
 	err := mnt.Unmount()
 	if err != nil {
-		return err
+		return fmt.Errorf("unmounting volume failed: %v", err)
 	}
 	delete(e.volumeMounts, req.Name)
 	return err

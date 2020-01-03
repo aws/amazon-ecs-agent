@@ -19,6 +19,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
@@ -79,12 +80,14 @@ type RemoveRequest struct {
 func (a *AmazonECSVolumePlugin) LoadState() error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
+	seelog.Info("Loading plugin state information")
 	oldState := &VolumeState{}
 	if !fileExists(PluginStateFileAbsPath) {
 		return nil
 	}
 	if err := a.state.load(oldState); err != nil {
-		return fmt.Errorf("could not load state: %v", err)
+		seelog.Errorf("Could not load state: %v", err)
+		return fmt.Errorf("could not load plugin state: %v", err)
 	}
 	// empty state file
 	if oldState.Volumes == nil {
@@ -93,7 +96,8 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 	for volName, vol := range oldState.Volumes {
 		voldriver, err := a.getVolumeDriver(vol.Type)
 		if err != nil {
-			return fmt.Errorf("could not load state: %v", err)
+			seelog.Errorf("Could not load state: %v", err)
+			return fmt.Errorf("could not load plugin state: %v", err)
 		}
 		volume := &Volume{
 			Type:    vol.Type,
@@ -108,7 +112,7 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 
 func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver, error) {
 	if _, ok := a.volumeDrivers[driverType]; !ok {
-		return nil, fmt.Errorf("no volume driver found for type %s", driverType)
+		return nil, fmt.Errorf("volume %s type not supported", driverType)
 	}
 	return a.volumeDrivers[driverType], nil
 }
@@ -118,6 +122,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
+	seelog.Infof("Creating new volume %s", r.Name)
 	_, ok := a.volumes[r.Name]
 	if ok {
 		return fmt.Errorf("volume %s already exists", r.Name)
@@ -132,19 +137,24 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		}
 	}
 	if driverType == "" {
+		seelog.Errorf("Volume type required for volume %s creation", r.Name)
 		return errors.New("volume type not specified")
 	}
 	volDriver, err := a.getVolumeDriver(driverType)
 	if err != nil {
+		seelog.Errorf("Volume %s's driver type %s not supported", r.Name, driverType)
 		return err
 	}
 	if volDriver == nil {
+		// this case should not happen normally
 		return fmt.Errorf("no volume driver found for type %s", driverType)
 	}
 
+	seelog.Infof("Creating mount target for new volume %s", r.Name)
 	// create the mount path on the host for the volume to be created
 	volPath, err := a.GetMountPath(r.Name)
 	if err != nil {
+		seelog.Errorf("Volume %s creation failure: %v", r.Name, err)
 		return err
 	}
 
@@ -155,8 +165,10 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	}
 	err = volDriver.Create(req)
 	if err != nil {
+		seelog.Errorf("Volume %s creation failure: %v", r.Name, err)
 		return err
 	}
+	seelog.Infof("Volume %s created successfully", r.Name)
 	vol := &Volume{
 		Type:    driverType,
 		Path:    volPath,
@@ -166,9 +178,11 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	// record the volume information
 	a.volumes[r.Name] = vol
 
+	seelog.Infof("Saving state of new volume %s", r.Name)
 	// save the state of new volume
 	err = a.state.recordVolume(r.Name, vol)
 	if err != nil {
+		seelog.Errorf("Error saving state of new volume %s", r.Name)
 		return err
 	}
 	return nil
@@ -179,7 +193,7 @@ func (a *AmazonECSVolumePlugin) GetMountPath(name string) (string, error) {
 	path := VolumeMountPathPrefix + name
 	err := createMountPath(path)
 	if err != nil {
-		return "", fmt.Errorf("cannot create mount point for volume: %s", err)
+		return "", fmt.Errorf("cannot create mount point: %v", err)
 	}
 	return path, nil
 }
@@ -207,6 +221,7 @@ func (a *AmazonECSVolumePlugin) Mount(r *volume.MountRequest) (*volume.MountResp
 	defer a.lock.RUnlock()
 	vol, ok := a.volumes[r.Name]
 	if !ok {
+		seelog.Errorf("Volume %s to mount is not found", r.Name)
 		return nil, fmt.Errorf("volume %s not found", r.Name)
 	}
 	return &volume.MountResponse{Mountpoint: vol.Path}, nil
@@ -218,6 +233,7 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 	defer a.lock.RUnlock()
 	_, ok := a.volumes[r.Name]
 	if !ok {
+		seelog.Errorf("Volume %s to unmount is not found", r.Name)
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
 	return nil
@@ -227,18 +243,21 @@ func (a *AmazonECSVolumePlugin) Unmount(r *volume.UnmountRequest) error {
 func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-
+	seelog.Infof("Removing volume %s", r.Name)
 	vol, ok := a.volumes[r.Name]
 	if !ok {
+		seelog.Errorf("Volume %s to remove is not found", r.Name)
 		return fmt.Errorf("volume %s not found", r.Name)
 	}
 
 	// get corresponding volume driver to unmount
 	volDriver, err := a.getVolumeDriver(vol.Type)
 	if err != nil {
+		seelog.Errorf("Volume %s removal failure: %s", r.Name, err)
 		return err
 	}
 	if volDriver == nil {
+		// this case should not happen normally
 		return fmt.Errorf("no corresponding volume driver found for type %s", vol.Type)
 	}
 
@@ -247,20 +266,24 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 	}
 	err = volDriver.Remove(req)
 	if err != nil {
+		seelog.Errorf("Volume %s removal failure: %v", r.Name, err)
 		return err
 	}
 
 	// remove the volume information
 	delete(a.volumes, r.Name)
-
+	seelog.Infof("Saving state after removing volume %s", r.Name)
 	// remove the state of deleted volume
 	err = a.state.removeVolume(r.Name)
 	if err != nil {
+		seelog.Errorf("Error saving state")
 		return err
 	}
 	// cleanup the volume's host mount path
 	err = a.CleanupMountPath(vol.Path)
-	// TODO: capture error for above and log
+	if err != nil {
+		seelog.Warnf("Cleaning mount path failed for volume %s: %v", r.Name, err)
+	}
 	return nil
 }
 
@@ -302,6 +325,7 @@ func (a *AmazonECSVolumePlugin) Path(r *volume.PathRequest) (*volume.PathRespons
 	defer a.lock.RUnlock()
 	vol, ok := a.volumes[r.Name]
 	if !ok {
+		seelog.Errorf("Could not find mount path for volume %s", r.Name)
 		return nil, fmt.Errorf("volume %s not found", r.Name)
 	}
 

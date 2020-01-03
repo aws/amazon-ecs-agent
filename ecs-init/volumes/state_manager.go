@@ -80,7 +80,7 @@ func (s *StateManager) save() error {
 
 	b, err := json.MarshalIndent(s.VolState, "", "\t")
 	if err != nil {
-		return fmt.Errorf("could not marshal data to save state: %v", err)
+		return fmt.Errorf("marshal data failed: %v", err)
 	}
 	return saveStateToDisk(b)
 }
@@ -92,33 +92,33 @@ func saveState(b []byte) error {
 	// actually move it atomically; cross-device renaming will error out
 	tmpfile, err := ioutil.TempFile(PluginStatePath, "tmp_ecs_volume_plugin")
 	if err != nil {
-		return fmt.Errorf("could not create temp file to save state, err: %v", err)
+		return fmt.Errorf("failed to create temp file: %v", err)
 	}
 	_, err = tmpfile.Write(b)
 	if err != nil {
-		return fmt.Errorf("could not write to temp file to save state, err: %v", err)
+		return fmt.Errorf("failed to write state to temp file: %v", err)
 	}
 
 	// flush temp state file to disk
 	err = tmpfile.Sync()
 	if err != nil {
-		return fmt.Errorf("error flushing state file, err: %v", err)
+		return fmt.Errorf("error flushing state file: %v", err)
 	}
 
 	err = os.Rename(tmpfile.Name(), filepath.Join(PluginStatePath, PluginStateFile))
 	if err != nil {
-		return fmt.Errorf("could not move data to state file, err: %v", err)
+		return fmt.Errorf("could not move data to state file: %v", err)
 	}
 
 	stateDir, err := os.Open(PluginStatePath)
 	if err != nil {
-		return fmt.Errorf("error opening state path, err: %v", err)
+		return fmt.Errorf("error opening state path: %v", err)
 	}
 
 	// sync directory entry of the new state file to disk
 	err = stateDir.Sync()
 	if err != nil {
-		return fmt.Errorf("error syncing state file directory entry, err: %v", err)
+		return fmt.Errorf("error syncing state file directory entry: %v", err)
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (s *StateManager) load(a interface{}) error {
 	}
 	err = json.Unmarshal(b, a)
 	if err != nil {
-		return fmt.Errorf("could not unmarshal state: %v", err)
+		return err
 	}
 	return err
 }

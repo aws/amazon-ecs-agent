@@ -19,16 +19,21 @@ import (
 	"strconv"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/volumes"
+	"github.com/aws/amazon-ecs-init/ecs-init/volumes/logger"
+	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
 )
 
 func main() {
 	plugin := volumes.NewAmazonECSVolumePlugin()
+	logger.Setup()
+	defer seelog.Flush()
 	if err := plugin.LoadState(); err != nil {
 		os.Exit(1)
 	}
 	handler := volume.NewHandler(plugin)
 	rootUser, _ := user.Lookup("root")
 	gid, _ := strconv.Atoi(rootUser.Gid)
+	seelog.Info("Starting volume plugin..")
 	handler.ServeUnix("amazon-ecs-volume-plugin", gid)
 }

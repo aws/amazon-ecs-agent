@@ -45,7 +45,6 @@ func (m *MountHelper) Mount() error {
 		args = append(args, "-o", m.Options)
 	}
 	args = append(args, m.Device, m.Target)
-
 	if err := m.Validate(); err != nil {
 		return err
 	}
