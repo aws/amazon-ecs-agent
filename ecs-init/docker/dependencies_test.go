@@ -24,6 +24,8 @@ import (
 
 	"github.com/fsouza/go-dockerclient"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const immediately = time.Duration(-1)
@@ -32,27 +34,19 @@ var netError = &url.Error{Err: &net.OpError{Op: "read", Net: "unix", Err: io.EOF
 var httpError = &docker.Error{Status: http.StatusInternalServerError, Message: "error"}
 
 func TestIsNetworkErrorReturnsTrue(t *testing.T) {
-	if !isNetworkError(netError) {
-		t.Errorf("Expected true when checking if network error")
-	}
+	assert.True(t, isNetworkError(netError), "Expect isNetworkError to return true if network error passed in")
 }
 
 func TestIsNetworkErrorReturnsFalse(t *testing.T) {
-	if isNetworkError(fmt.Errorf("error")) {
-		t.Errorf("Expected false when checking if network error")
-	}
+	assert.False(t, isNetworkError(fmt.Errorf("error")), "Expect isNetworkError to be false when non-network error passed in")
 }
 
 func TestIsRetryablePingErrorReturnsTrue(t *testing.T) {
-	if !isRetryablePingError(httpError) {
-		t.Errorf("Expected true when checking if retryable ping error")
-	}
+	assert.True(t, isRetryablePingError(httpError), "Expect RetryablePingError to be true if httpError passed in")
 }
 
 func TestIsRetryablePingErrorReturnsFalse(t *testing.T) {
-	if isRetryablePingError(fmt.Errorf("error")) {
-		t.Errorf("Expected false when checking if retryable ping error")
-	}
+	assert.False(t, isRetryablePingError(fmt.Errorf("error")), "Expect RetryablePingError to be true if non-http error passed in")
 }
 
 func TestNewDockerClientRetriesOnPingNetworkError(t *testing.T) {
@@ -72,9 +66,7 @@ func TestNewDockerClientRetriesOnPingNetworkError(t *testing.T) {
 	)
 
 	_, err := newDockerClient(mockClientFactory, mockBackoff)
-	if err != nil {
-		t.Error("Error creating docker client")
-	}
+	assert.NoError(t, err, "Expect no error for creating docker client with retry on network error")
 }
 
 func TestNewDockerClientRetriesOnHTTPStatusNotOKError(t *testing.T) {
@@ -94,9 +86,7 @@ func TestNewDockerClientRetriesOnHTTPStatusNotOKError(t *testing.T) {
 	)
 
 	_, err := newDockerClient(mockClientFactory, mockBackoff)
-	if err != nil {
-		t.Error("Error creating docker client")
-	}
+	assert.NoError(t, err, "Expect no error for creating docker client with retry on HTTP status not OK")
 }
 
 func TestNewDockerClientDoesnotRetryOnPingNonNetworkError(t *testing.T) {
@@ -113,9 +103,7 @@ func TestNewDockerClientDoesnotRetryOnPingNonNetworkError(t *testing.T) {
 	)
 
 	_, err := newDockerClient(mockClientFactory, mockBackoff)
-	if err == nil {
-		t.Error("Expected error creating docker client")
-	}
+	assert.Error(t, err, "Expect error when creating docker client with no retry")
 }
 
 func TestNewDockerClientGivesUpRetryingOnPingNetworkError(t *testing.T) {
@@ -136,9 +124,7 @@ func TestNewDockerClientGivesUpRetryingOnPingNetworkError(t *testing.T) {
 	)
 
 	_, err := newDockerClient(mockClientFactory, mockBackoff)
-	if err == nil {
-		t.Error("Expected error creating docker client")
-	}
+	assert.Error(t, err, "Expect error when creating docker client with no retry")
 }
 
 func TestNewDockerClientGivesUpRetryingOnUnavailableSocket(t *testing.T) {
@@ -149,9 +135,8 @@ func TestNewDockerClientGivesUpRetryingOnUnavailableSocket(t *testing.T) {
 	mockBackoff := NewMockBackoff(ctrl)
 
 	realDockerClient, dockerClientErr := godockerClientFactory{}.NewVersionedClient("unix:///a/bad/docker.sock", dockerClientAPIVersion)
-	if dockerClientErr != nil {
-		t.Fatal("error setting up intentionally bad client (nonexistent socket path)")
-	}
+
+	require.False(t, dockerClientErr != nil, "there should be no errors trying to set up a docker client (intentionally bad with nonexistent socket path")
 
 	gomock.InOrder(
 		// We use the real client to ensure we're classifying errors
@@ -165,14 +150,10 @@ func TestNewDockerClientGivesUpRetryingOnUnavailableSocket(t *testing.T) {
 	)
 
 	_, err := newDockerClient(mockClientFactory, mockBackoff)
-	if err == nil {
-		t.Fatal("Expected error creating docker client")
-	}
+	require.Error(t, err, "expect an error when creating docker client")
 
 	// We expect that the error will be a net.OpError wrapped by a
 	// url.Error.
 	_, isExpectedError := err.(*url.Error)
-	if !isExpectedError {
-		t.Fatal("Unexpected error type from docker client given a nonexistent path")
-	}
+	assert.True(t, isExpectedError, "expect net.OpError wrapped by url.Error")
 }
