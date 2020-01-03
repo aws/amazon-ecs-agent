@@ -62,6 +62,8 @@ type API struct {
 	HasEventStream bool `json:"-"`
 
 	EndpointDiscoveryOp *Operation
+
+	HasEndpointARN bool `json:"-"`
 }
 
 // A Metadata is the metadata about an API's definition.
@@ -319,6 +321,11 @@ func (a *API) APIGoCode() string {
 	a.AddSDKImport("aws/awsutil")
 	a.AddSDKImport("aws/request")
 
+	if a.HasEndpointARN {
+		a.AddImport("fmt")
+		a.AddSDKImport("service", a.PackageName(), "internal", "arn")
+	}
+
 	var buf bytes.Buffer
 	err := tplAPI.Execute(&buf, a)
 	if err != nil {
@@ -330,20 +337,20 @@ func (a *API) APIGoCode() string {
 }
 
 var noCrossLinkServices = map[string]struct{}{
-	"apigateway":        {},
-	"budgets":           {},
-	"cloudsearch":       {},
-	"cloudsearchdomain": {},
-	"elastictranscoder": {},
-	"es":                {},
-	"glacier":           {},
-	"importexport":      {},
-	"iot":               {},
-	"iot-data":          {},
-	"machinelearning":   {},
-	"rekognition":       {},
-	"sdb":               {},
-	"swf":               {},
+	"apigateway":           {},
+	"budgets":              {},
+	"cloudsearch":          {},
+	"cloudsearchdomain":    {},
+	"elastictranscoder":    {},
+	"elasticsearchservice": {},
+	"glacier":              {},
+	"importexport":         {},
+	"iot":                  {},
+	"iotdataplane":         {},
+	"machinelearning":      {},
+	"rekognition":          {},
+	"sdb":                  {},
+	"swf":                  {},
 }
 
 // HasCrosslinks will return whether or not a service has crosslinking .
@@ -354,12 +361,15 @@ func HasCrosslinks(service string) bool {
 
 // GetCrosslinkURL returns the crosslinking URL for the shape based on the name and
 // uid provided. Empty string is returned if no crosslink link could be determined.
-func GetCrosslinkURL(baseURL, uid string, params ...string) string {
-	if uid == "" || baseURL == "" {
+func (a *API) GetCrosslinkURL(params ...string) string {
+	baseURL := a.BaseCrosslinkURL
+	uid := a.Metadata.UID
+
+	if a.Metadata.UID == "" || a.BaseCrosslinkURL == "" {
 		return ""
 	}
 
-	if !HasCrosslinks(strings.ToLower(ServiceIDFromUID(uid))) {
+	if !HasCrosslinks(strings.ToLower(a.PackageName())) {
 		return ""
 	}
 
@@ -389,9 +399,7 @@ func (a *API) APIName() string {
 	return a.name
 }
 
-var tplServiceDoc = template.Must(template.New("service docs").Funcs(template.FuncMap{
-	"GetCrosslinkURL": GetCrosslinkURL,
-}).
+var tplServiceDoc = template.Must(template.New("service docs").
 	Parse(`
 // Package {{ .PackageName }} provides the client and types for making API
 // requests to {{ .Metadata.ServiceFullName }}.
@@ -399,7 +407,7 @@ var tplServiceDoc = template.Must(template.New("service docs").Funcs(template.Fu
 //
 {{ .Documentation }}
 {{ end -}}
-{{ $crosslinkURL := GetCrosslinkURL $.BaseCrosslinkURL $.Metadata.UID -}}
+{{ $crosslinkURL := $.GetCrosslinkURL -}}
 {{ if $crosslinkURL -}}
 //
 // See {{ $crosslinkURL }} for more information on this service.
@@ -508,7 +516,7 @@ var initRequest func(*request.Request)
 const (
 	ServiceName = "{{ ServiceNameConstValue . }}" // Name of service.
 	EndpointsID = {{ EndpointsIDConstValue . }} // ID to lookup a service endpoint with.
-	ServiceID = "{{ ServiceID . }}" // ServiceID is a unique identifer of a specific service.
+	ServiceID = "{{ ServiceID . }}" // ServiceID is a unique identifier of a specific service.
 )
 {{- end }}
 
@@ -517,6 +525,8 @@ const (
 // aws.Config parameter to add your extra config.
 //
 // Example:
+//     mySession := session.Must(session.NewSession())
+//
 //     // Create a {{ .StructName }} client from just a session.
 //     svc := {{ .PackageName }}.New(mySession)
 //
@@ -539,11 +549,11 @@ func New(p client.ConfigProvider, cfgs ...*aws.Config) *{{ .StructName }} {
 			c.SigningName = "{{ .Metadata.SigningName }}"
 		}
 	{{- end }}
-	return newClient(*c.Config, c.Handlers, c.Endpoint, c.SigningRegion, c.SigningName)
+	return newClient(*c.Config, c.Handlers, c.PartitionID, c.Endpoint, c.SigningRegion, c.SigningName)
 }
 
 // newClient creates, initializes and returns a new service client instance.
-func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegion, signingName string) *{{ .StructName }} {
+func newClient(cfg aws.Config, handlers request.Handlers, partitionID, endpoint, signingRegion, signingName string) *{{ .StructName }} {
     svc := &{{ .StructName }}{
     	Client: client.New(
     		cfg,
@@ -552,6 +562,7 @@ func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegio
 			ServiceID : {{ ServiceIDVar . }},
 			SigningName: signingName,
 			SigningRegion: signingRegion,
+			PartitionID: partitionID,
 			Endpoint:     endpoint,
 			APIVersion:   "{{ .Metadata.APIVersion }}",
 			{{ if and (.Metadata.JSONVersion) (eq .Metadata.Protocol "json") -}}
@@ -589,6 +600,7 @@ func newClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegio
 	svc.Handlers.UnmarshalMeta.PushBackNamed({{ .ProtocolPackage }}.UnmarshalMetaHandler)
 	svc.Handlers.UnmarshalError.PushBackNamed({{ .ProtocolPackage }}.UnmarshalErrorHandler)
 	{{ if .HasEventStream }}
+	svc.Handlers.BuildStream.PushBackNamed({{ .ProtocolPackage }}.BuildHandler)
 	svc.Handlers.UnmarshalStream.PushBackNamed({{ .ProtocolPackage }}.UnmarshalHandler)
 	{{ end }}
 
