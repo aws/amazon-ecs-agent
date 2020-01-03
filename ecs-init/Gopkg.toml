@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
-  version = "1.10.30"
+  version = "1.27.0"
 
 [prune]
   go-tests = true
