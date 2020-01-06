@@ -54,42 +54,40 @@ var Config *logConfig
 
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		cc, ok := context.CustomContext().(map[string]string)
-		if !ok || len(cc) == 0 {
-			cc = map[string]string{}
+		c := getContext(context)
+		var cSorted []string
+		for k, v := range c {
+			cSorted = append(cSorted, k+"="+v)
 		}
-		if _, ok = cc["module"]; !ok {
-			cc["module"] = context.FileName()
-		}
-
-		var ccStr string
-		var ccSorted []string
-		for k, v := range cc {
-			ccSorted = append(ccSorted, k+"="+v)
-		}
-		sort.Strings(ccSorted)
-		ccStr = " " + strings.Join(ccSorted, " ")
-		return fmt.Sprintf(`level=%s time=%s msg=%q%s
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, ccStr)
+		sort.Strings(cSorted)
+		return fmt.Sprintf(`level=%s time=%s msg=%q %s
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, strings.Join(cSorted, " "))
 	}
 }
 
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		cc, ok := context.CustomContext().(map[string]string)
-		if !ok || len(cc) == 0 {
-			cc = map[string]string{}
-		}
-		if _, ok = cc["module"]; !ok {
-			cc["module"] = context.FileName()
-		}
-		var ccStr string
-		for k, v := range cc {
-			ccStr += fmt.Sprintf(", %q: %q", k, v)
+		c := getContext(context)
+		var cStr string
+		for k, v := range c {
+			cStr += fmt.Sprintf(", %q: %q", k, v)
 		}
 		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q%s}
-`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, ccStr)
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, cStr)
 	}
+}
+
+// gets any custom context that has been added to this logger as a map, as well
+// as setting the 'module' context if it has not been set yet.
+func getContext(context seelog.LogContextInterface) map[string]string {
+	c, ok := context.CustomContext().(map[string]string)
+	if !ok || c == nil {
+		c = map[string]string{}
+	}
+	if _, ok = c["module"]; !ok {
+		c["module"] = context.FileName()
+	}
+	return c
 }
 
 func seelogConfig() string {
