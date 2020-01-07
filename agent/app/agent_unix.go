@@ -25,11 +25,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
@@ -83,17 +83,6 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		// An error here is terminal as it means that the plugins
 		// do not support the ENI capability
 		return err, true
-	}
-
-	// Load the pause container's image from the 'disk'
-	if _, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient); err != nil {
-		if pause.IsNoSuchFileError(err) || pause.UnsupportedPlatform(err) {
-			// If the pause container's image tarball doesn't exist or if the
-			// invocation is done for an unsupported platform, we cannot recover.
-			// Return the error as terminal for these cases
-			return err, true
-		}
-		return err, false
 	}
 
 	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
@@ -249,4 +238,11 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 		}
 	}
 	return nil
+}
+
+func (agent *ecsAgent) loadPauseContainer() error {
+	// Load the pause container's image from the 'disk'
+	_, err := agent.pauseLoader.LoadImage(agent.ctx, agent.cfg, agent.dockerClient)
+
+	return err
 }

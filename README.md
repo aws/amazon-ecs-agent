@@ -136,7 +136,7 @@ additional details on each available environment variable.
 | `ECS_LOGLEVEL`  | &lt;crit&gt; &#124; &lt;error&gt; &#124; &lt;warn&gt; &#124; &lt;info&gt; &#124; &lt;debug&gt; | The level of detail that should be logged. | info | info |
 | `ECS_LOGFILE`   | /ecs-agent.log              | The location where logs should be written. Log level is controlled by `ECS_LOGLEVEL`. | blank | blank |
 | `ECS_CHECKPOINT`   | &lt;true &#124; false&gt; | Whether to checkpoint state to the DATADIR specified below. | true if `ECS_DATADIR` is explicitly set to a non-empty value; false otherwise | true if `ECS_DATADIR` is explicitly set to a non-empty value; false otherwise |
-| `ECS_DATADIR`      |   /data/                  | The container path where state is checkpointed for use across agent restarts. | /data/ | `C:\ProgramData\Amazon\ECS\data`
+| `ECS_DATADIR`      |   /data/                  | The container path where state is checkpointed for use across agent restarts. Note that on Linux, when you specify this, you will need to make sure that the Agent container has a bind mount of `$ECS_HOST_DATA_DIR/data:$ECS_DATADIR` with the corresponding values of `ECS_HOST_DATA_DIR` and `ECS_DATADIR`. | /data/ | `C:\ProgramData\Amazon\ECS\data`
 | `ECS_UPDATES_ENABLED` | &lt;true &#124; false&gt; | Whether to exit for an updater to apply updates when requested. | false | false |
 | `ECS_UPDATE_DOWNLOAD_DIR` | /cache               | Where to place update tarballs within the container. | | |
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false | true |
@@ -166,7 +166,7 @@ additional details on each available environment variable.
 | `ECS_AWSVPC_BLOCK_IMDS` | `true` | Whether to block access to [Instance Metadata](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html) for Tasks started with `awsvpc` network mode | `false` | Not applicable |
 | `ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES` | `["10.0.15.0/24"]` | In `awsvpc` network mode, traffic to these prefixes will be routed via the host bridge instead of the task ENI | `[]` | Not applicable |
 | `ECS_ENABLE_CONTAINER_METADATA` | `true` | When `true`, the agent will create a file describing the container's metadata and the file can be located and consumed by using the container enviornment variable `$ECS_CONTAINER_METADATA_FILE` | `false` | `false` |
-| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. | `/var/lib/ecs` | `Not used` |
+| `ECS_HOST_DATA_DIR` | `/var/lib/ecs` | The source directory on the host from which ECS_DATADIR is mounted. We use this to determine the source mount path for container metadata files in the case the ECS Agent is running as a container. We do not use this value in Windows because the ECS Agent is not running as container in Windows. On Linux, note that when you specify this, you will need to make sure that the Agent container has a bind mount of `$ECS_HOST_DATA_DIR/data:$ECS_DATADIR` with the corresponding values of `ECS_HOST_DATA_DIR` and `ECS_DATADIR`. | `/var/lib/ecs` | `Not used` |
 | `ECS_ENABLE_TASK_CPU_MEM_LIMIT` | `true` | Whether to enable task-level cpu and memory limits | `true` | `false` |
 | `ECS_CGROUP_PATH` | `/sys/fs/cgroup` | The root cgroup path that is expected by the ECS agent. This is the path that accessible from the agent mount. | `/sys/fs/cgroup` | Not applicable |
 | `ECS_CGROUP_CPU_PERIOD` | `10ms` | CGroups CPU period for task level limits. This value should be between 8ms to 100ms | `100ms` | Not applicable |
@@ -181,6 +181,10 @@ additional details on each available environment variable.
 | `ECS_DISABLE_DOCKER_HEALTH_CHECK` | `false` | Whether to disable the Docker Container health check for the ECS Agent. | `false` | `false` |
 | `ECS_NVIDIA_RUNTIME` | nvidia | The Nvidia Runtime to be used to pass Nvidia GPU devices to containers. | nvidia | Not Applicable |
 | `ECS_ENABLE_SPOT_INSTANCE_DRAINING` | `true` | Whether to enable Spot Instance draining for the container instance. If true, if the container instance receives a [spot interruption notice](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-interruptions.html), agent will set the instance's status to [DRAINING](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html), which gracefully shuts down and replaces all tasks running on the instance that are part of a service. It is recommended that this be set to `true` when using spot instances. | `false` | `false` |
+| `ECS_LOG_ROLLOVER_TYPE` | `size` &#124; `hourly` | Determines whether the container agent logfile will be rotated based on size or hourly. By default, the agent logfile is rotated each hour. | `hourly` | `hourly` |
+| `ECS_LOG_OUTPUT_FORMAT` | `logfmt` &#124; `json` | Determines the log output format. When the json format is used, each line in the log would be a structured JSON map. | `logfmt` | `logfmt` |
+| `ECS_LOG_MAX_FILE_SIZE_MB` | `10` | When the ECS_LOG_ROLLOVER_TYPE variable is set to size, this variable determines the maximum size (in MB) the log file before it is rotated. If the rollover type is set to hourly then this variable is ignored. | `10` | `10` |
+| `ECS_LOG_MAX_ROLL_COUNT` | `24` | Determines the number of rotated log files to keep. Older log files are deleted once this limit is reached. | `24` | `24` |
 
 ### Persistence
 

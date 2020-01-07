@@ -1,4 +1,6 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build windows,unit
+
+// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -11,16 +13,18 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package audit
+package config
 
-import "github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
+import (
+	"os"
+	"testing"
 
-type AuditLogger interface {
-	Log(r request.LogRequest, httpResponseCode int, eventType string)
-	GetContainerInstanceArn() string
-	GetCluster() string
-}
+	"github.com/stretchr/testify/assert"
+)
 
-type InfoLogger interface {
-	Info(i ...interface{})
+func TestParseGMSACapability(t *testing.T) {
+	os.Setenv("ECS_GMSA_SUPPORTED", "False")
+	defer os.Unsetenv("ECS_GMSA_SUPPORTED")
+
+	assert.False(t, parseGMSACapability())
 }

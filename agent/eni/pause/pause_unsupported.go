@@ -31,3 +31,9 @@ func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient d
 		"pause container load: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }
+
+func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	return false, NewUnsupportedPlatformError(errors.Errorf(
+		"pause container isloaded: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}

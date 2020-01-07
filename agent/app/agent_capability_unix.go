@@ -111,6 +111,11 @@ func (agent *ecsAgent) appendBranchENIPluginVersionAttribute(capabilities []*ecs
 }
 
 func (agent *ecsAgent) appendPIDAndIPCNamespaceSharingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	isLoaded, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
+	if !isLoaded || err != nil {
+		seelog.Warnf("Pause container is not loaded, did not append PID and IPC capabilities: %v", err)
+		return capabilities
+	}
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
 }
 
@@ -153,6 +158,10 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.A
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 }
 
+func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
+}
+
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }
@@ -160,4 +169,8 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*e
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile)
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
+}
+
+func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
 }

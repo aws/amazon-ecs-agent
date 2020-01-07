@@ -27,12 +27,9 @@ import (
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
-
-var log = logger.ForModule("util")
 
 func DefaultIfBlank(str string, default_value string) string {
 	if len(str) == 0 {
@@ -129,6 +126,15 @@ func StrSliceEqual(s1, s2 []string) bool {
 		}
 	}
 	return true
+}
+
+func StrSliceContains(strs []string, s string) bool {
+	for _, a := range strs {
+		if a == s {
+			return true
+		}
+	}
+	return false
 }
 
 func ParseBool(str string, default_ bool) bool {

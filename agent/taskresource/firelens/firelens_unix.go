@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -90,6 +90,8 @@ type FirelensResource struct {
 	terminalReason      string
 	terminalReasonOnce  sync.Once
 	lock                sync.RWMutex
+	// log is a custom logger with extra context specific to the firelens struct
+	log logger.Contextual
 }
 
 // NewFirelensResource returns a new FirelensResource.
@@ -122,7 +124,16 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 	}
 
 	firelensResource.initStatusToTransition()
+	firelensResource.initLog()
 	return firelensResource, nil
+}
+
+func (firelens *FirelensResource) initLog() {
+	firelens.log.SetContext(map[string]string{
+		"taskARN":      firelens.taskARN,
+		"configType":   firelens.firelensConfigType,
+		"resourceName": ResourceName,
+	})
 }
 
 func (firelens *FirelensResource) parseOptions(options map[string]string) error {
@@ -130,7 +141,7 @@ func (firelens *FirelensResource) parseOptions(options map[string]string) error 
 		val := options[ecsLogMetadataEnableOption]
 		b, err := strconv.ParseBool(val)
 		if err != nil {
-			seelog.Warnf("Invalid value for firelens container option %s was specified: %s. Ignoring it.", ecsLogMetadataEnableOption, val)
+			firelens.log.Warnf("Invalid value for firelens container option %s was specified: %s. Ignoring it.", ecsLogMetadataEnableOption, val)
 		} else {
 			firelens.ecsMetadataEnabled = b
 		}
@@ -217,6 +228,7 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 	firelens.ioutil = ioutilwrapper.NewIOUtil()
 	firelens.s3ClientCreator = factory.NewS3ClientCreator()
 	firelens.credentialsManager = resourceFields.CredentialsManager
+	firelens.initLog()
 }
 
 // GetNetworkMode returns the network mode of the task.
@@ -246,7 +258,7 @@ func (firelens *FirelensResource) DesiredTerminal() bool {
 
 func (firelens *FirelensResource) setTerminalReason(reason string) {
 	firelens.terminalReasonOnce.Do(func() {
-		seelog.Infof("firelens resource: setting terminal reason for task: [%s]", firelens.taskARN)
+		firelens.log.Infof("firelens resource: setting terminal reason")
 		firelens.terminalReason = reason
 	})
 }
@@ -473,7 +485,7 @@ func (firelens *FirelensResource) generateConfigFile() error {
 		return errors.Wrapf(err, "unable to generate firelens config file")
 	}
 
-	seelog.Infof("Generated firelens config file at: %s", confFilePath)
+	firelens.log.Infof("Generated firelens config file at: %s", confFilePath)
 	return nil
 }
 
@@ -504,7 +516,7 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 		return errors.Wrapf(err, "unable to download s3 config %s from bucket %s", key, bucket)
 	}
 
-	seelog.Debugf("Downloaded firelens config file from s3 and saved to: %s", confFilePath)
+	firelens.log.Debugf("Downloaded firelens config file from s3 and saved to: %s", confFilePath)
 	return nil
 }
 
@@ -547,6 +559,6 @@ func (firelens *FirelensResource) Cleanup() error {
 		return fmt.Errorf("unable to remove firelens resource directory %s: %v", firelens.resourceDir, err)
 	}
 
-	seelog.Infof("Removed firelens resource directory at %s", firelens.resourceDir)
+	firelens.log.Infof("Removed firelens resource directory at %s", firelens.resourceDir)
 	return nil
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.35.0
+* Feature - EFS Preview [#2301](https://github.com/aws/amazon-ecs-agent/pull/2301)
+* Bug - Load pause container for use by PID/IPC even if task networking is disabled [#2300](https://github.com/aws/amazon-ecs-agent/pull/2300)
+* Bug - Fixed a race condition that might cause the agent to crash during container creation [#2299](https://github.com/aws/amazon-ecs-agent/pull/2299)
+
+## 1.34.0
+* Feature - Add Windows gMSA (group Managed Service Account) support on ECS.
+* Bug - Binding metadata directory in Z mode for selinux enabled docker, which enables read access to the metadata files from container processes. [#2273](https://github.com/aws/amazon-ecs-agent/pull/2273)
+
 ## 1.33.0
 * Feature - Agent performs a sync between task state on the instance and on the backend everytime Agent establishes a connection with the backend. This ensures that task state is as expected on the instance after the instance reconnects with the instance after a disconnection [#2191](https://github.com/aws/amazon-ecs-agent/pull/2191)
 * Enhancement - Update Docker LoadImage API timeout based on benchmarking test [#2269](https://github.com/aws/amazon-ecs-agent/pull/2269)

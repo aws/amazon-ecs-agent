@@ -34,7 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -275,7 +275,7 @@ func (agent *TestAgent) startAWSVPCTask(taskDefinition string) (*TestTask, error
 	agent.t.Logf("Task definition: %s", taskDefinition)
 	// Get the subnet ID, which is a required parameter for starting
 	// tasks in 'awsvpc' network mode
-	subnet, err := getSubnetID()
+	subnet, err := GetSubnetID()
 	if err != nil {
 		return nil, err
 	}
@@ -809,8 +809,8 @@ func AttributesToMap(attributes []*ecs.Attribute) map[string]string {
 	return attributeMap
 }
 
-// getSubnetID gets the subnet id for the instance from ec2 instance metadata
-func getSubnetID() (string, error) {
+// GetSubnetID gets the subnet id for the instance from ec2 instance metadata
+func GetSubnetID() (string, error) {
 	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
 	mac, err := ec2Metadata.GetMetadata("mac")
 	if err != nil {
@@ -822,6 +822,21 @@ func getSubnetID() (string, error) {
 	}
 
 	return subnet, nil
+}
+
+// GetSecurityGroupIDs returns all of the security group IDs that the instance is in.
+func GetSecurityGroupIDs() ([]string, error) {
+	ec2Metadata := ec2metadata.New(session.Must(session.NewSession()))
+	mac, err := ec2Metadata.GetMetadata("mac")
+	if err != nil {
+		return []string{}, errors.Wrapf(err, "unable to get mac from ec2 metadata")
+	}
+	sgroups, err := ec2Metadata.GetMetadata("network/interfaces/macs/" + mac + "/security-group-ids")
+	if err != nil {
+		return []string{}, errors.Wrapf(err, "unable to get security group ids from ec2 metadata")
+	}
+
+	return strings.Fields(sgroups), nil
 }
 
 // GetAccountID returns the aws account id from the instance metadata
@@ -976,4 +991,18 @@ func WaitNetworkInterfaceCount(desiredCount int, timeout time.Duration) error {
 		return errors.Errorf("Timed out waiting for instance to have %d network interfaces attached; number of interfaces attached: %d",
 			desiredCount, networkInterfaceCount)
 	}
+}
+
+func IsEFSCapable() bool {
+	// TODO: make this list betterer
+	// Grabbed from the following page on 12/12/2019
+	// https://aws.amazon.com/about-aws/global-infrastructure/regional-product-services/
+	acceptableEFSRegions := []string{"us-east-1", "us-east-2", "us-west-2", "us-west-1", "ca-central-1", "sa-east-1", "us-gov-west-1", "eu-west-1", "eu-central-1", "eu-west-2", "eu-west-3", "eu-north-1", "me-south-1", "ap-southeast-1", "ap-northeast-1", "ap-southeast-2", "ap-northeast-2", "ap-south-1", "ap-east-1"}
+
+	for _, r := range acceptableEFSRegions {
+		if *ECS.Config.Region == r {
+			return true
+		}
+	}
+	return false
 }

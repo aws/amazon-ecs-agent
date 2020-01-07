@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -51,6 +52,7 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
@@ -252,6 +254,9 @@ type Task struct {
 
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
+
+	// log is a custom logger with extra context specific to the task struct
+	log logger.Contextual
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -262,10 +267,14 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 		return nil, err
 	}
 	task := &Task{}
-	err = json.Unmarshal(data, task)
-	if err != nil {
+	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
+	task.log.SetContext(map[string]string{
+		"taskARN":     task.Arn,
+		"taskFamily":  task.Family,
+		"taskVersion": task.Version,
+	})
 	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
@@ -285,6 +294,22 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	return task, nil
 }
 
+func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	err := task.initializeDockerLocalVolumes(dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	err = task.initializeEFSVolumes(cfg, dockerClient, ctx)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+	return nil
+}
+
 // PostUnmarshalTask is run after a task has been unmarshalled, but before it has been
 // run. It is possible it will be subsequently called after that and should be
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
@@ -295,22 +320,19 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// hook into this
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
-		err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields)
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
+		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
+			task.log.Errorf("could not intialize resource: %v", err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
 
-	err := task.initializeContainerOrderingForVolumes()
-	if err != nil {
-		seelog.Errorf("Task [%s]: could not initialize volumes dependency for container: %v", task.Arn, err)
+	if err := task.initializeContainerOrderingForVolumes(); err != nil {
+		task.log.Errorf("could not initialize volumes dependency for container: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	err = task.initializeContainerOrderingForLinks()
-	if err != nil {
-		seelog.Errorf("Task [%s]: could not initialize links dependency for container: %v", task.Arn, err)
+	if err := task.initializeContainerOrderingForLinks(); err != nil {
+		task.log.Errorf("could not initialize links dependency for container: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
@@ -326,75 +348,74 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
-	err = task.initializeDockerLocalVolumes(dockerClient, ctx)
-	if err != nil {
+	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
+		return err
+	}
+
+	if err := task.addGPUResource(cfg); err != nil {
+		task.log.Errorf("could not initialize GPU associations: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	if cfg.GPUSupportEnabled {
-		err = task.addGPUResource()
-		if err != nil {
-			seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-		task.NvidiaRuntime = cfg.NvidiaRuntime
-	}
+
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
-	err = task.addNetworkResourceProvisioningDependency(cfg)
-	if err != nil {
-		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
+	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
+		task.log.Errorf("could not provision network resource: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
 	task.addNamespaceSharingProvisioningDependency(cfg)
 
-	firelensContainer := task.GetFirelensContainer()
-	if firelensContainer != nil {
-		err = task.applyFirelensSetup(cfg, resourceFields, firelensContainer, credentialsManager)
-		if err != nil {
-			return err
+	if err := task.applyFirelensSetup(cfg, resourceFields, credentialsManager); err != nil {
+		return err
+	}
+
+	if task.requiresCredentialSpecResource() {
+		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
+			task.log.Errorf("could not initialize credentialspec resource: %v", err)
+			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
+
 	return nil
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
-	err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager)
-	if err != nil {
-		return apierrors.NewResourceInitError(task.Arn, err)
-	}
-	err = task.addFirelensContainerDependency()
-	if err != nil {
-		return errors.New("unable to add firelens container dependency")
+	credentialsManager credentials.Manager) error {
+	firelensContainer := task.GetFirelensContainer()
+	if firelensContainer != nil {
+		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+		if err := task.addFirelensContainerDependency(); err != nil {
+			return errors.New("unable to add firelens container dependency")
+		}
 	}
 
 	return nil
 }
 
-func (task *Task) addGPUResource() error {
-	for _, association := range task.Associations {
-		// One GPU can be associated with only one container
-		// That is why validating if association.Containers is of length 1
-		if association.Type == GPUAssociationType {
-			if len(association.Containers) == 1 {
+func (task *Task) addGPUResource(cfg *config.Config) error {
+	if cfg.GPUSupportEnabled {
+		for _, association := range task.Associations {
+			// One GPU can be associated with only one container
+			// That is why validating if association.Containers is of length 1
+			if association.Type == GPUAssociationType {
+				if len(association.Containers) != 1 {
+					return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				}
+
 				container, ok := task.ContainerByName(association.Containers[0])
 				if !ok {
 					return fmt.Errorf("could not find container with name %s for associating GPU %s",
 						association.Containers[0], association.Name)
-				} else {
-					container.GPUIDs = append(container.GPUIDs, association.Name)
 				}
-			} else {
-				return fmt.Errorf("could not associate multiple containers to GPU %s", association.Name)
+				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
+		task.populateGPUEnvironmentVariables()
+		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
-	task.populateGPUEnvironmentVariables()
 	return nil
 }
 
@@ -485,18 +506,78 @@ func (task *Task) initializeDockerVolumes(sharedVolumeMatchFullConfig bool, dock
 		}
 		// Agent needs to create task-scoped volume
 		if dockerVolume.Scope == taskresourcevolume.TaskScope {
-			err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addTaskScopedVolumes(ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		} else {
 			// Agent needs to create shared volume if that's auto provisioned
-			err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i])
-			if err != nil {
+			if err := task.addSharedVolumes(sharedVolumeMatchFullConfig, ctx, dockerClient, &task.Volumes[i]); err != nil {
 				return err
 			}
 		}
 	}
+	return nil
+}
+
+// initializeEFSVolumes inspects the volume definitions in the task definition.
+// If it finds EFS volumes in the task definition, then it converts it to a docker
+// volume definition.
+func (task *Task) initializeEFSVolumes(cfg *config.Config, dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	for i, vol := range task.Volumes {
+		// No need to do this for non-efs volume, eg: host bind/empty volume
+		if vol.Type != EFSVolumeType {
+			continue
+		}
+
+		efsvol, ok := vol.Volume.(*taskresourcevolume.EFSVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 'efs'")
+		}
+
+		err := task.addEFSVolumes(ctx, cfg, dockerClient, &task.Volumes[i], efsvol)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addEFSVolumes converts the EFS task definition into an internal docker 'local' volume
+// mounted with NFS struct and updates container dependency
+func (task *Task) addEFSVolumes(
+	ctx context.Context,
+	cfg *config.Config,
+	dockerClient dockerapi.DockerClient,
+	vol *TaskVolume,
+	efsvol *taskresourcevolume.EFSVolumeConfig,
+) error {
+	// These are the NFS options recommended by EFS, see:
+	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
+	domain := getDomainForPartition(cfg.AWSRegion)
+	ostr := fmt.Sprintf("addr=%s.efs.%s.%s,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.FileSystemID, cfg.AWSRegion, domain)
+	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
+	volumeResource, err := taskresourcevolume.NewVolumeResource(
+		ctx,
+		vol.Name,
+		task.volumeName(vol.Name),
+		"task",
+		false,
+		"local",
+		map[string]string{
+			"type":   "nfs",
+			"device": devstr,
+			"o":      ostr,
+		},
+		map[string]string{},
+		dockerClient,
+	)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &volumeResource.VolumeConfig
+	task.AddResource(resourcetype.DockerVolumeKey, volumeResource)
+	task.updateContainerVolumeDependency(vol.Name)
 	return nil
 }
 
@@ -547,7 +628,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 			return volumeMetadata.Error
 		}
 
-		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, vol.Name)
+		task.log.Infof("initialize volume: non-autoprovisioned volume not found, adding to task resource %q", vol.Name)
 		// this resource should be created by agent
 		volumeResource, err := taskresourcevolume.NewVolumeResource(
 			ctx,
@@ -565,22 +646,22 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 		return nil
 	}
 
-	seelog.Infof("initialize volume: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
+	task.log.Infof("initialize volume: volume [%s] already exists", volumeConfig.DockerVolumeName)
 	if !SharedVolumeMatchFullConfig {
-		seelog.Infof("initialize volume: Task [%s]: ECS_SHARED_VOLUME_MATCH_FULL_CONFIG is set to false and volume with name [%s] is found", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("initialize volume: ECS_SHARED_VOLUME_MATCH_FULL_CONFIG is set to false and volume with name [%s] is found", volumeConfig.DockerVolumeName)
 		return nil
 	}
 
 	// validate all the volume metadata fields match to the configuration
 	if len(volumeMetadata.DockerVolume.Labels) == 0 && len(volumeMetadata.DockerVolume.Labels) == len(volumeConfig.Labels) {
-		seelog.Infof("labels are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("labels are both empty or null: volume [%s]", volumeConfig.DockerVolumeName)
 	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
 		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: existing: %v, expected: %v",
 			volumeMetadata.DockerVolume.Labels, volumeConfig.Labels)
 	}
 
 	if len(volumeMetadata.DockerVolume.Options) == 0 && len(volumeMetadata.DockerVolume.Options) == len(volumeConfig.DriverOpts) {
-		seelog.Infof("driver options are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("driver options are both empty or null: volume [%s]", volumeConfig.DockerVolumeName)
 	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
 		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: existing: %v, expected: %v",
 			volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts)
@@ -617,7 +698,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		// the id. This should never happen as the payload handler sets
 		// credentialsId for the task after adding credentials to the
 		// credentials manager
-		seelog.Errorf("Unable to get credentials for task: %s", task.Arn)
+		task.log.Errorf("Unable to get credentials for task")
 		return
 	}
 
@@ -823,18 +904,15 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 
 	containerToLogOptions := make(map[string]map[string]string)
 	// Collect plain text log options.
-	err := task.collectFirelensLogOptions(containerToLogOptions)
-	if err != nil {
+	if err := task.collectFirelensLogOptions(containerToLogOptions); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
 	// Collect secret log options.
-	err = task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type)
-	if err != nil {
+	if err := task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type); err != nil {
 		return errors.Wrap(err, "unable to initialize firelens resource")
 	}
 
-	var firelensResource *firelens.FirelensResource
 	for _, container := range task.Containers {
 		firelensConfig := container.GetFirelensConfig()
 		if firelensConfig != nil {
@@ -851,7 +929,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 			} else {
 				networkMode = container.GetNetworkModeFromHostConfig()
 			}
-			firelensResource, err = firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
+			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
 				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
 				credentialsManager, task.ExecutionCredentialsID)
 			if err != nil {
@@ -884,7 +962,7 @@ func (task *Task) addFirelensContainerDependency() error {
 	if firelensContainer.HasContainerDependencies() {
 		// If firelens container has any container dependency, we don't add internal container dependency that depends
 		// on it in order to be safe (otherwise we need to deal with circular dependency).
-		seelog.Warnf("Not adding container dependency to let firelens container %s start first, because it has dependency on other containers.", firelensContainer.Name)
+		task.log.Warnf("Not adding container dependency to let firelens container %s start first, because it has dependency on other containers.", firelensContainer.Name)
 		return nil
 	}
 
@@ -900,8 +978,7 @@ func (task *Task) addFirelensContainerDependency() error {
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*containerHostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*containerHostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -909,7 +986,7 @@ func (task *Task) addFirelensContainerDependency() error {
 			// If there's no dependency between the app container and the firelens container, make firelens container
 			// start first to be the default behavior by adding a START container depdendency.
 			if !container.DependsOnContainer(firelensContainer.Name) {
-				seelog.Infof("Adding a START container dependency on firelens container %s for container %s",
+				task.log.Infof("Adding a START container dependency on firelens container %s for container %s",
 					firelensContainer.Name, container.Name)
 				container.AddContainerDependency(firelensContainer.Name, ContainerOrderingStartCondition)
 			}
@@ -930,8 +1007,7 @@ func (task *Task) collectFirelensLogOptions(containerToLogOptions map[string]map
 		}
 
 		hostConfig := &dockercontainer.HostConfig{}
-		err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(*container.DockerConfig.HostConfig), hostConfig); err != nil {
 			return errors.Wrapf(err, "unable to decode host config of container %s", container.Name)
 		}
 
@@ -1108,8 +1184,7 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 				return errors.Errorf("user needs to be specified for proxy container")
 			}
 			containerConfig := &dockercontainer.Config{}
-			err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-			if err != nil {
+			if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 				return errors.Errorf("unable to decode given docker config: %s", err.Error())
 			}
 
@@ -1212,7 +1287,7 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 // there was no change
 // Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
-	seelog.Debugf("api/task: Updating task's known status, task: %s", task.String())
+	task.log.Debugf("api/task: Updating task's known status")
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
@@ -1228,19 +1303,17 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 		}
 	}
 	if earliestKnownStatusContainer == nil {
-		seelog.Criticalf(
-			"Impossible state found while updating tasks's known status, earliest state recorded as %s for task [%v]",
-			containerEarliestKnownStatus.String(), task)
+		task.log.Errorf(
+			"Impossible state found while updating tasks's known status, earliest state recorded as %s",
+			containerEarliestKnownStatus.String())
 		return apitaskstatus.TaskStatusNone
 	}
-	seelog.Debugf("api/task: Container with earliest known container is [%s] for task: %s",
-		earliestKnownStatusContainer.String(), task.String())
+	task.log.Debugf("api/task: Container with earliest known container is [%s]",
+		earliestKnownStatusContainer.String())
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
 	if earliestKnownStatusContainer.IsKnownSteadyState() && essentialContainerStopped {
-		seelog.Debugf(
-			"Essential container is stopped while other containers are running, not updating task status for task: %s",
-			task.String())
+		task.log.Debugf("Essential container is stopped while other containers are running, not updating task status")
 		return apitaskstatus.TaskStatusNone
 	}
 	// We can't rely on earliest container known status alone for determining if the
@@ -1249,8 +1322,8 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	// statuses and compute the min of this
 	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
 	if task.GetKnownStatus() < earliestKnownTaskStatus {
-		seelog.Infof("api/task: Updating task's known status to: %s, task: %s",
-			earliestKnownTaskStatus.String(), task.String())
+		task.log.Infof("api/task: Updating task's known status to: %s",
+			earliestKnownTaskStatus.String())
 		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
 	}
@@ -1261,7 +1334,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 // based on the known statuses of all containers in the task
 func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskStatus {
 	if len(task.Containers) == 0 {
-		seelog.Criticalf("No containers in the task: %s", task.String())
+		task.log.Errorf("No containers in the task")
 		return apitaskstatus.TaskStatusNone
 	}
 	// Set earliest container status to an impossible to reach 'high' task status
@@ -1302,8 +1375,7 @@ func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion doc
 	}
 
 	if container.DockerConfig.Config != nil {
-		err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig)
-		if err != nil {
+		if err := json.Unmarshal([]byte(aws.StringValue(container.DockerConfig.Config)), &containerConfig); err != nil {
 			return nil, &apierrors.DockerClientConfigError{Msg: "Unable decode given docker config: " + err.Error()}
 		}
 	}
@@ -1397,7 +1469,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		if task.NvidiaRuntime == "" {
 			return nil, &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
-		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
+		task.log.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 		hostConfig.Runtime = task.NvidiaRuntime
 	}
 
@@ -1408,8 +1480,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		}
 	}
 
-	err = task.platformHostConfigOverride(hostConfig)
-	if err != nil {
+	if err := task.platformHostConfigOverride(hostConfig); err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
@@ -1448,8 +1519,8 @@ func (task *Task) getDockerResources(container *apicontainer.Container) dockerco
 	// Convert MB to B and set Memory
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
-		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
-			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
+		task.log.Warnf("container %s memory setting is too low, increasing to %d bytes",
+			container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
 		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
 	// Set CPUShares
@@ -1492,14 +1563,14 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 		}
 	}
 	if pauseContName == "" {
-		seelog.Critical("Pause container required, but not found in the task: %s", task.String())
+		task.log.Error("Pause container required, but not found in the task")
 		return false, ""
 	}
 	pauseContainer, ok := dockerContainerMap[pauseContName]
 	if !ok || pauseContainer == nil {
 		// This should never be the case and implies a code-bug.
-		seelog.Criticalf("Pause container required, but not found in container map for container: [%s] in task: %s",
-			container.String(), task.String())
+		task.log.Errorf("Pause container required, but not found in container map for container: [%s]",
+			container.String())
 		return false, ""
 	}
 	return true, dockerMappingContainerPrefix + pauseContainer.DockerID
@@ -1581,14 +1652,14 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 	case pidModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nil or not exist if the Container definition within task exists; implies code-bug
-			seelog.Criticalf("Namespace Pause docker container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause docker container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
@@ -1634,14 +1705,14 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 	case ipcModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nill or not exist if the Container definition within task exists; implies code-bug
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
@@ -1700,8 +1771,8 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 		if len(linkParts) == 2 {
 			linkAlias = linkParts[1]
 		} else {
-			seelog.Warnf("Link name [%s] found with no linkalias for container: [%s] in task: [%s]",
-				linkName, container.String(), task.String())
+			task.log.Warnf("Link name [%s] found with no linkalias for container: [%s]",
+				linkName, container.String())
 			linkAlias = linkName
 		}
 
@@ -1760,9 +1831,9 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 		}
 
 		if hv.Source() == "" || mountPoint.ContainerPath == "" {
-			seelog.Errorf(
-				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s] in task: [%s]",
-				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath, task.String())
+			task.log.Errorf(
+				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s]",
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 			return []string{}, errors.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s",
 				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 		}
@@ -1799,14 +1870,13 @@ func (task *Task) UpdateDesiredStatus() {
 // updateTaskDesiredStatusUnsafe determines what status the task should properly be at based on the containers' statuses
 // Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatusUnsafe() {
-	seelog.Debugf("Updating task: [%s]", task.stringUnsafe())
+	task.log.Debugf("Updating task")
 
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
-			seelog.Infof("api/task: Updating task desired status to stopped because of container: [%s]; task: [%s]",
-				cont.Name, task.stringUnsafe())
+			task.log.Infof("api/task: Updating task desired status to stopped because of container: [%s]", cont.Name)
 			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		}
 	}
@@ -2140,8 +2210,8 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 		// ExecutionStoppedAt was already recorded. Nothing to left to do here
 		return
 	}
-	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
-		task.Arn, container.Name, now.String())
+	task.log.Infof("recording execution stopped time. Essential container [%s] stopped at: %s",
+		container.Name, now.String())
 }
 
 // GetResources returns the list of task resources from ResourcesMap
@@ -2170,9 +2240,9 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 // SetTerminalReason sets the terminalReason string and this can only be set
 // once per the task's lifecycle. This field does not accept updates.
 func (task *Task) SetTerminalReason(reason string) {
-	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
+	task.log.Infof("attempting to set terminal reason for task [%s]", reason)
 	task.terminalReasonOnce.Do(func() {
-		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
+		task.log.Infof("setting terminal reason for task [%s]", reason)
 
 		// Converts the first letter of terminal reason into capital letter
 		words := strings.Fields(reason)
@@ -2474,4 +2544,13 @@ func (task *Task) GetContainerIndex(containerName string) int {
 		idx++
 	}
 	return -1
+}
+
+func getDomainForPartition(region string) string {
+	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
+	if !ok {
+		seelog.Warnf("No partition resolved for region (%s). Using AWS default (%s)", region, endpoints.AwsPartition().DNSSuffix())
+		return endpoints.AwsPartition().DNSSuffix()
+	}
+	return partition.DNSSuffix()
 }

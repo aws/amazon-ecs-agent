@@ -43,6 +43,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
@@ -979,6 +980,44 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	// Populate credentialspec resource
+	if container.RequiresCredentialSpec() {
+		seelog.Debugf("Obtained container %s with credentialspec resource requirement for task %s.", container.Name, task.Arn)
+		var credSpecResource *credentialspec.CredentialSpecResource
+		resource, ok := task.GetCredentialSpecResource()
+		if !ok || len(resource) <= 0 {
+			resMissingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch task resource credentialspec"}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(resMissingErr)}
+		}
+		credSpecResource = resource[0].(*credentialspec.CredentialSpecResource)
+
+		containerCredSpec, err := container.GetCredentialSpec()
+		if err == nil && containerCredSpec != "" {
+			// CredentialSpec mapping: input := credentialspec:file://test.json, output := credentialspec=file://test.json
+			desiredCredSpecInjection, err := credSpecResource.GetTargetMapping(containerCredSpec)
+			if err != nil || desiredCredSpecInjection == "" {
+				missingErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec mapping"}
+				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(missingErr)}
+			}
+
+			// Inject containers' hostConfig.SecurityOpt with the credentialspec resource
+			seelog.Infof("Injecting container %s with credentialspec %s.", container.Name, desiredCredSpecInjection)
+			if len(hostConfig.SecurityOpt) == 0 {
+				hostConfig.SecurityOpt = []string{desiredCredSpecInjection}
+			} else {
+				for idx, opt := range hostConfig.SecurityOpt {
+					if strings.HasPrefix(opt, "credentialspec:") {
+						hostConfig.SecurityOpt[idx] = desiredCredSpecInjection
+					}
+				}
+			}
+
+		} else {
+			emptyErr := &apierrors.DockerClientConfigError{Msg: "unable to fetch valid credentialspec: " + err.Error()}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(emptyErr)}
+		}
+	}
+
 	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
@@ -1353,7 +1392,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 	}
 	metadata := transitionFunction(task, container)
 	if metadata.Error != nil {
-		seelog.Infof("Task engine [%s]: error transitioning container [%s] to [%s]: %v",
+		seelog.Errorf("Task engine [%s]: error transitioning container [%s] to [%s]: %v",
 			task.Arn, container.Name, nextState.String(), metadata.Error)
 	} else {
 		seelog.Debugf("Task engine [%s]: transitioned container [%s] to [%s]",

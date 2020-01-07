@@ -25,21 +25,28 @@
 package seelog
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
-var workingDir = "/"
+var (
+	workingDir     = "/"
+	stackCache     map[uintptr]*logContext
+	stackCacheLock sync.RWMutex
+)
 
 func init() {
 	wd, err := os.Getwd()
 	if err == nil {
 		workingDir = filepath.ToSlash(wd) + "/"
 	}
+	stackCache = make(map[uintptr]*logContext)
 }
 
 // Represents runtime caller context.
@@ -69,24 +76,54 @@ func currentContext(custom interface{}) (LogContextInterface, error) {
 	return specifyContext(1, custom)
 }
 
-func extractCallerInfo(skip int) (fullPath string, shortPath string, funcName string, line int, err error) {
-	pc, fp, ln, ok := runtime.Caller(skip)
-	if !ok {
-		err = fmt.Errorf("error during runtime.Caller")
-		return
+func extractCallerInfo(skip int) (*logContext, error) {
+	var stack [1]uintptr
+	if runtime.Callers(skip+1, stack[:]) != 1 {
+		return nil, errors.New("error  during runtime.Callers")
 	}
-	line = ln
-	fullPath = fp
-	if strings.HasPrefix(fp, workingDir) {
-		shortPath = fp[len(workingDir):]
+	pc := stack[0]
+
+	// do we have a cache entry?
+	stackCacheLock.RLock()
+	ctx, ok := stackCache[pc]
+	stackCacheLock.RUnlock()
+	if ok {
+		return ctx, nil
+	}
+
+	// look up the details of the given caller
+	funcInfo := runtime.FuncForPC(pc)
+	if funcInfo == nil {
+		return nil, errors.New("error during runtime.FuncForPC")
+	}
+
+	var shortPath string
+	fullPath, line := funcInfo.FileLine(pc)
+	if strings.HasPrefix(fullPath, workingDir) {
+		shortPath = fullPath[len(workingDir):]
 	} else {
-		shortPath = fp
+		shortPath = fullPath
 	}
-	funcName = runtime.FuncForPC(pc).Name()
+	funcName := funcInfo.Name()
 	if strings.HasPrefix(funcName, workingDir) {
 		funcName = funcName[len(workingDir):]
 	}
-	return
+
+	ctx = &logContext{
+		funcName:  funcName,
+		line:      line,
+		shortPath: shortPath,
+		fullPath:  fullPath,
+		fileName:  filepath.Base(fullPath),
+	}
+
+	// save the details in the cache; note that it's possible we might
+	// have written an entry into the map in between the test above and
+	// this section, but the behaviour is still correct
+	stackCacheLock.Lock()
+	stackCache[pc] = ctx
+	stackCacheLock.Unlock()
+	return ctx, nil
 }
 
 // Returns context of the function with placed "skip" stack frames of the caller
@@ -100,12 +137,15 @@ func specifyContext(skip int, custom interface{}) (LogContextInterface, error) {
 		err := fmt.Errorf("can not skip negative stack frames")
 		return &errorContext{callTime, err}, err
 	}
-	fullPath, shortPath, funcName, line, err := extractCallerInfo(skip + 2)
+	caller, err := extractCallerInfo(skip + 2)
 	if err != nil {
 		return &errorContext{callTime, err}, err
 	}
-	_, fileName := filepath.Split(fullPath)
-	return &logContext{funcName, line, shortPath, fullPath, fileName, callTime, custom}, nil
+	ctx := new(logContext)
+	*ctx = *caller
+	ctx.callTime = callTime
+	ctx.custom = custom
+	return ctx, nil
 }
 
 // Represents a normal runtime caller context.
