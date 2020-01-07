@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -253,6 +254,9 @@ type Task struct {
 
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
+
+	// log is a custom logger with extra context specific to the task struct
+	log logger.Contextual
 }
 
 // TaskFromACS translates ecsacs.Task to apitask.Task by first marshaling the received
@@ -266,6 +270,11 @@ func TaskFromACS(acsTask *ecsacs.Task, envelope *ecsacs.PayloadMessage) (*Task, 
 	if err := json.Unmarshal(data, task); err != nil {
 		return nil, err
 	}
+	task.log.SetContext(map[string]string{
+		"taskARN":     task.Arn,
+		"taskFamily":  task.Family,
+		"taskVersion": task.Version,
+	})
 	if task.GetDesiredStatus() == apitaskstatus.TaskRunning && envelope.SeqNum != nil {
 		task.StartSequenceNumber = *envelope.SeqNum
 	} else if task.GetDesiredStatus() == apitaskstatus.TaskStopped && envelope.SeqNum != nil {
@@ -312,18 +321,18 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.adjustForPlatform(cfg)
 	if task.MemoryCPULimitsEnabled {
 		if err := task.initializeCgroupResourceSpec(cfg.CgroupPath, cfg.CgroupCPUPeriod, resourceFields); err != nil {
-			seelog.Errorf("Task [%s]: could not intialize resource: %v", task.Arn, err)
+			task.log.Errorf("could not intialize resource: %v", err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
 
 	if err := task.initializeContainerOrderingForVolumes(); err != nil {
-		seelog.Errorf("Task [%s]: could not initialize volumes dependency for container: %v", task.Arn, err)
+		task.log.Errorf("could not initialize volumes dependency for container: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	if err := task.initializeContainerOrderingForLinks(); err != nil {
-		seelog.Errorf("Task [%s]: could not initialize links dependency for container: %v", task.Arn, err)
+		task.log.Errorf("could not initialize links dependency for container: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
@@ -344,14 +353,14 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 
 	if err := task.addGPUResource(cfg); err != nil {
-		seelog.Errorf("Task [%s]: could not initialize GPU associations: %v", task.Arn, err)
+		task.log.Errorf("could not initialize GPU associations: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
-		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
+		task.log.Errorf("could not provision network resource: %v", err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 	// Adds necessary Pause containers for sharing PID or IPC namespaces
@@ -363,7 +372,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	if task.requiresCredentialSpecResource() {
 		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
-			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
+			task.log.Errorf("could not initialize credentialspec resource: %v", err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
@@ -619,7 +628,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 			return volumeMetadata.Error
 		}
 
-		seelog.Infof("initialize volume: Task [%s]: non-autoprovisioned volume not found, adding to task resource %q", task.Arn, vol.Name)
+		task.log.Infof("initialize volume: non-autoprovisioned volume not found, adding to task resource %q", vol.Name)
 		// this resource should be created by agent
 		volumeResource, err := taskresourcevolume.NewVolumeResource(
 			ctx,
@@ -637,22 +646,22 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 		return nil
 	}
 
-	seelog.Infof("initialize volume: Task [%s]: volume [%s] already exists", task.Arn, volumeConfig.DockerVolumeName)
+	task.log.Infof("initialize volume: volume [%s] already exists", volumeConfig.DockerVolumeName)
 	if !SharedVolumeMatchFullConfig {
-		seelog.Infof("initialize volume: Task [%s]: ECS_SHARED_VOLUME_MATCH_FULL_CONFIG is set to false and volume with name [%s] is found", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("initialize volume: ECS_SHARED_VOLUME_MATCH_FULL_CONFIG is set to false and volume with name [%s] is found", volumeConfig.DockerVolumeName)
 		return nil
 	}
 
 	// validate all the volume metadata fields match to the configuration
 	if len(volumeMetadata.DockerVolume.Labels) == 0 && len(volumeMetadata.DockerVolume.Labels) == len(volumeConfig.Labels) {
-		seelog.Infof("labels are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("labels are both empty or null: volume [%s]", volumeConfig.DockerVolumeName)
 	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Labels, volumeConfig.Labels) {
 		return errors.Errorf("intialize volume: non-autoprovisioned volume does not match existing volume labels: existing: %v, expected: %v",
 			volumeMetadata.DockerVolume.Labels, volumeConfig.Labels)
 	}
 
 	if len(volumeMetadata.DockerVolume.Options) == 0 && len(volumeMetadata.DockerVolume.Options) == len(volumeConfig.DriverOpts) {
-		seelog.Infof("driver options are both empty or null: Task [%s]: volume [%s]", task.Arn, volumeConfig.DockerVolumeName)
+		task.log.Infof("driver options are both empty or null: volume [%s]", volumeConfig.DockerVolumeName)
 	} else if !reflect.DeepEqual(volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts) {
 		return errors.Errorf("initialize volume: non-autoprovisioned volume does not match existing volume options: existing: %v, expected: %v",
 			volumeMetadata.DockerVolume.Options, volumeConfig.DriverOpts)
@@ -689,7 +698,7 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		// the id. This should never happen as the payload handler sets
 		// credentialsId for the task after adding credentials to the
 		// credentials manager
-		seelog.Errorf("Unable to get credentials for task: %s", task.Arn)
+		task.log.Errorf("Unable to get credentials for task")
 		return
 	}
 
@@ -953,7 +962,7 @@ func (task *Task) addFirelensContainerDependency() error {
 	if firelensContainer.HasContainerDependencies() {
 		// If firelens container has any container dependency, we don't add internal container dependency that depends
 		// on it in order to be safe (otherwise we need to deal with circular dependency).
-		seelog.Warnf("Not adding container dependency to let firelens container %s start first, because it has dependency on other containers.", firelensContainer.Name)
+		task.log.Warnf("Not adding container dependency to let firelens container %s start first, because it has dependency on other containers.", firelensContainer.Name)
 		return nil
 	}
 
@@ -977,7 +986,7 @@ func (task *Task) addFirelensContainerDependency() error {
 			// If there's no dependency between the app container and the firelens container, make firelens container
 			// start first to be the default behavior by adding a START container depdendency.
 			if !container.DependsOnContainer(firelensContainer.Name) {
-				seelog.Infof("Adding a START container dependency on firelens container %s for container %s",
+				task.log.Infof("Adding a START container dependency on firelens container %s for container %s",
 					firelensContainer.Name, container.Name)
 				container.AddContainerDependency(firelensContainer.Name, ContainerOrderingStartCondition)
 			}
@@ -1278,7 +1287,7 @@ func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.M
 // there was no change
 // Invariant: task known status is the minimum of container known status
 func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
-	seelog.Debugf("api/task: Updating task's known status, task: %s", task.String())
+	task.log.Debugf("api/task: Updating task's known status")
 	// Set to a large 'impossible' status that can't be the min
 	containerEarliestKnownStatus := apicontainerstatus.ContainerZombie
 	var earliestKnownStatusContainer *apicontainer.Container
@@ -1294,19 +1303,17 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 		}
 	}
 	if earliestKnownStatusContainer == nil {
-		seelog.Criticalf(
-			"Impossible state found while updating tasks's known status, earliest state recorded as %s for task [%v]",
-			containerEarliestKnownStatus.String(), task)
+		task.log.Errorf(
+			"Impossible state found while updating tasks's known status, earliest state recorded as %s",
+			containerEarliestKnownStatus.String())
 		return apitaskstatus.TaskStatusNone
 	}
-	seelog.Debugf("api/task: Container with earliest known container is [%s] for task: %s",
-		earliestKnownStatusContainer.String(), task.String())
+	task.log.Debugf("api/task: Container with earliest known container is [%s]",
+		earliestKnownStatusContainer.String())
 	// If the essential container is stopped while other containers may be running
 	// don't update the task status until the other containers are stopped.
 	if earliestKnownStatusContainer.IsKnownSteadyState() && essentialContainerStopped {
-		seelog.Debugf(
-			"Essential container is stopped while other containers are running, not updating task status for task: %s",
-			task.String())
+		task.log.Debugf("Essential container is stopped while other containers are running, not updating task status")
 		return apitaskstatus.TaskStatusNone
 	}
 	// We can't rely on earliest container known status alone for determining if the
@@ -1315,8 +1322,8 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	// statuses and compute the min of this
 	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
 	if task.GetKnownStatus() < earliestKnownTaskStatus {
-		seelog.Infof("api/task: Updating task's known status to: %s, task: %s",
-			earliestKnownTaskStatus.String(), task.String())
+		task.log.Infof("api/task: Updating task's known status to: %s",
+			earliestKnownTaskStatus.String())
 		task.SetKnownStatus(earliestKnownTaskStatus)
 		return task.GetKnownStatus()
 	}
@@ -1327,7 +1334,7 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 // based on the known statuses of all containers in the task
 func (task *Task) getEarliestKnownTaskStatusForContainers() apitaskstatus.TaskStatus {
 	if len(task.Containers) == 0 {
-		seelog.Criticalf("No containers in the task: %s", task.String())
+		task.log.Errorf("No containers in the task")
 		return apitaskstatus.TaskStatusNone
 	}
 	// Set earliest container status to an impossible to reach 'high' task status
@@ -1462,7 +1469,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		if task.NvidiaRuntime == "" {
 			return nil, &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
-		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
+		task.log.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 		hostConfig.Runtime = task.NvidiaRuntime
 	}
 
@@ -1512,8 +1519,8 @@ func (task *Task) getDockerResources(container *apicontainer.Container) dockerco
 	// Convert MB to B and set Memory
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
-		seelog.Warnf("Task %s container %s memory setting is too low, increasing to %d bytes",
-			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
+		task.log.Warnf("container %s memory setting is too low, increasing to %d bytes",
+			container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
 		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
 	// Set CPUShares
@@ -1556,14 +1563,14 @@ func (task *Task) shouldOverrideNetworkMode(container *apicontainer.Container, d
 		}
 	}
 	if pauseContName == "" {
-		seelog.Critical("Pause container required, but not found in the task: %s", task.String())
+		task.log.Error("Pause container required, but not found in the task")
 		return false, ""
 	}
 	pauseContainer, ok := dockerContainerMap[pauseContName]
 	if !ok || pauseContainer == nil {
 		// This should never be the case and implies a code-bug.
-		seelog.Criticalf("Pause container required, but not found in container map for container: [%s] in task: %s",
-			container.String(), task.String())
+		task.log.Errorf("Pause container required, but not found in container map for container: [%s]",
+			container.String())
 		return false, ""
 	}
 	return true, dockerMappingContainerPrefix + pauseContainer.DockerID
@@ -1645,14 +1652,14 @@ func (task *Task) shouldOverridePIDMode(container *apicontainer.Container, docke
 	case pidModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nil or not exist if the Container definition within task exists; implies code-bug
-			seelog.Criticalf("Namespace Pause docker container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause docker container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
@@ -1698,14 +1705,14 @@ func (task *Task) shouldOverrideIPCMode(container *apicontainer.Container, docke
 	case ipcModeTask:
 		pauseCont, ok := task.ContainerByName(NamespacePauseContainerName)
 		if !ok {
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
 		pauseDockerID, ok := dockerContainerMap[pauseCont.Name]
 		if !ok || pauseDockerID == nil {
 			// Docker container shouldn't be nill or not exist if the Container definition within task exists; implies code-bug
-			seelog.Criticalf("Namespace Pause container not found in the task: %s; Setting Task's Desired Status to Stopped", task.Arn)
+			task.log.Errorf("Namespace Pause container not found in the task; Setting Task's Desired Status to Stopped")
 			task.SetDesiredStatus(apitaskstatus.TaskStopped)
 			return false, ""
 		}
@@ -1764,8 +1771,8 @@ func (task *Task) dockerLinks(container *apicontainer.Container, dockerContainer
 		if len(linkParts) == 2 {
 			linkAlias = linkParts[1]
 		} else {
-			seelog.Warnf("Link name [%s] found with no linkalias for container: [%s] in task: [%s]",
-				linkName, container.String(), task.String())
+			task.log.Warnf("Link name [%s] found with no linkalias for container: [%s]",
+				linkName, container.String())
 			linkAlias = linkName
 		}
 
@@ -1824,9 +1831,9 @@ func (task *Task) dockerHostBinds(container *apicontainer.Container) ([]string, 
 		}
 
 		if hv.Source() == "" || mountPoint.ContainerPath == "" {
-			seelog.Errorf(
-				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s] in task: [%s]",
-				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath, task.String())
+			task.log.Errorf(
+				"Unable to resolve volume mounts for container [%s]; invalid path: [%s]; [%s] -> [%s]",
+				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 			return []string{}, errors.Errorf("Unable to resolve volume mounts; invalid path: %s %s; %s -> %s",
 				container.Name, mountPoint.SourceVolume, hv.Source(), mountPoint.ContainerPath)
 		}
@@ -1863,14 +1870,13 @@ func (task *Task) UpdateDesiredStatus() {
 // updateTaskDesiredStatusUnsafe determines what status the task should properly be at based on the containers' statuses
 // Invariant: task desired status must be stopped if any essential container is stopped
 func (task *Task) updateTaskDesiredStatusUnsafe() {
-	seelog.Debugf("Updating task: [%s]", task.stringUnsafe())
+	task.log.Debugf("Updating task")
 
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
-			seelog.Infof("api/task: Updating task desired status to stopped because of container: [%s]; task: [%s]",
-				cont.Name, task.stringUnsafe())
+			task.log.Infof("api/task: Updating task desired status to stopped because of container: [%s]", cont.Name)
 			task.DesiredStatusUnsafe = apitaskstatus.TaskStopped
 		}
 	}
@@ -2204,8 +2210,8 @@ func (task *Task) RecordExecutionStoppedAt(container *apicontainer.Container) {
 		// ExecutionStoppedAt was already recorded. Nothing to left to do here
 		return
 	}
-	seelog.Infof("Task [%s]: recording execution stopped time. Essential container [%s] stopped at: %s",
-		task.Arn, container.Name, now.String())
+	task.log.Infof("recording execution stopped time. Essential container [%s] stopped at: %s",
+		container.Name, now.String())
 }
 
 // GetResources returns the list of task resources from ResourcesMap
@@ -2234,9 +2240,9 @@ func (task *Task) AddResource(resourceType string, resource taskresource.TaskRes
 // SetTerminalReason sets the terminalReason string and this can only be set
 // once per the task's lifecycle. This field does not accept updates.
 func (task *Task) SetTerminalReason(reason string) {
-	seelog.Infof("Task [%s]: attempting to set terminal reason for task [%s]", task.Arn, reason)
+	task.log.Infof("attempting to set terminal reason for task [%s]", reason)
 	task.terminalReasonOnce.Do(func() {
-		seelog.Infof("Task [%s]: setting terminal reason for task [%s]", task.Arn, reason)
+		task.log.Infof("setting terminal reason for task [%s]", reason)
 
 		// Converts the first letter of terminal reason into capital letter
 		words := strings.Fields(reason)

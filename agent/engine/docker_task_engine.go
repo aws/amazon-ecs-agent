@@ -1392,7 +1392,7 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 	}
 	metadata := transitionFunction(task, container)
 	if metadata.Error != nil {
-		seelog.Infof("Task engine [%s]: error transitioning container [%s] to [%s]: %v",
+		seelog.Errorf("Task engine [%s]: error transitioning container [%s] to [%s]: %v",
 			task.Arn, container.Name, nextState.String(), metadata.Error)
 	} else {
 		seelog.Debugf("Task engine [%s]: transitioned container [%s] to [%s]",

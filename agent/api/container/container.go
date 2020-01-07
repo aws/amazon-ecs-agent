@@ -1001,7 +1001,7 @@ func (c *Container) GetLogDriver() string {
 	hostConfig := &dockercontainer.HostConfig{}
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get log driver for container %s: %v", err)
+		seelog.Warnf("Encountered error when trying to get log driver for container %s: %v", c.String(), err)
 		return ""
 	}
 
@@ -1021,7 +1021,7 @@ func (c *Container) GetNetworkModeFromHostConfig() string {
 	// TODO return error to differentiate between error and default mode .
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get network mode for container %s: %v", err)
+		seelog.Warnf("Encountered error when trying to get network mode for container %s: %v", c.String(), err)
 		return ""
 	}
 
