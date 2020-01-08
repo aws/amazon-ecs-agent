@@ -1,3 +1,9 @@
+amazon-ecs-init (1.36.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.36.0
+  * capture a fixed tail of container logs when removing a container
+
+  -- Cameron Sparr <cssparr@amazon.com> Wed, 08 Jan 2020 11:00:00 -0800
 amazon-ecs-init (1.35.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.35.0
