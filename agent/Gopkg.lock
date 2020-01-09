@@ -10,7 +10,7 @@
   version = "v0.4.7"
 
 [[projects]]
-  digest = "1:7998438535fbfe9617b33556fd5ddd16972579d857cd8fe80f1abc3d1f02ce4a"
+  digest = "1:59564f8de34af5bb19953175ba0f3094fdee9cb3d9cba97fbcc98aebe97ef5bd"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -59,6 +59,7 @@
     "service/efs",
     "service/iam",
     "service/s3",
+    "service/s3/internal/arn",
     "service/s3/s3iface",
     "service/s3/s3manager",
     "service/secretsmanager",
@@ -68,8 +69,8 @@
     "service/sts/stsiface",
   ]
   pruneopts = "UT"
-  revision = "13ad2b09f6ff7e16808b4a45c32684e6c66bf86d"
-  version = "v1.25.19"
+  revision = "a1e6946e8014a793d989e64ef5566315010ce898"
+  version = "v1.27.0"
 
 [[projects]]
   branch = "master"

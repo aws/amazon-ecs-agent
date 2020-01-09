@@ -319,9 +319,12 @@ func (a *API) createInputOutputShapes() {
 		createAPIParamShape(a, op.Name, &op.InputRef, op.ExportedName+"Input",
 			shamelist.Input,
 		)
+		op.InputRef.Shape.UsedAsInput = true
+
 		createAPIParamShape(a, op.Name, &op.OutputRef, op.ExportedName+"Output",
 			shamelist.Output,
 		)
+		op.OutputRef.Shape.UsedAsOutput = true
 	}
 }
 
@@ -383,24 +386,13 @@ func (a *API) removeUnusedShapes() {
 	}
 }
 
-// Represents the service package name to EndpointsID mapping
-var custEndpointsKey = map[string]string{
-	"applicationautoscaling": "application-autoscaling",
-}
-
-// Sents the EndpointsID field of Metadata  with the value of the
-// EndpointPrefix if EndpointsID is not set. Also adds
-// customizations for services if EndpointPrefix is not a valid key.
+// Sets the EndpointsID field of Metadata  with the value of the
+// EndpointPrefix if EndpointsID is not set.
 func (a *API) setMetadataEndpointsKey() {
 	if len(a.Metadata.EndpointsID) != 0 {
 		return
 	}
-
-	if v, ok := custEndpointsKey[a.PackageName()]; ok {
-		a.Metadata.EndpointsID = v
-	} else {
-		a.Metadata.EndpointsID = a.Metadata.EndpointPrefix
-	}
+	a.Metadata.EndpointsID = a.Metadata.EndpointPrefix
 }
 
 func (a *API) findEndpointDiscoveryOp() {
@@ -411,6 +403,7 @@ func (a *API) findEndpointDiscoveryOp() {
 		}
 	}
 }
+
 func (a *API) injectUnboundedOutputStreaming() {
 	for _, op := range a.Operations {
 		if op.AuthType != V4UnsignedBodyAuthType {

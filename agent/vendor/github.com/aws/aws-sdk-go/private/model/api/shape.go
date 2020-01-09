@@ -60,6 +60,9 @@ type ShapeRef struct {
 
 	// Collection of custom tags the shape reference includes.
 	CustomTags ShapeTags
+
+	// Flags whether the member reference is a endpoint ARN
+	EndpointARN bool
 }
 
 // A Shape defines the definition of a shape type
@@ -86,9 +89,12 @@ type Shape struct {
 	XMLNamespace     XMLInfo
 	Min              float64 // optional Minimum length (string, list) or value (number)
 
-	EventStreamsMemberName string          `json:"-"`
-	EventStreamAPI         *EventStreamAPI `json:"-"`
-	EventFor               []*EventStream  `json:"-"`
+	OutputEventStreamAPI *EventStreamAPI
+	EventStream          *EventStream
+	EventFor             []*EventStream `json:"-"`
+
+	IsInputEventStream  bool `json:"-"`
+	IsOutputEventStream bool `json:"-"`
 
 	IsEventStream bool `json:"eventstream"`
 	IsEvent       bool `json:"event"`
@@ -115,6 +121,15 @@ type Shape struct {
 
 	// Sensitive types should not be logged by SDK type loggers.
 	Sensitive bool `json:"sensitive"`
+
+	// Flags that a member of the shape is an EndpointARN
+	HasEndpointARNMember bool
+
+	// Indicates the Shape is used as an operation input
+	UsedAsInput bool
+
+	// Indicates the Shape is used as an operation output
+	UsedAsOutput bool
 }
 
 // CanBeEmpty returns if the shape value can sent request as an empty value.
@@ -451,7 +466,7 @@ func (ref *ShapeRef) GoTags(toplevel bool, isRequired bool) string {
 		tags = append(tags, ShapeTag{"locationName", ref.Shape.LocationName})
 	} else if len(ref.Shape.EventFor) != 0 && ref.API.Metadata.Protocol == "rest-xml" {
 		// RPC JSON events need to have location name modeled for round trip testing.
-		tags = append(tags, ShapeTag{"locationName", ref.Shape.ShapeName})
+		tags = append(tags, ShapeTag{"locationName", ref.Shape.OrigShapeName})
 	}
 
 	if ref.QueryName != "" {
@@ -554,11 +569,11 @@ func (ref *ShapeRef) IndentedDocstring() string {
 
 var goCodeStringerTmpl = template.Must(template.New("goCodeStringerTmpl").Parse(`
 // String returns the string representation
-func (s {{ .ShapeName }}) String() string {
+func (s {{ $.ShapeName }}) String() string {
 	return awsutil.Prettify(s)
 }
 // GoString returns the string representation
-func (s {{ .ShapeName }}) GoString() string {
+func (s {{ $.ShapeName }}) GoString() string {
 	return s.String()
 }
 `))
@@ -622,15 +637,19 @@ var structShapeTmpl = func() *template.Template {
 	shapeTmpl := template.Must(
 		template.New("structShapeTmpl").
 			Funcs(template.FuncMap{
-				"GetCrosslinkURL":  GetCrosslinkURL,
 				"GetDeprecatedMsg": getDeprecatedMessage,
+				"TrimExportedMembers": func(s *Shape) map[string]*ShapeRef {
+					members := map[string]*ShapeRef{}
+					for name, ref := range s.MemberRefs {
+						if ref.Shape.IsEventStream {
+							continue
+						}
+						members[name] = ref
+					}
+					return members
+				},
 			}).
 			Parse(structShapeTmplDef),
-	)
-
-	template.Must(
-		shapeTmpl.AddParseTree(
-			"eventStreamAPILoopMethodTmpl", eventStreamAPILoopMethodTmpl.Tree),
 	)
 
 	template.Must(
@@ -650,25 +669,35 @@ var structShapeTmpl = func() *template.Template {
 			hostLabelsShapeTmpl.Tree),
 	)
 
+	template.Must(
+		shapeTmpl.AddParseTree(
+			"endpointARNShapeTmpl",
+			endpointARNShapeTmpl.Tree),
+	)
+
 	return shapeTmpl
 }()
 
 const structShapeTmplDef = `
-{{ .Docstring }}
-{{ if .Deprecated -}}
-{{ if .Docstring -}}
+{{ $.Docstring }}
+{{ if $.Deprecated -}}
+{{ if $.Docstring -}}
 //
 {{ end -}}
-// Deprecated: {{ GetDeprecatedMsg .DeprecatedMsg .ShapeName }}
+// Deprecated: {{ GetDeprecatedMsg $.DeprecatedMsg $.ShapeName }}
 {{ end -}}
-{{ $context := . -}}
-type {{ .ShapeName }} struct {
-	_ struct{} {{ .GoTags true false }}
+type {{ $.ShapeName }} struct {
+	_ struct{} {{ $.GoTags true false }}
 
-	{{ range $_, $name := $context.MemberNames -}}
-		{{ $elem := index $context.MemberRefs $name -}}
-		{{ $isBlob := $context.WillRefBeBase64Encoded $name -}}
-		{{ $isRequired := $context.IsRequired $name -}}
+	{{- if $.OutputEventStreamAPI }}
+
+		{{ $.OutputEventStreamAPI.OutputMemberName }} *{{ $.OutputEventStreamAPI.Name }}
+	{{- end }}
+
+	{{- range $name, $elem := (TrimExportedMembers $) }}
+
+		{{ $isBlob := $.WillRefBeBase64Encoded $name -}}
+		{{ $isRequired := $.IsRequired $name -}}
 		{{ $doc := $elem.Docstring -}}
 
 		{{ if $doc -}}
@@ -690,52 +719,65 @@ type {{ .ShapeName }} struct {
 			{{ end -}}
 			// {{ $name }} is a required field
 		{{ end -}}
-		{{ $name }} {{ $context.GoStructType $name $elem }} {{ $elem.GoTags false $isRequired }}
-
-	{{ end }}
+		{{ $name }} {{ $.GoStructType $name $elem }} {{ $elem.GoTags false $isRequired }}
+	{{- end }}
 }
-{{ if not .API.NoStringerMethods }}
-	{{ .GoCodeStringers }}
+{{ if not $.API.NoStringerMethods }}
+	{{ $.GoCodeStringers }}
 {{ end }}
-{{ if not (or .API.NoValidataShapeMethods .Exception) }}
-	{{ if .Validations -}}
-		{{ .Validations.GoCode . }}
+{{ if not (or $.API.NoValidataShapeMethods $.Exception) }}
+	{{ if $.Validations -}}
+		{{ $.Validations.GoCode $ }}
 	{{ end }}
 {{ end }}
 
-{{ if not (or .API.NoGenStructFieldAccessors .Exception) }}
-	{{ $builderShapeName := print .ShapeName -}}
-	{{ range $_, $name := $context.MemberNames -}}
-		{{ $elem := index $context.MemberRefs $name -}}
+{{- if not (or $.API.NoGenStructFieldAccessors $.Exception) }}
+	{{- $builderShapeName := print $.ShapeName }}
 
+	{{- range $name, $elem := (TrimExportedMembers $) }}
 		// Set{{ $name }} sets the {{ $name }} field's value.
-		func (s *{{ $builderShapeName }}) Set{{ $name }}(v {{ $context.GoStructValueType $name $elem }}) *{{ $builderShapeName }} {
-			{{ if $elem.UseIndirection -}}
+		func (s *{{ $builderShapeName }}) Set{{ $name }}(v {{ $.GoStructValueType $name $elem }}) *{{ $builderShapeName }} {
+			{{- if $elem.UseIndirection }}
 				s.{{ $name }} = &v
-			{{ else -}}
+			{{- else }}
 				s.{{ $name }} = v
-			{{ end -}}
+			{{- end }}
 			return s
 		}
 
-		{{ if $elem.GenerateGetter -}}
-			func (s *{{ $builderShapeName }}) get{{ $name }}() (v {{ $context.GoStructValueType $name $elem }}) {
-				{{ if $elem.UseIndirection -}}
+		{{- if $elem.GenerateGetter }}
+
+			func (s *{{ $builderShapeName }}) get{{ $name }}() (v {{ $.GoStructValueType $name $elem }}) {
+				{{- if $elem.UseIndirection }}
 					if s.{{ $name }} == nil {
 						return v
 					}
 					return *s.{{ $name }}
-				{{ else -}}
+				{{- else }}
 					return s.{{ $name }}
-				{{ end -}}
+				{{- end }}
 			}
 		{{- end }}
-	{{ end }}
-{{ end }}
+	{{- end }}
+{{- end }}
 
-{{ if $.EventStreamsMemberName }}
-	{{ template "eventStreamAPILoopMethodTmpl" $ }}
-{{ end }}
+{{- if $.OutputEventStreamAPI }}
+	{{- $esMemberName := $.OutputEventStreamAPI.OutputMemberName }}
+	{{- if $.OutputEventStreamAPI.Legacy }}
+		func (s *{{ $.ShapeName }}) Set{{ $esMemberName }}(v *{{ $.OutputEventStreamAPI.Name }}) *{{ $.ShapeName }} {
+			s.{{ $esMemberName }} = v
+			return s
+		}
+		func (s *{{ $.ShapeName }}) Get{{ $esMemberName }}() *{{ $.OutputEventStreamAPI.Name }} {
+			return s.{{ $esMemberName }}
+		}
+	{{- end }}
+
+	// GetStream returns the type to interact with the event stream.
+	func (s *{{ $.ShapeName }}) GetStream() *{{ $.OutputEventStreamAPI.Name }} {
+		return s.{{ $esMemberName }}
+	}
+{{- end }}
 
 {{ if $.EventFor }}
 	{{ template "eventStreamEventShapeTmpl" $ }}
@@ -748,15 +790,18 @@ type {{ .ShapeName }} struct {
 {{ if $.HasHostLabelMembers }}
 	{{ template "hostLabelsShapeTmpl" $ }}
 {{ end }}
+
+{{ if $.HasEndpointARNMember }}
+	{{ template "endpointARNShapeTmpl" $ }}
+{{ end }}
 `
 
 var enumShapeTmpl = template.Must(template.New("EnumShape").Parse(`
-{{ .Docstring }}
+{{ $.Docstring }}
 const (
-	{{ $context := . -}}
-	{{ range $index, $elem := .Enum -}}
-		{{ $name := index $context.EnumConsts $index -}}
-		// {{ $name }} is a {{ $context.ShapeName }} enum value
+	{{ range $index, $elem := $.Enum -}}
+		{{ $name := index $.EnumConsts $index -}}
+		// {{ $name }} is a {{ $.ShapeName }} enum value
 		{{ $name }} = "{{ $elem }}"
 
 	{{ end }}
@@ -768,8 +813,8 @@ func (s *Shape) GoCode() string {
 	w := &bytes.Buffer{}
 
 	switch {
-	case s.EventStreamAPI != nil:
-		if err := renderEventStreamAPIShape(w, s); err != nil {
+	case s.IsEventStream:
+		if err := renderEventStreamShape(w, s); err != nil {
 			panic(
 				fmt.Sprintf(
 					"failed to generate eventstream API shape, %s, %v",
@@ -822,6 +867,9 @@ func (s *Shape) IsRequired(member string) bool {
 	}
 	for _, n := range s.Required {
 		if n == member {
+			if ref.Shape.IsEventStream {
+				return false
+			}
 			return true
 		}
 	}
