@@ -10,7 +10,8 @@ Requires=network.target
 Type=simple
 ExecStartPre=/usr/sbin/amazon-ecs-init pre-start
 ExecStart=/usr/sbin/amazon-ecs-init start
-ExecStop=/usr/sbin/amazon-ecs-init pre-stop
+ExecStop=/usr/sbin/amazon-ecs-init stop
+ExecStopPost=/usr/sbin/amazon-ecs-init post-stop
 ExecReload=/usr/sbin/amazon-ecs-init reload-cache
 
 [Install]
