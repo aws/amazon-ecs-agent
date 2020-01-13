@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.36.0
+* Feature - structured logs and logfile rollover features [#2311](https://github.com/aws/amazon-ecs-agent/pull/2311), [#2319](https://github.com/aws/amazon-ecs-agent/pull/2319), [#2330](https://github.com/aws/amazon-ecs-agent/pull/2330)
+
 ## 1.35.0
 * Feature - EFS Preview [#2301](https://github.com/aws/amazon-ecs-agent/pull/2301)
 * Bug - Load pause container for use by PID/IPC even if task networking is disabled [#2300](https://github.com/aws/amazon-ecs-agent/pull/2300)
