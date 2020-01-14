@@ -129,11 +129,13 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	}
 
 	// get driver type from options to get the corresponding volume driver
-	var driverType string
+	var driverType, target string
 	for k, v := range r.Options {
 		switch k {
 		case "type":
 			driverType = v
+		case "target":
+			target = v
 		}
 	}
 	if driverType == "" {
@@ -150,17 +152,19 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		return fmt.Errorf("no volume driver found for type %s", driverType)
 	}
 
-	seelog.Infof("Creating mount target for new volume %s", r.Name)
-	// create the mount path on the host for the volume to be created
-	volPath, err := a.GetMountPath(r.Name)
-	if err != nil {
-		seelog.Errorf("Volume %s creation failure: %v", r.Name, err)
-		return err
+	if target == "" {
+		seelog.Infof("Creating mount target for new volume %s", r.Name)
+		// create the mount path on the host for the volume to be created
+		target, err = a.GetMountPath(r.Name)
+		if err != nil {
+			seelog.Errorf("Volume %s creation failure: %v", r.Name, err)
+			return err
+		}
 	}
 
 	req := &CreateRequest{
 		Name:    r.Name,
-		Path:    volPath,
+		Path:    target,
 		Options: r.Options,
 	}
 	err = volDriver.Create(req)
@@ -171,7 +175,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	seelog.Infof("Volume %s created successfully", r.Name)
 	vol := &Volume{
 		Type:    driverType,
-		Path:    volPath,
+		Path:    target,
 		Options: r.Options,
 	}
 

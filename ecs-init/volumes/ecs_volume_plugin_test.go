@@ -98,6 +98,41 @@ func TestVolumeCreateHappyPath(t *testing.T) {
 	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
 }
 
+func TestVolumeCreateTargetSpecified(t *testing.T) {
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewTestVolumeDriver(),
+		},
+		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
+	}
+	req := &volume.CreateRequest{
+		Name: "vol",
+		Options: map[string]string{
+			"type":   "efs",
+			"target": "/foo",
+		},
+	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		saveStateToDisk = saveState
+	}()
+	err := plugin.Create(req)
+	assert.NoError(t, err, "create volume should be successful")
+	assert.Len(t, plugin.volumes, 1)
+	vol, ok := plugin.volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", vol.Type)
+	assert.Equal(t, "/foo", vol.Path)
+	assert.Len(t, plugin.state.VolState.Volumes, 1)
+	volInfo, ok := plugin.state.VolState.Volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", volInfo.Type)
+	assert.Equal(t, "/foo", volInfo.Path)
+}
+
 func TestVolumeCreateSaveFailure(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]VolumeDriver{
