@@ -1,4 +1,4 @@
-// +build !windows,unit
+// +build !windows
 
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -32,53 +32,12 @@ func TestLogfmtFormat(t *testing.T) {
 `, s)
 }
 
-func TestLogfmtFormat_context(t *testing.T) {
-	logfmt := logfmtFormatter("")
-	out := logfmt("This is my log message", seelog.InfoLvl, &LogContextMock{
-		context: map[string]string{
-			"myID":  "12345",
-			"myARN": "arn:12345:/abc",
-		},
-	})
-	s, ok := out.(string)
-	require.True(t, ok)
-	require.Equal(t, `level=info time=2018-10-01T01:02:03Z msg="This is my log message" module=mytestmodule.go myARN=arn:12345:/abc myID=12345
-`, s)
-}
-
 func TestJSONFormat(t *testing.T) {
 	jsonF := jsonFormatter("")
 	out := jsonF("This is my log message", seelog.InfoLvl, &LogContextMock{})
 	s, ok := out.(string)
 	require.True(t, ok)
-	require.JSONEq(t, `
-		{
-			"level": "info",
-			"time": "2018-10-01T01:02:03Z",
-			"msg": "This is my log message",
-			"module": "mytestmodule.go"
-		}`, s)
-}
-
-func TestJSONFormat_context(t *testing.T) {
-	jsonF := jsonFormatter("")
-	out := jsonF("This is my log message", seelog.InfoLvl, &LogContextMock{
-		context: map[string]string{
-			"myID":  "12345",
-			"myARN": "arn:12345:/abc",
-		},
-	})
-	s, ok := out.(string)
-	require.True(t, ok)
-	require.JSONEq(t, `
-	{
-		"level": "info",
-		"time": "2018-10-01T01:02:03Z",
-		"msg": "This is my log message",
-		"module": "mytestmodule.go",
-		"myARN":"arn:12345:/abc",
-		"myID":"12345"
-	}`, s)
+	require.JSONEq(t, `{"level": "info", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message", "module": "mytestmodule.go"}`, s)
 }
 
 func TestLogfmtFormat_debug(t *testing.T) {
@@ -95,13 +54,7 @@ func TestJSONFormat_debug(t *testing.T) {
 	out := jsonF("This is my log message", seelog.DebugLvl, &LogContextMock{})
 	s, ok := out.(string)
 	require.True(t, ok)
-	require.JSONEq(t, `
-		{
-			"level": "debug",
-			"time": "2018-10-01T01:02:03Z",
-			"msg": "This is my log message",
-			"module": "mytestmodule.go"
-		}`, s)
+	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message", "module": "mytestmodule.go"}`, s)
 }
 
 func TestSeelogConfig_Default(t *testing.T) {
@@ -115,7 +68,7 @@ func TestSeelogConfig_Default(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="info">
+<seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -124,7 +77,6 @@ func TestSeelogConfig_Default(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -140,7 +92,7 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="debug">
+<seelog type="asyncloop" minlevel="debug">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -149,7 +101,6 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -165,7 +116,7 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="info">
+<seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -174,7 +125,6 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -190,7 +140,7 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="info">
+<seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -199,7 +149,6 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -215,7 +164,7 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="info">
+<seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
 		<rollingfile filename="foo.log" type="size"
@@ -224,7 +173,6 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
@@ -240,7 +188,7 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="sync" minlevel="info">
+<seelog type="asyncloop" minlevel="info">
 	<outputs formatid="json">
 		<console />
 		<rollingfile filename="foo.log" type="date"
@@ -249,14 +197,11 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`, c)
 }
 
-type LogContextMock struct {
-	context map[string]string
-}
+type LogContextMock struct{}
 
 // Caller's function name.
 func (l *LogContextMock) Func() string {
@@ -297,5 +242,5 @@ func (l *LogContextMock) CallTime() time.Time {
 
 // Custom context that can be set by calling logger.SetContext
 func (l *LogContextMock) CustomContext() interface{} {
-	return l.context
+	return map[string]string{}
 }

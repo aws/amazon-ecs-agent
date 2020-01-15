@@ -121,7 +121,5 @@ func (firelens *FirelensResource) UnmarshalJSON(b []byte) error {
 	firelens.appliedStatusUnsafe = resourcestatus.ResourceStatus(*temp.AppliedStatus)
 	firelens.networkMode = temp.NetworkMode
 
-	firelens.initLog()
-
 	return nil
 }

@@ -16,10 +16,9 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -34,11 +33,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -148,7 +147,13 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	})
 	assert.Error(t, err, "Expected error while adding a task from statemanager")
 
-	validateTask(t, addedTask, "t1")
+	// We expect task to be added to the engine even though it hasn't been saved
+	expectedTask := &apitask.Task{
+		Arn:                "t1",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+
+	assert.Equal(t, addedTask, expectedTask, "added task is not expected")
 }
 
 // TestHandlePayloadMessageAckedWhenTaskAdded tests if the handler generates an ack
@@ -189,7 +194,12 @@ func TestHandlePayloadMessageAckedWhenTaskAdded(t *testing.T) {
 	// Verify the message id acked
 	assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message is not expected")
 
-	validateTask(t, addedTask, "t1")
+	// Verify if task added == expected task
+	expectedTask := &apitask.Task{
+		Arn:                "t1",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+	assert.Equal(t, addedTask, expectedTask, "received task is not expected")
 }
 
 // TestHandlePayloadMessageCredentialsAckedWhenTaskAdded tests if the handler generates
@@ -280,7 +290,8 @@ func TestHandlePayloadMessageCredentialsAckedWhenTaskAdded(t *testing.T) {
 		SessionToken:    credentialsSessionToken,
 		CredentialsID:   credentialsId,
 	}
-	validateTaskAndCredentials(t, taskCredentialsAckRequested, expectedCredentialsAck, addedTask, taskArn, expectedCredentials, "t1")
+	err = validateTaskAndCredentials(taskCredentialsAckRequested, expectedCredentialsAck, addedTask, taskArn, expectedCredentials)
+	assert.NoError(t, err, "error validating added task or credentials ack for the same")
 }
 
 // TestAddPayloadTaskAddsNonStoppedTasksAfterStoppedTasks tests if tasks with desired status
@@ -360,7 +371,12 @@ func TestPayloadBufferHandler(t *testing.T) {
 	// Verify if payloadMessageId read from the ack buffer is correct
 	assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received task is not expected")
 
-	validateTask(t, addedTask, "t1")
+	// Verify if the task added to the engine is correct
+	expectedTask := &apitask.Task{
+		Arn:                taskArn,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+	assert.Equal(t, addedTask, expectedTask, "received task is not expected")
 }
 
 // TestPayloadBufferHandlerWithCredentials tests if the async payloadBufferHandler routine
@@ -479,7 +495,8 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		SessionToken:    firstTaskCredentialsSessionToken,
 		CredentialsID:   firstTaskCredentialsId,
 	}
-	validateTaskAndCredentials(t, firstTaskCredentialsAckRequested, expectedCredentialsAckForFirstTask, firstAddedTask, firstTaskArn, expectedCredentialsForFirstTask, "t1")
+	err := validateTaskAndCredentials(firstTaskCredentialsAckRequested, expectedCredentialsAckForFirstTask, firstAddedTask, firstTaskArn, expectedCredentialsForFirstTask)
+	assert.NoError(t, err, "error validating added task or credentials ack for the same")
 
 	// Verify the correctness of the second task added to the engine and the
 	// credentials ack generated for it
@@ -496,7 +513,8 @@ func TestPayloadBufferHandlerWithCredentials(t *testing.T) {
 		SessionToken:    secondTaskCredentialsSessionToken,
 		CredentialsID:   secondTaskCredentialsId,
 	}
-	validateTaskAndCredentials(t, secondTaskCredentialsAckRequested, expectedCredentialsAckForSecondTask, secondAddedTask, secondTaskArn, expectedCredentialsForSecondTask, "t2")
+	err = validateTaskAndCredentials(secondTaskCredentialsAckRequested, expectedCredentialsAckForSecondTask, secondAddedTask, secondTaskArn, expectedCredentialsForSecondTask)
+	assert.NoError(t, err, "error validating added task or credentials ack for the same")
 }
 
 // TestAddPayloadTaskAddsExecutionRoles tests the payload handler will add
@@ -578,18 +596,24 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 // validateTaskAndCredentials compares a task and a credentials ack object
 // against expected values. It returns an error if either of the the
 // comparisons fail
-func validateTaskAndCredentials(
-	t *testing.T,
-	taskCredentialsAck *ecsacs.IAMRoleCredentialsAckRequest,
-	expectedCredentialsAckForTask *ecsacs.IAMRoleCredentialsAckRequest,
+func validateTaskAndCredentials(taskCredentialsAck, expectedCredentialsAckForTask *ecsacs.IAMRoleCredentialsAckRequest,
 	addedTask *apitask.Task,
 	expectedTaskArn string,
-	expectedTaskCredentials credentials.IAMRoleCredentials,
-	taskName string,
-) {
-	require.Equal(t, expectedCredentialsAckForTask, taskCredentialsAck)
-	require.Equal(t, expectedTaskCredentials.CredentialsID, addedTask.GetCredentialsID())
-	validateTask(t, addedTask, taskName)
+	expectedTaskCredentials credentials.IAMRoleCredentials) error {
+	if !reflect.DeepEqual(taskCredentialsAck, expectedCredentialsAckForTask) {
+		return fmt.Errorf("Mismatch between expected and received credentials ack requests, expected: %s, got: %s", expectedCredentialsAckForTask.String(), taskCredentialsAck.String())
+	}
+
+	expectedTask := &apitask.Task{
+		Arn:                expectedTaskArn,
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+	}
+	expectedTask.SetCredentialsID(expectedTaskCredentials.CredentialsID)
+
+	if !reflect.DeepEqual(addedTask, expectedTask) {
+		return fmt.Errorf("Mismatch between expected and added tasks, expected: %v, added: %v", expectedTask, addedTask)
+	}
+	return nil
 }
 
 func TestPayloadHandlerAddedENIToTask(t *testing.T) {
@@ -924,38 +948,4 @@ func TestPayloadHandlerAddedFirelensData(t *testing.T) {
 	assert.Equal(t, aws.StringValue(expected.Type), actual.Type)
 	assert.NotNil(t, actual.Options)
 	assert.Equal(t, aws.StringValue(expected.Options["enable-ecs-log-metadata"]), actual.Options["enable-ecs-log-metadata"])
-}
-
-func validateTask(t *testing.T, addedTask *apitask.Task, expectedTaskName string) {
-	// We expect task to be added to the engine even though it hasn't been saved
-	addedTaskJSON, err := json.Marshal(addedTask)
-	require.NoError(t, err)
-	platformFields := "{}"
-	if runtime.GOOS == "windows" {
-		platformFields = `{"cpuUnbounded": false, "memoryUnbounded": false}`
-	}
-	expectedTaskJSON := fmt.Sprintf(`
-	{
-		"Arn": "%s",
-		"Family": "",
-		"Version": "",
-		"Containers": null,
-		"associations": null,
-		"resources": {},
-		"volumes": null,
-		"DesiredStatus": "NONE",
-		"KnownStatus": "NONE",
-		"KnownTime": "0001-01-01T00:00:00Z",
-		"PullStartedAt": "0001-01-01T00:00:00Z",
-		"PullStoppedAt": "0001-01-01T00:00:00Z",
-		"ExecutionStoppedAt": "0001-01-01T00:00:00Z",
-		"SentStatus": "NONE",
-		"StartSequenceNumber": 0,
-		"StopSequenceNumber": 0,
-		"executionCredentialsID": "",
-		"ENI": null,
-		"AppMesh": null,
-		"PlatformFields": %s
-	}`, expectedTaskName, platformFields)
-	require.JSONEq(t, expectedTaskJSON, string(addedTaskJSON))
 }

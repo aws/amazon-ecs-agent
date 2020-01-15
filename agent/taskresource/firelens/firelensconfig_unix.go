@@ -17,6 +17,7 @@ package firelens
 import (
 	"fmt"
 
+	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
 	generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
@@ -194,7 +195,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		}
 		config.AddExternalConfig(s3ConfPath, generator.AfterFilters)
 	}
-	firelens.log.Infof("Included external firelens config file at: %s", firelens.externalConfigValue)
+	seelog.Infof("Included external firelens config file at: %s", firelens.externalConfigValue)
 
 	return config, nil
 }

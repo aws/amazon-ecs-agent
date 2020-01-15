@@ -23,11 +23,11 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -64,8 +64,6 @@ type CgroupResource struct {
 	statusToTransitions map[resourcestatus.ResourceStatus]func() error
 	// lock is used for fields that are accessed and updated concurrently
 	lock sync.RWMutex
-	// log is a custom logger with extra context specific to the cgroup struct
-	log logger.Contextual
 }
 
 // NewCgroupResource is used to return an object that implements the Resource interface
@@ -84,12 +82,6 @@ func NewCgroupResource(taskARN string,
 		resourceSpec:    resourceSpec,
 	}
 	c.initializeResourceStatusToTransitionFunction()
-	c.log.SetContext(map[string]string{
-		"taskARN":         taskARN,
-		"cgroupRoot":      cgroupRoot,
-		"cgroupMountPath": cgroupMountPath,
-		"resourceName":    resourceName,
-	})
 	return c
 }
 
@@ -167,7 +159,8 @@ func (cgroup *CgroupResource) NextKnownState() resourcestatus.ResourceStatus {
 func (cgroup *CgroupResource) ApplyTransition(nextState resourcestatus.ResourceStatus) error {
 	transitionFunc, ok := cgroup.statusToTransitions[nextState]
 	if !ok {
-		cgroup.log.Errorf("unsupported desired state transition %s", cgroup.StatusString(nextState))
+		seelog.Errorf("Cgroup Resource [%s]: unsupported desired state transition [%s]: %s",
+			cgroup.taskARN, cgroup.GetName(), cgroup.StatusString(nextState))
 		return errors.Errorf("resource [%s]: transition to %s impossible", cgroup.GetName(),
 			cgroup.StatusString(nextState))
 	}
@@ -251,7 +244,7 @@ func (cgroup *CgroupResource) GetCreatedAt() time.Time {
 func (cgroup *CgroupResource) Create() error {
 	err := cgroup.setupTaskCgroup()
 	if err != nil {
-		cgroup.log.Errorf("unable to setup cgroup root: %v", err)
+		seelog.Criticalf("Cgroup resource [%s]: unable to setup cgroup root: %v", cgroup.taskARN, err)
 		return err
 	}
 	return nil
@@ -259,10 +252,10 @@ func (cgroup *CgroupResource) Create() error {
 
 func (cgroup *CgroupResource) setupTaskCgroup() error {
 	cgroupRoot := cgroup.cgroupRoot
-	cgroup.log.Info("setting up cgroup")
+	seelog.Debugf("Cgroup resource [%s]: setting up cgroup at: %s", cgroup.taskARN, cgroupRoot)
 
 	if cgroup.control.Exists(cgroupRoot) {
-		cgroup.log.Infof("cgroup at root already exists, skipping creation")
+		seelog.Debugf("Cgroup resource [%s]: cgroup at %s already exists, skipping creation", cgroup.taskARN, cgroupRoot)
 		return nil
 	}
 
@@ -292,7 +285,7 @@ func (cgroup *CgroupResource) Cleanup() error {
 	// Explicitly handle cgroup deleted error
 	if err != nil {
 		if err == cgroups.ErrCgroupDeleted {
-			cgroup.log.Warnf("Cgroup at root has already been removed: %v", err)
+			seelog.Warnf("Cgroup at %s has already been removed: %v", cgroup.cgroupRoot, err)
 			return nil
 		}
 		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s", cgroup.cgroupRoot)
@@ -350,12 +343,6 @@ func (cgroup *CgroupResource) UnmarshalJSON(b []byte) error {
 	if temp.KnownStatus != nil {
 		cgroup.SetKnownStatus(resourcestatus.ResourceStatus(*temp.KnownStatus))
 	}
-	cgroup.log.SetContext(map[string]string{
-		"taskARN":         cgroup.taskARN,
-		"cgroupRoot":      cgroup.cgroupRoot,
-		"cgroupMountPath": cgroup.cgroupMountPath,
-		"resourceName":    resourceName,
-	})
 	return nil
 }
 
