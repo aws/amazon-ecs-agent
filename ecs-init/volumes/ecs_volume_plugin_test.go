@@ -189,18 +189,29 @@ func TestVolumeCreateFailure(t *testing.T) {
 	assert.Len(t, plugin.volumes, 0)
 }
 
-func TestCreateNoVolumeTypeFailure(t *testing.T) {
+func TestCreateNoVolumeType(t *testing.T) {
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]VolumeDriver{
 			"efs": NewTestVolumeDriver(),
 		},
 		volumes: make(map[string]*Volume),
+		state:   NewStateManager(),
 	}
 	req := &volume.CreateRequest{
 		Name: "vol",
 	}
-	assert.Error(t, plugin.Create(req), "expected create error when no volume type specified")
-	assert.Len(t, plugin.volumes, 0)
+	createMountPath = func(path string) error {
+		return nil
+	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		createMountPath = createMountDir
+		saveStateToDisk = saveState
+	}()
+	assert.NoError(t, plugin.Create(req), "expected no create error when no volume type specified")
+	assert.Len(t, plugin.volumes, 1)
 }
 
 func TestCreateNoDriverFailure(t *testing.T) {
@@ -559,6 +570,12 @@ func TestPluginLoadState(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "efs", vol.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"efsVolume", vol.Path)
+	vols := plugin.state.VolState.Volumes
+	assert.Len(t, vols, 1)
+	volInfo, ok := vols["efsVolume"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", volInfo.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"efsVolume", volInfo.Path)
 }
 
 func TestPluginNoStateFile(t *testing.T) {

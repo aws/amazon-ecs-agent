@@ -14,7 +14,6 @@
 package volumes
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -27,7 +26,8 @@ const (
 	// VolumeMountPathPrefix is the host path where amazon ECS plugin's volumes are mounted
 	VolumeMountPathPrefix = "/var/lib/ecs/volumes/"
 	// FilePerm is the file permissions for the host volume mount directory
-	FilePerm = 0700
+	FilePerm          = 0700
+	defaultDriverType = "efs"
 )
 
 // AmazonECSVolumePlugin holds list of volume drivers and volumes information
@@ -106,11 +106,15 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 		}
 		a.volumes[volName] = volume
 		voldriver.Setup(volName, volume)
+		a.state.recordVolume(volName, volume)
 	}
 	return nil
 }
 
 func (a *AmazonECSVolumePlugin) getVolumeDriver(driverType string) (VolumeDriver, error) {
+	if driverType == "" {
+		return a.volumeDrivers[defaultDriverType], nil
+	}
 	if _, ok := a.volumeDrivers[driverType]; !ok {
 		return nil, fmt.Errorf("volume %s type not supported", driverType)
 	}
@@ -137,10 +141,6 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 		case "target":
 			target = v
 		}
-	}
-	if driverType == "" {
-		seelog.Errorf("Volume type required for volume %s creation", r.Name)
-		return errors.New("volume type not specified")
 	}
 	volDriver, err := a.getVolumeDriver(driverType)
 	if err != nil {
@@ -181,7 +181,6 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 
 	// record the volume information
 	a.volumes[r.Name] = vol
-
 	seelog.Infof("Saving state of new volume %s", r.Name)
 	// save the state of new volume
 	err = a.state.recordVolume(r.Name, vol)

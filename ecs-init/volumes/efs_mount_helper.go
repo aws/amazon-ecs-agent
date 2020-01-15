@@ -61,9 +61,6 @@ func runMountCommand(args []string) error {
 // Validate validates fields as part of the mount command
 func (m *MountHelper) Validate() error {
 	requiredFields := []string{}
-	if m.MountType == "" {
-		requiredFields = append(requiredFields, "mountType")
-	}
 	if m.Device == "" {
 		requiredFields = append(requiredFields, "device")
 	}
