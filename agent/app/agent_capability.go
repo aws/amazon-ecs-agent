@@ -58,6 +58,7 @@ const (
 	capabilityFullTaskSync                      = "full-sync"
 	capabilityGMSA                              = "gmsa"
 	capabilityEFS                               = "efs"
+	capabilityEFSAuth                           = "efsAuth"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -104,6 +105,7 @@ const (
 //    ecs.capability.firelens.options.config.s3
 //    ecs.capability.full-sync
 //    ecs.capability.gmsa
+//    ecs.capability.efsAuth
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -202,6 +204,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support GMSA capabilities
 	capabilities = agent.appendGMSACapabilities(capabilities)
+
+	// support efs auth on ecs capabilities
+	capabilities = agent.appendEFSAuthCapabilities(capabilities)
 
 	return capabilities, nil
 }

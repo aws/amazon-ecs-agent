@@ -72,3 +72,7 @@ func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*
 
 	return capabilities
 }
+
+func (agent *ecsAgent) appendEFSAuthCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
