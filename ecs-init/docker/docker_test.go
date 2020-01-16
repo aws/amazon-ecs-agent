@@ -47,12 +47,8 @@ func TestIsAgentImageLoadedListFailure(t *testing.T) {
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
-	if err == nil {
-		t.Error("Error should be returned")
-	}
-	if loaded {
-		t.Error("IsImageLoaded should return false")
-	}
+	assert.Error(t, err, "error should be returned when list image fails")
+	assert.False(t, loaded, "IsImageLoaded should return false if list image fails")
 }
 
 func TestIsAgentImageLoadedNoMatches(t *testing.T) {
@@ -70,12 +66,8 @@ func TestIsAgentImageLoadedNoMatches(t *testing.T) {
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
-	if err != nil {
-		t.Error("Error should not be returned")
-	}
-	if loaded {
-		t.Error("IsImageLoaded should return false")
-	}
+	assert.NoError(t, err, "error should not be returned when no images match")
+	assert.False(t, loaded, "IsImageLoaded should return false if there are no matches")
 }
 
 func TestIsImageLoadedMatches(t *testing.T) {
@@ -93,12 +85,8 @@ func TestIsImageLoadedMatches(t *testing.T) {
 		docker: mockDocker,
 	}
 	loaded, err := client.IsAgentImageLoaded()
-	if err != nil {
-		t.Error("Error should not be returned")
-	}
-	if !loaded {
-		t.Error("IsImageLoaded should return true")
-	}
+	assert.NoError(t, err, "error should not be returned when image match is found")
+	assert.True(t, loaded, "IsImageLoaded should return true if there is a match")
 }
 
 func TestLoadImage(t *testing.T) {
@@ -112,7 +100,8 @@ func TestLoadImage(t *testing.T) {
 	client := &Client{
 		docker: mockDocker,
 	}
-	client.LoadImage(nil)
+	err := client.LoadImage(nil)
+	assert.NoError(t, err, "no errors should be returned on load image with nil image")
 }
 
 func TestRemoveExistingAgentContainerListContainersFailure(t *testing.T) {

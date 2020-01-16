@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.35.0
+Version:        1.36.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -255,6 +255,11 @@ fi
 %endif
 
 %changelog
+
+* Wed Jan 08 2020 Cameron Sparr <cssparr@amazon.com> - 1.36.0-1
+- Cache Agent version 1.36.0
+- Capture a fixed tail of container logs when removing a container
+
 * Thu Dec 12 2019 Derek Petersen <petderek@amazon.com> - 1.35.0-1
 - Cache Agent version 1.35.0
 - Fix bug where stopping agent gracefully would still restart ecs-init

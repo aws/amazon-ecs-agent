@@ -26,6 +26,7 @@ import (
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -57,9 +58,7 @@ func TestIsAgentCachedFalseMissingState(t *testing.T) {
 		fs: mockFS,
 	}
 
-	if d.IsAgentCached() {
-		t.Error("Expected d.IsAgentCached() to be false")
-	}
+	assert.False(t, d.IsAgentCached(), "expect d.IsAgentCached() to be false")
 }
 
 func TestIsAgentCachedFalseEmptyState(t *testing.T) {
@@ -76,9 +75,7 @@ func TestIsAgentCachedFalseEmptyState(t *testing.T) {
 		fs: mockFS,
 	}
 
-	if d.IsAgentCached() {
-		t.Error("Expected d.IsAgentCached() to be false")
-	}
+	assert.False(t, d.IsAgentCached(), "expect d.IsAgentCached() to be false")
 }
 
 func TestIsAgentCachedFalseMissingTarball(t *testing.T) {
@@ -95,9 +92,7 @@ func TestIsAgentCachedFalseMissingTarball(t *testing.T) {
 		fs: mockFS,
 	}
 
-	if d.IsAgentCached() {
-		t.Error("Expected d.IsAgentCached() to be false")
-	}
+	assert.False(t, d.IsAgentCached(), "expect d.IsAgentCached() to be false")
 }
 
 func TestIsAgentCachedTrue(t *testing.T) {
@@ -116,9 +111,7 @@ func TestIsAgentCachedTrue(t *testing.T) {
 		fs: mockFS,
 	}
 
-	if !d.IsAgentCached() {
-		t.Error("Expected d.IsAgentCached() to be true")
-	}
+	assert.True(t, d.IsAgentCached(), "expect d.IsAgentCached() to be true")
 }
 
 func TestAgentCacheStatus(t *testing.T) {
@@ -154,9 +147,7 @@ func TestAgentCacheStatus(t *testing.T) {
 			d := &Downloader{fs: mockFS}
 
 			actual := d.AgentCacheStatus()
-			if actual != testcase.expected {
-				t.Errorf("Unexpected output %d for input %s, expected %d", actual, testcase.data, testcase.expected)
-			}
+			assert.Equal(t, testcase.expected, actual, "expected output %d to match %d for input %s", actual, testcase.expected, testcase.data)
 		})
 	}
 }
@@ -177,9 +168,7 @@ func TestGetPartitionBucketRegion(t *testing.T) {
 		t.Run(c.region, func(t *testing.T) {
 			d.region = c.region
 			result := d.getPartitionBucketRegion()
-			if result != c.expectedResult {
-				t.Errorf("getPartitionBucketRegion did not get correct result. Result returned: %s", result)
-			}
+			assert.Equal(t, c.expectedResult, result, "expected getPartitionBucketRegion to give result %s", result)
 		})
 	}
 }
@@ -212,12 +201,6 @@ func TestDownloadAgentDownloadMD5Failure(t *testing.T) {
 	mockS3Downloader := NewMocks3DownloaderAPI(mockCtrl)
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
-	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
-	defer tempMD5File.Close()
-
 	gomock.InOrder(
 		mockFS.EXPECT().MkdirAll(config.CacheDirectory(), os.ModeDir|0700),
 		mockS3Downloader.EXPECT().downloadFile(remoteTarballMD5Key).Return("", errors.New("test error")),
@@ -242,9 +225,7 @@ func TestDownloadAgentReadPublishedMd5Failure(t *testing.T) {
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempMD5File.Close()
 
 	gomock.InOrder(
@@ -276,15 +257,11 @@ func TestDownloadAgentDownloadTarballFailure(t *testing.T) {
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempMD5File.Close()
 
 	tempAgentFile, err := ioutil.TempFile("", "agent-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempAgentFile.Close()
 
 	gomock.InOrder(
@@ -317,15 +294,11 @@ func TestDownloadAgentCopyFailure(t *testing.T) {
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempMD5File.Close()
 
 	tempAgentFile, err := ioutil.TempFile("", "agent-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempAgentFile.Close()
 
 	tempReader := ioutil.NopCloser(&bytes.Buffer{})
@@ -364,15 +337,11 @@ func TestDownloadAgentMD5Mismatch(t *testing.T) {
 	mockMetadata := NewMockinstanceMetadata(mockCtrl)
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempMD5File.Close()
 
 	tempAgentFile, err := ioutil.TempFile("", "agent-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempAgentFile.Close()
 
 	tempReader := ioutil.NopCloser(&bytes.Buffer{})
@@ -409,15 +378,11 @@ func TestDownloadAgentSuccess(t *testing.T) {
 	expectedMd5Sum := fmt.Sprintf("%x\n", md5.Sum([]byte(tarballContents)))
 
 	tempMD5File, err := ioutil.TempFile("", "md5-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempMD5File.Close()
 
 	tempAgentFile, err := ioutil.TempFile("", "agent-test")
-	if err != nil {
-		t.Fail()
-	}
+	assert.NoError(t, err, "Expect to successfully create a temporary file")
 	defer tempAgentFile.Close()
 
 	mockFS := NewMockfileSystem(mockCtrl)
@@ -434,9 +399,7 @@ func TestDownloadAgentSuccess(t *testing.T) {
 		mockFS.EXPECT().Open(tempAgentFile.Name()).Return(tarballReader, nil),
 		mockFS.EXPECT().Copy(gomock.Any(), tarballReader).Do(func(writer io.Writer, reader io.Reader) {
 			_, err = io.Copy(writer, reader)
-			if err != nil {
-				t.Fail()
-			}
+			assert.NoError(t, err, "Expect to successfully write to file")
 		}),
 		mockFS.EXPECT().Rename(tempAgentFile.Name(), config.AgentTarball()),
 		mockFS.EXPECT().Stat(tempAgentFile.Name()).Return(nil, errors.New("temp file has been renamed")),
@@ -465,9 +428,7 @@ func TestLoadDesiredAgentFailOpenDesired(t *testing.T) {
 	}
 
 	_, err := d.LoadDesiredAgent()
-	if err == nil {
-		t.Error("Expected error to be returned but got nil")
-	}
+	assert.Error(t, err, "Expect error to be returned when unable to open desired image file")
 }
 
 func TestLoadDesiredAgentFailReadDesired(t *testing.T) {
@@ -483,9 +444,7 @@ func TestLoadDesiredAgentFailReadDesired(t *testing.T) {
 	}
 
 	_, err := d.LoadDesiredAgent()
-	if err == nil {
-		t.Error("Expected error to be returned but got nil")
-	}
+	assert.Error(t, err, "Expect error to be returned when unable to read desired image file")
 }
 
 func TestRecordCachedAgent(t *testing.T) {
