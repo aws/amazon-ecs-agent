@@ -421,6 +421,8 @@ type EFSVolumeConfiguration struct {
 	FileSystemId *string `locationName:"fileSystemId" type:"string"`
 
 	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+
+	TransitEncryption *string `locationName:"transitEncryption" type:"string" enum:"EFSTransitEncryption"`
 }
 
 // String returns the string representation
