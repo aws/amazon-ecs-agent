@@ -86,7 +86,7 @@ func NewMockClientWithConfig(ctrl *gomock.Controller,
 	ec2Metadata ec2.EC2MetadataClient,
 	additionalAttributes map[string]string,
 	cfg *config.Config) (api.ECSClient, *mock_api.MockECSSDK, *mock_api.MockECSSubmitStateSDK) {
-	client := NewECSClient(credentials.AnonymousCredentials, cfg, ec2Metadata)
+	client := NewECSClient(credentials.AnonymousCredentials, cfg, ec2Metadata, nil)
 	mockSDK := mock_api.NewMockECSSDK(ctrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(ctrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -544,7 +544,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		&config.Config{Cluster: configuredCluster,
 			AWSRegion:      "us-east-1",
 			ReservedMemory: uint16(mem) + 1,
-		}, mockEC2Metadata)
+		}, mockEC2Metadata, nil)
 	mockSDK := mock_api.NewMockECSSDK(mockCtrl)
 	mockSubmitStateSDK := mock_api.NewMockECSSubmitStateSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mockSDK)
@@ -628,7 +628,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 			Cluster:   "",
 			AWSRegion: "us-east-1",
 		},
-		mockEC2Metadata)
+		mockEC2Metadata,
+		nil)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 
@@ -684,7 +685,8 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 			Cluster:   "",
 			AWSRegion: "us-east-1",
 		},
-		mockEC2Metadata)
+		mockEC2Metadata,
+		nil)
 	mc := mock_api.NewMockECSSDK(mockCtrl)
 	client.(*APIECSClient).SetSDK(mc)
 

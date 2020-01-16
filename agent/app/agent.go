@@ -208,7 +208,7 @@ func (agent *ecsAgent) start() int {
 	credentialsManager := credentials.NewManager()
 	state := dockerstate.NewTaskEngineState()
 	imageManager := engine.NewImageManager(agent.cfg, agent.dockerClient, state)
-	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
+	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient, nil)
 
 	agent.initializeResourceFields(credentialsManager)
 	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)

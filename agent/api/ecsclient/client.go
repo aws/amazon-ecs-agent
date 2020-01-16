@@ -16,6 +16,7 @@ package ecsclient
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"runtime"
 	"strings"
 	"time"
@@ -60,12 +61,17 @@ type APIECSClient struct {
 func NewECSClient(
 	credentialProvider *credentials.Credentials,
 	config *config.Config,
-	ec2MetadataClient ec2.EC2MetadataClient) api.ECSClient {
+	ec2MetadataClient ec2.EC2MetadataClient,
+	httpClient *http.Client) api.ECSClient {
 
 	var ecsConfig aws.Config
 	ecsConfig.Credentials = credentialProvider
 	ecsConfig.Region = &config.AWSRegion
-	ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
+	if httpClient != nil {
+		ecsConfig.HTTPClient = httpClient
+	} else {
+		ecsConfig.HTTPClient = httpclient.New(roundtripTimeout, config.AcceptInsecureCert)
+	}
 	if config.APIEndpoint != "" {
 		ecsConfig.Endpoint = &config.APIEndpoint
 	}
