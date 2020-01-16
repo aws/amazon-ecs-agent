@@ -299,12 +299,19 @@
         "trunkInterfaceMacAddress":{"shape":"String"}
       }
     },
-
+    "EFSTransitEncryption":{
+      "type":"string",
+      "enum":[
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
     "EFSVolumeConfiguration": {
       "type":"structure",
       "members":{
         "fileSystemId":{"shape":"String"},
-        "rootDirectory":{"shape":"String"}
+        "rootDirectory":{"shape":"String"},
+        "transitEncryption":{"shape":"EFSTransitEncryption"}
       }
     },
     "ElasticNetworkInterface":{
