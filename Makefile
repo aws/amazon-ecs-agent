@@ -14,7 +14,7 @@
 VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
 DEB_SIGN ?= 1
 
-.PHONY: dev generate lint static test build-mock-images sources rpm srpm
+.PHONY: dev generate lint static test build-mock-images sources rpm srpm govet
 
 dev:
 	./scripts/gobuild.sh dev
@@ -28,10 +28,13 @@ lint:
 static:
 	./scripts/gobuild.sh
 
+govet:
+	go vet $(shell go list ./ecs-init/...)
+
 gotest:
 	go test -count=1 -short -v -cover ./...
 
-test: generate lint gotest
+test: generate lint govet gotest
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/test.dockerfile -t "amazon/amazon-ecs-init-test:make" .

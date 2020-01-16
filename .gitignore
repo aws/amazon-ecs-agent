@@ -16,3 +16,4 @@
 ecs-agent-*.tar
 ecs.service
 *.log
+.idea/
