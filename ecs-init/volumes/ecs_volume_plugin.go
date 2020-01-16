@@ -185,8 +185,7 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	// save the state of new volume
 	err = a.state.recordVolume(r.Name, vol)
 	if err != nil {
-		seelog.Errorf("Error saving state of new volume %s", r.Name)
-		return err
+		seelog.Errorf("Error saving state of new volume %s: %v", r.Name, err)
 	}
 	return nil
 }
@@ -275,17 +274,16 @@ func (a *AmazonECSVolumePlugin) Remove(r *volume.RemoveRequest) error {
 
 	// remove the volume information
 	delete(a.volumes, r.Name)
+	// cleanup the volume's host mount path
+	err = a.CleanupMountPath(vol.Path)
+	if err != nil {
+		seelog.Errorf("Cleaning mount path failed for volume %s: %v", r.Name, err)
+	}
 	seelog.Infof("Saving state after removing volume %s", r.Name)
 	// remove the state of deleted volume
 	err = a.state.removeVolume(r.Name)
 	if err != nil {
-		seelog.Errorf("Error saving state")
-		return err
-	}
-	// cleanup the volume's host mount path
-	err = a.CleanupMountPath(vol.Path)
-	if err != nil {
-		seelog.Warnf("Cleaning mount path failed for volume %s: %v", r.Name, err)
+		seelog.Errorf("Error saving state after removing volume %s: %v", r.Name, err)
 	}
 	return nil
 }

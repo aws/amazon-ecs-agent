@@ -158,12 +158,17 @@ func TestVolumeCreateSaveFailure(t *testing.T) {
 		saveStateToDisk = saveState
 	}()
 	err := plugin.Create(req)
-	assert.Error(t, err, "create volume failed due to state save failure")
+	assert.NoError(t, err, "create volume successful but save state failed")
 	assert.Len(t, plugin.volumes, 1)
 	vol, ok := plugin.volumes["vol"]
 	assert.True(t, ok)
 	assert.Equal(t, "efs", vol.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"vol", vol.Path)
+	assert.Len(t, plugin.state.VolState.Volumes, 1)
+	volInfo, ok := plugin.state.VolState.Volumes["vol"]
+	assert.True(t, ok)
+	assert.Equal(t, "efs", volInfo.Type)
+	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
 }
 
 func TestVolumeCreateFailure(t *testing.T) {
@@ -457,6 +462,70 @@ func TestRemoveVolumeDriverNotFound(t *testing.T) {
 	}
 	req := &volume.RemoveRequest{Name: volName}
 	assert.Error(t, plugin.Remove(req), "expected error when corresponding volume driver not found")
+}
+
+func TestVolumeRemoveMountPathFailure(t *testing.T) {
+	volName := "vol"
+	path := VolumeMountPathPrefix + volName
+	vol := &Volume{
+		Path: path,
+		Type: "efs",
+	}
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewTestVolumeDriver(),
+		},
+		volumes: map[string]*Volume{
+			volName: vol,
+		},
+		state: NewStateManager(),
+	}
+	req := &volume.RemoveRequest{Name: volName}
+	removeMountPath = func(path string) error {
+		return errors.New("removing path failed")
+	}
+	saveStateToDisk = func(b []byte) error {
+		return nil
+	}
+	defer func() {
+		removeMountPath = deleteMountPath
+		saveStateToDisk = saveState
+	}()
+	assert.NoError(t, plugin.Remove(req))
+	assert.Len(t, plugin.volumes, 0)
+	assert.Len(t, plugin.state.VolState.Volumes, 0)
+}
+
+func TestVolumeRemoveStateSaveFailure(t *testing.T) {
+	volName := "vol"
+	path := VolumeMountPathPrefix + volName
+	vol := &Volume{
+		Path: path,
+		Type: "efs",
+	}
+	plugin := &AmazonECSVolumePlugin{
+		volumeDrivers: map[string]VolumeDriver{
+			"efs": NewTestVolumeDriver(),
+		},
+		volumes: map[string]*Volume{
+			volName: vol,
+		},
+		state: NewStateManager(),
+	}
+	req := &volume.RemoveRequest{Name: volName}
+	removeMountPath = func(path string) error {
+		return nil
+	}
+	saveStateToDisk = func(b []byte) error {
+		return errors.New("save to disk failed")
+	}
+	defer func() {
+		removeMountPath = deleteMountPath
+		saveStateToDisk = saveState
+	}()
+	assert.NoError(t, plugin.Remove(req))
+	assert.Len(t, plugin.volumes, 0)
+	assert.Len(t, plugin.state.VolState.Volumes, 0)
 }
 
 func TestListVolumes(t *testing.T) {
