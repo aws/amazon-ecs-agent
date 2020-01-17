@@ -215,14 +215,15 @@ func (a *API) Setup() error {
 	a.renameAPIPayloadShapes()
 	a.renameCollidingFields()
 	a.updateTopLevelShapeReferences()
-	a.renameS3EventStreamMember()
 	if err := a.setupEventStreams(); err != nil {
 		return err
 	}
 
 	a.findEndpointDiscoveryOp()
 	a.injectUnboundedOutputStreaming()
-	a.customizationPasses()
+	if err := a.customizationPasses(); err != nil {
+		return err
+	}
 
 	if !a.NoRemoveUnusedShapes {
 		a.removeUnusedShapes()

@@ -99,6 +99,7 @@ var formatterFuncs = map[string]FormatterFunc{
 	"UTCTime":   formatterUTCTime,
 	"Ns":        formatterNs,
 	"UTCNs":     formatterUTCNs,
+	"r":         formatterr,
 	"n":         formattern,
 	"t":         formattert,
 }
@@ -420,6 +421,10 @@ func formatterNs(message string, level LogLevel, context LogContextInterface) in
 
 func formatterUTCNs(message string, level LogLevel, context LogContextInterface) interface{} {
 	return context.CallTime().UTC().UnixNano()
+}
+
+func formatterr(message string, level LogLevel, context LogContextInterface) interface{} {
+	return "\r"
 }
 
 func formattern(message string, level LogLevel, context LogContextInterface) interface{} {

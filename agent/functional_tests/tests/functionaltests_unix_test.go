@@ -459,7 +459,7 @@ func taskIAMRoles(networkMode string, agent *TestAgent, t *testing.T) {
 	require.Equal(t, 0, containerMetaData.State.ExitCode, fmt.Sprintf("Container exit code non-zero: %v", containerMetaData.State.ExitCode))
 
 	// Search the audit log to verify the credential request
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *task.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", *task.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -807,8 +807,8 @@ func TestExecutionRole(t *testing.T) {
 	assert.Len(t, resp.Events, 1, fmt.Sprintf("Get unexpected number of log events: %d", len(resp.Events)))
 	assert.Equal(t, *resp.Events[0].Message, "hello world", fmt.Sprintf("Got log events message unexpected: %s", *resp.Events[0].Message))
 	// Search the audit log to verify the credential request from awslogs driver
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", "GetCredentialsExecutionRole")
-	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log.", *testTask.TaskArn)
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", "GetCredentialsExecutionRole")
+	err = utils.SearchStrInDir(filepath.Join(agent.TestDir, "log"), "audit.log", *testTask.TaskArn)
 	require.NoError(t, err, "Verify credential request failed")
 }
 
@@ -1359,12 +1359,12 @@ func TestASMSecretsARN(t *testing.T) {
 //   1. creates an EFS filesystem with a mount target.
 //   2. spins up a task to mount and write to the filesystem.
 //   3. spins up a task to mount and read from the filesystem.
-//   4. TODO: do this via efsVolumeConfiguration instead of via NFS/Docker.
 func TestRunEFSVolumeTask(t *testing.T) {
 	os.Setenv("ECS_FTEST_FORCE_NET_HOST", "true")
 	defer os.Unsetenv("ECS_FTEST_FORCE_NET_HOST")
-	if IsCNPartition() {
-		t.Skip("Skip TestRunEFSVolumeTask in China partition")
+
+	if !IsEFSCapable() {
+		t.Skip("Skip TestRunEFSVolumeTask in unsupported region")
 	}
 
 	agent := RunAgent(t, nil)
