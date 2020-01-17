@@ -91,11 +91,13 @@ func TestVolumeCreateHappyPath(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "efs", vol.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"vol", vol.Path)
+	assert.NotEmpty(t, vol.CreatedAt)
 	assert.Len(t, plugin.state.VolState.Volumes, 1)
 	volInfo, ok := plugin.state.VolState.Volumes["vol"]
 	assert.True(t, ok)
 	assert.Equal(t, "efs", volInfo.Type)
 	assert.Equal(t, VolumeMountPathPrefix+"vol", volInfo.Path)
+	assert.Equal(t, vol.CreatedAt, volInfo.CreatedAt)
 }
 
 func TestVolumeCreateTargetSpecified(t *testing.T) {
@@ -544,7 +546,10 @@ func TestListVolumes(t *testing.T) {
 }
 
 func TestGetVolume(t *testing.T) {
-	vol := &Volume{}
+	vol := &Volume{
+		Path:      "/var/lib/ecs/volume/vol",
+		CreatedAt: "2020-01-17T21:20:04Z",
+	}
 	plugin := &AmazonECSVolumePlugin{
 		volumeDrivers: map[string]VolumeDriver{},
 		volumes: map[string]*Volume{
@@ -557,6 +562,8 @@ func TestGetVolume(t *testing.T) {
 	resp, err := plugin.Get(req)
 	assert.NoError(t, err)
 	assert.Equal(t, "vol1", resp.Volume.Name)
+	assert.Equal(t, vol.Path, resp.Volume.Mountpoint)
+	assert.Equal(t, vol.CreatedAt, resp.Volume.CreatedAt)
 }
 
 func TestGetVolumeError(t *testing.T) {

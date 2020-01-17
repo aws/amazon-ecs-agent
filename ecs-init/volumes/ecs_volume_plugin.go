@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/cihub/seelog"
 	"github.com/docker/go-plugins-helpers/volume"
@@ -59,9 +60,10 @@ type VolumeDriver interface {
 
 // Volume holds full details about a volume
 type Volume struct {
-	Type    string
-	Path    string
-	Options map[string]string
+	Type      string
+	Path      string
+	Options   map[string]string
+	CreatedAt string
 }
 
 // CreateRequest holds fields necessary for creating a volume
@@ -100,14 +102,15 @@ func (a *AmazonECSVolumePlugin) LoadState() error {
 			return fmt.Errorf("could not load plugin state: %v", err)
 		}
 		volume := &Volume{
-			Type:    vol.Type,
-			Path:    vol.Path,
-			Options: vol.Options,
+			Type:      vol.Type,
+			Path:      vol.Path,
+			Options:   vol.Options,
+			CreatedAt: vol.CreatedAt,
 		}
 		a.volumes[volName] = volume
 		voldriver.Setup(volName, volume)
-		a.state.recordVolume(volName, volume)
 	}
+	a.state.VolState = oldState
 	return nil
 }
 
@@ -174,11 +177,11 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	}
 	seelog.Infof("Volume %s created successfully", r.Name)
 	vol := &Volume{
-		Type:    driverType,
-		Path:    target,
-		Options: r.Options,
+		Type:      driverType,
+		Path:      target,
+		Options:   r.Options,
+		CreatedAt: time.Now().Format(time.RFC3339Nano),
 	}
-
 	// record the volume information
 	a.volumes[r.Name] = vol
 	seelog.Infof("Saving state of new volume %s", r.Name)
@@ -310,14 +313,17 @@ func (a *AmazonECSVolumePlugin) List() (*volume.ListResponse, error) {
 func (a *AmazonECSVolumePlugin) Get(r *volume.GetRequest) (*volume.GetResponse, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	_, ok := a.volumes[r.Name]
+	vol, ok := a.volumes[r.Name]
 	if !ok {
 		return nil, fmt.Errorf("volume %s not found", r.Name)
 	}
-	vol := &volume.Volume{
-		Name: r.Name,
+	resp := &volume.Volume{
+		Name:       r.Name,
+		Mountpoint: vol.Path,
+		CreatedAt:  vol.CreatedAt,
 	}
-	return &volume.GetResponse{Volume: vol}, nil
+	seelog.Infof("Returning volume information for %s", resp.Name)
+	return &volume.GetResponse{Volume: resp}, nil
 }
 
 // Path implements Docker volume plugin's Path Method
