@@ -31,4 +31,6 @@ EXPOSE 51678 51679
 
 HEALTHCHECK CMD ["/agent", "--healthcheck"]
 
+ENV PATH /host/sbin:$PATH
+
 ENTRYPOINT ["/agent"]

@@ -228,7 +228,7 @@ func (agent *TestAgent) StartAgent() error {
 				"/lib64:/lib64:ro",
 				"/proc:/host/proc:ro",
 				"/var/lib/ecs/dhclient:/var/lib/ecs/dhclient",
-				"/sbin:/sbin:ro",
+				"/sbin:/host/sbin:ro",
 				"/lib:/lib:ro",
 				"/usr/lib:/usr/lib:ro",
 				"/usr/lib64:/usr/lib64:ro",
