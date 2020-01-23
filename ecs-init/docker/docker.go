@@ -88,9 +88,12 @@ const (
 	// pluginSpecFilesUsrDir specifies one of the locations of spec or json files
 	// of Docker plugins
 	pluginSpecFilesUsrDir = "/usr/lib/docker/plugins"
-	// iptablesExecutableDir specifies the location of the iptable
-	// executable on the host and in the Agent container
-	iptablesExecutableDir = "/sbin"
+	// iptablesExecutableHostDir specifies the location of the iptable
+	// executable on the host
+	iptablesExecutableHostDir = "/sbin"
+	// iptablesExecutableHostDir specifies the location of the iptable
+	// executable inside container.
+	iptablesExecutableContainerDir = "/host/sbin"
 
 	// the following libDirs  specify the location of shared libraries on the
 	// host and in the Agent container required for the execution of the iptables

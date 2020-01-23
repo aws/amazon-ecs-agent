@@ -266,7 +266,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(iptablesLibDir+":"+iptablesLibDir+":ro", binds, t)
 	expectKey(iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+":ro", binds, t)
 	expectKey(iptablesLib64Dir+":"+iptablesLib64Dir+":ro", binds, t)
-	expectKey(iptablesExecutableDir+":"+iptablesExecutableDir+":ro", binds, t)
+	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}
