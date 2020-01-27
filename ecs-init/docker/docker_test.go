@@ -233,7 +233,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST=true", envVariables, t)
 	expectKey("ECS_ENABLE_TASK_ENI=true", envVariables, t)
 	expectKey("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE=true", envVariables, t)
-
+	expectKey(`ECS_VOLUME_PLUGIN_CAPABILITIES=["efsAuth"]`, envVariables, t)
 	if cfg.Image != config.AgentImageName {
 		t.Errorf("Expected image to be %s", config.AgentImageName)
 	}

@@ -222,7 +222,7 @@ func (c *Client) GetContainerLogTail(logWindowSize string) string {
 	containerToLog, _ := c.findAgentContainer()
 	if containerToLog == "" {
 		log.Info("No existing container to take logs from.")
-                return ""
+		return ""
 	}
 	// we want to capture some logs from our removed containers in case of failure
 	var containerLogBuf bytes.Buffer
@@ -253,6 +253,7 @@ func (c *Client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 		"ECS_ENABLE_TASK_IAM_ROLE":              "true",
 		"ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST": "true",
 		"ECS_AGENT_LABELS":                      "",
+		"ECS_VOLUME_PLUGIN_CAPABILITIES":        `["efsAuth"]`,
 	}
 
 	// for al, al2 add host ssl cert directory envvar if available
