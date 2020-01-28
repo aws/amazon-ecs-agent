@@ -29,7 +29,7 @@ const (
 	BytesInMiB = 1024 * 1024
 )
 
-const minimumQueueDatapoints = 2
+const minimumQueueDatapoints = 1
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
@@ -319,9 +319,9 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
-	if queueLength < 2 {
-		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in queue to calculate CW stats set")
+	if queueLength < 1 {
+		// Need at least 1 data points to calculate this.
+		return nil, fmt.Errorf("Need at least 1 data points in the queue to calculate int stats")
 	}
 
 	var min, max, sum float64
@@ -360,9 +360,9 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 	defer queue.lock.Unlock()
 
 	queueLength := len(queue.buffer)
-	if queueLength < 2 {
-		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in the queue to calculate int stats")
+	if queueLength < 1 {
+		// Need at least 1 data points to calculate this.
+		return nil, fmt.Errorf("Need at least 1 data points in the queue to calculate int stats")
 	}
 
 	var min, max, sum uint64
