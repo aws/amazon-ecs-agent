@@ -32,7 +32,6 @@ type MountHelper struct {
 	Device    string
 	Target    string
 	Options   string
-	NetNSPid  int
 }
 
 // Mount helps mount EFS volumes

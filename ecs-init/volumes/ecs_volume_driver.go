@@ -15,7 +15,6 @@ package volumes
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/cihub/seelog"
@@ -80,9 +79,6 @@ func setOptions(options map[string]string) *MountHelper {
 		switch k {
 		case "type":
 			mnt.MountType = v
-		case "netns":
-			pid, _ := strconv.Atoi(v)
-			mnt.NetNSPid = pid
 		case "o":
 			mnt.Options = v
 		case "device":
