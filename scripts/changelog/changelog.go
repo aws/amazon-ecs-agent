@@ -1,97 +1,122 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "os"
-    "strings"
-    "time"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+	"time"
 )
 
 type Change struct {
-    Version string
-    Name string
-    Datetime time.Time
-    Changes []string
+	Version  string
+	Name     string
+	Datetime time.Time
+	Changes  []string
 }
 
 const (
-    CHANGE_TEMPLATE = "./CHANGELOG_MASTER"
-    TOP_LEVEL = "../../CHANGELOG.md"
-    AMAZON_LINUX = "../../packaging/amazon-linux-ami/ecs-init.spec"
-    SUSE = "../../packaging/suse/amazon-ecs-init.changes"
-    UBUNTU = "../../packaging/ubuntu-trusty/debian/changelog"
+	CHANGE_TEMPLATE = "./CHANGELOG_MASTER"
+	TOP_LEVEL       = "../../CHANGELOG.md"
+	AMAZON_LINUX    = "../../packaging/amazon-linux-ami/ecs-init.spec"
+	SUSE            = "../../packaging/suse/amazon-ecs-init.changes"
+	UBUNTU          = "../../packaging/ubuntu-trusty/debian/changelog"
 
-    AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
-    DEBIAN_TIME_FMT = "Mon, 02 Jan 2006 15:04:05 -0700"
-    SUSE_TIME_FMT = "Mon Jan 02, 15:04:05 MST 2006"
+	AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
+	DEBIAN_TIME_FMT       = "Mon, 02 Jan 2006 15:04:05 -0700"
+	SUSE_TIME_FMT         = "Mon Jan 02, 15:04:05 MST 2006"
 
-    PST_CONV = "-0800"
+	PST_CONV = "-0800"
 )
 
 func main() {
-    templateFile, err := os.Open(CHANGE_TEMPLATE)
-    handleErr(err, "unable to open CHANGE_TEMPLATE")
-    defer templateFile.Close()
+	templateFile, err := os.Open(CHANGE_TEMPLATE)
+	handleErr(err, "unable to open CHANGE_TEMPLATE")
+	defer templateFile.Close()
 
-    // parse CHANGE_TEMPLATE
-    // TODO add validation dates in ascending order
-    // TODO add validation no duplicate versions
-    scanner := bufio.NewScanner(templateFile)
-    changeArray := []Change{}
-    changeStrings := []string{}
-    for scanner.Scan() {
-        thisText := scanner.Text()
-        if thisText == "" {
-            currentChanges := []string{}
-            // parse the remaining array of changes
-            for i := 3; i< len(changeStrings); i++ {
-                currentChanges = append(currentChanges, changeStrings[i])
-            }
-            thisTime, err := time.Parse(time.RFC1123, changeStrings[2])
-            handleErr(err, "error parsing time")
-            thisChange := Change{changeStrings[0],
-                          changeStrings[1],
-                          thisTime,
-                          currentChanges,
-                      }
-            changeArray = append(changeArray, thisChange)
-            changeStrings = []string{}
-        } else {
-            changeStrings = append(changeStrings, thisText)
-        }
-    }
+	// parse CHANGE_TEMPLATE
+	scanner := bufio.NewScanner(templateFile)
+	changeArray := []Change{}
+	changeStrings := []string{}
+	for scanner.Scan() {
+		thisText := scanner.Text()
+		if thisText == "" {
+			currentChanges := []string{}
+			// parse the remaining array of changes
+			for i := 3; i < len(changeStrings); i++ {
+				currentChanges = append(currentChanges, changeStrings[i])
+			}
+			thisTime, err := time.Parse(time.RFC1123, changeStrings[2])
+			handleErr(err, "error parsing time")
+			thisChange := Change{changeStrings[0],
+				changeStrings[1],
+				thisTime,
+				currentChanges,
+			}
+			changeArray = append(changeArray, thisChange)
+			changeStrings = []string{}
+		} else {
+			changeStrings = append(changeStrings, thisText)
+		}
+	}
 
-    // Create formatted strings for each log
-    amazonLinuxChangeString := getAmazonLinuxChangeString(changeArray)
-    ubuntuChangeString := getUbuntuChangeString(changeArray)
-    suseChangeString := getSuseChangeString(changeArray)
-    topLevelChangeString := getTopLevelChangeString(changeArray)
+	if !validateChangelog(changeArray) {
+		fmt.Println("Master Changelog is invalid.")
+		return
+	}
 
-    // update changelog files
-    rewriteChangelog(TOP_LEVEL, topLevelChangeString)
-    rewriteChangelog(UBUNTU, ubuntuChangeString)
-    rewriteChangelog(SUSE, suseChangeString)
+	// Create formatted strings for each log
+	amazonLinuxChangeString := getAmazonLinuxChangeString(changeArray)
+	ubuntuChangeString := getUbuntuChangeString(changeArray)
+	suseChangeString := getSuseChangeString(changeArray)
+	topLevelChangeString := getTopLevelChangeString(changeArray)
 
-    // find changelog in AmazonLinux rpm spec
-    var amazonLinuxSpecBase = ""
-    if _, err := os.Stat(AMAZON_LINUX); err == nil {
-        f, err := os.Open(AMAZON_LINUX)
-        handleErr(err, "unable to open amazon linux changelog")
-        defer f.Close()
-        scanner := bufio.NewScanner(f)
-        for scanner.Scan() {
-            line := scanner.Text()
-            if strings.Contains(line, "%changelog") {
-                amazonLinuxSpecBase += fmt.Sprintln("%changelog")
-                break
-            }
-            amazonLinuxSpecBase += fmt.Sprintln(line)
-        }
-    }
-    completeAmazonLinuxChangeString := amazonLinuxSpecBase + amazonLinuxChangeString
-    rewriteChangelog(AMAZON_LINUX, completeAmazonLinuxChangeString)
- }
+	// update changelog files
+	rewriteChangelog(TOP_LEVEL, topLevelChangeString)
+	rewriteChangelog(UBUNTU, ubuntuChangeString)
+	rewriteChangelog(SUSE, suseChangeString)
+
+	// find changelog in AmazonLinux rpm spec
+	var amazonLinuxSpecBase = ""
+	if _, err := os.Stat(AMAZON_LINUX); err == nil {
+		f, err := os.Open(AMAZON_LINUX)
+		handleErr(err, "unable to open amazon linux changelog")
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "%changelog") {
+				amazonLinuxSpecBase += fmt.Sprintln("%changelog")
+				break
+			}
+			amazonLinuxSpecBase += fmt.Sprintln(line)
+		}
+	}
+	completeAmazonLinuxChangeString := amazonLinuxSpecBase + amazonLinuxChangeString
+	rewriteChangelog(AMAZON_LINUX, completeAmazonLinuxChangeString)
+}
+
+func validateChangelog(allChange []Change) bool {
+	//validate that all dates are in ascending order
+	for i := 1; i < len(allChange); i++ {
+		prevTime := allChange[i].Datetime
+		nextTime := allChange[i-1].Datetime
+		if !prevTime.Before(nextTime) {
+			fmt.Printf("datetimes out of order: %s should be after %s\n", prevTime.String(), nextTime.String())
+			return false
+		}
+	}
+	//validate that there are no duplicate versions
+	versionSet := make(map[string]bool)
+	for _, change := range allChange {
+		versionSet[change.Version] = true
+	}
+	if len(versionSet) != len(allChange) {
+		fmt.Printf("there's a duplicate version present\n")
+		return false
+	}
+	return true
+}
 
 // format as follows:
 //
@@ -99,16 +124,16 @@ func main() {
 // - Cache Agent version 1.36.0
 // - Capture a fixed tail of container logs when removing a container
 func getAmazonLinuxChangeString(allChange []Change) string {
-    result := ""
-    for _, change := range allChange {
-        thisTime := change.Datetime.Format(AMAZON_LINUX_TIME_FMT)
-        result += fmt.Sprintf("* %s %s - %s\n", thisTime, change.Name, change.Version)
-        for _, update := range change.Changes {
-            result += fmt.Sprintf("- %s\n", update)
-        }
-        result += fmt.Sprintln()
-    }
-    return result
+	result := ""
+	for _, change := range allChange {
+		thisTime := change.Datetime.Format(AMAZON_LINUX_TIME_FMT)
+		result += fmt.Sprintf("* %s %s - %s\n", thisTime, change.Name, change.Version)
+		for _, update := range change.Changes {
+			result += fmt.Sprintf("- %s\n", update)
+		}
+		result += fmt.Sprintln()
+	}
+	return result
 }
 
 // format as follows:
@@ -120,21 +145,21 @@ func getAmazonLinuxChangeString(allChange []Change) string {
 //
 //  -- Cameron Sparr <cssparr@amazon.com> Wed, 08 Jan 2020 11:00:00 -0800
 func getUbuntuChangeString(allChange []Change) string {
-    result := ""
-    for _, change := range allChange {
-        result += fmt.Sprintf("amazon-ecs-init (%s) trusty; urgency=medium\n\n", change.Version)
-        thisTime := change.Datetime.Format(DEBIAN_TIME_FMT)
-        // fix bug where time doesn't parse 'PST' to '-0800'
-        r := strings.NewReplacer("+0000", PST_CONV)
-        thisTime = r.Replace(thisTime)
-        for _, update := range change.Changes {
-            result += fmt.Sprintf("  * %s\n", update)
-        }
-        result += fmt.Sprintln()
-        result += fmt.Sprintf(" -- %s  %s\n", change.Name, thisTime)
-        result += fmt.Sprintln()
-    }
-    return result
+	result := ""
+	for _, change := range allChange {
+		result += fmt.Sprintf("amazon-ecs-init (%s) trusty; urgency=medium\n\n", change.Version)
+		thisTime := change.Datetime.Format(DEBIAN_TIME_FMT)
+		// fix bug where time doesn't parse 'PST' to '-0800'
+		r := strings.NewReplacer("+0000", PST_CONV)
+		thisTime = r.Replace(thisTime)
+		for _, update := range change.Changes {
+			result += fmt.Sprintf("  * %s\n", update)
+		}
+		result += fmt.Sprintln()
+		result += fmt.Sprintf(" -- %s  %s\n", change.Name, thisTime)
+		result += fmt.Sprintln()
+	}
+	return result
 }
 
 // format as follows
@@ -145,17 +170,17 @@ func getUbuntuChangeString(allChange []Change) string {
 //   should wrap
 // - another l1 bullet point
 func getSuseChangeString(allChange []Change) string {
-    result := ""
-    for _, change := range allChange {
-        result += fmt.Sprintf("-------------------------------------------------------------------\n")
-        thisTime := change.Datetime.Format(SUSE_TIME_FMT)
-        thisEmail := getEmailSlice(change.Name)
-        result += fmt.Sprintf("%s - %s - %s\n\n", thisTime, thisEmail, change.Version)
-        for _, update := range change.Changes {
-            result += fmt.Sprintf("- %s\n", update)
-        }
-    }
-    return result
+	result := ""
+	for _, change := range allChange {
+		result += fmt.Sprintf("-------------------------------------------------------------------\n")
+		thisTime := change.Datetime.Format(SUSE_TIME_FMT)
+		thisEmail := getEmailSlice(change.Name)
+		result += fmt.Sprintf("%s - %s - %s\n\n", thisTime, thisEmail, change.Version)
+		for _, update := range change.Changes {
+			result += fmt.Sprintf("- %s\n", update)
+		}
+	}
+	return result
 }
 
 // format as follows
@@ -164,45 +189,45 @@ func getSuseChangeString(allChange []Change) string {
 //  * Cache Agent version 1.36.0
 //  * capture a fixed tail of container logs when removing a container
 func getTopLevelChangeString(allChange []Change) string {
-    result := "# Changelog\n\n"
-    for _, change := range allChange {
-        result += fmt.Sprintf("## %s\n", change.Version)
-        for _, update := range change.Changes {
-            result += fmt.Sprintf("* %s\n", update)
-        }
-        result += fmt.Sprintln()
-    }
-    // escape special char for .md
-    r := strings.NewReplacer("_", "\\_")
-    result = r.Replace(result)
-    return result
+	result := "# Changelog\n\n"
+	for _, change := range allChange {
+		result += fmt.Sprintf("## %s\n", change.Version)
+		for _, update := range change.Changes {
+			result += fmt.Sprintf("* %s\n", update)
+		}
+		result += fmt.Sprintln()
+	}
+	// escape special char for .md
+	r := strings.NewReplacer("_", "\\_")
+	result = r.Replace(result)
+	return result
 }
 
 // update changelog files
 // removes original file, creates updated file
 func rewriteChangelog(changelogFile string, updateString string) {
-    if _, err := os.Stat(changelogFile); err == nil {
-        err := os.Remove(changelogFile)
-        handleErr(err, "unable to remove changelog file")
-        f, err := os.Create(changelogFile)
-        handleErr(err, "unable to create changelog file")
-        defer f.Close()
-        _, err = f.WriteString(updateString)
-        handleErr(err, "unable to write string to changelog file")
-    }
+	if _, err := os.Stat(changelogFile); err == nil {
+		err := os.Remove(changelogFile)
+		handleErr(err, "unable to remove changelog file")
+		f, err := os.Create(changelogFile)
+		handleErr(err, "unable to create changelog file")
+		defer f.Close()
+		_, err = f.WriteString(updateString)
+		handleErr(err, "unable to write string to changelog file")
+	}
 }
 
 // Simple error print.  Passthough if err is nil
 func handleErr(err error, descriptor string) {
-    if err != nil {
-        fmt.Println(descriptor, err)
-        return
-    }
+	if err != nil {
+		fmt.Println(descriptor, err)
+		return
+	}
 }
 
 func getEmailSlice(fullName string) string {
-    startIndex := strings.Index(fullName, "<")
-    endIndex := strings.Index(fullName, ">")
-    runes := []rune(fullName)
-    return string(runes[startIndex+1:endIndex])
+	startIndex := strings.Index(fullName, "<")
+	endIndex := strings.Index(fullName, ">")
+	runes := []rune(fullName)
+	return string(runes[startIndex+1 : endIndex])
 }
