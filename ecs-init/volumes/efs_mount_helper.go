@@ -14,6 +14,8 @@
 package volumes
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -54,7 +56,7 @@ var runMount = runMountCommand
 
 func runMountCommand(args []string) error {
 	mountcmd := exec.Command(MountBinary, args...)
-	return mountcmd.Run()
+	return runCmd(mountcmd)
 }
 
 // Validate validates fields as part of the mount command
@@ -91,5 +93,17 @@ var runUnmount = runUnmountCommand
 
 func runUnmountCommand(path string, target string) error {
 	umountCmd := exec.Command(path, target)
-	return umountCmd.Run()
+	return runCmd(umountCmd)
+}
+
+var runCmd = runCommand
+
+func runCommand(cmd *exec.Cmd) error {
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err == nil {
+		return err
+	}
+	return errors.New(stderr.String())
 }
