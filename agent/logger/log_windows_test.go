@@ -1,4 +1,4 @@
-// +build !windows
+// +build windows
 
 // Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 //
@@ -71,6 +71,7 @@ func TestSeelogConfig_Default(t *testing.T) {
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="date"
 		 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
 	</outputs>
@@ -96,6 +97,7 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 <seelog type="asyncloop" minlevel="debug">
 	<outputs formatid="logfmt">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="date"
 		 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
 	</outputs>
@@ -121,6 +123,7 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="size"
 		 maxsize="10000000" archivetype="none" maxrolls="24" />
 	</outputs>
@@ -146,6 +149,7 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="size"
 		 maxsize="15000000" archivetype="none" maxrolls="24" />
 	</outputs>
@@ -171,6 +175,7 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="logfmt">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="size"
 		 maxsize="15000000" archivetype="none" maxrolls="10" />
 	</outputs>
@@ -196,6 +201,7 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 <seelog type="asyncloop" minlevel="info">
 	<outputs formatid="json">
 		<console />
+		<custom name="wineventlog" formatid="windows" />
 		<rollingfile filename="foo.log" type="date"
 		 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
 	</outputs>

@@ -96,6 +96,7 @@ func seelogConfig() string {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`
 	return c
