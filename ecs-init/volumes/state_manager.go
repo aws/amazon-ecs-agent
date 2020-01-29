@@ -20,6 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -143,6 +145,7 @@ func (s *StateManager) load(a interface{}) error {
 	}
 	err = json.Unmarshal(b, a)
 	if err != nil {
+		seelog.Criticalf("Could not unmarshal existing state; corrupted data: %v. Please remove statefile at %s", err, PluginStateFileAbsPath)
 		return err
 	}
 	return err
