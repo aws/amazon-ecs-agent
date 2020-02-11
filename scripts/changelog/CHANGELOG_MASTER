@@ -1,3 +1,9 @@
+1.36.2-1
+Ray Allan <fierlion@amazon.com>
+Tue, 04 Feb 2020 14:32:00 PST
+Cache Agent version 1.36.2
+update sbin mount point to avoid conflict with Docker >= 19.03.5
+
 1.36.1-1
 Yunhee Lee <yhlee@amazon.com>
 Fri, 10 Jan 2020 11:00:00 PST

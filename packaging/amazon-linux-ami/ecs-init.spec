@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.36.1
+Version:        1.36.2
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -255,12 +255,16 @@ fi
 %endif
 
 %changelog
-* Wed Jan 15 2020 Yunhee Lee <yhlee@amazon.com> - 1.36.1-1
+* Tue Feb 04 2020 Ray Allan <fierlion@amazon.com> - 1.36.2-1
+- Cache Agent version 1.36.2
+- update sbin mount point to avoid conflict with Docker >= 19.03.5
+
+* Fri Jan 10 2020 Yunhee Lee <yhlee@amazon.com> - 1.36.1-1
 - Cache Agent version 1.36.1
 
 * Wed Jan 08 2020 Cameron Sparr <cssparr@amazon.com> - 1.36.0-1
 - Cache Agent version 1.36.0
-- Capture a fixed tail of container logs when removing a container
+- capture a fixed tail of container logs when removing a container
 
 * Thu Dec 12 2019 Derek Petersen <petderek@amazon.com> - 1.35.0-1
 - Cache Agent version 1.35.0
@@ -277,32 +281,32 @@ fi
 * Wed Sep 25 2019 Cameron Sparr <cssparr@amazon.com> - 1.32.0-1
 - Cache Agent version 1.32.0
 
-* Thu Sep 13 2019 Yajie Chu <cya@amazon.com> - 1.31.0-1
+* Fri Sep 13 2019 Yajie Chu <cya@amazon.com> - 1.31.0-1
 - Cache Agent version 1.31.0
 
 * Thu Aug 15 2019 Feng Xiong <fenxiong@amazon.com> - 1.30.0-1
 - Cache Agent version 1.30.0
 
-* Mon Jul 8 2019 Shubham Goyal <shugy@amazon.com> - 1.29.1-1
+* Mon Jul 08 2019 Shubham Goyal <shugy@amazon.com> - 1.29.1-1
 - Cache Agent version 1.29.1
 
-* Thu Jun 6 2019 Yumeng Xie <yumex@amazon.com> - 1.29.0-1
+* Thu Jun 06 2019 Yumeng Xie <yumex@amazon.com> - 1.29.0-1
 - Cache Agent version 1.29.0
 
 * Fri May 31 2019 Feng Xiong <fenxiong@amazon.com> - 1.28.1-2
 - Cache Agent version 1.28.1
 - Use exponential backoff when restarting agent
 
-* Thu May 9 2019 Feng Xiong <fenxiong@amazon.com> - 1.28.0-1
+* Thu May 09 2019 Feng Xiong <fenxiong@amazon.com> - 1.28.0-1
 - Cache Agent version 1.28.0
 
 * Thu Mar 28 2019 Shaobo Han <obo@amazon.com> - 1.27.0-1
 - Cache Agent version 1.27.0
 
-* Thu Mar 21 2019 Derek Petersen <petderek@amazon.com> - 1.26.1
+* Thu Mar 21 2019 Derek Petersen <petderek@amazon.com> - 1.26.1-1
 - Cache Agent version 1.26.1
 
-* Thu Feb 28 2019 Derek Petersen <petderek@amazon.com> - 1.26.0
+* Thu Feb 28 2019 Derek Petersen <petderek@amazon.com> - 1.26.0-1
 - Cache Agent version 1.26.0
 - Add support for running iptables within agent container
 
@@ -320,17 +324,17 @@ fi
 - Cache Agent version 1.25.0
 - Add Nvidia GPU support for p2 and p3 instances
 
-* Fri Jan 4 2019 Eric Sun <yuzhusun@amazon.com> - 1.24.0-1
+* Fri Jan 04 2019 Eric Sun <yuzhusun@amazon.com> - 1.24.0-1
 - Cache Agent version 1.24.0
 
 * Fri Nov 16 2018 Jacob Vallejo <jakeev@amazon.com> - 1.22.0-4
 - Cache ECS agent version 1.22.0 for x86_64 & ARM
 - Support ARM architecture builds
 
-* Thu Nov 15 2018 Jacob Vallejo <jakeev@amazon.com> - 1.22.0-3
+* Thu Nov 15 2018 Jacob Vallejo <jakeev@amazon.com>  - 1.22.0-3
 - Rebuild
 
-* Thu Nov 2 2018 Yunhee Lee <yhlee@amazon.com> - 1.22.0-2
+* Fri Nov 02 2018 Yunhee Lee <yhlee@amazon.com> - 1.22.0-2
 - Cache Agent version 1.22.0
 
 * Thu Oct 11 2018 Sharanya Devaraj <sharanyd@amazon.com> - 1.21.0-1
@@ -344,10 +348,10 @@ fi
 * Thu Aug 30 2018 Feng Xiong <fenxiong@amazon.com> - 1.20.2-1
 - Cache Agent version 1.20.2
 
-* Thu Aug 08 2018 Peng Yin <penyin@amazon.com> - 1.20.1-1
+* Wed Aug 08 2018 Peng Yin <penyin@amazon.com> - 1.20.1-1
 - Cache Agent version 1.20.1
 
-* Thu Aug 01 2018 Haikuo Liu <haikuo@amazon.com> - 1.20.0-1
+* Wed Aug 01 2018 Haikuo Liu <haikuo@amazon.com> - 1.20.0-1
 - Cache Agent version 1.20.0
 
 * Thu Jul 26 2018 Haikuo Liu <haikuo@amazon.com> - 1.19.1-1
@@ -356,29 +360,29 @@ fi
 * Thu Jul 19 2018 Feng Xiong <fenxiong@amazon.com> - 1.19.0-1
 - Cache Agent version 1.19.0
 
-* Wed May 23 2018 iliana weller <iweller@amazon.com> - 1.18.0-2
+* Wed May 23 2018 iliana weller <iweller@amazon.com>  - 1.18.0-2
 - Spec file cleanups
 - Enable builds for both AL1 and AL2
 
 * Fri May 04 2018 Haikuo Liu <haikuo@amazon.com> - 1.18.0-1
-- Cache Agent vesion 1.18.0
+- Cache Agent version 1.18.0
 - Add support for regional buckets
 - Bundle ECS Agent tarball in package
 - Download agent based on the partition
 - Mount Docker plugin files dir
 
 * Fri Mar 30 2018 Justin Haynes <jushay@amazon.com> - 1.17.3-1
-- Cache Agent vesion 1.17.3
+- Cache Agent version 1.17.3
 - Use s3client instead of httpclient when downloading
 
 * Mon Mar 05 2018 Jacob Vallejo <jakeev@amazon.com> - 1.17.2-1
-- Cache Agent vesion 1.17.2
+- Cache Agent version 1.17.2
 
 * Mon Feb 19 2018 Justin Haynes <jushay@amazon.com> - 1.17.1-1
-- Cache Agent vesion 1.17.1
+- Cache Agent version 1.17.1
 
 * Mon Feb 05 2018 Justin Haynes <jushay@amazon.com> - 1.17.0-2
-- Cache Agent vesion 1.17.0
+- Cache Agent version 1.17.0
 
 * Tue Jan 16 2018 Derek Petersen <petderek@amazon.com> - 1.16.2-1
 - Cache Agent version 1.16.2
@@ -386,40 +390,32 @@ fi
 
 * Wed Jan 03 2018 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.1-1
 - Cache Agent version 1.16.1
-- Improve startup behavior when docker socket does not yet exist
+- Improve startup behavior when Docker socket doesn't exist yet
 
 * Tue Nov 21 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.0-1
-- Cache Agent vesion 1.16.0
-
-* Thu Nov 16 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-2
-- Correct the agent 1.15.2 filename
+- Cache Agent version 1.16.0
 
 * Tue Nov 14 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-1
 - Cache Agent version 1.15.2
 
-* Mon Nov  6 2017 Jacob Vallejo <jakeev@amazon.com> - 1.15.1-1
-- Cache Agent version 1.15.1
+* Tue Oct 17 2017 Jacob Vallejo <jakeev@amazon.com> - 1.15.1-1
+- Update ECS Agent version
 
-* Mon Oct 30 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-4
-- Cache Agent version 1.15.0
-- Add 'none' logging driver to ECS agent's config
+* Fri Oct 06 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-1
+- Update ECS Agent version
 
 * Fri Sep 29 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
-- Cache Agent version 1.14.5
+- Update ECS Agent version
 
 * Tue Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1
-- Cache Agent version 1.14.4
-- Add support for Docker 17.03.2ce
+- Update ECS Agent version
 
-* Fri Jun 9 2017 Adnan Khan <adnkha@amazon.com> - 1.14.3-1
-- Cache Agent version 1.14.3
-
-* Thu Jun 1 2017 Adnan Khan <adnkha@amazon.com> - 1.14.2-2
+* Thu Jun 01 2017 Adnan Khan <adnkha@amazon.com> - 1.14.2-2
 - Cache Agent version 1.14.2
 - Add functionality for running agent with userns=host when Docker has userns-remap enabled
 - Add support for Docker 17.03.1ce
 
-* Mon Mar 6 2017 Adnan Khan <adnkha@amazon.com> - 1.14.1-1
+* Mon Mar 06 2017 Adnan Khan <adnkha@amazon.com> - 1.14.1-1
 - Cache Agent version 1.14.1
 
 * Wed Jan 25 2017 Anirudh Aithal <aithal@amazon.com> - 1.14.0-2
@@ -428,7 +424,7 @@ fi
 * Mon Jan 16 2017 Derek Petersen <petderek@amazon.com> - 1.14.0-1
 - Cache Agent version 1.14.0
 
-* Fri Jan  6 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
+* Fri Jan 06 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.13.1-2
 - Update Requires to indicate support for docker <= 1.12.6
 
 * Mon Nov 14 2016 Peng Yin <penyin@amazon.com> - 1.13.1-1
@@ -447,10 +443,10 @@ fi
 - Cache Agent version 1.12.0
 - Add netfilter rules to support host network reaching credentials proxy
 
-* Wed Aug 3 2016 Samuel Karp <skarp@amazon.com> - 1.11.1-1
+* Wed Aug 03 2016 Samuel Karp <skarp@amazon.com> - 1.11.1-1
 - Cache Agent version 1.11.1
 
-* Tue Jul 5 2016 Samuel Karp <skarp@amazon.com> - 1.11.0-1
+* Tue Jul 05 2016 Samuel Karp <skarp@amazon.com> - 1.11.0-1
 - Cache Agent version 1.11.0
 - Add support for Docker 1.11.2
 - Modify iptables and netfilter to support credentials proxy
@@ -474,10 +470,10 @@ fi
 * Wed Feb 10 2016 Juan Rhenals <rhenalsj@amazon.com> - 1.8.0-1
 - Cache Agent version 1.8.0
 
-* Fri Jan 8 2016 Samuel Karp <skarp@amazon.com> - 1.7.1-1
+* Fri Jan 08 2016 Samuel Karp <skarp@amazon.com> - 1.7.1-1
 - Cache Agent version 1.7.1
 
-* Tue Dec 8 2015 Samuel Karp <skarp@amazon.com> - 1.7.0-1
+* Tue Dec 08 2015 Samuel Karp <skarp@amazon.com> - 1.7.0-1
 - Cache Agent version 1.7.0
 - Add support for Docker 1.9.1
 
@@ -500,27 +496,27 @@ fi
 - Cache Agent version 1.3.1
 - Read Docker endpoint from environment variable DOCKER_HOST if present
 
-* Thu Jul 2 2015 Samuel Karp <skarp@amazon.com> - 1.3.0-1
+* Thu Jul 02 2015 Samuel Karp <skarp@amazon.com> - 1.3.0-1
 - Cache Agent version 1.3.0
 
 * Fri Jun 19 2015 Euan Kemp <euank@amazon.com> - 1.2.1-2
 - Cache Agent version 1.2.1
 
-* Tue Jun 2 2015 Samuel Karp <skarp@amazon.com> - 1.2.0-1
+* Tue Jun 02 2015 Samuel Karp <skarp@amazon.com> - 1.2.0-1
 - Update versioning scheme to match Agent version
 - Cache Agent version 1.2.0
 - Mount cgroup and execdriver directories for Telemetry feature
 
-* Mon Jun 1 2015 Samuel Karp <skarp@amazon.com> - 1.0-5
+* Mon Jun 01 2015 Samuel Karp <skarp@amazon.com> - 1.0-5
 - Add support for Docker 1.6.2
 
 * Mon May 11 2015 Samuel Karp <skarp@amazon.com> - 1.0-4
 - Properly restart if the ecs-init package is upgraded in isolation
 
-* Wed May 6 2015 Samuel Karp <skarp@amazon.com> - 1.0-3
+* Wed May 06 2015 Samuel Karp <skarp@amazon.com> - 1.0-3
 - Restart on upgrade if already running
 
-* Tue May 5 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
+* Tue May 05 2015 Samuel Karp <skarp@amazon.com> - 1.0-2
 - Cache Agent version 1.1.0
 - Add support for Docker 1.6.0
 - Force cache load on install/upgrade
@@ -545,5 +541,3 @@ fi
 * Mon Dec 15 2014 Samuel Karp <skarp@amazon.com> - 0.2-1
 - Naive update functionality
 
-* Thu Dec 11 2014 Samuel Karp <skarp@amazon.com> - 0.2-0
-- Initial version
