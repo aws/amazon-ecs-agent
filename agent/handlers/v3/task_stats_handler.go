@@ -31,7 +31,7 @@ var TaskStatsPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.An
 // TaskStatsHandler returns the handler method for handling task stats requests.
 func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
 			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 task stats handler: unable to get task arn from request: %s", err.Error()))
