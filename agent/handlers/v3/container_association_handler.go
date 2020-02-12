@@ -47,7 +47,7 @@ var (
 // ContainerAssociationHandler returns the handler method for handling container associations requests.
 func ContainerAssociationsHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		containerID, err := getContainerIDByRequest(r, state)
+		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
 			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get container id from request: %s", err.Error()))
@@ -55,7 +55,7 @@ func ContainerAssociationsHandler(state dockerstate.TaskEngineState) func(http.R
 			return
 		}
 
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
 			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get task arn from request: %s", err.Error()))
@@ -80,7 +80,7 @@ func ContainerAssociationsHandler(state dockerstate.TaskEngineState) func(http.R
 // ContainerAssociationHandler returns the handler method for handling container association requests.
 func ContainerAssociationHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
 			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get task arn from request: %s", err.Error()))

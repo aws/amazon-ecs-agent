@@ -31,7 +31,7 @@ var ContainerStatsPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, uti
 // ContainerStatsHandler returns the handler method for handling container stats requests.
 func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
 			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container stats handler: unable to get task arn from request: %s", err.Error()))
@@ -39,7 +39,7 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 			return
 		}
 
-		containerID, err := getContainerIDByRequest(r, state)
+		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
 			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container stats handler: unable to get container ID from request: %s", err.Error()))

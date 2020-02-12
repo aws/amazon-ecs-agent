@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
+func GetTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
 	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
@@ -36,7 +36,7 @@ func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (st
 	return taskARN, nil
 }
 
-func getContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
+func GetContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
 	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
