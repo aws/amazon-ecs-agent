@@ -998,7 +998,7 @@ func TestDockerCfgAuth(t *testing.T) {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)
-		t.Log("Reading file:%s", path)
+		t.Logf("Reading file:%s", path)
 		if err != nil {
 			return err
 		}
