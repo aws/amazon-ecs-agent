@@ -578,7 +578,7 @@ func TestCPUStatsWithIdenticalTimestampsGetSameUsagePercent(t *testing.T) {
 	require.Equal(t, float64(500), *statSet.Sum)
 }
 
-func TestHugeCPUUsagePercentGetsCapped(t *testing.T) {
+func TestHugeCPUUsagePercentDoesntGetCapped(t *testing.T) {
 	timestamps := []time.Time{
 		parseNanoTime("2015-02-12T21:22:05.131117000Z"),
 		parseNanoTime("2015-02-12T21:22:05.131117001Z"),
@@ -603,8 +603,8 @@ func TestHugeCPUUsagePercentGetsCapped(t *testing.T) {
 
 	statSet, err := queue.GetCPUStatsSet()
 	require.NoError(t, err)
-	require.Equal(t, float64(1024*1024), *statSet.Max)
+	require.Equal(t, float64(30000001024), *statSet.Max)
 	require.Equal(t, float64(100), *statSet.Min)
 	require.Equal(t, int64(2), *statSet.SampleCount)
-	require.Equal(t, float64(1024*1024+100), *statSet.Sum)
+	require.Equal(t, float64(30000001124), *statSet.Sum)
 }

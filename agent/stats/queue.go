@@ -105,6 +105,12 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			// Remove first element if queue is full.
 			queue.buffer = queue.buffer[1:queueLength]
 		}
+
+		if stat.CPUUsagePerc > MaxCPUUsagePerc {
+			// what in the world happened
+			seelog.Errorf("Calculated CPU usage percent (%.1f) is larger than backend maximum (%.1f). lastStatTS=%s lastStatCPUTime=%d thisStatTS=%s thisStatCPUTime=%d queueLength=%d",
+				stat.CPUUsagePerc, MaxCPUUsagePerc, lastStat.Timestamp.Format(time.RFC3339Nano), lastStat.cpuUsage, rawStat.timestamp.Format(time.RFC3339Nano), rawStat.cpuUsage, queueLength)
+		}
 	}
 
 	queue.buffer = append(queue.buffer, stat)
@@ -271,9 +277,6 @@ func (queue *Queue) GetRawUsageStats(numStats int) ([]UsageStats, error) {
 }
 
 func getCPUUsagePerc(s *UsageStats) float64 {
-	if s.CPUUsagePerc > MaxCPUUsagePerc {
-		return float64(MaxCPUUsagePerc)
-	}
 	return float64(s.CPUUsagePerc)
 }
 
