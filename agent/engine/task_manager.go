@@ -474,20 +474,22 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 		return
 	}
 
+	defer mtask.engine.saver.Save()
+	// Set known status regardless of error so the applied status can be cleared. If there is error,
+	// the known status might be set again below (but that won't affect the applied status anymore).
+	// This follows how container state change is handled.
+	res.SetKnownStatus(status)
 	if err == nil {
-		res.SetKnownStatus(status)
-		mtask.engine.saver.Save()
 		return
 	}
-	seelog.Infof("Managed task [%s]: unable to transition resource %s to %s: %v",
-		mtask.Arn, res.GetName(), res.StatusString(status), err)
-	if status == res.SteadyState() {
-		seelog.Errorf("Managed task [%s]: error while creating resource %s, setting the task's desired status to STOPPED",
-			mtask.Arn, res.GetName())
+
+	if status == res.SteadyState() { // Failed to create resource.
+		seelog.Errorf("Managed task [%s]: failed to create task resource [%s]: %v", mtask.Arn, res.GetName(), err)
+		res.SetKnownStatus(currentKnownStatus) // Set status back to None.
+
+		seelog.Infof("Managed task [%s]: marking task desired status to STOPPED", mtask.Arn)
 		mtask.SetDesiredStatus(apitaskstatus.TaskStopped)
 		mtask.Task.SetTerminalReason(res.GetTerminalReason())
-		res.UpdateAppliedStatus(resourcestatus.ResourceStatusNone)
-		mtask.engine.saver.Save()
 	}
 }
 
@@ -901,7 +903,6 @@ func (mtask *managedTask) startResourceTransitions(transitionFunc resourceTransi
 	for _, res := range mtask.GetResources() {
 		knownStatus := res.GetKnownStatus()
 		desiredStatus := res.GetDesiredStatus()
-		seelog.Debugf("Desired status is %s", desiredStatus)
 		if knownStatus >= desiredStatus {
 			seelog.Debugf("Managed task [%s]: resource [%s] has already transitioned to or beyond the desired status %s; current known is %s",
 				mtask.Arn, res.GetName(), res.StatusString(desiredStatus), res.StatusString(knownStatus))
@@ -1063,21 +1064,8 @@ func (mtask *managedTask) resourceNextState(resource taskresource.TaskResource) 
 	resKnownStatus := resource.GetKnownStatus()
 	resDesiredStatus := resource.GetDesiredStatus()
 
-	if resKnownStatus == resDesiredStatus {
-		seelog.Debugf("Managed task [%s]: task resource [%s] at desired status: %s",
-			mtask.Arn, resource.GetName(), resource.StatusString(resDesiredStatus))
-
-		// Set nextState to ResourceStatusNone, so the knownState will not be updated
-		return &resourceTransition{
-			nextState:      resourcestatus.ResourceStatusNone,
-			status:         resource.StatusString(resourcestatus.ResourceStatusNone),
-			actionRequired: false,
-			reason:         dependencygraph.ResourcePastDesiredStatusErr,
-		}
-	}
-
-	if resKnownStatus > resDesiredStatus {
-		seelog.Debugf("Managed task [%s]: task resource [%s] has already transitioned beyond desired status(%s): %s",
+	if resKnownStatus >= resDesiredStatus {
+		seelog.Debugf("Managed task [%s]: task resource [%s] has already transitioned to or beyond desired status(%s): %s",
 			mtask.Arn, resource.GetName(), resource.StatusString(resDesiredStatus), resource.StatusString(resKnownStatus))
 		return &resourceTransition{
 			nextState:      resourcestatus.ResourceStatusNone,
@@ -1100,30 +1088,13 @@ func (mtask *managedTask) resourceNextState(resource taskresource.TaskResource) 
 	var nextState resourcestatus.ResourceStatus
 	if resource.DesiredTerminal() {
 		nextState := resource.TerminalStatus()
-		if !resource.KnownCreated() {
-			// If the resource's creation is in progress, we will not transit resource state before
-			// it finishes. Otherwise, the resource may not be cleaned up.
-			if resource.GetAppliedStatus() == resourcestatus.ResourceCreated {
-				nextState = resourcestatus.ResourceStatusNone
-			}
-			seelog.Debugf("set next state to %s", resource.StatusString(nextState))
-			return &resourceTransition{
-				nextState:      nextState,
-				status:         resource.StatusString(nextState),
-				actionRequired: false,
-			}
-		}
-		// If the resource does not have dependency on task network, it will be cleaned up while sweeping task
-		if !resource.DependOnTaskNetwork() {
-			return &resourceTransition{
-				nextState:      nextState,
-				status:         resource.StatusString(nextState),
-				actionRequired: false,
-			}
+		return &resourceTransition{
+			nextState:      nextState,
+			status:         resource.StatusString(nextState),
+			actionRequired: false, // Resource cleanup is done while cleaning up task, so not doing anything here.
 		}
 	}
 	nextState = resource.NextKnownState()
-	seelog.Debugf("Resource next state is %s", nextState)
 	return &resourceTransition{
 		nextState:      nextState,
 		status:         resource.StatusString(nextState),

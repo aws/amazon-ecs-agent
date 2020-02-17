@@ -285,8 +285,7 @@ func TestEFSVolumeBuildContainerDependency(t *testing.T) {
 	testRes, _ := NewVolumeResource(nil, "volume", "efs", "dockerVolume",
 		"", false, "", nil, nil, nil)
 
-	assert.NoError(t, testRes.BuildContainerDependency("PauseContainer", apicontainerstatus.ContainerCreated, resourcestatus.ResourceStatus(VolumeCreated)))
-
+	testRes.BuildContainerDependency("PauseContainer", apicontainerstatus.ContainerCreated, resourcestatus.ResourceStatus(VolumeCreated))
 	contDep := testRes.GetContainerDependencies(resourcestatus.ResourceStatus(VolumeCreated))
 	assert.NotNil(t, contDep)
 

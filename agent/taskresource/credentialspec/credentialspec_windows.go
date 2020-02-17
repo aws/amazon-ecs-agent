@@ -643,14 +643,9 @@ func (cs *CredentialSpecResource) DependOnTaskNetwork() bool {
 }
 
 func (cs *CredentialSpecResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-	dependent resourcestatus.ResourceStatus) error {
-	return errors.New("Not implemented")
+	dependent resourcestatus.ResourceStatus) {
 }
 
 func (cs *CredentialSpecResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
-}
-
-// UpdateAppliedStatus safely updates the applied status of the resource
-func (cs *CredentialSpecResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
 }

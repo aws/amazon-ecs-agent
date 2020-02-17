@@ -86,9 +86,6 @@ func (c *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	return resourcestatus.ResourceStatusNone
 }
 
-// UpdateAppliedStatus safely updates the applied status of the resource
-func (c *CgroupResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {}
-
 // GetAppliedStatus safely returns the currently applied status of the resource
 func (c *CgroupResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	return resourcestatus.ResourceStatusNone
@@ -142,8 +139,7 @@ func (cgroup *CgroupResource) DependOnTaskNetwork() bool {
 }
 
 func (cgroup *CgroupResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-	dependent resourcestatus.ResourceStatus) error {
-	return errors.New("Not implemented")
+	dependent resourcestatus.ResourceStatus) {
 }
 
 func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {

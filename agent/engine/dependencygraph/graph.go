@@ -186,7 +186,7 @@ func TaskResourceDependenciesAreResolved(target taskresource.TaskResource,
 }
 
 func verifyContainerDependenciesResolvedForResource(target taskresource.TaskResource, existingContainers map[string]*apicontainer.Container) bool {
-	targetNext := target.GetKnownStatus() + 1
+	targetNext := target.NextKnownState()
 	// For task resource without dependency map, containerDependencies will just be nil
 	containerDependencies := target.GetContainerDependencies(targetNext)
 	for _, containerDependency := range containerDependencies {

@@ -422,18 +422,9 @@ func (auth *ASMAuthResource) DependOnTaskNetwork() bool {
 }
 
 func (auth *ASMAuthResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-	dependent resourcestatus.ResourceStatus) error {
-	return errors.New("Not implemented")
+	dependent resourcestatus.ResourceStatus) {
 }
 
 func (auth *ASMAuthResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
-}
-
-// UpdateAppliedStatus safely updates the applied status of the resource
-func (auth *ASMAuthResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
-	auth.lock.RLock()
-	defer auth.lock.RUnlock()
-
-	auth.appliedStatus = status
 }

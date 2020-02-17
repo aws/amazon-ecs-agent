@@ -662,7 +662,7 @@ func TestVerifyTransitionDependenciesResolvedForResource(t *testing.T) {
 				},
 			}
 			gomock.InOrder(
-				mockResource.EXPECT().GetKnownStatus().Return(tc.TargetKnown),
+				mockResource.EXPECT().NextKnownState().Return(tc.TargetNext),
 				mockResource.EXPECT().GetContainerDependencies(tc.TargetNext).Return(containerDep),
 			)
 			resolved := TaskResourceDependenciesAreResolved(mockResource, containers)
@@ -693,7 +693,7 @@ func TestResourceTransitionDependencyNotFound(t *testing.T) {
 		con,
 	}
 	gomock.InOrder(
-		mockResource.EXPECT().GetKnownStatus().Return(resourcestatus.ResourceStatus(1)),
+		mockResource.EXPECT().NextKnownState().Return(resourcestatus.ResourceStatus(2)),
 		mockResource.EXPECT().GetContainerDependencies(resourcestatus.ResourceStatus(2)).Return(containerDep),
 	)
 	resolved := TaskResourceDependenciesAreResolved(mockResource, existingContainers)
@@ -713,7 +713,7 @@ func TestResourceTransitionDependencyNoDependency(t *testing.T) {
 		con,
 	}
 	gomock.InOrder(
-		mockResource.EXPECT().GetKnownStatus().Return(resourcestatus.ResourceStatus(1)),
+		mockResource.EXPECT().NextKnownState().Return(resourcestatus.ResourceStatus(2)),
 		mockResource.EXPECT().GetContainerDependencies(resourcestatus.ResourceStatus(2)).Return(nil),
 	)
 	assert.Nil(t, TaskResourceDependenciesAreResolved(mockResource, existingContainers))

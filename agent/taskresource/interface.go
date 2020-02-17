@@ -58,8 +58,6 @@ type TaskResource interface {
 	// SetAppliedStatus sets the applied status of resource and returns whether
 	// the resource is already in a transition
 	SetAppliedStatus(status resourcestatus.ResourceStatus) bool
-	// UpdateAppliedStatus directly updates the applied status of resource
-	UpdateAppliedStatus(status resourcestatus.ResourceStatus)
 	// GetAppliedStatus gets the applied status of resource
 	GetAppliedStatus() resourcestatus.ResourceStatus
 	// StatusString returns the string of the resource status
@@ -73,7 +71,7 @@ type TaskResource interface {
 	GetContainerDependencies(resourcestatus.ResourceStatus) []apicontainer.ContainerDependency
 	// BuildContainerDependency adds a new dependency container and its satisfied status
 	BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-		dependent resourcestatus.ResourceStatus) error
+		dependent resourcestatus.ResourceStatus)
 	// Initialize will initialze the resource fields of the resource
 	Initialize(res *ResourceFields,
 		taskKnownStatus apitaskstatus.TaskStatus, taskDesiredStatus apitaskstatus.TaskStatus)

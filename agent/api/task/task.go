@@ -1239,13 +1239,6 @@ func (task *Task) addNamespaceSharingProvisioningDependency(cfg *config.Config) 
 		container.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerPulled)
 		namespacePauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
 	}
-
-	for _, resource := range task.GetResources() {
-		if resource.DependOnTaskNetwork() {
-			seelog.Debugf("Task [%s]: adding namespace pause container dependency to resource [%s]", task.Arn, resource.GetName())
-			resource.BuildContainerDependency(NamespacePauseContainerName, apicontainerstatus.ContainerRunning, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
-		}
-	}
 }
 
 // ContainerByName returns the *Container for the given name

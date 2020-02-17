@@ -218,14 +218,6 @@ func (cgroup *CgroupResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	return cgroup.appliedStatus
 }
 
-// UpdateAppliedStatus safely updates the applied status of the resource
-func (cgroup *CgroupResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {
-	cgroup.lock.RLock()
-	defer cgroup.lock.RUnlock()
-
-	cgroup.appliedStatus = status
-}
-
 // GetKnownStatus safely returns the currently known status of the task
 func (cgroup *CgroupResource) GetKnownStatus() resourcestatus.ResourceStatus {
 	cgroup.lock.RLock()
@@ -395,8 +387,7 @@ func (cgroup *CgroupResource) DependOnTaskNetwork() bool {
 }
 
 func (cgroup *CgroupResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-	dependent resourcestatus.ResourceStatus) error {
-	return errors.New("Not implemented")
+	dependent resourcestatus.ResourceStatus) {
 }
 
 func (cgroup *CgroupResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {

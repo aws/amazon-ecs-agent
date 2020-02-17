@@ -158,9 +158,6 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 	taskDesiredStatus status.TaskStatus) {
 }
 
-// UpdateAppliedStatus safely updates the applied status of the resource
-func (firelens *FirelensResource) UpdateAppliedStatus(status resourcestatus.ResourceStatus) {}
-
 // GetAppliedStatus safely returns the currently applied status of the resource
 func (firelens *FirelensResource) GetAppliedStatus() resourcestatus.ResourceStatus {
 	return resourcestatus.ResourceStatusNone
@@ -171,8 +168,7 @@ func (firelens *FirelensResource) DependOnTaskNetwork() bool {
 }
 
 func (firelens *FirelensResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
-	dependent resourcestatus.ResourceStatus) error {
-	return errors.New("Not implemented")
+	dependent resourcestatus.ResourceStatus) {
 }
 
 func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {

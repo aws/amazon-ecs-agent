@@ -281,47 +281,6 @@ func TestStartResourceTransitionsEmpty(t *testing.T) {
 	}
 }
 
-// TestEFSResourceNextState uses EFS as an example of task resource with dependency on task network
-func TestEFSVolumeResourceNextState(t *testing.T) {
-	testCases := []struct {
-		Name             string
-		ResKnownStatus   resourcestatus.ResourceStatus
-		ResAppliedStatus resourcestatus.ResourceStatus
-		ResDesiredStatus resourcestatus.ResourceStatus
-		NextState        resourcestatus.ResourceStatus
-		ActionRequired   bool
-	}{
-		// None => Created
-		{"none to created", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeCreated), true},
-		// None => Removed, applied status is None
-		{"none to removed", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeRemoved), false},
-		// None => Removed, applied status is Created
-		{"none to removed, applied created", resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
-		// Created => Created
-		{"created to created", resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
-		// Created => Removed
-		{"created to removed", resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeRemoved), true},
-		// Removed => Created
-		{"removed to created", resourcestatus.ResourceStatus(volume.VolumeRemoved), resourcestatus.ResourceStatus(volume.VolumeStatusNone), resourcestatus.ResourceStatus(volume.VolumeCreated), resourcestatus.ResourceStatus(volume.VolumeStatusNone), false},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			res := volume.VolumeResource{
-				VolumeType: apitask.EFSVolumeType,
-			}
-			res.SetKnownStatus(tc.ResKnownStatus)
-			res.SetDesiredStatus(tc.ResDesiredStatus)
-			res.SetAppliedStatus(tc.ResAppliedStatus)
-			mtask := managedTask{
-				Task: &apitask.Task{},
-			}
-			transition := mtask.resourceNextState(&res)
-			assert.Equal(t, tc.NextState, transition.nextState)
-			assert.Equal(t, tc.ActionRequired, transition.actionRequired)
-		})
-	}
-}
-
 //TestEFSNextStateWithTransitionDependencies verifies the dependencies are resolved correctly for task resource
 func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 	testCases := []struct {
@@ -367,7 +326,7 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			dependencyCurrentStatus:      apicontainerstatus.ContainerStopped,
 			dependencySatisfiedStatus:    apicontainerstatus.ContainerStopped,
 			expectedResourceStatus:       resourcestatus.ResourceStatus(volume.VolumeRemoved),
-			expectedTransitionActionable: true,
+			expectedTransitionActionable: false,
 		},
 		// NONE -> REMOVED transition is allowed and not actionable
 		{
