@@ -1,6 +1,6 @@
 // +build !windows,functional
 
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -228,7 +228,7 @@ func (agent *TestAgent) StartAgent() error {
 				"/lib64:/lib64:ro",
 				"/proc:/host/proc:ro",
 				"/var/lib/ecs/dhclient:/var/lib/ecs/dhclient",
-				"/sbin:/sbin:ro",
+				"/sbin:/host/sbin:ro",
 				"/lib:/lib:ro",
 				"/usr/lib:/usr/lib:ro",
 				"/usr/lib64:/usr/lib64:ro",

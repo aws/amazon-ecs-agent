@@ -236,7 +236,7 @@ limitations under the License.
 
 * For github.com/aws/aws-sdk-go see also this required NOTICE:
 AWS SDK for Go
-Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 Copyright 2014-2015 Stripe, Inc.
 * For github.com/containerd/cgroups see also this required NOTICE:
 Copyright (c) 2016-2017 the containerd authors

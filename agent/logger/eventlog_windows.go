@@ -1,6 +1,6 @@
 // +build windows
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -63,7 +63,8 @@ func registerPlatformLogger() {
 
 // platformLogConfig exposes log configuration for the event log receiver
 func platformLogConfig() string {
-	return `<custom name="wineventlog" formatid="windows" />`
+	return `
+		<custom name="wineventlog" formatid="windows" />`
 }
 
 // ReceiveMessage receives a log line from seelog and emits it to the Windows event log
