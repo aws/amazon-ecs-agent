@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -2503,7 +2503,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 	// metadata required for asm secret resource validation
 	asmSecretName := "myASMSecret"
-	asmSecretValueFrom := "asm/mySecret"
+	asmSecretValueFrom := "arn:aws:secretsmanager:region:account-id:secret:" + asmSecretName
 	asmSecretRetrievedValue := "myASMSecretValue"
 	asmSecretRegion := "us-west-2"
 	asmSecretKey := asmSecretValueFrom + "_" + asmSecretRegion
@@ -2700,7 +2700,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			}).Return(ssmClientOutput, nil).Times(1)
 
 			mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-				assert.Equal(t, aws.StringValue(in.SecretId), asmSecretValueFrom)
+				assert.Equal(t, asmSecretValueFrom, aws.StringValue(in.SecretId))
 			}).Return(asmClientOutput, nil).Times(1)
 
 			require.NoError(t, ssmSecretRes.Create())
