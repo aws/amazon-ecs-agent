@@ -327,7 +327,7 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in queue to calculate CW stats set")
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate CW stats set")
 	}
 
 	var min, max, sum float64
@@ -351,7 +351,7 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 
 	// don't emit metrics when sampleCount == 0
 	if sampleCount == 0 {
-		return nil, fmt.Errorf("Need at least 1 non-NaN data points in queue to calculate CW stats set")
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
 	}
 
 	return &ecstcs.CWStatsSet{
@@ -373,7 +373,7 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in the queue to calculate int stats")
+		return nil, fmt.Errorf("need at least 2 data points in the queue to calculate int stats")
 	}
 
 	var min, max, sum uint64
@@ -397,7 +397,7 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 
 	// don't emit metrics when sampleCount == 0
 	if sampleCount == 0 {
-		return nil, fmt.Errorf("Need at least 1 non-NaN data points in queue to calculate CW stats set")
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
 	}
 
 	baseMin, overflowMin := getInt64WithOverflow(min)
