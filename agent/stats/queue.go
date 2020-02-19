@@ -26,10 +26,10 @@ import (
 
 const (
 	// BytesInMiB is the number of bytes in a MebiByte.
-	BytesInMiB = 1024 * 1024
+	BytesInMiB                     = 1024 * 1024
+	minimumQueueDatapoints         = 2
+	MaxCPUUsagePerc        float32 = 1024 * 1024
 )
-
-const minimumQueueDatapoints = 2
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
@@ -92,18 +92,24 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 		// % utilization can be calculated only when queue is non-empty.
 		lastStat := queue.buffer[queueLength-1]
 		timeSinceLastStat := float32(rawStat.timestamp.Sub(lastStat.Timestamp).Nanoseconds())
-		if timeSinceLastStat > 0 {
+		if timeSinceLastStat <= 0 {
+			// if we got a duplicate timestamp, set cpu percentage to the same value as the previous stat
+			seelog.Errorf("Received a docker stat object with duplicate timestamp")
+			stat.CPUUsagePerc = lastStat.CPUUsagePerc
+		} else {
 			cpuUsageSinceLastStat := float32(rawStat.cpuUsage - lastStat.cpuUsage)
 			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
-		} else {
-			// Ignore the stat if the current timestamp is same as the last one. This
-			// results in the value being set as +infinity
-			// float32(1) / float32(0) = +Inf
-			seelog.Debugf("time since last stat is zero. Ignoring cpu stat")
 		}
+
 		if queue.maxSize == queueLength {
 			// Remove first element if queue is full.
 			queue.buffer = queue.buffer[1:queueLength]
+		}
+
+		if stat.CPUUsagePerc > MaxCPUUsagePerc {
+			// what in the world happened
+			seelog.Errorf("Calculated CPU usage percent (%.1f) is larger than backend maximum (%.1f). lastStatTS=%s lastStatCPUTime=%d thisStatTS=%s thisStatCPUTime=%d queueLength=%d",
+				stat.CPUUsagePerc, MaxCPUUsagePerc, lastStat.Timestamp.Format(time.RFC3339Nano), lastStat.cpuUsage, rawStat.timestamp.Format(time.RFC3339Nano), rawStat.cpuUsage, queueLength)
 		}
 	}
 
@@ -321,7 +327,7 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in queue to calculate CW stats set")
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate CW stats set")
 	}
 
 	var min, max, sum float64
@@ -343,6 +349,11 @@ func (queue *Queue) getCWStatsSet(f getUsageFloatFunc) (*ecstcs.CWStatsSet, erro
 		sum += thisStat
 	}
 
+	// don't emit metrics when sampleCount == 0
+	if sampleCount == 0 {
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
+	}
+
 	return &ecstcs.CWStatsSet{
 		Max:         &max,
 		Min:         &min,
@@ -362,7 +373,7 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 	queueLength := len(queue.buffer)
 	if queueLength < 2 {
 		// Need at least 2 data points to calculate this.
-		return nil, fmt.Errorf("Need at least 2 data points in the queue to calculate int stats")
+		return nil, fmt.Errorf("need at least 2 data points in the queue to calculate int stats")
 	}
 
 	var min, max, sum uint64
@@ -382,6 +393,11 @@ func (queue *Queue) getULongStatsSet(f getUsageIntFunc) (*ecstcs.ULongStatsSet, 
 		}
 		sum += thisStat
 		sampleCount++
+	}
+
+	// don't emit metrics when sampleCount == 0
+	if sampleCount == 0 {
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
 	}
 
 	baseMin, overflowMin := getInt64WithOverflow(min)

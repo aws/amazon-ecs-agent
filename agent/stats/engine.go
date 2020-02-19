@@ -596,20 +596,27 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		// Container is not terminal. Get CPU stats set.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting cpu stats, err: %v, container: %v", err, dockerID)
+			seelog.Warnf("Error getting cpu stats, skipping container, err: %v, container: %v", err, dockerID)
 			continue
 		}
 
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)
+			seelog.Warnf("Error getting memory stats, skipping container, err: %v, container: %v", err, dockerID)
+			continue
+		}
+
+		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
+		if err != nil {
+			seelog.Warnf("Error getting storage stats, skipping container, err: %v, container: %v", err, dockerID)
 			continue
 		}
 
 		containerMetric := &ecstcs.ContainerMetric{
-			ContainerName:  &container.containerMetadata.Name,
-			CpuStatsSet:    cpuStatsSet,
-			MemoryStatsSet: memoryStatsSet,
+			ContainerName:   &container.containerMetadata.Name,
+			CpuStatsSet:     cpuStatsSet,
+			MemoryStatsSet:  memoryStatsSet,
+			StorageStatsSet: storageStatsSet,
 		}
 
 		task, err := engine.resolver.ResolveTask(dockerID)
@@ -628,12 +635,6 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				containerMetric.NetworkStatsSet = networkStatsSet
 			}
 		}
-
-		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
-		if err != nil {
-			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
-		}
-		containerMetric.StorageStatsSet = storageStatsSet
 
 		containerMetrics = append(containerMetrics, containerMetric)
 	}
