@@ -22,7 +22,7 @@ import (
 )
 
 func GetTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
-	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
+	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, V3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
 	}
@@ -37,7 +37,7 @@ func GetTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (st
 }
 
 func GetContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
-	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
+	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, V3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -25,15 +25,12 @@ import (
 	"github.com/cihub/seelog"
 )
 
-// v4EndpointIDMuxName is the key that's used in gorilla/mux to get the v4 endpoint ID.
-const v4EndpointIDMuxName = "v4EndpointIDMuxName"
-
 // TaskMetadataPath specifies the relative URI path for serving task metadata.
-var TaskMetadataPath = "/v4/" + utils.ConstructMuxVar(v4EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task"
+var TaskMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task"
 
 // TaskWithTagsMetadataPath specifies the relative URI path for serving task metdata
 // with Container Instance and Task Tags retrieved through the ECS API
-var TaskWithTagsMetadataPath = "/v4/" + utils.ConstructMuxVar(v4EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
+var TaskWithTagsMetadataPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
 
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
 func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {

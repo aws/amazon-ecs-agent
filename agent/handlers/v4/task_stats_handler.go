@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package v3
+package v4
 
 import (
 	"encoding/json"
@@ -21,27 +21,23 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
 )
 
-// TaskStatsPath specifies the relative URI path for serving task stats.
-var TaskStatsPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task/stats"
+var TaskStatsPath = "/v4/" + utils.ConstructMuxVar(v3.V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task/stats"
 
-// TaskStatsHandler returns the handler method for handling task stats requests.
 func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := GetTaskARNByRequest(r, state)
+		taskArn, err := v3.GetTaskARNByRequest(r, state)
 		if err != nil {
-			errResponseJSON, _ := json.Marshal(
-				fmt.Sprintf("V3 task stats handler: unable to get task arn from request: %s", err.Error()))
+			errResponseJSON, _ := json.Marshal(fmt.Sprintf("V4 task stats handler: unable to get task arn from request: %s", err.Error()))
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
-
-		seelog.Infof("V3 task stats handler: writing response for task '%s'", taskARN)
-
-		// v3 handler shares the same task stats response format with v2 handler.
-		v2.WriteTaskStatsResponse(w, taskARN, state, statsEngine)
+		seelog.Infof("V4 tasks stats handler: writing response for task '%s'", taskArn)
+		// v4 handler shares with the same task response format with v2 handler
+		v2.WriteTaskStatsResponse(w, taskArn, state, statsEngine)
 	}
 }

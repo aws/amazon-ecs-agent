@@ -33,11 +33,11 @@ const (
 var (
 	// Container associations endpoint: /v3/<v3 endpoint id>/<association type>
 	ContainerAssociationsPath = fmt.Sprintf("/v3/%s/associations/%s",
-		utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx),
+		utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationTypeMuxName, utils.AnythingButSlashRegEx))
 	// Container association endpoint: /v3/<v3 endpoint id>/<association type>/<association name>
 	ContainerAssociationPath = fmt.Sprintf("/v3/%s/associations/%s/%s",
-		utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx),
+		utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationTypeMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationNameMuxName, utils.AnythingButEmptyRegEx))
 	// Treat "/v3/<v3 endpoint id>/<association type>/" as a container association endpoint with empty association name (therefore invalid), to be consistent with similar situation in credentials endpoint and v3 metadata endpoint

@@ -26,14 +26,14 @@ import (
 )
 
 // v3EndpointIDMuxName is the key that's used in gorilla/mux to get the v3 endpoint ID.
-const v3EndpointIDMuxName = "v3EndpointIDMuxName"
+const V3EndpointIDMuxName = "v3EndpointIDMuxName"
 
 // TaskMetadataPath specifies the relative URI path for serving task metadata.
-var TaskMetadataPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task"
+var TaskMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/task"
 
 // TaskWithTagsMetadataPath specifies the relative URI path for serving task metdata
 // with Container Instance and Task Tags retrieved through the ECS API
-var TaskWithTagsMetadataPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
+var TaskWithTagsMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx) + "/taskWithTags"
 
 // TaskMetadataHandler returns the handler method for handling task metadata requests.
 func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSClient, cluster, az, containerInstanceArn string, propagateTags bool) func(http.ResponseWriter, *http.Request) {
