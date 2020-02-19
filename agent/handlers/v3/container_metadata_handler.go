@@ -27,7 +27,7 @@ import (
 )
 
 // ContainerMetadataPath specifies the relative URI path for serving container metadata.
-var ContainerMetadataPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx)
+var ContainerMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx)
 
 // ContainerMetadataHandler returns the handler method for handling container metadata requests.
 func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
