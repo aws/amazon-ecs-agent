@@ -415,14 +415,36 @@ func (s ECRAuthData) GoString() string {
 	return s.String()
 }
 
+type EFSAuthorizationConfig struct {
+	_ struct{} `type:"structure"`
+
+	AccessPointId *string `locationName:"accessPointId" type:"string"`
+
+	Iam *string `locationName:"iam" type:"string" enum:"EFSAuthorizationConfigIAM"`
+}
+
+// String returns the string representation
+func (s EFSAuthorizationConfig) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EFSAuthorizationConfig) GoString() string {
+	return s.String()
+}
+
 type EFSVolumeConfiguration struct {
 	_ struct{} `type:"structure"`
+
+	AuthorizationConfig *EFSAuthorizationConfig `locationName:"authorizationConfig" type:"structure"`
 
 	FileSystemId *string `locationName:"fileSystemId" type:"string"`
 
 	RootDirectory *string `locationName:"rootDirectory" type:"string"`
 
 	TransitEncryption *string `locationName:"transitEncryption" type:"string" enum:"EFSTransitEncryption"`
+
+	TransitEncryptionPort *int64 `locationName:"transitEncryptionPort" type:"integer"`
 }
 
 // String returns the string representation
