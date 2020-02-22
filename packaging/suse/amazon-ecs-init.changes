@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Feb 21, 17:40:00 PST 2020 - youngli@amazon.com - 1.37.0-2
+
+- Cache Agent version 1.37.0
+- Add '/etc/alternatives' to mounts
+-------------------------------------------------------------------
 Tue Feb 04, 14:32:00 PST 2020 - fierlion@amazon.com - 1.36.2-1
 
 - Cache Agent version 1.36.2

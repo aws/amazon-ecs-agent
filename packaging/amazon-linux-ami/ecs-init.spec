@@ -32,8 +32,8 @@
 %endif
 
 Name:           ecs-init
-Version:        1.36.2
-Release:        1%{?dist}
+Version:        1.37.0
+Release:        2%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -255,6 +255,10 @@ fi
 %endif
 
 %changelog
+* Fri Feb 21 2020 Jessie Young <youngli@amazon.com> - 1.37.0-2
+- Cache Agent version 1.37.0
+- Add '/etc/alternatives' to mounts
+
 * Tue Feb 04 2020 Ray Allan <fierlion@amazon.com> - 1.36.2-1
 - Cache Agent version 1.36.2
 - update sbin mount point to avoid conflict with Docker >= 19.03.5

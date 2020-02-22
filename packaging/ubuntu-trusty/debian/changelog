@@ -1,3 +1,10 @@
+amazon-ecs-init (1.37.0-2) trusty; urgency=medium
+
+  * Cache Agent version 1.37.0
+  * Add '/etc/alternatives' to mounts
+
+ -- Jessie Young <youngli@amazon.com>  Fri, 21 Feb 2020 17:40:00 -0800
+
 amazon-ecs-init (1.36.2-1) trusty; urgency=medium
 
   * Cache Agent version 1.36.2
