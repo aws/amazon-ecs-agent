@@ -40,6 +40,8 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 		iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+readOnly,
 		iptablesLib64Dir+":"+iptablesLib64Dir+readOnly,
 		iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+readOnly,
+		iptablesAltDir+":"+iptablesAltDir+readOnly,
+		iptablesLegacyDir+":"+iptablesLegacyDir+readOnly,
 	)
 
 	logConfig := config.AgentDockerLogDriverConfiguration()

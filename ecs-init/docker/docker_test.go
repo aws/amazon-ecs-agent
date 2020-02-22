@@ -29,8 +29,8 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
-	expectedAgentBindsUnspecifiedPlatform = 17
-	expectedAgentBindsSuseUbuntuPlatform  = 15
+	expectedAgentBindsUnspecifiedPlatform = 19
+	expectedAgentBindsSuseUbuntuPlatform  = 17
 )
 
 var expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
@@ -267,6 +267,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(iptablesUsrLib64Dir+":"+iptablesUsrLib64Dir+":ro", binds, t)
 	expectKey(iptablesLib64Dir+":"+iptablesLib64Dir+":ro", binds, t)
 	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)
+	expectKey(iptablesAltDir+":"+iptablesAltDir+":ro", binds, t)
+	expectKey(iptablesLegacyDir+":"+iptablesLegacyDir+":ro", binds, t)
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}

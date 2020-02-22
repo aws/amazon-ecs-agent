@@ -94,6 +94,10 @@ const (
 	// iptablesExecutableHostDir specifies the location of the iptable
 	// executable inside container.
 	iptablesExecutableContainerDir = "/host/sbin"
+	// iptablesAltDir specifies the location of iptables alternatives
+	iptablesAltDir = "/etc/alternatives"
+	// legacyDir holds the location of legacy iptables
+	iptablesLegacyDir = "/usr/sbin"
 
 	// the following libDirs  specify the location of shared libraries on the
 	// host and in the Agent container required for the execution of the iptables
@@ -225,7 +229,7 @@ func (c *Client) GetContainerLogTail(logWindowSize string) string {
 	containerToLog, _ := c.findAgentContainer()
 	if containerToLog == "" {
 		log.Info("No existing container to take logs from.")
-                return ""
+		return ""
 	}
 	// we want to capture some logs from our removed containers in case of failure
 	var containerLogBuf bytes.Buffer
