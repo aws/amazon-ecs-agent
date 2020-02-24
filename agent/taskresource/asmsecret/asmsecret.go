@@ -353,7 +353,7 @@ func getASMParametersFromInput(valueFrom string) (input *secretsmanager.GetSecre
 	}
 	if len(paramValues) != len(strings.Split(asmARNResourceWithParametersFormat, arnDelimiter)) {
 		// can't tell what input this is, throw some error
-		err = errors.New("unexpected ARN format with parameters when trying to retrieve ASM secret")
+		err = errors.New("an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again.")
 		return nil, "", err
 	}
 
