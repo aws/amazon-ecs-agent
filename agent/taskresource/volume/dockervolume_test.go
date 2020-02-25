@@ -184,6 +184,7 @@ func TestMarshall(t *testing.T) {
 	volumeStr := "{\"name\":\"volumeName\"," +
 		"\"dockerVolumeConfiguration\":{\"scope\":\"shared\",\"autoprovision\":true,\"mountPoint\":\"\",\"driver\":\"driver\",\"driverOpts\":{},\"labels\":{}," +
 		"\"dockerVolumeName\":\"volumeName\"}," +
+		"\"pauseContainerPID\":\"123\"," +
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\"}"
 	name := "volumeName"
 	scope := "shared"
@@ -195,6 +196,7 @@ func TestMarshall(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, driverOpts, labels, nil)
+	volume.SetPauseContainerPID("123")
 	volume.SetDesiredStatus(resourcestatus.ResourceStatus(VolumeCreated))
 	volume.SetKnownStatus(resourcestatus.ResourceStatus(VolumeStatusNone))
 
@@ -215,6 +217,7 @@ func TestUnmarshall(t *testing.T) {
 	}
 	bytes := []byte("{\"name\":\"volumeName\",\"dockerVolumeName\":\"volumeName\"," +
 		"\"dockerVolumeConfiguration\":{\"scope\":\"task\",\"autoprovision\":false,\"mountPoint\":\"mountPoint\",\"driver\":\"drive\",\"labels\":{\"lab1\":\"label\"}}," +
+		"\"pauseContainerPID\":\"123\"," +
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\"}")
 	unmarshalledVolume := &VolumeResource{}
 
@@ -227,6 +230,7 @@ func TestUnmarshall(t *testing.T) {
 	assert.Equal(t, mountPoint, unmarshalledVolume.VolumeConfig.Mountpoint)
 	assert.Equal(t, driver, unmarshalledVolume.VolumeConfig.Driver)
 	assert.Equal(t, labels, unmarshalledVolume.VolumeConfig.Labels)
+	assert.Equal(t, "123", unmarshalledVolume.GetPauseContainerPID())
 	assert.Equal(t, time.Time{}, unmarshalledVolume.GetCreatedAt())
 	assert.Equal(t, resourcestatus.ResourceStatus(VolumeCreated), unmarshalledVolume.GetDesiredStatus())
 	assert.Equal(t, resourcestatus.ResourceStatus(VolumeStatusNone), unmarshalledVolume.GetKnownStatus())
@@ -292,4 +296,73 @@ func TestEFSVolumeBuildContainerDependency(t *testing.T) {
 	assert.Equal(t, "PauseContainer", contDep[0].ContainerName)
 	assert.Equal(t, apicontainerstatus.ContainerCreated, contDep[0].SatisfiedStatus)
 
+}
+
+func TestGetDriverOpts(t *testing.T) {
+	volCfg := DockerVolumeConfig{
+		Driver: ECSVolumePlugin,
+		DriverOpts: map[string]string{
+			"o": "iam",
+		},
+	}
+	testCases := []struct {
+		name         string
+		volRes       *VolumeResource
+		expectedOpts map[string]string
+	}{
+		{
+			name: "netns option is appended when pause container pid is set and driver is the volume plugin",
+			volRes: &VolumeResource{
+				VolumeConfig:            volCfg,
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "iam,netns=/proc/123/ns/net",
+			},
+		},
+		{
+			name: "netns option is not appended when pause container pid is not set",
+			volRes: &VolumeResource{
+				VolumeConfig: volCfg,
+			},
+			expectedOpts: map[string]string{
+				"o": "iam,netns=/proc/123/ns/net",
+			},
+		},
+		{
+			name: "netns option is not appended when driver is not the volume plugin",
+			volRes: &VolumeResource{
+				VolumeConfig: DockerVolumeConfig{
+					Driver: "another-driver",
+					DriverOpts: map[string]string{
+						"o": "iam",
+					},
+				},
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "iam",
+			},
+		},
+		{
+			name: "netns option is added correctly when it's the only option",
+			volRes: &VolumeResource{
+				VolumeConfig: DockerVolumeConfig{
+					Driver: ECSVolumePlugin,
+					DriverOpts: map[string]string{
+						"o": "",
+					},
+				},
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "netns=/proc/123/ns/net",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOpts["o"], tc.volRes.getDriverOpts()["o"])
+		})
+	}
 }
