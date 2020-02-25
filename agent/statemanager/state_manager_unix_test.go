@@ -28,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -291,4 +292,40 @@ func TestLoadsDataForFirelensTaskWithExternalConfig(t *testing.T) {
 	assert.Equal(t, "bridge", firelensResource.GetNetworkMode())
 	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetKnownStatus())
 	assert.Equal(t, resourcestatus.ResourceCreated, firelensResource.GetDesiredStatus())
+}
+
+func TestLoadsDataForEFSGATask(t *testing.T) {
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v27", "efs")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	require.NoError(t, err)
+	err = stateManager.Load()
+	require.NoError(t, err)
+	tasks, err := taskEngine.ListTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	task := tasks[0]
+
+	taskVolumes := task.Volumes
+	require.Len(t, taskVolumes, 1)
+	require.Len(t, task.ResourcesMapUnsafe, 2)
+	require.Len(t, task.ResourcesMapUnsafe["dockerVolume"], 1)
+	volumeResource, ok := task.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource)
+	require.True(t, ok)
+	assert.Equal(t, "efs-html", volumeResource.Name)
+	assert.Equal(t, "123", volumeResource.GetPauseContainerPID())
+	assert.Equal(t, "ecs-test-efs-creds-ap-awsvpc-2-efs-html-xxx", volumeResource.VolumeConfig.DockerVolumeName)
+	assert.Equal(t, "amazon-ecs-volume-plugin", volumeResource.VolumeConfig.Driver)
+	require.NotNil(t, volumeResource.VolumeConfig.DriverOpts)
+	assert.Equal(t, "fs-xxx:/", volumeResource.VolumeConfig.DriverOpts["device"])
+	assert.Equal(t, "tls,tlsport=20050,iam,awscredsuri=/v2/credentials/xxx,accesspoint=fsap-xxx,netns=/proc/123/ns/net", volumeResource.VolumeConfig.DriverOpts["o"])
+	assert.Equal(t, "efs", volumeResource.VolumeConfig.DriverOpts["type"])
 }
