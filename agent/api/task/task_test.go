@@ -1135,6 +1135,12 @@ func TestTaskFromACS(t *testing.T) {
 						Region:    strptr("us-west-2"),
 					},
 				},
+				EnvironmentFiles: []*ecsacs.EnvironmentFile{
+					{
+						Value: strptr("s3://bucketName/envFile"),
+						Type:  strptr("s3"),
+					},
+				},
 			},
 		},
 		Volumes: []*ecsacs.Volume{
@@ -1231,6 +1237,12 @@ func TestTaskFromACS(t *testing.T) {
 						ValueFrom: "/test/secret",
 						Provider:  "ssm",
 						Region:    "us-west-2",
+					},
+				},
+				EnvironmentFiles: []apicontainer.EnvironmentFile{
+					{
+						Value: "s3://bucketName/envFile",
+						Type:  "s3",
 					},
 				},
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
