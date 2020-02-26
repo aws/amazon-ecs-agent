@@ -23,7 +23,7 @@ type AssociationsResponse struct {
 	Associations []string `json:"Associations"`
 }
 
-func newAssociationsResponse(containerID, taskARN, associationType string, state dockerstate.TaskEngineState) (*AssociationsResponse, error) {
+func NewAssociationsResponse(containerID, taskARN, associationType string, state dockerstate.TaskEngineState) (*AssociationsResponse, error) {
 	dockerContainer, ok := state.ContainerByID(containerID)
 	if !ok {
 		return nil, errors.Errorf("unable to get container name from docker id: %s", containerID)
@@ -47,7 +47,7 @@ func newAssociationsResponse(containerID, taskARN, associationType string, state
 // don't do any decoding base on the encoding, because the only encoding that cp currently sends us is 'identity';
 // we don't explicitly model the value field as a struct because we don't want to let agent's implementation depends
 // on the payload format of the association (i.e. eia device for now)
-func newAssociationResponse(taskARN, associationType, associationName string, state dockerstate.TaskEngineState) (string, error) {
+func NewAssociationResponse(taskARN, associationType, associationName string, state dockerstate.TaskEngineState) (string, error) {
 	task, ok := state.TaskByArn(taskARN)
 	if !ok {
 		return "", errors.Errorf("unable to get task from task arn: %s", taskARN)
