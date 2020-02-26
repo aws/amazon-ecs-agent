@@ -51,7 +51,7 @@ func GetContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState)
 	return dockerID, nil
 }
 
-func getAssociationTypeByRequest(r *http.Request) (string, error) {
+func GetAssociationTypeByRequest(r *http.Request) (string, error) {
 	associationType, ok := utils.GetMuxValueFromRequest(r, associationTypeMuxName)
 	if !ok {
 		return "", errors.New("unable to get association type from request")
@@ -60,7 +60,7 @@ func getAssociationTypeByRequest(r *http.Request) (string, error) {
 	return associationType, nil
 }
 
-func getAssociationNameByRequest(r *http.Request) (string, error) {
+func GetAssociationNameByRequest(r *http.Request) (string, error) {
 	associationType, ok := utils.GetMuxValueFromRequest(r, associationNameMuxName)
 	if !ok {
 		return "", errors.New("unable to get association name from request")
