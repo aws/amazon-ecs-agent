@@ -100,6 +100,7 @@ const (
 	networkBridgeIP             = "bridgeIP"
 	networkModeBridge           = "bridge"
 	networkModeAWSVPC           = "awsvpc"
+	taskArn                     = "task1"
 )
 
 var (
