@@ -16,6 +16,7 @@ package volume
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 
@@ -39,6 +40,7 @@ const (
 	DockerLocalVolumeDriver   = "local"
 	resourceProvisioningError = "VolumeError: Agent could not create task's volume resources"
 	EFSVolumeType             = "efs"
+	netNSFormat               = "/proc/%s/ns/net"
 )
 
 // VolumeResource represents volume resource
@@ -47,7 +49,9 @@ type VolumeResource struct {
 	Name       string
 	VolumeType string
 	// VolumeConfig contains docker specific volume fields
-	VolumeConfig        DockerVolumeConfig
+	VolumeConfig            DockerVolumeConfig
+	pauseContainerPIDUnsafe string
+
 	createdAtUnsafe     time.Time
 	desiredStatusUnsafe resourcestatus.ResourceStatus
 	knownStatusUnsafe   resourcestatus.ResourceStatus
@@ -86,14 +90,6 @@ type DockerVolumeConfig struct {
 	Driver     string            `json:"driver"`
 	DriverOpts map[string]string `json:"driverOpts"`
 	Labels     map[string]string `json:"labels"`
-	// DockerVolumeName is internal docker name for this volume.
-	DockerVolumeName string `json:"dockerVolumeName"`
-}
-
-// EFSVolumeConfig represents efs volume configuration.
-type EFSVolumeConfig struct {
-	FileSystemID  string `json:"fileSystemId"`
-	RootDirectory string `json:"rootDirectory"`
 	// DockerVolumeName is internal docker name for this volume.
 	DockerVolumeName string `json:"dockerVolumeName"`
 }
@@ -326,7 +322,7 @@ func (vol *VolumeResource) Create() error {
 		vol.ctx,
 		vol.VolumeConfig.DockerVolumeName,
 		vol.VolumeConfig.Driver,
-		vol.VolumeConfig.DriverOpts,
+		vol.getDriverOpts(),
 		vol.VolumeConfig.Labels,
 		dockerclient.CreateVolumeTimeout)
 
@@ -338,6 +334,23 @@ func (vol *VolumeResource) Create() error {
 	// set readonly field after creation
 	vol.setMountPoint(volumeResponse.DockerVolume.Name)
 	return nil
+}
+
+func (vol *VolumeResource) getDriverOpts() map[string]string {
+	opts := vol.VolumeConfig.DriverOpts
+	if vol.VolumeConfig.Driver != ECSVolumePlugin {
+		return opts
+	}
+	// For awsvpc network mode, pause pid will be set (during the step when the pause container transitions to
+	// RESOURCE_PROVISIONED), and if the driver is the ecs volume plugin, we will pass the network namespace handle
+	// to the driver so that the mount will happen in the task network namespace.
+	pausePID := vol.GetPauseContainerPID()
+	if pausePID != "" {
+		mntOpt := NewVolumeMountOptionsFromString(opts["o"])
+		mntOpt.AddOption("netns", fmt.Sprintf(netNSFormat, pausePID))
+		opts["o"] = mntOpt.String()
+	}
+	return opts
 }
 
 // Cleanup performs resource cleanup
@@ -360,11 +373,12 @@ func (vol *VolumeResource) Cleanup() error {
 
 // volumeResourceJSON duplicates VolumeResource fields, only for marshalling and unmarshalling purposes
 type volumeResourceJSON struct {
-	Name          string             `json:"name"`
-	VolumeConfig  DockerVolumeConfig `json:"dockerVolumeConfiguration"`
-	CreatedAt     time.Time          `json:"createdAt"`
-	DesiredStatus *VolumeStatus      `json:"desiredStatus"`
-	KnownStatus   *VolumeStatus      `json:"knownStatus"`
+	Name              string             `json:"name"`
+	VolumeConfig      DockerVolumeConfig `json:"dockerVolumeConfiguration"`
+	PauseContainerPID string             `json:"pauseContainerPID,omitempty"`
+	CreatedAt         time.Time          `json:"createdAt"`
+	DesiredStatus     *VolumeStatus      `json:"desiredStatus"`
+	KnownStatus       *VolumeStatus      `json:"knownStatus"`
 }
 
 // MarshalJSON marshals VolumeResource object using duplicate struct VolumeResourceJSON
@@ -375,6 +389,7 @@ func (vol *VolumeResource) MarshalJSON() ([]byte, error) {
 	return json.Marshal(volumeResourceJSON{
 		vol.Name,
 		vol.VolumeConfig,
+		vol.GetPauseContainerPID(),
 		vol.GetCreatedAt(),
 		func() *VolumeStatus { desiredState := VolumeStatus(vol.GetDesiredStatus()); return &desiredState }(),
 		func() *VolumeStatus { knownState := VolumeStatus(vol.GetKnownStatus()); return &knownState }(),
@@ -391,6 +406,7 @@ func (vol *VolumeResource) UnmarshalJSON(b []byte) error {
 
 	vol.Name = temp.Name
 	vol.VolumeConfig = temp.VolumeConfig
+	vol.SetPauseContainerPID(temp.PauseContainerPID)
 	if temp.DesiredStatus != nil {
 		vol.SetDesiredStatus(resourcestatus.ResourceStatus(*temp.DesiredStatus))
 	}
@@ -424,6 +440,7 @@ func (vol *VolumeResource) DependOnTaskNetwork() bool {
 	return vol.VolumeType == EFSVolumeType
 }
 
+// BuildContainerDependency sets the container dependencies of the resource.
 func (vol *VolumeResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
 	dependent resourcestatus.ResourceStatus) {
 	// No op for non-EFS volume type
@@ -443,6 +460,7 @@ func (vol *VolumeResource) BuildContainerDependency(containerName string, satisf
 	vol.transitionDependenciesMap[dependent] = deps
 }
 
+// GetContainerDependencies returns the container dependencies of the resource.
 func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	// No op for non-EFS volume type
 	if vol.VolumeType != EFSVolumeType {
@@ -453,4 +471,20 @@ func (vol *VolumeResource) GetContainerDependencies(dependent resourcestatus.Res
 		return nil
 	}
 	return vol.transitionDependenciesMap[dependent].ContainerDependencies
+}
+
+// SetPauseContainerPID adds pause container pid to the resource.
+func (vol *VolumeResource) SetPauseContainerPID(pid string) {
+	vol.lock.Lock()
+	defer vol.lock.Unlock()
+
+	vol.pauseContainerPIDUnsafe = pid
+}
+
+// GetPauseContainerPID returns the pause container pid.
+func (vol *VolumeResource) GetPauseContainerPID() string {
+	vol.lock.RLock()
+	defer vol.lock.RUnlock()
+
+	return vol.pauseContainerPIDUnsafe
 }

@@ -206,7 +206,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities = agent.appendGMSACapabilities(capabilities)
 
 	// support efs auth on ecs capabilities
-	capabilities = agent.appendEFSAuthCapabilities(capabilities)
+	for _, cap := range agent.cfg.VolumePluginCapabilities {
+		capabilities = agent.appendEFSVolumePluginCapabilities(capabilities, cap)
+	}
 
 	return capabilities, nil
 }

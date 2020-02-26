@@ -306,12 +306,28 @@
         "DISABLED"
       ]
     },
-    "EFSVolumeConfiguration": {
+    "EFSAuthorizationConfig":{
+      "type":"structure",
+      "members":{
+        "accessPointId":{"shape":"String"},
+        "iam":{"shape":"EFSAuthorizationConfigIAM"}
+      }
+    },
+    "EFSAuthorizationConfigIAM":{
+      "type":"string",
+      "enum":[
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
+    "EFSVolumeConfiguration":{
       "type":"structure",
       "members":{
         "fileSystemId":{"shape":"String"},
         "rootDirectory":{"shape":"String"},
-        "transitEncryption":{"shape":"EFSTransitEncryption"}
+        "transitEncryption":{"shape":"EFSTransitEncryption"},
+        "transitEncryptionPort":{"shape":"Integer"},
+        "authorizationConfig":{"shape":"EFSAuthorizationConfig"}
       }
     },
     "ElasticNetworkInterface":{
