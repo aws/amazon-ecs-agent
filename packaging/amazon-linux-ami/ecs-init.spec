@@ -255,7 +255,7 @@ fi
 %endif
 
 %changelog
-* Fri Feb 21 2020 Jessie Young <youngli@amazon.com> - 1.37.0-2
+* Sat Feb 22 2020 Jessie Young <youngli@amazon.com> - 1.37.0-2
 - Cache Agent version 1.37.0
 - Add '/etc/alternatives' to mounts
 
@@ -320,7 +320,7 @@ fi
 * Thu Jan 31 2019 Shaobo Han <obo@amazon.com> - 1.25.2-1
 - Cache Agent version 1.25.2
 
-* Fri Jan 25 2019 Adnan Khan <adnkha@amazon.com> - 1.25.1-1
+* Sat Jan 26 2019 Adnan Khan <adnkha@amazon.com> - 1.25.1-1
 - Cache Agent version 1.25.1
 - Update ecr models for private link support
 
@@ -346,13 +346,13 @@ fi
 - Support configurable logconfig for Agent container to reduce disk usage
 - ECS Agent will use the host's cert store on the Amazon Linux platform
 
-* Thu Sep 13 2018 Yumeng Xie <yumex@amazon.com> - 1.20.3-1
+* Fri Sep 14 2018 Yumeng Xie <yumex@amazon.com> - 1.20.3-1
 - Cache Agent version 1.20.3
 
-* Thu Aug 30 2018 Feng Xiong <fenxiong@amazon.com> - 1.20.2-1
+* Fri Aug 31 2018 Feng Xiong <fenxiong@amazon.com> - 1.20.2-1
 - Cache Agent version 1.20.2
 
-* Wed Aug 08 2018 Peng Yin <penyin@amazon.com> - 1.20.1-1
+* Thu Aug 09 2018 Peng Yin <penyin@amazon.com> - 1.20.1-1
 - Cache Agent version 1.20.1
 
 * Wed Aug 01 2018 Haikuo Liu <haikuo@amazon.com> - 1.20.0-1
@@ -399,16 +399,16 @@ fi
 * Tue Nov 21 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.16.0-1
 - Cache Agent version 1.16.0
 
-* Tue Nov 14 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-1
+* Wed Nov 15 2017 Noah Meyerhans <nmeyerha@amazon.com> - 1.15.2-1
 - Cache Agent version 1.15.2
 
 * Tue Oct 17 2017 Jacob Vallejo <jakeev@amazon.com> - 1.15.1-1
 - Update ECS Agent version
 
-* Fri Oct 06 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-1
+* Sat Oct 07 2017 Justin Haynes <jushay@amazon.com> - 1.15.0-1
 - Update ECS Agent version
 
-* Fri Sep 29 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
+* Sat Sep 30 2017 Justin Haynes <jushay@amazon.com> - 1.14.5-1
 - Update ECS Agent version
 
 * Tue Aug 22 2017 Justin Haynes <jushay@amazon.com> - 1.14.4-1

@@ -25,8 +25,6 @@ const (
 	AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
 	DEBIAN_TIME_FMT       = "Mon, 02 Jan 2006 15:04:05 -0700"
 	SUSE_TIME_FMT         = "Mon Jan 02, 15:04:05 MST 2006"
-
-	PST_CONV = "-0800"
 )
 
 func main() {
@@ -126,7 +124,7 @@ func validateChangelog(allChange []Change) bool {
 func getAmazonLinuxChangeString(allChange []Change) string {
 	result := ""
 	for _, change := range allChange {
-		thisTime := change.Datetime.Format(AMAZON_LINUX_TIME_FMT)
+		thisTime := change.Datetime.UTC().Format(AMAZON_LINUX_TIME_FMT)
 		result += fmt.Sprintf("* %s %s - %s\n", thisTime, change.Name, change.Version)
 		for _, update := range change.Changes {
 			result += fmt.Sprintf("- %s\n", update)
@@ -148,10 +146,7 @@ func getUbuntuChangeString(allChange []Change) string {
 	result := ""
 	for _, change := range allChange {
 		result += fmt.Sprintf("amazon-ecs-init (%s) trusty; urgency=medium\n\n", change.Version)
-		thisTime := change.Datetime.Format(DEBIAN_TIME_FMT)
-		// fix bug where time doesn't parse 'PST' to '-0800'
-		r := strings.NewReplacer("+0000", PST_CONV)
-		thisTime = r.Replace(thisTime)
+		thisTime := change.Datetime.UTC().Format(DEBIAN_TIME_FMT)
 		for _, update := range change.Changes {
 			result += fmt.Sprintf("  * %s\n", update)
 		}
@@ -173,7 +168,7 @@ func getSuseChangeString(allChange []Change) string {
 	result := ""
 	for _, change := range allChange {
 		result += fmt.Sprintf("-------------------------------------------------------------------\n")
-		thisTime := change.Datetime.Format(SUSE_TIME_FMT)
+		thisTime := change.Datetime.UTC().Format(SUSE_TIME_FMT)
 		thisEmail := getEmailSlice(change.Name)
 		result += fmt.Sprintf("%s - %s - %s\n\n", thisTime, thisEmail, change.Version)
 		for _, update := range change.Changes {

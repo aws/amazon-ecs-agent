@@ -3,13 +3,13 @@
 ## Be sure your git is clean
 We'll be relying on git to guard us against problems.
 Staring from a clean checkout follow these steps.
- 
-## Update CHANGELOG\_MASTER
-The CHANGELOG\_MASTER consists of 
 
-version (Name.Version.Release) 
+## Update CHANGELOG\_MASTER
+The CHANGELOG\_MASTER consists of
+
+version (Name.Version.Release)
 User <user@email>
-Datetime(RFC1123 format) 
+Datetime(RFC1123 format)
 List of changes separated by newline
 Newline
 
@@ -25,9 +25,7 @@ You'll need to add a new entry to the CHANGELOG\_MASTER before running the
 chagelog.go script
 
 ## Build and run changelog.go
-From the scripts/changelog dir, build the changelog binary with `go build changelog.go`
-run the built changelog binary from this same directory.  It uses relative
-paths to replace the relevant changelog files: `./changelog`
+From the scripts/changelog dir, build and run the changelog binary with `go run ./changelog.go`
 
 use git status to check that the following files are updated
 ```
