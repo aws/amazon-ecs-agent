@@ -138,6 +138,8 @@ type Container struct {
 	EntryPoint *[]string
 	// Environment is the environment variable set in the container
 	Environment map[string]string `json:"environment"`
+	// EnvironmentFiles is the list of environmentFile used to populate environment variables
+	EnvironmentFiles []EnvironmentFile `json:"environmentFiles"`
 	// Overrides contains the configuration to override of a container
 	Overrides ContainerOverrides `json:"overrides"`
 	// DockerConfig is the configuration used to create the container
@@ -271,6 +273,11 @@ type DockerContainer struct {
 	DockerName string // needed for linking
 
 	Container *Container
+}
+
+type EnvironmentFile struct {
+	Value string `json:"value"`
+	Type  string `json:"type"`
 }
 
 // MountPoint describes the in-container location of a Volume and references
