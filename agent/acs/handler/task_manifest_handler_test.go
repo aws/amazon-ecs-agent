@@ -17,6 +17,7 @@ package handler
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -108,6 +109,11 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 
 	newTaskManifest.messageBufferTaskManifest <- message
 
+	// mockWSClient.EXPECT().MakeRequest(ackRequested).Times(1) in this test is called by an asynchronous routine.
+	// Sometimes functions execution finishes before a call to this asynchronous routine, this sleep will ensure that
+	// asynchronous routine is called before function ends
+	time.Sleep(2 * time.Second)
+
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
@@ -198,6 +204,11 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 
 	newTaskManifest.messageBufferTaskManifest <- message
 
+	// mockWSClient.EXPECT().MakeRequest(ackRequested).Times(1) in this test is called by an asynchronous routine.
+	// Sometimes functions execution finishes before a call to this asynchronous routine, this sleep will ensure that
+	// asynchronous routine is called before function ends
+	time.Sleep(2 * time.Second)
+
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
@@ -278,6 +289,11 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	go newTaskManifest.start()
 
 	newTaskManifest.messageBufferTaskManifest <- message
+
+	// mockWSClient.EXPECT().MakeRequest(ackRequested).Times(1) in this test is called by an asynchronous routine.
+	// Sometimes functions execution finishes before a call to this asynchronous routine, this sleep will ensure that
+	// asynchronous routine is called before function ends
+	time.Sleep(2 * time.Second)
 
 	select {
 	case <-newTaskManifest.ctx.Done():
@@ -373,6 +389,11 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	go newTaskManifest.start()
 
 	newTaskManifest.messageBufferTaskManifest <- message
+
+	// mockWSClient.EXPECT().MakeRequest(ackRequested).Times(1) in this test is called by an asynchronous routine.
+	// Sometimes functions execution finishes before a call to this asynchronous routine, this sleep will ensure that
+	// asynchronous routine is called before function ends
+	time.Sleep(2 * time.Second)
 
 	select {
 	case <-newTaskManifest.ctx.Done():
