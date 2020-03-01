@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -533,7 +534,13 @@ func TestLogDriverOptions(t *testing.T) {
 			"max-size": "50k"
 		}
 	}}`)}
-	go taskEngine.AddTask(testTask)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		taskEngine.AddTask(testTask)
+		wg.Done()
+	}()
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -552,6 +559,7 @@ func TestLogDriverOptions(t *testing.T) {
 	assert.EqualValues(t, containerExpected, state.HostConfig.LogConfig)
 
 	// Kill the existing container now
+	wg.Wait()
 	testUpdate := *testTask
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&testUpdate)
@@ -579,7 +587,12 @@ func testNetworkMode(t *testing.T, networkMode string) {
 	testTask.Containers[0].DockerConfig = apicontainer.DockerConfig{
 		HostConfig: aws.String(fmt.Sprintf(`{"NetworkMode":"%s"}`, networkMode))}
 
-	go taskEngine.AddTask(testTask)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		taskEngine.AddTask(testTask)
+		wg.Done()
+	}()
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
@@ -600,6 +613,7 @@ func testNetworkMode(t *testing.T, networkMode string) {
 	assert.Equal(t, networkMode, networks[0], "did not find the expected network mode")
 
 	// Kill the existing container now
+	wg.Wait()
 	taskUpdate := *testTask
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(&taskUpdate)
