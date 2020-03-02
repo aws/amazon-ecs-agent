@@ -507,9 +507,11 @@ func TestLabels(t *testing.T) {
 	assert.EqualValues(t, "", state.Config.Labels["label1"])
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	// Create instead of copying the testTask, to avoid race condition.
+	// AddTask idempotently handles update, filtering by Task ARN.
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -552,9 +554,11 @@ func TestLogDriverOptions(t *testing.T) {
 	assert.EqualValues(t, containerExpected, state.HostConfig.LogConfig)
 
 	// Kill the existing container now
-	testUpdate := *testTask
-	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&testUpdate)
+	// Create instead of copying the testTask, to avoid race condition.
+	// AddTask idempotently handles update, filtering by Task ARN.
+	taskUpdate := createTestTask(testArn)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -600,9 +604,11 @@ func testNetworkMode(t *testing.T, networkMode string) {
 	assert.Equal(t, networkMode, networks[0], "did not find the expected network mode")
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	// Create instead of copying the testTask, to avoid race condition.
+	// AddTask idempotently handles update, filtering by Task ARN.
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
