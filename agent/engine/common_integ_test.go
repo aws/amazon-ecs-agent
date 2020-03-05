@@ -51,6 +51,7 @@ func defaultTestConfigIntegTest() *config.Config {
 	return cfg
 }
 
+
 func createTestTask(arn string) *apitask.Task {
 	return &apitask.Task{
 		Arn:                 arn,
