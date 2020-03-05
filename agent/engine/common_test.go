@@ -161,6 +161,8 @@ func validateContainerRunWorkflow(t *testing.T,
 		container.SetV3EndpointID(v3EndpointID)
 		metadataEndpointEnvValue := fmt.Sprintf(apicontainer.MetadataURIFormat, v3EndpointID)
 		dockerConfig.Env = append(dockerConfig.Env, "ECS_CONTAINER_METADATA_URI="+metadataEndpointEnvValue)
+		metadataEndpointEnvValueV4 := fmt.Sprintf(apicontainer.MetadataURIFormatV4, v3EndpointID)
+		dockerConfig.Env = append(dockerConfig.Env, "ECS_CONTAINER_METADATA_URI_V4="+metadataEndpointEnvValueV4)
 	}
 	// Container config should get updated with this during CreateContainer
 	dockerConfig.Labels["com.amazonaws.ecs.task-arn"] = task.Arn

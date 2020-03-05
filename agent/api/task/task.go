@@ -350,6 +350,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
+	task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -716,6 +717,20 @@ func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUID
 		}
 
 		container.InjectV3MetadataEndpoint()
+	}
+}
+
+// initializeContainersV4MetadataEndpoint generates an v4 endpoint id which we reuse the v3 container id
+// (they are the same) for each container, constructs the v4 metadata endpoint,
+// and injects it as an environment variable
+func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	for _, container := range task.Containers {
+		v3EndpointID := container.GetV3EndpointID()
+		if v3EndpointID == "" { // if container's v3 endpoint has not been set
+			container.SetV3EndpointID(uuidProvider.New())
+		}
+
+		container.InjectV4MetadataEndpoint()
 	}
 }
 
