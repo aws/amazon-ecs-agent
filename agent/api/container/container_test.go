@@ -269,6 +269,17 @@ func TestInjectV3MetadataEndpoint(t *testing.T) {
 		fmt.Sprintf(MetadataURIFormat, "myV3EndpointID"))
 }
 
+func TestInjectV4MetadataEndpoint(t *testing.T) {
+	container := Container{
+		V3EndpointID: "EndpointID",
+	}
+	container.InjectV4MetadataEndpoint()
+
+	assert.NotNil(t, container.Environment)
+	assert.Equal(t, container.Environment[MetadataURIEnvVarNameV4],
+		fmt.Sprintf(MetadataURIFormatV4, "EndpointID"))
+}
+
 func TestShouldCreateWithSSMSecret(t *testing.T) {
 	cases := []struct {
 		in  Container
