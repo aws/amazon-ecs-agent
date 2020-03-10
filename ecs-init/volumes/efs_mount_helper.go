@@ -92,7 +92,9 @@ func getPath(binary string) (string, error) {
 var runUnmount = runUnmountCommand
 
 func runUnmountCommand(path string, target string) error {
-	umountCmd := exec.Command(path, target)
+	// In case of awsvpc network mode, when we unmount the volume, task network namespace has been deleted
+	// and nfs server is no longer reachable, so umount will hang. Hence doing lazy unmount here.
+	umountCmd := exec.Command(path, "-l", target)
 	return runCmd(umountCmd)
 }
 
