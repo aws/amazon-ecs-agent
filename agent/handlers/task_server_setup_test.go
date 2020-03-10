@@ -294,6 +294,7 @@ var (
 		ExecutionStoppedAt: aws.Time(now.UTC()),
 		AvailabilityZone:   availabilityzone,
 	}
+	attachmentIndexVar          = attachmentIndex
 	expectedV4ContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedContainerResponse,
 		Networks: []v4.Network{{
@@ -302,7 +303,7 @@ var (
 				IPv4Addresses: []string{eniIPv4Address},
 			},
 			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
-				AttachmentIndex:          attachmentIndex,
+				AttachmentIndex:          &attachmentIndexVar,
 				IPV4SubnetCIDRBlock:      iPv4SubnetCIDRBlock,
 				MACAddress:               macAddress,
 				PrivateDNSName:           privateDNSName,
@@ -322,7 +323,7 @@ var (
 				IPv4Addresses: []string{bridgeIPAddr},
 			},
 			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
-				AttachmentIndex:          attachmentIndex,
+				AttachmentIndex:          nil,
 				IPV4SubnetCIDRBlock:      "",
 				MACAddress:               "",
 				PrivateDNSName:           "",
