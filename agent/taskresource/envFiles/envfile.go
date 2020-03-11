@@ -15,6 +15,7 @@ package envFiles
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -38,6 +39,7 @@ const (
 	ResourceName      = "envfile"
 	envFileDirPath    = "envfiles"
 	envTempFilePrefix = "tmp_env"
+	envFileExtension  = ".env"
 
 	s3DownloadTimeout = 30 * time.Second
 )
@@ -358,9 +360,14 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 	return nil
 }
 
-// Cleanup removes env files downloaded for the task
+// Cleanup removes env file directory for the task
 func (envfile *EnvironmentFileResource) Cleanup() error {
-	// TODO
+	err := envfile.os.RemoveAll(envfile.resourceDir)
+	if err != nil {
+		return fmt.Errorf("unable to remove envfile resource directory %s: %v", envfile.resourceDir, err)
+	}
+
+	seelog.Infof("Removed envfile resource directory at %s", envfile.resourceDir)
 	return nil
 }
 
