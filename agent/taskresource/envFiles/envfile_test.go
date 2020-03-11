@@ -47,7 +47,7 @@ const (
 	accessKeyId            = "accessKey"
 	secretAccessKey        = "secret"
 	s3Bucket               = "s3Bucket"
-	s3Key                  = "s3key"
+	s3Key                  = "s3key.env"
 	tempFile               = "tmp_file"
 )
 
@@ -259,4 +259,34 @@ func TestCreateRenameFileError(t *testing.T) {
 	assert.Error(t, envfileResource.Create())
 	assert.NotEmpty(t, envfileResource.terminalReasonUnsafe)
 	assert.Contains(t, envfileResource.GetTerminalReason(), "error response")
+}
+
+func TestEnvFileCleanupSuccess(t *testing.T) {
+	mockOS, _, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
+	defer done()
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockOS, mockIOUtil)
+
+	mockOS.EXPECT().RemoveAll(resourceDir).Return(nil)
+
+	assert.NoError(t, envfileResource.Cleanup())
+}
+
+func TestEnvFileCleanupResourceDirRemoveFail(t *testing.T) {
+	mockOS, _, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
+	defer done()
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	envfileResource := newMockEnvfileResource(envfiles, mockCredentialsManager, mockS3ClientCreator, mockOS, mockIOUtil)
+
+	mockOS.EXPECT().RemoveAll(resourceDir).Return(errors.New("error response"))
+
+	assert.Error(t, envfileResource.Cleanup())
 }
