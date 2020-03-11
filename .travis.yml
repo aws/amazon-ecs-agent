@@ -7,4 +7,6 @@ install:
     - go get golang.org/x/tools/cover
     - go get golang.org/x/tools/cmd/cover
 script:
+    - make get-deps
     - make gotest
+    - make static-check

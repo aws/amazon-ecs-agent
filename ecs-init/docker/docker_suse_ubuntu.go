@@ -15,7 +15,10 @@
 
 package docker
 
-import godocker "github.com/fsouza/go-dockerclient"
+import (
+	"github.com/aws/amazon-ecs-init/ecs-init/config"
+	godocker "github.com/fsouza/go-dockerclient"
+)
 
 // getPlatformSpecificEnvVariables gets a map of environment variable key-value
 // pairs to set in the Agent's container config

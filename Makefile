@@ -36,6 +36,24 @@ gotest:
 
 test: generate lint govet gotest
 
+# all .go files in the ecs-init
+GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./ecs-init/...)
+
+.PHONY: gocyclo
+gocyclo:
+	# Run gocyclo over all .go files
+	gocyclo -over 12 ${GOFILES}
+
+GOFMTFILES:=$(shell find ./ecs-init -not -path './ecs-init/vendor/*' -type f -iregex '.*\.go')
+
+.PHONY: importcheck
+importcheck:
+	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
+
+.PHONY: static-check
+static-check: gocyclo govet importcheck
+
 test-in-docker:
 	docker build -f scripts/dockerfiles/test.dockerfile -t "amazon/amazon-ecs-init-test:make" .
 	docker run -v "$(shell pwd):/go/src/github.com/aws/amazon-ecs-init" "amazon/amazon-ecs-init-test:make"
@@ -88,6 +106,7 @@ get-deps:
 	go get golang.org/x/lint/golint
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
+	go get github.com/fzipp/gocyclo
 	go get golang.org/x/tools/cmd/goimports
 
 clean:
