@@ -15,10 +15,14 @@ package volumes
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/cihub/seelog"
 )
+
+// TODO: might be a good idea to check the mount point with a tool like mountpoint instead of matching error message.
+const notMountedErrMsg = "not mounted"
 
 // ECSVolumeDriver holds mount helper and methods for different Volume Mounts
 type ECSVolumeDriver struct {
@@ -98,8 +102,14 @@ func (e *ECSVolumeDriver) Remove(req *RemoveRequest) error {
 	}
 	err := mnt.Unmount()
 	if err != nil {
+		if strings.Contains(err.Error(), notMountedErrMsg) {
+			seelog.Infof("Unmounting volume %s failed because it's not mounted.", req.Name)
+			delete(e.volumeMounts, req.Name)
+			return nil
+		}
 		return fmt.Errorf("unmounting volume failed: %v", err)
 	}
 	delete(e.volumeMounts, req.Name)
+	seelog.Infof("Unmounted volume %s successfully.", req.Name)
 	return err
 }

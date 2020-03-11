@@ -112,6 +112,26 @@ func TestRemoveVolumeHappyPath(t *testing.T) {
 	assert.Len(t, e.volumeMounts, 0)
 }
 
+func TestRemoveVolumeUnmounted(t *testing.T) {
+	e := NewECSVolumeDriver()
+	e.volumeMounts["vol"] = &MountHelper{}
+	req := RemoveRequest{
+		Name: "vol",
+	}
+	lookPath = func(string) (string, error) {
+		return "path", nil
+	}
+	runUnmount = func(string, string) error {
+		return errors.New("not mounted")
+	}
+	defer func() {
+		lookPath = getPath
+		runUnmount = runUnmountCommand
+	}()
+	assert.NoError(t, e.Remove(&req), "expected no error when unmount failed because of not mounted")
+	assert.Len(t, e.volumeMounts, 0)
+}
+
 func TestRemoveUnmountFailure(t *testing.T) {
 	e := NewECSVolumeDriver()
 	e.volumeMounts["vol"] = &MountHelper{}
