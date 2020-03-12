@@ -22,6 +22,7 @@ import (
 	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -42,6 +43,8 @@ const (
 	FirelensKey = firelens.ResourceName
 	// CredentialSpecKey is the string used in resources map to represent credentialspec resource
 	CredentialSpecKey = credentialspec.ResourceName
+	//EnvironmentFilesKey is the string used in resources map to represent environmentfiles resource
+	EnvironmentFilesKey = envFiles.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -81,6 +84,8 @@ func unmarshalResource(key string, value json.RawMessage, result map[string][]ta
 		return unmarshalFirelensKey(key, value, result)
 	case CredentialSpecKey:
 		return unmarshalCredentialSpecKey(key, value, result)
+	case EnvironmentFilesKey:
+		return unmarshalEnvironmentFilesKey(key, value, result)
 	default:
 		return errors.New("Unsupported resource type")
 	}
@@ -203,6 +208,24 @@ func unmarshalCredentialSpecKey(key string, value json.RawMessage, result map[st
 	for _, credSpec := range credentialSpecs {
 		res := &credentialspec.CredentialSpecResource{}
 		err := res.UnmarshalJSON(credSpec)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalEnvironmentFilesKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var environmentFiles []json.RawMessage
+	err := json.Unmarshal(value, &environmentFiles)
+	if err != nil {
+		return err
+	}
+
+	for _, environmentFile := range environmentFiles {
+		res := &envFiles.EnvironmentFileResource{}
+		err := res.UnmarshalJSON(environmentFile)
 		if err != nil {
 			return err
 		}

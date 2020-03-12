@@ -98,8 +98,9 @@ const (
 	//     firelens task resource.
 	// 25) Add `seqNumTaskManifest` int field
 	// 26) Add 'credentialspec' field to 'resources'
+	// 27) Add 'envfile' field to 'resources'
 
-	ECSDataVersion = 26
+	ECSDataVersion = 27
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
