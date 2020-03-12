@@ -22,3 +22,4 @@ _bin/
 /misc/v3-task-endpoint-validator/v3-task-endpoint-validator
 /misc/elastic-inference-validator/elastic-inference-validator
 /bin
+*.iml

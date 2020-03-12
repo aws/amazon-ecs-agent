@@ -1,6 +1,6 @@
 // +build !windows,integration
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -998,7 +998,7 @@ func TestDockerCfgAuth(t *testing.T) {
 			return nil
 		}
 		data, err := ioutil.ReadFile(path)
-		t.Log("Reading file:%s", path)
+		t.Logf("Reading file:%s", path)
 		if err != nil {
 			return err
 		}

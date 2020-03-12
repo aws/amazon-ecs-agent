@@ -1,4 +1,4 @@
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	roundtripTimeout = 5 * time.Second
+	bucketLocationDefault = "us-east-1"
+	roundtripTimeout      = 5 * time.Second
 )
 
 type S3ClientCreator interface {
@@ -68,6 +69,9 @@ func getRegionFromBucket(svc *s3.S3, bucket string) (string, error) {
 	result, err := svc.GetBucketLocation(input)
 	if err != nil {
 		return "", err
+	}
+	if result.LocationConstraint == nil { // GetBucketLocation returns nil for bucket in us-east-1.
+		return bucketLocationDefault, nil
 	}
 
 	return aws.StringValue(result.LocationConstraint), nil

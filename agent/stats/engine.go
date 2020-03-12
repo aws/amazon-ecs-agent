@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -593,23 +593,28 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		// Container is not terminal. Get CPU stats set.
+		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting cpu stats, err: %v, container: %v", err, dockerID)
+			seelog.Warnf("Error getting cpu stats, skipping container, err: %v, container: %v", err, dockerID)
 			continue
 		}
-
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)
+			seelog.Warnf("Error getting memory stats, skipping container, err: %v, container: %v", err, dockerID)
 			continue
 		}
-
 		containerMetric := &ecstcs.ContainerMetric{
 			ContainerName:  &container.containerMetadata.Name,
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
+		}
+
+		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
+		if err != nil {
+			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
+		} else {
+			containerMetric.StorageStatsSet = storageStatsSet
 		}
 
 		task, err := engine.resolver.ResolveTask(dockerID)
@@ -624,16 +629,11 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				if err != nil {
 					// we log the error and still continue to publish cpu, memory stats
 					seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+				} else {
+					containerMetric.NetworkStatsSet = networkStatsSet
 				}
-				containerMetric.NetworkStatsSet = networkStatsSet
 			}
 		}
-
-		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
-		if err != nil {
-			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
-		}
-		containerMetric.StorageStatsSet = storageStatsSet
 
 		containerMetrics = append(containerMetrics, containerMetric)
 	}

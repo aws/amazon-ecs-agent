@@ -1,6 +1,6 @@
 //+build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,6 +23,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -511,4 +512,99 @@ func TestEnoughDatapointsInBuffer(t *testing.T) {
 	queue.Reset()
 	enoughDataPoints = queue.enoughDatapointsInBuffer()
 	assert.False(t, enoughDataPoints, "Queue is expected to not have enough data points right after RESET")
+}
+
+func TestCPUStatSetFailsWhenSampleCountIsZero(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+	}
+	// create a queue
+	queue := NewQueue(3)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+	}
+
+	// if two cpu had identical timestamps,
+	// then there will not be enough valid cpu percentage stats to create
+	// a valid CpuStatsSet, and this function call should fail.
+	_, err := queue.GetCPUStatsSet()
+	require.Error(t, err)
+}
+
+func TestCPUStatsWithIdenticalTimestampsGetSameUsagePercent(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117000Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117001Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117002Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117002Z"),
+	}
+	cpuTimes := []uint64{
+		0,
+		1,
+		3,
+		4,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+		3649536,
+		3649536,
+	}
+	// create a queue
+	queue := NewQueue(4)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+	}
+
+	// if there were three cpu metrics, and two had identical timestamps,
+	// then there will not be enough valid cpu percentage stats to create
+	// a valid CpuStatsSet, and this function call should fail.
+	statSet, err := queue.GetCPUStatsSet()
+	require.NoError(t, err)
+	require.Equal(t, float64(200), *statSet.Max)
+	require.Equal(t, float64(100), *statSet.Min)
+	require.Equal(t, int64(3), *statSet.SampleCount)
+	require.Equal(t, float64(500), *statSet.Sum)
+}
+
+func TestHugeCPUUsagePercentDoesntGetCapped(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117000Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117001Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117002Z"),
+	}
+	cpuTimes := []uint64{
+		0,
+		1,
+		300000000,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+		3649536,
+	}
+	// create a queue
+	queue := NewQueue(4)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{cpuUsage: cpuTimes[i], memoryUsage: memoryUtilizationInBytes[i], timestamp: time})
+	}
+
+	statSet, err := queue.GetCPUStatsSet()
+	require.NoError(t, err)
+	require.Equal(t, float64(30000001024), *statSet.Max)
+	require.Equal(t, float64(100), *statSet.Min)
+	require.Equal(t, int64(2), *statSet.SampleCount)
+	require.Equal(t, float64(30000001124), *statSet.Sum)
 }
