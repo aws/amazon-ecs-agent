@@ -273,7 +273,7 @@ func (envfile *EnvironmentFileResource) setTerminalReason(reason string) {
 	})
 }
 
-// Create performs resource creation. This retrieves env file contents in parallel
+// Create performs resource creation. This retrieves env file contents concurrently
 // from s3 and writes them to disk
 func (envfile *EnvironmentFileResource) Create() error {
 	seelog.Debugf("Creating envfile resource.")
@@ -285,30 +285,48 @@ func (envfile *EnvironmentFileResource) Create() error {
 		return err
 	}
 
+	var wg sync.WaitGroup
+	errorEvents := make(chan error, len(envfile.environmentFilesSource))
+
 	iamCredentials := executionCredentials.GetIAMRoleCredentials()
 	for _, envfileSource := range envfile.environmentFilesSource {
+		wg.Add(1)
 		// if we support types besides S3 ARN, we will need to add filtering before the below method is called
+		// call an additional go routine per env file
+		go envfile.downloadEnvfileFromS3(envfileSource.Value, iamCredentials, &wg, errorEvents)
+	}
 
-		err := envfile.downloadEnvfileFromS3(envfileSource.Value, iamCredentials)
-		if err != nil {
-			err = errors.Wrapf(err, "unable to download envfile with ARN %v from s3", envfileSource.Value)
-			envfile.setTerminalReason(err.Error())
-			return err
+	wg.Wait()
+	close(errorEvents)
+
+	if len(errorEvents) > 0 {
+		var terminalReasons []string
+		for err := range errorEvents {
+			terminalReasons = append(terminalReasons, err.Error())
 		}
+
+		errorString := strings.Join(terminalReasons, ";")
+		envfile.setTerminalReason(errorString)
+		return errors.New(errorString)
 	}
 
 	return nil
 }
 
-func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string, iamCredentials credentials.IAMRoleCredentials) error {
+func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string, iamCredentials credentials.IAMRoleCredentials,
+	wg *sync.WaitGroup, errorEvents chan error) {
+	defer wg.Done()
+
 	bucket, key, err := s3.ParseS3ARN(envFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "unable to parse bucket and key from s3 ARN specified in environmentFile %s", envFilePath)
+		errorEvents <- fmt.Errorf("unable to parse bucket and key from s3 ARN specified in environmentFile %s, error: %v", envFilePath, err)
+		return
 	}
 
 	s3Client, err := envfile.s3ClientCreator.NewS3ClientForBucket(bucket, envfile.region, iamCredentials)
 	if err != nil {
-		return errors.Wrapf(err, "unable to initialize s3 client for bucket %s", bucket)
+		errorEvents <- fmt.Errorf("unable to initialize s3 client for bucket %s, error: %v", bucket, err)
+		return
 	}
 
 	seelog.Debugf("Downlading envfile with bucket name %v and key name %v", bucket, key)
@@ -319,11 +337,11 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 	}, downloadPath)
 
 	if err != nil {
-		return errors.Wrapf(err, "unable to download env file with key %s from bucket %s", key, bucket)
+		errorEvents <- fmt.Errorf("unable to download env file with key %s from bucket %s, error: %v", key, bucket, err)
+		return
 	}
 
 	seelog.Debugf("Downloaded envfile from s3 and saved to %s", downloadPath)
-	return nil
 }
 
 func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapper.File) error, fullPathName string) error {
