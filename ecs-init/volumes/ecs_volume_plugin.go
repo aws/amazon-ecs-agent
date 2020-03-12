@@ -173,6 +173,10 @@ func (a *AmazonECSVolumePlugin) Create(r *volume.CreateRequest) error {
 	err = volDriver.Create(req)
 	if err != nil {
 		seelog.Errorf("Volume %s creation failure: %v", r.Name, err)
+		cErr := a.CleanupMountPath(target)
+		if cErr != nil {
+			seelog.Warnf("Failed to cleanup mount path for volume %s: %v", r.Name, cErr)
+		}
 		return err
 	}
 	seelog.Infof("Volume %s created successfully", r.Name)

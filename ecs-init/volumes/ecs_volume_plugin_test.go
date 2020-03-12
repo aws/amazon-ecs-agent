@@ -189,11 +189,19 @@ func TestVolumeCreateFailure(t *testing.T) {
 	createMountPath = func(path string) error {
 		return nil
 	}
+
+	var removeInvoked bool
+	removeMountPath = func(path string) error {
+		removeInvoked = true
+		return nil
+	}
 	defer func() {
 		createMountPath = createMountDir
+		removeMountPath = deleteMountPath
 	}()
 	assert.Error(t, plugin.Create(req), "expected error while creating volume")
 	assert.Len(t, plugin.volumes, 0)
+	assert.True(t, removeInvoked)
 }
 
 func TestCreateNoVolumeType(t *testing.T) {
