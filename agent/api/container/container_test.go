@@ -655,3 +655,92 @@ func TestGetNetworkModeFromHostConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestShouldCreateWithEnvfiles(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{
+			Container{
+				Name:  "containerName",
+				Image: "image:tag",
+				EnvironmentFiles: []EnvironmentFile{
+					EnvironmentFile{
+						Value: "s3://bucket/envfile",
+						Type:  "s3",
+					},
+				},
+			}, true},
+		{
+			Container{
+				Name:             "containerName",
+				Image:            "image:tag",
+				EnvironmentFiles: nil,
+			}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithEnvFiles())
+	}
+}
+
+func TestMergeEnvironmentVariablesFromEnvfiles(t *testing.T) {
+	cases := []struct {
+		Name                   string
+		InContainerEnvironment map[string]string
+		InEnvVarList           []map[string]string
+		OutEnvVarMap           map[string]string
+	}{
+		{
+			Name:                   "merge one item",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList:           []map[string]string{{"key2": "value2"}},
+			OutEnvVarMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			Name:                   "merge single item to nil env var map",
+			InContainerEnvironment: nil,
+			InEnvVarList:           []map[string]string{{"key": "value"}},
+			OutEnvVarMap:           map[string]string{"key": "value"},
+		},
+		{
+			Name:                   "merge one item key already exists",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList:           []map[string]string{{"key1": "value2"}},
+			OutEnvVarMap:           map[string]string{"key1": "value1"},
+		},
+		{
+			Name:                   "merge two items with same key",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList: []map[string]string{
+				{"key2": "value2"},
+				{"key2": "value3"},
+			},
+			OutEnvVarMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			container := Container{
+				Environment: test.InContainerEnvironment,
+			}
+
+			convertedInEnvVarList := make([]interface{}, len(test.InEnvVarList))
+			for i, v := range test.InEnvVarList {
+				convertedInEnvVarList[i] = v
+			}
+
+			container.MergeEnvironmentVariablesFromEnvfiles(convertedInEnvVarList)
+			assert.True(t, reflect.DeepEqual(test.OutEnvVarMap, container.Environment))
+		})
+	}
+}

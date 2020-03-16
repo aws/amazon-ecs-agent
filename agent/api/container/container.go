@@ -902,6 +902,19 @@ func (c *Container) ShouldCreateWithASMSecret() bool {
 	return false
 }
 
+// ShouldCreateWithEnvFiles returns true if this container needs to
+// retrieve environment variable files
+func (c *Container) ShouldCreateWithEnvFiles() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.EnvironmentFiles == nil {
+		return false
+	}
+
+	return len(c.EnvironmentFiles) != 0
+}
+
 // MergeEnvironmentVariables appends additional envVarName:envVarValue pairs to
 // the the container's environment values structure
 func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
@@ -916,6 +929,38 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 		c.Environment[k] = v
 	}
 }
+
+// MergeEnvironmentVariablesFromEnvfiles appends environment variable pairs from
+// the retrieved envfiles to the container's environment values list
+// envvars from envfiles will have lower precedence than existing envvars
+func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []interface{}) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// create map if does not exist
+	if c.Environment == nil {
+		c.Environment = make(map[string]string)
+	}
+
+	// envVarsList is a list of map, where each map is from an envfile
+	// iterate over this sequentially because the original order of the
+	// environment files give precedence to the environment variables
+	for _, envVarsIn := range envVarsList {
+		envVars, ok := envVarsIn.(map[string]string)
+		if !ok {
+			seelog.Errorf("Unable to convert envVars interface to map")
+		}
+		for k, v := range envVars {
+			// existing environment variables have precedence over variables from envfile
+			// only set the env var if key does not already exist
+			if _, ok := c.Environment[k]; !ok {
+				c.Environment[k] = v
+			}
+		}
+	}
+	return nil
+}
+
 
 // HasSecret returns whether a container has secret based on a certain condition.
 func (c *Container) HasSecret(f func(s Secret) bool) bool {
@@ -1049,4 +1094,11 @@ func (c *Container) GetFirelensConfig() *FirelensConfig {
 	defer c.lock.RUnlock()
 
 	return c.FirelensConfig
+}
+
+func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.EnvironmentFiles
 }

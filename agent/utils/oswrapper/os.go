@@ -24,6 +24,7 @@ type OS interface {
 	Remove(string) error
 	RemoveAll(string) error
 	IsNotExist(error) bool
+	Open(string) (File, error)
 }
 
 // File wraps methods for os.File type
@@ -34,6 +35,7 @@ type File interface {
 	Write([]byte) (int, error)
 	WriteAt(b []byte, off int64) (n int, err error)
 	Sync() error
+	Read([]byte) (int, error)
 }
 
 type _os struct {
@@ -69,4 +71,8 @@ func (*_os) RemoveAll(name string) error {
 
 func (*_os) IsNotExist(err error) bool {
 	return os.IsNotExist(err)
+}
+
+func (*_os) Open(name string) (File, error) {
+	return os.Open(name)
 }

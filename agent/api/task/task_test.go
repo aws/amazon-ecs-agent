@@ -49,6 +49,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -3318,4 +3319,110 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
 		})
 	}
+}
+
+func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
+	envfile := apicontainer.EnvironmentFile{
+		Value: "s3://bucket/envfile",
+		Type:  "s3",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "containerName",
+		Image:                     "image:tag",
+		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "testArn",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{}
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	resourceDep := apicontainer.ResourceDependency{
+		Name:           envFiles.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
+	}
+
+	err := task.PostUnmarshalTask(cfg, credentialsManager, resFields, nil, nil)
+	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(task.ResourcesMapUnsafe))
+	assert.Equal(t, resourceDep,
+		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+}
+
+func TestInitializeAndGetEnvfilesResource(t *testing.T) {
+	envfile := apicontainer.EnvironmentFile{
+		Value: "s3://bucket/envfile",
+		Type:  "s3",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "containerName",
+		Image:                     "image:tag",
+		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "testArn",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{
+		DataDir: "/ecs/data",
+	}
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	task.initializeEnvfilesResource(cfg, credentialsManager)
+
+	resourceDep := apicontainer.ResourceDependency{
+		Name:           envFiles.ResourceName,
+		RequiredStatus: resourcestatus.ResourceStatus(envFiles.EnvFileCreated),
+	}
+
+	assert.Equal(t, resourceDep,
+		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
+
+	_, ok := task.getEnvfilesResource()
+	assert.True(t, ok)
+}
+
+func TestRequiresEnvfiles(t *testing.T) {
+	envfile := apicontainer.EnvironmentFile{
+		Value: "s3://bucket/envfile",
+		Type:  "s3",
+	}
+
+	container := &apicontainer.Container{
+		Name:                      "containerName",
+		Image:                     "image:tag",
+		EnvironmentFiles:          []apicontainer.EnvironmentFile{envfile},
+		TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+	}
+
+	task := &Task{
+		Arn:                "testArn",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Containers:         []*apicontainer.Container{container},
+	}
+
+	assert.Equal(t, true, task.requireEnvfiles())
 }

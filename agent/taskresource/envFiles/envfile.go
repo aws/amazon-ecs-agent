@@ -30,16 +30,19 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
+	"bufio"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
 
 const (
-	ResourceName      = "envfile"
-	envFileDirPath    = "envfiles"
-	envTempFilePrefix = "tmp_env"
-	envFileExtension  = ".env"
+	ResourceName         = "envfile"
+	envFileDirPath       = "envfiles"
+	envTempFilePrefix    = "tmp_env"
+	envFileExtension     = ".env"
+	commentIndicator     = "#"
+	envVariableDelimiter = "="
 
 	s3DownloadTimeout = 30 * time.Second
 )
@@ -53,7 +56,8 @@ type EnvironmentFileResource struct {
 	resourceDir string // path to store env var files
 
 	// env file related attributes
-	environmentFilesSource []apicontainer.EnvironmentFile // list of env file objects
+	environmentFilesSource   []apicontainer.EnvironmentFile // list of env file objects
+	environmentFilesLocation []string                       // list of the paths of where env files are downloaded
 
 	executionCredentialsID string
 	credentialsManager     credentials.Manager
@@ -73,12 +77,13 @@ type EnvironmentFileResource struct {
 }
 
 // NewEnvironmentFileResource creates a new EnvironmentFileResource object
-func NewEnvironmentFileResource(cluster, taskARN, region, dataDir string, credentialsManager credentials.Manager,
-	executionCredentialsID string) (*EnvironmentFileResource, error) {
+func NewEnvironmentFileResource(cluster, taskARN, region, dataDir string, envfiles []apicontainer.EnvironmentFile,
+	credentialsManager credentials.Manager, executionCredentialsID string) (*EnvironmentFileResource, error) {
 	envfileResource := &EnvironmentFileResource{
 		cluster:                cluster,
 		taskARN:                taskARN,
 		region:                 region,
+		environmentFilesSource: envfiles,
 		os:                     oswrapper.NewOS(),
 		ioutil:                 ioutilwrapper.NewIOUtil(),
 		s3ClientCreator:        factory.NewS3ClientCreator(),
@@ -332,6 +337,7 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 	seelog.Debugf("Downlading envfile with bucket name %v and key name %v", bucket, key)
 	// we save envfiles to path: /var/lib/ecs/data/envfiles/cluster_name/task_id/${s3filename.env}
 	downloadPath := filepath.Join(envfile.resourceDir, key)
+	envfile.environmentFilesLocation = append(envfile.environmentFilesLocation, downloadPath)
 	err = envfile.writeEnvFile(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, downloadPath)
@@ -451,4 +457,51 @@ func (envfile *EnvironmentFileResource) UnmarshalJSON(b []byte) error {
 	envfile.executionCredentialsID = envfileJson.ExecutionCredentialsID
 
 	return nil
+}
+
+// ReadEnvVarsFromEnvFiles reads the environment files that have been downloaded
+// and puts them into a list of maps
+func (envfile *EnvironmentFileResource) ReadEnvVarsFromEnvfiles() ([]interface{}, error) {
+	var envVarsPerEnvfile []interface{}
+
+	for _, envfilePath := range envfile.environmentFilesLocation {
+		envVars, err := envfile.readEnvVarsFromFile(envfilePath)
+		if err != nil {
+			return nil, err
+		}
+		envVarsPerEnvfile = append(envVarsPerEnvfile, envVars)
+	}
+
+	return envVarsPerEnvfile, nil
+}
+
+func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) (map[string]string, error) {
+	file, err := envfile.os.Open(envfilePath)
+	if err != nil {
+		seelog.Errorf("Unable to open environment file at %s to read the variables", envfilePath)
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	envVars := make(map[string]string)
+	for scanner.Scan() {
+		line := scanner.Text()
+		// if line starts with a #, ignore
+		if strings.HasPrefix(line, commentIndicator) {
+			continue
+		}
+		// only read the line that has "="
+		if strings.Contains(line, envVariableDelimiter) {
+			variables := strings.Split(line, "=")
+			envVars[variables[0]] = variables[1]
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		seelog.Errorf("Something went wrong trying to read environment file at %s", envfilePath)
+		return nil, err
+	}
+
+	return envVars, nil
 }

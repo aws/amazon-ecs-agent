@@ -57,6 +57,7 @@ import (
 	"github.com/containernetworking/cni/libcni"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
 )
 
 const (
@@ -364,6 +365,13 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	if task.requiresCredentialSpecResource() {
 		if err := task.initializeCredentialSpecResource(cfg, credentialsManager, resourceFields); err != nil {
 			seelog.Errorf("Task [%s]: could not initialize credentialspec resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
+
+	if task.requireEnvfiles() {
+		if err := task.initializeEnvfilesResource(cfg, credentialsManager); err != nil {
+			seelog.Errorf("Task [%s]: could not initialize environment files resource: %v", task.Arn, err)
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 	}
@@ -2547,4 +2555,63 @@ func getDomainForPartition(region string) string {
 		return endpoints.AwsPartition().DNSSuffix()
 	}
 	return partition.DNSSuffix()
+}
+
+func (task *Task) requireEnvfiles() bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithEnvFiles() {
+			return true
+		}
+	}
+	return false
+}
+
+func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsManager credentials.Manager, ) error {
+
+	for _, container := range task.Containers {
+		envfileResource, err := envFiles.NewEnvironmentFileResource(config.Cluster, task.Arn, config.AWSRegion, config.DataDir,
+			container.EnvironmentFiles, credentialsManager, task.ExecutionCredentialsID)
+		if err != nil {
+			return errors.Wrap(err, "unable to initialize envfiles resource")
+		}
+		task.AddResource(envFiles.ResourceName, envfileResource)
+		container.BuildResourceDependency(envfileResource.GetName(), resourcestatus.ResourceCreated, apicontainerstatus.ContainerCreated)
+	}
+
+	return nil
+}
+
+func (task *Task) getEnvfilesResource() ([]taskresource.TaskResource, bool) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	res, ok := task.ResourcesMapUnsafe[envFiles.ResourceName]
+	return res, ok
+}
+
+// ReadEnvVarsFromEnvfiles should be called when creating a container -
+// this method reads the environment variables specified in the environment files
+// that was downloaded to disk and merges it with existing environment variables
+func (task *Task) ReadEnvVarsFromEnvfiles(container *apicontainer.Container) *apierrors.ResourceInitError {
+	var envfileResource *envFiles.EnvironmentFileResource
+	if container.ShouldCreateWithEnvFiles() {
+		resource, ok := task.getEnvfilesResource()
+		if !ok {
+			err := errors.New("task environment files: unable to retrieve environment files resource")
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+		envfileResource = resource[0].(*envFiles.EnvironmentFileResource)
+	}
+
+	envVarsList, err := envfileResource.ReadEnvVarsFromEnvfiles()
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+
+	err = container.MergeEnvironmentVariablesFromEnvfiles(envVarsList)
+	if err != nil {
+		return apierrors.NewResourceInitError(task.Arn, err)
+	}
+
+	return nil
 }
