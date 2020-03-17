@@ -1100,7 +1100,7 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 }
 
 func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
-	seelog.Infof("Task engine [%s]: starting container: %s", task.Arn, container.Name)
+	seelog.Infof("Task engine [%s]: starting container: %s (Docker ID: %s)", task.Arn, container.Name, container.RuntimeID)
 	client := engine.client
 	if container.DockerConfig.Version != nil {
 		client = client.WithVersion(dockerclient.DockerVersion(*container.DockerConfig.Version))
@@ -1392,11 +1392,11 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 	}
 	metadata := transitionFunction(task, container)
 	if metadata.Error != nil {
-		seelog.Infof("Task engine [%s]: error transitioning container [%s] to [%s]: %v",
-			task.Arn, container.Name, nextState.String(), metadata.Error)
+		seelog.Infof("Task engine [%s]: error transitioning container [%s (Docker ID: %s)] to [%s]: %v",
+			task.Arn, container.Name, container.RuntimeID, nextState.String(), metadata.Error)
 	} else {
-		seelog.Debugf("Task engine [%s]: transitioned container [%s] to [%s]",
-			task.Arn, container.Name, nextState.String())
+		seelog.Debugf("Task engine [%s]: transitioned container [%s (Docker ID: %s)] to [%s]",
+			task.Arn, container.Name, container.RuntimeID, nextState.String())
 		engine.saver.Save()
 	}
 	return metadata

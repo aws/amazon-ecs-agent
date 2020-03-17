@@ -345,8 +345,8 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
 		return false
 	case dockerChange := <-mtask.dockerMessages:
-		seelog.Infof("Managed task [%s]: got container [%s] event: [%s]",
-			mtask.Arn, dockerChange.container.Name, dockerChange.event.Status.String())
+		seelog.Infof("Managed task [%s]: got container [%s (Docker ID: %s)] event: [%s]",
+			mtask.Arn, dockerChange.container.Name, dockerChange.container.RuntimeID, dockerChange.event.Status.String())
 		mtask.handleContainerChange(dockerChange)
 		return false
 	case resChange := <-mtask.resourceStateChangeEvent:
@@ -399,8 +399,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 
 	event := containerChange.event
-	seelog.Infof("Managed task [%s]: handling container change [%v] for container [%s]",
-		mtask.Arn, event, container.Name)
+	seelog.Infof("Managed task [%s]: handling container change [%v] for container [%s (Docker ID: %s)]",
+		mtask.Arn, event, container.Name, container.RuntimeID)
 
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
@@ -440,8 +440,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
 	if mtask.UpdateStatus() {
-		seelog.Infof("Managed task [%s]: container change also resulted in task change [%s]: [%s]",
-			mtask.Arn, container.Name, mtask.GetDesiredStatus().String())
+		seelog.Infof("Managed task [%s]: container change also resulted in task change [%s (Docker ID: %s)]: [%s]",
+			mtask.Arn, container.Name, event.DockerID, mtask.GetDesiredStatus().String())
 		// If knownStatus changed, let it be known
 		var taskStateChangeReason string
 		if mtask.GetKnownStatus().Terminal() {
