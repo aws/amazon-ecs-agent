@@ -933,7 +933,7 @@ func (c *Container) MergeEnvironmentVariables(envVars map[string]string) {
 // MergeEnvironmentVariablesFromEnvfiles appends environment variable pairs from
 // the retrieved envfiles to the container's environment values list
 // envvars from envfiles will have lower precedence than existing envvars
-func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []interface{}) error {
+func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []map[string]string) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -945,11 +945,7 @@ func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []interfac
 	// envVarsList is a list of map, where each map is from an envfile
 	// iterate over this sequentially because the original order of the
 	// environment files give precedence to the environment variables
-	for _, envVarsIn := range envVarsList {
-		envVars, ok := envVarsIn.(map[string]string)
-		if !ok {
-			seelog.Errorf("Unable to convert envVars interface to map")
-		}
+	for _, envVars := range envVarsList {
 		for k, v := range envVars {
 			// existing environment variables have precedence over variables from envfile
 			// only set the env var if key does not already exist
@@ -960,7 +956,6 @@ func (c *Container) MergeEnvironmentVariablesFromEnvfiles(envVarsList []interfac
 	}
 	return nil
 }
-
 
 // HasSecret returns whether a container has secret based on a certain condition.
 func (c *Container) HasSecret(f func(s Secret) bool) bool {
@@ -1096,6 +1091,7 @@ func (c *Container) GetFirelensConfig() *FirelensConfig {
 	return c.FirelensConfig
 }
 
+// GetEnvironmentFiles returns the container's environment files.
 func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
 	c.lock.RLock()
 	defer c.lock.RUnlock()

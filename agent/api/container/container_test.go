@@ -734,12 +734,7 @@ func TestMergeEnvironmentVariablesFromEnvfiles(t *testing.T) {
 				Environment: test.InContainerEnvironment,
 			}
 
-			convertedInEnvVarList := make([]interface{}, len(test.InEnvVarList))
-			for i, v := range test.InEnvVarList {
-				convertedInEnvVarList[i] = v
-			}
-
-			container.MergeEnvironmentVariablesFromEnvfiles(convertedInEnvVarList)
+			container.MergeEnvironmentVariablesFromEnvfiles(test.InEnvVarList)
 			assert.True(t, reflect.DeepEqual(test.OutEnvVarMap, container.Environment))
 		})
 	}

@@ -19,10 +19,11 @@
 package mock_oswrapper
 
 import (
-	oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	gomock "github.com/golang/mock/gomock"
 	os "os"
 	reflect "reflect"
+
+	oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockFile is a mock of File interface

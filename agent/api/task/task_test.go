@@ -3401,7 +3401,7 @@ func TestInitializeAndGetEnvfilesResource(t *testing.T) {
 	assert.Equal(t, resourceDep,
 		task.Containers[0].TransitionDependenciesMap[apicontainerstatus.ContainerCreated].ResourceDependencies[0])
 
-	_, ok := task.getEnvfilesResource()
+	_, ok := task.getEnvfilesResource("containerName")
 	assert.True(t, ok)
 }
 

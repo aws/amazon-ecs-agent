@@ -29,13 +29,13 @@ import (
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_s3 "github.com/aws/amazon-ecs-agent/agent/s3/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	mock_bufio "github.com/aws/amazon-ecs-agent/agent/utils/bufiowrapper/mocks"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	//"bytes"
 )
 
 const (
@@ -141,7 +141,7 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 			}).Return(int64(0), nil),
 		mockFile.EXPECT().Sync(),
 		mockFile.EXPECT().Name().Return(tempFile),
-		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Key)),
+		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Bucket, s3Key)),
 		mockFile.EXPECT().Close(),
 	)
 
@@ -253,7 +253,7 @@ func TestCreateRenameFileError(t *testing.T) {
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
 		mockFile.EXPECT().Sync(),
 		mockFile.EXPECT().Name().Return(tempFile),
-		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Key)).Return(errors.New("error response")),
+		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Bucket, s3Key)).Return(errors.New("error response")),
 		mockFile.EXPECT().Name().Return(tempFile), // this is for the call made in the logging statement
 		mockFile.EXPECT().Close(),
 	)
@@ -293,32 +293,127 @@ func TestEnvFileCleanupResourceDirRemoveFail(t *testing.T) {
 	assert.Error(t, envfileResource.Cleanup())
 }
 
-// todo these things
-//func TestReadEnvVarsFromEnvfiles(t *testing.T) {
-//	mockOS, mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
-//	defer done()
-//}
-//
-//func TestReadEnvVarsUnableToReadEnvfile(t *testing.T) {
-//	mockOS, mockFile, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, mockS3Client, done := setup(t)
-//	defer done()
-//
-//	envfiles := []container.EnvironmentFile{
-//		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
-//	}
-//
-//	downloadedEnvfilePath := fmt.Sprintf("/data/%s", s3Key)
-//	envfileResource := newMockEnvfileResource(envfiles, []string{downloadedEnvfilePath},
-//	nil, nil, mockOS, mockIOUtil)
-//
-//	envfileContent = "key=value\n#this is a comment\nkey2=value2"
-//	envfileBytes := []byte(envfileContent)
-//	gomock.Inorder(
-//		mockOS.EXPECT().Open(downloadedEnvfilePath).Return(bytes.NewReader(envfileBytes)),
-//
-//	)
-//
-//	envVarsList, err := envfileResource.ReadEnvVarsFromEnvfiles()
-//
-//	assert.NotNil(t, err)
-//}
+func TestReadEnvVarsFromEnvfiles(t *testing.T) {
+	mockOS, mockFile, mockIOUtil, _, _, _, done := setup(t)
+	defer done()
+
+	ctrl := gomock.NewController(t)
+	mockBufio := mock_bufio.NewMockBufio(ctrl)
+	mockScanner := mock_bufio.NewMockScanner(ctrl)
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	downloadedEnvfilePath := fmt.Sprintf("/data/%s", s3Key)
+	envfileResource := newMockEnvfileResource(envfiles, []string{downloadedEnvfilePath},
+		nil, nil, mockOS, mockIOUtil)
+	envfileResource.bufio = mockBufio
+
+	assert.Equal(t, 1, len(envfileResource.environmentFilesLocation))
+	envfileContent := "key=value"
+	gomock.InOrder(
+		mockOS.EXPECT().Open(downloadedEnvfilePath).Return(mockFile, nil),
+		mockBufio.EXPECT().NewScanner(mockFile).Return(mockScanner),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envfileContent),
+		mockScanner.EXPECT().Scan().Return(false),
+		mockScanner.EXPECT().Err().Return(nil),
+		mockFile.EXPECT().Close(),
+	)
+
+	envVarsList, err := envfileResource.ReadEnvVarsFromEnvfiles()
+
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(envVarsList))
+	assert.Equal(t, "value", envVarsList[0]["key"])
+}
+
+func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {
+	mockOS, mockFile, mockIOUtil, _, _, _, done := setup(t)
+	defer done()
+
+	ctrl := gomock.NewController(t)
+	mockBufio := mock_bufio.NewMockBufio(ctrl)
+	mockScanner := mock_bufio.NewMockScanner(ctrl)
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	downloadedEnvfilePath := fmt.Sprintf("/data/%s", s3Key)
+	envfileResource := newMockEnvfileResource(envfiles, []string{downloadedEnvfilePath},
+		nil, nil, mockOS, mockIOUtil)
+	envfileResource.bufio = mockBufio
+
+	assert.Equal(t, 1, len(envfileResource.environmentFilesLocation))
+	envfileContentComment := "# some comment here"
+	gomock.InOrder(
+		mockOS.EXPECT().Open(downloadedEnvfilePath).Return(mockFile, nil),
+		mockBufio.EXPECT().NewScanner(mockFile).Return(mockScanner),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envfileContentComment),
+		mockScanner.EXPECT().Scan().Return(false),
+		mockScanner.EXPECT().Err().Return(nil),
+		mockFile.EXPECT().Close(),
+	)
+
+	envVarsList, err := envfileResource.ReadEnvVarsFromEnvfiles()
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(envVarsList[0]))
+}
+
+func TestReadEnvVarsInvalidFromEnvfiles(t *testing.T) {
+	mockOS, mockFile, mockIOUtil, _, _, _, done := setup(t)
+	defer done()
+
+	ctrl := gomock.NewController(t)
+	mockBufio := mock_bufio.NewMockBufio(ctrl)
+	mockScanner := mock_bufio.NewMockScanner(ctrl)
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	downloadedEnvfilePath := fmt.Sprintf("/data/%s", s3Key)
+	envfileResource := newMockEnvfileResource(envfiles, []string{downloadedEnvfilePath},
+		nil, nil, mockOS, mockIOUtil)
+	envfileResource.bufio = mockBufio
+
+	assert.Equal(t, 1, len(envfileResource.environmentFilesLocation))
+	envfileContentInvalid := "=value"
+	gomock.InOrder(
+		mockOS.EXPECT().Open(downloadedEnvfilePath).Return(mockFile, nil),
+		mockBufio.EXPECT().NewScanner(mockFile).Return(mockScanner),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envfileContentInvalid),
+		mockScanner.EXPECT().Scan().Return(false),
+		mockScanner.EXPECT().Err().Return(nil),
+		mockFile.EXPECT().Close(),
+	)
+
+	envVarsList, err := envfileResource.ReadEnvVarsFromEnvfiles()
+
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(envVarsList[0]))
+}
+
+func TestReadEnvVarsUnableToReadEnvfile(t *testing.T) {
+	mockOS, _, mockIOUtil, _, _, _, done := setup(t)
+	defer done()
+
+	envfiles := []container.EnvironmentFile{
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s/%s", s3Bucket, s3Key), "s3"),
+	}
+
+	downloadedEnvfilePath := fmt.Sprintf("/data/%s", s3Key)
+	envfileResource := newMockEnvfileResource(envfiles, []string{downloadedEnvfilePath},
+		nil, nil, mockOS, mockIOUtil)
+
+	mockOS.EXPECT().Open(downloadedEnvfilePath).Return(nil, errors.New("error response"))
+
+	_, err := envfileResource.ReadEnvVarsFromEnvfiles()
+
+	assert.NotNil(t, err)
+}
