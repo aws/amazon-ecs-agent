@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -55,7 +56,7 @@ func TestCreateSuccess(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, driverOptions, nil, mockClient)
+	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, driverOptions, nil, mockClient)
 	err := volume.Create()
 	assert.NoError(t, err)
 	assert.Equal(t, name, volume.VolumeConfig.Mountpoint)
@@ -83,7 +84,7 @@ func TestCreateError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, nil, labels, mockClient)
+	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, nil, labels, mockClient)
 	err := volume.Create()
 	assert.NotNil(t, err)
 	assert.Equal(t, "Test this error is propogated", err.Error())
@@ -104,7 +105,7 @@ func TestCleanupSuccess(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, nil, nil, mockClient)
+	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, nil, nil, mockClient)
 	err := volume.Cleanup()
 	assert.NoError(t, err)
 }
@@ -122,7 +123,7 @@ func TestCleanupError(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, nil, nil, mockClient)
+	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, nil, nil, mockClient)
 	err := volume.Cleanup()
 	assert.Error(t, err)
 	assert.Equal(t, "Test this is propogated", err.Error())
@@ -150,7 +151,7 @@ func TestApplyTransitionForTaskScopeVolume(t *testing.T) {
 			}),
 	)
 
-	volume, _ := NewVolumeResource(nil, name, name, scope, autoprovision, driver, driverOptions, labels, mockClient)
+	volume, _ := NewVolumeResource(nil, name, "docker", name, scope, autoprovision, driver, driverOptions, labels, mockClient)
 	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeCreated))
 }
 
@@ -174,7 +175,7 @@ func TestApplyTransitionForSharedScopeVolume(t *testing.T) {
 		mockClient.EXPECT().RemoveVolume(gomock.Any(), name, dockerclient.RemoveVolumeTimeout).Times(0),
 	)
 
-	volume, _ := NewVolumeResource(nil, name, name, scope, autoprovision, driver, nil, nil, mockClient)
+	volume, _ := NewVolumeResource(nil, name, "docker", name, scope, autoprovision, driver, nil, nil, mockClient)
 	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeCreated))
 	volume.ApplyTransition(resourcestatus.ResourceStatus(VolumeRemoved))
 }
@@ -183,6 +184,7 @@ func TestMarshall(t *testing.T) {
 	volumeStr := "{\"name\":\"volumeName\"," +
 		"\"dockerVolumeConfiguration\":{\"scope\":\"shared\",\"autoprovision\":true,\"mountPoint\":\"\",\"driver\":\"driver\",\"driverOpts\":{},\"labels\":{}," +
 		"\"dockerVolumeName\":\"volumeName\"}," +
+		"\"pauseContainerPID\":\"123\"," +
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\"}"
 	name := "volumeName"
 	scope := "shared"
@@ -193,7 +195,8 @@ func TestMarshall(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	volume, _ := NewVolumeResource(ctx, name, name, scope, autoprovision, driver, driverOpts, labels, nil)
+	volume, _ := NewVolumeResource(ctx, name, "docker", name, scope, autoprovision, driver, driverOpts, labels, nil)
+	volume.SetPauseContainerPID("123")
 	volume.SetDesiredStatus(resourcestatus.ResourceStatus(VolumeCreated))
 	volume.SetKnownStatus(resourcestatus.ResourceStatus(VolumeStatusNone))
 
@@ -214,6 +217,7 @@ func TestUnmarshall(t *testing.T) {
 	}
 	bytes := []byte("{\"name\":\"volumeName\",\"dockerVolumeName\":\"volumeName\"," +
 		"\"dockerVolumeConfiguration\":{\"scope\":\"task\",\"autoprovision\":false,\"mountPoint\":\"mountPoint\",\"driver\":\"drive\",\"labels\":{\"lab1\":\"label\"}}," +
+		"\"pauseContainerPID\":\"123\"," +
 		"\"createdAt\":\"0001-01-01T00:00:00Z\",\"desiredStatus\":\"CREATED\",\"knownStatus\":\"NONE\"}")
 	unmarshalledVolume := &VolumeResource{}
 
@@ -226,6 +230,7 @@ func TestUnmarshall(t *testing.T) {
 	assert.Equal(t, mountPoint, unmarshalledVolume.VolumeConfig.Mountpoint)
 	assert.Equal(t, driver, unmarshalledVolume.VolumeConfig.Driver)
 	assert.Equal(t, labels, unmarshalledVolume.VolumeConfig.Labels)
+	assert.Equal(t, "123", unmarshalledVolume.GetPauseContainerPID())
 	assert.Equal(t, time.Time{}, unmarshalledVolume.GetCreatedAt())
 	assert.Equal(t, resourcestatus.ResourceStatus(VolumeCreated), unmarshalledVolume.GetDesiredStatus())
 	assert.Equal(t, resourcestatus.ResourceStatus(VolumeStatusNone), unmarshalledVolume.GetKnownStatus())
@@ -267,7 +272,7 @@ func TestNewVolumeResource(t *testing.T) {
 	for _, testcase := range testCases {
 		t.Run(fmt.Sprintf("%s,scope %s, autoprovision: %v", testcase.description,
 			testcase.scope, testcase.autoprovision), func(t *testing.T) {
-			vol, err := NewVolumeResource(nil, "volume", "dockerVolume",
+			vol, err := NewVolumeResource(nil, "volume", "efs", "dockerVolume",
 				testcase.scope, testcase.autoprovision, "", nil, nil, nil)
 			if testcase.fail {
 				assert.Error(t, err)
@@ -276,6 +281,88 @@ func TestNewVolumeResource(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestEFSVolumeBuildContainerDependency(t *testing.T) {
+	testRes, _ := NewVolumeResource(nil, "volume", "efs", "dockerVolume",
+		"", false, "", nil, nil, nil)
+
+	testRes.BuildContainerDependency("PauseContainer", apicontainerstatus.ContainerCreated, resourcestatus.ResourceStatus(VolumeCreated))
+	contDep := testRes.GetContainerDependencies(resourcestatus.ResourceStatus(VolumeCreated))
+	assert.NotNil(t, contDep)
+
+	assert.Equal(t, "PauseContainer", contDep[0].ContainerName)
+	assert.Equal(t, apicontainerstatus.ContainerCreated, contDep[0].SatisfiedStatus)
+
+}
+
+func TestGetDriverOpts(t *testing.T) {
+	volCfg := DockerVolumeConfig{
+		Driver: ECSVolumePlugin,
+		DriverOpts: map[string]string{
+			"o": "iam",
+		},
+	}
+	testCases := []struct {
+		name         string
+		volRes       *VolumeResource
+		expectedOpts map[string]string
+	}{
+		{
+			name: "netns option is appended when pause container pid is set and driver is the volume plugin",
+			volRes: &VolumeResource{
+				VolumeConfig:            volCfg,
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "iam,netns=/proc/123/ns/net",
+			},
+		},
+		{
+			name: "netns option is not appended when pause container pid is not set",
+			volRes: &VolumeResource{
+				VolumeConfig: volCfg,
+			},
+			expectedOpts: map[string]string{
+				"o": "iam,netns=/proc/123/ns/net",
+			},
+		},
+		{
+			name: "netns option is not appended when driver is not the volume plugin",
+			volRes: &VolumeResource{
+				VolumeConfig: DockerVolumeConfig{
+					Driver: "another-driver",
+					DriverOpts: map[string]string{
+						"o": "iam",
+					},
+				},
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "iam",
+			},
+		},
+		{
+			name: "netns option is added correctly when it's the only option",
+			volRes: &VolumeResource{
+				VolumeConfig: DockerVolumeConfig{
+					Driver: ECSVolumePlugin,
+					DriverOpts: map[string]string{
+						"o": "",
+					},
+				},
+				pauseContainerPIDUnsafe: "123",
+			},
+			expectedOpts: map[string]string{
+				"o": "netns=/proc/123/ns/net",
+			},
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOpts["o"], tc.volRes.getDriverOpts()["o"])
 		})
 	}
 }

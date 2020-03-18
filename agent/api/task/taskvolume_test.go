@@ -67,7 +67,20 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 	task := &Task{
 		Arn: "test",
 		Volumes: []TaskVolume{
-			{Name: "1", Type: EFSVolumeType, Volume: &taskresourcevolume.EFSVolumeConfig{FileSystemID: "fs-12345", RootDirectory: "/tmp"}},
+			{
+				Name: "1",
+				Type: EFSVolumeType,
+				Volume: &taskresourcevolume.EFSVolumeConfig{
+					AuthConfig: taskresourcevolume.EFSAuthConfig{
+						AccessPointId: "fsap-123",
+						Iam:           "ENABLED",
+					},
+					FileSystemID:          "fs-12345",
+					RootDirectory:         "/tmp",
+					TransitEncryption:     "ENABLED",
+					TransitEncryptionPort: 23456,
+				},
+			},
 		},
 	}
 
@@ -83,9 +96,15 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"volumes": [
 		  {
 			"efsVolumeConfiguration": {
-			  "fileSystemId": "fs-12345",
-			  "rootDirectory": "/tmp",
-			  "dockerVolumeName": ""
+				"authorizationConfig": {
+					"accessPointId": "fsap-123",
+					"iam": "ENABLED"
+				},
+				"fileSystemId": "fs-12345",
+				"rootDirectory": "/tmp",
+				"transitEncryption": "ENABLED",
+				"transitEncryptionPort": 23456,
+			 	"dockerVolumeName": ""
 			},
 			"name": "1",
 			"type": "efs"
@@ -126,9 +145,15 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 		"volumes": [
 		  {
 			"efsVolumeConfiguration": {
-			  "fileSystemId": "fs-12345",
-			  "rootDirectory": "/tmp",
-			  "dockerVolumeName": ""
+			  "authorizationConfig": {
+					"accessPointId": "fsap-123",
+					"iam": "ENABLED"
+				},
+				"fileSystemId": "fs-12345",
+				"rootDirectory": "/tmp",
+				"transitEncryption": "ENABLED",
+				"transitEncryptionPort": 23456,
+				"dockerVolumeName": ""
 			},
 			"name": "1",
 			"type": "efs"
@@ -153,12 +178,16 @@ func TestUnmarshalTaskVolumesEFS(t *testing.T) {
 	require.NoError(t, err, "Could not unmarshal task")
 
 	require.Len(t, task.Volumes, 1)
-	require.Equal(t, "efs", task.Volumes[0].Type)
-	require.Equal(t, "1", task.Volumes[0].Name)
+	assert.Equal(t, "efs", task.Volumes[0].Type)
+	assert.Equal(t, "1", task.Volumes[0].Name)
 	efsConfig, ok := task.Volumes[0].Volume.(*taskresourcevolume.EFSVolumeConfig)
 	require.True(t, ok)
-	require.Equal(t, "fs-12345", efsConfig.FileSystemID)
-	require.Equal(t, "/tmp", efsConfig.RootDirectory)
+	assert.Equal(t, "fsap-123", efsConfig.AuthConfig.AccessPointId)
+	assert.Equal(t, "ENABLED", efsConfig.AuthConfig.Iam)
+	assert.Equal(t, "fs-12345", efsConfig.FileSystemID)
+	assert.Equal(t, "/tmp", efsConfig.RootDirectory)
+	assert.Equal(t, "ENABLED", efsConfig.TransitEncryption)
+	assert.Equal(t, int64(23456), efsConfig.TransitEncryptionPort)
 }
 
 func TestMarshalUnmarshalTaskVolumes(t *testing.T) {
@@ -282,35 +311,12 @@ func TestInitializeSharedProvisionedVolume(t *testing.T) {
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 0, "resource already exists")
 }
 
-func TestInitializeEFSVolume(t *testing.T) {
+func TestInitializeEFSVolume_UseLocalVolumeDriver(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
-	testTask := &Task{
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers: []*apicontainer.Container{
-			{
-				MountPoints: []apicontainer.MountPoint{
-					{
-						SourceVolume:  "efs-volume-test",
-						ContainerPath: "/ecs",
-					},
-				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
-			},
-		},
-		Volumes: []TaskVolume{
-			{
-				Name: "efs-volume-test",
-				Type: "efs",
-				Volume: &taskresourcevolume.EFSVolumeConfig{
-					FileSystemID:  "fs-12345",
-					RootDirectory: "/my/root/dir",
-				},
-			},
-		},
-	}
+	testTask := getEFSTask()
 
 	cfg := &config.Config{
 		AWSRegion: "us-west-1",
@@ -322,8 +328,33 @@ func TestInitializeEFSVolume(t *testing.T) {
 
 	dockervol, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
 	assert.True(t, ok)
+	assert.Equal(t, "local", dockervol.Driver)
+	assert.Equal(t, "nfs", dockervol.DriverOpts["type"])
 	assert.Equal(t, "addr=fs-12345.efs.us-west-1.amazonaws.com,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", dockervol.DriverOpts["o"])
 	assert.Equal(t, ":/my/root/dir", dockervol.DriverOpts["device"])
+}
+
+func TestInitializeEFSVolume_UseECSVolumePlugin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+
+	testTask := getEFSTask()
+	testTask.credentialsRelativeURIUnsafe = "/v2/creds-id"
+
+	cfg := &config.Config{
+		VolumePluginCapabilities: []string{"efsAuth"},
+	}
+	err := testTask.initializeEFSVolumes(cfg, dockerClient, nil)
+
+	require.NoError(t, err)
+	assert.Len(t, testTask.Volumes, 1)
+
+	dockervol, ok := testTask.Volumes[0].Volume.(*taskresourcevolume.DockerVolumeConfig)
+	require.True(t, ok)
+	assert.Equal(t, "efs", dockervol.DriverOpts["type"])
+	assert.Equal(t, "tls,tlsport=12345,iam,awscredsuri=/v2/creds-id,accesspoint=fsap-123", dockervol.DriverOpts["o"])
+	assert.Equal(t, "fs-12345:/my/root/dir", dockervol.DriverOpts["device"])
 }
 
 func TestInitializeEFSVolume_WrongVolumeConfig(t *testing.T) {
@@ -331,27 +362,8 @@ func TestInitializeEFSVolume_WrongVolumeConfig(t *testing.T) {
 	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
-	testTask := &Task{
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers: []*apicontainer.Container{
-			{
-				MountPoints: []apicontainer.MountPoint{
-					{
-						SourceVolume:  "efs-volume-test",
-						ContainerPath: "/ecs",
-					},
-				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
-			},
-		},
-		Volumes: []TaskVolume{
-			{
-				Name:   "efs-volume-test",
-				Type:   "efs",
-				Volume: &taskresourcevolume.DockerVolumeConfig{},
-			},
-		},
-	}
+	testTask := getEFSTask()
+	testTask.Volumes[0].Volume = &taskresourcevolume.DockerVolumeConfig{}
 
 	cfg := &config.Config{
 		AWSRegion: "us-west-1",
@@ -366,30 +378,8 @@ func TestInitializeEFSVolume_WrongVolumeType(t *testing.T) {
 	defer ctrl.Finish()
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
-	testTask := &Task{
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
-		Containers: []*apicontainer.Container{
-			{
-				MountPoints: []apicontainer.MountPoint{
-					{
-						SourceVolume:  "efs-volume-test",
-						ContainerPath: "/ecs",
-					},
-				},
-				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
-			},
-		},
-		Volumes: []TaskVolume{
-			{
-				Name: "efs-volume-test",
-				Type: "docker",
-				Volume: &taskresourcevolume.EFSVolumeConfig{
-					FileSystemID:  "fs-12345",
-					RootDirectory: "/my/root/dir",
-				},
-			},
-		},
-	}
+	testTask := getEFSTask()
+	testTask.Volumes[0].Type = "docker"
 
 	cfg := &config.Config{
 		AWSRegion: "us-west-1",
@@ -677,4 +667,20 @@ func TestInitializeTaskVolume(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, testTask.ResourcesMapUnsafe, 1, "expect the resource map has an empty volume resource")
 	assert.Len(t, testTask.Containers[0].TransitionDependenciesMap, 1, "expect a volume resource as the container dependency")
+}
+
+func TestGetEFSVolumeDriverName(t *testing.T) {
+	cfg := &config.Config{
+		VolumePluginCapabilities: []string{"efsAuth"},
+	}
+	assert.Equal(t, "amazon-ecs-volume-plugin", getEFSVolumeDriverName(cfg))
+	assert.Equal(t, "local", getEFSVolumeDriverName(&config.Config{}))
+}
+
+func TestSetPausePIDInVolumeResources(t *testing.T) {
+	task := getEFSTask()
+	volRes := &taskresourcevolume.VolumeResource{}
+	task.AddResource("dockerVolume", volRes)
+	task.SetPausePIDInVolumeResources("pid")
+	assert.Equal(t, "pid", volRes.GetPauseContainerPID())
 }

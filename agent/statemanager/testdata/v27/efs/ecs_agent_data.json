@@ -1,0 +1,424 @@
+{
+  "Data": {
+    "Cluster": "test-efs-creds",
+    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:1234567890:container-instance/test-efs-creds/xxx",
+    "EC2InstanceID": "i-xxx",
+    "TaskEngine": {
+      "ENIAttachments": [
+        {
+          "attachSent": true,
+          "attachmentArn": "arn:aws:ecs:us-west-2:1234567890:attachment/xxx",
+          "attachmentType": "task-eni",
+          "expiresAt": "2020-02-20T01:56:56.489789117Z",
+          "macAddress": "02:99:ec:49:83:44",
+          "status": 1,
+          "taskArn": "arn:aws:ecs:us-west-2:1234567890:task/test-efs-creds/xxx"
+        }
+      ],
+      "IPToTask": {
+        "169.254.172.2": "arn:aws:ecs:us-west-2:1234567890:task/test-efs-creds/xxx"
+      },
+      "IdToContainer": {
+        "xxx": {
+          "Container": {
+            "ApplyingError": null,
+            "Command": null,
+            "Cpu": 0,
+            "EntryPoint": null,
+            "Essential": true,
+            "GPUIDs": null,
+            "Image": "amazon/amazon-ecs-pause:0.1.0",
+            "ImageDigest": "",
+            "ImageID": "",
+            "IsInternal": "CNI_PAUSE",
+            "KnownExitCode": null,
+            "KnownPortBindings": null,
+            "KnownStatus": "RESOURCES_PROVISIONED",
+            "Links": null,
+            "LogsAuthStrategy": "",
+            "Memory": 0,
+            "Name": "~internal~ecs~pause",
+            "RunDependencies": null,
+            "RuntimeID": "xxx",
+            "SentStatus": "NONE",
+            "StartTimeout": 0,
+            "SteadyStateStatus": "RESOURCES_PROVISIONED",
+            "StopTimeout": 0,
+            "TransitionDependencySet": {
+              "5": {
+                "ContainerDependencies": [
+                  {
+                    "ContainerName": "sleep",
+                    "SatisfiedStatus": "STOPPED"
+                  }
+                ],
+                "ResourceDependencies": [
+                  {
+                    "Name": "efs-html",
+                    "RequiredStatus": 2
+                  }
+                ]
+              }
+            },
+            "V3EndpointID": "",
+            "desiredStatus": "RESOURCES_PROVISIONED",
+            "dockerConfig": {
+              "config": null,
+              "hostConfig": null,
+              "version": null
+            },
+            "environment": null,
+            "firelensConfiguration": null,
+            "metadataFileUpdated": false,
+            "mountPoints": null,
+            "overrides": {
+              "command": null
+            },
+            "portMappings": null,
+            "registryAuthentication": null,
+            "secrets": null,
+            "volumesFrom": null
+          },
+          "DockerId": "xxx",
+          "DockerName": "ecs-test-efs-creds-ap-awsvpc-2-internalecspause-xxx"
+        },
+        "xxx": {
+          "Container": {
+            "ApplyingError": null,
+            "Command": [
+              "sh",
+              "-c",
+              "sleep infinity"
+            ],
+            "Cpu": 0,
+            "EntryPoint": null,
+            "Essential": true,
+            "GPUIDs": null,
+            "Image": "busybox:latest",
+            "ImageDigest": "",
+            "ImageID": "sha256:6d5fcfe5ff170471fcc3c8b47631d6d71202a1fd44cf3c147e50c8de21cf0648",
+            "IsInternal": "NORMAL",
+            "KnownExitCode": null,
+            "KnownPortBindings": null,
+            "KnownStatus": "RUNNING",
+            "Links": null,
+            "LogsAuthStrategy": "",
+            "Memory": 128,
+            "Name": "sleep",
+            "RunDependencies": null,
+            "RuntimeID": "xxx",
+            "SentStatus": "RUNNING",
+            "StartTimeout": 0,
+            "StopTimeout": 0,
+            "TransitionDependencySet": {
+              "1": {
+                "ContainerDependencies": [
+                  {
+                    "ContainerName": "~internal~ecs~pause",
+                    "SatisfiedStatus": "RESOURCES_PROVISIONED"
+                  }
+                ],
+                "ResourceDependencies": [
+                  {
+                    "Name": "cgroup",
+                    "RequiredStatus": 1
+                  },
+                  {
+                    "Name": "efs-html",
+                    "RequiredStatus": 1
+                  }
+                ]
+              }
+            },
+            "V3EndpointID": "xxx",
+            "desiredStatus": "RUNNING",
+            "dockerConfig": {
+              "config": "{}",
+              "hostConfig": "{\"NetworkMode\":\"awsvpc\",\"CapAdd\":[],\"CapDrop\":[]}",
+              "version": "1.25"
+            },
+            "environment": {
+              "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/credentials/xxx",
+              "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+              "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/xxx"
+            },
+            "firelensConfiguration": null,
+            "metadataFileUpdated": false,
+            "mountPoints": [
+              {
+                "containerPath": "/tmp/test",
+                "readOnly": false,
+                "sourceVolume": "efs-html"
+              }
+            ],
+            "overrides": {
+              "command": null
+            },
+            "portMappings": null,
+            "registryAuthentication": null,
+            "secrets": null,
+            "volumesFrom": []
+          },
+          "DockerId": "xxx",
+          "DockerName": "ecs-test-efs-creds-ap-awsvpc-2-sleep-xxx"
+        }
+      },
+      "IdToTask": {
+        "xxx": "arn:aws:ecs:us-west-2:1234567890:task/test-efs-creds/xxx",
+        "xxx": "arn:aws:ecs:us-west-2:1234567890:task/test-efs-creds/xxx"
+      },
+      "ImageStates": [
+        {
+          "Image": {
+            "ImageID": "sha256:6d5fcfe5ff170471fcc3c8b47631d6d71202a1fd44cf3c147e50c8de21cf0648",
+            "Names": [
+              "busybox:latest"
+            ],
+            "Size": 1219782
+          },
+          "LastUsedAt": "2020-02-20T01:54:04.88572636Z",
+          "PullSucceeded": true,
+          "PulledAt": "2020-02-20T01:54:04.885724524Z"
+        }
+      ],
+      "Tasks": [
+        {
+          "AppMesh": null,
+          "Arn": "arn:aws:ecs:us-west-2:1234567890:task/test-efs-creds/xxx",
+          "Containers": [
+            {
+              "ApplyingError": null,
+              "Command": [
+                "sh",
+                "-c",
+                "sleep infinity"
+              ],
+              "Cpu": 0,
+              "EntryPoint": null,
+              "Essential": true,
+              "GPUIDs": null,
+              "Image": "busybox:latest",
+              "ImageDigest": "",
+              "ImageID": "sha256:6d5fcfe5ff170471fcc3c8b47631d6d71202a1fd44cf3c147e50c8de21cf0648",
+              "IsInternal": "NORMAL",
+              "KnownExitCode": null,
+              "KnownPortBindings": null,
+              "KnownStatus": "RUNNING",
+              "Links": null,
+              "LogsAuthStrategy": "",
+              "Memory": 128,
+              "Name": "sleep",
+              "RunDependencies": null,
+              "RuntimeID": "xxx",
+              "SentStatus": "RUNNING",
+              "StartTimeout": 0,
+              "StopTimeout": 0,
+              "TransitionDependencySet": {
+                "1": {
+                  "ContainerDependencies": [
+                    {
+                      "ContainerName": "~internal~ecs~pause",
+                      "SatisfiedStatus": "RESOURCES_PROVISIONED"
+                    }
+                  ],
+                  "ResourceDependencies": [
+                    {
+                      "Name": "cgroup",
+                      "RequiredStatus": 1
+                    },
+                    {
+                      "Name": "efs-html",
+                      "RequiredStatus": 1
+                    }
+                  ]
+                }
+              },
+              "V3EndpointID": "xxx",
+              "desiredStatus": "RUNNING",
+              "dockerConfig": {
+                "config": "{}",
+                "hostConfig": "{\"NetworkMode\":\"awsvpc\",\"CapAdd\":[],\"CapDrop\":[]}",
+                "version": "1.25"
+              },
+              "environment": {
+                "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/credentials/xxx",
+                "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+                "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/xxx"
+              },
+              "firelensConfiguration": null,
+              "metadataFileUpdated": false,
+              "mountPoints": [
+                {
+                  "containerPath": "/tmp/test",
+                  "readOnly": false,
+                  "sourceVolume": "efs-html"
+                }
+              ],
+              "overrides": {
+                "command": null
+              },
+              "portMappings": null,
+              "registryAuthentication": null,
+              "secrets": null,
+              "volumesFrom": []
+            },
+            {
+              "ApplyingError": null,
+              "Command": null,
+              "Cpu": 0,
+              "EntryPoint": null,
+              "Essential": true,
+              "GPUIDs": null,
+              "Image": "amazon/amazon-ecs-pause:0.1.0",
+              "ImageDigest": "",
+              "ImageID": "",
+              "IsInternal": "CNI_PAUSE",
+              "KnownExitCode": null,
+              "KnownPortBindings": null,
+              "KnownStatus": "RESOURCES_PROVISIONED",
+              "Links": null,
+              "LogsAuthStrategy": "",
+              "Memory": 0,
+              "Name": "~internal~ecs~pause",
+              "RunDependencies": null,
+              "RuntimeID": "xxx",
+              "SentStatus": "NONE",
+              "StartTimeout": 0,
+              "SteadyStateStatus": "RESOURCES_PROVISIONED",
+              "StopTimeout": 0,
+              "TransitionDependencySet": {
+                "5": {
+                  "ContainerDependencies": [
+                    {
+                      "ContainerName": "sleep",
+                      "SatisfiedStatus": "STOPPED"
+                    }
+                  ],
+                  "ResourceDependencies": [
+                    {
+                      "Name": "efs-html",
+                      "RequiredStatus": 2
+                    }
+                  ]
+                }
+              },
+              "V3EndpointID": "",
+              "desiredStatus": "RESOURCES_PROVISIONED",
+              "dockerConfig": {
+                "config": null,
+                "hostConfig": null,
+                "version": null
+              },
+              "environment": null,
+              "firelensConfiguration": null,
+              "metadataFileUpdated": false,
+              "mountPoints": null,
+              "overrides": {
+                "command": null
+              },
+              "portMappings": null,
+              "registryAuthentication": null,
+              "secrets": null,
+              "volumesFrom": null
+            }
+          ],
+          "DesiredStatus": "RUNNING",
+          "ENI": [
+            {
+              "IPV4Addresses": [
+                {
+                  "Address": "172.31.23.80",
+                  "Primary": true
+                }
+              ],
+              "IPV6Addresses": null,
+              "InterfaceAssociationProtocol": "default",
+              "InterfaceVlanProperties": {
+                "TrunkInterfaceMacAddress": "",
+                "VlanID": ""
+              },
+              "MacAddress": "02:99:ec:49:83:44",
+              "PrivateDNSName": "ip-172-31-23-80.us-west-2.compute.internal",
+              "SubnetGatewayIPV4Address": "172.31.16.1/20",
+              "ec2Id": "eni-07113203d7c904702"
+            }
+          ],
+          "ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+          "Family": "test-efs-creds-ap-awsvpc",
+          "KnownStatus": "RUNNING",
+          "KnownTime": "2020-02-20T01:54:05.363137128Z",
+          "MemoryCPULimitsEnabled": true,
+          "PlatformFields": {},
+          "PullStartedAt": "2020-02-20T01:54:03.576860185Z",
+          "PullStoppedAt": "2020-02-20T01:54:04.88978339Z",
+          "SentStatus": "RUNNING",
+          "StartSequenceNumber": 5,
+          "StopSequenceNumber": 0,
+          "Version": "2",
+          "associations": [],
+          "executionCredentialsID": "",
+          "resources": {
+            "cgroup": [
+              {
+                "cgroupMountPath": "/sys/fs/cgroup",
+                "cgroupRoot": "/ecs/test-efs-creds/xxx",
+                "createdAt": "0001-01-01T00:00:00Z",
+                "desiredStatus": "CREATED",
+                "knownStatus": "CREATED",
+                "resourceSpec": {
+                  "cpu": {
+                    "shares": 2
+                  }
+                }
+              }
+            ],
+            "dockerVolume": [
+              {
+                "createdAt": "0001-01-01T00:00:00Z",
+                "desiredStatus": "CREATED",
+                "dockerVolumeConfiguration": {
+                  "autoprovision": false,
+                  "dockerVolumeName": "ecs-test-efs-creds-ap-awsvpc-2-efs-html-xxx",
+                  "driver": "amazon-ecs-volume-plugin",
+                  "driverOpts": {
+                    "device": "fs-xxx:/",
+                    "o": "tls,tlsport=20050,iam,awscredsuri=/v2/credentials/xxx,accesspoint=fsap-xxx,netns=/proc/123/ns/net",
+                    "type": "efs"
+                  },
+                  "labels": {},
+                  "mountPoint": "mpabs",
+                  "scope": "task"
+                },
+                "knownStatus": "CREATED",
+                "name": "efs-html",
+                "pauseContainerPID": "123"
+              }
+            ]
+          },
+          "volumes": [
+            {
+              "efsVolumeConfiguration": {
+                "autoprovision": false,
+                "dockerVolumeName": "ecs-test-efs-creds-ap-awsvpc-2-efs-html-xxx",
+                "driver": "amazon-ecs-volume-plugin",
+                "driverOpts": {
+                  "device": "fs-xxx:/",
+                  "o": "tls,tlsport=20050,iam,awscredsuri=/v2/credentials/xxx,accesspoint=fsap-xxx,netns=/proc/123/ns/net",
+                  "type": "efs"
+                },
+                "labels": {},
+                "mountPoint": "mpabc",
+                "scope": "task"
+              },
+              "name": "efs-html",
+              "type": "efs"
+            }
+          ]
+        }
+      ]
+    },
+    "availabilityZone": "us-west-2b",
+    "latestSeqNumberTaskManifest": 5
+  },
+  "Version": 27
+}
