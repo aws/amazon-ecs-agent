@@ -12,7 +12,7 @@ The script will clean up any previous copies of the Amazon ECS Container Agent, 
 the RPM are available at `/var/log/ecs/ecs-init.log`, while logs from the Amazon ECS Container Agent are available at
 `/var/log/ecs/ecs-agent.log`.  The Amazon ECS RPM makes the Amazon ECS Container Agent introspection endpoint available
 at `http://127.0.0.1:51678/v1`.  Configuration for the Amazon ECS Container Agent is read from `/etc/ecs/ecs.config`.
-All of the configurations in this file are used as environment variables of the ECS Agent container. Additionally, some 
+All of the configurations in this file are used as environment variables of the ECS Agent container. Additionally, some
 configurations can be used to configure other properties of the ECS Agent container, as described below.
 
 | Configuration Key | Example Value(s)            | Description | Default value |
@@ -35,6 +35,16 @@ an update failed and the Amazon ECS Container Agent is no longer functional, a r
 
 ## Security disclosures
 If you think you’ve found a potential security issue, please do not post it in the Issues.  Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or [email AWS security directly](mailto:aws-security@amazon.com).
+
+## Development
+
+#### Dev dependencies
+
+Run `make get-deps` to get dependencies for running tests and generating mocks.
+
+#### Generating mocks
+
+Mocks can be generated using the `make generate` Makefile target. **NOTE** that this must be run on a linux machine.
 
 ## License
 
