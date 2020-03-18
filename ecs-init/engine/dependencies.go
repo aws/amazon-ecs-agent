@@ -49,3 +49,7 @@ type credentialsProxyRoute interface {
 	Create() error
 	Remove() error
 }
+
+type ipv6RouterAdvertisements interface {
+	Disable() error
+}

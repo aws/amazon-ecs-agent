@@ -26,6 +26,7 @@ const (
 	sysctlExecutable                  = "sysctl"
 	defaultIpv4RouteLocalnetConfigKey = "net.ipv4.conf.default.route_localnet"
 	allIpv4RouteLocalnetConfigKey     = "net.ipv4.conf.all.route_localnet"
+	dockerIpv6AcceptRAKey             = "net.ipv6.conf.docker0.accept_ra"
 )
 
 // Ipv4RouteLocalnet implements the engine.loopbackRouting interface by
@@ -45,6 +46,35 @@ func NewIpv4RouteLocalNet(cmdExec exec.Exec) (*Ipv4RouteLocalnet, error) {
 	return &Ipv4RouteLocalnet{
 		cmdExec: cmdExec,
 	}, nil
+}
+
+// Ipv6RouterAdvertisements implements the engine.ipv6RouterAdvertisements interface
+// by running the external 'sysctl' command
+type Ipv6RouterAdvertisements struct {
+	cmdExec exec.Exec
+}
+
+// NewIpv6RouterAdvertisements creates a new Ipv6RouterAdvertisements object
+func NewIpv6RouterAdvertisements(cmdExec exec.Exec) (*Ipv6RouterAdvertisements, error) {
+	_, err := cmdExec.LookPath(sysctlExecutable)
+	if err != nil {
+		log.Errorf("Error searching '%s' executable: %v", sysctlExecutable, err)
+		return nil, err
+	}
+
+	return &Ipv6RouterAdvertisements{
+		cmdExec: cmdExec,
+	}, nil
+}
+
+// Disable disables ipv6 router advertisements
+func (ra *Ipv6RouterAdvertisements) Disable() error {
+	cmd := ra.cmdExec.Command(sysctlExecutable, "-w", fmt.Sprintf("%s=0", dockerIpv6AcceptRAKey))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Errorf("Error disable ipv6 router advertisements %v; raw output: %s", err, out)
+	}
+	return err
 }
 
 // Enable enables routing to loopback addresses

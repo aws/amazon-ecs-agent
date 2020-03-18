@@ -358,3 +358,40 @@ func (mr *MockcredentialsProxyRouteMockRecorder) Remove() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockcredentialsProxyRoute)(nil).Remove))
 }
+
+// Mockipv6RouterAdvertisements is a mock of ipv6RouterAdvertisements interface
+type Mockipv6RouterAdvertisements struct {
+	ctrl     *gomock.Controller
+	recorder *Mockipv6RouterAdvertisementsMockRecorder
+}
+
+// Mockipv6RouterAdvertisementsMockRecorder is the mock recorder for Mockipv6RouterAdvertisements
+type Mockipv6RouterAdvertisementsMockRecorder struct {
+	mock *Mockipv6RouterAdvertisements
+}
+
+// NewMockipv6RouterAdvertisements creates a new mock instance
+func NewMockipv6RouterAdvertisements(ctrl *gomock.Controller) *Mockipv6RouterAdvertisements {
+	mock := &Mockipv6RouterAdvertisements{ctrl: ctrl}
+	mock.recorder = &Mockipv6RouterAdvertisementsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *Mockipv6RouterAdvertisements) EXPECT() *Mockipv6RouterAdvertisementsMockRecorder {
+	return m.recorder
+}
+
+// Disable mocks base method
+func (m *Mockipv6RouterAdvertisements) Disable() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Disable")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Disable indicates an expected call of Disable
+func (mr *Mockipv6RouterAdvertisementsMockRecorder) Disable() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disable", reflect.TypeOf((*Mockipv6RouterAdvertisements)(nil).Disable))
+}

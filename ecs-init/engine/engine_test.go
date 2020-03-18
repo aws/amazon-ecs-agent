@@ -41,14 +41,17 @@ func TestPreStartImageAlreadyCachedAndLoaded(t *testing.T) {
 
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -76,14 +79,17 @@ func TestPreStartReloadNeeded(t *testing.T) {
 
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -105,6 +111,8 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockRoute.EXPECT().Create().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockDocker.EXPECT().IsAgentImageLoaded().Return(false, nil)
 	mockDownloader.EXPECT().AgentCacheStatus().Return(cache.StatusCached)
 	mockDownloader.EXPECT().LoadCachedAgent().Return(cachedAgentBuffer, nil)
@@ -112,10 +120,11 @@ func TestPreStartImageNotLoadedCached(t *testing.T) {
 	mockDownloader.EXPECT().RecordCachedAgent()
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -142,14 +151,17 @@ func TestPreStartImageNotCached(t *testing.T) {
 
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -176,15 +188,18 @@ func TestPreStartGPUSetupSuccessful(t *testing.T) {
 
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 	mockRoute := NewMockcredentialsProxyRoute(mockCtrl)
 	mockRoute.EXPECT().Create().Return(nil)
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
-		nvidiaGPUManager:      mockGPUManager,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
+		nvidiaGPUManager:         mockGPUManager,
 	}
 	err := engine.PreStart()
 	if err != nil {
@@ -479,6 +494,8 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	mockDocker := NewMockdockerClient(mockCtrl)
 	mockDownloader := NewMockdownloader(mockCtrl)
 	mockLoopbackRouting := NewMockloopbackRouting(mockCtrl)
+	mockIpv6RouterAdvertisements := NewMockipv6RouterAdvertisements(mockCtrl)
+	mockIpv6RouterAdvertisements.EXPECT().Disable().Return(nil)
 
 	mockDocker.EXPECT().LoadEnvVars().Return(nil)
 	mockLoopbackRouting.EXPECT().Enable().Return(nil)
@@ -486,10 +503,11 @@ func TestPrestartCredentialsProxyRouteNotCreated(t *testing.T) {
 	mockRoute.EXPECT().Create().Return(fmt.Errorf("iptables not found"))
 
 	engine := &Engine{
-		docker:                mockDocker,
-		downloader:            mockDownloader,
-		loopbackRouting:       mockLoopbackRouting,
-		credentialsProxyRoute: mockRoute,
+		docker:                   mockDocker,
+		downloader:               mockDownloader,
+		loopbackRouting:          mockLoopbackRouting,
+		ipv6RouterAdvertisements: mockIpv6RouterAdvertisements,
+		credentialsProxyRoute:    mockRoute,
 	}
 	err := engine.PreStart()
 	if err == nil {

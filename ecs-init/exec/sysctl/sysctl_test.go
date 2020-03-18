@@ -142,3 +142,56 @@ func TestRestoreDefault(t *testing.T) {
 		t.Fatal("Error restoring default route localnet")
 	}
 }
+
+func TestDisableIpv6RouterAdvertisements(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil)
+	mockExec := NewMockExec(ctrl)
+	mockExec.EXPECT().LookPath(sysctlExecutable).Return("", nil)
+	mockExec.EXPECT().Command(sysctlExecutable, "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
+	ra, err := NewIpv6RouterAdvertisements(mockExec)
+	if err != nil {
+		t.Fatalf("Error creating NewIpv6RouterAdvertisements object: %v", err)
+	}
+
+	err = ra.Disable()
+	if err != nil {
+		t.Fatal("Error disabling ipv6 ra")
+	}
+}
+
+func TestNewIpv6RouterAdvertisementsFailsWhenExecutableNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockExec := NewMockExec(ctrl)
+	mockExec.EXPECT().LookPath(sysctlExecutable).Return("", fmt.Errorf("Not found"))
+
+	_, err := NewIpv6RouterAdvertisements(mockExec)
+	if err == nil {
+		t.Error("Expected error when executable's path lookup fails")
+	}
+}
+
+func TestDisableIpv6RouterAdvertisements_Error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("nope!"))
+	mockExec := NewMockExec(ctrl)
+	mockExec.EXPECT().LookPath(sysctlExecutable).Return("", nil)
+	mockExec.EXPECT().Command(sysctlExecutable, "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
+	ra, err := NewIpv6RouterAdvertisements(mockExec)
+	if err != nil {
+		t.Fatalf("Error creating NewIpv6RouterAdvertisements object: %v", err)
+	}
+
+	err = ra.Disable()
+	if err == nil {
+		t.Fatal("Expected error disabling ipv6 ra")
+	}
+}
