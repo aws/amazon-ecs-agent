@@ -68,7 +68,7 @@ func (e *ECSVolumeDriver) Create(r *CreateRequest) error {
 		return err
 	}
 
-	seelog.Infof("Mounting volume %s at path %s with options %s", r.Name, mnt.Target, mnt.Options)
+	seelog.Infof("Mounting volume %s of type %s at path %s", r.Name, mnt.MountType, mnt.Target)
 	err := mnt.Mount()
 	if err != nil {
 		return fmt.Errorf("mounting volume failed: %v", err)
