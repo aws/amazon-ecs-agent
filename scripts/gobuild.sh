@@ -48,4 +48,6 @@ else
 		   -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
 		   -o "${TOPWD}/amazon-ecs-init"
 fi
+CGO_ENABLED=0 go build -x -ldflags "-s ${VERSION_FLAG} ${GIT_HASH_FLAG} ${GIT_DIRTY_FLAG}" \
+	-o "${TOPWD}/amazon-ecs-volume-plugin" "./volumes/amazon-ecs-volume-plugin"
 rm -r "${BUILDDIR}"

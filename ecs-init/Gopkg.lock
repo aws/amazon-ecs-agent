@@ -107,6 +107,14 @@
   revision = "f561c5e57575bb1e0a2167028b7339b3a8d16fb4"
 
 [[projects]]
+  digest = "1:17220d24a71d938010a77675bce92f846bc4876e555c26f5976c92deaf55b69a"
+  name = "github.com/coreos/go-systemd"
+  packages = ["activation"]
+  pruneopts = "UT"
+  revision = "2d78030078ef61b3cae27f42ad6d0e46db51b339"
+  version = "v22.0.0"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -149,11 +157,25 @@
   revision = "4f55e390c4e5230bad232c462d60f8564faea17f"
 
 [[projects]]
-  digest = "1:87dcb59127512b84097086504c16595cf8fef35b9e0bfca565dfc06e198158d7"
+  digest = "1:88dbd8b33cbc90436c60af3f00c48564fe07e1e6f99fcccf0403c88da22a5d4b"
   name = "github.com/docker/go-connections"
-  packages = ["nat"]
+  packages = [
+    "nat",
+    "sockets",
+  ]
   pruneopts = "UT"
   revision = "e15c02316c12de00874640cd76311849de2aeed5"
+
+[[projects]]
+  branch = "master"
+  digest = "1:29a2a2ce4d248260553de04278ed8d9410a705a436592cb569373f958ef53a67"
+  name = "github.com/docker/go-plugins-helpers"
+  packages = [
+    "sdk",
+    "volume",
+  ]
+  pruneopts = "UT"
+  revision = "1e6269c305b8c75cfda1c8aa91349c38d7335814"
 
 [[projects]]
   digest = "1:57d39983d01980c1317c2c5c6dd4b5b0c4a804ad2df800f2f6cbcd6a6d05f6ca"
@@ -239,11 +261,12 @@
   version = "v1.2.2"
 
 [[projects]]
-  digest = "1:ac7dc2013947eefefab215bf868e0120a3d1eb9ca1866cb77b9fd820973cc739"
+  digest = "1:7381f7ed9f50730de3e3ba2086fabdf60bfade9b61c75e4f61edcf0ad4088caf"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
+    "proxy",
   ]
   pruneopts = "UT"
   revision = "3da985ce5951d99de868be4385f21ea6c2b22f24"
@@ -271,6 +294,7 @@
     "github.com/aws/aws-sdk-go/service/s3",
     "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/cihub/seelog",
+    "github.com/docker/go-plugins-helpers/volume",
     "github.com/fsouza/go-dockerclient",
     "github.com/golang/mock/gomock",
     "github.com/pkg/errors",

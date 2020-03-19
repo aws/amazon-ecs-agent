@@ -45,6 +45,9 @@ Source2:        ecs.service
 Source3:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v%{bundled_agent_version}.tar
 # aarch64 Container agent docker image
 Source4:        https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v%{bundled_agent_version}.tar
+Source5:        amazon-ecs-volume-plugin.conf
+Source6:        amazon-ecs-volume-plugin.service
+Source7:        amazon-ecs-volume-plugin.socket
 
 BuildRequires:  golang >= 1.7
 %if %{with systemd}
@@ -65,87 +68,96 @@ Requires:       procps
 # statements by reading out the vendor directory:
 #
 # find ../../ecs-init/vendor -name \*.go -exec dirname {} \; | sort | uniq | sed 's,^.*ecs-init/vendor/,,; s/^/bundled(golang(/; s/$/))/;' | sed 's/^/Provides:\t/' | expand -
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/client/metadata))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/corehandlers))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/endpointcreds))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/stscreds))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/defaults))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/ec2metadata))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/endpoints))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/request))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/session))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/aws/signer/v4))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkio))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/sdkrand))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/internal/shareddefaults))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query/queryutil))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/rest))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/restxml))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3iface))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3manager))
-Provides:       bundled(golang(github.com/aws/aws-sdk-go/service/sts))
-Provides:       bundled(golang(github.com/Azure/go-ansiterm))
-Provides:       bundled(golang(github.com/Azure/go-ansiterm/winterm))
-Provides:       bundled(golang(github.com/cihub/seelog))
-Provides:       bundled(golang(github.com/cihub/seelog/archive))
-Provides:       bundled(golang(github.com/cihub/seelog/archive/gzip))
-Provides:       bundled(golang(github.com/cihub/seelog/archive/tar))
-Provides:       bundled(golang(github.com/cihub/seelog/archive/zip))
-Provides:       bundled(golang(github.com/docker/docker/api/types))
-Provides:       bundled(golang(github.com/docker/docker/api/types/blkiodev))
-Provides:       bundled(golang(github.com/docker/docker/api/types/container))
-Provides:       bundled(golang(github.com/docker/docker/api/types/filters))
-Provides:       bundled(golang(github.com/docker/docker/api/types/mount))
-Provides:       bundled(golang(github.com/docker/docker/api/types/network))
-Provides:       bundled(golang(github.com/docker/docker/api/types/registry))
-Provides:       bundled(golang(github.com/docker/docker/api/types/strslice))
-Provides:       bundled(golang(github.com/docker/docker/api/types/swarm))
-Provides:       bundled(golang(github.com/docker/docker/api/types/versions))
-Provides:       bundled(golang(github.com/docker/docker/opts))
-Provides:       bundled(golang(github.com/docker/docker/pkg/archive))
-Provides:       bundled(golang(github.com/docker/docker/pkg/fileutils))
-Provides:       bundled(golang(github.com/docker/docker/pkg/homedir))
-Provides:       bundled(golang(github.com/docker/docker/pkg/idtools))
-Provides:       bundled(golang(github.com/docker/docker/pkg/ioutils))
-Provides:       bundled(golang(github.com/docker/docker/pkg/jsonlog))
-Provides:       bundled(golang(github.com/docker/docker/pkg/jsonmessage))
-Provides:       bundled(golang(github.com/docker/docker/pkg/longpath))
-Provides:       bundled(golang(github.com/docker/docker/pkg/mount))
-Provides:       bundled(golang(github.com/docker/docker/pkg/pools))
-Provides:       bundled(golang(github.com/docker/docker/pkg/promise))
-Provides:       bundled(golang(github.com/docker/docker/pkg/stdcopy))
-Provides:       bundled(golang(github.com/docker/docker/pkg/system))
-Provides:       bundled(golang(github.com/docker/docker/pkg/term))
-Provides:       bundled(golang(github.com/docker/docker/pkg/term/windows))
-Provides:       bundled(golang(github.com/docker/go-connections/nat))
-Provides:       bundled(golang(github.com/docker/go-units))
-Provides:       bundled(golang(github.com/fsouza/go-dockerclient))
-Provides:       bundled(golang(github.com/go-ini/ini))
-Provides:       bundled(golang(github.com/golang/mock/gomock))
-Provides:       bundled(golang(github.com/jmespath/go-jmespath))
-Provides:       bundled(golang(github.com/Microsoft/go-winio))
-Provides:       bundled(golang(github.com/Nvveen/Gotty))
-Provides:       bundled(golang(github.com/opencontainers/go-digest))
-Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go))
-Provides:       bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
-Provides:       bundled(golang(github.com/opencontainers/runc/libcontainer/system))
-Provides:       bundled(golang(github.com/opencontainers/runc/libcontainer/user))
-Provides:       bundled(golang(github.com/pkg/errors))
-Provides:       bundled(golang(github.com/Sirupsen/logrus))
-Provides:       bundled(golang(golang.org/x/net/context))
-Provides:       bundled(golang(golang.org/x/net/context/ctxhttp))
-Provides:       bundled(golang(golang.org/x/sys/unix))
-Provides:       bundled(golang(golang.org/x/sys/windows))
+Provides:	    bundled(golang(github.com/Azure/go-ansiterm))
+Provides:	    bundled(golang(github.com/Azure/go-ansiterm/winterm))
+Provides:	    bundled(golang(github.com/Microsoft/go-winio))
+Provides:	    bundled(golang(github.com/NVIDIA/gpu-monitoring-tools/bindings/go/nvml))
+Provides:	    bundled(golang(github.com/Nvveen/Gotty))
+Provides:	    bundled(golang(github.com/Sirupsen/logrus))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/awserr))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/awsutil))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/client))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/client/metadata))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/corehandlers))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/credentials))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/endpointcreds))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/credentials/stscreds))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/defaults))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/ec2metadata))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/endpoints))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/request))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/session))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/aws/signer/v4))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/internal/sdkio))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/internal/sdkrand))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/internal/shareddefaults))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol/query/queryutil))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol/rest))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol/restxml))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/service/s3))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3iface))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/service/s3/s3manager))
+Provides:	    bundled(golang(github.com/aws/aws-sdk-go/service/sts))
+Provides:	    bundled(golang(github.com/cihub/seelog))
+Provides:	    bundled(golang(github.com/cihub/seelog/archive))
+Provides:	    bundled(golang(github.com/cihub/seelog/archive/gzip))
+Provides:	    bundled(golang(github.com/cihub/seelog/archive/tar))
+Provides:	    bundled(golang(github.com/cihub/seelog/archive/zip))
+Provides:	    bundled(golang(github.com/coreos/go-systemd/activation))
+Provides:	    bundled(golang(github.com/davecgh/go-spew/spew))
+Provides:	    bundled(golang(github.com/docker/docker/api/types))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/blkiodev))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/container))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/filters))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/mount))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/network))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/registry))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/strslice))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/swarm))
+Provides:	    bundled(golang(github.com/docker/docker/api/types/versions))
+Provides:	    bundled(golang(github.com/docker/docker/opts))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/archive))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/fileutils))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/homedir))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/idtools))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/ioutils))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/jsonlog))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/jsonmessage))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/longpath))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/mount))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/pools))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/promise))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/stdcopy))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/system))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/term))
+Provides:	    bundled(golang(github.com/docker/docker/pkg/term/windows))
+Provides:	    bundled(golang(github.com/docker/go-connections/nat))
+Provides:	    bundled(golang(github.com/docker/go-connections/sockets))
+Provides:	    bundled(golang(github.com/docker/go-plugins-helpers/sdk))
+Provides:	    bundled(golang(github.com/docker/go-plugins-helpers/volume))
+Provides:	    bundled(golang(github.com/docker/go-units))
+Provides:	    bundled(golang(github.com/fsouza/go-dockerclient))
+Provides:	    bundled(golang(github.com/go-ini/ini))
+Provides:	    bundled(golang(github.com/golang/mock/gomock))
+Provides:	    bundled(golang(github.com/jmespath/go-jmespath))
+Provides:	    bundled(golang(github.com/opencontainers/go-digest))
+Provides:	    bundled(golang(github.com/opencontainers/image-spec/specs-go))
+Provides:	    bundled(golang(github.com/opencontainers/image-spec/specs-go/v1))
+Provides:	    bundled(golang(github.com/opencontainers/runc/libcontainer/system))
+Provides:	    bundled(golang(github.com/opencontainers/runc/libcontainer/user))
+Provides:	    bundled(golang(github.com/pkg/errors))
+Provides:	    bundled(golang(github.com/pmezard/go-difflib/difflib))
+Provides:	    bundled(golang(github.com/stretchr/testify/assert))
+Provides:	    bundled(golang(golang.org/x/net/context))
+Provides:	    bundled(golang(golang.org/x/net/context/ctxhttp))
+Provides:	    bundled(golang(golang.org/x/net/proxy))
+Provides:	    bundled(golang(golang.org/x/sys/unix))
+Provides:	    bundled(golang(golang.org/x/sys/windows))
 
 %description
 ecs-init supports the initialization and supervision of the Amazon ECS
@@ -160,6 +172,7 @@ required routes among its preparation steps.
 
 %install
 install -D amazon-ecs-init %{buildroot}%{_libexecdir}/amazon-ecs-init
+install -D amazon-ecs-volume-plugin %{buildroot}%{_libexecdir}/amazon-ecs-volume-plugin
 install -m %{no_exec_perm} -D scripts/amazon-ecs-init.1 %{buildroot}%{_mandir}/man1/amazon-ecs-init.1
 
 mkdir -p %{buildroot}%{_sysconfdir}/ecs
@@ -176,13 +189,17 @@ mkdir -p %{buildroot}%{_sharedstatedir}/ecs/data
 
 %if %{with systemd}
 install -m %{no_exec_perm} -D %{SOURCE2} $RPM_BUILD_ROOT/%{_unitdir}/ecs.service
+install -m %{no_exec_perm} -D %{SOURCE6} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.service
+install -m %{no_exec_perm} -D %{SOURCE7} $RPM_BUILD_ROOT/%{_unitdir}/amazon-ecs-volume-plugin.socket
 %else
 install -m %{no_exec_perm} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.conf
+install -m %{no_exec_perm} -D %{SOURCE5} %{buildroot}%{_sysconfdir}/init/amazon-ecs-volume-plugin.conf
 %endif
 
 %files
 %{_libexecdir}/amazon-ecs-init
 %{_mandir}/man1/amazon-ecs-init.1*
+%{_libexecdir}/amazon-ecs-volume-plugin
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config
 %config(noreplace) %ghost %{_sysconfdir}/ecs/ecs.config.json
 %ghost %{_cachedir}/ecs/ecs-agent.tar
@@ -192,8 +209,11 @@ install -m %{no_exec_perm} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.con
 
 %if %{with systemd}
 %{_unitdir}/ecs.service
+%{_unitdir}/amazon-ecs-volume-plugin.service
+%{_unitdir}/amazon-ecs-volume-plugin.socket
 %else
 %{_sysconfdir}/init/ecs.conf
+%{_sysconfdir}/init/amazon-ecs-volume-plugin.conf
 %endif
 
 %post
@@ -201,9 +221,12 @@ install -m %{no_exec_perm} -D %{SOURCE1} %{buildroot}%{_sysconfdir}/init/ecs.con
 ln -sf %{basename:%{agent_image}} %{_cachedir}/ecs/ecs-agent.tar
 %if %{with systemd}
 %systemd_post ecs
+%systemd_post amazon-ecs-volume-plugin.service
 
 %postun
 %systemd_postun
+%systemd_postun_with_restart amazon-ecs-volume-plugin
+
 %else
 %triggerun -- docker
 # record whether or not our service was running when docker is upgraded
