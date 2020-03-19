@@ -681,6 +681,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 // AddTask starts tracking a task
 func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 	defer metrics.MetricsEngineGlobal.RecordTaskEngineMetric("ADD_TASK")()
+
 	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager,
 		engine.resourceFields, engine.client, engine.ctx)
 	if err != nil {
@@ -690,11 +691,26 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		engine.emitTaskEvent(task, err.Error())
 		return
 	}
+	for _, container := range task.Containers {
+		seelog.Debugf("[v4debug] AddTask for each container environment: %v", container.Environment)
+
+		v3endpointid := container.V3EndpointID
+		taskArn, exists := engine.state.TaskARNByV3EndpointID(v3endpointid)
+		if exists {
+			seelog.Debugf("[v4debug] engine task by v3endpoint id [%v] exists: [%v]", v3endpointid, taskArn)
+		}
+	}
 
 	engine.tasksLock.Lock()
 	defer engine.tasksLock.Unlock()
 
 	existingTask, exists := engine.state.TaskByArn(task.Arn)
+
+	seelog.Debugf("[v4debug] task [%v] exists: %v", task.Arn, exists)
+	for _, et := range engine.state.AllTasks() {
+		seelog.Debugf("[v4debug] engine.state contains [%v] %v", et.Arn, et)
+	}
+
 	if !exists {
 		// This will update the container desired status
 		task.UpdateDesiredStatus()
@@ -1019,6 +1035,9 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	config, err := task.DockerConfig(container, dockerClientVersion)
+
+	seelog.Debugf("[v4debug] generated container config: %v", config)
+
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 	}
@@ -1066,6 +1085,9 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 				task.Arn, container.Name, mderr)
 		}
 	}
+
+	seelog.Debugf("[v4debug] creating container with config: %v", config)
+	seelog.Debugf("[v4debug] creating container with host config: %v", hostConfig)
 
 	createContainerBegin := time.Now()
 	metadata := client.CreateContainer(engine.ctx, config, hostConfig,

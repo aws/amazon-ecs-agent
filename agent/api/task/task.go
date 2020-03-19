@@ -307,6 +307,7 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
 	dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	seelog.Debug("PostUnmarshalTask start xxx")
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -350,7 +351,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
-	task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
+	//task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -710,6 +711,8 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 // initializeContainersV3MetadataEndpoint generates an v3 endpoint id for each container, constructs the
 // v3 metadata endpoint, and injects it as an environment variable
 func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	seelog.Debug("[v4debug] initializeContainersV3MetadataEndpoint")
+
 	for _, container := range task.Containers {
 		v3EndpointID := container.GetV3EndpointID()
 		if v3EndpointID == "" { // if container's v3 endpoint has not been set
@@ -723,16 +726,18 @@ func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUID
 // initializeContainersV4MetadataEndpoint generates an v4 endpoint id which we reuse the v3 container id
 // (they are the same) for each container, constructs the v4 metadata endpoint,
 // and injects it as an environment variable
-func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUIDProvider) {
-	for _, container := range task.Containers {
-		v3EndpointID := container.GetV3EndpointID()
-		if v3EndpointID == "" { // if container's v3 endpoint has not been set
-			container.SetV3EndpointID(uuidProvider.New())
-		}
-
-		container.InjectV4MetadataEndpoint()
-	}
-}
+//func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+//	seelog.Debug("[v4debug] initializeContainersV4MetadataEndpoint start")
+//
+//	for _, container := range task.Containers {
+//		v3EndpointID := container.GetV3EndpointID()
+//		if v3EndpointID == "" { // if container's v3 endpoint has not been set
+//			container.SetV3EndpointID(uuidProvider.New())
+//		}
+//
+//		container.InjectV4MetadataEndpoint()
+//	}
+//}
 
 // requiresASMDockerAuthData returns true if atleast one container in the task
 // needs to retrieve private registry authentication data from ASM
@@ -1365,9 +1370,14 @@ func (task *Task) DockerConfig(container *apicontainer.Container, apiVersion doc
 
 func (task *Task) dockerConfig(container *apicontainer.Container, apiVersion dockerclient.DockerVersion) (*dockercontainer.Config, *apierrors.DockerClientConfigError) {
 	dockerEnv := make([]string, 0, len(container.Environment))
+
+	seelog.Debugf("[v4debug] creating container with environment variables: %v", container.Environment)
+
 	for envKey, envVal := range container.Environment {
 		dockerEnv = append(dockerEnv, envKey+"="+envVal)
 	}
+
+	seelog.Debugf("[v4debug] constructed dockerEnv: %v", dockerEnv)
 
 	var entryPoint []string
 	if container.EntryPoint != nil {

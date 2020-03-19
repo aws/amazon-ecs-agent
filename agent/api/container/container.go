@@ -861,23 +861,27 @@ func (c *Container) InjectV3MetadataEndpoint() {
 		c.Environment = make(map[string]string)
 	}
 
-	c.Environment[MetadataURIEnvironmentVariableName] =
-		fmt.Sprintf(MetadataURIFormat, c.V3EndpointID)
+	seelog.Debugf("[v4debug] v3 c.Environment %s", c.Environment)
+	c.Environment[MetadataURIEnvironmentVariableName] = fmt.Sprintf(MetadataURIFormat, c.V3EndpointID)
+	seelog.Debugf("[v4debug] v3 MetadataURIEnvironmentVariableName %s", c.Environment[MetadataURIEnvironmentVariableName])
+	c.Environment[MetadataURIEnvVarNameV4] = fmt.Sprintf(MetadataURIFormatV4, c.V3EndpointID)
+	seelog.Debugf("[v4debug] v3 MetadataURIEnvironmentVariableName %s", c.Environment[MetadataURIEnvVarNameV4])
 }
 
 // InjectV4MetadataEndpoint injects the v4 metadata endpoint as an environment variable for a container
-func (c *Container) InjectV4MetadataEndpoint() {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	// don't assume that the environment variable map has been initialized by others
-	if c.Environment == nil {
-		c.Environment = make(map[string]string)
-	}
-
-	c.Environment[MetadataURIEnvVarNameV4] =
-		fmt.Sprintf(MetadataURIFormatV4, c.V3EndpointID)
-}
+//func (c *Container) InjectV4MetadataEndpoint() {
+//	c.lock.Lock()
+//	defer c.lock.Unlock()
+//
+//	// don't assume that the environment variable map has been initialized by others
+//	if c.Environment == nil {
+//		c.Environment = make(map[string]string)
+//	}
+//
+//	seelog.Debugf("[v4debug] v4 c.Environment %s", c.Environment)
+//	c.Environment[MetadataURIEnvVarNameV4] = fmt.Sprintf(MetadataURIFormatV4, c.V3EndpointID)
+//	seelog.Debugf("[v4debug] v4 MetadataURIEnvironmentVariableName %s", c.Environment[MetadataURIEnvVarNameV4])
+//}
 
 // ShouldCreateWithSSMSecret returns true if this container needs to get secret
 // value from SSM Parameter Store
