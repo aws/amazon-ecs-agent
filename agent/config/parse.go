@@ -120,6 +120,17 @@ func parseAvailableLoggingDrivers() []dockerclient.LoggingDriver {
 	return availableLoggingDrivers
 }
 
+func parseVolumePluginCapabilities() []string {
+	capsFromEnv := os.Getenv("ECS_VOLUME_PLUGIN_CAPABILITIES")
+	capsDecoder := json.NewDecoder(strings.NewReader(capsFromEnv))
+	var caps []string
+	err := capsDecoder.Decode(&caps)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"ECS_VOLUME_PLUGIN_CAPABILITIES\", expected a json list of string. error: %v", err)
+	}
+	return caps
+}
+
 func parseNumImagesToDeletePerCycle() int {
 	numImagesToDeletePerCycleEnvVal := os.Getenv("ECS_NUM_IMAGES_DELETE_PER_CYCLE")
 	numImagesToDeletePerCycle, err := strconv.Atoi(numImagesToDeletePerCycleEnvVal)

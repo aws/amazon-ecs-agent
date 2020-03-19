@@ -124,6 +124,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
 	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
+	setTestEnv("ECS_VOLUME_PLUGIN_CAPABILITIES", "[\"efsAuth\"]")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -169,6 +170,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
 	assert.False(t, conf.SpotInstanceDrainingEnabled)
+	assert.Equal(t, []string{"efsAuth"}, conf.VolumePluginCapabilities)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
