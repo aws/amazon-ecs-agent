@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.38.0
+* Feature - add integration with EFS's access point and IAM authorization features; support EFS volume for task in awsvpc network mode
+* Enhancement - adding Runtime ID of container to agent logs [#2399](https://github.com/aws/amazon-ecs-agent/pull/2399)
+
 ## 1.37.0
 * Feature - additional parameters allowed when specifying secretsmanager secret [#2358](https://github.com/aws/amazon-ecs-agent/pull/2358)
 * Bug - fixed a bug where Firelens container could not use config file from S3 bucket in us-east-1 [#2356](https://github.com/aws/amazon-ecs-agent/pull/2356)
