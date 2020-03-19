@@ -32,8 +32,8 @@
 %endif
 
 Name:           ecs-init
-Version:        1.37.0
-Release:        2%{?dist}
+Version:        1.38.0
+Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -278,6 +278,11 @@ fi
 %endif
 
 %changelog
+* Thu Mar 19 2020 Sharanya Devaraj <sharanyd@amazon.com> - 1.38.0-1
+- Cache Agent version 1.38.0
+- Adds support for ECS volume plugin
+- Disable ipv6 router advertisements for optimization
+
 * Sat Feb 22 2020 Jessie Young <youngli@amazon.com> - 1.37.0-2
 - Cache Agent version 1.37.0
 - Add '/etc/alternatives' to mounts

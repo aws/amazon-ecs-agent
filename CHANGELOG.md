@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.38.0-1
+* Cache Agent version 1.38.0
+* Adds support for ECS volume plugin
+* Disable ipv6 router advertisements for optimization
+
 ## 1.37.0-2
 * Cache Agent version 1.37.0
 * Add '/etc/alternatives' to mounts
