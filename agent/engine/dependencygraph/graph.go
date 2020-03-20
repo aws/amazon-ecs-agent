@@ -277,12 +277,11 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			}
 		}
 
-		// We want to fail fast if the dependency container did not exit successfully' because target container
+		// We want to fail fast if the dependency container has stopped but did not exit successfully because target container
 		// can then never progress to its desired state when the dependency condition is 'SUCCESS'
-		if dependency.Condition == successCondition && dependencyContainer.GetKnownExitCode() != nil {
-			if !hasDependencyStoppedSuccessfully(dependencyContainer, dependency.Condition) {
-				return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
-			}
+		if dependency.Condition == successCondition && dependencyContainer.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
+			!hasDependencyStoppedSuccessfully(dependencyContainer) {
+			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 		}
 
 		if !resolves(target, dependencyContainer, dependency.Condition) {
@@ -443,10 +442,9 @@ func hasDependencyTimedOut(dependOnContainer *apicontainer.Container, dependency
 	}
 }
 
-func hasDependencyStoppedSuccessfully(dependency *apicontainer.Container, condition string) bool {
-	isDependencyStoppedSuccessfully := dependency.GetKnownStatus() == apicontainerstatus.ContainerStopped &&
-		*dependency.GetKnownExitCode() == 0
-	return isDependencyStoppedSuccessfully
+func hasDependencyStoppedSuccessfully(dependency *apicontainer.Container) bool {
+	p := dependency.GetKnownExitCode()
+	return p != nil && *p == 0
 }
 
 func verifyContainerOrderingStatus(dependsOnContainer *apicontainer.Container) bool {
