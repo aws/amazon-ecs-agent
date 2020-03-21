@@ -91,6 +91,21 @@ func (mr *MockFileMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockFile)(nil).Name))
 }
 
+// Read mocks base method
+func (m *MockFile) Read(arg0 []byte) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Read", arg0)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Read indicates an expected call of Read
+func (mr *MockFileMockRecorder) Read(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockFile)(nil).Read), arg0)
+}
+
 // Sync mocks base method
 func (m *MockFile) Sync() error {
 	m.ctrl.T.Helper()
@@ -199,6 +214,21 @@ func (m *MockOS) MkdirAll(arg0 string, arg1 os.FileMode) error {
 func (mr *MockOSMockRecorder) MkdirAll(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockOS)(nil).MkdirAll), arg0, arg1)
+}
+
+// Open mocks base method
+func (m *MockOS) Open(arg0 string) (oswrapper.File, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Open", arg0)
+	ret0, _ := ret[0].(oswrapper.File)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Open indicates an expected call of Open
+func (mr *MockOSMockRecorder) Open(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockOS)(nil).Open), arg0)
 }
 
 // OpenFile mocks base method
