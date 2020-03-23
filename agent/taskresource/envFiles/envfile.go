@@ -22,6 +22,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
@@ -538,4 +539,27 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 	}
 
 	return envVars, nil
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (envfile *EnvironmentFileResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	envfile.lock.RLock()
+	defer envfile.lock.RUnlock()
+
+	return envfile.appliedStatusUnsafe
+}
+
+// DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
+func (envfile *EnvironmentFileResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+// BuildContainerDependency adds a new dependency container and its satisfied status
+func (envfile *EnvironmentFileResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) {
+}
+
+// GetContainerDependencies returns dependent containers for a status
+func (envfile *EnvironmentFileResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
 }

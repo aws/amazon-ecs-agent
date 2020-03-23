@@ -19,6 +19,8 @@ import (
 	"errors"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -154,4 +156,21 @@ func (firelens *FirelensResource) UnmarshalJSON(b []byte) error {
 func (firelens *FirelensResource) Initialize(resourceFields *taskresource.ResourceFields,
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (firelens *FirelensResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	return resourcestatus.ResourceStatusNone
+}
+
+func (firelens *FirelensResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (firelens *FirelensResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) {
+}
+
+func (firelens *FirelensResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
 }

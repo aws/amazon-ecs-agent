@@ -423,10 +423,10 @@ func TestLoadsDataForContainerRuntimeID(t *testing.T) {
 	assert.EqualValues(t, 0, sequenceNumber)
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:984736093387:task/70947c96-f64e-483a-a612-3fd4303546e7", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:123456789012:task/70947c96-f64e-483a-a612-3fd4303546e7", task.Arn)
 	assert.Equal(t, "sleep360", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
-	assert.Equal(t, "c6b1ea1004c6de778bdc4c00bc15085ef16b4b259f7dfc198a0a36b6629a7f90", task.Containers[0].RuntimeID)
+	assert.Equal(t, "c00bc15085ef16b4c6b259f7dfc198a0a36b1ea1004c6de778bdc4b6629a7f90", task.Containers[0].RuntimeID)
 }
 
 func TestLoadsDataForContainerImageDigest(t *testing.T) {
@@ -454,7 +454,7 @@ func TestLoadsDataForContainerImageDigest(t *testing.T) {
 	assert.EqualValues(t, 0, sequenceNumber)
 
 	task := tasks[0]
-	assert.Equal(t, "arn:aws:ecs:us-west-2:984736093387:task/20ceacb3-2806-4701-a4d4-098515cebfe9", task.Arn)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:123456789012:task/20ceacb3-2806-4701-a4d4-098515cebfe9", task.Arn)
 	assert.Equal(t, "sleep360", task.Family)
 	assert.Equal(t, 1, len(task.Containers))
 	assert.Equal(t, "sha256:9f1003c480699be56815db0f8146ad2e22efea85129b5b5983d0e0fb52d9ab70", task.Containers[0].ImageDigest)

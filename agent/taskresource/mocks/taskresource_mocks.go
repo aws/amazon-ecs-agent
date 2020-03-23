@@ -22,9 +22,11 @@ import (
 	reflect "reflect"
 	time "time"
 
-	status "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	container "github.com/aws/amazon-ecs-agent/agent/api/container"
+	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	status0 "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource"
-	status0 "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	status1 "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -52,7 +54,7 @@ func (m *MockTaskResource) EXPECT() *MockTaskResourceMockRecorder {
 }
 
 // ApplyTransition mocks base method
-func (m *MockTaskResource) ApplyTransition(arg0 status0.ResourceStatus) error {
+func (m *MockTaskResource) ApplyTransition(arg0 status1.ResourceStatus) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyTransition", arg0)
 	ret0, _ := ret[0].(error)
@@ -63,6 +65,18 @@ func (m *MockTaskResource) ApplyTransition(arg0 status0.ResourceStatus) error {
 func (mr *MockTaskResourceMockRecorder) ApplyTransition(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyTransition", reflect.TypeOf((*MockTaskResource)(nil).ApplyTransition), arg0)
+}
+
+// BuildContainerDependency mocks base method
+func (m *MockTaskResource) BuildContainerDependency(arg0 string, arg1 status.ContainerStatus, arg2 status1.ResourceStatus) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "BuildContainerDependency", arg0, arg1, arg2)
+}
+
+// BuildContainerDependency indicates an expected call of BuildContainerDependency
+func (mr *MockTaskResourceMockRecorder) BuildContainerDependency(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BuildContainerDependency", reflect.TypeOf((*MockTaskResource)(nil).BuildContainerDependency), arg0, arg1, arg2)
 }
 
 // Cleanup mocks base method
@@ -93,6 +107,20 @@ func (mr *MockTaskResourceMockRecorder) Create() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockTaskResource)(nil).Create))
 }
 
+// DependOnTaskNetwork mocks base method
+func (m *MockTaskResource) DependOnTaskNetwork() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DependOnTaskNetwork")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// DependOnTaskNetwork indicates an expected call of DependOnTaskNetwork
+func (mr *MockTaskResourceMockRecorder) DependOnTaskNetwork() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DependOnTaskNetwork", reflect.TypeOf((*MockTaskResource)(nil).DependOnTaskNetwork))
+}
+
 // DesiredTerminal mocks base method
 func (m *MockTaskResource) DesiredTerminal() bool {
 	m.ctrl.T.Helper()
@@ -105,6 +133,34 @@ func (m *MockTaskResource) DesiredTerminal() bool {
 func (mr *MockTaskResourceMockRecorder) DesiredTerminal() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DesiredTerminal", reflect.TypeOf((*MockTaskResource)(nil).DesiredTerminal))
+}
+
+// GetAppliedStatus mocks base method
+func (m *MockTaskResource) GetAppliedStatus() status1.ResourceStatus {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppliedStatus")
+	ret0, _ := ret[0].(status1.ResourceStatus)
+	return ret0
+}
+
+// GetAppliedStatus indicates an expected call of GetAppliedStatus
+func (mr *MockTaskResourceMockRecorder) GetAppliedStatus() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedStatus", reflect.TypeOf((*MockTaskResource)(nil).GetAppliedStatus))
+}
+
+// GetContainerDependencies mocks base method
+func (m *MockTaskResource) GetContainerDependencies(arg0 status1.ResourceStatus) []container.ContainerDependency {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContainerDependencies", arg0)
+	ret0, _ := ret[0].([]container.ContainerDependency)
+	return ret0
+}
+
+// GetContainerDependencies indicates an expected call of GetContainerDependencies
+func (mr *MockTaskResourceMockRecorder) GetContainerDependencies(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerDependencies", reflect.TypeOf((*MockTaskResource)(nil).GetContainerDependencies), arg0)
 }
 
 // GetCreatedAt mocks base method
@@ -122,10 +178,10 @@ func (mr *MockTaskResourceMockRecorder) GetCreatedAt() *gomock.Call {
 }
 
 // GetDesiredStatus mocks base method
-func (m *MockTaskResource) GetDesiredStatus() status0.ResourceStatus {
+func (m *MockTaskResource) GetDesiredStatus() status1.ResourceStatus {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDesiredStatus")
-	ret0, _ := ret[0].(status0.ResourceStatus)
+	ret0, _ := ret[0].(status1.ResourceStatus)
 	return ret0
 }
 
@@ -136,10 +192,10 @@ func (mr *MockTaskResourceMockRecorder) GetDesiredStatus() *gomock.Call {
 }
 
 // GetKnownStatus mocks base method
-func (m *MockTaskResource) GetKnownStatus() status0.ResourceStatus {
+func (m *MockTaskResource) GetKnownStatus() status1.ResourceStatus {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetKnownStatus")
-	ret0, _ := ret[0].(status0.ResourceStatus)
+	ret0, _ := ret[0].(status1.ResourceStatus)
 	return ret0
 }
 
@@ -178,7 +234,7 @@ func (mr *MockTaskResourceMockRecorder) GetTerminalReason() *gomock.Call {
 }
 
 // Initialize mocks base method
-func (m *MockTaskResource) Initialize(arg0 *taskresource.ResourceFields, arg1, arg2 status.TaskStatus) {
+func (m *MockTaskResource) Initialize(arg0 *taskresource.ResourceFields, arg1, arg2 status0.TaskStatus) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Initialize", arg0, arg1, arg2)
 }
@@ -219,10 +275,10 @@ func (mr *MockTaskResourceMockRecorder) MarshalJSON() *gomock.Call {
 }
 
 // NextKnownState mocks base method
-func (m *MockTaskResource) NextKnownState() status0.ResourceStatus {
+func (m *MockTaskResource) NextKnownState() status1.ResourceStatus {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NextKnownState")
-	ret0, _ := ret[0].(status0.ResourceStatus)
+	ret0, _ := ret[0].(status1.ResourceStatus)
 	return ret0
 }
 
@@ -233,7 +289,7 @@ func (mr *MockTaskResourceMockRecorder) NextKnownState() *gomock.Call {
 }
 
 // SetAppliedStatus mocks base method
-func (m *MockTaskResource) SetAppliedStatus(arg0 status0.ResourceStatus) bool {
+func (m *MockTaskResource) SetAppliedStatus(arg0 status1.ResourceStatus) bool {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAppliedStatus", arg0)
 	ret0, _ := ret[0].(bool)
@@ -259,7 +315,7 @@ func (mr *MockTaskResourceMockRecorder) SetCreatedAt(arg0 interface{}) *gomock.C
 }
 
 // SetDesiredStatus mocks base method
-func (m *MockTaskResource) SetDesiredStatus(arg0 status0.ResourceStatus) {
+func (m *MockTaskResource) SetDesiredStatus(arg0 status1.ResourceStatus) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetDesiredStatus", arg0)
 }
@@ -271,7 +327,7 @@ func (mr *MockTaskResourceMockRecorder) SetDesiredStatus(arg0 interface{}) *gomo
 }
 
 // SetKnownStatus mocks base method
-func (m *MockTaskResource) SetKnownStatus(arg0 status0.ResourceStatus) {
+func (m *MockTaskResource) SetKnownStatus(arg0 status1.ResourceStatus) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetKnownStatus", arg0)
 }
@@ -283,7 +339,7 @@ func (mr *MockTaskResourceMockRecorder) SetKnownStatus(arg0 interface{}) *gomock
 }
 
 // StatusString mocks base method
-func (m *MockTaskResource) StatusString(arg0 status0.ResourceStatus) string {
+func (m *MockTaskResource) StatusString(arg0 status1.ResourceStatus) string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatusString", arg0)
 	ret0, _ := ret[0].(string)
@@ -297,10 +353,10 @@ func (mr *MockTaskResourceMockRecorder) StatusString(arg0 interface{}) *gomock.C
 }
 
 // SteadyState mocks base method
-func (m *MockTaskResource) SteadyState() status0.ResourceStatus {
+func (m *MockTaskResource) SteadyState() status1.ResourceStatus {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SteadyState")
-	ret0, _ := ret[0].(status0.ResourceStatus)
+	ret0, _ := ret[0].(status1.ResourceStatus)
 	return ret0
 }
 
@@ -311,10 +367,10 @@ func (mr *MockTaskResourceMockRecorder) SteadyState() *gomock.Call {
 }
 
 // TerminalStatus mocks base method
-func (m *MockTaskResource) TerminalStatus() status0.ResourceStatus {
+func (m *MockTaskResource) TerminalStatus() status1.ResourceStatus {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TerminalStatus")
-	ret0, _ := ret[0].(status0.ResourceStatus)
+	ret0, _ := ret[0].(status1.ResourceStatus)
 	return ret0
 }
 
