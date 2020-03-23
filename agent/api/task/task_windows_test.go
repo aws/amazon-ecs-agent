@@ -113,7 +113,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 
 	for _, container := range task.Containers { // remove v3 endpoint from each container because it's randomly generated
-		removeV3EndpointConfig(container)
+		removeV3andV4EndpointConfig(container)
 	}
 	assert.Equal(t, expectedTask.Containers, task.Containers, "Containers should be equal")
 	assert.Equal(t, expectedTask.Volumes, task.Volumes, "Volumes should be equal")
@@ -121,10 +121,11 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 
 // removeV3EndpointConfig removes the v3 endpoint id and the injected env for a container
 // so that checking all other fields can be easier
-func removeV3EndpointConfig(container *apicontainer.Container) {
+func removeV3andV4EndpointConfig(container *apicontainer.Container) {
 	container.SetV3EndpointID("")
 	if container.Environment != nil {
 		delete(container.Environment, apicontainer.MetadataURIEnvironmentVariableName)
+		delete(container.Environment, apicontainer.MetadataURIEnvVarNameV4)
 	}
 	if len(container.Environment) == 0 {
 		container.Environment = nil

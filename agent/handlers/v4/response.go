@@ -56,11 +56,11 @@ type Network struct {
 type NetworkInterfaceProperties struct {
 	// AttachmentIndex reflects the `index` specified by the customer (if any)
 	// while creating the task with `awsvpc` mode.
-	AttachmentIndex int `json:"AttachmentIndex"`
+	AttachmentIndex *int `json:"AttachmentIndex,omitempty"`
 	// IPV4SubnetCIDRBlock is the subnet CIDR netmask associated with network interface.
-	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,ommitempty"`
+	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,omitempty"`
 	// MACAddress is the mac address of the network interface.
-	MACAddress string `json:"MACAddress,ommitempty"`
+	MACAddress string `json:"MACAddress,omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the network interface.
 	DomainNameServers []string `json:"DomainNameServers,omitempty"`
 	// DomainNameSearchList specifies the search list for the domain name lookup for
@@ -69,7 +69,7 @@ type NetworkInterfaceProperties struct {
 	// PrivateDNSName is the dns name assigned to this network interface.
 	PrivateDNSName string `json:"PrivateDNSName,omitempty"`
 	// SubnetGatewayIPV4Address is the gateway address for the network interface.
-	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,ommitempty"`
+	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,omitempty"`
 }
 
 // NewTaskResponse creates a new v4 response object for the task. It augments v2 task response
@@ -91,7 +91,7 @@ func NewTaskResponse(
 	}
 	var containers []ContainerResponse
 	// Convert each container response into v4 container response.
-	for _, container := range v2Resp.Containers {
+	for i, container := range v2Resp.Containers {
 		networks, err := toV4NetworkResponse(container.Networks, func() (*apitask.Task, bool) {
 			return state.TaskByArn(taskARN)
 		})
@@ -99,7 +99,7 @@ func NewTaskResponse(
 			return nil, err
 		}
 		containers = append(containers, ContainerResponse{
-			ContainerResponse: &container,
+			ContainerResponse: &v2Resp.Containers[i],
 			Networks:          networks,
 		})
 	}
@@ -172,11 +172,18 @@ func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperti
 			"v4 metadata response: unable to parse subnet ipv4 address '%s'",
 			eni.SubnetGatewayIPV4Address)
 	}
+
+	var attachmentIndexPtr *int
+	if task.IsNetworkModeAWSVPC() {
+		var vpcIndex = 0
+		attachmentIndexPtr = &vpcIndex
+	}
+
 	return NetworkInterfaceProperties{
 		// TODO this is hard-coded to `0` for now. Once backend starts populating
 		// `Index` field for an ENI, we should set it as per that. Since we
-		// only support 1 ENI per task anyway, setting it to `0` is acceptable.
-		AttachmentIndex:          0,
+		// only support 1 ENI per task anyway, setting it to `0` is acceptable
+		AttachmentIndex:          attachmentIndexPtr,
 		IPV4SubnetCIDRBlock:      ipv4Net.String(),
 		MACAddress:               eni.MacAddress,
 		DomainNameServers:        eni.DomainNameServers,
