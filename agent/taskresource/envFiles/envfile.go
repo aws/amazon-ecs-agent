@@ -517,7 +517,9 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 
 	scanner := envfile.bufio.NewScanner(file)
 	envVars := make(map[string]string)
+	lineNum := 0
 	for scanner.Scan() {
+		lineNum += 1
 		line := scanner.Text()
 		// if line starts with a #, ignore
 		if strings.HasPrefix(line, commentIndicator) {
@@ -529,6 +531,8 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 			// verify that there is at least a character on each side
 			if len(variables[0]) > 0 && len(variables[1]) > 0 {
 				envVars[variables[0]] = variables[1]
+			} else {
+				seelog.Infof("Not applying line %d of environment file %s, key or value is empty.", lineNum, envfilePath)
 			}
 		}
 	}
