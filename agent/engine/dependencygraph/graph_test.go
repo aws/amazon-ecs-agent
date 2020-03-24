@@ -808,6 +808,14 @@ func TestContainerOrderingCanResolve(t *testing.T) {
 		},
 		{
 			TargetDesired:       apicontainerstatus.ContainerRunning,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyDesired:   apicontainerstatus.ContainerStopped,
+			ExitCode:            0,
+			DependencyCondition: successCondition,
+			Resolvable:          true,
+		},
+		{
+			TargetDesired:       apicontainerstatus.ContainerRunning,
 			DependencyKnown:     apicontainerstatus.ContainerStopped,
 			ExitCode:            0,
 			DependencyCondition: successCondition,
