@@ -314,7 +314,7 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 			func() error {
 				err := dg.pullImage(ctx, image, authData)
 				if err != nil {
-					seelog.Warnf("DockerGoClient: failed to pull image %s: %s", image, err.Error())
+					seelog.Errorf("DockerGoClient: failed to pull image %s: [%s] %s", image, err.ErrorName(), err.Error())
 				}
 				return err
 			})
@@ -695,7 +695,7 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string, ti
 	err = client.ContainerStop(ctx, dockerID, &timeout)
 	metadata := dg.containerMetadata(ctx, dockerID)
 	if err != nil {
-		seelog.Infof("DockerGoClient: error stopping container %s: %v", dockerID, err)
+		seelog.Errorf("DockerGoClient: error stopping container %s: %v", dockerID, err)
 		if metadata.Error == nil {
 			if strings.Contains(err.Error(), "No such container") {
 				err = NoSuchContainerError{dockerID}
