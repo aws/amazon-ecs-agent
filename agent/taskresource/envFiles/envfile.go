@@ -22,6 +22,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
@@ -516,7 +517,9 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 
 	scanner := envfile.bufio.NewScanner(file)
 	envVars := make(map[string]string)
+	lineNum := 0
 	for scanner.Scan() {
+		lineNum += 1
 		line := scanner.Text()
 		// if line starts with a #, ignore
 		if strings.HasPrefix(line, commentIndicator) {
@@ -528,6 +531,8 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 			// verify that there is at least a character on each side
 			if len(variables[0]) > 0 && len(variables[1]) > 0 {
 				envVars[variables[0]] = variables[1]
+			} else {
+				seelog.Infof("Not applying line %d of environment file %s, key or value is empty.", lineNum, envfilePath)
 			}
 		}
 	}
@@ -538,4 +543,27 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 	}
 
 	return envVars, nil
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (envfile *EnvironmentFileResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	envfile.lock.RLock()
+	defer envfile.lock.RUnlock()
+
+	return envfile.appliedStatusUnsafe
+}
+
+// DependOnTaskNetwork shows whether the resource creation needs task network setup beforehand
+func (envfile *EnvironmentFileResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+// BuildContainerDependency adds a new dependency container and its satisfied status
+func (envfile *EnvironmentFileResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) {
+}
+
+// GetContainerDependencies returns dependent containers for a status
+func (envfile *EnvironmentFileResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
+	return nil
 }

@@ -162,6 +162,10 @@ func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*e
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEFS)
 }
 
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Attribute, pluginCapability string) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+pluginCapability)
+}
+
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }

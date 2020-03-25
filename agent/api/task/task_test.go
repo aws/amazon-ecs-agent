@@ -45,7 +45,6 @@ import (
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -59,33 +58,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const (
-	dockerIDPrefix    = "dockerid-"
-	secretKeyWest1    = "/test/secretName_us-west-2"
-	secKeyLogDriver   = "/test/secretName1_us-west-1"
-	asmSecretKeyWest1 = "arn:aws:secretsmanager:us-west-2:11111:secret:/test/secretName_us-west-2"
-	ipv4              = "10.0.0.1"
-	mac               = "1.2.3.4"
-	ipv6              = "f0:234:23"
-	ignoredUID        = "1337"
-	proxyIngressPort  = "15000"
-	proxyEgressPort   = "15001"
-	appPort           = "9000"
-	egressIgnoredIP   = "169.254.169.254"
-)
-
-var defaultDockerClientAPIVersion = dockerclient.Version_1_17
-
-func strptr(s string) *string { return &s }
-
-func dockerMap(task *Task) map[string]*apicontainer.DockerContainer {
-	m := make(map[string]*apicontainer.DockerContainer)
-	for _, container := range task.Containers {
-		m[container.Name] = &apicontainer.DockerContainer{DockerID: dockerIDPrefix + container.Name, DockerName: "dockername-" + container.Name, Container: container}
-	}
-	return m
-}
 
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
@@ -692,36 +664,7 @@ func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
 // Test that the PostUnmarshal function properly changes EfsVolumeConfiguration
 // task definitions into a dockerVolumeConfiguration task resource.
 func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	dockerClient.EXPECT().InspectVolume(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.SDKVolumeResponse{DockerVolume: &types.Volume{}})
-	taskFromACS := ecsacs.Task{
-		Arn:           strptr("myArn"),
-		DesiredStatus: strptr("RUNNING"),
-		Family:        strptr("myFamily"),
-		Version:       strptr("1"),
-		Containers: []*ecsacs.Container{
-			{
-				Name: strptr("myName1"),
-				MountPoints: []*ecsacs.MountPoint{
-					{
-						ContainerPath: strptr("/some/path"),
-						SourceVolume:  strptr("efsvolume"),
-					},
-				},
-			},
-		},
-		Volumes: []*ecsacs.Volume{
-			{
-				Name: strptr("efsvolume"),
-				Type: strptr("efs"),
-				EfsVolumeConfiguration: &ecsacs.EFSVolumeConfiguration{
-					FileSystemId:  strptr("fs-12345"),
-					RootDirectory: strptr("/tmp"),
-				},
-			},
-		},
-	}
+	taskFromACS := getACSEFSTask()
 	seqNum := int64(42)
 
 	testCases := map[string]string{
@@ -732,12 +675,12 @@ func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
 	}
 	for region, expectedHostname := range testCases {
 		t.Run(region, func(t *testing.T) {
-			task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+			task, err := TaskFromACS(taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 			assert.Nil(t, err, "Should be able to handle acs task")
 			assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
 			cfg := config.Config{}
 			cfg.AWSRegion = region
-			task.PostUnmarshalTask(&cfg, nil, nil, dockerClient, nil)
+			require.NoError(t, task.PostUnmarshalTask(&cfg, nil, nil, nil, nil))
 			assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
 			assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
 			taskVol := task.Volumes[0]
@@ -774,6 +717,63 @@ func TestPostUnmarshalTaskWithEFSVolumes(t *testing.T) {
 	}
 }
 
+func TestPostUnmarshalTaskWithEFSVolumesThatUseECSVolumePlugin(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	testCreds := getACSIAMRoleCredentials()
+	credentialsIDInTask := aws.StringValue(testCreds.CredentialsId)
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	taskCredentials := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: credentialsIDInTask},
+	}
+	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
+	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
+
+	taskFromACS := getACSEFSTask()
+	taskFromACS.RoleCredentials = testCreds
+	seqNum := int64(42)
+	task, err := TaskFromACS(taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, 1, len(task.Containers))
+	task.SetCredentialsID(aws.StringValue(testCreds.CredentialsId))
+
+	cfg := &config.Config{}
+	cfg.VolumePluginCapabilities = []string{"efsAuth"}
+	require.NoError(t, task.PostUnmarshalTask(cfg, credentialsManager, nil, nil, nil))
+	assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
+	taskVol := task.Volumes[0]
+	assert.Equal(t, "efsvolume", taskVol.Name)
+	assert.Equal(t, "efs", taskVol.Type)
+
+	resources := task.GetResources()
+	assert.Len(t, resources, 1)
+	vol, ok := resources[0].(*taskresourcevolume.VolumeResource)
+	require.True(t, ok)
+	dockerVolName := vol.VolumeConfig.DockerVolumeName
+	b, err := json.Marshal(resources[0])
+	require.NoError(t, err)
+	assert.JSONEq(t, fmt.Sprintf(`{
+		"name": "efsvolume",
+		"dockerVolumeConfiguration": {
+		  "scope": "task",
+		  "autoprovision": false,
+		  "mountPoint": "",
+		  "driver": "amazon-ecs-volume-plugin",
+		  "driverOpts": {
+			"device": "fs-12345:/tmp",
+			"o": "tls,tlsport=12345,iam,awscredsuri=%s,accesspoint=fsap-123",
+			"type": "efs"
+		  },
+		  "labels": {},
+		  "dockerVolumeName": "%s"
+		},
+		"createdAt": "0001-01-01T00:00:00Z",
+		"desiredStatus": "NONE",
+		"knownStatus": "NONE"
+	  }`, expectedEndpoint, dockerVolName), string(b))
+}
+
 func TestInitializeContainersV3MetadataEndpoint(t *testing.T) {
 	task := Task{
 		Containers: []*apicontainer.Container{
@@ -791,6 +791,25 @@ func TestInitializeContainersV3MetadataEndpoint(t *testing.T) {
 	assert.Equal(t, container.GetV3EndpointID(), "new-uuid")
 	assert.Equal(t, container.Environment[apicontainer.MetadataURIEnvironmentVariableName],
 		fmt.Sprintf(apicontainer.MetadataURIFormat, "new-uuid"))
+}
+
+func TestInitializeContainersV4MetadataEndpoint(t *testing.T) {
+	task := Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name:        "c1",
+				Environment: make(map[string]string),
+			},
+		},
+	}
+	container := task.Containers[0]
+
+	task.initializeContainersV4MetadataEndpoint(utils.NewStaticUUIDProvider("new-uuid"))
+
+	// Test if the v3 endpoint id is set and the endpoint is injected to env
+	assert.Equal(t, container.GetV3EndpointID(), "new-uuid")
+	assert.Equal(t, container.Environment[apicontainer.MetadataURIEnvVarNameV4],
+		fmt.Sprintf(apicontainer.MetadataURIFormatV4, "new-uuid"))
 }
 
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
@@ -1073,8 +1092,6 @@ func TestAddNamespaceSharingProvisioningDependency(t *testing.T) {
 }
 
 func TestTaskFromACS(t *testing.T) {
-	testTime := ttime.Now().Truncate(1 * time.Second).Format(time.RFC3339)
-
 	intptr := func(i int64) *int64 {
 		return &i
 	}
@@ -1177,16 +1194,9 @@ func TestTaskFromACS(t *testing.T) {
 				Type: strptr("elastic-inference"),
 			},
 		},
-		RoleCredentials: &ecsacs.IAMRoleCredentials{
-			CredentialsId:   strptr("credsId"),
-			AccessKeyId:     strptr("keyId"),
-			Expiration:      strptr(testTime),
-			RoleArn:         strptr("roleArn"),
-			SecretAccessKey: strptr("OhhSecret"),
-			SessionToken:    strptr("sessionToken"),
-		},
-		Cpu:    floatptr(2.0),
-		Memory: intptr(512),
+		RoleCredentials: getACSIAMRoleCredentials(),
+		Cpu:             floatptr(2.0),
+		Memory:          intptr(512),
 	}
 	expectedTask := &Task{
 		Arn:                 "myArn",

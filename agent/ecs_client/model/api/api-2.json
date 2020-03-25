@@ -1165,16 +1165,40 @@
       }
     },
     "Double":{"type":"double"},
-    "EFSVolumeConfiguration": {
-      "type":"structure",
-      "members":{
-        "fileSystemId":{"shape":"String"},
-        "rootDirectory":{"shape":"String"}
-      }
-    },
     "EnvironmentVariables":{
       "type":"list",
       "member":{"shape":"KeyValuePair"}
+    },
+    "EFSAuthorizationConfig":{
+      "type":"structure",
+      "members":{
+        "accessPointId":{"shape":"String"},
+        "iam":{"shape":"EFSAuthorizationConfigIAM"}
+      }
+    },
+    "EFSAuthorizationConfigIAM":{
+      "type":"string",
+      "enum":[
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
+    "EFSTransitEncryption":{
+      "type":"string",
+      "enum":[
+        "ENABLED",
+        "DISABLED"
+      ]
+    },
+    "EFSVolumeConfiguration":{
+      "type":"structure",
+      "required":["fileSystemId"],
+      "members":{
+        "fileSystemId":{"shape":"String"},
+        "rootDirectory":{"shape":"String"},
+        "transitEncryption":{"shape":"EFSTransitEncryption"},
+        "authorizationConfig":{"shape":"EFSAuthorizationConfig"}
+      }
     },
     "Failure":{
       "type":"structure",

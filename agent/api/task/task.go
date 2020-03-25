@@ -52,7 +52,6 @@ import (
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
@@ -219,7 +218,8 @@ type Task struct {
 	// credentialsID is used to set the CredentialsId field for the
 	// IAMRoleCredentials object associated with the task. This id can be
 	// used to look up the credentials for task in the credentials manager
-	credentialsID string
+	credentialsID                string
+	credentialsRelativeURIUnsafe string
 
 	// ENIs is the list of Elastic Network Interfaces assigned to this task. The
 	// TaskENIs type is helpful when decoding state files which might have stored
@@ -340,6 +340,9 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		task.initializeASMSecretResource(credentialsManager, resourceFields)
 	}
 
+	task.initializeCredentialsEndpoint(credentialsManager)
+	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
+	// need the credentials endpoint constructed by it.
 	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
 		return err
 	}
@@ -349,8 +352,8 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	task.initializeCredentialsEndpoint(credentialsManager)
 	task.initializeContainersV3MetadataEndpoint(utils.NewDynamicUUIDProvider())
+	task.initializeContainersV4MetadataEndpoint(utils.NewDynamicUUIDProvider())
 	if err := task.addNetworkResourceProvisioningDependency(cfg); err != nil {
 		seelog.Errorf("Task [%s]: could not provision network resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
@@ -470,7 +473,7 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 		vol, _ := task.HostVolumeByName(volumeName)
 		// BUG(samuelkarp) On Windows, volumes with names that differ only by case will collide
 		scope := taskresourcevolume.TaskScope
-		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName,
+		localVolume, err := taskresourcevolume.NewVolumeResource(ctx, volumeName, HostVolumeType,
 			vol.Source(), scope, false,
 			taskresourcevolume.DockerLocalVolumeDriver,
 			make(map[string]string), make(map[string]string), dockerClient)
@@ -548,23 +551,17 @@ func (task *Task) addEFSVolumes(
 	vol *TaskVolume,
 	efsvol *taskresourcevolume.EFSVolumeConfig,
 ) error {
-	// These are the NFS options recommended by EFS, see:
-	// https://docs.aws.amazon.com/efs/latest/ug/mounting-fs-mount-cmd-general.html
-	domain := getDomainForPartition(cfg.AWSRegion)
-	ostr := fmt.Sprintf("addr=%s.efs.%s.%s,nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport", efsvol.FileSystemID, cfg.AWSRegion, domain)
-	devstr := fmt.Sprintf(":%s", efsvol.RootDirectory)
+	driverOpts := taskresourcevolume.GetDriverOptions(cfg, efsvol, task.GetCredentialsRelativeURI())
+	driverName := getEFSVolumeDriverName(cfg)
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
 		vol.Name,
+		EFSVolumeType,
 		task.volumeName(vol.Name),
 		"task",
 		false,
-		"local",
-		map[string]string{
-			"type":   "nfs",
-			"device": devstr,
-			"o":      ostr,
-		},
+		driverName,
+		driverOpts,
 		map[string]string{},
 		dockerClient,
 	)
@@ -586,6 +583,7 @@ func (task *Task) addTaskScopedVolumes(ctx context.Context, dockerClient dockera
 	volumeResource, err := taskresourcevolume.NewVolumeResource(
 		ctx,
 		vol.Name,
+		DockerVolumeType,
 		task.volumeName(vol.Name),
 		volumeConfig.Scope, volumeConfig.Autoprovision,
 		volumeConfig.Driver, volumeConfig.DriverOpts,
@@ -630,6 +628,7 @@ func (task *Task) addSharedVolumes(SharedVolumeMatchFullConfig bool, ctx context
 		volumeResource, err := taskresourcevolume.NewVolumeResource(
 			ctx,
 			vol.Name,
+			DockerVolumeType,
 			vol.Name,
 			volumeConfig.Scope, volumeConfig.Autoprovision,
 			volumeConfig.Driver, volumeConfig.DriverOpts,
@@ -703,13 +702,14 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 	for _, container := range task.Containers {
 		// container.Environment map would not be initialized if there are
 		// no environment variables to be set or overridden in the container
-		// config. Check if that's the case and initilialize if needed
+		// config. Check if that's the case and initialize if needed
 		if container.Environment == nil {
 			container.Environment = make(map[string]string)
 		}
 		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
 	}
 
+	task.SetCredentialsRelativeURI(credentialsEndpointRelativeURI)
 }
 
 // initializeContainersV3MetadataEndpoint generates an v3 endpoint id for each container, constructs the
@@ -722,6 +722,20 @@ func (task *Task) initializeContainersV3MetadataEndpoint(uuidProvider utils.UUID
 		}
 
 		container.InjectV3MetadataEndpoint()
+	}
+}
+
+// initializeContainersV4MetadataEndpoint generates an v4 endpoint id which we reuse the v3 container id
+// (they are the same) for each container, constructs the v4 metadata endpoint,
+// and injects it as an environment variable
+func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUIDProvider) {
+	for _, container := range task.Containers {
+		v3EndpointID := container.GetV3EndpointID()
+		if v3EndpointID == "" { // if container's v3 endpoint has not been set
+			container.SetV3EndpointID(uuidProvider.New())
+		}
+
+		container.InjectV4MetadataEndpoint()
 	}
 }
 
@@ -1211,6 +1225,13 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 		}
 		container.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
 		pauseContainer.BuildContainerDependency(container.Name, apicontainerstatus.ContainerStopped, apicontainerstatus.ContainerStopped)
+	}
+
+	for _, resource := range task.GetResources() {
+		if resource.DependOnTaskNetwork() {
+			seelog.Debugf("Task [%s]: adding network pause container dependency to resource [%s]", task.Arn, resource.GetName())
+			resource.BuildContainerDependency(NetworkPauseContainerName, apicontainerstatus.ContainerResourcesProvisioned, resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated))
+		}
 	}
 	return nil
 }
@@ -1965,6 +1986,22 @@ func (task *Task) GetCredentialsID() string {
 	return task.credentialsID
 }
 
+// SetCredentialsRelativeURI sets the credentials relative uri for the task
+func (task *Task) SetCredentialsRelativeURI(uri string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.credentialsRelativeURIUnsafe = uri
+}
+
+// GetCredentialsRelativeURI returns the credentials relative uri for the task
+func (task *Task) GetCredentialsRelativeURI() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.credentialsRelativeURIUnsafe
+}
+
 // SetExecutionRoleCredentialsID sets the ID for the task execution role credentials
 func (task *Task) SetExecutionRoleCredentialsID(id string) {
 	task.lock.Lock()
@@ -2544,15 +2581,6 @@ func (task *Task) GetContainerIndex(containerName string) int {
 		idx++
 	}
 	return -1
-}
-
-func getDomainForPartition(region string) string {
-	partition, ok := endpoints.PartitionForRegion(endpoints.DefaultPartitions(), region)
-	if !ok {
-		seelog.Warnf("No partition resolved for region (%s). Using AWS default (%s)", region, endpoints.AwsPartition().DNSSuffix())
-		return endpoints.AwsPartition().DNSSuffix()
-	}
-	return partition.DNSSuffix()
 }
 
 func (task *Task) requireEnvfiles() bool {

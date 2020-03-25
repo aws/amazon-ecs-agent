@@ -839,7 +839,7 @@ func resetOpenFile() {
 	utils.OpenFile = os.Open
 }
 
-func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
+func TestCapabilitiesUnix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -847,7 +847,8 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled:       true,
+		VolumePluginCapabilities: []string{capabilityEFSAuth},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -916,6 +917,9 @@ func TestAWSLoggingDriverAndLogRouterCapabilitiesUnix(t *testing.T) {
 			},
 			{
 				Name: aws.String(attributePrefix + capabilityEFS),
+			},
+			{
+				Name: aws.String(attributePrefix + capabilityEFSAuth),
 			},
 			{
 				Name: aws.String(capabilityPrefix + capabilityFirelensLoggingDriver),

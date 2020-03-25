@@ -72,3 +72,7 @@ func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*
 
 	return capabilities
 }
+
+func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Attribute, pluginCapability string) []*ecs.Attribute {
+	return capabilities
+}
