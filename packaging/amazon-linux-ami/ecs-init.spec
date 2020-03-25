@@ -358,7 +358,7 @@ fi
 - Cache ECS agent version 1.22.0 for x86_64 & ARM
 - Support ARM architecture builds
 
-* Thu Nov 15 2018 Jacob Vallejo <jakeev@amazon.com>  - 1.22.0-3
+* Thu Nov 15 2018 Jacob Vallejo <jakeev@amazon.com> - 1.22.0-3
 - Rebuild
 
 * Fri Nov 02 2018 Yunhee Lee <yhlee@amazon.com> - 1.22.0-2
@@ -387,7 +387,7 @@ fi
 * Thu Jul 19 2018 Feng Xiong <fenxiong@amazon.com> - 1.19.0-1
 - Cache Agent version 1.19.0
 
-* Wed May 23 2018 iliana weller <iweller@amazon.com>  - 1.18.0-2
+* Wed May 23 2018 iliana weller <iweller@amazon.com> - 1.18.0-2
 - Spec file cleanups
 - Enable builds for both AL1 and AL2
 

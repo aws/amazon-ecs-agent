@@ -44,12 +44,13 @@ func main() {
 			for i := 3; i < len(changeStrings); i++ {
 				currentChanges = append(currentChanges, changeStrings[i])
 			}
-			thisTime, err := time.Parse(time.RFC1123, changeStrings[2])
+			thisTime, err := time.Parse(time.RFC3339, changeStrings[2])
 			handleErr(err, "error parsing time")
-			thisChange := Change{changeStrings[0],
-				changeStrings[1],
-				thisTime,
-				currentChanges,
+			thisChange := Change{
+				Version:  changeStrings[0],
+				Name:     changeStrings[1],
+				Datetime: thisTime,
+				Changes:  currentChanges,
 			}
 			changeArray = append(changeArray, thisChange)
 			changeStrings = []string{}
@@ -201,14 +202,17 @@ func getTopLevelChangeString(allChange []Change) string {
 // update changelog files
 // removes original file, creates updated file
 func rewriteChangelog(changelogFile string, updateString string) {
-	if _, err := os.Stat(changelogFile); err == nil {
+	_, err := os.Stat(changelogFile)
+	if err != nil {
+		handleErr(err, "unable to stat changelog file: "+changelogFile)
+	} else {
 		err := os.Remove(changelogFile)
-		handleErr(err, "unable to remove changelog file")
+		handleErr(err, "unable to remove changelog file: "+changelogFile)
 		f, err := os.Create(changelogFile)
-		handleErr(err, "unable to create changelog file")
+		handleErr(err, "unable to create changelog file: "+changelogFile)
 		defer f.Close()
 		_, err = f.WriteString(updateString)
-		handleErr(err, "unable to write string to changelog file")
+		handleErr(err, "unable to write string to changelog file: "+changelogFile)
 	}
 }
 
