@@ -16,6 +16,7 @@ package envFiles
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -322,6 +323,20 @@ func (envfile *EnvironmentFileResource) Create() error {
 	return nil
 }
 
+// createEnvfileDirectory creates the directory that we will be writing the
+// envfile to - needs to be called for each different envfile
+func (envfile *EnvironmentFileResource) createEnvfileDirectory(bucket, key string) error {
+	// create directories to include bucket and key but not the actual resulting file
+	keyDir := filepath.Dir(key)
+	envfileDir := filepath.Join(envfile.resourceDir, bucket, keyDir)
+	err := envfile.os.MkdirAll(envfileDir, os.ModePerm)
+	if err != nil {
+		return errors.Wrapf(err, "unable to create envfiles directory with bucket %s", bucket)
+	}
+
+	return nil
+}
+
 func (envfile *EnvironmentFileResource) addToEnvironmentFilesLocation(downloadPath string) {
 	envfile.lock.Lock()
 	defer envfile.lock.Unlock()
@@ -352,7 +367,13 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 		return
 	}
 
-	seelog.Debugf("Downlading envfile with bucket name %v and key name %v", bucket, key)
+	err = envfile.createEnvfileDirectory(bucket, key)
+	if err != nil {
+		errorEvents <- fmt.Errorf("unable to initialize envfile resource directory, error: %v", err)
+		return
+	}
+
+	seelog.Debugf("Downloading envfile with bucket name %v and key name %v", bucket, key)
 	// we save envfiles to path: /var/lib/ecs/data/envfiles/cluster_name/task_id/${s3bucketname}/${s3filename.env}
 	downloadPath := filepath.Join(envfile.resourceDir, bucket, key)
 	envfile.addToEnvironmentFilesLocation(downloadPath)
