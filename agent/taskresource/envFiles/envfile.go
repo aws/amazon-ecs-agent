@@ -59,8 +59,7 @@ type EnvironmentFileResource struct {
 	containerName string
 
 	// env file related attributes
-	environmentFilesSource   []apicontainer.EnvironmentFile // list of env file objects
-	environmentFilesLocation []string                       // list of the paths of where env files are downloaded
+	environmentFilesSource []apicontainer.EnvironmentFile // list of env file objects
 
 	executionCredentialsID string
 	credentialsManager     credentials.Manager
@@ -339,20 +338,6 @@ func (envfile *EnvironmentFileResource) createEnvfileDirectory(bucket, key strin
 	return nil
 }
 
-func (envfile *EnvironmentFileResource) addToEnvironmentFilesLocation(downloadPath string) {
-	envfile.lock.Lock()
-	defer envfile.lock.Unlock()
-
-	envfile.environmentFilesLocation = append(envfile.environmentFilesLocation, downloadPath)
-}
-
-func (envfile *EnvironmentFileResource) getenvironmentFilesLocation() []string {
-	envfile.lock.RLock()
-	defer envfile.lock.RUnlock()
-
-	return envfile.environmentFilesLocation
-}
-
 func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string, iamCredentials credentials.IAMRoleCredentials,
 	wg *sync.WaitGroup, errorEvents chan error) {
 	defer wg.Done()
@@ -378,7 +363,6 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 	seelog.Debugf("Downloading envfile with bucket name %v and key name %v", bucket, key)
 	// we save envfiles to path: /var/lib/ecs/data/envfiles/cluster_name/task_id/${s3bucketname}/${s3filename.env}
 	downloadPath := filepath.Join(envfile.resourceDir, bucket, key)
-	envfile.addToEnvironmentFilesLocation(downloadPath)
 	err = envfile.writeEnvFile(func(file oswrapper.File) error {
 		return s3.DownloadFile(bucket, key, s3DownloadTimeout, file, s3Client)
 	}, downloadPath)
@@ -437,14 +421,13 @@ func (envfile *EnvironmentFileResource) Cleanup() error {
 }
 
 type environmentFileResourceJSON struct {
-	TaskARN                  string                         `json:"taskARN"`
-	ContainerName            string                         `json:"containerName"`
-	CreatedAt                *time.Time                     `json:"createdAt,omitempty"`
-	DesiredStatus            *EnvironmentFileStatus         `json:"desiredStatus"`
-	KnownStatus              *EnvironmentFileStatus         `json:"knownStatus"`
-	EnvironmentFilesSource   []apicontainer.EnvironmentFile `json:"environmentFilesSource"`
-	EnvironmentFilesLocation []string                       `json:"environmentFilesLocation"`
-	ExecutionCredentialsID   string                         `json:"executionCredentialsID"`
+	TaskARN                string                         `json:"taskARN"`
+	ContainerName          string                         `json:"containerName"`
+	CreatedAt              *time.Time                     `json:"createdAt,omitempty"`
+	DesiredStatus          *EnvironmentFileStatus         `json:"desiredStatus"`
+	KnownStatus            *EnvironmentFileStatus         `json:"knownStatus"`
+	EnvironmentFilesSource []apicontainer.EnvironmentFile `json:"environmentFilesSource"`
+	ExecutionCredentialsID string                         `json:"executionCredentialsID"`
 }
 
 // MarshalJSON serializes the EnvironmentFileResource struct to JSON
@@ -467,9 +450,8 @@ func (envfile *EnvironmentFileResource) MarshalJSON() ([]byte, error) {
 			envfileStatus := EnvironmentFileStatus(knownState)
 			return &envfileStatus
 		}(),
-		EnvironmentFilesSource:   envfile.environmentFilesSource,
-		EnvironmentFilesLocation: envfile.environmentFilesLocation,
-		ExecutionCredentialsID:   envfile.executionCredentialsID,
+		EnvironmentFilesSource: envfile.environmentFilesSource,
+		ExecutionCredentialsID: envfile.executionCredentialsID,
 	})
 
 }
@@ -498,10 +480,6 @@ func (envfile *EnvironmentFileResource) UnmarshalJSON(b []byte) error {
 		envfile.environmentFilesSource = envfileJson.EnvironmentFilesSource
 	}
 
-	if envfileJson.EnvironmentFilesLocation != nil {
-		envfile.environmentFilesLocation = envfileJson.EnvironmentFilesLocation
-	}
-
 	envfile.taskARN = envfileJson.TaskARN
 	envfile.containerName = envfileJson.ContainerName
 	envfile.executionCredentialsID = envfileJson.ExecutionCredentialsID
@@ -514,11 +492,33 @@ func (envfile *EnvironmentFileResource) GetContainerName() string {
 	return envfile.containerName
 }
 
+// this method converts EnvironmentFile objects into the path that it would've been downloaded at
+// and returns the list
+func (envfile *EnvironmentFileResource) convertEnvfileToPath() ([]string, error) {
+	var envfileLocations []string
+
+	for _, envfileObj := range envfile.environmentFilesSource {
+		bucket, key, err := s3.ParseS3ARN(envfileObj.Value)
+		if err != nil {
+			seelog.Errorf("unable to parse bucket and key from s3 ARN specified in environmentFile %s", envfileObj.Value)
+			return nil, err
+		}
+
+		downloadPath := filepath.Join(envfile.resourceDir, bucket, key)
+		envfileLocations = append(envfileLocations, downloadPath)
+	}
+
+	return envfileLocations, nil
+}
+
 // ReadEnvVarsFromEnvFiles reads the environment files that have been downloaded
 // and puts them into a list of maps
 func (envfile *EnvironmentFileResource) ReadEnvVarsFromEnvfiles() ([]map[string]string, error) {
 	var envVarsPerEnvfile []map[string]string
-	envfileLocations := envfile.getenvironmentFilesLocation()
+	envfileLocations, err := envfile.convertEnvfileToPath()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, envfilePath := range envfileLocations {
 		envVars, err := envfile.readEnvVarsFromFile(envfilePath)
