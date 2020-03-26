@@ -49,7 +49,9 @@ const (
 	accessKeyId            = "accessKey"
 	secretAccessKey        = "secret"
 	s3Bucket               = "s3Bucket"
-	s3Key                  = "s3key.env"
+	s3Path                 = "path" + string(filepath.Separator) + "to" + string(filepath.Separator) + "envfile"
+	s3File                 = "s3key.env"
+	s3Key                  = s3Path + string(filepath.Separator) + s3File
 	tempFile               = "tmp_file"
 )
 
@@ -130,7 +132,7 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 		},
 	}
 
-	envDirectories := filepath.Join(resourceDir, s3Bucket)
+	envDirectories := filepath.Join(resourceDir, s3Bucket, s3Path)
 	gomock.InOrder(
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ClientForBucket(s3Bucket, region, creds.IAMRoleCredentials).Return(mockS3Client, nil),
@@ -155,7 +157,7 @@ func TestCreateWithInvalidS3ARN(t *testing.T) {
 	mockOS, _, mockIOUtil, mockCredentialsManager, mockS3ClientCreator, _, done := setup(t)
 	defer done()
 	envfiles := []container.EnvironmentFile{
-		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s", s3Key), "s3"),
+		sampleEnvironmentFile(fmt.Sprintf("arn:aws:s3:::%s", s3File), "s3"),
 	}
 
 	envfileResource := newMockEnvfileResource(envfiles, nil, mockCredentialsManager, mockS3ClientCreator, mockOS, mockIOUtil)
@@ -191,7 +193,7 @@ func TestCreateUnableToRetrieveDataFromS3(t *testing.T) {
 		},
 	}
 
-	envDirectories := filepath.Join(resourceDir, s3Bucket)
+	envDirectories := filepath.Join(resourceDir, s3Bucket, s3Path)
 	gomock.InOrder(
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ClientForBucket(s3Bucket, region, creds.IAMRoleCredentials).Return(mockS3Client, nil),
@@ -223,7 +225,7 @@ func TestCreateUnableToCreateTmpFile(t *testing.T) {
 		},
 	}
 
-	envDirectories := filepath.Join(resourceDir, s3Bucket)
+	envDirectories := filepath.Join(resourceDir, s3Bucket, s3Path)
 	gomock.InOrder(
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ClientForBucket(s3Bucket, region, creds.IAMRoleCredentials).Return(mockS3Client, nil),
@@ -253,7 +255,7 @@ func TestCreateRenameFileError(t *testing.T) {
 		},
 	}
 
-	envDirectories := filepath.Join(resourceDir, s3Bucket)
+	envDirectories := filepath.Join(resourceDir, s3Bucket, s3Path)
 	gomock.InOrder(
 		mockCredentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		mockS3ClientCreator.EXPECT().NewS3ClientForBucket(s3Bucket, region, creds.IAMRoleCredentials).Return(mockS3Client, nil),
