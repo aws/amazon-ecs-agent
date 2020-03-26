@@ -91,6 +91,7 @@ func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName
 		environmentFilesSource: envfiles,
 		os:                     oswrapper.NewOS(),
 		ioutil:                 ioutilwrapper.NewIOUtil(),
+		bufio:                  bufiowrapper.NewBufio(),
 		s3ClientCreator:        factory.NewS3ClientCreator(),
 		executionCredentialsID: executionCredentialsID,
 		credentialsManager:     credentialsManager,
@@ -117,6 +118,7 @@ func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.
 	envfile.s3ClientCreator = factory.NewS3ClientCreator()
 	envfile.os = oswrapper.NewOS()
 	envfile.ioutil = ioutilwrapper.NewIOUtil()
+	envfile.bufio = bufiowrapper.NewBufio()
 
 	// if task isn't in 'created' status and desired status is 'running',
 	// reset the resource status to 'NONE' so we always retrieve the data
@@ -465,8 +467,9 @@ func (envfile *EnvironmentFileResource) MarshalJSON() ([]byte, error) {
 			envfileStatus := EnvironmentFileStatus(knownState)
 			return &envfileStatus
 		}(),
-		EnvironmentFilesSource: envfile.environmentFilesSource,
-		ExecutionCredentialsID: envfile.executionCredentialsID,
+		EnvironmentFilesSource:   envfile.environmentFilesSource,
+		EnvironmentFilesLocation: envfile.environmentFilesLocation,
+		ExecutionCredentialsID:   envfile.executionCredentialsID,
 	})
 
 }
