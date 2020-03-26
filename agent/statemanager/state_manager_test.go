@@ -488,10 +488,10 @@ func TestLoadsDataSeqTaskManifest(t *testing.T) {
 }
 
 func TestLoadsDataForEnvFiles(t *testing.T) {
-	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v27", "environmentFiles", "ecs_agent_data.json"))
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v28", "environmentFiles", "ecs_agent_data.json"))
 	require.Nil(t, err, "Failed to set up test")
 	defer cleanup()
-	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v27", "environmentFiles")}
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v28", "environmentFiles")}
 	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
