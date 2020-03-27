@@ -184,6 +184,7 @@ additional details on each available environment variable.
 | `ECS_LOG_OUTPUT_FORMAT` | `logfmt` &#124; `json` | Determines the log output format. When the json format is used, each line in the log would be a structured JSON map. | `logfmt` | `logfmt` |
 | `ECS_LOG_MAX_FILE_SIZE_MB` | `10` | When the ECS_LOG_ROLLOVER_TYPE variable is set to size, this variable determines the maximum size (in MB) the log file before it is rotated. If the rollover type is set to hourly then this variable is ignored. | `10` | `10` |
 | `ECS_LOG_MAX_ROLL_COUNT` | `24` | Determines the number of rotated log files to keep. Older log files are deleted once this limit is reached. | `24` | `24` |
+| `ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE` | `true` | Whether to enable awslogs log driver to authenticate via credentials of task execution IAM role. Needs to be true if you want to use awslogs log driver in a task that has task execution IAM role specified. When using the ecs-init RPM with version equal or later than V1.16.0-1, this env is set to true by default. | `false` | `false` |
 
 ### Persistence
 
