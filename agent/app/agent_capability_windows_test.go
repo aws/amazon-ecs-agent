@@ -213,6 +213,9 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			{
 				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
+			{
+				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+			},
 		}...)
 
 	ctx, cancel := context.WithCancel(context.TODO())
