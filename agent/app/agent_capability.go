@@ -59,6 +59,7 @@ const (
 	capabilityGMSA                              = "gmsa"
 	capabilityEFS                               = "efs"
 	capabilityEFSAuth                           = "efsAuth"
+	capabilityS3EnvFiles                        = "s3EnvFiles"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -106,6 +107,7 @@ const (
 //    ecs.capability.full-sync
 //    ecs.capability.gmsa
 //    ecs.capability.efsAuth
+//    ecs.capability.s3EnvFiles
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -176,6 +178,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support full task sync
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFullTaskSync)
+
+	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityS3EnvFiles)
 
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
