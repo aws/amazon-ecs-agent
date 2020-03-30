@@ -542,7 +542,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
@@ -633,7 +633,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 		}...)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -721,7 +721,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 			{
 				Name: aws.String(attributePrefix + capabiltyPIDAndIPCNamespaceSharing),
@@ -934,7 +934,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 				Name: aws.String(capabilityPrefix + capabilityFirelensLoggingDriver),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 		}...)
 	ctx, cancel := context.WithCancel(context.TODO())

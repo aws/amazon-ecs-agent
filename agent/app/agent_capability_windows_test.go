@@ -214,7 +214,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 				Name: aws.String(attributePrefix + capabilityFullTaskSync),
 			},
 			{
-				Name: aws.String(attributePrefix + capabilityS3EnvFiles),
+				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 		}...)
 
