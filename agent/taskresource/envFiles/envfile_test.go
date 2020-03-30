@@ -143,7 +143,7 @@ func TestCreateWithEnvVarFile(t *testing.T) {
 				assert.Equal(t, s3Bucket, aws.StringValue(input.Bucket))
 				assert.Equal(t, s3Key, aws.StringValue(input.Key))
 			}).Return(int64(0), nil),
-		mockFile.EXPECT().Sync(),
+		mockFile.EXPECT().Close(),
 		mockFile.EXPECT().Name().Return(tempFile),
 		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Bucket, s3Key)),
 		mockFile.EXPECT().Close(),
@@ -261,7 +261,7 @@ func TestCreateRenameFileError(t *testing.T) {
 		mockOS.EXPECT().MkdirAll(envDirectories, os.ModePerm),
 		mockIOUtil.EXPECT().TempFile(resourceDir, gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
-		mockFile.EXPECT().Sync(),
+		mockFile.EXPECT().Close(),
 		mockFile.EXPECT().Name().Return(tempFile),
 		mockOS.EXPECT().Rename(tempFile, filepath.Join(resourceDir, s3Bucket, s3Key)).Return(errors.New("error response")),
 		mockFile.EXPECT().Name().Return(tempFile), // this is for the call made in the logging statement
