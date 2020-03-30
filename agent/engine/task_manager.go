@@ -504,18 +504,13 @@ func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		if _, ok := err.(api.SkippableStateChange); ok {
-			seelog.Debugf("Managed task [%s]: skipping emitting event for task [%s]: %v",
-				task.Arn, reason, err)
-			return
-		}
-		seelog.Errorf("Managed task [%s]: error emitting event for task [%s]: %v",
+		seelog.Debugf("Managed task [%s]: skipping emitting event for task [%s]: %v",
 			task.Arn, reason, err)
 		return
 	}
 	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
 	mtask.stateChangeEvents <- event
-	seelog.Debugf("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
+	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
 }
 
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
@@ -523,12 +518,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		if _, ok := err.(api.SkippableStateChange); ok {
-			seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
-				task.Arn, cont.Name, err)
-			return
-		}
-		seelog.Errorf("Managed task [%s]: error emitting event for container [%s]: %v",
+		seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
 			task.Arn, cont.Name, err)
 		return
 	}
@@ -536,7 +526,7 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
 		mtask.Arn, cont.Name, event.String())
 	mtask.stateChangeEvents <- event
-	seelog.Debugf("Managed task [%s]: sent container change event [%s]: %s",
+	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
 		mtask.Arn, cont.Name, event.String())
 }
 

@@ -24,6 +24,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 )
@@ -88,30 +89,20 @@ type AttachmentStateChange struct {
 	Attachment *apieni.ENIAttachment
 }
 
-// SkippableStateChange is an error used to indicate that this state change can be omitted
-type SkippableStateChange struct {
-	s string
-}
-
-func (e SkippableStateChange) Error() string {
-	return e.s
-}
-
 // NewTaskStateChangeEvent creates a new task state change event
-// returns error type api.SkippableStateChange if the state change doesn't need
-// to be sent to the ECS backend.
+// returns error if the state change doesn't need to be sent to the ECS backend.
 func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange, error) {
 	var event TaskStateChange
 	taskKnownStatus := task.GetKnownStatus()
 	if !taskKnownStatus.BackendRecognized() {
-		return event, SkippableStateChange{
-			fmt.Sprintf("create task state change event api: status not recognized by ECS: %v", taskKnownStatus),
-		}
+		return event, errors.Errorf(
+			"create task state change event api: status not recognized by ECS: %v",
+			taskKnownStatus)
 	}
 	if task.GetSentStatus() >= taskKnownStatus {
-		return event, SkippableStateChange{
-			fmt.Sprintf("create task state change event api: status [%s] already sent", taskKnownStatus.String()),
-		}
+		return event, errors.Errorf(
+			"create task state change event api: status [%s] already sent",
+			taskKnownStatus.String())
 	}
 
 	event = TaskStateChange{
@@ -127,25 +118,24 @@ func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange
 }
 
 // NewContainerStateChangeEvent creates a new container state change event
-// returns error type api.SkippableStateChange if the state change doesn't need
-// to be sent to the ECS backend.
+// returns error if the state change doesn't need to be sent to the ECS backend.
 func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Container, reason string) (ContainerStateChange, error) {
 	var event ContainerStateChange
 	contKnownStatus := cont.GetKnownStatus()
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
-		return event, SkippableStateChange{
-			fmt.Sprintf("create container state change event api: status not recognized by ECS: %v", contKnownStatus),
-		}
+		return event, errors.Errorf(
+			"create container state change event api: status not recognized by ECS: %v",
+			contKnownStatus)
 	}
 	if cont.IsInternal() {
-		return event, SkippableStateChange{
-			fmt.Sprintf("create container state change event api: internal container: %s", cont.Name),
-		}
+		return event, errors.Errorf(
+			"create container state change event api: internal container: %s",
+			cont.Name)
 	}
 	if cont.GetSentStatus() >= contKnownStatus {
-		return event, SkippableStateChange{
-			fmt.Sprintf("create container state change event api: status [%s] already sent for container %s, task %s", contKnownStatus.String(), cont.Name, task.Arn),
-		}
+		return event, errors.Errorf(
+			"create container state change event api: status [%s] already sent for container %s, task %s",
+			contKnownStatus.String(), cont.Name, task.Arn)
 	}
 
 	if reason == "" && cont.ApplyingError != nil {
