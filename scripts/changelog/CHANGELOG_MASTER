@@ -1,6 +1,6 @@
 1.38.0-1
 Sharanya Devaraj <sharanyd@amazon.com>
-Thu, 19 Mar 2020 13:42:00 PST
+2020-03-19T13:42:00-08:00
 Cache Agent version 1.38.0
 Adds support for ECS volume plugin
 Disable ipv6 router advertisements for optimization

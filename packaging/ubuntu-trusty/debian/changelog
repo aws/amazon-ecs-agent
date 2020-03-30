@@ -4,7 +4,7 @@ amazon-ecs-init (1.38.0-1) trusty; urgency=medium
   * Adds support for ECS volume plugin
   * Disable ipv6 router advertisements for optimization
 
- -- Sharanya Devaraj <sharanyd@amazon.com>  Thu, 19 Mar 2020 13:42:00 +0000
+ -- Sharanya Devaraj <sharanyd@amazon.com>  Thu, 19 Mar 2020 21:42:00 +0000
 
 amazon-ecs-init (1.37.0-2) trusty; urgency=medium
 
