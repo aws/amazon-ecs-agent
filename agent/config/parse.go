@@ -122,6 +122,9 @@ func parseAvailableLoggingDrivers() []dockerclient.LoggingDriver {
 
 func parseVolumePluginCapabilities() []string {
 	capsFromEnv := os.Getenv("ECS_VOLUME_PLUGIN_CAPABILITIES")
+	if capsFromEnv == "" {
+		return []string{}
+	}
 	capsDecoder := json.NewDecoder(strings.NewReader(capsFromEnv))
 	var caps []string
 	err := capsDecoder.Decode(&caps)

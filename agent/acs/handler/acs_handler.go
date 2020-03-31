@@ -372,7 +372,11 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
 			// the connection is closed by ACS or the agent
-			seelog.Infof("ACS connection closed: %v", err)
+			if err == nil || err == io.EOF {
+				seelog.Info("ACS Websocket connection closed for a valid reason")
+			} else {
+				seelog.Errorf("Error: lost websocket connection with Agent Communication Service (ACS): %v", err)
+			}
 			return err
 		}
 	}
