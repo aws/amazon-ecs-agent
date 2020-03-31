@@ -387,7 +387,7 @@ func (cs *ClientServerImpl) ConsumeMessages() error {
 
 		default:
 			// Unexpected error occurred
-			seelog.Errorf("Error getting message from ws backend: error: [%v], messageType: [%v] ",
+			seelog.Debugf("Error getting message from ws backend: error: [%v], messageType: [%v] ",
 				err, messageType)
 			return err
 		}

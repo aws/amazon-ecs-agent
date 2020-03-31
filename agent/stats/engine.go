@@ -596,12 +596,12 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting cpu stats, skipping container, err: %v, container: %v", err, dockerID)
+			seelog.Infof("cloudwatch metrics for container %v not collected, reason (cpu): %v", dockerID, err)
 			continue
 		}
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting memory stats, skipping container, err: %v, container: %v", err, dockerID)
+			seelog.Infof("cloudwatch metrics for container %v not collected, reason (memory): %v", dockerID, err)
 			continue
 		}
 		containerMetric := &ecstcs.ContainerMetric{

@@ -84,7 +84,7 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 			seelog.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		} else {
-			seelog.Infof("Error from tcs; backing off: %v", tcsError)
+			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
 			params.time().Sleep(backoff.Duration())
 		}
 	}
