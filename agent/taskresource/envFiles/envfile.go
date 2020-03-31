@@ -385,18 +385,19 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 		seelog.Errorf("Something went wrong trying to create a temp file with prefix %s", envTempFilePrefix)
 		return err
 	}
+	// defer tmpFile.Close() in case something goes wrong and we don't actually hit the manual Close call
+	// the source for golang *os.File.Close() shows that subsequent calls to Close() after the first
+	// will do nothing except return syscall.EINVAL, so it is ok to make potentially multiple .Close calls
 	defer tmpFile.Close()
 
-	err = writeFunc(tmpFile)
-	if err != nil {
+	if err = writeFunc(tmpFile); err != nil {
 		seelog.Errorf("Something went wrong trying to write to tmpFile %s", tmpFile.Name())
 		return err
 	}
 
-	// persist file to disk
-	err = tmpFile.Sync()
+	err = tmpFile.Close()
 	if err != nil {
-		seelog.Errorf("Something went wrong trying to persist envfile to disk")
+		seelog.Errorf("Error while closing temporary file %s created for envfile resource", tmpFile.Name(), err)
 		return err
 	}
 
