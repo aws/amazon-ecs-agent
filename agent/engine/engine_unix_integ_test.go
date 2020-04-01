@@ -972,7 +972,8 @@ func TestDockerCfgAuth(t *testing.T) {
 		cfg.EngineAuthType = ""
 	}()
 
-	testTask := createTestTask("testDockerCfgAuth")
+	testArn := "testDockerCfgAuth"
+	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testAuthRegistryImage
 
 	go taskEngine.AddTask(testTask)
@@ -980,9 +981,11 @@ func TestDockerCfgAuth(t *testing.T) {
 	verifyContainerRunningStateChange(t, taskEngine)
 	verifyTaskRunningStateChange(t, taskEngine)
 
-	taskUpdate := *testTask
+	// Create instead of copying the testTask, to avoid race condition.
+	// AddTask idempotently handles update, filtering by Task ARN.
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
