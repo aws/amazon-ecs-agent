@@ -504,7 +504,7 @@ func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	event, err := api.NewTaskStateChangeEvent(task, reason)
 	if err != nil {
-		seelog.Infof("Managed task [%s]: unable to create task state change event [%s]: %v",
+		seelog.Debugf("Managed task [%s]: skipping emitting event for task [%s]: %v",
 			task.Arn, reason, err)
 		return
 	}
@@ -518,7 +518,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
 	if err != nil {
-		seelog.Infof("Managed task [%s]: unable to create state change event for container [%s]: %v",
+		seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
 			task.Arn, cont.Name, err)
 		return
 	}
