@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.39.0
+* Feature - Add support for bulk loading env vars through environmentFiles field in task definition [#2420](https://github.com/aws/amazon-ecs-agent/pull/2420)
+* Feature - Add v4 task metadata endpoint, which includes additional network information compared to v3 [#2396](https://github.com/aws/amazon-ecs-agent/pull/2396)
+
 ## 1.38.0
 * Feature - add integration with EFS's access point and IAM authorization features; support EFS volume for task in awsvpc network mode
 * Enhancement - adding Runtime ID of container to agent logs [#2399](https://github.com/aws/amazon-ecs-agent/pull/2399)
