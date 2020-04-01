@@ -211,6 +211,7 @@
         "cpu":{"shape":"Integer"},
         "entryPoint":{"shape":"StringList"},
         "environment":{"shape":"EnvironmentVariables"},
+        "environmentFiles":{"shape":"EnvironmentFiles"},
         "essential":{"shape":"Boolean"},
         "image":{"shape":"String"},
         "links":{"shape":"StringList"},
@@ -362,6 +363,23 @@
       "enum":[
         "identity",
         "base64"
+      ]
+    },
+    "EnvironmentFile":{
+      "type":"structure",
+      "members":{
+        "value":{"shape":"String"},
+        "type":{"shape":"EnvironmentFileType"}
+      }
+    },
+    "EnvironmentFiles":{
+      "type":"list",
+      "member":{"shape":"EnvironmentFile"}
+    },
+    "EnvironmentFileType": {
+      "type":"string",
+      "enum":[
+        "s3"
       ]
     },
     "EnvironmentVariables":{

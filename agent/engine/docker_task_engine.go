@@ -1018,6 +1018,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	if container.ShouldCreateWithEnvFiles() {
+		err := task.MergeEnvVarsFromEnvfiles(container)
+		if err != nil {
+			seelog.Errorf("Error populating environment variables from specified files into container %s", container.Name)
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
+		}
+	}
+
 	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}

@@ -288,6 +288,8 @@ type Container struct {
 
 	Environment map[string]*string `locationName:"environment" type:"map"`
 
+	EnvironmentFiles []*EnvironmentFile `locationName:"environmentFiles" type:"list"`
+
 	Essential *bool `locationName:"essential" type:"boolean"`
 
 	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
@@ -508,6 +510,24 @@ func (s EncodedString) String() string {
 
 // GoString returns the string representation
 func (s EncodedString) GoString() string {
+	return s.String()
+}
+
+type EnvironmentFile struct {
+	_ struct{} `type:"structure"`
+
+	Type *string `locationName:"type" type:"string" enum:"EnvironmentFileType"`
+
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s EnvironmentFile) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s EnvironmentFile) GoString() string {
 	return s.String()
 }
 

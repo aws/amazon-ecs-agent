@@ -1,0 +1,168 @@
+{
+  "Data": {
+  "Cluster": "state-file",
+  "ContainerInstanceArn": "arn:aws:ecs:us-west-2:123456789011:container-instance/ea27e41b-c6e4-45a9-a7a0-484c95abece7",
+  "EC2InstanceID": "i-0e38e94fed89f598f",
+  "TaskEngine": {
+    "Tasks": [
+    {
+      "Arn": "arn:aws:ecs:us-west-2:123456789011:task/70947c96-f64e-483a-a612-3fd4303546e7",
+      "Family": "sleep360",
+      "Version": "6",
+      "Containers": [
+      {
+        "Name": "sleep",
+        "RuntimeID": "8a0a36b66de778bdc4c00bc15085ef1902c6b1ea16b4b259f7dfc199a7f004c6",
+        "V3EndpointID": "7e7f5a6d-42ef-452e-bafc-6d4b6283ac99",
+        "Image": "busybox",
+        "ImageID": "sha256:e2722fa29573abec09dcebcc1a19186cc6bdc74663f4992a1855db8ee88ad75f",
+        "Command": [
+        "sleep",
+        "360"
+        ],
+        "Cpu": 10,
+        "GPUIDs": null,
+        "Memory": 100,
+        "Links": null,
+        "volumesFrom": [],
+        "mountPoints": [],
+        "portMappings": [],
+        "secrets": null,
+        "Essential": true,
+        "EntryPoint": null,
+        "environment": {
+        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/credentials/7411f309-41a2-51c7-ad8a-ba16105516a0",
+        "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+        "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/7e7f5a6d-42ef-452e-bafc-6d4b6283ac99"
+        },
+        "overrides": {
+        "command": null
+        },
+        "dockerConfig": {
+        "config": "{}",
+        "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+        "version": "1.17"
+        },
+        "registryAuthentication": null,
+        "LogsAuthStrategy": "",
+        "StartTimeout": 0,
+        "StopTimeout": 0,
+        "desiredStatus": "RUNNING",
+        "KnownStatus": "RUNNING",
+        "RunDependencies": null,
+        "IsInternal": "NORMAL",
+        "ApplyingError": null,
+        "SentStatus": "RUNNING",
+        "metadataFileUpdated": false,
+        "KnownExitCode": null,
+        "KnownPortBindings": null
+      }
+      ],
+      "associations": [],
+      "resources": {
+        "envfile": [
+          {
+            "environmentFilesSource": [
+              {"type": "s3", "value": "arn:aws:s3:::bucket/key1.env"},
+              {"type": "s3", "value": "arn:aws:s3:::bucket/key2.env"}
+            ],
+            "taskARN": "arn:aws:ecs:us-west-2:123456789011:task/70947c96-f64e-483a-a612-3fd4303546e7",
+            "desiredStatus": "CREATED",
+            "knownStatus": "CREATED",
+            "executionCredentialsID": ""
+          }
+        ]
+      },
+      "volumes": [],
+      "DesiredStatus": "RUNNING",
+      "KnownStatus": "RUNNING",
+      "KnownTime": "2019-08-06T21:59:04.217198554Z",
+      "PullStartedAt": "2019-08-06T21:59:01.88671907Z",
+      "PullStoppedAt": "2019-08-06T21:59:03.799514307Z",
+      "ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+      "SentStatus": "RUNNING",
+      "StartSequenceNumber": 2,
+      "StopSequenceNumber": 0,
+      "executionCredentialsID": "",
+      "ENI": null,
+      "AppMesh": null,
+      "MemoryCPULimitsEnabled": true,
+      "PlatformFields": {}
+    }
+    ],
+    "IdToContainer": {
+    "8a0a36b66de778bdc4c00bc15085ef1902c6b1ea16b4b259f7dfc199a7f004c6": {
+      "DockerId": "8a0a36b66de778bdc4c00bc15085ef1902c6b1ea16b4b259f7dfc199a7f004c6",
+      "DockerName": "ecs-sleep360-6-sleep-a2b4d9d6ef938afc6f00",
+      "Container": {
+      "Name": "sleep",
+      "RuntimeID": "8a0a36b66de778bdc4c00bc15085ef1902c6b1ea16b4b259f7dfc199a7f004c6",
+      "V3EndpointID": "7e7f5a6d-42ef-452e-bafc-6d4b6283ac99",
+      "Image": "busybox",
+      "ImageID": "sha256:e2722fa29573abec09dcebcc1a19186cc6bdc74663f4992a1855db8ee88ad75f",
+      "Command": [
+        "sleep",
+        "360"
+      ],
+      "Cpu": 10,
+      "GPUIDs": null,
+      "Memory": 100,
+      "Links": null,
+      "volumesFrom": [],
+      "mountPoints": [],
+      "portMappings": [],
+      "secrets": null,
+      "Essential": true,
+      "EntryPoint": null,
+      "environment": {
+        "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI": "/v2/credentials/7411f309-41a2-51c7-ad8a-ba16105516a0",
+        "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+        "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/7e7f5a6d-42ef-452e-bafc-6d4b6283ac99"
+      },
+      "overrides": {
+        "command": null
+      },
+      "dockerConfig": {
+        "config": "{}",
+        "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+        "version": "1.17"
+      },
+      "registryAuthentication": null,
+      "LogsAuthStrategy": "",
+      "StartTimeout": 0,
+      "StopTimeout": 0,
+      "desiredStatus": "RUNNING",
+      "KnownStatus": "RUNNING",
+      "RunDependencies": null,
+      "IsInternal": "NORMAL",
+      "ApplyingError": null,
+      "SentStatus": "RUNNING",
+      "metadataFileUpdated": false,
+      "KnownExitCode": null,
+      "KnownPortBindings": null
+      }
+    }
+    },
+    "IdToTask": {
+    "8a0a36b66de778bdc4c00bc15085ef1902c6b1ea16b4b259f7dfc199a7f004c6": "arn:aws:ecs:us-west-2:123456789011:task/70947c96-f64e-483a-a612-3fd4303546e7"
+    },
+    "ImageStates": [
+      {
+        "Image": {
+        "ImageID": "sha256:e2722fa29573abec09dcebcc1a19186cc6bdc74663f4992a1855db8ee88ad75f",
+        "Names": [
+          "busybox"
+        ],
+        "Size": 1223894
+        },
+        "PulledAt": "2019-08-06T21:59:03.797764725Z",
+        "LastUsedAt": "2019-08-06T21:59:03.797764824Z",
+        "PullSucceeded": true
+      }
+      ],
+      "ENIAttachments": null,
+      "IPToTask": {}
+    }
+  },
+  "Version": 27
+}

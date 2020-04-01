@@ -486,3 +486,31 @@ func TestLoadsDataSeqTaskManifest(t *testing.T) {
 	assert.EqualValues(t, 0, sequenceNumber)
 	assert.EqualValues(t, 7, seqNumTaskManifest)
 }
+
+func TestLoadsDataForEnvFiles(t *testing.T) {
+	cleanup, err := setupWindowsTest(filepath.Join(".", "testdata", "v28", "environmentFiles", "ecs_agent_data.json"))
+	require.Nil(t, err, "Failed to set up test")
+	defer cleanup()
+	cfg := &config.Config{DataDir: filepath.Join(".", "testdata", "v28", "environmentFiles")}
+	taskEngine := engine.NewTaskEngine(&config.Config{}, nil, nil, nil, nil, dockerstate.NewTaskEngineState(), nil, nil)
+	var containerInstanceArn, cluster, savedInstanceID string
+	var sequenceNumber int64
+	stateManager, err := statemanager.NewStateManager(cfg,
+		statemanager.AddSaveable("TaskEngine", taskEngine),
+		statemanager.AddSaveable("ContainerInstanceArn", &containerInstanceArn),
+		statemanager.AddSaveable("Cluster", &cluster),
+		statemanager.AddSaveable("EC2InstanceID", &savedInstanceID),
+		statemanager.AddSaveable("SeqNum", &sequenceNumber),
+	)
+	assert.NoError(t, err)
+	err = stateManager.Load()
+	assert.NoError(t, err)
+	tasks, err := taskEngine.ListTasks()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(tasks))
+	assert.Equal(t, "state-file", cluster)
+	assert.EqualValues(t, 0, sequenceNumber)
+	task := tasks[0]
+	assert.Equal(t, "arn:aws:ecs:us-west-2:123456789011:task/70947c96-f64e-483a-a612-3fd4303546e7", task.Arn)
+	assert.Equal(t, "sleep360", task.Family)
+}
