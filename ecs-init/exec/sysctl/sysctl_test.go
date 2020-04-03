@@ -151,7 +151,7 @@ func TestDisableIpv6RouterAdvertisements(t *testing.T) {
 	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil)
 	mockExec := NewMockExec(ctrl)
 	mockExec.EXPECT().LookPath(sysctlExecutable).Return("", nil)
-	mockExec.EXPECT().Command(sysctlExecutable, "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
+	mockExec.EXPECT().Command(sysctlExecutable, "-e", "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
 	ra, err := NewIpv6RouterAdvertisements(mockExec)
 	if err != nil {
 		t.Fatalf("Error creating NewIpv6RouterAdvertisements object: %v", err)
@@ -184,7 +184,7 @@ func TestDisableIpv6RouterAdvertisements_Error(t *testing.T) {
 	mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("nope!"))
 	mockExec := NewMockExec(ctrl)
 	mockExec.EXPECT().LookPath(sysctlExecutable).Return("", nil)
-	mockExec.EXPECT().Command(sysctlExecutable, "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
+	mockExec.EXPECT().Command(sysctlExecutable, "-e", "-w", "net.ipv6.conf.docker0.accept_ra=0").Return(mockCmd)
 	ra, err := NewIpv6RouterAdvertisements(mockExec)
 	if err != nil {
 		t.Fatalf("Error creating NewIpv6RouterAdvertisements object: %v", err)

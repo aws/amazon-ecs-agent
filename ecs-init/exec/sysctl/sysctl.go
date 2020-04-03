@@ -69,7 +69,7 @@ func NewIpv6RouterAdvertisements(cmdExec exec.Exec) (*Ipv6RouterAdvertisements, 
 
 // Disable disables ipv6 router advertisements
 func (ra *Ipv6RouterAdvertisements) Disable() error {
-	cmd := ra.cmdExec.Command(sysctlExecutable, "-w", fmt.Sprintf("%s=0", dockerIpv6AcceptRAKey))
+	cmd := ra.cmdExec.Command(sysctlExecutable, "-e", "-w", fmt.Sprintf("%s=0", dockerIpv6AcceptRAKey))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		log.Errorf("Error disable ipv6 router advertisements %v; raw output: %s", err, out)
