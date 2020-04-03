@@ -1,3 +1,9 @@
+1.39.0-2
+Yunhee Lee <yhlee@amazon.com>
+2020-04-03T11:04:00-08:00
+Cache Agent version 1.39.0
+Ignore IPv6 disable failure if already disabled
+
 1.38.0-1
 Sharanya Devaraj <sharanyd@amazon.com>
 2020-03-19T13:42:00-08:00
