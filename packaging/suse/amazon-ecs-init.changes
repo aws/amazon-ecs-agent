@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Apr 03, 19:04:00 UTC 2020 - yhlee@amazon.com - 1.39.0-2
+
+- Cache Agent version 1.39.0
+- Ignore IPv6 disable failure if already disabled
+-------------------------------------------------------------------
 Thu Mar 19, 21:42:00 UTC 2020 - sharanyd@amazon.com - 1.38.0-1
 
 - Cache Agent version 1.38.0

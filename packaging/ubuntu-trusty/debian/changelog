@@ -1,3 +1,10 @@
+amazon-ecs-init (1.39.0-2) trusty; urgency=medium
+
+  * Cache Agent version 1.39.0
+  * Ignore IPv6 disable failure if already disabled
+
+ -- Yunhee Lee <yhlee@amazon.com>  Fri, 03 Apr 2020 19:04:00 +0000
+
 amazon-ecs-init (1.38.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.38.0
