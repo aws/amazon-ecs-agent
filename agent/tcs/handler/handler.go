@@ -102,7 +102,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
-		params.DeregisterInstanceEventStream)
+		config.DefaultInstanceHealthMetricsPublishInterval, params.DeregisterInstanceEventStream)
 }
 
 func startSession(
@@ -113,9 +113,10 @@ func startSession(
 	statsEngine stats.Engine,
 	heartbeatTimeout, heartbeatJitter,
 	publishMetricsInterval time.Duration,
+	publishInstanceHealthMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
-		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics)
+		publishMetricsInterval, publishInstanceHealthMetricsInterval, wsRWTimeout, cfg.DisableMetrics)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
@@ -138,6 +139,7 @@ func startSession(
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
+	client.AddRequestHandler(ackPublishInstanceHealthMetricHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
 	serveC := make(chan error)
 	go func() {
@@ -178,6 +180,15 @@ func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 func ackPublishHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishHealth) {
 	return func(*ecstcs.AckPublishHealth) {
 		seelog.Debug("Received ACKPublishHealth from tcs")
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+	}
+}
+
+// ackPublishInstanceHealthMetricHandler consumes the ack message from backend. The backend sends
+// the ack each time it processes a instance health message
+func ackPublishInstanceHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishInstanceHealth) {
+	return func(*ecstcs.AckPublishInstanceHealth) {
+		seelog.Debug("Received ACKPublishInstanceHealth from tcs")
 		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }

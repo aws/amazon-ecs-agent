@@ -146,6 +146,10 @@ const (
 	// DefaultContainerMetricsPublishInterval is the default interval that we publish
 	// metrics to the ECS telemetry backend (TACS)
 	DefaultContainerMetricsPublishInterval = 20 * time.Second
+
+	// DefaultInstanceHealthMetricsPublishInterval is the default interval that we
+	// publish instance health metrics to the ECS telemetry backend.
+	DefaultInstanceHealthMetricsPublishInterval = time.Minute
 )
 
 const (

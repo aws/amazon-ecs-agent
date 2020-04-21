@@ -22,12 +22,16 @@
 package tcsclient
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/metrics/instancehealth"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -41,11 +45,12 @@ import (
 )
 
 const (
-	testPublishMetricsInterval = 1 * time.Second
-	testMessageId              = "testMessageId"
-	testCluster                = "default"
-	testContainerInstance      = "containerInstance"
-	rwTimeout                  = time.Second
+	testPublishMetricsInterval               = 1 * time.Second
+	testPublishInstanceHealthMetricsInterval = 1 * time.Second
+	testMessageId                            = "testMessageId"
+	testCluster                              = "default"
+	testContainerInstance                    = "containerInstance"
+	rwTimeout                                = time.Second
 )
 
 var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
@@ -64,6 +69,10 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 	return nil, nil, nil
 }
 
+func (*mockStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
+}
+
 type emptyStatsEngine struct{}
 
 func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
@@ -76,6 +85,10 @@ func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types
 
 func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*emptyStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
 }
 
 type idleStatsEngine struct{}
@@ -96,6 +109,10 @@ func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*idleStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
 }
 
 type nonIdleStatsEngine struct {
@@ -125,6 +142,11 @@ func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*typ
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
 }
+
+func (*nonIdleStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
+}
+
 func newNonIdleStatsEngine(numTasks int) *nonIdleStatsEngine {
 	return &nonIdleStatsEngine{numTasks: numTasks}
 }
@@ -246,7 +268,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, testCreds, &mockStatsEngine{},
-		testPublishMetricsInterval, rwTimeout, false).(*clientServer)
+		testPublishMetricsInterval, testPublishInstanceHealthMetricsInterval, rwTimeout, false).(*clientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -303,7 +325,7 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 	<-handledPayload
 }
 
-// TestMetricsDisabled tests that if metrics is disabled, only health metrics will be sent
+// TestMetricsDisabled tests that if metrics is disabled, only container health and instance health metrics will be sent
 func TestMetricsDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -313,7 +335,8 @@ func TestMetricsDisabled(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, rwTimeout, true)
 	cs.SetConnection(conn)
 
 	published := make(chan struct{})
@@ -326,6 +349,10 @@ func TestMetricsDisabled(t *testing.T) {
 		Fin:               aws.Bool(true),
 		MessageId:         aws.String("message_id"),
 	}, []*ecstcs.TaskHealth{{}}, nil).MinTimes(1)
+	mockStatsEngine.EXPECT().GetInstanceHealthMetadata().Return(&ecstcs.StartTelemetrySessionInput{
+		Cluster:           aws.String("TestMetricsDisabled"),
+		ContainerInstance: aws.String("container_instance"),
+	}).MinTimes(1)
 	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
 	conn.EXPECT().ReadMessage().Do(func() {
 		readed <- struct{}{}
@@ -348,7 +375,8 @@ func TestCreatePublishHealthRequestsEmpty(t *testing.T) {
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, rwTimeout, true)
 	cs.SetConnection(conn)
 
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(nil, nil, stats.EmptyHealthMetricsError)
@@ -368,7 +396,8 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, rwTimeout, true)
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -414,6 +443,50 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 
 	assert.Equal(t, request[0].Metadata, testMetadata)
 	assert.Equal(t, request[0].Tasks, testHealthMetrics)
+}
+
+func TestCreatePublishInstanceHealthRequest(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
+	cfg := config.DefaultConfig()
+
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, rwTimeout, true)
+	cs.SetConnection(conn)
+
+	testMetadata := &ecstcs.StartTelemetrySessionInput{
+		Cluster:           aws.String("TestCreatePublishInstanceHealthRequest"),
+		ContainerInstance: aws.String("container_instance"),
+	}
+	testError := dockerapi.CannotInspectContainerError{FromError: errors.New("TestCreatePublishInstanceHealthRequest")}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	// go routine simulates metric collection
+	go func() {
+		defer wg.Done()
+		defer instancehealth.DockerMetric.IncrementCallCount()
+	}()
+	go func() {
+		defer wg.Done()
+		defer instancehealth.DockerMetric.RecordError(testError)
+	}()
+	wg.Wait()
+
+	mockStatsEngine.EXPECT().GetInstanceHealthMetadata().Return(testMetadata)
+	request := cs.(*clientServer).createPublishInstanceHealthRequest()
+
+	expectedCallCount := int64(1)
+	expectedErrorCount := int64(1)
+	expectedErrorMessage := "CannotInspectContainerError: TestCreatePublishInstanceHealthRequest"
+
+	assert.Equal(t, testMetadata, request.Metadata)
+	assert.Equal(t, expectedCallCount, *request.ContainerRuntimeSampleCount)
+	assert.Equal(t, expectedErrorCount, *request.ContainerRuntimeErrors)
+	assert.Equal(t, expectedErrorMessage, *request.ContainerRuntimeErrorReason)
 }
 
 func TestSessionClosed(t *testing.T) {

@@ -67,6 +67,7 @@ type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
+	GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -682,4 +683,12 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
 	return container.statsQueue.GetLastStat(), nil
+
+}
+
+func (engine *DockerStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return &ecstcs.StartTelemetrySessionInput{
+		Cluster:           &engine.cluster,
+		ContainerInstance: &engine.containerInstanceArn,
+	}
 }
