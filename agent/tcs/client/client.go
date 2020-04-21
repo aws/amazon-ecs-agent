@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/metrics/instancehealth"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -41,13 +42,15 @@ const (
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
-	statsEngine            stats.Engine
-	publishTicker          *time.Ticker
-	publishHealthTicker    *time.Ticker
-	ctx                    context.Context
-	cancel                 context.CancelFunc
-	disableResourceMetrics bool
-	publishMetricsInterval time.Duration
+	statsEngine                          stats.Engine
+	publishTicker                        *time.Ticker
+	publishHealthTicker                  *time.Ticker
+	publishInstanceHealthTicker          *time.Ticker
+	ctx                                  context.Context
+	cancel                               context.CancelFunc
+	disableResourceMetrics               bool
+	publishMetricsInterval               time.Duration
+	publishInstanceHealthMetricsInterval time.Duration
 	wsclient.ClientServerImpl
 }
 
@@ -59,13 +62,16 @@ func New(url string,
 	credentialProvider *credentials.Credentials,
 	statsEngine stats.Engine,
 	publishMetricsInterval time.Duration,
+	publishInstanceHealthMetricsInterval time.Duration,
 	rwTimeout time.Duration,
 	disableResourceMetrics bool) wsclient.ClientServer {
 	cs := &clientServer{
-		statsEngine:            statsEngine,
-		publishTicker:          nil,
-		publishHealthTicker:    nil,
-		publishMetricsInterval: publishMetricsInterval,
+		statsEngine:                          statsEngine,
+		publishTicker:                        nil,
+		publishHealthTicker:                  nil,
+		publishInstanceHealthTicker:          nil,
+		publishMetricsInterval:               publishMetricsInterval,
+		publishInstanceHealthMetricsInterval: publishInstanceHealthMetricsInterval,
 	}
 	cs.URL = url
 	cs.AgentConfig = cfg
@@ -97,11 +103,13 @@ func (cs *clientServer) Serve() error {
 	// Start the timer function to publish metrics to the backend.
 	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
+	cs.publishInstanceHealthTicker = time.NewTicker(cs.publishInstanceHealthMetricsInterval)
 
 	if !cs.disableResourceMetrics {
 		go cs.publishMetrics()
 	}
 	go cs.publishHealthMetrics()
+	go cs.publishInstanceHealthMetrics()
 
 	return cs.ConsumeMessages()
 }
@@ -279,6 +287,48 @@ func (cs *clientServer) publishHealthMetricsOnce() error {
 	return nil
 }
 
+// publishInstanceHealthMetrics send the instance health information to backend
+func (cs *clientServer) publishInstanceHealthMetrics() {
+	if cs.publishInstanceHealthTicker == nil {
+		seelog.Debug("Skipping publishing instance health metrics. Publish ticker is uninitialized")
+		return
+	}
+
+	// Publish instance metrics immediately after we connect and wait for ticks. This makes
+	// sure that there is no data loss when a scheduled metrics publishing fails
+	// due to a connection reset.
+	err := cs.publishInstanceHealthMetricsOnce()
+	if err != nil {
+		seelog.Warnf("Unable to publish instance health metrics: %v", err)
+	}
+	for {
+		select {
+		case <-cs.publishInstanceHealthTicker.C:
+			err := cs.publishInstanceHealthMetricsOnce()
+			if err != nil {
+				seelog.Warnf("Unable to publish instance health metrics: %v", err)
+			}
+		case <-cs.ctx.Done():
+			return
+		}
+	}
+}
+
+// publishInstanceHealthMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
+func (cs *clientServer) publishInstanceHealthMetricsOnce() error {
+	// Get the instance health request to send to backend.
+	request := cs.createPublishInstanceHealthRequest()
+
+	seelog.Infof("Making request: ", request)
+	// Make the publish metrics request to the backend.
+	// TODO: Uncomment this once tcs changes have been made
+	/*err := cs.MakeRequest(request)
+	if err != nil {
+		return err
+	}*/
+	return nil
+}
+
 // createPublishHealthRequests creates the requests to publish container health
 func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRequest, error) {
 	metadata, taskHealthMetrics, err := cs.statsEngine.GetTaskHealthMetrics()
@@ -313,6 +363,19 @@ func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRe
 	}
 
 	return requests, nil
+}
+
+// createPublishInstanceHealthRequests creates the requests to publish instance health
+func (cs *clientServer) createPublishInstanceHealthRequest() *ecstcs.PublishInstanceHealthRequest {
+	// reset the counter after collecting metrics
+	callCount, errorCount := instancehealth.DockerMetric.GetAndResetCount()
+	instanceHealthMetadata := cs.statsEngine.GetInstanceHealthMetadata()
+
+	var request *ecstcs.PublishInstanceHealthRequest
+	request = ecstcs.NewPublishInstanceHealthMetricsRequest(instanceHealthMetadata,
+		callCount, errorCount, instancehealth.DockerMetric.GetErrorMessage())
+
+	return request
 }
 
 // copyMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata object.

@@ -39,6 +39,22 @@ func (s AckPublishHealth) GoString() string {
 	return s.String()
 }
 
+type AckPublishInstanceHealth struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s AckPublishInstanceHealth) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AckPublishInstanceHealth) GoString() string {
+	return s.String()
+}
+
 type AckPublishMetric struct {
 	_ struct{} `type:"structure"`
 
@@ -400,6 +416,30 @@ func (s PublishHealthRequest) String() string {
 
 // GoString returns the string representation
 func (s PublishHealthRequest) GoString() string {
+	return s.String()
+}
+
+type PublishInstanceHealthRequest struct {
+	_ struct{} `type:"structure"`
+
+	Metadata *StartTelemetrySessionInput `locationName:"metadata" type:"structure"`
+
+	ContainerRuntimeErrors *int64 `locationName:"containerRuntimeErrors" type:"integer"`
+
+	ContainerRuntimeSampleCount *int64 `locationName:"containerRuntimeSampleCount" type:"integer"`
+
+	ContainerRuntimeErrorReason *string `locationName:"containerRuntimeErrorReason" type:"string"`
+
+	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+}
+
+// String returns the string representation
+func (s PublishInstanceHealthRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublishInstanceHealthRequest) GoString() string {
 	return s.String()
 }
 

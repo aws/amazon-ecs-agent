@@ -45,12 +45,13 @@ import (
 )
 
 const (
-	testTaskArn                = "arn:aws:ecs:us-east-1:123:task/def"
-	testTaskDefinitionFamily   = "task-def"
-	testClusterArn             = "arn:aws:ecs:us-east-1:123:cluster/default"
-	testInstanceArn            = "arn:aws:ecs:us-east-1:123:container-instance/abc"
-	testMessageId              = "testMessageId"
-	testPublishMetricsInterval = 1 * time.Millisecond
+	testTaskArn                              = "arn:aws:ecs:us-east-1:123:task/def"
+	testTaskDefinitionFamily                 = "task-def"
+	testClusterArn                           = "arn:aws:ecs:us-east-1:123:cluster/default"
+	testInstanceArn                          = "arn:aws:ecs:us-east-1:123:container-instance/abc"
+	testMessageId                            = "testMessageId"
+	testPublishMetricsInterval               = 1 * time.Millisecond
+	testPublishInstanceHealthMetricsInterval = 1 * time.Millisecond
 )
 
 type mockStatsEngine struct{}
@@ -73,6 +74,10 @@ func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*mockStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
 }
 
 // TestDisableMetrics tests the StartMetricsSession will return immediately if
@@ -134,8 +139,8 @@ func TestStartSession(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
 	go startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
-		defaultHeartbeatTimeout, defaultHeartbeatJitter,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, deregisterInstanceEventStream)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
@@ -198,8 +203,8 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 
 	// Start a session with the test server.
 	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
-		defaultHeartbeatTimeout, defaultHeartbeatJitter,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		defaultHeartbeatTimeout, defaultHeartbeatJitter, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, deregisterInstanceEventStream)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -235,8 +240,8 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	defer cancel()
 	// Start a session with the test server.
 	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
-		50*time.Millisecond, 100*time.Millisecond,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		50*time.Millisecond, 100*time.Millisecond, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, deregisterInstanceEventStream)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
 	assert.Error(t, err, "Close the connection should cause the tcs client return error")
 

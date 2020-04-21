@@ -36,3 +36,15 @@ func NewPublishHealthMetricsRequest(metadata *HealthMetadata, healthMetrics []*T
 		Timestamp: aws.Time(time.Now()),
 	}
 }
+
+// NewPublishInstanceHealthMetricsRequest creates a PublishInstanceHealthRequest
+func NewPublishInstanceHealthMetricsRequest(instanceHealthMetadata *StartTelemetrySessionInput,
+	callCount int64, errorCount int64, errorMessage string) *PublishInstanceHealthRequest {
+	return &PublishInstanceHealthRequest{
+		Metadata:                    instanceHealthMetadata,
+		ContainerRuntimeErrors:      &errorCount,
+		ContainerRuntimeSampleCount: &callCount,
+		ContainerRuntimeErrorReason: &errorMessage,
+		Timestamp:                   aws.Time(time.Now()),
+	}
+}

@@ -67,6 +67,7 @@ type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
 	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
+	GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
@@ -696,10 +697,9 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 
 }
 
-// newMetricsMetadata creates the singleton metadata object.
-func newMetricsMetadata(cluster *string, containerInstance *string) *ecstcs.MetricsMetadata {
-	return &ecstcs.MetricsMetadata{
-		Cluster:           cluster,
-		ContainerInstance: containerInstance,
+func (engine *DockerStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return &ecstcs.StartTelemetrySessionInput{
+		Cluster:           &engine.cluster,
+		ContainerInstance: &engine.containerInstanceArn,
 	}
 }

@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
+	"github.com/aws/amazon-ecs-agent/agent/metrics/instancehealth"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
@@ -308,17 +309,19 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("PULL_IMAGE")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	response := make(chan DockerContainerMetadata, 1)
 	go func() {
 		err := retry.RetryNWithBackoffCtx(ctx, dg.imagePullBackoff, maximumPullRetries,
 			func() error {
 				err := dg.pullImage(ctx, image, authData)
 				if err != nil {
-					seelog.Errorf("DockerGoClient: failed to pull image %s: [%s] %s", image, err.ErrorName(), err.Error())
+					defer instancehealth.DockerMetric.RecordError(wrapErrorAsNamedError("Pull", err))
+					seelog.Errorf("DockerGoClient: failed to pull image %s: %s", image, err.Error())
 				}
 				return err
 			})
-		response <- DockerContainerMetadata{Error: wrapPullErrorAsNamedError(err)}
+		response <- DockerContainerMetadata{Error: wrapErrorAsNamedError("Pull", err)}
 	}()
 
 	select {
@@ -329,20 +332,27 @@ func (dg *dockerGoClient) PullImage(ctx context.Context, image string,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "pulled"})
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "pulled"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		defer instancehealth.DockerMetric.RecordError(&CannotPullContainerError{err})
 		return DockerContainerMetadata{Error: &CannotPullContainerError{err}}
 	}
 }
 
-func wrapPullErrorAsNamedError(err error) apierrors.NamedError {
+func wrapErrorAsNamedError(name string, err error) apierrors.NamedError {
 	var retErr apierrors.NamedError
 	if err != nil {
 		engErr, ok := err.(apierrors.NamedError)
 		if !ok {
-			engErr = CannotPullContainerError{err}
+			switch name {
+			case "Pull":
+				engErr = CannotPullContainerError{err}
+			case "InspectImage":
+				engErr = CannotInspectImageError{err}
+			}
 		}
 		retErr = engErr
 	}
@@ -359,7 +369,7 @@ func (dg *dockerGoClient) pullImage(ctx context.Context, image string,
 
 	sdkAuthConfig, err := dg.getAuthdata(image, authData)
 	if err != nil {
-		return wrapPullErrorAsNamedError(err)
+		return wrapErrorAsNamedError("Pull", err)
 	}
 	// encode auth data
 	var buf bytes.Buffer
@@ -480,11 +490,15 @@ func getRepository(image string) string {
 
 func (dg *dockerGoClient) InspectImage(image string) (*types.ImageInspect, error) {
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_IMAGE")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
 	imageData, _, err := client.ImageInspectWithRaw(dg.context, image)
+	if err != nil {
+		defer instancehealth.DockerMetric.RecordError(wrapErrorAsNamedError("InspectImage", err))
+	}
 	return &imageData, err
 }
 
@@ -519,6 +533,7 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -533,10 +548,12 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "created"})
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "created"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		defer instancehealth.DockerMetric.RecordError(&CannotCreateContainerError{err})
 		return DockerContainerMetadata{Error: &CannotCreateContainerError{err}}
 	}
 }
@@ -563,6 +580,7 @@ func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -574,9 +592,11 @@ func (dg *dockerGoClient) StartContainer(ctx context.Context, id string, timeout
 		// Context has either expired or canceled. If it has timed out,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
+		defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "started"})
 		if err == context.DeadlineExceeded {
 			return DockerContainerMetadata{Error: &DockerTimeoutError{timeout, "started"}}
 		}
+		defer instancehealth.DockerMetric.RecordError(CannotStartContainerError{err})
 		return DockerContainerMetadata{Error: CannotStartContainerError{err}}
 	}
 }
@@ -592,7 +612,6 @@ func (dg *dockerGoClient) startContainer(ctx context.Context, id string) DockerC
 	if err != nil {
 		metadata.Error = CannotStartContainerError{err}
 	}
-
 	return metadata
 }
 
@@ -631,6 +650,7 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_CONTAINER")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan inspectResponse, 1)
@@ -646,9 +666,11 @@ func (dg *dockerGoClient) InspectContainer(ctx context.Context, dockerID string,
 	case <-ctx.Done():
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "inspecting"})
 			return nil, &DockerTimeoutError{timeout, "inspecting"}
 		}
 
+		defer instancehealth.DockerMetric.RecordError(&CannotInspectContainerError{err})
 		return nil, &CannotInspectContainerError{err}
 	}
 }
@@ -669,6 +691,7 @@ func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, ti
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("STOP_CONTAINER")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan DockerContainerMetadata, 1)
@@ -681,8 +704,10 @@ func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, ti
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{ctxTimeout, "stopped"})
 			return DockerContainerMetadata{Error: &DockerTimeoutError{ctxTimeout, "stopped"}}
 		}
+		defer instancehealth.DockerMetric.RecordError(CannotStopContainerError{err})
 		return DockerContainerMetadata{Error: CannotStopContainerError{err}}
 	}
 }
@@ -710,6 +735,7 @@ func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_CONTAINER")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -720,11 +746,13 @@ func (dg *dockerGoClient) RemoveContainer(ctx context.Context, dockerID string, 
 		return resp
 	case <-ctx.Done():
 		err := ctx.Err()
-		// Context has either expired or canceled. If it has timed out,
-		// send back the DockerTimeoutError
 		if err == context.DeadlineExceeded {
+			// Context has either expired or canceled. If it has timed out,
+			// send back the DockerTimeoutError
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{dockerclient.RemoveContainerTimeout, "removing"})
 			return &DockerTimeoutError{dockerclient.RemoveContainerTimeout, "removing"}
 		}
+		defer instancehealth.DockerMetric.RecordError(&CannotRemoveContainerError{err})
 		return &CannotRemoveContainerError{err}
 	}
 }
@@ -967,7 +995,7 @@ func (dg *dockerGoClient) handleContainerEvents(ctx context.Context,
 func (dg *dockerGoClient) ListContainers(ctx context.Context, all bool, timeout time.Duration) ListContainersResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan ListContainersResponse, 1)
@@ -980,8 +1008,10 @@ func (dg *dockerGoClient) ListContainers(ctx context.Context, all bool, timeout 
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "listing"})
 			return ListContainersResponse{Error: &DockerTimeoutError{timeout, "listing"}}
 		}
+		defer instancehealth.DockerMetric.RecordError(&CannotListContainersError{err})
 		return ListContainersResponse{Error: &CannotListContainersError{err}}
 	}
 }
@@ -1012,7 +1042,7 @@ func (dg *dockerGoClient) listContainers(ctx context.Context, all bool) ListCont
 func (dg *dockerGoClient) ListImages(ctx context.Context, timeout time.Duration) ListImagesResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	response := make(chan ListImagesResponse, 1)
 	go func() { response <- dg.listImages(ctx) }()
 	select {
@@ -1021,8 +1051,10 @@ func (dg *dockerGoClient) ListImages(ctx context.Context, timeout time.Duration)
 	case <-ctx.Done():
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "listing"})
 			return ListImagesResponse{Error: &DockerTimeoutError{timeout, "listing"}}
 		}
+		defer instancehealth.DockerMetric.RecordError(&CannotListImagesError{err})
 		return ListImagesResponse{Error: &CannotListImagesError{err}}
 	}
 }
@@ -1081,7 +1113,6 @@ func (dg *dockerGoClient) Version(ctx context.Context, timeout time.Duration) (s
 func (dg *dockerGoClient) Info(ctx context.Context, timeout time.Duration) (types.Info, error) {
 	derivedCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return types.Info{}, err
@@ -1116,6 +1147,7 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_VOLUME")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1130,10 +1162,12 @@ func (dg *dockerGoClient) CreateVolume(ctx context.Context, name string,
 		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "creating volume"})
 			return SDKVolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "creating volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		defer instancehealth.DockerMetric.RecordError(&CannotCreateVolumeError{err})
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotCreateVolumeError{err}}
 	}
 }
@@ -1166,6 +1200,7 @@ func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeou
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_VOLUME")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan SDKVolumeResponse, 1)
@@ -1176,14 +1211,16 @@ func (dg *dockerGoClient) InspectVolume(ctx context.Context, name string, timeou
 	case resp := <-response:
 		return resp
 	case <-ctx.Done():
-		// Context has either expired or canceled. If it has timed out,
-		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			// Context has either expired or canceled. If it has timed out,
+			// send back the DockerTimeoutError
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "inspecting volume"})
 			return SDKVolumeResponse{DockerVolume: nil, Error: &DockerTimeoutError{timeout, "inspecting volume"}}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		defer instancehealth.DockerMetric.RecordError(&CannotInspectVolumeError{err})
 		return SDKVolumeResponse{DockerVolume: nil, Error: &CannotInspectVolumeError{err}}
 	}
 }
@@ -1208,6 +1245,7 @@ func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("REMOVE_VOLUME")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan error, 1)
@@ -1218,14 +1256,16 @@ func (dg *dockerGoClient) RemoveVolume(ctx context.Context, name string, timeout
 	case resp := <-response:
 		return resp
 	case <-ctx.Done():
-		// Context has either expired or canceled. If it has timed out,
-		// send back the DockerTimeoutError
 		err := ctx.Err()
 		if err == context.DeadlineExceeded {
+			// Context has either expired or canceled. If it has timed out,
+			// send back the DockerTimeoutError
+			defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "removing volume"})
 			return &DockerTimeoutError{timeout, "removing volume"}
 		}
 		// Context was canceled even though there was no timeout. Send
 		// back an error.
+		defer instancehealth.DockerMetric.RecordError(&CannotRemoveVolumeError{err})
 		return &CannotRemoveVolumeError{err}
 	}
 }
@@ -1268,7 +1308,6 @@ func (dg *dockerGoClient) ListPluginsWithFilters(ctx context.Context, enabled bo
 func (dg *dockerGoClient) ListPlugins(ctx context.Context, timeout time.Duration, filters filters.Args) ListPluginsResponse {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd
 	response := make(chan ListPluginsResponse, 1)
@@ -1430,6 +1469,7 @@ func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("LOAD_IMAGE")()
+	defer instancehealth.DockerMetric.IncrementCallCount()
 	response := make(chan error, 1)
 	go func() {
 		response <- dg.loadImage(ctx, inputStream)
@@ -1438,6 +1478,7 @@ func (dg *dockerGoClient) LoadImage(ctx context.Context, inputStream io.Reader, 
 	case resp := <-response:
 		return resp
 	case <-ctx.Done():
+		defer instancehealth.DockerMetric.RecordError(&DockerTimeoutError{timeout, "loading image"})
 		return &DockerTimeoutError{timeout, "loading image"}
 	}
 }

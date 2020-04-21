@@ -138,6 +138,21 @@ func (err CannotPullContainerError) ErrorName() string {
 	return "CannotPullContainerError"
 }
 
+// CannotPullContainerError indicates any error when trying to
+// inspect a image
+type CannotInspectImageError struct {
+	FromError error
+}
+
+func (err CannotInspectImageError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns name of the CannotPullContainerError.
+func (err CannotInspectImageError) ErrorName() string {
+	return "CannotInspectImageError"
+}
+
 // CannotPullECRContainerError indicates any error when trying to pull
 // a container image from ECR
 type CannotPullECRContainerError struct {

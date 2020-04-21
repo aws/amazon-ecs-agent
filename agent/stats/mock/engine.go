@@ -64,6 +64,20 @@ func (mr *MockEngineMockRecorder) ContainerDockerStats(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerDockerStats", reflect.TypeOf((*MockEngine)(nil).ContainerDockerStats), arg0, arg1)
 }
 
+// GetInstanceHealthMetadata mocks base method
+func (m *MockEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInstanceHealthMetadata")
+	ret0, _ := ret[0].(*ecstcs.StartTelemetrySessionInput)
+	return ret0
+}
+
+// GetInstanceHealthMetadata indicates an expected call of GetInstanceHealthMetadata
+func (mr *MockEngineMockRecorder) GetInstanceHealthMetadata() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceHealthMetadata", reflect.TypeOf((*MockEngine)(nil).GetInstanceHealthMetadata))
+}
+
 // GetInstanceMetrics mocks base method
 func (m *MockEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	m.ctrl.T.Helper()
