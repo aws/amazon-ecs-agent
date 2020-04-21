@@ -45,12 +45,13 @@ import (
 )
 
 const (
-	testTaskArn                = "arn:aws:ecs:us-east-1:123:task/def"
-	testTaskDefinitionFamily   = "task-def"
-	testClusterArn             = "arn:aws:ecs:us-east-1:123:cluster/default"
-	testInstanceArn            = "arn:aws:ecs:us-east-1:123:container-instance/abc"
-	testMessageId              = "testMessageId"
-	testPublishMetricsInterval = 1 * time.Millisecond
+	testTaskArn                              = "arn:aws:ecs:us-east-1:123:task/def"
+	testTaskDefinitionFamily                 = "task-def"
+	testClusterArn                           = "arn:aws:ecs:us-east-1:123:cluster/default"
+	testInstanceArn                          = "arn:aws:ecs:us-east-1:123:container-instance/abc"
+	testMessageId                            = "testMessageId"
+	testPublishMetricsInterval               = 1 * time.Millisecond
+	testPublishInstanceHealthMetricsInterval = 1 * time.Millisecond
 )
 
 type mockStatsEngine struct{}
@@ -73,6 +74,10 @@ func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
 	return nil, nil, nil
+}
+
+func (*mockStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessionInput {
+	return nil
 }
 
 // TestDisableMetrics tests the StartMetricsSession will return immediately if
