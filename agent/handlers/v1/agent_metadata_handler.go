@@ -33,7 +33,10 @@ func AgentMetadataHandler(containerInstanceArn *string, cfg *config.Config) func
 			ContainerInstanceArn: containerInstanceArn,
 			Version:              agentversion.String(),
 		}
-		responseJSON, _ := json.Marshal(resp)
+		responseJSON, err := json.Marshal(resp)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeAgentMetadata)
 	}
 }
