@@ -87,6 +87,11 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
 			params.time().Sleep(backoff.Duration())
 		}
+		select {
+		case <-params.Ctx.Done():
+			return nil
+		default:
+		}
 	}
 }
 
