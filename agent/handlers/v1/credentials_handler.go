@@ -70,7 +70,10 @@ func CredentialsHandler(credentialsManager credentials.Manager, auditLogger audi
 func CredentialsHandlerImpl(w http.ResponseWriter, r *http.Request, auditLogger audit.AuditLogger, credentialsManager credentials.Manager, credentialsID string, errPrefix string) {
 	responseJSON, arn, roleType, errorMessage, err := processCredentialsRequest(credentialsManager, r, credentialsID, errPrefix)
 	if err != nil {
-		errResponseJSON, _ := json.Marshal(errorMessage)
+		errResponseJSON, err := json.Marshal(errorMessage)
+		if e := handlersutils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		writeCredentialsRequestResponse(w, r, errorMessage.HTTPErrorCode, audit.GetCredentialsEventType(roleType), arn, auditLogger, errResponseJSON)
 		return
 	}

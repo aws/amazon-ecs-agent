@@ -1208,7 +1208,10 @@ func (task *Task) addNetworkResourceProvisioningDependency(cfg *config.Config) e
 				Image: fmt.Sprintf("%s:%s", cfg.PauseContainerImageName, cfg.PauseContainerTag),
 			}
 
-			bytes, _ := json.Marshal(pauseConfig)
+			bytes, err := json.Marshal(pauseConfig)
+			if err != nil {
+				return errors.Errorf("Error json marshaling pause config: %s", err)
+			}
 			serializedConfig := string(bytes)
 			pauseContainer.DockerConfig = apicontainer.DockerConfig{
 				Config: &serializedConfig,

@@ -34,20 +34,29 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 	return func(w http.ResponseWriter, r *http.Request) {
 		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container metadata handler: unable to get container ID from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		containerResponse, err := GetContainerResponse(containerID, state)
 		if err != nil {
-			errResponseJSON, _ := json.Marshal(err.Error())
+			errResponseJSON, err := json.Marshal(err.Error())
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		seelog.Infof("V3 container metadata handler: writing response for container '%s'", containerID)
 
-		responseJSON, _ := json.Marshal(containerResponse)
+		responseJSON, err := json.Marshal(containerResponse)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerMetadata)
 	}
 }
