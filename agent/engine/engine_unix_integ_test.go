@@ -172,6 +172,7 @@ func createVolumeTask(scope, arn, volume string, autoprovision bool) (*apitask.T
 		DriverOpts: map[string]string{
 			"device": tmpDirectory,
 			"o":      "bind",
+			"type":   "tmpfs",
 		},
 	}
 	if scope == "shared" {

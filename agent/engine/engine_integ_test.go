@@ -424,7 +424,7 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	defer done()
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	// Set the task clean up duration to speed up the test
-	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 10 * time.Second
+	taskEngine.(*DockerTaskEngine).cfg.TaskCleanupWaitDuration = 1 * time.Second
 
 	testTask, tmpDirectory, err := createVolumeTask("shared", "TestSharedAutoprovisionVolume", "TestSharedAutoprovisionVolume", true)
 	defer os.Remove(tmpDirectory)
@@ -438,7 +438,7 @@ func TestSharedAutoprovisionVolume(t *testing.T) {
 	assert.Equal(t, testTask.ResourcesMapUnsafe["dockerVolume"][0].(*taskresourcevolume.VolumeResource).VolumeConfig.DockerVolumeName, "TestSharedAutoprovisionVolume", "task volume name is not the same as specified in task definition")
 	// Wait for task to be cleaned up
 	testTask.SetSentStatus(apitaskstatus.TaskStopped)
-	waitForTaskCleanup(t, taskEngine, testTask.Arn, 30)
+	waitForTaskCleanup(t, taskEngine, testTask.Arn, 5)
 	client := taskEngine.(*DockerTaskEngine).client
 	response := client.InspectVolume(context.TODO(), "TestSharedAutoprovisionVolume", 1*time.Second)
 	assert.NoError(t, response.Error, "expect shared volume not removed")
