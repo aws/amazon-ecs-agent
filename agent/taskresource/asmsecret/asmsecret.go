@@ -251,7 +251,7 @@ func (secret *ASMSecretResource) GetCreatedAt() time.Time {
 	return secret.createdAt
 }
 
-// It spins up multiple goroutines in order to retrieve values in parallel.
+// Create spins up multiple goroutines in order to retrieve values in parallel.
 func (secret *ASMSecretResource) Create() error {
 
 	// To fail fast, check execution role first
@@ -354,7 +354,7 @@ func getASMParametersFromInput(valueFrom string) (input *secretsmanager.GetSecre
 	}
 	if len(paramValues) != len(strings.Split(asmARNResourceWithParametersFormat, arnDelimiter)) {
 		// can't tell what input this is, throw some error
-		err = errors.New("an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again.")
+		err = errors.New("an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again")
 		return nil, "", err
 	}
 

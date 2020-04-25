@@ -277,7 +277,7 @@ func TestCreateWithASMParametersWrongFormat(t *testing.T) {
 
 	assert.Error(t, asmRes.Create())
 	expectedError := fmt.Sprintf("trying to retrieve secret with value %s resulted in error: "+
-		"an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again.", valueFromWrongFormat)
+		"an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again", valueFromWrongFormat)
 	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
 }
 

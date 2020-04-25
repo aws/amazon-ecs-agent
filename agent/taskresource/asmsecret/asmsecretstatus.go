@@ -23,11 +23,11 @@ import (
 type ASMSecretStatus resourcestatus.ResourceStatus
 
 const (
-	// is the zero state of a task resource
+	// ASMSecretStatusNone is the zero state of a task resource
 	ASMSecretStatusNone ASMSecretStatus = iota
-	// represents a task resource which has been created
+	// ASMSecretCreated represents a task resource which has been created
 	ASMSecretCreated
-	// represents a task resource which has been cleaned up
+	// ASMSecretRemoved represents a task resource which has been cleaned up
 	ASMSecretRemoved
 )
 
