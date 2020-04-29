@@ -42,6 +42,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -118,6 +119,11 @@ func (*idleStatsEngine) GetInstanceHealthMetadata() *ecstcs.StartTelemetrySessio
 type nonIdleStatsEngine struct {
 	numTasks int
 }
+
+// instancehealthMu is a lock to make sure that two tests relying on the instancehealth.DockerMetric
+// global do not execute in parallel, which could mess with the behavior that they
+// are expecting.
+var instancehealthMu sync.Mutex
 
 func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	metadata := &ecstcs.MetricsMetadata{
@@ -329,6 +335,12 @@ func TestAckPublishHealthHandlerCalled(t *testing.T) {
 func TestMetricsDisabled(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	instancehealthMu.Lock()
+	defer instancehealthMu.Unlock()
+	// seed dummy instance stats:
+	for i := 0; i < int(instancehealth.MinimumSampleCount*2); i++ {
+		instancehealth.DockerMetric.IncrementCallCount()
+	}
 
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
@@ -448,6 +460,8 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 func TestCreatePublishInstanceHealthRequest(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	instancehealthMu.Lock()
+	defer instancehealthMu.Unlock()
 
 	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
@@ -472,21 +486,49 @@ func TestCreatePublishInstanceHealthRequest(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		defer instancehealth.DockerMetric.RecordError(testError)
+		for i := 0; i < int(instancehealth.MinimumSampleCount); i++ {
+			instancehealth.DockerMetric.IncrementCallCount()
+			instancehealth.DockerMetric.RecordError(testError)
+		}
 	}()
 	wg.Wait()
 
 	mockStatsEngine.EXPECT().GetInstanceHealthMetadata().Return(testMetadata)
-	request := cs.(*clientServer).createPublishInstanceHealthRequest()
+	request, err := cs.(*clientServer).createPublishInstanceHealthRequest()
+	require.NoError(t, err)
+	require.NotNil(t, request)
 
-	expectedCallCount := int64(1)
-	expectedErrorCount := int64(1)
-	expectedErrorMessage := "CannotInspectContainerError: TestCreatePublishInstanceHealthRequest"
+	expectedCallCount := int64(instancehealth.MinimumSampleCount + 1)
+	expectedErrorCount := int64(instancehealth.MinimumSampleCount)
+	expectedErrorMessage := "CannotInspectContainerError: TestCreatePublishInstanceHealthRequest -- "
 
 	assert.Equal(t, testMetadata, request.Metadata)
 	assert.Equal(t, expectedCallCount, *request.ContainerRuntimeSampleCount)
 	assert.Equal(t, expectedErrorCount, *request.ContainerRuntimeErrors)
 	assert.Equal(t, expectedErrorMessage, *request.ContainerRuntimeErrorReason)
+}
+
+func TestCreatePublishInstanceHealthRequest_InsufficientSampleCount(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	instancehealthMu.Lock()
+	defer instancehealthMu.Unlock()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
+	cfg := config.DefaultConfig()
+
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval,
+		testPublishInstanceHealthMetricsInterval, rwTimeout, true)
+	cs.SetConnection(conn)
+
+	testError := dockerapi.CannotInspectContainerError{FromError: errors.New("TestCreatePublishInstanceHealthRequest")}
+	instancehealth.DockerMetric.RecordError(testError)
+	instancehealth.DockerMetric.IncrementCallCount()
+
+	request, err := cs.(*clientServer).createPublishInstanceHealthRequest()
+	require.Error(t, err)
+	require.Nil(t, request)
 }
 
 func TestSessionClosed(t *testing.T) {

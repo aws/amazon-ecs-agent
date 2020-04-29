@@ -44,16 +44,16 @@ func TestMetricsCollection(t *testing.T) {
 	testError := &testNamedError{errors.New("TestMetricsCollection")}
 
 	var wg sync.WaitGroup
-	wg.Add(10)
+	wg.Add(int(MinimumSampleCount) * 3)
 
 	//go routine simulates metric collection
-	for i := 0; i < 5; i++ {
+	for i := 0; i < int(MinimumSampleCount*2); i++ {
 		go func() {
 			defer wg.Done()
 			defer testDockerMetric.IncrementCallCount()
 		}()
 	}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < int(MinimumSampleCount); i++ {
 		go func() {
 			defer wg.Done()
 			defer testDockerMetric.RecordError(testError)
@@ -61,44 +61,66 @@ func TestMetricsCollection(t *testing.T) {
 	}
 	wg.Wait()
 
-	expectedCallCount := int64(5)
-	expectedErrorCount := int64(5)
-	expectedErrorMessage := "TestNamedError: TestMetricsCollection"
+	expectedCallCount := MinimumSampleCount * 2
+	expectedErrorCount := MinimumSampleCount
+	expectedErrorMessage := "TestNamedError: TestMetricsCollection -- "
 
-	actualCallCount, actualErrorCount := testDockerMetric.GetAndResetCount()
-
+	actualCallCount, actualErrorCount, ok := testDockerMetric.GetAndResetCount()
+	assert.True(t, ok)
 	assert.Equal(t, expectedCallCount, actualCallCount)
 	assert.Equal(t, expectedErrorCount, actualErrorCount)
-	assert.Equal(t, expectedErrorMessage, testDockerMetric.GetErrorMessage())
+	assert.Equal(t, expectedErrorMessage, testDockerMetric.GetAndResetErrorMessage())
+}
+
+func TestMetricsCollection_InsufficientSampleCount(t *testing.T) {
+	testDockerMetric := &genericMetric{}
+	testError := &testNamedError{errors.New("TestMetricsCollection")}
+
+	// only two errors are not enough samples
+	testDockerMetric.IncrementCallCount()
+	testDockerMetric.RecordError(testError)
+
+	_, _, ok := testDockerMetric.GetAndResetCount()
+
+	assert.False(t, ok)
 }
 
 func TestResetCount(t *testing.T) {
 	testDockerMetric := &genericMetric{}
 	testError := &testNamedError{errors.New("TestResetCount")}
 
-	var wg sync.WaitGroup
-	wg.Add(10)
-
-	// go routine simulates metric collection
-	for i := 0; i < 5; i++ {
-		go func() {
-			defer wg.Done()
-			defer testDockerMetric.IncrementCallCount()
-		}()
+	for i := 0; i < int(MinimumSampleCount); i++ {
+		testDockerMetric.IncrementCallCount()
+		testDockerMetric.RecordError(testError)
 	}
-	for i := 0; i < 5; i++ {
-		go func() {
-			defer wg.Done()
-			defer testDockerMetric.RecordError(testError)
-		}()
-	}
-	wg.Wait()
 
 	// Reset the counter
-	testDockerMetric.GetAndResetCount()
+	callCount, errCount, ok := testDockerMetric.GetAndResetCount()
+	assert.Equal(t, int64(MinimumSampleCount), callCount)
+	assert.Equal(t, int64(MinimumSampleCount), errCount)
+	assert.True(t, ok)
+	assert.Equal(t, "TestNamedError: TestResetCount -- ", testDockerMetric.GetAndResetErrorMessage())
+}
 
-	expectedDockerMetric := &genericMetric{}
-	expectedDockerMetric.errorMessage.Store("TestNamedError: TestResetCount")
+// error message should remove duplicate messages and accumulate non-duplicate messages
+func TestErrorMessage(t *testing.T) {
+	testDockerMetric := &genericMetric{}
+	testErrorA := &testNamedError{errors.New("docker error for container A")}
+	testErrorB := &testNamedError{errors.New("docker error for container B")}
 
-	assert.Equal(t, expectedDockerMetric, testDockerMetric, "Reset instance health counter failed")
+	for i := 0; i < int(MinimumSampleCount); i++ {
+		testDockerMetric.IncrementCallCount()
+		testDockerMetric.RecordError(testErrorA)
+	}
+	for i := 0; i < 5; i++ {
+		testDockerMetric.IncrementCallCount()
+		testDockerMetric.RecordError(testErrorB)
+	}
+
+	// Reset the counter
+	callCount, errCount, ok := testDockerMetric.GetAndResetCount()
+	assert.Equal(t, int64(MinimumSampleCount+5), callCount)
+	assert.Equal(t, int64(MinimumSampleCount+5), errCount)
+	assert.True(t, ok)
+	assert.Equal(t, "TestNamedError: docker error for container A -- TestNamedError: docker error for container B -- ", testDockerMetric.GetAndResetErrorMessage())
 }

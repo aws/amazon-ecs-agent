@@ -1,7 +1,8 @@
 package instancehealth
 
 import (
-	"fmt"
+	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/errors"
@@ -11,8 +12,11 @@ import (
 type genericMetric struct {
 	calls        int64
 	errors       int64
-	errorMessage atomic.Value
+	errorMessage string
+	mu           sync.Mutex
 }
+
+const MinimumSampleCount int64 = 10
 
 var DockerMetric *genericMetric
 
@@ -26,16 +30,27 @@ func (gc *genericMetric) IncrementCallCount() {
 
 func (gc *genericMetric) RecordError(errorMessage errors.NamedError) {
 	atomic.AddInt64(&gc.errors, 1)
-	gc.errorMessage.Store(errorMessage.ErrorName() + ": " + errorMessage.Error())
+	newMsg := errorMessage.ErrorName() + ": " + errorMessage.Error() + " -- "
+	gc.mu.Lock()
+	if !strings.Contains(gc.errorMessage, newMsg) {
+		gc.errorMessage = gc.errorMessage + newMsg
+	}
+	gc.mu.Unlock()
 }
 
-func (gc *genericMetric) GetErrorMessage() string {
-	errMsg := fmt.Sprintf("%v", gc.errorMessage.Load())
-	return errMsg
+func (gc *genericMetric) GetAndResetErrorMessage() string {
+	gc.mu.Lock()
+	msg := gc.errorMessage
+	gc.errorMessage = ""
+	gc.mu.Unlock()
+	return msg
 }
 
-func (gc *genericMetric) GetAndResetCount() (int64, int64) {
-	callCount := atomic.SwapInt64(&gc.calls, 0)
-	errorCount := atomic.SwapInt64(&gc.errors, 0)
-	return callCount, errorCount
+func (gc *genericMetric) GetAndResetCount() (callCount int64, errCount int64, ok bool) {
+	if atomic.LoadInt64(&gc.calls) < MinimumSampleCount {
+		return 0, 0, false
+	}
+	callCount = atomic.SwapInt64(&gc.calls, 0)
+	errCount = atomic.SwapInt64(&gc.errors, 0)
+	return callCount, errCount, true
 }
