@@ -310,9 +310,12 @@ func (cs *clientServer) publishInstanceHealthMetrics() {
 // publishInstanceHealthMetricsOnce is invoked by the ticker to periodically publish metrics to backend.
 func (cs *clientServer) publishInstanceHealthMetricsOnce() error {
 	// Get the instance health request to send to backend.
-	request := cs.createPublishInstanceHealthRequest()
+	_, err := cs.createPublishInstanceHealthRequest()
+	if err != nil {
+		seelog.Infof("Insufficient sample count to publish instance health, skipping this interval")
+		return nil
+	}
 
-	seelog.Infof("Making request: ", request)
 	// Make the publish metrics request to the backend.
 	// TODO: Uncomment this once tcs changes have been made
 	/*err := cs.MakeRequest(request)
@@ -359,16 +362,22 @@ func (cs *clientServer) createPublishHealthRequests() ([]*ecstcs.PublishHealthRe
 }
 
 // createPublishInstanceHealthRequests creates the requests to publish instance health
-func (cs *clientServer) createPublishInstanceHealthRequest() *ecstcs.PublishInstanceHealthRequest {
+// returns error if there were not sufficient samples to publish instance health.
+func (cs *clientServer) createPublishInstanceHealthRequest() (*ecstcs.PublishInstanceHealthRequest, error) {
 	// reset the counter after collecting metrics
-	callCount, errorCount := instancehealth.DockerMetric.GetAndResetCount()
+	callCount, errorCount, ok := instancehealth.DockerMetric.GetAndResetCount()
+	if !ok {
+		return nil, fmt.Errorf("Insufficient sample count")
+	}
+	errMsg := instancehealth.DockerMetric.GetAndResetErrorMessage()
 	instanceHealthMetadata := cs.statsEngine.GetInstanceHealthMetadata()
+	seelog.Infof("Container runtime health metrics: %d errors / %d calls [%s]", errorCount, callCount, errMsg)
 
 	var request *ecstcs.PublishInstanceHealthRequest
 	request = ecstcs.NewPublishInstanceHealthMetricsRequest(instanceHealthMetadata,
-		callCount, errorCount, instancehealth.DockerMetric.GetErrorMessage())
+		callCount, errorCount, errMsg)
 
-	return request
+	return request, nil
 }
 
 // copyMetricsMetadata creates a new MetricsMetadata object from a given MetricsMetadata object.

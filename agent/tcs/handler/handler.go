@@ -37,7 +37,7 @@ const (
 	// defaultPublishMetricsInterval is the interval at which utilization
 	// metrics from stats engine are published to the backend.
 	defaultPublishMetricsInterval               = 20 * time.Second
-	defaultPublishInstanceHealthMetricsInterval = 3 * time.Minute
+	defaultPublishInstanceHealthMetricsInterval = 1 * time.Minute
 	// The maximum time to wait between heartbeats without disconnecting
 	defaultHeartbeatTimeout = 1 * time.Minute
 	defaultHeartbeatJitter  = 1 * time.Minute

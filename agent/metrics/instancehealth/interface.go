@@ -15,9 +15,11 @@ type InstanceHealth interface {
 	// Records the error message and increments the API's error count
 	RecordError(errors.NamedError)
 
-	//  Returns the error message
-	GetErrorMessage() string
+	//  Returns the error message and resets to empty
+	GetAndResetErrorMessage() string
 
 	// This function returns API call and error count resets their count
-	GetAndResetCount() (int64, int64)
+	// Returns false if there have been less than 10 calls recorded because
+	// this represents an insufficient number of samples.
+	GetAndResetCount() (callCount int64, errCount int64, ok bool)
 }
