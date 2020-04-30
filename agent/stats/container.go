@@ -16,11 +16,13 @@ package stats
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
 
@@ -65,6 +67,7 @@ func (container *StatsContainer) StopStatsCollection() {
 
 func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
+	backoff := retry.NewExponentialBackoff(time.Millisecond*250, time.Second*30, 0.5, 1.5)
 	for {
 		select {
 		case <-container.ctx.Done():
@@ -78,7 +81,9 @@ func (container *StatsContainer) collect() {
 				// 'NoSuchContainer', 'InactivityTimeoutExceeded' etc are silently consumed.
 				// We rely on state reconciliation with docker task engine at this point of
 				// time to stop collecting metrics.
-				seelog.Debugf("Error querying stats for container %s: %v", dockerID, err)
+				d := backoff.Duration()
+				seelog.Debugf("Error processing stats stream of container %s, backing off %s before reopening", dockerID, d)
+				time.Sleep(d)
 			}
 			// We were disconnected from the stats stream.
 			// Check if the container is terminal. If it is, stop collecting metrics.
@@ -107,16 +112,25 @@ func (container *StatsContainer) processStatsStream() error {
 	if container.client == nil {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
-	dockerStats, err := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
-	if err != nil {
-		return err
-	}
-	for rawStat := range dockerStats {
-		if err := container.statsQueue.Add(rawStat); err != nil {
-			seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+	dockerStats, errC, done := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
+
+	returnError := false
+	for {
+		select {
+		case rawStat := <-dockerStats:
+			if err := container.statsQueue.Add(rawStat); err != nil {
+				seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+			}
+		case err := <-errC:
+			seelog.Warnf("%s", err)
+			returnError = true
+		case <-done:
+			if returnError {
+				return fmt.Errorf("error encountered processing metrics stream")
+			}
+			return nil
 		}
 	}
-	return nil
 }
 
 func (container *StatsContainer) terminal() (bool, error) {
