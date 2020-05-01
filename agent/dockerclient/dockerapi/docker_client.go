@@ -1321,11 +1321,12 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
+		return nil, nil, nil
 	}
 
 	statsC := make(chan *types.StatsJSON)
-	errC := make(chan error)
 	done := make(chan struct{})
+	errC := make(chan error)
 	var resp types.ContainerStats
 
 	if !dg.config.PollMetrics {
@@ -1383,6 +1384,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				resp, err = client.ContainerStats(subCtx, id, stream)
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+					return
 				}
 
 				// Returns a *Decoder and takes in a readCloser
@@ -1391,6 +1393,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 				err := decoder.Decode(data)
 				if err != nil {
 					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					return
 				}
 
 				statsC <- data

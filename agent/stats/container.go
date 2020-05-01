@@ -67,7 +67,7 @@ func (container *StatsContainer) StopStatsCollection() {
 
 func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
-	backoff := retry.NewExponentialBackoff(time.Millisecond*250, time.Second*30, 0.5, 1.5)
+	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*20, 0.75, 2)
 	for {
 		select {
 		case <-container.ctx.Done():

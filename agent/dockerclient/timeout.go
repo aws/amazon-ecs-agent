@@ -57,7 +57,7 @@ const (
 
 	// StatsInactivityTimeout controls the amount of time we hold open a
 	// connection to the Docker daemon waiting for stats data
-	StatsInactivityTimeout = 5 * time.Second
+	StatsInactivityTimeout = 10 * time.Second
 
 	// DockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work

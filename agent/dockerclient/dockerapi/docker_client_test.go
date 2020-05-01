@@ -1044,10 +1044,10 @@ func TestStatsNormalExit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
+	stats, _, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	newStat := <-stats
 	waitForStats(t, newStat)
+
 	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
 	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
 }
@@ -1063,9 +1063,9 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
-	assert.Nil(t, <-stats)
+	_, errC, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+
+	assert.Error(t, <-errC)
 }
 
 func TestStatsErrorDecoding(t *testing.T) {
@@ -1079,9 +1079,8 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
-	assert.Nil(t, <-stats)
+	_, errC, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	assert.Error(t, <-errC)
 }
 
 func TestStatsClientError(t *testing.T) {
@@ -1094,10 +1093,10 @@ func TestStatsClientError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	if err == nil {
-		t.Fatal("Expected error with nil docker client")
-	}
+	statsC, errC, doneC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	assert.Nil(t, statsC)
+	assert.Nil(t, errC)
+	assert.Nil(t, doneC)
 }
 
 type mockStream struct {
@@ -1156,11 +1155,8 @@ func TestStatsInactivityTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", shortInactivityTimeout)
-	assert.NoError(t, err)
-	newStat := <-stats
-
-	assert.Nil(t, newStat)
+	_, errC, _ := client.Stats(ctx, "foo", shortInactivityTimeout)
+	assert.Error(t, <-errC)
 }
 
 func TestStatsInactivityTimeoutNoHit(t *testing.T) {
@@ -1176,8 +1172,7 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", longInactivityTimeout)
-	assert.NoError(t, err)
+	stats, _, _ := client.Stats(ctx, "foo", longInactivityTimeout)
 	newStat := <-stats
 
 	waitForStats(t, newStat)
