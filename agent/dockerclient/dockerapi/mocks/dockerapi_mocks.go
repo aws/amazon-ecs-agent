@@ -345,12 +345,13 @@ func (mr *MockDockerClientMockRecorder) StartContainer(arg0, arg1, arg2 interfac
 }
 
 // Stats mocks base method
-func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.StatsJSON, error) {
+func (m *MockDockerClient) Stats(arg0 context.Context, arg1 string, arg2 time.Duration) (<-chan *types.StatsJSON, <-chan error, <-chan struct{}) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stats", arg0, arg1, arg2)
 	ret0, _ := ret[0].(<-chan *types.StatsJSON)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(<-chan error)
+	ret2, _ := ret[2].(<-chan struct{})
+	return ret0, ret1, ret2
 }
 
 // Stats indicates an expected call of Stats

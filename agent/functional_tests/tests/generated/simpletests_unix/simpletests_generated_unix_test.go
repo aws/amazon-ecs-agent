@@ -1408,7 +1408,7 @@ func TestShmSize(t *testing.T) {
 
 }
 
-// TestSimpleExit Tests that the basic premis of this testing fromwork works (e.g. exit codes go through, etc)
+// TestSimpleExit Tests that the basic premise of this testing fromwork works (e.g. exit codes go through, etc)
 func TestSimpleExit(t *testing.T) {
 
 	// Parallel is opt in because resource constraints could cause test failures
