@@ -1044,7 +1044,7 @@ func TestStatsNormalExit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, _, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	stats, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	newStat := <-stats
 	waitForStats(t, newStat)
 
@@ -1063,7 +1063,7 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, errC, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 
 	assert.Error(t, <-errC)
 }
@@ -1079,7 +1079,7 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, errC, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	assert.Error(t, <-errC)
 }
 
@@ -1093,10 +1093,13 @@ func TestStatsClientError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	statsC, errC, doneC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.Nil(t, statsC)
-	assert.Nil(t, errC)
-	assert.Nil(t, doneC)
+	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	// should get an error from the channel
+	err := <-errC
+	// stats channel should be closed (ok=false)
+	_, ok := <-statsC
+	assert.False(t, ok)
+	assert.Error(t, err)
 }
 
 type mockStream struct {
@@ -1155,7 +1158,7 @@ func TestStatsInactivityTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, errC, _ := client.Stats(ctx, "foo", shortInactivityTimeout)
+	_, errC := client.Stats(ctx, "foo", shortInactivityTimeout)
 	assert.Error(t, <-errC)
 }
 
@@ -1172,7 +1175,7 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, _, _ := client.Stats(ctx, "foo", longInactivityTimeout)
+	stats, _ := client.Stats(ctx, "foo", longInactivityTimeout)
 	newStat := <-stats
 
 	waitForStats(t, newStat)

@@ -58,8 +58,7 @@ func TestContainerStatsCollection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *types.StatsJSON)
 	errC := make(chan error)
-	done := make(chan struct{})
-	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC, done)
+	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
@@ -127,6 +126,49 @@ func TestContainerStatsCollection(t *testing.T) {
 	}
 }
 
+func TestContainerStatsCollectionReconnection(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
+
+	dockerID := "container1"
+	ctx, cancel := context.WithCancel(context.TODO())
+
+	statChan := make(chan *types.StatsJSON)
+	errChan := make(chan error)
+	go func() { errChan <- fmt.Errorf("test error") }()
+	closedChan := make(chan *types.StatsJSON)
+	close(closedChan)
+
+	mockContainer := &apicontainer.DockerContainer{
+		DockerID: dockerID,
+		Container: &apicontainer.Container{
+			KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
+		},
+	}
+	gomock.InOrder(
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, errChan),
+		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, nil),
+		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, nil),
+	)
+
+	container := &StatsContainer{
+		containerMetadata: &ContainerMetadata{
+			DockerID: dockerID,
+		},
+		ctx:      ctx,
+		cancel:   cancel,
+		client:   mockDockerClient,
+		resolver: resolver,
+	}
+	container.StartStatsCollection()
+	time.Sleep(checkPointSleep)
+	container.StopStatsCollection()
+}
+
 func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -137,9 +179,8 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	closedChan := make(chan *types.StatsJSON)
+	close(closedChan)
 	errC := make(chan error)
-	done := make(chan struct{})
-	close(done)
 
 	statsErr := fmt.Errorf("test error")
 	mockContainer := &apicontainer.DockerContainer{
@@ -149,7 +190,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, errC, done),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, errC),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, statsErr),
 	)
 

@@ -67,7 +67,7 @@ func (container *StatsContainer) StopStatsCollection() {
 
 func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
-	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*20, 0.75, 2)
+	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*10, 0.5, 2)
 	for {
 		select {
 		case <-container.ctx.Done():
@@ -76,11 +76,6 @@ func (container *StatsContainer) collect() {
 		default:
 			err := container.processStatsStream()
 			if err != nil {
-				// Currently, the only error that we get here is if go-dockerclient is unable
-				// to decode the stats payload properly. Other errors such as
-				// 'NoSuchContainer', 'InactivityTimeoutExceeded' etc are silently consumed.
-				// We rely on state reconciliation with docker task engine at this point of
-				// time to stop collecting metrics.
 				d := backoff.Duration()
 				seelog.Debugf("Error processing stats stream of container %s, backing off %s before reopening", dockerID, d)
 				time.Sleep(d)
@@ -112,23 +107,24 @@ func (container *StatsContainer) processStatsStream() error {
 	if container.client == nil {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
-	dockerStats, errC, done := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
+	dockerStats, errC := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
 
 	returnError := false
 	for {
 		select {
-		case rawStat := <-dockerStats:
+		case err := <-errC:
+			seelog.Warnf("Error encountered processing metrics stream from docker, this may affect cloudwatch metric accuracy: %s", err)
+			returnError = true
+		case rawStat, ok := <-dockerStats:
+			if !ok {
+				if returnError {
+					return fmt.Errorf("error encountered processing metrics stream from docker")
+				}
+				return nil
+			}
 			if err := container.statsQueue.Add(rawStat); err != nil {
 				seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
 			}
-		case err := <-errC:
-			seelog.Warnf("%s", err)
-			returnError = true
-		case <-done:
-			if returnError {
-				return fmt.Errorf("error encountered processing metrics stream")
-			}
-			return nil
 		}
 	}
 }

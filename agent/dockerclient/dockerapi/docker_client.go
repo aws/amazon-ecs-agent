@@ -165,7 +165,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error, <-chan struct{})
+	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1315,26 +1315,29 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 }
 
 // Stats returns a channel of *types.StatsJSON entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error, <-chan struct{}) {
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
+	errC := make(chan error)
+	statsC := make(chan *types.StatsJSON)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
-		return nil, nil, nil
+		go func() {
+			// upstream function should consume error
+			errC <- err
+			close(statsC)
+		}()
+		return statsC, errC
 	}
 
-	statsC := make(chan *types.StatsJSON)
-	done := make(chan struct{})
-	errC := make(chan error)
 	var resp types.ContainerStats
-
 	if !dg.config.PollMetrics {
 		// Streaming metrics is the default behavior
 		seelog.Infof("DockerGoClient: Starting streaming metrics for container %s", id)
 		go func() {
 			defer cancelRequest()
-			defer close(done)
+			defer close(statsC)
 			// ContainerStats outputs an io.ReadCloser and an OSType
 			stream := true
 			resp, err = client.ContainerStats(subCtx, id, stream)
@@ -1375,7 +1378,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
 		go func() {
 			defer cancelRequest()
-			defer close(done)
+			defer close(statsC)
 			defer statPollTicker.Stop()
 
 			for range statPollTicker.C {
@@ -1402,7 +1405,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 		}()
 	}
 
-	return statsC, errC, done
+	return statsC, errC
 }
 
 func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, timeout time.Duration) error {
