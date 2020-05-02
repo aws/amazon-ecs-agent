@@ -51,32 +51,32 @@ func (m *MockLoader) EXPECT() *MockLoaderMockRecorder {
 	return m.recorder
 }
 
-// LoadImage mocks base method
-func (m *MockLoader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadImage", ctx, cfg, dockerClient)
-	ret0, _ := ret[0].(*types.ImageInspect)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LoadImage indicates an expected call of LoadImage
-func (mr *MockLoaderMockRecorder) LoadImage(ctx, cfg, dockerClient interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockLoader)(nil).LoadImage), ctx, cfg, dockerClient)
-}
-
 // IsLoaded mocks base method
-func (m *MockLoader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+func (m *MockLoader) IsLoaded(arg0 dockerapi.DockerClient) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsLoaded", dockerClient)
+	ret := m.ctrl.Call(m, "IsLoaded", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsLoaded indicates an expected call of IsLoaded
-func (mr *MockLoaderMockRecorder) IsLoaded(dockerClient interface{}) *gomock.Call {
+func (mr *MockLoaderMockRecorder) IsLoaded(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoaded", reflect.TypeOf((*MockLoader)(nil).IsLoaded), dockerClient)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoaded", reflect.TypeOf((*MockLoader)(nil).IsLoaded), arg0)
+}
+
+// LoadImage mocks base method
+func (m *MockLoader) LoadImage(arg0 context.Context, arg1 *config.Config, arg2 dockerapi.DockerClient) (*types.ImageInspect, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadImage", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.ImageInspect)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LoadImage indicates an expected call of LoadImage
+func (mr *MockLoaderMockRecorder) LoadImage(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadImage", reflect.TypeOf((*MockLoader)(nil).LoadImage), arg0, arg1, arg2)
 }

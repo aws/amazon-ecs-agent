@@ -57,7 +57,8 @@ func TestContainerStatsCollection(t *testing.T) {
 	dockerID := "container1"
 	ctx, cancel := context.WithCancel(context.TODO())
 	statChan := make(chan *types.StatsJSON)
-	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, nil)
+	errC := make(chan error)
+	mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(statChan, errC)
 	go func() {
 		for _, stat := range statsData {
 			// doing this with json makes me sad, but is the easiest way to
@@ -135,7 +136,8 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	statChan := make(chan *types.StatsJSON)
-	statErr := fmt.Errorf("test error")
+	errChan := make(chan error)
+	go func() { errChan <- fmt.Errorf("test error") }()
 	closedChan := make(chan *types.StatsJSON)
 	close(closedChan)
 
@@ -146,7 +148,7 @@ func TestContainerStatsCollectionReconnection(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(nil, statErr),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, errChan),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
 		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, nil),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, nil),
@@ -178,6 +180,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 
 	closedChan := make(chan *types.StatsJSON)
 	close(closedChan)
+	errC := make(chan error)
 
 	statsErr := fmt.Errorf("test error")
 	mockContainer := &apicontainer.DockerContainer{
@@ -187,7 +190,7 @@ func TestContainerStatsCollectionStopsIfContainerIsTerminal(t *testing.T) {
 		},
 	}
 	gomock.InOrder(
-		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, nil),
+		mockDockerClient.EXPECT().Stats(ctx, dockerID, dockerclient.StatsInactivityTimeout).Return(closedChan, errC),
 		resolver.EXPECT().ResolveContainer(dockerID).Return(mockContainer, statsErr),
 	)
 
