@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -130,9 +130,6 @@ run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tes
 
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
-
-run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
-	${GOTEST} -p 1 -tags functional -timeout=100m ./agent/functional_tests/...
 
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
