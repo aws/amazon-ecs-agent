@@ -351,8 +351,6 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 		mtask.handleDesiredStatusChange(acsTransition.desiredStatus, acsTransition.seqnum)
 		return false
 	case dockerChange := <-mtask.dockerMessages:
-		seelog.Infof("Managed task [%s]: got container [%s (Runtime ID: %s)] event: [%s]",
-			mtask.Arn, dockerChange.container.Name, dockerChange.container.GetRuntimeID(), dockerChange.event.Status.String())
 		mtask.handleContainerChange(dockerChange)
 		return false
 	case resChange := <-mtask.resourceStateChangeEvent:
@@ -397,24 +395,26 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.
 func (mtask *managedTask) handleContainerChange(containerChange dockerContainerChange) {
 	// locate the container
 	container := containerChange.container
+	runtimeID := container.GetRuntimeID()
+	event := containerChange.event
+	seelog.Infof("Managed task [%s]: Container [name=%s runtimeID=%s]: handling container change event [%s]",
+		mtask.Arn, container.Name, runtimeID, event.Status.String())
+	seelog.Debugf("Managed task [%s]: Container [name=%s runtimeID=%s]: container change event [%s]",
+		mtask.Arn, container.Name, runtimeID, event)
 	found := mtask.isContainerFound(container)
 	if !found {
-		seelog.Criticalf("Managed task [%s]: state error; invoked with another task's container [%s]!",
-			mtask.Arn, container.Name)
+		seelog.Criticalf("Managed task [%s]: Container [name=%s runtimeID=%s]: state error; invoked with another task's container!",
+			mtask.Arn, container.Name, runtimeID)
 		return
 	}
-
-	event := containerChange.event
-	seelog.Infof("Managed task [%s]: handling container change [%v] for container [%s (Runtime ID: %s)]",
-		mtask.Arn, event, container.Name, container.GetRuntimeID())
 
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
 	containerKnownStatus := container.GetKnownStatus()
 	mtask.handleStoppedToRunningContainerTransition(event.Status, container)
 	if event.Status <= containerKnownStatus {
-		seelog.Infof("Managed task [%s]: redundant container state change. %s to %s, but already %s",
-			mtask.Arn, container.Name, event.Status.String(), containerKnownStatus.String())
+		seelog.Infof("Managed task [%s]: Container [name=%s runtimeID=%s]: container change %s->%s is redundant",
+			mtask.Arn, container.Name, runtimeID, containerKnownStatus.String(), event.Status.String())
 
 		// Only update container metadata when status stays RUNNING
 		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
@@ -436,18 +436,18 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 
 	mtask.RecordExecutionStoppedAt(container)
-	seelog.Debugf("Managed task [%s]: sending container change event to tcs, container: [%s(%s)], status: %s",
-		mtask.Arn, container.Name, event.DockerID, event.Status.String())
+	seelog.Debugf("Managed task [%s]: Container [name=%s runtimeID=%s]: sending container change event to tcs, status: %s",
+		mtask.Arn, container.Name, runtimeID, event.Status.String())
 	err := mtask.containerChangeEventStream.WriteToEventStream(event)
 	if err != nil {
-		seelog.Warnf("Managed task [%s]: failed to write container [%s] change event to tcs event stream: %v",
-			mtask.Arn, container.Name, err)
+		seelog.Warnf("Managed task [%s]: Container [name=%s runtimeID=%s]: failed to write container change event to tcs event stream: %v",
+			mtask.Arn, container.Name, runtimeID, err)
 	}
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
 	if mtask.UpdateStatus() {
-		seelog.Infof("Managed task [%s]: container change also resulted in task change [%s (Runtime ID: %s)]: [%s]",
-			mtask.Arn, container.Name, container.GetRuntimeID(), mtask.GetDesiredStatus().String())
+		seelog.Infof("Managed task [%s]: Container [name=%s runtimeID=%s]: container change also resulted in task change [%s]",
+			mtask.Arn, container.Name, runtimeID, mtask.GetDesiredStatus().String())
 		// If knownStatus changed, let it be known
 		var taskStateChangeReason string
 		if mtask.GetKnownStatus().Terminal() {
