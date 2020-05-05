@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	utilsync "github.com/aws/amazon-ecs-agent/agent/utils/sync"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
@@ -47,12 +48,13 @@ const (
 	// waitForPullCredentialsTimeout is the timeout agent trying to wait for pull
 	// credentials from acs, after the timeout it will check the credentials manager
 	// and start processing the task or start another round of waiting
-	waitForPullCredentialsTimeout         = 1 * time.Minute
-	defaultTaskSteadyStatePollInterval    = 5 * time.Minute
-	transitionPollTime                    = 5 * time.Second
-	stoppedSentWaitInterval               = 30 * time.Second
-	maxStoppedWaitTimes                   = 72 * time.Hour / stoppedSentWaitInterval
-	taskUnableToTransitionToStoppedReason = "TaskStateError: Agent could not progress task's state to stopped"
+	waitForPullCredentialsTimeout            = 1 * time.Minute
+	defaultTaskSteadyStatePollInterval       = 5 * time.Minute
+	defaultTaskSteadyStatePollIntervalJitter = 30 * time.Second
+	transitionPollTime                       = 5 * time.Second
+	stoppedSentWaitInterval                  = 30 * time.Second
+	maxStoppedWaitTimes                      = 72 * time.Hour / stoppedSentWaitInterval
+	taskUnableToTransitionToStoppedReason    = "TaskStateError: Agent could not progress task's state to stopped"
 )
 
 var (
@@ -160,7 +162,8 @@ type managedTask struct {
 	// This is set to defaultTaskSteadyStatePollInterval in production code.
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
-	steadyStatePollInterval time.Duration
+	steadyStatePollInterval       time.Duration
+	steadyStatePollIntervalJitter time.Duration
 }
 
 // newManagedTask is a method on DockerTaskEngine to create a new managedTask.
@@ -169,21 +172,22 @@ type managedTask struct {
 func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask {
 	ctx, cancel := context.WithCancel(engine.ctx)
 	t := &managedTask{
-		ctx:                        ctx,
-		cancel:                     cancel,
-		Task:                       task,
-		acsMessages:                make(chan acsTransition),
-		dockerMessages:             make(chan dockerContainerChange),
-		resourceStateChangeEvent:   make(chan resourceStateChange),
-		engine:                     engine,
-		cfg:                        engine.cfg,
-		stateChangeEvents:          engine.stateChangeEvents,
-		containerChangeEventStream: engine.containerChangeEventStream,
-		saver:                      engine.saver,
-		credentialsManager:         engine.credentialsManager,
-		cniClient:                  engine.cniClient,
-		taskStopWG:                 engine.taskStopGroup,
-		steadyStatePollInterval:    engine.taskSteadyStatePollInterval,
+		ctx:                           ctx,
+		cancel:                        cancel,
+		Task:                          task,
+		acsMessages:                   make(chan acsTransition),
+		dockerMessages:                make(chan dockerContainerChange),
+		resourceStateChangeEvent:      make(chan resourceStateChange),
+		engine:                        engine,
+		cfg:                           engine.cfg,
+		stateChangeEvents:             engine.stateChangeEvents,
+		containerChangeEventStream:    engine.containerChangeEventStream,
+		saver:                         engine.saver,
+		credentialsManager:            engine.credentialsManager,
+		cniClient:                     engine.cniClient,
+		taskStopWG:                    engine.taskStopGroup,
+		steadyStatePollInterval:       engine.taskSteadyStatePollInterval,
+		steadyStatePollIntervalJitter: engine.taskSteadyStatePollIntervalJitter,
 	}
 	engine.managedTasks[task.Arn] = t
 	return t
@@ -304,7 +308,7 @@ func (mtask *managedTask) waitForHostResources() {
 func (mtask *managedTask) waitSteady() {
 	seelog.Infof("Managed task [%s]: task at steady state: %s", mtask.Arn, mtask.GetKnownStatus().String())
 
-	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, mtask.steadyStatePollInterval)
+	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, retry.AddJitter(mtask.steadyStatePollInterval, mtask.steadyStatePollIntervalJitter))
 	defer cancel()
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
 
