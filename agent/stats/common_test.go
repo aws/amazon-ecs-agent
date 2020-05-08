@@ -41,11 +41,11 @@ import (
 const (
 	// checkPointSleep is the sleep duration in milliseconds between
 	// starting/stopping containers in the test code.
-	checkPointSleep              = 5 * SleepBetweenUsageDataCollection
+	checkPointSleep              = 5 * time.Second
 	testContainerHealthImageName = "amazon/amazon-ecs-containerhealthcheck:make"
 
 	// defaultDockerTimeoutSeconds is the timeout for dialing the docker remote API.
-	defaultDockerTimeoutSeconds = time.Second * 10
+	defaultDockerTimeoutSeconds = 10 * time.Second
 
 	// waitForCleanupSleep is the sleep duration in milliseconds
 	// for the waiting after container cleanup before checking the state of the manager.

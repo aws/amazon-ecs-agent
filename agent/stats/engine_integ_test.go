@@ -398,7 +398,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	assert.NoError(t, err, "failed to write to container change event stream")
 
 	// Wait for the stats collection go routine to start.
-	time.Sleep(10 * SleepBetweenUsageDataCollection)
+	time.Sleep(10 * time.Second)
 	validateInstanceMetrics(t, engine)
 	// Verify the health metrics of container
 	validateTaskHealthMetrics(t, engine)
