@@ -40,7 +40,7 @@ func (handler *ackTimeoutHandler) handle() {
 		seelog.Warnf("Ignoring unmanaged ENI attachment with MAC address: %s", handler.mac)
 		return
 	}
-	if !eniAttachment.IsSent() {
+		if !eniAttachment.IsSent() {
 		seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", handler.mac)
 		handler.state.RemoveENIAttachment(handler.mac)
 	}
