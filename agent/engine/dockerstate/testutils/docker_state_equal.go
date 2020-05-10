@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,8 +16,10 @@
 // allows this to happen
 package testutils
 
-import "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-import api_testutils "github.com/aws/amazon-ecs-agent/agent/api/testutils"
+import (
+	api_testutils "github.com/aws/amazon-ecs-agent/agent/api/testutils"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+)
 
 // DockerStatesEqual determines if the two given dockerstates are equal, for
 // equal meaning they have the same tasks and their tasks are equal

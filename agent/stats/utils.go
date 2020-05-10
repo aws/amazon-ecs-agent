@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cihub/seelog"
+	"github.com/docker/docker/api/types"
 )
 
 // networkStatsErrorPattern defines the pattern that is used to evaluate
@@ -49,4 +50,23 @@ func isNetworkStatsError(err error) bool {
 	}
 
 	return matched
+}
+
+func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
+	if dockerStats.Networks == nil {
+		return nil
+	}
+	networkStats := &NetworkStats{}
+	for _, netStats := range dockerStats.Networks {
+		networkStats.RxBytes += netStats.RxBytes
+		networkStats.RxDropped += netStats.RxDropped
+		networkStats.RxErrors += netStats.RxErrors
+		networkStats.RxPackets += netStats.RxPackets
+
+		networkStats.TxBytes += netStats.TxBytes
+		networkStats.TxDropped += netStats.TxDropped
+		networkStats.TxErrors += netStats.TxErrors
+		networkStats.TxPackets += netStats.TxPackets
+	}
+	return networkStats
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,6 +24,8 @@ const (
 	DockerTimeoutErrorName = "DockerTimeoutError"
 	// CannotInspectContainerErrorName is the name of container inspect error.
 	CannotInspectContainerErrorName = "CannotInspectContainerError"
+	// CannotStartContainerErrorName is the name of container start error.
+	CannotStartContainerErrorName = "CannotStartContainerError"
 	// CannotDescribeContainerErrorName is the name of describe container error.
 	CannotDescribeContainerErrorName = "CannotDescribeContainerError"
 )
@@ -201,7 +203,7 @@ func (err CannotStartContainerError) Error() string {
 
 // ErrorName returns name of the CannotStartContainerError
 func (err CannotStartContainerError) ErrorName() string {
-	return "CannotStartContainerError"
+	return CannotStartContainerErrorName
 }
 
 // CannotInspectContainerError indicates any error when trying to inspect a container

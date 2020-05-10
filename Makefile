@@ -1,4 +1,4 @@
-# Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You
 # may not use this file except in compliance with the License. A copy of
@@ -12,9 +12,8 @@
 # language governing permissions and limitations under the License.
 
 USERID=$(shell id -u)
-GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -44,6 +43,7 @@ static:
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
+	GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
@@ -92,127 +92,52 @@ release: certs docker-release
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:latest" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:latest\""
 
-gogenerate:
-	./scripts/gogenerate
-
 # We need to bundle certificates with our scratch-based container
 certs: misc/certs/ca-certificates.crt
 misc/certs/ca-certificates.crt:
 	docker build -t "amazon/amazon-ecs-agent-cert-source:make" misc/certs/
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
-ifeq (${BUILD_PLATFORM},aarch64)
-test::
-	. ./scripts/shared_env && go test -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
-else
-test::
-	. ./scripts/shared_env && go test -race -tags unit -timeout=30s -v -cover $(shell go list ./agent/... | grep -v /vendor/)
+gogenerate:
+	go generate -x ./agent/...
+	$(MAKE) goimports
+
+# 'go' may not be on the $PATH for sudo tests
+GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
+
+# VERBOSE includes the options that make the test opt loud
+VERBOSE=-v -cover
+
+# -count=1 runs the test without using the build cache.  The build cache can
+# provide false positives when running integ tests, so we err on the side of
+# caution. See `go help test`
+GOTEST=${GO_EXECUTABLE} test -count=1 ${VERBOSE}
+
+# -race sometimes causes compile issues on Arm
+ifneq (${BUILD_PLATFORM},aarch64)
+	GOTEST += -race
 endif
+
+test:
+	${GOTEST} -tags unit -timeout=60s ./agent/...
 
 test-silent:
-	. ./scripts/shared_env && go test -timeout=30s -cover $(shell go list ./agent/... | grep -v /vendor/)
+	$(eval VERBOSE=)
+	${GOTEST} -tags unit -timeout=60s ./agent/...
+
+run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
+	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
+
+run-sudo-tests:
+	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
 benchmark-test:
-	. ./scripts/shared_env && go test -run=XX -bench=. $(shell go list ./agent/... | grep -v /vendor/)
+	go test -run=XX -bench=. ./agent/...
 
-define dockerbuild
-	docker run \
-		--net none \
-		--user "$(USERID)" \
-		--volume "$(PWD)/out:/out" \
-		--volume "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" \
-		--rm \
-		$(BUILDER_IMAGE) \
-		$(1)
-endef
 
-define win-cgo-dockerbuild
-	docker run --net=none \
-		--user "$(USERID)" \
-		--volume "$(PWD)/out:/out" \
-		--volume "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" \
-		--env "GOOS=windows" \
-		--env "CGO_ENABLED=1" \
-		--env "CC=x86_64-w64-mingw32-gcc" \
-		--rm \
-		$(BUILDER_IMAGE) \
-		$(1)
-endef
+.PHONY: build-image-for-ecr upload-images replicate-images
 
-# TODO: use `go list -f` to target the test files more directly
-ALL_GO_FILES = $(shell find . -name "*.go" -print | tr "\n" " ")
-
-ifeq (${BUILD_PLATFORM},aarch64)
-GO_INTEG_TEST = go test -tags integration -c -o
-else
-GO_INTEG_TEST = go test -race -tags integration -c -o
-endif
-
-out/test-artifacts/linux-engine-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call dockerbuild,$(GO_INTEG_TEST) $@ ./agent/engine)
-
-out/test-artifacts/linux-app-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call dockerbuild,$(GO_INTEG_TEST) $@ ./agent/app)
-
-out/test-artifacts/linux-stats-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call dockerbuild,$(GO_INTEG_TEST) $@ ./agent/stats)
-
-out/test-artifacts/windows-engine-tests.exe: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call win-cgo-dockerbuild,$(GO_INTEG_TEST) $@ ./agent/engine)
-
-out/test-artifacts/windows-app-tests.exe: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call win-cgo-dockerbuild,$(GO_INTEG_TEST) $@ ./agent/app)
-
-out/test-artifacts/windows-stats-tests.exe: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call win-cgo-dockerbuild,$(GO_INTEG_TEST) $@ ./agent/stats)
-
-GO_FUNCTIONAL_TEST = go test -tags functional -c -o
-out/test-artifacts/linux-simple-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call dockerbuild,$(GO_FUNCTIONAL_TEST) $@ ./agent/functional_tests/tests/generated/simpletests_unix)
-
-out/test-artifacts/linux-handwritten-tests: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call dockerbuild,$(GO_FUNCTIONAL_TEST) $@ ./agent/functional_tests/tests)
-
-out/test-artifacts/windows-simple-tests.exe: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call win-cgo-dockerbuild,$(GO_FUNCTIONAL_TEST) $@ ./agent/functional_tests/tests/generated/simpletests_windows)
-
-out/test-artifacts/windows-handwritten-tests.exe: $(ALL_GO_FILES) .out-stamp .builder-image-stamp
-	$(call win-cgo-dockerbuild,$(GO_FUNCTIONAL_TEST) $@ ./agent/functional_tests/tests)
-
-##.PHONY: test-artifacts-windows test-artifacts-linux test-artifacts
-
-WINDOWS_ARTIFACTS_TARGETS := out/test-artifacts/windows-engine-tests.exe out/test-artifacts/windows-stats-tests.exe
-WINDOWS_ARTIFACTS_TARGETS += out/test-artifacts/windows-app-tests.exe out/test-artifacts/windows-simple-tests.exe
-WINDOWS_ARTIFACTS_TARGETS += out/test-artifacts/windows-handwritten-tests.exe
-
-LINUX_ARTIFACTS_TARGETS := out/test-artifacts/linux-engine-tests out/test-artifacts/linux-stats-tests
-LINUX_ARTIFACTS_TARGETS += out/test-artifacts/linux-app-tests out/test-artifacts/linux-simple-tests
-LINUX_ARTIFACTS_TARGETS += out/test-artifacts/linux-handwritten-tests
-
-test-artifacts-windows: $(WINDOWS_ARTIFACTS_TARGETS)
-
-test-artifacts-linux: $(LINUX_ARTIFACTS_TARGETS)
-
-test-artifacts: test-artifacts-windows test-artifacts-linux
-
-# Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator
-	@./scripts/setup-test-registry
-
-test-in-docker:
-	docker build -f scripts/dockerfiles/Dockerfile.test -t "amazon/amazon-ecs-agent-test:make" .
-	# Privileged needed for docker-in-docker so integ tests pass
-	docker run --net=none -v "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" --privileged "amazon/amazon-ecs-agent-test:make"
-
-run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image
-	. ./scripts/shared_env && go test -tags functional -timeout=60m -v ./agent/functional_tests/...
-
-.PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
-
-build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator testnnp container-health-check-image telemetry-test-image ecr-execution-role-image-for-upload
-
-ecr-execution-role-image-for-upload:
-	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
+build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -274,24 +199,9 @@ cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plug
 	mv $(PWD)/out/amazon-vpc-cni-plugins/* $(PWD)/out/cni-plugins
 	@echo "Built all cni plugins successfully."
 
-ifeq (${BUILD_PLATFORM},aarch64)
-run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
-else
-run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	. ./scripts/shared_env && go test -race -tags integration -timeout=25m -v ./agent/engine/... ./agent/stats/... ./agent/app/...
-endif
-
-ifeq (${BUILD_PLATFORM},aarch64)
-run-sudo-tests::
-	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -tags sudo -timeout=10m -v ./agent/engine/...
-else
-run-sudo-tests::
-	. ./scripts/shared_env && sudo -E ${GO_EXECUTABLE} test -race -tags sudo -timeout=1m -v ./agent/engine/...
-endif
 
 .PHONY: codebuild
-codebuild: test-artifacts .out-stamp
+codebuild: .out-stamp
 	$(MAKE) release TARGET_OS="linux"
 	TARGET_OS="linux" ./scripts/local-save
 	$(MAKE) docker-release TARGET_OS="windows"
@@ -314,11 +224,16 @@ namespace-tests:
 	$(MAKE) -C misc/namespace-tests $(MFLAGS)
 	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
 
+# Run our 'test' registry needed for integ and functional tests
+test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
+				taskmetadata-validator  \
+
+	@./scripts/setup-test-registry
+
+
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image
-squid:
-	$(MAKE) -C misc/squid $(MFLAGS)
+.PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
@@ -329,42 +244,20 @@ awscli:
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
 
-testnnp:
-	$(MAKE) -C misc/testnnp $(MFLAGS)
-
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
-
-agent-introspection-validator:
-	$(MAKE) -C misc/agent-introspection-validator $(MFLAGS)
 
 taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 
-v3-task-endpoint-validator:
-	$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS)
-
-container-metadata-file-validator:
-	$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS)
-
-elastic-inference-validator:
-	$(MAKE) -C misc/elastic-inference-validator $(MFLAGS)
-
-ecr-execution-role-image:
-	$(MAKE) -C misc/ecr $(MFLAGS)
-
-telemetry-test-image:
-	$(MAKE) -C misc/telemetry $(MFLAGS)
-
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
-appmesh-plugin-validator:
-	$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
-		| grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
+
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
@@ -373,16 +266,21 @@ gocyclo:
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /vendor/ | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model) 
+	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
 
-.PHONY: fmtcheck
-fmtcheck:
-	$(eval DIFFS:=$(shell gofmt -l ${GOFILES}))
-	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running gofmt:"; echo "$(DIFFS)"; exit 1; fi
-	
+GOFMTFILES:=$(shell find ./agent -not -path './agent/vendor/*' -type f -iregex '.*\.go')
+
+.PHONY: importcheck
+importcheck:
+	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
+	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
 
 .PHONY: static-check
-static-check: gocyclo fmtcheck govet
+static-check: gocyclo govet importcheck
+
+.PHONY: goimports
+goimports:
+	goimports -w $(GOFMTFILES)
 
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
@@ -416,21 +314,14 @@ clean:
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/
-	$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
+	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
-	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-$(MAKE) -C misc/agent-introspection-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
-	-$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS) clean
-	-$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS) clean
-	-$(MAKE) -C misc/elastic-inference-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
-	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
-	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp

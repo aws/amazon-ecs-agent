@@ -1,4 +1,4 @@
-// Copyright 2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,7 +15,7 @@
 // so that may be mocked out appropriately
 package os
 
-//go:generate go run ../../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os FileSystem mock/$GOFILE
+//go:generate mockgen -destination=mock/$GOFILE -copyright_file=../../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os FileSystem
 
 import (
 	"io"

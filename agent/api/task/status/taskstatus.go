@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -31,16 +31,24 @@ const (
 	TaskStopped
 	// TaskZombie is an "impossible" state that is used as the maximum
 	TaskZombie
+	// TaskStoppedString represents task stopped status string
+	TaskStoppedString = "STOPPED"
+	// TaskRunningString represents task running status string
+	TaskRunningString = "RUNNING"
+	//TaskCreatedString represents task created status string
+	TaskCreatedString = "CREATED"
+	// TaskNoneString represents task none status string
+	TaskNoneString = "NONE"
 )
 
 // TaskStatus is an enumeration of valid states in the task lifecycle
 type TaskStatus int32
 
 var taskStatusMap = map[string]TaskStatus{
-	"NONE":    TaskStatusNone,
-	"CREATED": TaskCreated,
-	"RUNNING": TaskRunning,
-	"STOPPED": TaskStopped,
+	TaskNoneString:    TaskStatusNone,
+	TaskCreatedString: TaskCreated,
+	TaskRunningString: TaskRunning,
+	TaskStoppedString: TaskStopped,
 }
 
 // String returns a human readable string representation of this object

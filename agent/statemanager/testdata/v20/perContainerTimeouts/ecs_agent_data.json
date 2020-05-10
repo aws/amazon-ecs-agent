@@ -47,13 +47,7 @@
               "KnownStatus": "RUNNING",
               "TransitionDependencySet": {
                 "1": {
-                  "ContainerDependencies": null,
-                  "ResourceDependencies": [
-                    {
-                      "Name": "cgroup",
-                      "RequiredStatus": 1
-                    }
-                  ]
+                  "ContainerDependencies": null
                 }
               },
               "RunDependencies": null,
@@ -88,22 +82,6 @@
               "Type": "gpu"
             }
           ],
-          "resources": {
-            "cgroup": [
-              {
-                "cgroupRoot": "/ecs/33425c99-5db7-45fb-8244-bc94d00661e4",
-                "cgroupMountPath": "/sys/fs/cgroup",
-                "createdAt": "0001-01-01T00:00:00Z",
-                "desiredStatus": "CREATED",
-                "knownStatus": "CREATED",
-                "resourceSpec": {
-                  "cpu": {
-                    "shares": 2
-                  }
-                }
-              }
-            ]
-          },
           "volumes": [],
           "DesiredStatus": "RUNNING",
           "KnownStatus": "RUNNING",
@@ -153,17 +131,6 @@
             "LogsAuthStrategy": "",
             "desiredStatus": "RUNNING",
             "KnownStatus": "RUNNING",
-            "TransitionDependencySet": {
-              "1": {
-                "ContainerDependencies": null,
-                "ResourceDependencies": [
-                  {
-                    "Name": "cgroup",
-                    "RequiredStatus": 1
-                  }
-                ]
-              }
-            },
             "RunDependencies": null,
             "IsInternal": "NORMAL",
             "ApplyingError": {

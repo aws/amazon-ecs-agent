@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,11 +33,11 @@ const (
 var (
 	// Container associations endpoint: /v3/<v3 endpoint id>/<association type>
 	ContainerAssociationsPath = fmt.Sprintf("/v3/%s/associations/%s",
-		utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx),
+		utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationTypeMuxName, utils.AnythingButSlashRegEx))
 	// Container association endpoint: /v3/<v3 endpoint id>/<association type>/<association name>
 	ContainerAssociationPath = fmt.Sprintf("/v3/%s/associations/%s/%s",
-		utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx),
+		utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationTypeMuxName, utils.AnythingButSlashRegEx),
 		utils.ConstructMuxVar(associationNameMuxName, utils.AnythingButEmptyRegEx))
 	// Treat "/v3/<v3 endpoint id>/<association type>/" as a container association endpoint with empty association name (therefore invalid), to be consistent with similar situation in credentials endpoint and v3 metadata endpoint
@@ -47,26 +47,35 @@ var (
 // ContainerAssociationHandler returns the handler method for handling container associations requests.
 func ContainerAssociationsHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		containerID, err := getContainerIDByRequest(r, state)
+		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get container id from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociations)
 			return
 		}
 
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get task arn from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociations)
 			return
 		}
 
-		associationType, err := getAssociationTypeByRequest(r)
+		associationType, err := GetAssociationTypeByRequest(r)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociations)
 			return
 		}
@@ -80,26 +89,35 @@ func ContainerAssociationsHandler(state dockerstate.TaskEngineState) func(http.R
 // ContainerAssociationHandler returns the handler method for handling container association requests.
 func ContainerAssociationHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		taskARN, err := getTaskARNByRequest(r, state)
+		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: unable to get task arn from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociation)
 			return
 		}
 
-		associationType, err := getAssociationTypeByRequest(r)
+		associationType, err := GetAssociationTypeByRequest(r)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociation)
 			return
 		}
 
-		associationName, err := getAssociationNameByRequest(r)
+		associationName, err := GetAssociationNameByRequest(r)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container associations handler: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerAssociation)
 			return
 		}
@@ -111,21 +129,30 @@ func ContainerAssociationHandler(state dockerstate.TaskEngineState) func(http.Re
 }
 
 func writeContainerAssociationsResponse(w http.ResponseWriter, containerID, taskARN, associationType string, state dockerstate.TaskEngineState) {
-	associationsResponse, err := newAssociationsResponse(containerID, taskARN, associationType, state)
+	associationsResponse, err := NewAssociationsResponse(containerID, taskARN, associationType, state)
 	if err != nil {
-		errResponseJSON, _ := json.Marshal(fmt.Sprintf("Unable to write container associations response: %s", err.Error()))
+		errResponseJSON, err := json.Marshal(fmt.Sprintf("Unable to write container associations response: %s", err.Error()))
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerAssociations)
 		return
 	}
 
-	responseJSON, _ := json.Marshal(associationsResponse)
+	responseJSON, err := json.Marshal(associationsResponse)
+	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerAssociations)
 }
 
 func writeContainerAssociationResponse(w http.ResponseWriter, taskARN, associationType, associationName string, state dockerstate.TaskEngineState) {
-	associationResponse, err := newAssociationResponse(taskARN, associationType, associationName, state)
+	associationResponse, err := NewAssociationResponse(taskARN, associationType, associationName, state)
 	if err != nil {
-		errResponseJSON, _ := json.Marshal(fmt.Sprintf("Unable to write container association response: %s", err.Error()))
+		errResponseJSON, err := json.Marshal(fmt.Sprintf("Unable to write container association response: %s", err.Error()))
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerAssociation)
 		return
 	}

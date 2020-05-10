@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -14,6 +14,7 @@
 package utils
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit"
@@ -79,6 +80,18 @@ func WriteJSONToResponse(w http.ResponseWriter, httpStatusCode int, responseJSON
 			"Unable to write %s json response message to ResponseWriter",
 			requestType)
 	}
+}
+
+// WriteResponseIfMarshalError checks the 'err' response of the json.Marshal function.
+// if this function returns an error, then it has already written a response to the
+// http writer, and the calling function should return.
+func WriteResponseIfMarshalError(w http.ResponseWriter, err error) error {
+	if err != nil {
+		WriteJSONToResponse(w, http.StatusInternalServerError, []byte(`{}`), RequestTypeAgentMetadata)
+		seelog.Errorf("Error marshaling json: %s", err)
+		return fmt.Errorf("json marshal error")
+	}
+	return nil
 }
 
 // ValueFromRequest returns the value of a field in the http request. The boolean value is

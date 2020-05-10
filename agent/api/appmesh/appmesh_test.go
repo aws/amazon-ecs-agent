@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -93,6 +93,39 @@ func TestAppMeshFromACSNonAppMeshProxyInput(t *testing.T) {
 	_, err := AppMeshFromACS(&testProxyConfig)
 
 	assert.Error(t, err)
+}
+
+func TestAppMeshEmptyAppPorts(t *testing.T) {
+	emptyAppPorts := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[appPorts] = &emptyAppPorts
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(appMesh.AppPorts))
+}
+
+func TestAppMeshEmptyIgnoredIPs(t *testing.T) {
+	emptyIgnoredIPs := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[egressIgnoredIPs] = &emptyIgnoredIPs
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(appMesh.EgressIgnoredIPs))
+}
+
+func TestAppMeshEmptyIgnoredPorts(t *testing.T) {
+	emptyIgnoredPorts := ""
+	testProxyConfig := prepareProxyConfig()
+	testProxyConfig.Properties[egressIgnoredPorts] = &emptyIgnoredPorts
+
+	appMesh, err := AppMeshFromACS(&testProxyConfig)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(appMesh.EgressIgnoredPorts))
 }
 
 func prepareProxyConfig() ecsacs.ProxyConfiguration {

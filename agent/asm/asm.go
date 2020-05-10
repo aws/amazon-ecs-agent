@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,10 +15,12 @@ package asm
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 	"github.com/pkg/errors"
 )
@@ -85,6 +87,33 @@ func extractASMValue(out *secretsmanager.GetSecretValueOutput) (types.AuthConfig
 	}
 
 	return dac, nil
+}
+
+func GetSecretFromASMWithInput(input *secretsmanager.GetSecretValueInput,
+	client secretsmanageriface.SecretsManagerAPI, jsonKey string) (string, error) {
+	out, err := client.GetSecretValue(input)
+	if err != nil {
+		return "", errors.Wrapf(err, "secret %s", *input.SecretId)
+	}
+
+	if jsonKey == "" {
+		return aws.StringValue(out.SecretString), nil
+	}
+
+	secretMap := make(map[string]interface{})
+	jsonErr := json.Unmarshal([]byte(*out.SecretString), &secretMap)
+	if jsonErr != nil {
+		seelog.Warnf("Error when treating retrieved secret value with secret id %s as JSON and calling unmarshal.", *input.SecretId)
+		return "", jsonErr
+	}
+
+	secretValue, ok := secretMap[jsonKey]
+	if !ok {
+		err = errors.New(fmt.Sprintf("retrieved secret from Secrets Manager did not contain json key %s", jsonKey))
+		return "", err
+	}
+
+	return fmt.Sprintf("%v", secretValue), nil
 }
 
 // GetSecretFromASM makes the api call to the AWS Secrets Manager service to

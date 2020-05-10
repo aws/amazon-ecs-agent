@@ -1,5 +1,5 @@
 // +build windows
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,9 +30,15 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 
 	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
+	networkStats := getNetworkStats(dockerStats)
+	storageReadBytes := dockerStats.StorageStats.ReadSizeBytes
+	storageWriteBytes := dockerStats.StorageStats.WriteSizeBytes
 	return &ContainerStats{
-		cpuUsage:    cpuUsage,
-		memoryUsage: memoryUsage,
-		timestamp:   dockerStats.Read,
+		cpuUsage:          cpuUsage,
+		memoryUsage:       memoryUsage,
+		timestamp:         dockerStats.Read,
+		storageReadBytes:  storageReadBytes,
+		storageWriteBytes: storageWriteBytes,
+		networkStats:      networkStats,
 	}, nil
 }

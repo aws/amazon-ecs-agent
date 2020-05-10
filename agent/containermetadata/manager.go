@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -40,8 +40,9 @@ const (
 type Manager interface {
 	SetContainerInstanceARN(string)
 	SetAvailabilityZone(string)
+	SetHostPrivateIPv4Address(string)
 	SetHostPublicIPv4Address(string)
-	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string) error
+	Create(*dockercontainer.Config, *dockercontainer.HostConfig, *apitask.Task, string, []string) error
 	Update(context.Context, string, *apitask.Task, string) error
 	Clean(string) error
 }
@@ -67,7 +68,9 @@ type metadataManager struct {
 	ioutilWrap ioutilwrapper.IOUtil
 	// availabilityZone is the availabiltyZone where task is in
 	availabilityZone string
-	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance ID
+	// hostPrivateIPv4Address is the private IPv4 address associated with the EC2 instance
+	hostPrivateIPv4Address string
+	// hostPublicIPv4Address is the public IPv4 address associated with the EC2 instance
 	hostPublicIPv4Address string
 }
 
@@ -95,6 +98,12 @@ func (manager *metadataManager) SetAvailabilityZone(availabilityZone string) {
 	manager.availabilityZone = availabilityZone
 }
 
+// SetHostPrivateIPv4Address sets the metadataManager's hostPrivateIPv4Address which is not available
+// at its creation as this information is not present immediately at the agent's startup
+func (manager *metadataManager) SetHostPrivateIPv4Address(ipv4address string) {
+	manager.hostPrivateIPv4Address = ipv4address
+}
+
 // SetHostPublicIPv4Address sets the metadataManager's hostPublicIPv4Address which is not available
 // at its creation as this information is not present immediately at the agent's startup
 func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
@@ -104,7 +113,8 @@ func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
 // Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
-func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, task *apitask.Task, containerName string) error {
+func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig,
+	task *apitask.Task, containerName string, dockerSecurityOptions []string) error {
 	// Create task and container directories if they do not yet exist
 	metadataDirectoryPath, err := getMetadataFilePath(task.Arn, containerName, manager.dataDir)
 	// Stop metadata creation if path is malformed for any reason
@@ -126,7 +136,7 @@ func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfi
 
 	// Add the directory of this container's metadata to the container's mount binds
 	// Then add the destination directory as an environment variable in the container $METADATA
-	binds, env := createBindsEnv(hostConfig.Binds, config.Env, manager.dataDirOnHost, metadataDirectoryPath)
+	binds, env := createBindsEnv(hostConfig.Binds, config.Env, manager.dataDirOnHost, metadataDirectoryPath, dockerSecurityOptions)
 	config.Env = env
 	hostConfig.Binds = binds
 	return nil

@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -269,6 +269,17 @@ func TestInjectV3MetadataEndpoint(t *testing.T) {
 		fmt.Sprintf(MetadataURIFormat, "myV3EndpointID"))
 }
 
+func TestInjectV4MetadataEndpoint(t *testing.T) {
+	container := Container{
+		V3EndpointID: "EndpointID",
+	}
+	container.InjectV4MetadataEndpoint()
+
+	assert.NotNil(t, container.Environment)
+	assert.Equal(t, container.Environment[MetadataURIEnvVarNameV4],
+		fmt.Sprintf(MetadataURIFormatV4, "EndpointID"))
+}
+
 func TestShouldCreateWithSSMSecret(t *testing.T) {
 	cases := []struct {
 		in  Container
@@ -415,56 +426,96 @@ func TestShouldCreateWithASMSecret(t *testing.T) {
 	}
 }
 
-func TestHasSecretAsEnvOrLogDriver(t *testing.T) {
-	cases := []struct {
-		in  Container
-		out bool
+func TestHasSecret(t *testing.T) {
+	isEnvOrLogDriverSecret := func(s Secret) bool {
+		return s.Type == SecretTypeEnv || s.Target == SecretTargetLogDriver
+	}
+	isSSMLogDriverSecret := func(s Secret) bool {
+		return s.Provider == SecretProviderSSM && s.Target == SecretTargetLogDriver
+	}
+
+	testCases := []struct {
+		name    string
+		f       func(s Secret) bool
+		secrets []Secret
+		res     bool
 	}{
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+		{
+			name: "test env secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "secret",
 					Type:      "ENVIRONMENT_VARIABLE",
 					ValueFrom: "/test/secretName",
 				}},
-		}, true},
-		{Container{
-			Name:    "myName",
-			Image:   "image:tag",
-			Secrets: nil,
-		}, false},
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			res: true,
+		},
+		{
+			name: "test no secret",
+			f:    isEnvOrLogDriverSecret,
+		},
+		{
+			name: "test mount point secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "secret",
 					Type:      "MOUNT_POINT",
 					ValueFrom: "/test/secretName",
 				}},
-		}, false},
-		{Container{
-			Name:  "myName",
-			Image: "image:tag",
-			Secrets: []Secret{
-				Secret{
+			res: false,
+		},
+		{
+			name: "test log driver secret",
+			f:    isEnvOrLogDriverSecret,
+			secrets: []Secret{
+				{
 					Provider:  "asm",
 					Name:      "splunk-token",
 					ValueFrom: "/test/secretName",
 					Target:    "LOG_DRIVER",
 				}},
-		}, true},
+			res: true,
+		},
+		{
+			name: "test secret provider ssm",
+			f:    isSSMLogDriverSecret,
+			secrets: []Secret{
+				{
+					Name:     "secret",
+					Provider: SecretProviderSSM,
+					Target:   SecretTargetLogDriver,
+				},
+			},
+			res: true,
+		},
+		{
+			name: "test wrong secret provider",
+			f:    isSSMLogDriverSecret,
+			secrets: []Secret{
+				{
+					Name:     "secret",
+					Provider: "dummy",
+					Target:   SecretTargetLogDriver,
+				},
+			},
+			res: false,
+		},
 	}
 
-	for _, test := range cases {
-		container := test.in
-		assert.Equal(t, test.out, container.HasSecretAsEnvOrLogDriver())
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Container{
+				Name:    "c",
+				Secrets: tc.secrets,
+			}
 
+			assert.Equal(t, tc.res, c.HasSecret(tc.f))
+		})
+	}
 }
 
 func TestPerContainerTimeouts(t *testing.T) {
@@ -478,4 +529,224 @@ func TestPerContainerTimeouts(t *testing.T) {
 
 	assert.Equal(t, container.GetStartTimeout(), expectedTimeout)
 	assert.Equal(t, container.GetStopTimeout(), expectedTimeout)
+}
+
+func TestSetRuntimeIDInContainer(t *testing.T) {
+	container := Container{}
+	container.SetRuntimeID("asdfghjkl1234")
+	assert.Equal(t, "asdfghjkl1234", container.RuntimeID)
+	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
+}
+
+func TestSetImageDigestInContainer(t *testing.T) {
+	container := Container{}
+	container.SetImageDigest("sha256:123456789")
+	assert.Equal(t, "sha256:123456789", container.ImageDigest)
+	assert.Equal(t, "sha256:123456789", container.GetImageDigest())
+}
+
+func TestDependsOnContainer(t *testing.T) {
+	testCases := []struct {
+		name          string
+		container     *Container
+		dependsOnName string
+		dependsOn     bool
+	}{
+		{
+			name: "test DependsOnContainer positive case",
+			container: &Container{
+				Name: "container1",
+				DependsOnUnsafe: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container2",
+			dependsOn:     true,
+		},
+		{
+			name: "test DependsOnContainer negative case",
+			container: &Container{
+				Name: "container1",
+				DependsOnUnsafe: []DependsOn{
+					{
+						ContainerName: "container2",
+						Condition:     "START",
+					},
+				},
+			},
+			dependsOnName: "container0",
+			dependsOn:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.dependsOn, tc.container.DependsOnContainer(tc.dependsOnName))
+		})
+	}
+}
+
+func TestAddContainerDependency(t *testing.T) {
+	container := &Container{
+		Name: "container1",
+	}
+	container.AddContainerDependency("container2", "START")
+
+	assert.Contains(t, container.DependsOnUnsafe, DependsOn{
+		ContainerName: "container2",
+		Condition:     "START",
+	})
+}
+
+func TestGetLogDriver(t *testing.T) {
+	getContainer := func(hostConfig string) *Container {
+		c := &Container{
+			Name: "c",
+		}
+		c.DockerConfig.HostConfig = &hostConfig
+		return c
+	}
+
+	testCases := []struct {
+		name      string
+		container *Container
+		logDriver string
+	}{
+		{
+			name:      "positive case",
+			container: getContainer(`{"LogConfig":{"Type":"logdriver"}}`),
+			logDriver: "logdriver",
+		},
+		{
+			name:      "negative case",
+			container: getContainer("invalid"),
+			logDriver: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.logDriver, tc.container.GetLogDriver())
+		})
+	}
+}
+
+func TestGetNetworkModeFromHostConfig(t *testing.T) {
+	getContainer := func(hostConfig string) *Container {
+		c := &Container{
+			Name: "c",
+		}
+		c.DockerConfig.HostConfig = &hostConfig
+		return c
+	}
+
+	testCases := []struct {
+		name           string
+		container      *Container
+		expectedOutput string
+	}{
+		{
+			name:           "bridge mode",
+			container:      getContainer("{\"NetworkMode\":\"bridge\"}"),
+			expectedOutput: "bridge",
+		},
+		{
+			name:           "invalid case",
+			container:      getContainer("invalid"),
+			expectedOutput: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.container.GetNetworkModeFromHostConfig())
+		})
+	}
+}
+
+func TestShouldCreateWithEnvfiles(t *testing.T) {
+	cases := []struct {
+		in  Container
+		out bool
+	}{
+		{
+			Container{
+				Name:  "containerName",
+				Image: "image:tag",
+				EnvironmentFiles: []EnvironmentFile{
+					EnvironmentFile{
+						Value: "s3://bucket/envfile",
+						Type:  "s3",
+					},
+				},
+			}, true},
+		{
+			Container{
+				Name:             "containerName",
+				Image:            "image:tag",
+				EnvironmentFiles: nil,
+			}, false},
+	}
+
+	for _, test := range cases {
+		container := test.in
+		assert.Equal(t, test.out, container.ShouldCreateWithEnvFiles())
+	}
+}
+
+func TestMergeEnvironmentVariablesFromEnvfiles(t *testing.T) {
+	cases := []struct {
+		Name                   string
+		InContainerEnvironment map[string]string
+		InEnvVarList           []map[string]string
+		OutEnvVarMap           map[string]string
+	}{
+		{
+			Name:                   "merge one item",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList:           []map[string]string{{"key2": "value2"}},
+			OutEnvVarMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+		{
+			Name:                   "merge single item to nil env var map",
+			InContainerEnvironment: nil,
+			InEnvVarList:           []map[string]string{{"key": "value"}},
+			OutEnvVarMap:           map[string]string{"key": "value"},
+		},
+		{
+			Name:                   "merge one item key already exists",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList:           []map[string]string{{"key1": "value2"}},
+			OutEnvVarMap:           map[string]string{"key1": "value1"},
+		},
+		{
+			Name:                   "merge two items with same key",
+			InContainerEnvironment: map[string]string{"key1": "value1"},
+			InEnvVarList: []map[string]string{
+				{"key2": "value2"},
+				{"key2": "value3"},
+			},
+			OutEnvVarMap: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.Name, func(t *testing.T) {
+			container := Container{
+				Environment: test.InContainerEnvironment,
+			}
+
+			container.MergeEnvironmentVariablesFromEnvfiles(test.InEnvVarList)
+			assert.True(t, reflect.DeepEqual(test.OutEnvVarMap, container.Environment))
+		})
+	}
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/client"
+	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
+	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -90,6 +90,7 @@ type session struct {
 	cancel                          context.CancelFunc
 	backoff                         retry.Backoff
 	resources                       sessionResources
+	latestSeqNumTaskManifest        *int64
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
 	_inactiveInstanceReconnectDelay time.Duration
@@ -143,7 +144,7 @@ func NewSession(ctx context.Context,
 	stateManager statemanager.StateManager,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
-	taskHandler *eventhandler.TaskHandler) Session {
+	taskHandler *eventhandler.TaskHandler, latestSeqNumTaskManifest *int64) Session {
 	resources := newSessionResources(credentialsProvider)
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -164,6 +165,7 @@ func NewSession(ctx context.Context,
 		cancel:                          cancel,
 		backoff:                         backoff,
 		resources:                       resources,
+		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
@@ -266,8 +268,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(refreshCredsHandler.handlerFunc())
 
-	// Add handler to ack ENI attach message
-	eniAttachHandler := newAttachENIHandler(
+	// Add handler to ack task ENI attach message
+	eniAttachHandler := newAttachTaskENIHandler(
 		acsSession.ctx,
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
@@ -280,6 +282,31 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(eniAttachHandler.handlerFunc())
 
+	// Add handler to ack instance ENI attach message
+	instanceENIAttachHandler := newAttachInstanceENIHandler(
+		acsSession.ctx,
+		cfg.Cluster,
+		acsSession.containerInstanceARN,
+		client,
+		acsSession.state,
+		acsSession.stateManager,
+	)
+	instanceENIAttachHandler.start()
+	defer instanceENIAttachHandler.stop()
+
+	client.AddRequestHandler(instanceENIAttachHandler.handlerFunc())
+
+	// Add TaskManifestHandler
+	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
+		client, acsSession.stateManager, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+
+	defer taskManifestHandler.clearAcks()
+	taskManifestHandler.start()
+	defer taskManifestHandler.stop()
+
+	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskManifestMessage())
+	client.AddRequestHandler(taskManifestHandler.handlerFuncTaskStopVerificationMessage())
+
 	// Add request handler for handling payload messages from ACS
 	payloadHandler := newPayloadRequestHandler(
 		acsSession.ctx,
@@ -291,7 +318,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.stateManager,
 		refreshCredsHandler,
 		acsSession.credentialsManager,
-		acsSession.taskHandler)
+		acsSession.taskHandler, acsSession.latestSeqNumTaskManifest)
 	// Clear the acks channel on return because acks of messageids don't have any value across sessions
 	defer payloadHandler.clearAcks()
 	payloadHandler.start()
@@ -345,7 +372,11 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 			// Stop receiving and sending messages from and to ACS when
 			// client.Serve returns an error. This can happen when the
 			// the connection is closed by ACS or the agent
-			seelog.Errorf("Error serving to ACS Webserver: %v", err)
+			if err == nil || err == io.EOF {
+				seelog.Info("ACS Websocket connection closed for a valid reason")
+			} else {
+				seelog.Errorf("Error: lost websocket connection with Agent Communication Service (ACS): %v", err)
+			}
 			return err
 		}
 	}

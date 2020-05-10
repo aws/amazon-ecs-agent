@@ -1,6 +1,6 @@
 // +build windows,integration
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -32,7 +33,17 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
+	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
+	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -46,7 +57,7 @@ const (
 	dockerEndpoint              = "npipe:////./pipe/docker_engine"
 	testVolumeImage             = "amazon/amazon-ecs-volumes-test:make"
 	testRegistryImage           = "amazon/amazon-ecs-netkitten:make"
-	testHelloworldImage         = "cggruszka/microsoft-windows-helloworld:latest"
+	testBaseImage               = "amazon-ecs-ftest-windows-base:make"
 	dockerVolumeDirectoryFormat = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
 )
 
@@ -58,7 +69,7 @@ func isDockerRunning() bool { return true }
 func createTestContainer() *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                "windows",
-		Image:               "amazon-ecs-ftest-windows-base:make",
+		Image:               testBaseImage,
 		Essential:           true,
 		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
 		CPU:                 512,
@@ -102,7 +113,7 @@ func createTestHealthCheckTask(arn string) *apitask.Task {
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		Containers:          []*apicontainer.Container{createTestContainer()},
 	}
-	testTask.Containers[0].Image = "microsoft/nanoserver"
+	testTask.Containers[0].Image = testBaseImage
 	testTask.Containers[0].Name = "test-health-check"
 	testTask.Containers[0].HealthCheckType = "docker"
 	testTask.Containers[0].Command = []string{"powershell", "-command", "Start-Sleep -s 300"}
@@ -203,10 +214,11 @@ func TestStartStopUnpulledImage(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(t, testHelloworldImage)
+	baseImg := os.Getenv("BASE_IMAGE_NAME")
+	removeImage(t, baseImg)
 
 	testTask := createTestTask("testStartUnpulled")
-	testTask.Containers[0].Image = testHelloworldImage
+	testTask.Containers[0].Image = baseImg
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -228,14 +240,14 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
-	imageDigest := "cggruszka/microsoft-windows-helloworld@sha256:89282ba3e122e461381eae854d142c6c4895fcc1087d4849dbe4786fb21018f8"
+	baseImgWithDigest := os.Getenv("BASE_IMAGE_NAME_WITH_DIGEST")
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
-	removeImage(t, imageDigest)
+	removeImage(t, baseImgWithDigest)
 
 	testTask := createTestTask("testStartUnpulledDigest")
-	testTask.Containers[0].Image = imageDigest
+	testTask.Containers[0].Image = baseImgWithDigest
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
@@ -609,4 +621,150 @@ func TestTaskLevelVolume(t *testing.T) {
 	data, err := ioutil.ReadFile(volumeFile)
 	assert.NoError(t, err)
 	assert.Equal(t, string(data), "volume")
+}
+
+func TestGMSATaskFile(t *testing.T) {
+	taskEngine, done, _ := setupGMSA(defaultTestConfigIntegTestGMSA(), nil, t)
+	defer done()
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	// Setup test gmsa file
+	envProgramData := "ProgramData"
+	dockerCredentialSpecDataDir := "docker/credentialspecs"
+	programDataDir := os.Getenv(envProgramData)
+	if programDataDir == "" {
+		programDataDir = "C:/ProgramData"
+	}
+	testFileName := "test-gmsa.json"
+	testCredSpecFilePath := filepath.Join(programDataDir, dockerCredentialSpecDataDir, testFileName)
+	testCredSpecData := []byte(`{
+    "CmsPlugins":  [
+                       "ActiveDirectory"
+                   ],
+    "DomainJoinConfig":  {
+                             "Sid":  "S-1-5-21-975084816-3050680612-2826754290",
+                             "MachineAccountName":  "gmsa-acct-test",
+                             "Guid":  "92a07e28-bd9f-4bf3-b1f7-0894815a5257",
+                             "DnsTreeName":  "gmsa.test.com",
+                             "DnsName":  "gmsa.test.com",
+                             "NetBiosName":  "gmsa"
+                         },
+    "ActiveDirectoryConfig":  {
+                                  "GroupManagedServiceAccounts":  [
+                                                                      {
+                                                                          "Name":  "gmsa-acct-test",
+                                                                          "Scope":  "gmsa.test.com"
+                                                                      }
+                                                                  ]
+                              }
+}`)
+
+	err := ioutil.WriteFile(testCredSpecFilePath, testCredSpecData, 0755)
+	require.NoError(t, err)
+
+	testContainer := createTestContainer()
+	testContainer.Name = "testGMSATaskFile"
+
+	hostConfig := "{\"SecurityOpt\": [\"credentialspec:file://test-gmsa.json\"]}"
+	testContainer.DockerConfig.HostConfig = &hostConfig
+
+	testTask := &apitask.Task{
+		Arn:                 "testGMSAFileTaskARN",
+		Family:              "family",
+		Version:             "1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers:          []*apicontainer.Container{testContainer},
+	}
+	testTask.Containers[0].TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
+	testTask.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	testTask.Containers[0].Command = getLongRunningCommand()
+
+	go taskEngine.AddTask(testTask)
+
+	err = verifyTaskIsRunning(stateChangeEvents, testTask)
+	require.NoError(t, err)
+
+	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+
+	testCredentialSpecOption := "credentialspec=file://test-gmsa.json"
+	err = verifyContainerCredentialSpec(client, cid, testCredentialSpecOption)
+	assert.NoError(t, err)
+
+	// Kill the existing container now
+	err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+	assert.NoError(t, err, "Could not kill container")
+
+	verifyTaskIsStopped(stateChangeEvents, testTask)
+
+	// Cleanup the test file
+	err = os.Remove(testCredSpecFilePath)
+	assert.NoError(t, err)
+}
+
+func defaultTestConfigIntegTestGMSA() *config.Config {
+	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
+
+	cfg.GMSACapable = true
+	cfg.AWSRegion = "us-west-2"
+
+	return cfg
+}
+
+func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
+		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
+	}
+	if !isDockerRunning() {
+		t.Skip("Docker not running")
+	}
+
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
+	if err != nil {
+		t.Fatalf("Error creating Docker client: %v", err)
+	}
+	credentialsManager := credentials.NewManager()
+	if state == nil {
+		state = dockerstate.NewTaskEngineState()
+	}
+	imageManager := NewImageManager(cfg, dockerClient, state)
+	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	metadataManager := containermetadata.NewManager(dockerClient, cfg)
+
+	resourceFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator: ssmfactory.NewSSMClientCreator(),
+		},
+		DockerClient:    dockerClient,
+		S3ClientCreator: s3factory.NewS3ClientCreator(),
+	}
+
+	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, resourceFields)
+	taskEngine.MustInit(context.TODO())
+	return taskEngine, func() {
+		taskEngine.Shutdown()
+	}, credentialsManager
+}
+
+func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecOpt string) error {
+	dockerContainer, err := client.ContainerInspect(context.TODO(), id)
+	if err != nil {
+		return err
+	}
+
+	for _, opt := range dockerContainer.HostConfig.SecurityOpt {
+		if strings.HasPrefix(opt, "credentialspec=") && opt == credentialspecOpt {
+			return nil
+		}
+	}
+
+	return errors.New("unable to obtain credentialspec")
 }

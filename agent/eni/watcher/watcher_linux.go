@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -18,6 +18,7 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/cihub/seelog"
@@ -73,6 +74,10 @@ const (
 	// for the host to learn about an ENIs mac address from netlink.LinkList().
 	// We are capping off this duration to 1s assuming worst-case behavior
 	macAddressRetryTimeout = 2 * time.Second
+
+	// eniStatusSentMsg is the error message to use when trying to send an eni status that's
+	// already been sent
+	eniStatusSentMsg = "eni status already sent"
 )
 
 // UdevWatcher maintains the state of attached ENIs
@@ -184,7 +189,14 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 	// Add new interfaces next
 	for mac := range currentState {
 		if err := udevWatcher.sendENIStateChange(mac); err != nil {
-			log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
+			// skip logging status sent error as it's redundant and doesn't really indicate a problem
+			if strings.Contains(err.Error(), eniStatusSentMsg) {
+				continue
+			} else if _, ok := err.(*unmanagedENIError); ok {
+				log.Debugf("Udev watcher reconciliation: unable to send state change: %v", err)
+			} else {
+				log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
+			}
 		}
 	}
 	return nil
@@ -201,7 +213,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 		return &unmanagedENIError{mac}
 	}
 	if eni.IsSent() {
-		return errors.Errorf("udev watcher send ENI state change: eni status already sent: %s", eni.String())
+		return errors.Errorf("udev watcher send ENI state change: %s: %s", eniStatusSentMsg, eni.String())
 	}
 	if eni.HasExpired() {
 		// Agent is aware of the ENI, but we decide not to ack it
@@ -214,15 +226,31 @@ func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
 
 	// We found an ENI, which has the expiration time set in future and
 	// needs to be acknowledged as having been 'attached' to the Instance
-	go func(eni *apieni.ENIAttachment) {
-		eni.Status = apieni.ENIAttached
-		log.Infof("Emitting ENI change event for: %s", eni.String())
-		udevWatcher.eniChangeEvent <- api.TaskStateChange{
-			TaskARN:    eni.TaskARN,
-			Attachment: eni,
-		}
-	}(eni)
+	if eni.AttachmentType == apieni.ENIAttachmentTypeInstanceENI {
+		go udevWatcher.emitInstanceENIAttachedEvent(eni)
+	} else {
+		go udevWatcher.emitTaskENIAttachedEvent(eni)
+	}
 	return nil
+}
+
+// emitTaskENIChangeEvent sends a state change event for a task ENI attachment to the event channel with eni status as
+// attached
+func (udevWatcher *UdevWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment) {
+	eni.Status = apieni.ENIAttached
+	log.Infof("Emitting task ENI attached event for: %s", eni.String())
+	udevWatcher.eniChangeEvent <- api.TaskStateChange{
+		TaskARN:    eni.TaskARN,
+		Attachment: eni,
+	}
+}
+
+// emitInstanceENIChangeEvent sends a state change event for an instance ENI attachment to the event channel with eni
+// status as attached
+func (udevWatcher *UdevWatcher) emitInstanceENIAttachedEvent(eni *apieni.ENIAttachment) {
+	eni.Status = apieni.ENIAttached
+	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
+	udevWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }
 
 // buildState is used to build a state of the system for reconciliation

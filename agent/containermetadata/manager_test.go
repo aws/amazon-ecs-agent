@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2017-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
@@ -41,6 +41,7 @@ const (
 	containerName          = "container"
 	dataDir                = "ecs_mockdata"
 	availabilityZone       = "us-west-2b"
+	hostPrivateIPv4Address = "127.0.0.1"
 	hostPublicIPv4Address  = "127.0.0.1"
 )
 
@@ -75,6 +76,15 @@ func TestSetAvailabilityZone(t *testing.T) {
 	assert.Equal(t, mockAvailabilityZone, newManager.availabilityZone)
 }
 
+// TestSetHostPrivateIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
+func TestSetHostPrivateIPv4Address(t *testing.T) {
+	_, _, _, _, done := managerSetup(t)
+	defer done()
+	newManager := &metadataManager{}
+	newManager.SetHostPrivateIPv4Address(hostPrivateIPv4Address)
+	assert.Equal(t, hostPrivateIPv4Address, newManager.hostPrivateIPv4Address)
+}
+
 // TestSetHostPublicIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
 func TestSetHostPublicIPv4Address(t *testing.T) {
 	_, _, _, _, done := managerSetup(t)
@@ -92,9 +102,10 @@ func TestCreateMalformedFilepath(t *testing.T) {
 	mockTaskARN := invalidTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
+	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	newManager := &metadataManager{}
-	err := newManager.Create(nil, nil, mockTask, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
 	assert.Error(t, err)
 }
 
@@ -106,6 +117,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	mockTaskARN := validTaskARN
 	mockTask := &apitask.Task{Arn: mockTaskARN}
 	mockContainerName := containerName
+	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(errors.New("err")),
@@ -114,7 +126,7 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	newManager := &metadataManager{
 		osWrap: mockOS,
 	}
-	err := newManager.Create(nil, nil, mockTask, mockContainerName)
+	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
 	assert.Error(t, err)
 }
 

@@ -1,5 +1,5 @@
 // +build !windows
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -28,7 +28,7 @@ const (
 	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
-	// Default cgroup prefix for ECS tasks
+	// DefaultTaskCgroupPrefix is default cgroup prefix for ECS tasks
 	DefaultTaskCgroupPrefix = "/ecs"
 
 	// Default cgroup memory system root path, this is the default used if the
@@ -60,6 +60,7 @@ func DefaultConfig() Config {
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                false,
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
+		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
@@ -80,6 +81,8 @@ func DefaultConfig() Config {
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
+		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
+		GMSACapable:                         false,
 	}
 }
 
@@ -87,6 +90,10 @@ func (cfg *Config) platformOverrides() {
 	cfg.PrometheusMetricsEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_PROMETHEUS_METRICS"), false)
 	if cfg.PrometheusMetricsEnabled {
 		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
+	}
+
+	if cfg.TaskENIEnabled { // when task networking is enabled, eni trunking is enabled by default
+		cfg.ENITrunkingEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_HIGH_DENSITY_ENI"), true)
 	}
 }
 

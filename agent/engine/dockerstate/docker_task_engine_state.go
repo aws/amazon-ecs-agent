@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,17 +22,16 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/cihub/seelog"
 )
-
-var log = logger.ForModule("dockerstate")
 
 // TaskEngineState keeps track of all mappings between tasks we know about
 // and containers docker runs
 type TaskEngineState interface {
 	// AllTasks returns all of the tasks
 	AllTasks() []*apitask.Task
+	// AllENIAttachments returns all of the eni attachments
+	AllENIAttachments() []*apieni.ENIAttachment
 	// AllImageStates returns all of the image.ImageStates
 	AllImageStates() []*image.ImageState
 	// GetAllContainerIDs returns all of the Container Ids
@@ -199,7 +198,7 @@ func (state *DockerTaskEngineState) ENIByMac(mac string) (*apieni.ENIAttachment,
 // AddENIAttachment adds the eni into the state
 func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *apieni.ENIAttachment) {
 	if eniAttachment == nil {
-		log.Debug("Cannot add empty eni attachment information")
+		seelog.Debug("Cannot add empty eni attachment information")
 		return
 	}
 
@@ -217,12 +216,11 @@ func (state *DockerTaskEngineState) AddENIAttachment(eniAttachment *apieni.ENIAt
 // RemoveENIAttachment removes the eni from state and stop managing
 func (state *DockerTaskEngineState) RemoveENIAttachment(mac string) {
 	if mac == "" {
-		log.Debug("Cannot remove empty eni attachment information")
+		seelog.Debug("Cannot remove empty eni attachment information")
 		return
 	}
 	state.lock.Lock()
 	defer state.lock.Unlock()
-
 	if _, ok := state.eniAttachments[mac]; ok {
 		delete(state.eniAttachments, mac)
 	} else {
@@ -325,13 +323,13 @@ func (state *DockerTaskEngineState) AddContainer(container *apicontainer.DockerC
 	state.lock.Lock()
 	defer state.lock.Unlock()
 	if task == nil || container == nil {
-		log.Crit("Addcontainer called with nil task/container")
+		seelog.Critical("Addcontainer called with nil task/container")
 		return
 	}
 
 	_, exists := state.tasks[task.Arn]
 	if !exists {
-		log.Debug("AddContainer called with unknown task; adding", "arn", task.Arn)
+		seelog.Debug("AddContainer called with unknown task; adding", "arn", task.Arn)
 		state.tasks[task.Arn] = task
 	}
 
@@ -356,11 +354,11 @@ func (state *DockerTaskEngineState) AddContainer(container *apicontainer.DockerC
 // AddImageState adds an image.ImageState to be stored
 func (state *DockerTaskEngineState) AddImageState(imageState *image.ImageState) {
 	if imageState == nil {
-		log.Debug("Cannot add empty image state")
+		seelog.Debug("Cannot add empty image state")
 		return
 	}
 	if imageState.Image.ImageID == "" {
-		log.Debug("Cannot add image state with empty image id")
+		seelog.Debug("Cannot add image state with empty image id")
 		return
 	}
 	state.lock.Lock()
@@ -454,7 +452,7 @@ func (state *DockerTaskEngineState) removeV3EndpointIDToTaskContainerUnsafe(v3En
 // RemoveImageState removes an image.ImageState
 func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageState) {
 	if imageState == nil {
-		log.Debug("Cannot remove empty image state")
+		seelog.Debug("Cannot remove empty image state")
 		return
 	}
 	state.lock.Lock()
@@ -462,7 +460,7 @@ func (state *DockerTaskEngineState) RemoveImageState(imageState *image.ImageStat
 
 	imageState, ok := state.imageStates[imageState.Image.ImageID]
 	if !ok {
-		log.Debug("Image State is not found. Cannot be removed")
+		seelog.Debug("Image State is not found. Cannot be removed")
 		return
 	}
 	delete(state.imageStates, imageState.Image.ImageID)

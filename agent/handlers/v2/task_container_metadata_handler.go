@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -50,8 +50,11 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient a
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("Unable to get task arn from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
@@ -70,12 +73,18 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient a
 func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, state dockerstate.TaskEngineState) {
 	containerResponse, err := NewContainerResponse(containerID, state)
 	if err != nil {
-		errResponseJSON, _ := json.Marshal("Unable to generate metadata for container '" + containerID + "'")
+		errResponseJSON, err := json.Marshal("Unable to generate metadata for container '" + containerID + "'")
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
 		return
 	}
 
-	responseJSON, _ := json.Marshal(containerResponse)
+	responseJSON, err := json.Marshal(containerResponse)
+	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerMetadata)
 }
 
@@ -84,11 +93,17 @@ func WriteTaskMetadataResponse(w http.ResponseWriter, taskARN string, cluster st
 	// Generate a response for the task
 	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
 	if err != nil {
-		errResponseJSON, _ := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
+		errResponseJSON, err := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskMetadata)
 		return
 	}
 
-	responseJSON, _ := json.Marshal(taskResponse)
+	responseJSON, err := json.Marshal(taskResponse)
+	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskMetadata)
 }

@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,8 +23,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// ENIAttachmentTypeTaskENI represents the type of a task level eni
+	ENIAttachmentTypeTaskENI = "task-eni"
+	// ENIAttachmentTypeInstanceENI represents the type of an instance level eni
+	ENIAttachmentTypeInstanceENI = "instance-eni"
+)
+
 // ENIAttachment contains the information of the eni attachment
 type ENIAttachment struct {
+	// AttachmentType is the type of the eni attachment, can either be "task-eni" or "instance-eni"
+	AttachmentType string `json:"attachmentType"`
 	// TaskARN is the task identifier from ecs
 	TaskARN string `json:"taskArn"`
 	// AttachmentARN is the identifier for the eni attachment
@@ -61,6 +70,28 @@ func (eni *ENIAttachment) StartTimer(timeoutFunc func()) error {
 		return errors.Errorf("eni attachment: timer expiration is in the past; expiration [%s] < now [%s]",
 			eni.ExpiresAt.String(), now.String())
 	}
+	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.stringUnsafe())
+	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
+	return nil
+}
+
+// Initialize initializes the fields that can't be populated from loading state file.
+// Notably, this initializes the ack timer so that if we times out waiting for the eni to be attached, the attachment
+// can be removed from state.
+func (eni *ENIAttachment) Initialize(timeoutFunc func()) error {
+	eni.guard.Lock()
+	defer eni.guard.Unlock()
+
+	if eni.AttachStatusSent { // eni attachment status has been sent, no need to start ack timer.
+		return nil
+	}
+
+	now := time.Now()
+	duration := eni.ExpiresAt.Sub(now)
+	if duration <= 0 {
+		return errors.New("ENI attachment has already expired")
+	}
+
 	seelog.Infof("Starting ENI ack timer with duration=%s, %s", duration.String(), eni.stringUnsafe())
 	eni.ackTimer = time.AfterFunc(duration, timeoutFunc)
 	return nil
@@ -109,7 +140,14 @@ func (eni *ENIAttachment) String() string {
 
 // stringUnsafe returns a string representation of the ENI Attachment
 func (eni *ENIAttachment) stringUnsafe() string {
+	// skip TaskArn field for instance level eni attachment since it won't have a task arn
+	if eni.AttachmentType == ENIAttachmentTypeInstanceENI {
+		return fmt.Sprintf(
+			"ENI Attachment: attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
+			eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+	}
+
 	return fmt.Sprintf(
-		"ENI Attachment: task=%s;attachment=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
-		eni.TaskARN, eni.AttachmentARN, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+		"ENI Attachment: task=%s;attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
+		eni.TaskARN, eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
 }

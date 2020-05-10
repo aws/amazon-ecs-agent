@@ -1,6 +1,6 @@
 // +build linux,unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -79,51 +79,43 @@ func TestMetricCollection(t *testing.T) {
 	MustInit(&cfg, prometheus.NewRegistry())
 	MetricsEngineGlobal.collection = true
 
-	var DockerMetricSleepTime4 time.Duration = 4 * time.Second
+	var DockerMetricSleepTime1 time.Duration = 1 * time.Second
 	var DockerMetricSleepTime2 time.Duration = 2 * time.Second
 
 	var wg sync.WaitGroup
-	wg.Add(40)
+	wg.Add(20)
 
 	// These Go routines simulate metrics collection
-	go func() {
-		for i := 0; i < 10; i++ {
-			go func() {
-				defer wg.Done()
-				defer MetricsEngineGlobal.RecordDockerMetric("START")()
-				time.Sleep(DockerMetricSleepTime4)
-			}()
-		}
-	}()
-	go func() {
-		for i := 0; i < 10; i++ {
-			go func() {
-				defer wg.Done()
-				defer MetricsEngineGlobal.RecordDockerMetric("START")()
-				time.Sleep(DockerMetricSleepTime2)
-			}()
-		}
-	}()
-	go func() {
-		for i := 0; i < 10; i++ {
-			go func() {
-				defer wg.Done()
-				defer MetricsEngineGlobal.RecordDockerMetric("STOP")()
-				time.Sleep(DockerMetricSleepTime4)
-			}()
-		}
-	}()
-	go func() {
-		for i := 0; i < 10; i++ {
-			go func() {
-				defer wg.Done()
-				defer MetricsEngineGlobal.RecordDockerMetric("STOP")()
-				time.Sleep(DockerMetricSleepTime2)
-			}()
-		}
-	}()
-	time.Sleep(2 * time.Second)
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			defer MetricsEngineGlobal.RecordDockerMetric("START")()
+			time.Sleep(DockerMetricSleepTime1)
+		}()
+	}
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			defer MetricsEngineGlobal.RecordDockerMetric("START")()
+			time.Sleep(DockerMetricSleepTime2)
+		}()
+	}
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			defer MetricsEngineGlobal.RecordDockerMetric("STOP")()
+			time.Sleep(DockerMetricSleepTime1)
+		}()
+	}
+	for i := 0; i < 5; i++ {
+		go func() {
+			defer wg.Done()
+			defer MetricsEngineGlobal.RecordDockerMetric("STOP")()
+			time.Sleep(DockerMetricSleepTime2)
+		}()
+	}
 	wg.Wait()
+	time.Sleep(time.Second)
 
 	// This will gather all collected metrics and store them in a MetricFamily list
 	// All metric families can be printed by looping over this variable using
@@ -137,11 +129,11 @@ func TestMetricCollection(t *testing.T) {
 	expected["AgentMetrics_DockerAPI_call_count"] = make(map[string][]interface{})
 	expected["AgentMetrics_DockerAPI_call_count"]["CallSTART"] = []interface{}{
 		"COUNTER",
-		20.0,
+		10.0,
 	}
 	expected["AgentMetrics_DockerAPI_call_count"]["CallSTOP"] = []interface{}{
 		"COUNTER",
-		20.0,
+		10.0,
 	}
 	expected["AgentMetrics_DockerAPI_call_duration"] = make(map[string][]interface{})
 	expected["AgentMetrics_DockerAPI_call_duration"]["CallSTART"] = []interface{}{
@@ -155,11 +147,11 @@ func TestMetricCollection(t *testing.T) {
 	expected["AgentMetrics_DockerAPI_duration_seconds"] = make(map[string][]interface{})
 	expected["AgentMetrics_DockerAPI_duration_seconds"]["CallSTART"] = []interface{}{
 		"SUMMARY",
-		3.0,
+		1.5,
 	}
 	expected["AgentMetrics_DockerAPI_duration_seconds"]["CallSTOP"] = []interface{}{
 		"SUMMARY",
-		3.0,
+		1.5,
 	}
 	// We will do a simple tree search to verify all metrics in metricsFamilies
 	// are as expected

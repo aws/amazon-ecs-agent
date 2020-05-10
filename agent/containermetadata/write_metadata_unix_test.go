@@ -1,6 +1,6 @@
 // +build unit,!windows
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,7 @@ package containermetadata
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -89,4 +90,41 @@ func TestWriteChmodFail(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Equal(t, expectErrorMessage, err.Error())
+}
+
+func TestCreateBindEnv(t *testing.T) {
+	mockBinds := []string{}
+	mockEnv := []string{}
+	mockDataDirOnHost := ""
+	mockMetadataDirectoryPath := ""
+	expectedBindMode := fmt.Sprintf(`:%s`, bindMode)
+
+	testcases := []struct {
+		name            string
+		securityOptions []string
+		selinuxEnabled  bool
+	}{
+		{
+			name:            "Selinux Enabled Bind Mode",
+			securityOptions: []string{"selinux"},
+			selinuxEnabled:  true,
+		},
+		{
+			name:            "Selinux Disabled Bind Mode",
+			securityOptions: []string{""},
+			selinuxEnabled:  false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			binds, _ := createBindsEnv(mockBinds, mockEnv, mockDataDirOnHost, mockMetadataDirectoryPath, tc.securityOptions)
+			actualBindMode := binds[0][len(binds[0])-2:]
+			if tc.selinuxEnabled {
+				assert.Equal(t, expectedBindMode, actualBindMode)
+			} else {
+				assert.NotEqual(t, expectedBindMode, actualBindMode)
+			}
+		})
+	}
 }

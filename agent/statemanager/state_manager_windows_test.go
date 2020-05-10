@@ -1,6 +1,6 @@
 // +build windows,unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
+	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/registry"
@@ -167,10 +167,10 @@ func TestStateManagerLoadV13Data(t *testing.T) {
 	mockFS.EXPECT().ReadAll(dataFile).Return(ioutil.ReadAll(dataFile))
 	err = manager.Load()
 	assert.Nil(t, err, "Error loading state")
-	assert.Equal(t, "test", cluster, "Wrong cluster")
+	assert.Equal(t, "test-statefile", cluster, "Wrong cluster")
 	assert.Equal(t, int64(0), sequenceNumber, "v13 should give a sequence number of 0")
-	assert.Equal(t, "arn:aws:ecs:us-west-2:694464167470:container-instance/5e94f1e5-2177-4440-ab84-196d1a6072da", containerInstanceArn)
-	assert.Equal(t, "i-04e73559ead350d79", savedInstanceID)
+	assert.Equal(t, "arn:aws:ecs:us-west-2:1234567890:container-instance/test-statefile/b9c2c229d5ce4f52851f3e9e6d4db894", containerInstanceArn)
+	assert.Equal(t, "i-1234567890", savedInstanceID)
 }
 
 func TestStateManagerSaveCreateFileError(t *testing.T) {

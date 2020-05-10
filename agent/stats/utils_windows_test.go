@@ -1,6 +1,6 @@
 // +build windows,unit
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,8 @@ package stats
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -26,6 +28,7 @@ import (
 
 func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 	numCores = uint64(0)
+	// not using windows_test_stats.json here to save file open/read time
 	jsonStat := fmt.Sprintf(`
 		{
 			"cpu_stats":{
@@ -40,25 +43,23 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 	assert.Error(t, err, "expected error converting container stats with zero cpu cores")
 }
 
-func TestDockerStatsToContainerStatsCpuUsage(t *testing.T) {
-	// doing this with json makes me sad, but is the easiest way to deal with
-	// the inner structs
-
-	// numCores is a global variable in package agent/stats
-	// which denotes the number of cpu cores
+func TestDockerStatsToContainerStats(t *testing.T) {
 	numCores = 4
-	jsonStat := fmt.Sprintf(`
-		{
-			"cpu_stats":{
-				"cpu_usage":{
-					"total_usage":%d
-				}
-			}
-		}`, 100)
+	inputJsonFile, _ := filepath.Abs("./windows_test_stats.json")
+	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
 	dockerStat := &types.StatsJSON{}
-	json.Unmarshal([]byte(jsonStat), dockerStat)
+	json.Unmarshal([]byte(jsonBytes), dockerStat)
 	containerStats, err := dockerStatsToContainerStats(dockerStat)
 	assert.NoError(t, err, "converting container stats failed")
 	require.NotNil(t, containerStats, "containerStats should not be nil")
-	assert.Equal(t, uint64(2500), containerStats.cpuUsage, "unexpected value for cpuUsage", containerStats.cpuUsage)
+	netStats := containerStats.networkStats
+	assert.NotNil(t, netStats, "networkStats should not be nil")
+	validateNetworkMetrics(t, netStats)
+	assert.Equal(t, uint64(2500), containerStats.cpuUsage,
+		"unexpected value for cpuUsage", containerStats.cpuUsage)
+	assert.Equal(t, uint64(3), containerStats.storageReadBytes,
+		"unexpected value for storageReadBytes", containerStats.storageReadBytes)
+	assert.Equal(t, uint64(15), containerStats.storageWriteBytes,
+		"Unexpected value for storageWriteBytes", containerStats.storageWriteBytes)
+
 }

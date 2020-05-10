@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,6 +38,22 @@ func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient d
 
 	return getPauseContainerImage(
 		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
+}
+
+func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	image, err := getPauseContainerImage(
+		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
+
+	if err != nil {
+		return false, errors.Wrapf(err,
+			"pause container inspect: failed to inspect image: %s", config.DefaultPauseContainerImageName)
+	}
+
+	if image == nil || image.ID == "" {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {

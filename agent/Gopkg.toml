@@ -27,11 +27,11 @@ required = ["github.com/golang/mock/mockgen/model"]
 
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
-  version = "1.14.30"
+  version = "1.27.0"
 
 [[constraint]]
   name = "github.com/cihub/seelog"
-  version ="2.6"
+  revision = "f561c5e57575bb1e0a2167028b7339b3a8d16fb4"
 
 [[constraint]]
   name = "github.com/containerd/cgroups"
@@ -39,7 +39,7 @@ required = ["github.com/golang/mock/mockgen/model"]
 
 [[constraint]]
   name = "github.com/containernetworking/cni"
-  version = "0.5.2"
+  version = "0.7.0"
 
 [[constraint]]
   name = "github.com/deniswernert/udev"
@@ -92,3 +92,7 @@ required = ["github.com/golang/mock/mockgen/model"]
 [[constraint]]
   name = "github.com/prometheus/client_golang"
   version = "0.9.0"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"

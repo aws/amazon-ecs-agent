@@ -1,0 +1,11 @@
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 85
+model name      : Intel(R) Xeon(R) Platinum 8175M CPU @ 2.50GHz
+stepping        : 4
+microcode       : 0x200005e
+cpu MHz         : 2500.000
+cache size      : 33792 KB
+physical id     : 0
+

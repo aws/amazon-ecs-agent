@@ -1,6 +1,6 @@
 // +build windows
 
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,6 +26,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -259,8 +260,9 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
-		Ctx:          agent.ctx,
-		DockerClient: agent.dockerClient,
+		Ctx:             agent.ctx,
+		DockerClient:    agent.dockerClient,
+		S3ClientCreator: s3factory.NewS3ClientCreator(),
 	}
 }
 
@@ -273,5 +275,9 @@ func (agent *ecsAgent) initializeGPUManager() error {
 }
 
 func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
+	return nil
+}
+
+func (agent *ecsAgent) loadPauseContainer() error {
 	return nil
 }

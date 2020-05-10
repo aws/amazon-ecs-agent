@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -159,6 +159,10 @@ type Config struct {
 	// defined EC2 networks
 	TaskENIEnabled bool
 
+	// ENITrunkingEnabled specifies if the Agent is enabled to launch awsvpc
+	// task with ENI Trunking
+	ENITrunkingEnabled bool
+
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
 	ImageCleanupDisabled bool
@@ -166,6 +170,9 @@ type Config struct {
 	// MinimumImageDeletionAge specifies the minimum time since it was pulled
 	// before it can be deleted
 	MinimumImageDeletionAge time.Duration
+
+	// NonECSMinimumImageDeletionAge specifies the minimum time since non ecs images created before it can be deleted
+	NonECSMinimumImageDeletionAge time.Duration
 
 	// ImageCleanupInterval specifies the time to wait before performing the image
 	// cleanup since last time it was executed
@@ -283,4 +290,26 @@ type Config struct {
 
 	// TaskMetadataAZDisabled specifies if availability zone should be disabled in Task Metadata endpoint
 	TaskMetadataAZDisabled bool
+
+	// ENIPauseContainerCleanupDelaySeconds specifies how long to wait before cleaning up the pause container after all
+	// other containers have stopped.
+	ENIPauseContainerCleanupDelaySeconds int
+
+	// CgroupCPUPeriod is config option to set different CFS quota and period values in microsecond, defaults to 100 ms
+	CgroupCPUPeriod time.Duration
+
+	// SpotInstanceDrainingEnabled, if true, agent will poll the container instance's metadata endpoint for an ec2 spot
+	//   instance termination notice. If EC2 sends a spot termination notice, then agent will set the instance's state
+	//   to DRAINING, which gracefully shuts down all running tasks on the instance.
+	// If the instance is not spot then the poller will still run but it will never receive a termination notice.
+	// Defaults to false.
+	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
+	SpotInstanceDrainingEnabled bool
+
+	// GMSACapable is the config option to indicate if gMSA is supported.
+	// It should be enabled by default only if the container instance is part of a valid active directory domain.
+	GMSACapable bool
+
+	// VolumePluginCapabilities specifies the capabilities of the ecs volume plugin.
+	VolumePluginCapabilities []string
 }

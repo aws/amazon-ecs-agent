@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -13,7 +13,7 @@
 
 package stats
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/stats Engine mock/$GOFILE
+//go:generate mockgen -destination=mock/$GOFILE -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/stats Engine
 
 import (
 	"context"
@@ -42,6 +42,8 @@ import (
 const (
 	containerChangeHandler = "DockerStatsEngineDockerEventsHandler"
 	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
+	hostNetworkMode        = "host"
+	noneNetworkMode        = "none"
 )
 
 var (
@@ -246,8 +248,12 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
+	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
+	}
+
 	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
-	statsContainer := newStatsContainer(dockerID, engine.client, engine.resolver)
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
 	watchStatsContainer := false
@@ -587,25 +593,49 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
-		// Container is not terminal. Get CPU stats set.
+		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting cpu stats, err: %v, container: %v", err, dockerID)
+			seelog.Infof("cloudwatch metrics for container %v not collected, reason (cpu): %v", dockerID, err)
 			continue
 		}
-
-		// Get memory stats set.
 		memoryStatsSet, err := container.statsQueue.GetMemoryStatsSet()
 		if err != nil {
-			seelog.Warnf("Error getting memory stats, err: %v, container: %v", err, dockerID)
+			seelog.Infof("cloudwatch metrics for container %v not collected, reason (memory): %v", dockerID, err)
 			continue
 		}
-
-		containerMetrics = append(containerMetrics, &ecstcs.ContainerMetric{
+		containerMetric := &ecstcs.ContainerMetric{
+			ContainerName:  &container.containerMetadata.Name,
 			CpuStatsSet:    cpuStatsSet,
 			MemoryStatsSet: memoryStatsSet,
-		})
+		}
 
+		storageStatsSet, err := container.statsQueue.GetStorageStatsSet()
+		if err != nil {
+			seelog.Warnf("Error getting storage stats, err: %v, container: %v", err, dockerID)
+		} else {
+			containerMetric.StorageStatsSet = storageStatsSet
+		}
+
+		task, err := engine.resolver.ResolveTask(dockerID)
+		if err != nil {
+			seelog.Warnf("Task not found for container ID: %s", dockerID)
+		} else {
+			// send network stats for default/bridge/nat network modes
+			if !task.IsNetworkModeAWSVPC() &&
+				container.containerMetadata.NetworkMode != hostNetworkMode &&
+				container.containerMetadata.NetworkMode != noneNetworkMode {
+				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
+				if err != nil {
+					// we log the error and still continue to publish cpu, memory stats
+					seelog.Warnf("Error getting network stats: %v, container: %v", err, dockerID)
+				} else {
+					containerMetric.NetworkStatsSet = networkStatsSet
+				}
+			}
+		}
+
+		containerMetrics = append(containerMetrics, containerMetric)
 	}
 
 	return containerMetrics, nil

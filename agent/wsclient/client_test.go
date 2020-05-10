@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock/utils"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
+	mock_wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn/mock"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -47,6 +48,17 @@ const dockerEndpoint = "/var/run/docker.sock"
 // TestSetReadDeadline* tests
 func (cs *ClientServerImpl) Close() error {
 	return cs.Disconnect()
+}
+
+func TestClientProxy(t *testing.T) {
+	proxy_url := "127.0.0.1:1234"
+	os.Setenv("HTTP_PROXY", proxy_url)
+	defer os.Unsetenv("HTTP_PROXY")
+
+	cs := getClientServer("http://www.amazon.com")
+	err := cs.Connect()
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy not found: %s", err.Error())
 }
 
 // TestConcurrentWritesDontPanic will force a panic in the websocket library if

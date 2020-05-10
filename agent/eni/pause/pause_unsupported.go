@@ -1,6 +1,6 @@
 // +build !linux
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,5 +29,11 @@ import (
 func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	return nil, NewUnsupportedPlatformError(errors.Errorf(
 		"pause container load: unsupported platform: %s/%s",
+		runtime.GOOS, runtime.GOARCH))
+}
+
+func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
+	return false, NewUnsupportedPlatformError(errors.Errorf(
+		"pause container isloaded: unsupported platform: %s/%s",
 		runtime.GOOS, runtime.GOARCH))
 }

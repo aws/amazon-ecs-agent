@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -130,6 +130,7 @@ type Metadata struct {
 	containerInstanceARN    string
 	metadataStatus          MetadataStatus
 	availabilityZone        string
+	hostPrivateIPv4Address  string
 	hostPublicIPv4Address   string
 }
 
@@ -150,6 +151,7 @@ type metadataSerializer struct {
 	Networks               []Network                  `json:"Networks,omitempty"`
 	MetadataFileStatus     MetadataStatus             `json:"MetadataFileStatus,omitempty"`
 	AvailabilityZone       string                     `json:"AvailabilityZone,omitempty"`
+	HostPrivateIPv4Address string                     `json:"HostPrivateIPv4Address,omitempty"`
 	HostPublicIPv4Address  string                     `json:"HostPublicIPv4Address,omitempty"`
 }
 
@@ -170,6 +172,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 			Networks:               m.dockerContainerMetadata.networkInfo.networks,
 			MetadataFileStatus:     m.metadataStatus,
 			AvailabilityZone:       m.availabilityZone,
+			HostPrivateIPv4Address: m.hostPrivateIPv4Address,
 			HostPublicIPv4Address:  m.hostPublicIPv4Address,
 		})
 }

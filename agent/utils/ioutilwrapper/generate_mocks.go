@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -13,4 +13,4 @@
 
 package ioutilwrapper
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper IOUtil mocks/ioutilwrapper_mocks.go
+//go:generate mockgen -copyright_file=../../../scripts/copyright_file -destination=mocks/ioutilwrapper_mocks.go github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper IOUtil

@@ -1,6 +1,6 @@
 // +build windows,unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -50,6 +50,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
+	assert.Equal(t, DefaultNonECSImageDeletionAge, cfg.NonECSMinimumImageDeletionAge, "NonECSMinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
@@ -112,4 +113,21 @@ func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
+}
+
+func TestMemoryUnboundedSet(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.True(t, cfg.PlatformVariables.MemoryUnbounded)
+}
+
+func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
+	defer setTestRegion()()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	cfg.platformOverrides()
+	assert.NoError(t, err)
+	assert.False(t, cfg.PlatformVariables.MemoryUnbounded)
 }

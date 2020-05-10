@@ -1,4 +1,4 @@
-// Copyright 2014-2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,10 +15,22 @@ package audit
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 )
+
+type AuditLogger interface {
+	Log(r request.LogRequest, httpResponseCode int, eventType string)
+	GetContainerInstanceArn() string
+	GetCluster() string
+}
+
+type InfoLogger interface {
+	Info(i ...interface{})
+}
 
 type auditLog struct {
 	containerInstanceArn string
@@ -61,4 +73,30 @@ func (a *auditLog) GetCluster() string {
 
 func (a *auditLog) GetContainerInstanceArn() string {
 	return a.containerInstanceArn
+}
+
+func AuditLoggerConfig(cfg *config.Config) string {
+	config := `
+<seelog type="asyncloop" minlevel="info">
+	<outputs formatid="main">
+		<console />`
+	if cfg.CredentialsAuditLogFile != "" {
+		if logger.Config.RolloverType == "size" {
+			config += `
+		<rollingfile filename="` + cfg.CredentialsAuditLogFile + `" type="size"
+		 maxsize="` + strconv.Itoa(int(logger.Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(logger.Config.MaxRollCount) + `" />`
+		} else {
+			config += `
+		<rollingfile filename="` + cfg.CredentialsAuditLogFile + `" type="date"
+		 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(logger.Config.MaxRollCount) + `" />`
+		}
+	}
+	config += `
+	</outputs>
+	<formats>
+		<format id="main" format="%Msg%n" />
+	</formats>
+</seelog>
+`
+	return config
 }

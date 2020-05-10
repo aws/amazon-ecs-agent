@@ -1,6 +1,6 @@
 // +build windows
 
-// Copyright 2016 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,7 +23,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-//go:generate go run ../../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey,FS,File mocks/mocks_windows.go
+//go:generate mockgen -destination=mocks/mocks_windows.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey,FS,File
 
 // WindowsRegistry is an interface for the package-level methods in the golang.org/x/sys/windows/registry package
 type WindowsRegistry interface {

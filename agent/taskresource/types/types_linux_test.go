@@ -1,6 +1,6 @@
 // +build linux,unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,13 +16,17 @@
 package types
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
-	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
 func TestUnmarshalResourcesMap(t *testing.T) {
@@ -39,4 +43,25 @@ func TestUnmarshalResourcesMap(t *testing.T) {
 	assert.Equal(t, time.Time{}, cgroupResource.GetCreatedAt())
 	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetDesiredStatus())
 	assert.Equal(t, resourcestatus.ResourceStatus(cgroupres.CgroupRemoved), cgroupResource.GetKnownStatus())
+}
+
+func TestMarshalUnmarshalFirelensResource(t *testing.T) {
+	resources := make(map[string][]taskresource.TaskResource)
+	firelensResources := []taskresource.TaskResource{
+		&firelens.FirelensResource{},
+	}
+	firelensResources[0].SetDesiredStatus(resourcestatus.ResourceCreated)
+	firelensResources[0].SetKnownStatus(resourcestatus.ResourceStatusNone)
+
+	resources["firelens"] = firelensResources
+	data, err := json.Marshal(resources)
+	require.NoError(t, err)
+
+	var unmarshalledResource ResourcesMap
+	err = json.Unmarshal(data, &unmarshalledResource)
+	assert.NoError(t, err)
+	unMarshalledFirelensResources, ok := unmarshalledResource["firelens"]
+	assert.True(t, ok)
+	assert.Equal(t, unMarshalledFirelensResources[0].GetDesiredStatus(), resourcestatus.ResourceCreated)
+	assert.Equal(t, unMarshalledFirelensResources[0].GetKnownStatus(), resourcestatus.ResourceStatusNone)
 }

@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,8 +16,10 @@
 // allows this to happen
 package testutils
 
-import "github.com/aws/amazon-ecs-agent/agent/engine"
-import state_testutil "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/testutils"
+import (
+	"github.com/aws/amazon-ecs-agent/agent/engine"
+	state_testutil "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/testutils"
+)
 
 // DockerTaskEnginesEqual determines if the lhs and rhs task engines given are
 // equal (as defined by their state being equal)

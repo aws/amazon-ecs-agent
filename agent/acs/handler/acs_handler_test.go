@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -31,21 +31,23 @@ import (
 	"context"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	mock_retry "github.com/aws/amazon-ecs-agent/agent/utils/retry/mock"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
-	"github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
@@ -166,35 +168,15 @@ func TestACSWSURL(t *testing.T) {
 	wsurl := acsWsURL(acsURL, "myCluster", "myContainerInstance", taskEngine, &mockSessionResources{})
 
 	parsed, err := url.Parse(wsurl)
-	if err != nil {
-		t.Fatal("Should be able to parse url")
-	}
-
-	if parsed.Path != "/ws" {
-		t.Fatal("Wrong path")
-	}
-
-	if parsed.Query().Get("clusterArn") != "myCluster" {
-		t.Fatal("Wrong cluster")
-	}
-	if parsed.Query().Get("containerInstanceArn") != "myContainerInstance" {
-		t.Fatal("Wrong cluster")
-	}
-	if parsed.Query().Get("agentVersion") != version.Version {
-		t.Fatal("Wrong cluster")
-	}
-	if parsed.Query().Get("agentHash") != version.GitHashString() {
-		t.Fatal("Wrong cluster")
-	}
-	if parsed.Query().Get("dockerVersion") != "DockerVersion: Docker version result" {
-		t.Fatal("Wrong docker version")
-	}
-	if parsed.Query().Get(sendCredentialsURLParameterName) != "true" {
-		t.Fatalf("Wrong value set for: %s", sendCredentialsURLParameterName)
-	}
-	if parsed.Query().Get("seqNum") != "1" {
-		t.Fatal("Wrong seqNum")
-	}
+	assert.NoError(t, err, "should be able to parse URL")
+	assert.Equal(t, "/ws", parsed.Path, "wrong path")
+	assert.Equal(t, "myCluster", parsed.Query().Get("clusterArn"), "wrong cluster")
+	assert.Equal(t, "myContainerInstance", parsed.Query().Get("containerInstanceArn"), "wrong container instance")
+	assert.Equal(t, version.Version, parsed.Query().Get("agentVersion"), "wrong agent version")
+	assert.Equal(t, version.GitHashString(), parsed.Query().Get("agentHash"), "wrong agent hash")
+	assert.Equal(t, "DockerVersion: Docker version result", parsed.Query().Get("dockerVersion"), "wrong docker version")
+	assert.Equalf(t, "true", parsed.Query().Get(sendCredentialsURLParameterName), "Wrong value set for: %s", sendCredentialsURLParameterName)
+	assert.Equal(t, "1", parsed.Query().Get("seqNum"), "wrong seqNum")
 }
 
 // TestHandlerReconnectsOnConnectErrors tests if handler reconnects retries
@@ -280,7 +262,7 @@ func TestComputeReconnectDelayForActiveInstance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockBackoff.EXPECT().Duration().Return(connectionBackoffMax)
 
 	acsSession := session{backoff: mockBackoff}
@@ -354,7 +336,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
@@ -384,6 +366,7 @@ func TestHandlerReconnectsWithoutBackoffOnEOFError(t *testing.T) {
 		ctx:                             ctx,
 		cancel:                          cancel,
 		resources:                       &mockSessionResources{mockWsClient},
+		latestSeqNumTaskManifest:        aws.Int64(10),
 		_heartbeatTimeout:               20 * time.Millisecond,
 		_heartbeatJitter:                10 * time.Millisecond,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
@@ -417,7 +400,7 @@ func TestHandlerReconnectsWithBackoffOnNonEOFError(t *testing.T) {
 	deregisterInstanceEventStream := eventstream.NewEventStream("DeregisterContainerInstance", ctx)
 	deregisterInstanceEventStream.StartListening()
 
-	mockBackoff := mock_utils.NewMockBackoff(ctrl)
+	mockBackoff := mock_retry.NewMockBackoff(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
@@ -758,8 +741,8 @@ func TestHandlerReconnectsOnDiscoverPollEndpointError(t *testing.T) {
 
 	// The upper limit here should really be connectionBackoffMin + (connectionBackoffMin * jitter)
 	// But, it can be off by a few milliseconds to account for execution of other instructions
-	// In any case, it should never be higher than 2*connectionBackoffMin
-	if timeSinceStart > 2*connectionBackoffMin {
+	// In any case, it should never be higher than 4*connectionBackoffMin
+	if timeSinceStart > 4*connectionBackoffMin {
 		t.Errorf("Duration since start is greater than maximum anticipated wait time: %v", timeSinceStart.String())
 	}
 }
@@ -852,18 +835,19 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	go func() {
 
 		acsSession := session{
-			containerInstanceARN: "myArn",
-			credentialsProvider:  testCreds,
-			agentConfig:          testConfig,
-			taskEngine:           taskEngine,
-			ecsClient:            ecsClient,
-			stateManager:         stateManager,
-			taskHandler:          taskHandler,
-			ctx:                  ctx,
-			_heartbeatTimeout:    1 * time.Second,
-			backoff:              retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
-			resources:            newSessionResources(testCreds),
-			credentialsManager:   rolecredentials.NewManager(),
+			containerInstanceARN:     "myArn",
+			credentialsProvider:      testCreds,
+			agentConfig:              testConfig,
+			taskEngine:               taskEngine,
+			ecsClient:                ecsClient,
+			stateManager:             stateManager,
+			taskHandler:              taskHandler,
+			ctx:                      ctx,
+			_heartbeatTimeout:        1 * time.Second,
+			backoff:                  retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax, connectionBackoffJitter, connectionBackoffMultiplier),
+			resources:                newSessionResources(testCreds),
+			credentialsManager:       rolecredentials.NewManager(),
+			latestSeqNumTaskManifest: aws.Int64(12),
 		}
 		acsSession.Start()
 		ended <- true
@@ -933,6 +917,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
+	latestSeqNumberTaskManifest := int64(10)
 	ended := make(chan bool, 1)
 	go func() {
 		acsSession := NewSession(ctx,
@@ -945,7 +930,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			stateManager,
 			taskEngine,
 			credentialsManager,
-			taskHandler,
+			taskHandler, &latestSeqNumberTaskManifest,
 		)
 		acsSession.Start()
 		// StartSession should never return unless the context is canceled

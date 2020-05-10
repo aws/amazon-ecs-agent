@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -19,8 +19,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/aws/amazon-ecs-agent/agent/handlers/mocks/http"
-	"github.com/aws/amazon-ecs-agent/agent/utils/mocks"
+	mock_http "github.com/aws/amazon-ecs-agent/agent/handlers/mocks/http"
+	mock_utils "github.com/aws/amazon-ecs-agent/agent/utils/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 )

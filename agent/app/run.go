@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,6 +15,7 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -38,6 +39,12 @@ func Run(arguments []string) int {
 		return printLicense()
 	} else if *parsedArgs.Version {
 		return version.PrintVersion()
+	} else if *parsedArgs.Healthcheck {
+		// Timeout is purposely set to shorter than the default docker healthcheck
+		// timeout of 30s. This is so that we can catch any http timeout and log the
+		// issue within agent logs.
+		// see https://docs.docker.com/engine/reference/builder/#healthcheck
+		return runHealthcheck("http://localhost:51678/v1/metadata", time.Second*25)
 	}
 
 	logger.SetLevel(*parsedArgs.LogLevel)

@@ -1,6 +1,6 @@
 // +build unit,windows
 
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,6 +38,7 @@ func TestCreate(t *testing.T) {
 	mockContainerName := containerName
 	mockConfig := &dockercontainer.Config{Env: make([]string, 0)}
 	mockHostConfig := &dockercontainer.HostConfig{Binds: make([]string, 0)}
+	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
 	gomock.InOrder(
 		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(nil),
@@ -50,7 +51,7 @@ func TestCreate(t *testing.T) {
 	newManager := &metadataManager{
 		osWrap: mockOS,
 	}
-	err := newManager.Create(mockConfig, mockHostConfig, mockTask, mockContainerName)
+	err := newManager.Create(mockConfig, mockHostConfig, mockTask, mockContainerName, mockDockerSecurityOptions)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(mockConfig.Env), "Unexpected number of environment variables in config")

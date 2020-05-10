@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,7 +29,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -39,8 +38,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
-
-var log = logger.ForModule("updater")
 
 const desiredImageFile = "desired-image"
 
@@ -93,7 +90,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 		defer u.Unlock()
 
 		if req == nil || req.MessageId == nil {
-			log.Error("Nil request to stage update or missing MessageID")
+			seelog.Error("Nil request to stage update or missing MessageID")
 			return
 		}
 
@@ -118,11 +115,11 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			return
 		}
 
-		log.Debug("Staging update", "update", req)
+		seelog.Debug("Staging update", "update", req)
 
 		if u.stage != updateNone {
 			if u.updateID != "" && u.updateID == *req.UpdateInfo.Signature {
-				log.Debug("Update already in progress, acking duplicate message", "id", u.updateID)
+				seelog.Debug("Update already in progress, acking duplicate message", "id", u.updateID)
 				// Acking here is safe as any currently-downloading update will already be holding
 				// the update lock.  A failed download will nack and clear state (while holding the
 				// update lock) before this code is reached, meaning that the above conditional will
@@ -215,7 +212,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		u.Lock()
 		defer u.Unlock()
 
-		log.Debug("Got perform update request")
+		seelog.Debug("Got perform update request")
 
 		if !u.config.UpdatesEnabled {
 			reason := "Updates are disabled"
@@ -230,7 +227,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		}
 
 		if u.stage != updateDownloaded {
-			log.Error("Nacking PerformUpdate; not downloaded")
+			seelog.Error("Nacking PerformUpdate; not downloaded")
 			reason := "Cannot perform update; update not downloaded"
 			u.acs.MakeRequest(&ecsacs.NackRequest{
 				Cluster:           req.ClusterArn,
@@ -248,9 +245,9 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 
 		err := sighandlers.FinalSave(saver, taskEngine)
 		if err != nil {
-			log.Crit("Error saving before update exit", "err", err)
+			seelog.Critical("Error saving before update exit", "err", err)
 		} else {
-			log.Debug("Saved state!")
+			seelog.Debug("Saved state!")
 		}
 		u.fs.Exit(exitcodes.ExitUpdate)
 	}

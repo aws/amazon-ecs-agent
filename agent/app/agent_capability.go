@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -47,6 +47,19 @@ const (
 	capabilityECREndpoint                       = "ecr-endpoint"
 	capabilityContainerOrdering                 = "container-ordering"
 	taskEIAAttributeSuffix                      = "task-eia"
+	taskEIAWithOptimizedCPU                     = "task-eia.optimized-cpu"
+	taskENITrunkingAttributeSuffix              = "task-eni-trunking"
+	branchCNIPluginVersionSuffix                = "branch-cni-plugin-version"
+	capabilityFirelensFluentd                   = "firelens.fluentd"
+	capabilityFirelensFluentbit                 = "firelens.fluentbit"
+	capabilityFirelensLoggingDriver             = "logging-driver.awsfirelens"
+	capabilityFirelensConfigFile                = "firelens.options.config.file"
+	capabilityFirelensConfigS3                  = "firelens.options.config.s3"
+	capabilityFullTaskSync                      = "full-sync"
+	capabilityGMSA                              = "gmsa"
+	capabilityEFS                               = "efs"
+	capabilityEFSAuth                           = "efsAuth"
+	capabilityEnvFilesS3                        = "env-files.s3"
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -83,6 +96,18 @@ const (
 //    ecs.capability.secrets.asm.bootstrap.log-driver
 //    ecs.capability.aws-appmesh
 //    ecs.capability.task-eia
+//    ecs.capability.task-eni-trunking
+//    ecs.capability.task-eia.optimized-cpu
+//    ecs.capability.firelens.fluentd
+//    ecs.capability.firelens.fluentbit
+//    ecs.capability.efs
+//    com.amazonaws.ecs.capability.logging-driver.awsfirelens
+//    ecs.capability.firelens.options.config.file
+//    ecs.capability.firelens.options.config.s3
+//    ecs.capability.full-sync
+//    ecs.capability.gmsa
+//    ecs.capability.efsAuth
+//    ecs.capability.env-files.s3
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -115,6 +140,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	}
 
 	capabilities = agent.appendTaskENICapabilities(capabilities)
+	capabilities = agent.appendENITrunkingCapabilities(capabilities)
 	capabilities = agent.appendDockerDependentCapabilities(capabilities, supportedVersions)
 
 	// TODO: gate this on docker api version when ecs supported docker includes
@@ -135,10 +161,6 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverSSM)
 
-	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
-	// with host EC2 instance and among containers within the task
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabiltyPIDAndIPCNamespaceSharing)
-
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
 	}
@@ -151,14 +173,47 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverASM)
 
-	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+appMeshAttributeSuffix)
-
-	// support elastic inference in agent
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
-
 	// support container ordering in agent
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
+
+	// support full task sync
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFullTaskSync)
+
+	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEnvFilesS3)
+
+	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
+	// with host EC2 instance and among containers within the task
+	capabilities = agent.appendPIDAndIPCNamespaceSharingCapabilities(capabilities)
+
+	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
+	capabilities = agent.appendAppMeshCapabilities(capabilities)
+
+	// support elastic inference in agent
+	capabilities = agent.appendTaskEIACapabilities(capabilities)
+
+	// support aws router capabilities for fluentd
+	capabilities = agent.appendFirelensFluentdCapabilities(capabilities)
+
+	// support aws router capabilities for fluentbit
+	capabilities = agent.appendFirelensFluentbitCapabilities(capabilities)
+
+	// support aws router capabilities for log driver router
+	capabilities = agent.appendFirelensLoggingDriverCapabilities(capabilities)
+
+	// support efs on ecs capabilities
+	capabilities = agent.appendEFSCapabilities(capabilities)
+
+	// support external firelens config
+	capabilities = agent.appendFirelensConfigCapabilities(capabilities)
+
+	// support GMSA capabilities
+	capabilities = agent.appendGMSACapabilities(capabilities)
+
+	// support efs auth on ecs capabilities
+	for _, cap := range agent.cfg.VolumePluginCapabilities {
+		capabilities = agent.appendEFSVolumePluginCapabilities(capabilities, cap)
+	}
 
 	return capabilities, nil
 }
@@ -246,6 +301,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 			return capabilities
 		}
 		capabilities = append(capabilities, taskENIVersionAttribute)
+
 		// We only care about AWSVPCBlockInstanceMetdata if Task ENI is enabled
 		if agent.cfg.AWSVPCBlockInstanceMetdata {
 			// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
@@ -255,6 +311,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 			})
 		}
 	}
+
 	return capabilities
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,6 +23,7 @@ const (
 	licenseUsage             = "Print the LICENSE and NOTICE files and exit"
 	blacholeEC2MetadataUsage = "Blackhole the EC2 Metadata requests. Setting this option can cause the ECS Agent to fail to work properly.  We do not recommend setting this option"
 	windowsServiceUsage      = "Run the ECS agent as a Windows Service"
+	healthcheckServiceUsage  = "Run the agent healthcheck"
 
 	versionFlagName              = "version"
 	logLevelFlagName             = "loglevel"
@@ -31,6 +32,7 @@ const (
 	licenseFlagName              = "license"
 	blackholeEC2MetadataFlagName = "blackhole-ec2-metadata"
 	windowsServiceFlagName       = "windows-service"
+	healthCheckFlagName          = "healthcheck"
 )
 
 // Args wraps various ECS Agent arguments
@@ -51,6 +53,8 @@ type Args struct {
 	ECSAttributes *bool
 	// WindowsService indicates that the agent should run as a Windows service
 	WindowsService *bool
+	// Healthcheck indicates that agent should run healthcheck
+	Healthcheck *bool
 }
 
 // New creates a new Args object from the argument list
@@ -65,6 +69,7 @@ func New(arguments []string) (*Args, error) {
 		BlackholeEC2Metadata: flagset.Bool(blackholeEC2MetadataFlagName, false, blacholeEC2MetadataUsage),
 		ECSAttributes:        flagset.Bool(ecsAttributesFlagName, false, ecsAttributesUsage),
 		WindowsService:       flagset.Bool(windowsServiceFlagName, false, windowsServiceUsage),
+		Healthcheck:          flagset.Bool(healthCheckFlagName, false, healthcheckServiceUsage),
 	}
 
 	err := flagset.Parse(arguments)

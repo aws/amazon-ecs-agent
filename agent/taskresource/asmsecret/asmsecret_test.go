@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,10 +24,10 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/asm/mocks"
+	mock_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
+	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/aws-sdk-go/aws"
@@ -43,27 +43,26 @@ const (
 	region2                = "us-east-1"
 	secretName1            = "db_username_1"
 	secretName2            = "db_username_2"
-	valueFrom1             = "secret-name"
-	secretKeyWest1         = "secret-name_us-west-2"
-	secretKeyEast1         = "secret-name_us-east-1"
+	secretID               = "secretID"
+	valueFrom1             = "arn:aws:secretsmanager:region:account-id:secret:" + secretID
+	regionKeyWest          = "us-west-2"
+	regionKeyEast          = "us-east-1"
+	secretCacheJoinChar    = "_"
 	secretValue            = "secret-value"
 	taskARN                = "task1"
+	valueFromParams        = valueFrom1 + ":json-key:version-stage:version-id"
+	valueFromWrongFormat   = valueFrom1 + ":wrong:format"
+	secretValueJson        = "{\"json-key\": \"" + secretValue + "\",\"some-other-key\": \"secret2\"}"
 )
+
+var secretKeyWest1 = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyWest)
+var secretKeyEast1 = fmt.Sprintf("%s%s%s", valueFrom1, secretCacheJoinChar, regionKeyEast)
+var secretKeyParams = fmt.Sprintf("%s%s%s", valueFromParams, secretCacheJoinChar, regionKeyWest)
 
 func TestCreateWithMultipleASMCall(t *testing.T) {
 	requiredSecretData := map[string]apicontainer.Secret{
-		secretKeyWest1: {
-			Name:      secretName1,
-			ValueFrom: valueFrom1,
-			Region:    region1,
-			Provider:  "asm",
-		},
-		secretKeyEast1: {
-			Name:      secretName2,
-			ValueFrom: valueFrom1,
-			Region:    region2,
-			Provider:  "asm",
-		},
+		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
+		secretKeyEast1: sampleSecret(secretName2, valueFrom1, region2),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -86,7 +85,7 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
 	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient)
 	mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-		assert.Equal(t, aws.StringValue(in.SecretId), valueFrom1)
+		assert.Equal(t, valueFrom1, aws.StringValue(in.SecretId))
 	}).Return(asmSecretValue, nil).Times(2)
 
 	asmRes := &ASMSecretResource{
@@ -109,18 +108,8 @@ func TestCreateWithMultipleASMCall(t *testing.T) {
 func TestCreateReturnMultipleErrors(t *testing.T) {
 
 	requiredSecretData := map[string]apicontainer.Secret{
-		secretKeyWest1: {
-			Name:      secretName1,
-			ValueFrom: valueFrom1,
-			Region:    region1,
-			Provider:  "asm",
-		},
-		secretKeyEast1: {
-			Name:      secretName2,
-			ValueFrom: valueFrom1,
-			Region:    region2,
-			Provider:  "asm",
-		},
+		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
+		secretKeyEast1: sampleSecret(secretName2, valueFrom1, region2),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -141,7 +130,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
 	asmClientCreator.EXPECT().NewASMClient(region2, iamRoleCreds).Return(mockASMClient)
 	mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-		assert.Equal(t, aws.StringValue(in.SecretId), valueFrom1)
+		assert.Equal(t, valueFrom1, aws.StringValue(in.SecretId))
 	}).Return(asmSecretValue, errors.New("error response")).Times(2)
 
 	asmRes := &ASMSecretResource{
@@ -160,12 +149,7 @@ func TestCreateReturnMultipleErrors(t *testing.T) {
 
 func TestCreateReturnError(t *testing.T) {
 	requiredSecretData := map[string]apicontainer.Secret{
-		secretKeyWest1: {
-			Name:      secretName1,
-			ValueFrom: valueFrom1,
-			Region:    region1,
-			Provider:  "asm",
-		},
+		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 	}
 
 	ctrl := gomock.NewController(t)
@@ -186,7 +170,7 @@ func TestCreateReturnError(t *testing.T) {
 		credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true),
 		asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient),
 		mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-			assert.Equal(t, aws.StringValue(in.SecretId), valueFrom1)
+			assert.Equal(t, valueFrom1, aws.StringValue(in.SecretId))
 		}).Return(asmSecretValue, errors.New("error response")),
 	)
 	asmRes := &ASMSecretResource{
@@ -203,12 +187,7 @@ func TestCreateReturnError(t *testing.T) {
 
 func TestMarshalUnmarshalJSON(t *testing.T) {
 	requiredSecretData := map[string]apicontainer.Secret{
-		secretKeyWest1: {
-			Name:      secretName1,
-			ValueFrom: valueFrom1,
-			Region:    region1,
-			Provider:  "asm",
-		},
+		secretKeyWest1: sampleSecret(secretName1, valueFrom1, region1),
 	}
 
 	asmResIn := &ASMSecretResource{
@@ -267,4 +246,86 @@ func TestClearASMSecretValue(t *testing.T) {
 	}
 	asmRes.clearASMSecretValue()
 	assert.Equal(t, 0, len(asmRes.secretData))
+}
+
+func TestCreateWithASMParametersWrongFormat(t *testing.T) {
+	requiredSecretData := map[string]apicontainer.Secret{
+		secretKeyWest1: sampleSecret(secretName1, valueFromWrongFormat, region1),
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	iamRoleCreds := credentials.IAMRoleCredentials{}
+	creds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: iamRoleCreds,
+	}
+
+	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
+
+	asmRes := &ASMSecretResource{
+		executionCredentialsID: executionCredentialsID,
+		requiredSecrets:        requiredSecretData,
+		credentialsManager:     credentialsManager,
+		asmClientCreator:       asmClientCreator,
+	}
+
+	assert.Error(t, asmRes.Create())
+	expectedError := fmt.Sprintf("trying to retrieve secret with value %s resulted in error: "+
+		"an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again.", valueFromWrongFormat)
+	assert.Contains(t, asmRes.GetTerminalReason(), expectedError)
+}
+
+func TestCreateWithASMParametersJSONKeySpecified(t *testing.T) {
+	requiredSecretData := map[string]apicontainer.Secret{
+		secretKeyParams: sampleSecret(secretName1, valueFromParams, region1),
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	asmClientCreator := mock_factory.NewMockClientCreator(ctrl)
+	mockASMClient := mock_secretsmanageriface.NewMockSecretsManagerAPI(ctrl)
+
+	iamRoleCreds := credentials.IAMRoleCredentials{}
+	creds := credentials.TaskIAMRoleCredentials{
+		IAMRoleCredentials: iamRoleCreds,
+	}
+
+	asmSecretValue := &secretsmanager.GetSecretValueOutput{
+		SecretString: aws.String(secretValueJson),
+	}
+
+	credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsID).Return(creds, true)
+	asmClientCreator.EXPECT().NewASMClient(region1, iamRoleCreds).Return(mockASMClient)
+	mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
+		assert.Equal(t, valueFrom1, aws.StringValue(in.SecretId))
+	}).Return(asmSecretValue, nil)
+
+	asmRes := &ASMSecretResource{
+		executionCredentialsID: executionCredentialsID,
+		requiredSecrets:        requiredSecretData,
+		credentialsManager:     credentialsManager,
+		asmClientCreator:       asmClientCreator,
+	}
+	require.NoError(t, asmRes.Create())
+
+	value, ok := asmRes.GetCachedSecretValue(secretKeyParams)
+	require.True(t, ok)
+	assert.Equal(t, secretValue, value)
+}
+
+func sampleSecret(secretName string, valueFrom string, region string) apicontainer.Secret {
+	return apicontainer.Secret{
+		Name:      secretName,
+		ValueFrom: valueFrom,
+		Region:    region,
+		Provider:  "asm",
+	}
 }

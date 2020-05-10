@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,7 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
 	docker "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +57,7 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	agentVersions := getAgentVersions()
+	dockerVersions := getAgentSupportedDockerVersions()
 	allVersions := dockerclient.GetKnownAPIVersions()
 
 	// Set up the mocks and expectations
@@ -81,15 +81,15 @@ func TestFindSupportedAPIVersions(t *testing.T) {
 	factory := NewFactory(ctx, expectedEndpoint)
 	actualVersions := factory.FindSupportedAPIVersions()
 
-	assert.Equal(t, len(agentVersions), len(actualVersions))
+	assert.Equal(t, len(dockerVersions), len(actualVersions))
 	for i := 0; i < len(actualVersions); i++ {
-		assert.Equal(t, agentVersions[i], actualVersions[i])
+		assert.Equal(t, dockerVersions[i], actualVersions[i])
 	}
 }
 
 func TestVerifyAgentVersions(t *testing.T) {
 	var isKnown = func(v1 dockerclient.DockerVersion) bool {
-		for _, v2 := range getAgentVersions() {
+		for _, v2 := range getAgentSupportedDockerVersions() {
 			if v1 == v2 {
 				return true
 			}
@@ -98,7 +98,7 @@ func TestVerifyAgentVersions(t *testing.T) {
 	}
 
 	// Validate that agentVersions is a subset of allVersions
-	for _, agentVersion := range getAgentVersions() {
+	for _, agentVersion := range getAgentSupportedDockerVersions() {
 		assert.True(t, isKnown(agentVersion))
 	}
 }
@@ -107,7 +107,7 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	agentVersions := getAgentVersions()
+	dockerVersions := getAgentSupportedDockerVersions()
 	allVersions := dockerclient.GetKnownAPIVersions()
 
 	// Set up the mocks and expectations
@@ -131,9 +131,9 @@ func TestFindSupportedAPIVersionsFromMinAPIVersions(t *testing.T) {
 	factory := NewFactory(ctx, expectedEndpoint)
 	actualVersions := factory.FindSupportedAPIVersions()
 
-	assert.Equal(t, len(agentVersions), len(actualVersions))
+	assert.Equal(t, len(dockerVersions), len(actualVersions))
 	for i := 0; i < len(actualVersions); i++ {
-		assert.Equal(t, agentVersions[i], actualVersions[i])
+		assert.Equal(t, dockerVersions[i], actualVersions[i])
 	}
 }
 

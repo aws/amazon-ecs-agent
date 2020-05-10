@@ -1,5 +1,5 @@
 // +build !windows
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,8 +29,8 @@ func (f *factory) GetClient(version dockerclient.DockerVersion) (sdkclient.Clien
 	return f.getClient(version)
 }
 
-// getAgentVersions returns a list of supported agent-supported versions for linux
-func getAgentVersions() []dockerclient.DockerVersion {
+// getAgentSupportedDockerVersions returns a list of agent-supported Docker versions for linux
+func getAgentSupportedDockerVersions() []dockerclient.DockerVersion {
 	return []dockerclient.DockerVersion{
 		dockerclient.Version_1_17,
 		dockerclient.Version_1_18,

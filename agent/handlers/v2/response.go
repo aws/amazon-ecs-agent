@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -22,7 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v1"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -128,9 +128,8 @@ func NewTaskResponse(taskARN string,
 		return resp, nil
 	}
 
-	eni := task.GetTaskENI()
 	for _, dockerContainer := range containerNameToDockerContainer {
-		containerResponse := newContainerResponse(dockerContainer, eni, state)
+		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 		resp.Containers = append(resp.Containers, containerResponse)
 	}
 
@@ -177,7 +176,7 @@ func NewContainerResponse(containerID string,
 			"v2 container response: unable to find task for container '%s'", containerID)
 	}
 
-	resp := newContainerResponse(dockerContainer, task.GetTaskENI(), state)
+	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
 	return &resp, nil
 }
 
@@ -234,6 +233,7 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 
 		resp.Ports = append(resp.Ports, port)
 	}
+
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
 			{

@@ -1,6 +1,6 @@
 // +build integration,!windows
 
-// Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -46,7 +46,7 @@ func TestGranularStopTimeout(t *testing.T) {
 	parent.EntryPoint = &entryPointForOS
 	parent.Command = []string{"sleep 30"}
 	parent.Essential = true
-	parent.DependsOn = []apicontainer.DependsOn{
+	parent.DependsOnUnsafe = []apicontainer.DependsOn{
 		{
 			ContainerName: "dependency1",
 			Condition:     "START",

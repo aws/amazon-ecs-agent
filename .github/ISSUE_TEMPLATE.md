@@ -2,6 +2,9 @@
 For urgent operational issues, please contact AWS Support directly.
 https://aws.amazon.com/premiumsupport/
 
+For potential security issues, please do not post it in the Issues.
+Instead, please follow the instructions https://aws.amazon.com/security/vulnerability-reporting/ or email AWS security directly at aws-security@amazon.com.
+
 Please provide the following information:
 -->
 

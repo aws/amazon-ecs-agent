@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,11 +16,13 @@ package stats
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
 
@@ -33,17 +35,23 @@ const (
 	ContainerStatsBufferLength = 120
 )
 
-func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) *StatsContainer {
+func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) (*StatsContainer, error) {
+	dockerContainer, err := resolver.ResolveContainer(dockerID)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsContainer{
 		containerMetadata: &ContainerMetadata{
-			DockerID: dockerID,
+			DockerID:    dockerID,
+			Name:        dockerContainer.Container.Name,
+			NetworkMode: dockerContainer.Container.GetNetworkMode(),
 		},
 		ctx:      ctx,
 		cancel:   cancel,
 		client:   client,
 		resolver: resolver,
-	}
+	}, nil
 }
 
 func (container *StatsContainer) StartStatsCollection() {
@@ -59,6 +67,7 @@ func (container *StatsContainer) StopStatsCollection() {
 
 func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
+	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*10, 0.5, 2)
 	for {
 		select {
 		case <-container.ctx.Done():
@@ -67,12 +76,9 @@ func (container *StatsContainer) collect() {
 		default:
 			err := container.processStatsStream()
 			if err != nil {
-				// Currently, the only error that we get here is if go-dockerclient is unable
-				// to decode the stats payload properly. Other errors such as
-				// 'NoSuchContainer', 'InactivityTimeoutExceeded' etc are silently consumed.
-				// We rely on state reconciliation with docker task engine at this point of
-				// time to stop collecting metrics.
-				seelog.Debugf("Error querying stats for container %s: %v", dockerID, err)
+				d := backoff.Duration()
+				seelog.Debugf("Error processing stats stream of container %s, backing off %s before reopening", dockerID, d)
+				time.Sleep(d)
 			}
 			// We were disconnected from the stats stream.
 			// Check if the container is terminal. If it is, stop collecting metrics.
@@ -101,16 +107,26 @@ func (container *StatsContainer) processStatsStream() error {
 	if container.client == nil {
 		return errors.New("container processStatsStream: Client is not set.")
 	}
-	dockerStats, err := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
-	if err != nil {
-		return err
-	}
-	for rawStat := range dockerStats {
-		if err := container.statsQueue.Add(rawStat); err != nil {
-			seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+	dockerStats, errC := container.client.Stats(container.ctx, dockerID, dockerclient.StatsInactivityTimeout)
+
+	returnError := false
+	for {
+		select {
+		case err := <-errC:
+			seelog.Warnf("Error encountered processing metrics stream from docker, this may affect cloudwatch metric accuracy: %s", err)
+			returnError = true
+		case rawStat, ok := <-dockerStats:
+			if !ok {
+				if returnError {
+					return fmt.Errorf("error encountered processing metrics stream from docker")
+				}
+				return nil
+			}
+			if err := container.statsQueue.Add(rawStat); err != nil {
+				seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+			}
 		}
 	}
-	return nil
 }
 
 func (container *StatsContainer) terminal() (bool, error) {

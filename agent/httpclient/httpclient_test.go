@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -17,6 +17,8 @@ package httpclient
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,4 +31,18 @@ func TestNewHttpClient(t *testing.T) {
 	transport := expectedResult.Transport.(*ecsRoundTripper)
 	assert.Equal(t, cipher.SupportedCipherSuites, transport.transport.(*http.Transport).TLSClientConfig.CipherSuites)
 	assert.Equal(t, true, transport.transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify)
+}
+
+func TestNewHttpClientProxy(t *testing.T) {
+	proxy_url := "127.0.0.1:1234"
+	// Set Proxy
+	os.Setenv("HTTP_PROXY", proxy_url)
+	defer os.Unsetenv("HTTP_PROXY")
+
+	client := New(time.Duration(10*time.Second), true)
+	_, err := client.Get("http://www.amazon.com")
+	// Client won't be able to connect because we have given a arbitrary proxy
+	assert.Error(t, err)
+	// Error message should contain the proxy url which shows that client tried to use the proxy url to connect
+	assert.True(t, strings.Contains(err.Error(), proxy_url), "proxy url not found in: %s", err.Error())
 }

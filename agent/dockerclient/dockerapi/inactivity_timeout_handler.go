@@ -1,4 +1,4 @@
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -38,23 +38,33 @@ func (p *proxyReader) Read(data []byte) (int, error) {
 // the downloaded files. This only causes noticeable impact with large files, but we should investigate improving this.
 func handleInactivityTimeout(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
 	done := make(chan struct{})
-	proxyReader := &proxyReader{ReadCloser: reader}
-	go func() {
-		var lastCallCount uint64
-		for {
-			select {
-			case <-time.After(timeout):
-			case <-done:
-				return
-			}
-			curCallCount := proxyReader.callCount()
-			if curCallCount == lastCallCount {
-				atomic.AddUint32(canceled, 1)
-				cancelRequest()
-				return
-			}
-			lastCallCount = curCallCount
-		}
-	}()
-	return proxyReader, done
+	pReader := &proxyReader{ReadCloser: reader}
+	go checkInactivityTimeout(pReader, timeout, cancelRequest, canceled, done)
+	return pReader, done
+}
+
+// checkInactivityTimeout checks whether there's new read activity in the proxyReader as recorded by its call count, in every interval
+// as specified by the timeout argument. It returns either when there's no new read activity in an interval (in that case the
+// 'canceled' flag is marked to 1 to indicate that), or when it's canceled (via the 'done' channel).
+func checkInactivityTimeout(pr *proxyReader, timeout time.Duration, cancelRequest func(), canceled *uint32, done chan struct{}) {
+	var lastCallCount uint64
+	finished := false
+	for !finished {
+		lastCallCount, finished = checkReadActivityOnce(pr, timeout, cancelRequest, canceled, done, lastCallCount)
+	}
+}
+
+func checkReadActivityOnce(pr *proxyReader, timeout time.Duration, cancelRequest func(), canceled *uint32, done chan struct{}, lastCallCount uint64) (uint64, bool) {
+	select {
+	case <-time.After(timeout):
+	case <-done:
+		return lastCallCount, true
+	}
+	curCallCount := pr.callCount()
+	if curCallCount == lastCallCount {
+		atomic.AddUint32(canceled, 1)
+		cancelRequest()
+		return lastCallCount, true
+	}
+	return curCallCount, false
 }

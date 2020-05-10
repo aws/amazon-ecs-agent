@@ -1,6 +1,6 @@
 //+build integration
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -65,7 +65,7 @@ func TestStatsEngineWithExistingContainersWithoutHealth(t *testing.T) {
 	timeout := defaultDockerTimeoutSeconds
 
 	// Create a container to get the container id.
-	container, err := createGremlin(client)
+	container, err := createGremlin(client, "default")
 	require.NoError(t, err, "creating container failed")
 	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
@@ -128,7 +128,7 @@ func TestStatsEngineWithNewContainersWithoutHealth(t *testing.T) {
 	// Assign ContainerStop timeout to addressable variable
 	timeout := defaultDockerTimeoutSeconds
 
-	container, err := createGremlin(client)
+	container, err := createGremlin(client, "default")
 	require.NoError(t, err, "creating container failed")
 	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
 
@@ -345,7 +345,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	cfg.PollMetrics = true
 	cfg.PollingMetricsWaitDuration = 1 * time.Second
 	// Create a new docker client with new config
-	dockerClientForNewContainersWithPolling, _  := dockerapi.NewDockerGoClient(sdkClientFactory, &cfg, ctx)
+	dockerClientForNewContainersWithPolling, _ := dockerapi.NewDockerGoClient(sdkClientFactory, &cfg, ctx)
 	// Create a new docker stats engine
 	engine := NewDockerStatsEngine(&cfg, dockerClientForNewContainersWithPolling, eventStream("TestStatsEngineWithNewContainers"))
 	defer engine.removeAll()
@@ -573,4 +573,165 @@ func TestStatsEngineWithDockerTaskEngineMissingRemoveEvent(t *testing.T) {
 	// Should not contain any metrics after cleanup.
 	validateIdleContainerMetrics(t, statsEngine)
 	validateEmptyTaskHealthMetrics(t, statsEngine)
+}
+
+func TestStatsEngineWithNetworkStatsDefaultMode(t *testing.T) {
+	testNetworkModeStats(t, "default", false)
+}
+
+func testNetworkModeStats(t *testing.T, networkMode string, statsEmpty bool) {
+	// Create a new docker stats engine
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithNetworkStats"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Assign ContainerStop timeout to addressable variable
+	timeout := defaultDockerTimeoutSeconds
+
+	// Create a container to get the container id.
+	container, err := createGremlin(client, networkMode)
+	require.NoError(t, err, "creating container failed")
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+
+	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	require.NoError(t, err, "starting container failed")
+	defer client.ContainerStop(ctx, container.ID, &timeout)
+
+	containerChangeEventStream := eventStream("TestStatsEngineWithNetworkStats")
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
+	testTask := createRunningTask()
+
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(
+		&apicontainer.DockerContainer{
+			DockerID:   container.ID,
+			DockerName: "gremlin",
+			Container:  testTask.Containers[0],
+		},
+		testTask)
+
+	// Inspect the container and populate the container's network mode
+	// This is done as part of Task Engine
+	// https://github.com/aws/amazon-ecs-agent/blob/d2456beb048d36bfe18159ad7f35ca6b78bb9ee9/agent/engine/docker_task_engine.go#L364
+	dockerContainer, err := client.ContainerInspect(ctx, container.ID)
+	require.NoError(t, err, "inspecting container failed")
+	netMode := string(dockerContainer.HostConfig.NetworkMode)
+	testTask.Containers[0].SetNetworkMode(netMode)
+
+	// Simulate container start prior to listener initialization.
+	time.Sleep(checkPointSleep)
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
+	require.NoError(t, err, "initializing stats engine failed")
+	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
+
+	// Wait for the stats collection go routine to start.
+	time.Sleep(checkPointSleep)
+	_, taskMetrics, err := engine.GetInstanceMetrics()
+	assert.NoError(t, err, "getting instance metrics failed")
+	taskMetric := taskMetrics[0]
+	for _, containerMetric := range taskMetric.ContainerMetrics {
+		if statsEmpty {
+			assert.Nil(t, containerMetric.NetworkStatsSet, "network stats should be empty for %s network mode", networkMode)
+		} else {
+			assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty for %s network mode", networkMode)
+		}
+	}
+
+	err = client.ContainerStop(ctx, container.ID, &timeout)
+	require.NoError(t, err, "stopping container failed")
+
+	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
+		Status: apicontainerstatus.ContainerStopped,
+		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+			DockerID: container.ID,
+		},
+	})
+	assert.NoError(t, err, "failed to write to container change event stream")
+	time.Sleep(waitForCleanupSleep)
+
+	// Should not contain any metrics after cleanup.
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
+}
+
+func TestStorageStats(t *testing.T) {
+	// Create a new docker stats engine
+	engine := NewDockerStatsEngine(&cfg, dockerClient, eventStream("TestStatsEngineWithStorageStats"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Assign ContainerStop timeout to addressable variable
+	timeout := defaultDockerTimeoutSeconds
+
+	// Create a container to get the container id.
+	container, err := createGremlin(client, "default")
+	require.NoError(t, err, "creating container failed")
+	defer client.ContainerRemove(ctx, container.ID, types.ContainerRemoveOptions{Force: true})
+
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+
+	err = client.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
+	require.NoError(t, err, "starting container failed")
+	defer client.ContainerStop(ctx, container.ID, &timeout)
+
+	containerChangeEventStream := eventStream("TestStatsEngineWithStorageStats")
+	taskEngine := ecsengine.NewTaskEngine(&config.Config{}, nil, nil, containerChangeEventStream,
+		nil, dockerstate.NewTaskEngineState(), nil, nil)
+	testTask := createRunningTask()
+
+	// Populate Tasks and Container map in the engine.
+	dockerTaskEngine := taskEngine.(*ecsengine.DockerTaskEngine)
+	dockerTaskEngine.State().AddTask(testTask)
+	dockerTaskEngine.State().AddContainer(
+		&apicontainer.DockerContainer{
+			DockerID:   container.ID,
+			DockerName: "gremlin",
+			Container:  testTask.Containers[0],
+		},
+		testTask)
+
+	// Inspect the container and populate the container's network mode
+	dockerContainer, err := client.ContainerInspect(ctx, container.ID)
+	require.NoError(t, err, "inspecting container failed")
+	// Using default network mode
+	netMode := string(dockerContainer.HostConfig.NetworkMode)
+	testTask.Containers[0].SetNetworkMode(netMode)
+
+	// Simulate container start prior to listener initialization.
+	time.Sleep(checkPointSleep)
+	err = engine.MustInit(ctx, taskEngine, defaultCluster, defaultContainerInstance)
+	require.NoError(t, err, "initializing stats engine failed")
+	defer engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
+
+	// Wait for the stats collection go routine to start.
+	time.Sleep(checkPointSleep)
+	_, taskMetrics, err := engine.GetInstanceMetrics()
+	assert.NoError(t, err, "getting instance metrics failed")
+	taskMetric := taskMetrics[0]
+	for _, containerMetric := range taskMetric.ContainerMetrics {
+		assert.NotNil(t, containerMetric.StorageStatsSet, "storage stats should be non-empty")
+	}
+
+	err = client.ContainerStop(ctx, container.ID, &timeout)
+	require.NoError(t, err, "stopping container failed")
+
+	err = engine.containerChangeEventStream.WriteToEventStream(dockerapi.DockerContainerChangeEvent{
+		Status: apicontainerstatus.ContainerStopped,
+		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
+			DockerID: container.ID,
+		},
+	})
+	assert.NoError(t, err, "failed to write to container change event stream")
+	time.Sleep(waitForCleanupSleep)
+
+	// Should not contain any metrics after cleanup.
+	validateIdleContainerMetrics(t, engine)
+	validateEmptyTaskHealthMetrics(t, engine)
 }

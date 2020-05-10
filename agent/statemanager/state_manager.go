@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -26,8 +26,9 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
+
+	"github.com/cihub/seelog"
 )
 
 const (
@@ -82,8 +83,27 @@ const (
 	//   a) Add 'DependsOn' field to 'apicontainer.Container'
 	//   b) Add 'StartTime' field to 'api.container.Container'
 	//   c) Add 'StopTime' field to 'api.container.Container'
-	// 21)  Add 'target' field to the Secret struct
-	ECSDataVersion = 21
+	// 21) Add 'target' field to the Secret struct
+	// 22)
+	// 	 a) Add 'attachmentType' field to 'api.ENIAttachment'
+	//	 b) Add 'InterfaceAssociationProtocol' field to 'api.ENI'
+	//	 c) Add 'InterfaceVlanProperties' field to 'api.ENI'
+	// 23)
+	//	 a) Add 'RuntimeID' field to 'apicontainer.Container'
+	//	 b) Add 'FirelensConfig' field to 'Container' struct
+	//	 c) Add 'firelens' field to 'resources'
+	// 24)
+	//	 a) Add 'imageDigest' field to 'apicontainer.Container'
+	//	 b) Add 'Region', 'ExecutionCredentialsID', 'ExternalConfigType', 'ExternalConfigValue' and 'NetworkMode' to
+	//     firelens task resource.
+	// 25) Add `seqNumTaskManifest` int field
+	// 26) Add 'credentialspec' field to 'resources'
+	// 27)
+	//	 a) Add 'authorizationConfig', 'transitEncryption' and 'transitEncryptionPort' to 'taskresource.volume.EFSVolumeConfig'
+	//	 b) Add 'pauseContainerPID' field to 'taskresource.volume.VolumeResource'
+	// 28) Add 'envfile' field to 'resources'
+
+	ECSDataVersion = 28
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
@@ -91,8 +111,6 @@ const (
 	// minSaveInterval specifies how frequently to flush to disk
 	minSaveInterval = 10 * time.Second
 )
-
-var log = logger.ForModule("statemanager")
 
 // Saveable types should be able to be json serializable and deserializable
 // Properly, this should have json.Marshaler/json.Unmarshaler here, but string
@@ -195,7 +213,7 @@ func AddSaveable(name string, saveable Saveable) Option {
 	return (Option)(func(m StateManager) {
 		manager, ok := m.(*basicStateManager)
 		if !ok {
-			log.Crit("Unable to add to state manager; unknown instantiation")
+			seelog.Critical("Unable to add to state manager; unknown instantiation")
 			return
 		}
 		manager.state.Data[name] = &saveable
@@ -238,13 +256,13 @@ func (manager *basicStateManager) Save() error {
 func (manager *basicStateManager) ForceSave() error {
 	manager.savingLock.Lock()
 	defer manager.savingLock.Unlock()
-	log.Info("Saving state!")
+	seelog.Info("Saving state!")
 	s := manager.state
 	s.Version = ECSDataVersion
 
 	data, err := json.Marshal(s)
 	if err != nil {
-		log.Error("Error saving state; could not marshal data; this is odd", "err", err)
+		seelog.Error("Error saving state; could not marshal data; this is odd", "err", err)
 		return err
 	}
 	return manager.writeFile(data)
@@ -254,10 +272,10 @@ func (manager *basicStateManager) ForceSave() error {
 // the passed State object.
 func (manager *basicStateManager) Load() error {
 	s := manager.state
-	log.Info("Loading state!")
+	seelog.Info("Loading state!")
 	data, err := manager.readFile()
 	if err != nil {
-		log.Error("Error reading existing state file", "err", err)
+		seelog.Error("Error reading existing state file", "err", err)
 		return err
 	}
 	if data == nil {
@@ -278,24 +296,24 @@ func (manager *basicStateManager) Load() error {
 	var intermediate intermediateState
 	err = json.Unmarshal(data, &intermediate)
 	if err != nil {
-		log.Debug("Could not unmarshal into intermediate")
+		seelog.Debug("Could not unmarshal into intermediate")
 		return err
 	}
 
 	for key, rawJSON := range intermediate.Data {
 		actualPointer, ok := manager.state.Data[key]
 		if !ok {
-			log.Error("Loading state: potentially malformed json key of " + key)
+			seelog.Error("Loading state: potentially malformed json key of " + key)
 			continue
 		}
 		err = json.Unmarshal(rawJSON, actualPointer)
 		if err != nil {
-			log.Debug("Could not unmarshal into actual")
+			seelog.Debug("Could not unmarshal into actual")
 			return err
 		}
 	}
 
-	log.Debug("Loaded state!", "state", s)
+	seelog.Debug("Loaded state!", "state", s)
 	return nil
 }
 
@@ -304,7 +322,7 @@ func (manager *basicStateManager) dryRun(data []byte) error {
 	tmps := versionOnlyState{}
 	err := json.Unmarshal(data, &tmps)
 	if err != nil {
-		log.Crit("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
+		seelog.Critical("Could not unmarshal existing state; corrupted data?", "err", err, "data", data)
 		return err
 	}
 	if tmps.Version > ECSDataVersion {

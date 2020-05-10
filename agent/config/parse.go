@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -118,6 +118,20 @@ func parseAvailableLoggingDrivers() []dockerclient.LoggingDriver {
 	}
 
 	return availableLoggingDrivers
+}
+
+func parseVolumePluginCapabilities() []string {
+	capsFromEnv := os.Getenv("ECS_VOLUME_PLUGIN_CAPABILITIES")
+	if capsFromEnv == "" {
+		return []string{}
+	}
+	capsDecoder := json.NewDecoder(strings.NewReader(capsFromEnv))
+	var caps []string
+	err := capsDecoder.Decode(&caps)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"ECS_VOLUME_PLUGIN_CAPABILITIES\", expected a json list of string. error: %v", err)
+	}
+	return caps
 }
 
 func parseNumImagesToDeletePerCycle() int {
@@ -306,4 +320,17 @@ func parseImageCleanupExclusionList(envVar string) []string {
 		seelog.Infof("Image excluded from cleanup: %s", image)
 	}
 	return imageCleanupExclusionList
+}
+
+func parseCgroupCPUPeriod() time.Duration {
+	duration := parseEnvVariableDuration("ECS_CGROUP_CPU_PERIOD")
+
+	if duration >= minimumCgroupCPUPeriod && duration <= maximumCgroupCPUPeriod {
+		return duration
+	} else if duration != 0 {
+		seelog.Warnf("CPU Period duration value: %v for Environment Variable ECS_CGROUP_CPU_PERIOD is not within [%v, %v], using default value instead",
+			duration, minimumCgroupCPUPeriod, maximumCgroupCPUPeriod)
+	}
+
+	return defaultCgroupCPUPeriod
 }

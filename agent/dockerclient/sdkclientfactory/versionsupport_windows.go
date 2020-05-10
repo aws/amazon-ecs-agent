@@ -1,5 +1,5 @@
 // +build windows
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -62,8 +62,8 @@ func getWindowsSupportedVersions() []dockerclient.DockerVersion {
 	}
 }
 
-// getAgentVersions for Windows should return all of the replaceable versions plus supported versions
-func getAgentVersions() []dockerclient.DockerVersion {
+// getAgentSupportedDockerVersions for Windows should return all of the replaceable versions plus supported versions
+func getAgentSupportedDockerVersions() []dockerclient.DockerVersion {
 	return append(getWindowsReplaceableVersions(), getWindowsSupportedVersions()...)
 }
 

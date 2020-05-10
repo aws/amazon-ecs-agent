@@ -1,11 +1,8 @@
 package seelog
 
 import (
-	"archive/zip"
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -275,15 +272,6 @@ func getOpenFilesByDirectoryAsync(
 	return nil
 }
 
-func copyFile(sf *os.File, dst string) (int64, error) {
-	df, err := os.Create(dst)
-	if err != nil {
-		return 0, err
-	}
-	defer df.Close()
-	return io.Copy(df, sf)
-}
-
 // fileExists return flag whether a given file exists
 // and operation error if an unclassified failure occurs.
 func fileExists(path string) (bool, error) {
@@ -329,75 +317,4 @@ func tryRemoveFile(filePath string) (err error) {
 		return
 	}
 	return
-}
-
-// Unzips a specified zip file. Returns filename->filebytes map.
-func unzip(archiveName string) (map[string][]byte, error) {
-	// Open a zip archive for reading.
-	r, err := zip.OpenReader(archiveName)
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	// Files to be added to archive
-	// map file name to contents
-	files := make(map[string][]byte)
-
-	// Iterate through the files in the archive,
-	// printing some of their contents.
-	for _, f := range r.File {
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-
-		bts, err := ioutil.ReadAll(rc)
-		rcErr := rc.Close()
-
-		if err != nil {
-			return nil, err
-		}
-		if rcErr != nil {
-			return nil, rcErr
-		}
-
-		files[f.Name] = bts
-	}
-
-	return files, nil
-}
-
-// Creates a zip file with the specified file names and byte contents.
-func createZip(archiveName string, files map[string][]byte) error {
-	// Create a buffer to write our archive to.
-	buf := new(bytes.Buffer)
-
-	// Create a new zip archive.
-	w := zip.NewWriter(buf)
-
-	// Write files
-	for fpath, fcont := range files {
-		f, err := w.Create(fpath)
-		if err != nil {
-			return err
-		}
-		_, err = f.Write([]byte(fcont))
-		if err != nil {
-			return err
-		}
-	}
-
-	// Make sure to check the error on Close.
-	err := w.Close()
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(archiveName, buf.Bytes(), defaultFilePermissions)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

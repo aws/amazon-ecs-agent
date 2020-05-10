@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,33 +21,42 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
 // ContainerMetadataPath specifies the relative URI path for serving container metadata.
-var ContainerMetadataPath = "/v3/" + utils.ConstructMuxVar(v3EndpointIDMuxName, utils.AnythingButSlashRegEx)
+var ContainerMetadataPath = "/v3/" + utils.ConstructMuxVar(V3EndpointIDMuxName, utils.AnythingButSlashRegEx)
 
 // ContainerMetadataHandler returns the handler method for handling container metadata requests.
 func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		containerID, err := getContainerIDByRequest(r, state)
+		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
-			responseJSON, _ := json.Marshal(
+			responseJSON, err := json.Marshal(
 				fmt.Sprintf("V3 container metadata handler: unable to get container ID from request: %s", err.Error()))
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		containerResponse, err := GetContainerResponse(containerID, state)
 		if err != nil {
-			errResponseJSON, _ := json.Marshal(err.Error())
+			errResponseJSON, err := json.Marshal(err.Error())
+			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		seelog.Infof("V3 container metadata handler: writing response for container '%s'", containerID)
 
-		responseJSON, _ := json.Marshal(containerResponse)
+		responseJSON, err := json.Marshal(containerResponse)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerMetadata)
 	}
 }

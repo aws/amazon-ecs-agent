@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,8 +21,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
-	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
+func GetTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
+	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, V3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
 	}
@@ -36,8 +36,8 @@ func getTaskARNByRequest(r *http.Request, state dockerstate.TaskEngineState) (st
 	return taskARN, nil
 }
 
-func getContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
-	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, v3EndpointIDMuxName)
+func GetContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState) (string, error) {
+	v3EndpointID, ok := utils.GetMuxValueFromRequest(r, V3EndpointIDMuxName)
 	if !ok {
 		return "", errors.New("unable to get v3 endpoint ID from request")
 	}
@@ -51,7 +51,7 @@ func getContainerIDByRequest(r *http.Request, state dockerstate.TaskEngineState)
 	return dockerID, nil
 }
 
-func getAssociationTypeByRequest(r *http.Request) (string, error) {
+func GetAssociationTypeByRequest(r *http.Request) (string, error) {
 	associationType, ok := utils.GetMuxValueFromRequest(r, associationTypeMuxName)
 	if !ok {
 		return "", errors.New("unable to get association type from request")
@@ -60,7 +60,7 @@ func getAssociationTypeByRequest(r *http.Request) (string, error) {
 	return associationType, nil
 }
 
-func getAssociationNameByRequest(r *http.Request) (string, error) {
+func GetAssociationNameByRequest(r *http.Request) (string, error) {
 	associationType, ok := utils.GetMuxValueFromRequest(r, associationNameMuxName)
 	if !ok {
 		return "", errors.New("unable to get association name from request")

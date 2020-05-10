@@ -1,5 +1,5 @@
 // +build windows
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -58,7 +58,8 @@ func DefaultConfig() Config {
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
 	platformVariables := PlatformVariables{
-		CPUUnbounded: false,
+		CPUUnbounded:    false,
+		MemoryUnbounded: false,
 	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
@@ -90,6 +91,7 @@ func DefaultConfig() Config {
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                false,
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
+		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
@@ -101,6 +103,7 @@ func DefaultConfig() Config {
 		SharedVolumeMatchFullConfig:         false, //only requiring shared volumes to match on name, which is default docker behavior
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
+		GMSACapable:                         true,
 	}
 }
 
@@ -118,8 +121,11 @@ func (cfg *Config) platformOverrides() {
 	cfg.TaskCPUMemLimit = ExplicitlyDisabled
 
 	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	memoryUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+
 	platformVariables := PlatformVariables{
-		CPUUnbounded: cpuUnbounded,
+		CPUUnbounded:    cpuUnbounded,
+		MemoryUnbounded: memoryUnbounded,
 	}
 	cfg.PlatformVariables = platformVariables
 }

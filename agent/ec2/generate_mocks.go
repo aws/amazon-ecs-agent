@@ -1,4 +1,4 @@
-// Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -13,4 +13,4 @@
 
 package ec2
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/ec2 EC2MetadataClient,HttpClient,Client,ClientSDK mocks/ec2_mocks.go
+//go:generate mockgen -destination=mocks/ec2_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/ec2 EC2MetadataClient,HttpClient,Client,ClientSDK

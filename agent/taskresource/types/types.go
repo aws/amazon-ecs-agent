@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,6 +21,9 @@ import (
 	asmauthres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	asmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	cgroupres "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/envFiles"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	ssmsecretres "github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
@@ -36,6 +39,12 @@ const (
 	SSMSecretKey = ssmsecretres.ResourceName
 	// ASMSecretKey is the string used in resources map to represent asm secret
 	ASMSecretKey = asmsecretres.ResourceName
+	// FirelensKey is the string used in resources map to represent firelens resource
+	FirelensKey = firelens.ResourceName
+	// CredentialSpecKey is the string used in resources map to represent credentialspec resource
+	CredentialSpecKey = credentialspec.ResourceName
+	//EnvironmentFilesKey is the string used in resources map to represent environmentfiles resource
+	EnvironmentFilesKey = envFiles.ResourceName
 )
 
 // ResourcesMap represents the map of resource type to the corresponding resource
@@ -51,33 +60,35 @@ func (rm *ResourcesMap) UnmarshalJSON(data []byte) error {
 	}
 	result := make(map[string][]taskresource.TaskResource)
 	for key, value := range resources {
-		switch key {
-		case CgroupKey:
-			if unmarshlCgroup(key, value, result) != nil {
-				return err
-			}
-		case DockerVolumeKey:
-			if unmarshalDockerVolume(key, value, result) != nil {
-				return err
-			}
-		case ASMAuthKey:
-			if unmarshalASMAuthKey(key, value, result) != nil {
-				return err
-			}
-		case SSMSecretKey:
-			if unmarshalSSMSecretKey(key, value, result) != nil {
-				return err
-			}
-		case ASMSecretKey:
-			if unmarshalASMSecretKey(key, value, result) != nil {
-				return err
-			}
-		default:
-			return errors.New("Unsupported resource type")
+		if err := unmarshalResource(key, value, result); err != nil {
+			return err
 		}
 	}
 	*rm = result
 	return nil
+}
+
+func unmarshalResource(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	switch key {
+	case CgroupKey:
+		return unmarshlCgroup(key, value, result)
+	case DockerVolumeKey:
+		return unmarshalDockerVolume(key, value, result)
+	case ASMAuthKey:
+		return unmarshalASMAuthKey(key, value, result)
+	case SSMSecretKey:
+		return unmarshalSSMSecretKey(key, value, result)
+	case ASMSecretKey:
+		return unmarshalASMSecretKey(key, value, result)
+	case FirelensKey:
+		return unmarshalFirelensKey(key, value, result)
+	case CredentialSpecKey:
+		return unmarshalCredentialSpecKey(key, value, result)
+	case EnvironmentFilesKey:
+		return unmarshalEnvironmentFilesKey(key, value, result)
+	default:
+		return errors.New("Unsupported resource type")
+	}
 }
 
 func unmarshlCgroup(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
@@ -160,6 +171,61 @@ func unmarshalASMSecretKey(key string, value json.RawMessage, result map[string]
 	for _, secret := range asmsecrets {
 		res := &asmsecretres.ASMSecretResource{}
 		err := res.UnmarshalJSON(secret)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalFirelensKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var firelensResources []json.RawMessage
+	err := json.Unmarshal(value, &firelensResources)
+	if err != nil {
+		return err
+	}
+
+	for _, firelensResource := range firelensResources {
+		res := &firelens.FirelensResource{}
+		err := res.UnmarshalJSON(firelensResource)
+		if err != nil {
+			return err
+		}
+
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalCredentialSpecKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var credentialSpecs []json.RawMessage
+	err := json.Unmarshal(value, &credentialSpecs)
+	if err != nil {
+		return err
+	}
+
+	for _, credSpec := range credentialSpecs {
+		res := &credentialspec.CredentialSpecResource{}
+		err := res.UnmarshalJSON(credSpec)
+		if err != nil {
+			return err
+		}
+		result[key] = append(result[key], res)
+	}
+	return nil
+}
+
+func unmarshalEnvironmentFilesKey(key string, value json.RawMessage, result map[string][]taskresource.TaskResource) error {
+	var environmentFiles []json.RawMessage
+	err := json.Unmarshal(value, &environmentFiles)
+	if err != nil {
+		return err
+	}
+
+	for _, environmentFile := range environmentFiles {
+		res := &envFiles.EnvironmentFileResource{}
+		err := res.UnmarshalJSON(environmentFile)
 		if err != nil {
 			return err
 		}

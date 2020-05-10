@@ -1,5 +1,5 @@
 // +build unit
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,6 +16,7 @@ package dockerclient
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +50,7 @@ func TestParseDockerVersions(t *testing.T) {
 	invalidCases := []string{"foo", "", "bar", "x.y.z", "1.x.y", "1.1.z"}
 	for i, invalidCase := range invalidCases {
 		_, err := parseDockerVersions(invalidCase)
-		assert.Error(t, err,"#%v: Expected error, didn't get one. Input: %v", i, invalidCase )
+		assert.Error(t, err, "#%v: Expected error, didn't get one. Input: %v", i, invalidCase)
 	}
 }
 
@@ -122,4 +123,3 @@ func TestDockerVersionMatches(t *testing.T) {
 		assert.Equal(t, testCase.expectedOutput, result, "#%v: %v(%v) expected %v but got %v", i, testCase.version, testCase.selector, testCase.expectedOutput, result)
 	}
 }
-

@@ -1,6 +1,6 @@
 // +build unit,windows
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,10 +21,10 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	docker "github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	docker "github.com/docker/docker/api/types"
 )
 
 func TestGetClientMinimumVersion(t *testing.T) {
@@ -61,7 +61,7 @@ func TestFindClientAPIVersion(t *testing.T) {
 	mockClient := mock_sdkclient.NewMockClient(ctrl)
 	factory := NewFactory(ctx, expectedEndpoint)
 
-	for _, version := range getAgentVersions() {
+	for _, version := range getAgentSupportedDockerVersions() {
 		if isWindowsReplaceableVersion(version) {
 			version = minDockerAPIVersion
 		}

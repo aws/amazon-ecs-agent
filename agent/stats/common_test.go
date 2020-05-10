@@ -1,4 +1,4 @@
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -29,6 +29,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go/aws"
+
+	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	sdkClient "github.com/docker/docker/client"
@@ -75,12 +77,14 @@ func eventStream(name string) *eventstream.EventStream {
 
 // createGremlin creates the gremlin container using the docker client.
 // It is used only in the test code.
-func createGremlin(client *sdkClient.Client) (*dockercontainer.ContainerCreateCreatedBody, error) {
+func createGremlin(client *sdkClient.Client, netMode string) (*dockercontainer.ContainerCreateCreatedBody, error) {
 	containerGremlin, err := client.ContainerCreate(context.TODO(),
 		&dockercontainer.Config{
 			Image: testImageName,
 		},
-		&dockercontainer.HostConfig{},
+		&dockercontainer.HostConfig{
+			NetworkMode: dockercontainer.NetworkMode(netMode),
+		},
 		&network.NetworkingConfig{},
 		"")
 
@@ -148,11 +152,20 @@ func validateContainerMetrics(containerMetrics []*ecstcs.ContainerMetric, expect
 		return fmt.Errorf("Mismatch in number of ContainerStatsSet elements. Expected: %d, Got: %d", expected, len(containerMetrics))
 	}
 	for _, containerMetric := range containerMetrics {
+		if *containerMetric.ContainerName == "" {
+			return fmt.Errorf("ContainerName is empty")
+		}
 		if containerMetric.CpuStatsSet == nil {
 			return fmt.Errorf("CPUStatsSet is nil")
 		}
 		if containerMetric.MemoryStatsSet == nil {
 			return fmt.Errorf("MemoryStatsSet is nil")
+		}
+		if containerMetric.NetworkStatsSet == nil {
+			return fmt.Errorf("NetworkStatsSet is nil")
+		}
+		if containerMetric.StorageStatsSet == nil {
+			return fmt.Errorf("StorageStatsSet is nil")
 		}
 	}
 	return nil
@@ -247,9 +260,19 @@ func validateEmptyTaskHealthMetrics(t *testing.T, engine *DockerStatsEngine) {
 }
 
 func createFakeContainerStats() []*ContainerStats {
+	netStats := &NetworkStats{
+		RxBytes:   796,
+		RxDropped: 6,
+		RxErrors:  0,
+		RxPackets: 10,
+		TxBytes:   8192,
+		TxDropped: 5,
+		TxErrors:  0,
+		TxPackets: 60,
+	}
 	return []*ContainerStats{
-		{22400432, 1839104, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
-		{116499979, 3649536, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
+		{22400432, 1839104, uint64(100), uint64(200), netStats, parseNanoTime("2015-02-12T21:22:05.131117533Z")},
+		{116499979, 3649536, uint64(300), uint64(400), netStats, parseNanoTime("2015-02-12T21:22:05.232291187Z")},
 	}
 }
 
@@ -301,4 +324,8 @@ func (engine *MockTaskEngine) Capabilities() []*ecs.Attribute {
 }
 
 func (engine *MockTaskEngine) Disable() {
+}
+
+func (engine *MockTaskEngine) Info() (types.Info, error) {
+	return types.Info{}, nil
 }

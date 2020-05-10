@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -25,14 +25,24 @@ import (
 // GetSecretFromSSM makes the api call to the AWS SSM parameter store to
 // retrieve secrets value in batches
 func GetSecretsFromSSM(names []string, client SSMClient) (map[string]string, error) {
-	var secretNames []*string
+	return getParameters(names, client, true)
+}
+
+// GetParametersFromSSM makes the api call to the AWS SSM parameter store to
+// retrieve parameter value in batches
+func GetParametersFromSSM(names []string, client SSMClient) (map[string]string, error) {
+	return getParameters(names, client, false)
+}
+
+func getParameters(names []string, client SSMClient, withDecryption bool) (map[string]string, error) {
+	var params []*string
 	for _, name := range names {
-		secretNames = append(secretNames, aws.String(name))
+		params = append(params, aws.String(name))
 	}
 
 	in := &ssm.GetParametersInput{
-		Names:          secretNames,
-		WithDecryption: aws.Bool(true),
+		Names:          params,
+		WithDecryption: aws.Bool(withDecryption),
 	}
 
 	out, err := client.GetParameters(in)

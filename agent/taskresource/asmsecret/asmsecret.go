@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -16,24 +16,32 @@ package asmsecret
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
 	"github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
 const (
 	// ResourceName is the name of the asmsecret resource
-	ResourceName = "asmsecret"
+	ResourceName                       = "asmsecret"
+	arnDelimiter                       = ":"
+	asmARNResourceFormat               = "secret:{secretID}"
+	asmARNResourceWithParametersFormat = "secret:secretID:jsonKey:versionStage:versionID"
 )
 
 // ASMSecretResource represents secrets as a task resource.
@@ -293,8 +301,19 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 
 	asmClient := secret.asmClientCreator.NewASMClient(apiSecret.Region, iamCredentials)
 	seelog.Infof("ASM secret resource: retrieving resource for secret %v in region %s for task: [%s]", apiSecret.ValueFrom, apiSecret.Region, secret.taskARN)
-	//for asm secret, ValueFrom can be arn or name
-	secretValue, err := asm.GetSecretFromASM(apiSecret.ValueFrom, asmClient)
+	input, jsonKey, err := getASMParametersFromInput(apiSecret.ValueFrom)
+	if err != nil {
+		errorEvents <- fmt.Errorf("trying to retrieve secret with value %s resulted in error: %v", apiSecret.ValueFrom, err)
+		return
+	}
+
+	if input.SecretId == nil {
+		errorEvents <- fmt.Errorf("could not find a secretsmanager secretID from value %s", apiSecret.ValueFrom)
+		return
+
+	}
+
+	secretValue, err := asm.GetSecretFromASMWithInput(input, asmClient, jsonKey)
 	if err != nil {
 		errorEvents <- fmt.Errorf("fetching secret data from AWS Secrets Manager in region %s: %v", apiSecret.Region, err)
 		return
@@ -306,6 +325,65 @@ func (secret *ASMSecretResource) retrieveASMSecretValue(apiSecret apicontainer.S
 	// put secret value in secretData
 	secretKey := apiSecret.GetSecretResourceCacheKey()
 	secret.secretData[secretKey] = secretValue
+}
+
+func pointerOrNil(in string) *string {
+	if in == "" {
+		return nil
+	}
+
+	return aws.String(in)
+}
+
+// Agent follows what Cloudformation does here with using Dynamic References to specify Template Values
+// in the format secret-id:json-key:version-stage:version-id
+// the input will always be a full ARN for ASM
+func getASMParametersFromInput(valueFrom string) (input *secretsmanager.GetSecretValueInput, jsonKey string, err error) {
+	arnObj, err := arn.Parse(valueFrom)
+	if err != nil {
+		seelog.Warnf("Unable to parse ARN %s when trying to retrieve ASM secret", valueFrom)
+		return nil, "", err
+	}
+
+	input = &secretsmanager.GetSecretValueInput{}
+
+	paramValues := strings.Split(arnObj.Resource, arnDelimiter) // arnObj.Resource looks like secret:secretID:...
+	if len(paramValues) == len(strings.Split(asmARNResourceFormat, arnDelimiter)) {
+		input.SecretId = &valueFrom
+		return input, "", nil
+	}
+	if len(paramValues) != len(strings.Split(asmARNResourceWithParametersFormat, arnDelimiter)) {
+		// can't tell what input this is, throw some error
+		err = errors.New("an invalid ARN format for the AWS Secrets Manager secret was specified. Specify a valid ARN and try again.")
+		return nil, "", err
+	}
+
+	input.SecretId = pointerOrNil(reconstructASMARN(arnObj))
+	jsonKey = paramValues[2]
+	input.VersionStage = pointerOrNil(paramValues[3])
+	input.VersionId = pointerOrNil(paramValues[4])
+
+	return input, jsonKey, nil
+}
+
+// this method is to reconstruct an ASM ARN that has the enhancement parameters
+// attached to it. in order to call secretsmanager:GetSecretValue, the entire ARN
+// (including the 6 character special identifier tacked on by ASM) is required or
+// just the secret name itself is required.
+func reconstructASMARN(arnARN arn.ARN) string {
+	// arn resource should look like secret:secretID:jsonKey:versionStage:versionID
+	secretIDAndParams := strings.Split(arnARN.Resource, arnDelimiter)
+	// reconstruct the secret id without the parameters
+	secretID := fmt.Sprintf("%s%s%s", secretIDAndParams[0], arnDelimiter, secretIDAndParams[1])
+	secretIDARN := arn.ARN{
+		Partition: arnARN.Partition,
+		Service:   arnARN.Service,
+		Region:    arnARN.Region,
+		AccountID: arnARN.AccountID,
+		Resource:  secretID,
+	}.String()
+
+	return secretIDARN
 }
 
 // getRequiredSecrets returns the requiredSecrets field of asmsecret task resource
@@ -434,5 +512,25 @@ func (secret *ASMSecretResource) UnmarshalJSON(b []byte) error {
 	secret.taskARN = temp.TaskARN
 	secret.executionCredentialsID = temp.ExecutionCredentialsID
 
+	return nil
+}
+
+// GetAppliedStatus safely returns the currently applied status of the resource
+func (secret *ASMSecretResource) GetAppliedStatus() resourcestatus.ResourceStatus {
+	secret.lock.RLock()
+	defer secret.lock.RUnlock()
+
+	return secret.appliedStatus
+}
+
+func (secret *ASMSecretResource) DependOnTaskNetwork() bool {
+	return false
+}
+
+func (secret *ASMSecretResource) BuildContainerDependency(containerName string, satisfied apicontainerstatus.ContainerStatus,
+	dependent resourcestatus.ResourceStatus) {
+}
+
+func (secret *ASMSecretResource) GetContainerDependencies(dependent resourcestatus.ResourceStatus) []apicontainer.ContainerDependency {
 	return nil
 }

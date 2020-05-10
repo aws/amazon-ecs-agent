@@ -1,4 +1,4 @@
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -20,11 +20,13 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
-	"github.com/aws/amazon-ecs-agent/agent/tcs/client"
+	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
@@ -82,8 +84,13 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 			seelog.Info("TCS Websocket connection closed for a valid reason")
 			backoff.Reset()
 		} else {
-			seelog.Infof("Error from tcs; backing off: %v", tcsError)
+			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
 			params.time().Sleep(backoff.Duration())
+		}
+		select {
+		case <-params.Ctx.Done():
+			return nil
+		default:
 		}
 	}
 }
@@ -94,7 +101,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 		seelog.Errorf("tcs: unable to discover poll endpoint: %v", err)
 		return err
 	}
-	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn)
+	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval,
 		params.DeregisterInstanceEventStream)
@@ -179,7 +186,7 @@ func anyMessageHandler(client wsclient.ClientServer) func(interface{}) {
 }
 
 // formatURL returns formatted url for tcs endpoint.
-func formatURL(endpoint string, cluster string, containerInstance string) string {
+func formatURL(endpoint string, cluster string, containerInstance string, taskEngine engine.TaskEngine) string {
 	tcsURL := endpoint
 	if !strings.HasSuffix(tcsURL, "/") {
 		tcsURL += "/"
@@ -187,5 +194,10 @@ func formatURL(endpoint string, cluster string, containerInstance string) string
 	query := url.Values{}
 	query.Set("cluster", cluster)
 	query.Set("containerInstance", containerInstance)
+	query.Set("agentVersion", version.Version)
+	query.Set("agentHash", version.GitHashString())
+	if dockerVersion, err := taskEngine.Version(); err == nil {
+		query.Set("dockerVersion", dockerVersion)
+	}
 	return tcsURL + "ws?" + query.Encode()
 }

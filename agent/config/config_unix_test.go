@@ -1,6 +1,6 @@
 // +build !windows,unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -55,6 +55,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, defaultCredentialsAuditLogFile, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
+	assert.Equal(t, DefaultNonECSImageDeletionAge, cfg.NonECSMinimumImageDeletionAge, "NonECSMinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
@@ -65,6 +66,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.Equal(t, defaultCgroupCPUPeriod, cfg.CgroupCPUPeriod, "CFS cpu period set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
@@ -191,6 +193,29 @@ func TestPrometheusMetricsPlatformOverrides(t *testing.T) {
 	assert.Equal(t, 6, len(cfg.ReservedPorts), "Reserved ports should have added Prometheus endpoint")
 }
 
+// TestENITrunkingEnabled tests that when task networking is enabled, eni trunking is enabled by default
+func TestENITrunkingEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	cfg.platformOverrides()
+	assert.True(t, cfg.ENITrunkingEnabled, "ENI trunking should be enabled")
+}
+
+// TestENITrunkingDisabled tests that when task networking is enabled, eni trunking can be disabled
+func TestENITrunkingDisabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_TASK_ENI", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+
+	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
+	cfg.platformOverrides()
+	assert.False(t, cfg.ENITrunkingEnabled, "ENI trunking should be disabled")
+}
+
 // setupFileConfiguration create a temp file store the configuration
 func setupFileConfiguration(t *testing.T, configContent string) string {
 	file, err := ioutil.TempFile("", "ecs-test")
@@ -208,4 +233,46 @@ func TestEmptyNvidiaRuntime(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, DefaultNvidiaRuntime, cfg.NvidiaRuntime, "Wrong value for NvidiaRuntime")
+}
+
+func TestCPUPeriodSettings(t *testing.T) {
+	cases := []struct {
+		Name     string
+		Env      string
+		Response time.Duration
+	}{
+		{
+			Name:     "OverrideDefaultCPUPeriod",
+			Env:      "10ms",
+			Response: 10 * time.Millisecond,
+		},
+		{
+			Name:     "DefaultCPUPeriod",
+			Env:      "",
+			Response: defaultCgroupCPUPeriod,
+		},
+		{
+			Name:     "TestCPUPeriodUpperBoundLimit",
+			Env:      "110ms",
+			Response: defaultCgroupCPUPeriod,
+		},
+		{
+			Name:     "TestCPUPeriodLowerBoundLimit",
+			Env:      "7ms",
+			Response: defaultCgroupCPUPeriod,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name, func(t *testing.T) {
+			defer setTestRegion()()
+			defer os.Setenv("ECS_CGROUP_CPU_PERIOD", "100ms")
+
+			os.Setenv("ECS_CGROUP_CPU_PERIOD", c.Env)
+			conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+
+			assert.NoError(t, err)
+			assert.Equal(t, c.Response, conf.CgroupCPUPeriod, "Wrong value for CgroupCPUPeriod")
+		})
+	}
 }

@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -30,13 +30,13 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	"github.com/aws/amazon-ecs-agent/agent/api/mocks"
+	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/async"
-	"github.com/aws/amazon-ecs-agent/agent/async/mocks"
+	mock_async "github.com/aws/amazon-ecs-agent/agent/async/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -64,6 +64,7 @@ var (
 		},
 	}
 	containerInstanceTagsMap = map[string]string{
+
 		"my_key1": "my_val1",
 		"my_key2": "my_val2",
 	}
@@ -165,6 +166,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
+			RuntimeId:     strptr("runtime id"),
 			Status:        strptr("RUNNING"),
 			NetworkBindings: []*ecs.NetworkBinding{
 				{
@@ -185,6 +187,7 @@ func TestSubmitContainerStateChange(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
+		RuntimeID:     "runtime id",
 		Status:        apicontainerstatus.ContainerRunning,
 		PortBindings: []apicontainer.PortBinding{
 			{
@@ -217,6 +220,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 			Cluster:       strptr(configuredCluster),
 			Task:          strptr("arn"),
 			ContainerName: strptr("cont"),
+			RuntimeId:     strptr("runtime id"),
 			Status:        strptr("STOPPED"),
 			ExitCode:      int64ptr(&exitCode),
 			Reason:        strptr(reason),
@@ -233,6 +237,7 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
 		TaskArn:       "arn",
 		ContainerName: "cont",
+		RuntimeID:     "runtime id",
 		Status:        apicontainerstatus.ContainerStopped,
 		ExitCode:      &exitCode,
 		Reason:        reason,
@@ -332,6 +337,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           config.OSType,
 		"ecs.availability-zone": "us-west-2b",
+		"ecs.outpost-arn":       "test:arn:outpost",
 	}
 	for i := range fakeCapabilities {
 		expectedAttributes[fakeCapabilities[i]] = ""
@@ -351,8 +357,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// "ecs.os-type" and the 2 that we specified as additionalAttributes
-			assert.Equal(t, 3, len(req.Attributes), "Wrong number of Attributes")
+			// "ecs.os-type", ecs.outpost-arn and the 2 that we specified as additionalAttributes
+			assert.Equal(t, 4, len(req.Attributes), "Wrong number of Attributes")
 			reqAttributes := func() map[string]string {
 				rv := make(map[string]string, len(req.Attributes))
 				for i := range req.Attributes {
@@ -378,7 +384,8 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities, containerInstanceTags, registrationToken, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("arn:test", capabilities,
+		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
 
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
@@ -400,6 +407,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
+		"ecs.outpost-arn":           "test:arn:outpost",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 	platformDevices := []*ecs.PlatformDevice{
@@ -430,8 +438,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 2 from additionalAttributes
-			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			// 3 from expectedAttributes and 3 from additionalAttributes
+			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
 					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
@@ -453,7 +461,8 @@ func TestRegisterContainerInstance(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, platformDevices)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
+		containerInstanceTags, registrationToken, platformDevices, "test:arn:outpost")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -480,6 +489,7 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 		"ecs.availability-zone":     "us-west-2b",
+		"ecs.outpost-arn":           "test:arn:outpost",
 	}
 	capabilities := buildAttributeList(fakeCapabilities, nil)
 
@@ -494,8 +504,8 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 2 from additionalAttributes
-			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
+			// 3 from expectedAttributes and 3 from additionalAttributes
+			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
 			for i := range req.Attributes {
 				if strings.Contains(*req.Attributes[i].Name, "capability") {
 					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
@@ -516,7 +526,8 @@ func TestRegisterContainerInstanceNoIID(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities, containerInstanceTags, registrationToken, nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
+		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone)
@@ -543,7 +554,8 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
 	)
-	_, _, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	_, _, err := client.RegisterContainerInstance("", nil, nil,
+		"", nil, "")
 	assert.Error(t, err, "Register resource with negative value should cause registration fail")
 }
 
@@ -573,7 +585,8 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 			nil),
 	)
 
-	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0), "", nil)
+	_, _, err := client.RegisterContainerInstance("", nil, make([]*ecs.Tag, 0),
+		"", nil, "")
 	assert.NoError(t, err)
 }
 
@@ -647,7 +660,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 			nil),
 	)
 
-	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	arn, availabilityzone, err := client.RegisterContainerInstance("", nil, nil,
+		"", nil, "")
 	if err != nil {
 		t.Errorf("Should not be an error: %v", err)
 	}
@@ -701,7 +715,8 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 			nil),
 	)
 
-	arn, _, err := client.RegisterContainerInstance("", nil, nil, "", nil)
+	arn, _, err := client.RegisterContainerInstance("", nil, nil, "",
+		nil, "")
 	assert.NoError(t, err, "Should not return error")
 	assert.Equal(t, "registerArn", arn, "Wrong arn")
 }
@@ -742,6 +757,70 @@ func TestDiscoverNilTelemetryEndpoint(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error getting telemetry endpoint with old response")
 	}
+}
+
+func TestUpdateContainerInstancesState(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	status := "DRAINING"
+	mc.EXPECT().UpdateContainerInstancesState(&ecs.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
+		Cluster:            aws.String(configuredCluster),
+	}).Return(&ecs.UpdateContainerInstancesStateOutput{}, nil)
+
+	err := client.UpdateContainerInstancesState(instanceARN, status)
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling UpdateContainerInstancesState: %s", err))
+}
+
+func TestUpdateContainerInstancesStateError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	status := "DRAINING"
+	mc.EXPECT().UpdateContainerInstancesState(&ecs.UpdateContainerInstancesStateInput{
+		ContainerInstances: []*string{aws.String(instanceARN)},
+		Status:             aws.String(status),
+		Cluster:            aws.String(configuredCluster),
+	}).Return(nil, fmt.Errorf("ERROR"))
+
+	err := client.UpdateContainerInstancesState(instanceARN, status)
+	assert.Error(t, err, "Expected an error calling UpdateContainerInstancesState but got nil")
+}
+
+func TestGetResourceTags(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	mc.EXPECT().ListTagsForResource(&ecs.ListTagsForResourceInput{
+		ResourceArn: aws.String(instanceARN),
+	}).Return(&ecs.ListTagsForResourceOutput{
+		Tags: containerInstanceTags,
+	}, nil)
+
+	_, err := client.GetResourceTags(instanceARN)
+	assert.NoError(t, err, fmt.Sprintf("Unexpected error calling GetResourceTags: %s", err))
+}
+
+func TestGetResourceTagsError(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	client, mc, _ := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+
+	instanceARN := "myInstanceARN"
+	mc.EXPECT().ListTagsForResource(&ecs.ListTagsForResourceInput{
+		ResourceArn: aws.String(instanceARN),
+	}).Return(nil, fmt.Errorf("ERROR"))
+
+	_, err := client.GetResourceTags(instanceARN)
+	assert.Error(t, err, "Expected an error calling GetResourceTags but got nil")
 }
 
 func TestDiscoverPollEndpointCacheHit(t *testing.T) {
@@ -928,6 +1007,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 			{
 				TaskArn:       "arn",
 				ContainerName: "container",
+				RuntimeID:     "runtimeid",
 				Status:        apicontainerstatus.ContainerRunning,
 			},
 		},
@@ -946,6 +1026,7 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 					Containers: []*ecs.ContainerStateChange{
 						{
 							ContainerName:   strptr("container"),
+							RuntimeId:       strptr("runtimeid"),
 							Status:          strptr("RUNNING"),
 							NetworkBindings: []*ecs.NetworkBinding{},
 						},

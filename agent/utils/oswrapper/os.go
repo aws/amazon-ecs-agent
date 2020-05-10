@@ -1,4 +1,4 @@
-// Copyright 2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,8 +21,10 @@ type OS interface {
 	OpenFile(string, int, os.FileMode) (File, error)
 	Rename(string, string) error
 	MkdirAll(string, os.FileMode) error
+	Remove(string) error
 	RemoveAll(string) error
 	IsNotExist(error) bool
+	Open(string) (File, error)
 }
 
 // File wraps methods for os.File type
@@ -31,7 +33,9 @@ type File interface {
 	Close() error
 	Chmod(os.FileMode) error
 	Write([]byte) (int, error)
+	WriteAt(b []byte, off int64) (n int, err error)
 	Sync() error
+	Read([]byte) (int, error)
 }
 
 type _os struct {
@@ -57,10 +61,18 @@ func (*_os) MkdirAll(name string, perm os.FileMode) error {
 	return os.MkdirAll(name, perm)
 }
 
+func (*_os) Remove(name string) error {
+	return os.Remove(name)
+}
+
 func (*_os) RemoveAll(name string) error {
 	return os.RemoveAll(name)
 }
 
 func (*_os) IsNotExist(err error) bool {
 	return os.IsNotExist(err)
+}
+
+func (*_os) Open(name string) (File, error) {
+	return os.Open(name)
 }

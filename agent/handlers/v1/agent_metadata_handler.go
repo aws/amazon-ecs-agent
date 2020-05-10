@@ -1,4 +1,4 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,7 +33,10 @@ func AgentMetadataHandler(containerInstanceArn *string, cfg *config.Config) func
 			ContainerInstanceArn: containerInstanceArn,
 			Version:              agentversion.String(),
 		}
-		responseJSON, _ := json.Marshal(resp)
+		responseJSON, err := json.Marshal(resp)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
 		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeAgentMetadata)
 	}
 }

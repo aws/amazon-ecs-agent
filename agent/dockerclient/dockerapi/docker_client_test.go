@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,13 +35,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
+	mock_sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient/mocks"
+	mock_sdkclientfactory "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
+	mock_ecr "github.com/aws/amazon-ecs-agent/agent/ecr/mocks"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -181,6 +182,12 @@ func TestPullImageInactivityTimeout(t *testing.T) {
 			}
 			return reader, nil
 		}).Times(maximumPullRetries) // expected number of retries
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, client.config.ImagePullInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -755,41 +762,47 @@ func TestContainerEvents(t *testing.T) {
 		}
 	}
 }
-func TestContainerEventsEOFError(t *testing.T) {
-	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
 
-	eventsChan := make(chan events.Message, dockerEventBufferSize)
-	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan)
+func TestContainerEventsError(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+	}{
+		{
+			name: "EOF error",
+			err:  io.EOF,
+		},
+		{
+			name: "Unexpected EOF error",
+			err:  io.ErrUnexpectedEOF,
+		},
+		{
+			name: "other error",
+			err:  errors.New("test error"),
+		},
+	}
 
-	dockerEvents, err := client.ContainerEvents(context.TODO())
-	require.NoError(t, err, "Could not get container events")
-	go func() {
-		errChan <- io.EOF
-	}()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+			defer done()
 
-	assert.Equal(t, len(dockerEvents), 0, "Wrong number of docker events")
-}
+			eventsChan := make(chan events.Message, dockerEventBufferSize)
+			errChan := make(chan error)
+			mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
 
-func TestContainerEventsStreamError(t *testing.T) {
-	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
-	defer done()
+			dockerEvents, err := client.ContainerEvents(context.TODO())
+			require.NoError(t, err, "Could not get container events")
+			go func() {
+				errChan <- tc.err
+				eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
+			}()
 
-	eventsChan := make(chan events.Message, dockerEventBufferSize)
-	errChan := make(chan error)
-	mockDockerSDK.EXPECT().Events(gomock.Any(), gomock.Any()).Return(eventsChan, errChan).MinTimes(1)
-
-	dockerEvents, err := client.ContainerEvents(context.TODO())
-	require.NoError(t, err, "Could not get container events")
-	go func() {
-		errChan <- errors.New("some error happened")
-		eventsChan <- events.Message{Type: "container", ID: "containerId", Status: "create"}
-	}()
-
-	event := <-dockerEvents
-	assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
-	assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+			event := <-dockerEvents
+			assert.Equal(t, event.DockerID, "containerId", "Wrong docker id")
+			assert.Equal(t, event.Status, apicontainerstatus.ContainerCreated, "Wrong status")
+		})
+	}
 }
 
 func TestDockerVersion(t *testing.T) {
@@ -803,6 +816,63 @@ func TestDockerVersion(t *testing.T) {
 	str, err := client.Version(ctx, dockerclient.VersionTimeout)
 	assert.NoError(t, err)
 	assert.Equal(t, "1.6.0", str, "Got unexpected version string: "+str)
+}
+
+func TestDockerInfo(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{SecurityOptions: []string{"selinux"}}, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"selinux"}, info.SecurityOptions)
+}
+
+func TestDockerInfoError(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	errorMsg := "Error getting  docker info"
+
+	mockDockerSDK.EXPECT().Info(gomock.Any()).Return(types.Info{}, errors.New(errorMsg))
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.Error(t, err, errorMsg)
+	assert.Equal(t, types.Info{}, info)
+}
+
+func TestDockerInfoClientError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	errorMsg := "Error getting client"
+
+	// Mock SDKFactory
+	mockDockerSDK := mock_sdkclient.NewMockClient(ctrl)
+	mockDockerSDK.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+	sdkFactory := mock_sdkclientfactory.NewMockFactory(ctrl)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	// Return the Docker Go client for the first call
+	sdkFactory.EXPECT().GetDefaultClient().Times(1).Return(mockDockerSDK, nil)
+	client, err := NewDockerGoClient(sdkFactory, defaultTestConfig(), ctx)
+	assert.NoError(t, err)
+
+	// Throw error when `Info` tries to get the client
+	sdkFactory.EXPECT().GetDefaultClient().Return(nil, errors.New(errorMsg))
+	info, err := client.Info(ctx, dockerclient.InfoTimeout)
+
+	assert.Error(t, err, errorMsg)
+	assert.Equal(t, types.Info{}, info)
 }
 
 func TestDockerVersionCached(t *testing.T) {
@@ -974,10 +1044,10 @@ func TestStatsNormalExit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
+	stats, _ := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
 	newStat := <-stats
 	waitForStats(t, newStat)
+
 	assert.Equal(t, uint64(50), newStat.MemoryStats.Usage)
 	assert.Equal(t, uint64(100), newStat.CPUStats.SystemUsage)
 }
@@ -993,9 +1063,9 @@ func TestStatsErrorReading(t *testing.T) {
 	}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
-	assert.Nil(t, <-stats)
+	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+
+	assert.Error(t, <-errC)
 }
 
 func TestStatsErrorDecoding(t *testing.T) {
@@ -1009,9 +1079,8 @@ func TestStatsErrorDecoding(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	assert.NoError(t, err)
-	assert.Nil(t, <-stats)
+	_, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	assert.Error(t, <-errC)
 }
 
 func TestStatsClientError(t *testing.T) {
@@ -1024,10 +1093,13 @@ func TestStatsClientError(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	_, err := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
-	if err == nil {
-		t.Fatal("Expected error with nil docker client")
-	}
+	statsC, errC := client.Stats(ctx, "foo", dockerclient.StatsInactivityTimeout)
+	// should get an error from the channel
+	err := <-errC
+	// stats channel should be closed (ok=false)
+	_, ok := <-statsC
+	assert.False(t, ok)
+	assert.Error(t, err)
 }
 
 type mockStream struct {
@@ -1077,13 +1149,17 @@ func TestStatsInactivityTimeout(t *testing.T) {
 			delay: 300 * time.Millisecond,
 		},
 	}, nil)
+
+	client.inactivityTimeoutHandler = func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{}) {
+		assert.Equal(t, shortInactivityTimeout, timeout)
+		atomic.AddUint32(canceled, 1)
+		return reader, make(chan struct{})
+	}
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", shortInactivityTimeout)
-	assert.NoError(t, err)
-	newStat := <-stats
-
-	assert.Nil(t, newStat)
+	_, errC := client.Stats(ctx, "foo", shortInactivityTimeout)
+	assert.Error(t, <-errC)
 }
 
 func TestStatsInactivityTimeoutNoHit(t *testing.T) {
@@ -1099,8 +1175,7 @@ func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	}, nil)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	stats, err := client.Stats(ctx, "foo", longInactivityTimeout)
-	assert.NoError(t, err)
+	stats, _ := client.Stats(ctx, "foo", longInactivityTimeout)
 	newStat := <-stats
 
 	waitForStats(t, newStat)
@@ -1624,6 +1699,7 @@ func TestRemoveVolumeError(t *testing.T) {
 	defer cancel()
 	err := client.RemoveVolume(ctx, "name", dockerclient.RemoveVolumeTimeout)
 	assert.Equal(t, "CannotRemoveVolumeError", err.(apierrors.NamedError).ErrorName())
+	assert.NotNil(t, err.Error(), "Nested error cannot be nil")
 }
 
 func TestRemoveVolume(t *testing.T) {

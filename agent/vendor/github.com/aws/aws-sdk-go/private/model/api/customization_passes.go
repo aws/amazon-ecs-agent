@@ -3,7 +3,9 @@
 package api
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -27,10 +29,24 @@ var mergeServices = map[string]service{
 	},
 }
 
+var serviceAliaseNames = map[string]string{
+	"costandusagereportservice": "CostandUsageReportService",
+	"elasticloadbalancing":      "ELB",
+	"elasticloadbalancingv2":    "ELBV2",
+	"config":                    "ConfigService",
+}
+
+func (a *API) setServiceAliaseName() {
+	if newName, ok := serviceAliaseNames[a.PackageName()]; ok {
+		a.name = newName
+	}
+}
+
 // customizationPasses Executes customization logic for the API by package name.
-func (a *API) customizationPasses() {
-	var svcCustomizations = map[string]func(*API){
+func (a *API) customizationPasses() error {
+	var svcCustomizations = map[string]func(*API) error{
 		"s3":         s3Customizations,
+		"s3control":  s3ControlCustomizations,
 		"cloudfront": cloudfrontCustomizations,
 		"rds":        rdsCustomizations,
 
@@ -38,6 +54,23 @@ func (a *API) customizationPasses() {
 		// to provide endpoint them selves.
 		"cloudsearchdomain": disableEndpointResolving,
 		"iotdataplane":      disableEndpointResolving,
+
+		// MTurk smoke test is invalid. The service requires AWS account to be
+		// linked to Amazon Mechanical Turk Account.
+		"mturk": supressSmokeTest,
+
+		// Backfill the authentication type for cognito identity and sts.
+		// Removes the need for the customizations in these services.
+		"cognitoidentity": backfillAuthType(NoneAuthType,
+			"GetId",
+			"GetOpenIdToken",
+			"UnlinkIdentity",
+			"GetCredentialsForIdentity",
+		),
+		"sts": backfillAuthType(NoneAuthType,
+			"AssumeRoleWithSAML",
+			"AssumeRoleWithWebIdentity",
+		),
 	}
 
 	for k := range mergeServices {
@@ -45,12 +78,22 @@ func (a *API) customizationPasses() {
 	}
 
 	if fn := svcCustomizations[a.PackageName()]; fn != nil {
-		fn(a)
+		err := fn(a)
+		if err != nil {
+			return fmt.Errorf("service customization pass failure for %s: %v", a.PackageName(), err)
+		}
 	}
+
+	return nil
 }
 
-// s3Customizations customizes the API generation to replace values specific to S3.
-func s3Customizations(a *API) {
+func supressSmokeTest(a *API) error {
+	a.SmokeTests.TestCases = []SmokeTestCase{}
+	return nil
+}
+
+// Customizes the API generation to replace values specific to S3.
+func s3Customizations(a *API) error {
 	var strExpires *Shape
 
 	var keepContentMD5Ref = map[string]struct{}{
@@ -73,6 +116,46 @@ func s3Customizations(a *API) {
 			}
 		}
 
+		// Generate a endpointARN method for the BucketName shape if this is used as an operation input
+		if s.UsedAsInput {
+			if s.ShapeName == "CreateBucketInput" {
+				// For all operations but CreateBucket the BucketName shape
+				// needs to be decorated.
+				continue
+			}
+			var endpointARNShape *ShapeRef
+			for _, ref := range s.MemberRefs {
+				if ref.OrigShapeName != "BucketName" || ref.Shape.Type != "string" {
+					continue
+				}
+				if endpointARNShape != nil {
+					return fmt.Errorf("more then one BucketName shape present on shape")
+				}
+				ref.EndpointARN = true
+				endpointARNShape = ref
+			}
+			if endpointARNShape != nil {
+				s.HasEndpointARNMember = true
+				a.HasEndpointARN = true
+			}
+		}
+
+		// Decorate member references that are modeled with the wrong type.
+		// Specifically the case where a member was modeled as a string, but is
+		// expected to sent across the wire as a base64 value.
+		//
+		// e.g. S3's SSECustomerKey and CopySourceSSECustomerKey
+		for _, refName := range []string{
+			"SSECustomerKey",
+			"CopySourceSSECustomerKey",
+		} {
+			if ref, ok := s.MemberRefs[refName]; ok {
+				ref.CustomTags = append(ref.CustomTags, ShapeTag{
+					"marshal-as", "blob",
+				})
+			}
+		}
+
 		// Expires should be a string not time.Time since the format is not
 		// enforced by S3, and any value can be set to this field outside of the SDK.
 		if strings.HasSuffix(name, "Output") {
@@ -90,6 +173,8 @@ func s3Customizations(a *API) {
 		}
 	}
 	s3CustRemoveHeadObjectModeledErrors(a)
+
+	return nil
 }
 
 // S3 HeadObject API call incorrect models NoSuchKey as valid
@@ -110,9 +195,27 @@ func s3CustRemoveHeadObjectModeledErrors(a *API) {
 	op.ErrorRefs = []ShapeRef{}
 }
 
+// S3 service operations with an AccountId need accessors to be generated for
+// them so the fields can be dynamically accessed without reflection.
+func s3ControlCustomizations(a *API) error {
+	for opName, op := range a.Operations {
+		// Add moving AccountId into the hostname instead of header.
+		if ref, ok := op.InputRef.Shape.MemberRefs["AccountId"]; ok {
+			if op.Endpoint != nil {
+				fmt.Fprintf(os.Stderr, "S3 Control, %s, model already defining endpoint trait, remove this customization.\n", opName)
+			}
+
+			op.Endpoint = &EndpointTrait{HostPrefix: "{AccountId}."}
+			ref.HostLabel = true
+		}
+	}
+
+	return nil
+}
+
 // cloudfrontCustomizations customized the API generation to replace values
 // specific to CloudFront.
-func cloudfrontCustomizations(a *API) {
+func cloudfrontCustomizations(a *API) error {
 	// MaxItems members should always be integers
 	for _, s := range a.Shapes {
 		if ref, ok := s.MemberRefs["MaxItems"]; ok {
@@ -120,16 +223,17 @@ func cloudfrontCustomizations(a *API) {
 			ref.Shape = a.Shapes["Integer"]
 		}
 	}
+	return nil
 }
 
 // mergeServicesCustomizations references any duplicate shapes from DynamoDB
-func mergeServicesCustomizations(a *API) {
+func mergeServicesCustomizations(a *API) error {
 	info := mergeServices[a.PackageName()]
 
 	p := strings.Replace(a.path, info.srcName, info.dstName, -1)
 
 	if info.serviceVersion != "" {
-		index := strings.LastIndex(p, "/")
+		index := strings.LastIndex(p, string(filepath.Separator))
 		files, _ := ioutil.ReadDir(p[:index])
 		if len(files) > 1 {
 			panic("New version was introduced")
@@ -145,13 +249,15 @@ func mergeServicesCustomizations(a *API) {
 
 	for n := range a.Shapes {
 		if _, ok := serviceAPI.Shapes[n]; ok {
-			a.Shapes[n].resolvePkg = "github.com/aws/aws-sdk-go/service/" + info.dstName
+			a.Shapes[n].resolvePkg = SDKImportRoot + "/service/" + info.dstName
 		}
 	}
+
+	return nil
 }
 
 // rdsCustomizations are customization for the service/rds. This adds non-modeled fields used for presigning.
-func rdsCustomizations(a *API) {
+func rdsCustomizations(a *API) error {
 	inputs := []string{
 		"CopyDBSnapshotInput",
 		"CreateDBInstanceReadReplicaInput",
@@ -173,8 +279,30 @@ func rdsCustomizations(a *API) {
 			}
 		}
 	}
+
+	return nil
 }
 
-func disableEndpointResolving(a *API) {
+func disableEndpointResolving(a *API) error {
 	a.Metadata.NoResolveEndpoint = true
+	return nil
+}
+
+func backfillAuthType(typ AuthType, opNames ...string) func(*API) error {
+	return func(a *API) error {
+		for _, opName := range opNames {
+			op, ok := a.Operations[opName]
+			if !ok {
+				panic("unable to backfill auth-type for unknown operation " + opName)
+			}
+			if v := op.AuthType; len(v) != 0 {
+				fmt.Fprintf(os.Stderr, "unable to backfill auth-type for %s, already set, %s", opName, v)
+				continue
+			}
+
+			op.AuthType = typ
+		}
+
+		return nil
+	}
 }

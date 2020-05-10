@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -33,14 +33,21 @@ const (
 
 // createTaskResponse creates JSON response and sets the http status code for the task queried.
 func createTaskResponse(task *apitask.Task, found bool, resourceID string, state dockerstate.TaskEngineState) ([]byte, int) {
+	var err error
 	var responseJSON []byte
 	status := http.StatusOK
 	if found {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
-		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap))
+		responseJSON, err = json.Marshal(NewTaskResponse(task, containerMap))
+		if err != nil {
+			return []byte("{}"), http.StatusInternalServerError
+		}
 	} else {
 		seelog.Warn("Could not find requested resource: " + resourceID)
-		responseJSON, _ = json.Marshal(&TaskResponse{})
+		responseJSON, err = json.Marshal(&TaskResponse{})
+		if err != nil {
+			return []byte("{}"), http.StatusInternalServerError
+		}
 		status = http.StatusNotFound
 	}
 	return responseJSON, status
@@ -51,6 +58,7 @@ func createTaskResponse(task *apitask.Task, found bool, resourceID string, state
 // 'taskarn' are specified in the request.
 func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
 		var responseJSON []byte
 		dockerTaskEngineState := taskEngine.State()
 		dockerID, dockerIDExists := utils.ValueFromRequest(r, dockerIDQueryField)
@@ -92,7 +100,11 @@ func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(htt
 			w.WriteHeader(status)
 		} else {
 			// List all tasks.
-			responseJSON, _ = json.Marshal(NewTasksResponse(dockerTaskEngineState))
+			responseJSON, err = json.Marshal(NewTasksResponse(dockerTaskEngineState))
+			if err != nil {
+				responseJSON = []byte("")
+				w.WriteHeader(http.StatusInternalServerError)
+			}
 		}
 		w.Write(responseJSON)
 	}

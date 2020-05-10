@@ -1,9 +1,0 @@
-{
-  "family": "ecsftest-windows-telemetry",
-  "containerDefinitions": [{
-    "image": "amazon/amazon-ecs-windows-telemetry-test:make",
-    "name": "windows-telemetry",
-    "cpu": $$$$CPUSHARE$$$$,
-    "memory": 2048
-  }]
-}

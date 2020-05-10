@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -24,7 +24,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
-	"github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
+	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
@@ -105,6 +105,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_DISABLE_IMAGE_CLEANUP", "true")()
 	defer setTestEnv("ECS_IMAGE_CLEANUP_INTERVAL", "2h")()
 	defer setTestEnv("ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")()
+	defer setTestEnv("NON_ECS_IMAGE_MINIMUM_CLEANUP_AGE", "30m")()
 	defer setTestEnv("ECS_NUM_IMAGES_DELETE_PER_CYCLE", "2")()
 	defer setTestEnv("ECS_IMAGE_PULL_BEHAVIOR", "always")()
 	defer setTestEnv("ECS_INSTANCE_ATTRIBUTES", "{\"my_attribute\": \"testing\"}")()
@@ -117,10 +118,13 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_NVIDIA_RUNTIME", "nvidia")()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
+	defer setTestEnv("ECS_CGROUP_CPU_PERIOD", "")
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
 	setTestEnv("ECS_HOST_DATA_DIR", "/etc/ecs/")
+	setTestEnv("ECS_CGROUP_CPU_PERIOD", "10ms")
+	setTestEnv("ECS_VOLUME_PLUGIN_CAPABILITIES", "[\"efsAuth\"]")
 
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
@@ -146,6 +150,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, expectedDurationPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration)
 	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
+	assert.Equal(t, (30 * time.Minute), conf.NonECSMinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
 	assert.Equal(t, 2, conf.NumImagesToDeletePerCycle)
 	assert.Equal(t, ImagePullAlwaysBehavior, conf.ImagePullBehavior)
@@ -163,6 +168,9 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
+	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
+	assert.False(t, conf.SpotInstanceDrainingEnabled)
+	assert.Equal(t, []string{"efsAuth"}, conf.VolumePluginCapabilities)
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {
@@ -191,10 +199,12 @@ func TestConfigBoolean(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DISABLE_DOCKER_HEALTH_CHECK", "true")()
 	defer setTestEnv("ECS_DISABLE_METRICS", "true")()
+	defer setTestEnv("ECS_ENABLE_SPOT_INSTANCE_DRAINING", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics)
 	assert.True(t, cfg.DisableDockerHealthCheck)
+	assert.True(t, cfg.SpotInstanceDrainingEnabled)
 }
 
 func TestBadLoggingDriverSerialization(t *testing.T) {

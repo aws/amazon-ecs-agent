@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2014-2015 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -29,8 +29,6 @@ version_gen=${3:-true}
 # Normalize to working directory being build root (up one level from ./scripts)
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
-
-source ./scripts/shared_env
 
 if [[ "${version_gen}" == "true" ]]; then
   # Versioning stuff. We run the generator to setup the version and then always

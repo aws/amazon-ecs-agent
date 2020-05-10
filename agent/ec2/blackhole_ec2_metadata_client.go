@@ -1,4 +1,4 @@
-// Copyright 2014-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -37,6 +37,10 @@ func (blackholeMetadataClient) PrimaryENIMAC() (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) AllENIMacs() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) VPCID(mac string) (string, error) {
 	return "", errors.New("blackholed")
 }
@@ -65,6 +69,18 @@ func (blackholeMetadataClient) Region() (string, error) {
 	return "", errors.New("blackholed")
 }
 
+func (blackholeMetadataClient) PrivateIPv4Address() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 func (blackholeMetadataClient) PublicIPv4Address() (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) SpotInstanceAction() (string, error) {
+	return "", errors.New("blackholed")
+}
+
+func (blackholeMetadataClient) OutpostARN() (string, error) {
 	return "", errors.New("blackholed")
 }

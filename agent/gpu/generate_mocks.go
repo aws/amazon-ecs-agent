@@ -1,6 +1,6 @@
 // +build linux
 
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -15,4 +15,4 @@
 
 package gpu
 
-//go:generate go run ../../scripts/generate/mockgen.go github.com/aws/amazon-ecs-agent/agent/gpu GPUManager mocks/gpu_manager_mocks.go
+//go:generate mockgen -destination=mocks/gpu_manager_mocks.go -copyright_file=../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/gpu GPUManager

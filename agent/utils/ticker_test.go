@@ -1,4 +1,6 @@
-// Copyright 2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// +build unit
+
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -25,7 +27,7 @@ const (
 	TheBestNumber = 28
 )
 
-func init(){
+func init() {
 	// The best randomness is deterministic
 	rand.Seed(TheBestNumber)
 }
@@ -35,8 +37,8 @@ func TestTickerHappyCase(t *testing.T) {
 	defer cancel()
 	mTicker := NewJitteredTicker(ctx, 10*time.Millisecond, 100*time.Millisecond)
 
-	lowerTickLimit := 10
-	upperTickLimit := 100
+	lowerTickLimit := 7
+	upperTickLimit := 130
 
 	times := 0
 	for {

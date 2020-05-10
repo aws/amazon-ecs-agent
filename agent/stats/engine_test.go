@@ -1,6 +1,6 @@
 //+build unit
 
-// Copyright 2014-2018 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -23,11 +23,12 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -43,6 +44,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
 	t2 := &apitask.Task{Arn: "t2", Family: "f2"}
 	t3 := &apitask.Task{Arn: "t3"}
+	name := "testContainer"
+	networkMode := "bridge"
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTask("c3").AnyTimes().Return(t2, nil)
@@ -50,7 +53,10 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	resolver.EXPECT().ResolveTask("c5").AnyTimes().Return(t2, nil)
 	resolver.EXPECT().ResolveTask("c6").AnyTimes().Return(t3, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
-		Container: &apicontainer.Container{},
+		Container: &apicontainer.Container{
+			Name:              name,
+			NetworkModeUnsafe: networkMode,
+		},
 	}, nil)
 	mockStatsChannel := make(chan *types.StatsJSON)
 	defer close(mockStatsChannel)
@@ -90,6 +96,8 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	for _, statsContainer := range containers {
+		assert.Equal(t, name, statsContainer.containerMetadata.Name)
+		assert.Equal(t, networkMode, statsContainer.containerMetadata.NetworkMode)
 		for _, fakeContainerStats := range createFakeContainerStats() {
 			statsContainer.statsQueue.add(fakeContainerStats)
 		}
@@ -175,7 +183,9 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	t1 := &apitask.Task{Arn: "t1", Family: "f1"}
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
-		Container: &apicontainer.Container{},
+		Container: &apicontainer.Container{
+			Name: "test",
+		},
 	}, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
@@ -190,11 +200,8 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 	engine.addAndStartStatsContainer("c1")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	ts2 := parseNanoTime("2015-02-12T21:22:05.232291187Z")
-	containerStats := []*ContainerStats{
-		{22400432, 1839104, ts1},
-		{116499979, 3649536, ts2},
-	}
-	dockerStats := []*types.StatsJSON{{}, {},}
+	containerStats := createFakeContainerStats()
+	dockerStats := []*types.StatsJSON{{}, {}}
 	dockerStats[0].Read = ts1
 	dockerStats[1].Read = ts2
 	containers, _ := engine.tasksToContainers["t1"]
@@ -292,7 +299,7 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 				Since:  aws.Time(time.Now()),
 			},
 		},
-	}, nil).Times(2)
+	}, nil).Times(3)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -301,7 +308,9 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
-	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	var err error
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
+	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{
 		family:  "f1",
@@ -334,7 +343,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 				Since:  aws.Time(time.Now()),
 			},
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestGetTaskHealthMetrics"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -343,7 +352,9 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	engine.containerInstanceArn = "container_instance"
 
 	containerToStats := make(map[string]*StatsContainer)
-	containerToStats[containerID] = newStatsContainer(containerID, nil, resolver)
+	var err error
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
+	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{
 		family:  "f1",
@@ -351,7 +362,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 	}
 
 	engine.resolver = resolver
-	_, _, err := engine.GetTaskHealthMetrics()
+	_, _, err = engine.GetTaskHealthMetrics()
 	assert.Error(t, err, "empty metrics should cause an error")
 }
 
@@ -375,7 +386,7 @@ func TestMetricsDisabled(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil)
+	}, nil).Times(2)
 
 	engine := NewDockerStatsEngine(&disableMetricsConfig, nil, eventStream("TestMetricsDisabled"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -421,7 +432,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil)
+	}, nil).Times(2)
 	err := engine.synchronizeState()
 	assert.NoError(t, err)
 
@@ -432,4 +443,68 @@ func TestSynchronizeOnRestart(t *testing.T) {
 	assert.NotNil(t, statsContainer)
 	<-statsStarted
 	statsContainer.StopStatsCollection()
+}
+
+func TestTaskNetworkStatsSet(t *testing.T) {
+	var networkModes = []struct {
+		ENIs        []*apieni.ENI
+		NetworkMode string
+		StatsEmpty  bool
+	}{
+		{nil, "default", false},
+	}
+	for _, tc := range networkModes {
+		testNetworkModeStats(t, tc.NetworkMode, tc.ENIs, tc.StatsEmpty)
+	}
+}
+
+func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, emptyStats bool) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
+	t1 := &apitask.Task{
+		Arn:    "t1",
+		Family: "f1",
+		ENIs:   enis,
+	}
+	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
+		Container: &apicontainer.Container{
+			Name:              "test",
+			NetworkModeUnsafe: netMode,
+		},
+	}, nil)
+	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+
+	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.resolver = resolver
+	engine.cluster = defaultCluster
+	engine.containerInstanceArn = defaultContainerInstance
+	engine.client = mockDockerClient
+	engine.addAndStartStatsContainer("c1")
+	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
+	containerStats := createFakeContainerStats()
+	dockerStats := []*types.StatsJSON{{}, {}}
+	dockerStats[0].Read = ts1
+	containers, _ := engine.tasksToContainers["t1"]
+	for _, statsContainer := range containers {
+		for i := 0; i < 2; i++ {
+			statsContainer.statsQueue.add(containerStats[i])
+			statsContainer.statsQueue.setLastStat(dockerStats[i])
+		}
+	}
+	_, taskMetrics, err := engine.GetInstanceMetrics()
+	assert.NoError(t, err)
+	assert.Len(t, taskMetrics, 1)
+	for _, containerMetric := range taskMetrics[0].ContainerMetrics {
+		if emptyStats {
+			assert.Nil(t, containerMetric.NetworkStatsSet, "network stats should be empty")
+		} else {
+			assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty")
+		}
+	}
 }

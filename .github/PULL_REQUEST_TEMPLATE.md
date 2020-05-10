@@ -19,13 +19,8 @@ Note for external contributors:
 environment like your laptop.  `go test -timeout=30s ./agent/...` and
 `.\scripts\run-integ.tests.ps1` can run in a Windows development environment
 like your laptop.  Please ensure unit and integration tests pass (on at least
-one platform) before opening the pull request.  `make run-functional-tests` and
-`.\scripts\run-functional-tests.ps1` must be run on an EC2 instance with an
-instance profile allowing it access to AWS resources.  Running
-`make run-functional-tests` and `.\scripts\run-functional-tests.ps1` may incur
-charges to your AWS account; if you're unable or unwilling to run these tests
-in your own account, we can run the tests and provide test results. Also, once
-you open the pull request, there will be 14 automatic test checks on the bottom
+one platform) before opening the pull request.
+Once you open the pull request, there will be 14 automatic test checks on the bottom
 of the pull request, please make sure they all pass before you merge it. You can
 use `bot/test` label to rerun the automatic tests multiple times.
 -->

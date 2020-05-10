@@ -1,6 +1,6 @@
 // +build unit
 
-// Copyright 2014-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
 // not use this file except in compliance with the License. A copy of the
@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,35 +39,36 @@ import (
 	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_secretsmanageriface "github.com/aws/amazon-ecs-agent/agent/asm/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
+	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
-	"github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
+	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -93,11 +95,33 @@ const (
 	proxyEgressPort             = "15001"
 	appPort                     = "9000"
 	egressIgnoredIP             = "169.254.169.254"
+	expectedDelaySeconds        = 10
+	expectedDelay               = expectedDelaySeconds * time.Second
+	networkBridgeIP             = "bridgeIP"
+	networkModeBridge           = "bridge"
+	networkModeAWSVPC           = "awsvpc"
+	taskArn                     = "task1"
 )
 
 var (
 	defaultConfig config.Config
 	nsResult      = mockSetupNSResult()
+
+	mockENI = &apieni.ENI{
+		ID: "eni-id",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+	}
 
 	// createdContainerName is used to save the name of the created
 	// container from the validateContainerRunWorkflow method. This
@@ -221,12 +245,14 @@ func TestBatchContainerHappyPath(t *testing.T) {
 					client, &roleCredentials, &containerEventsWG,
 					eventStream, containerName, func() {
 						metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(),
-							gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
+							gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.metadataCreateError)
 						metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(),
 							gomock.Any()).Return(tc.metadataUpdateError)
 					})
 			}
 
+			client.EXPECT().Info(gomock.Any(), gomock.Any()).Return(
+				types.Info{}, nil)
 			addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
 			cleanup := make(chan time.Time, 1)
 			defer close(cleanup)
@@ -329,21 +355,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
-				sleepTask.SetTaskENI(&apieni.ENI{
-					ID: "TestTaskWithSteadyStateResourcesProvisioned",
-					IPV4Addresses: []*apieni.ENIIPV4Address{
-						{
-							Primary: true,
-							Address: ipv4,
-						},
-					},
-					MacAddress: mac,
-					IPV6Addresses: []*apieni.ENIIPV6Address{
-						{
-							Address: ipv6,
-						},
-					},
-				})
+				sleepTask.AddTaskENI(mockENI)
 				sleepTask.SetAppMesh(&appmesh.AppMesh{
 					IgnoredUID:       ignoredUID,
 					ProxyIngressPort: proxyIngressPort,
@@ -419,7 +431,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		}, nil)
 	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	client.EXPECT().StopContainer(gomock.Any(), containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
-	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any()).Return(nil).MaxTimes(1)
+	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1)
 
 	// Simulate a container stop event from docker
 	eventStream <- dockerapi.DockerContainerChangeEvent{
@@ -715,6 +727,48 @@ func TestCreateContainerForceSave(t *testing.T) {
 	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
 	if metadata.Error != nil {
 		t.Error("Unexpected error", metadata.Error)
+	}
+}
+
+func TestCreateContainerMetadata(t *testing.T) {
+	testcases := []struct {
+		name  string
+		info  types.Info
+		error error
+	}{
+		{
+			name:  "Selinux Security Option",
+			info:  types.Info{SecurityOptions: []string{"selinux"}},
+			error: nil,
+		},
+		{
+			name:  "Docker Info Error",
+			info:  types.Info{},
+			error: errors.New("Error getting docker info"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, privateTaskEngine, _, _, metadataManager := mocks(t, ctx, &config.Config{})
+			defer ctrl.Finish()
+
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine.cfg.ContainerMetadataEnabled = true
+
+			sleepTask := testdata.LoadTask("sleep5")
+			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
+			client.EXPECT().Info(ctx, dockerclient.InfoTimeout).Return(tc.info, tc.error)
+			metadataManager.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), tc.info.SecurityOptions)
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+
+			metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+			assert.NoError(t, metadata.Error)
+		})
 	}
 }
 
@@ -1062,16 +1116,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
 
 	// Add eni information to the task so the task can add dependency of pause container
-	sleepTask.SetTaskENI(&apieni.ENI{
-		ID:         "id",
-		MacAddress: "mac",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
-			{
-				Primary: true,
-				Address: "ipv4",
-			},
-		},
-	})
+	sleepTask.AddTaskENI(mockENI)
 
 	sleepTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
@@ -1146,9 +1191,10 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	dockerClient.EXPECT().StopContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(
 		dockerapi.DockerContainerMetadata{DockerID: pauseContainerID})
-	cniClient.EXPECT().ReleaseIPResource(gomock.Any()).Do(func(cfg *ecscni.Config) {
-		wg.Done()
-	}).Return(nil)
+	cniClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) {
+			wg.Done()
+		}).Return(nil)
 	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
@@ -1177,96 +1223,107 @@ func TestPauseContainerHappyPath(t *testing.T) {
 }
 
 func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
-	for _, blockIMDS := range []bool{true, false} {
-		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
-			config := defaultConfig
-			config.AWSVPCBlockInstanceMetdata = blockIMDS
-			ctx, cancel := context.WithCancel(context.TODO())
-			defer cancel()
-			ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
-			defer ctrl.Finish()
+	config := defaultConfig
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+	defer ctrl.Finish()
 
-			testTask := testdata.LoadTask("sleep5")
-			testTask.SetTaskENI(&apieni.ENI{
-				ID: "TestBuildCNIConfigFromTaskContainer",
-				IPV4Addresses: []*apieni.ENIIPV4Address{
-					{
-						Primary: true,
-						Address: ipv4,
-					},
-				},
-				MacAddress: mac,
-				IPV6Addresses: []*apieni.ENIIPV6Address{
-					{
-						Address: ipv6,
-					},
-				},
-			})
-			testTask.SetAppMesh(&appmesh.AppMesh{
-				IgnoredUID:       ignoredUID,
-				ProxyIngressPort: proxyIngressPort,
-				ProxyEgressPort:  proxyEgressPort,
-				AppPorts: []string{
-					appPort,
-				},
-				EgressIgnoredIPs: []string{
-					egressIgnoredIP,
-				},
-			})
-			container := &apicontainer.Container{
-				Name: "container",
-			}
-			taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
-				Container:  container,
-				DockerName: dockerContainerName,
-			}, testTask)
-
-			dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    containerID,
-					State: &types.ContainerState{Pid: containerPid},
-				},
-			}, nil)
-
-			cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
-			assert.NoError(t, err)
-			assert.Equal(t, containerID, cniConfig.ContainerID)
-			assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
-			assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-			assert.Equal(t, mac, cniConfig.ENIMACAddress)
-			assert.Equal(t, ipv4, cniConfig.ENIIPV4Address)
-			assert.Equal(t, ipv6, cniConfig.ENIIPV6Address)
-			assert.Equal(t, ignoredUID, cniConfig.IgnoredUID)
-			assert.Equal(t, proxyIngressPort, cniConfig.ProxyIngressPort)
-			assert.Equal(t, proxyEgressPort, cniConfig.ProxyEgressPort)
-			assert.Equal(t, appPort, cniConfig.AppPorts[0])
-			assert.Equal(t, egressIgnoredIP, cniConfig.EgressIgnoredIPs[0])
-			assert.Equal(t, blockIMDS, cniConfig.BlockInstanceMetdata)
-		})
+	testTask := testdata.LoadTask("sleep5")
+	testTask.AddTaskENI(mockENI)
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+	containerInspectOutput := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+		},
 	}
+
+	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, containerInspectOutput, true)
+	assert.NoError(t, err)
+	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+	// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+	// ENI, Bridge and Appmesh
+	require.Len(t, cniConfig.NetworkConfigs, 3)
 }
 
-func TestBuildCNIConfigFromTaskContainerInspectError(t *testing.T) {
+func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
 
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	testTask := testdata.LoadTask("sleep5")
-	testTask.SetTaskENI(&apieni.ENI{})
-	testTask.SetAppMesh(&appmesh.AppMesh{})
-	container := &apicontainer.Container{
-		Name: "container",
+	pauseContainer := &apicontainer.Container{
+		Name: "pausecontainer",
+		Type: apicontainer.ContainerCNIPause,
 	}
-	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
-		Container:  container,
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.AddTaskENI(mockENI)
+	volRes := &taskresourcevolume.VolumeResource{}
+	testTask.ResourcesMapUnsafe = map[string][]taskresource.TaskResource{
+		"dockerVolume": {volRes},
+	}
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
 		DockerName: dockerContainerName,
+		Container:  pauseContainer,
 	}, testTask)
 
-	dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(nil, errors.New("error"))
+	gomock.InOrder(
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    containerID,
+				State: &types.ContainerState{Pid: containerPid},
+			},
+		}, nil),
+		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+	)
 
-	_, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, container)
-	assert.Error(t, err)
+	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
+	assert.Equal(t, strconv.Itoa(containerPid), volRes.GetPauseContainerPID())
+}
+
+func TestProvisionContainerResourcesInspectError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5")
+	pauseContainer := &apicontainer.Container{
+		Name: "pausecontainer",
+		Type: apicontainer.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.AddTaskENI(mockENI)
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
+	}, testTask)
+
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(nil, errors.New("test error"))
+
+	assert.NotNil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 }
 
 // TestStopPauseContainerCleanupCalled tests when stopping the pause container
@@ -1285,7 +1342,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		Type: apicontainer.ContainerCNIPause,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
-	testTask.SetTaskENI(&apieni.ENI{
+	testTask.AddTaskENI(&apieni.ENI{
 		ID: "TestStopPauseContainerCleanupCalled",
 		IPV4Addresses: []*apieni.ENIIPV4Address{
 			{
@@ -1333,6 +1390,76 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	)
 
 	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
+}
+
+// TestStopPauseContainerCleanupCalled tests when stopping the pause container
+// its network namespace should be cleaned up first
+func TestStopPauseContainerCleanupDelay(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
+
+	delayedChan := make(chan time.Duration, 1)
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &cfg)
+	taskEngine.(*DockerTaskEngine).handleDelay = func(d time.Duration) {
+		delayedChan <- d
+	}
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5")
+	pauseContainer := &apicontainer.Container{
+		Name: "pausecontainer",
+		Type: apicontainer.ContainerCNIPause,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.AddTaskENI(&apieni.ENI{
+		ID: "TestStopPauseContainerCleanupCalled",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+	})
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
+	}, testTask)
+
+	gomock.InOrder(
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    containerID,
+				State: &types.ContainerState{Pid: containerPid},
+			},
+		}, nil),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		dockerClient.EXPECT().StopContainer(gomock.Any(),
+			containerID,
+			defaultConfig.DockerStopTimeout,
+		).Return(dockerapi.DockerContainerMetadata{}),
+	)
+
+	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
+
+	select {
+	case actualDelay := <-delayedChan:
+		assert.Equal(t, expectedDelay, actualDelay)
+	default:
+		assert.Fail(t, "engine.handleDelay wasn't called")
+	}
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the
@@ -2347,6 +2474,40 @@ func TestSynchronizeResource(t *testing.T) {
 	dockerTaskEngine.synchronizeState()
 }
 
+func TestSynchronizeENIAttachment(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockTime.EXPECT().Now().AnyTimes()
+	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+	state := dockerTaskEngine.State()
+	testTask := testdata.LoadTask("sleep5")
+	expiresAt := time.Now().Unix() + 1
+	attachment := &apieni.ENIAttachment{
+		TaskARN:       "TaskARN",
+		AttachmentARN: "AttachmentARN",
+		MACAddress:    "MACAddress",
+		Status:        apieni.ENIAttachmentNone,
+		ExpiresAt:     time.Unix(expiresAt, 0),
+	}
+	state.AddENIAttachment(attachment)
+
+	state.AddTask(testTask)
+	testTask.SetDesiredStatus(apitaskstatus.TaskStopped)
+	dockerTaskEngine.synchronizeState()
+
+	// If the below call doesn't panic on NPE, it means the ENI attachment has been properly initialized in synchronizeState.
+	attachment.StopAckTimer()
+}
+
 func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	// metadata required for createContainer workflow validation
 	taskARN := "secretsTask"
@@ -2362,7 +2523,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 	// metadata required for asm secret resource validation
 	asmSecretName := "myASMSecret"
-	asmSecretValueFrom := "asm/mySecret"
+	asmSecretValueFrom := "arn:aws:secretsmanager:region:account-id:secret:" + asmSecretName
 	asmSecretRetrievedValue := "myASMSecretValue"
 	asmSecretRegion := "us-west-2"
 	asmSecretKey := asmSecretValueFrom + "_" + asmSecretRegion
@@ -2559,7 +2720,7 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 			}).Return(ssmClientOutput, nil).Times(1)
 
 			mockASMClient.EXPECT().GetSecretValue(gomock.Any()).Do(func(in *secretsmanager.GetSecretValueInput) {
-				assert.Equal(t, aws.StringValue(in.SecretId), asmSecretValueFrom)
+				assert.Equal(t, asmSecretValueFrom, aws.StringValue(in.SecretId))
 			}).Return(asmClientOutput, nil).Times(1)
 
 			require.NoError(t, ssmSecretRes.Create())
@@ -2576,4 +2737,370 @@ func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 
 		})
 	}
+}
+
+// TestCreateContainerAddFirelensLogDriverConfig tests that in createContainer, when the
+// container is using firelens log driver, its logConfig is properly set.
+func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
+	taskName := "logSenderTask"
+	taskARN := "arn:aws:ecs:region:account-id:task/task-id"
+	taskID := "task-id"
+	taskFamily := "logSenderTaskFamily"
+	taskVersion := "1"
+	logDriverTypeFirelens := "awsfirelens"
+	dataLogDriverPath := "/data/firelens/"
+	dataLogDriverSocketPath := "/socket/fluent.sock"
+	socketPathPrefix := "unix://"
+	networkModeBridge := "bridge"
+	networkModeAWSVPC := "awsvpc"
+	bridgeIPAddr := "bridgeIP"
+	envVarBridgeMode := "FLUENT_HOST=bridgeIP"
+	envVarPort := "FLUENT_PORT=24224"
+	envVarAWSVPCMode := "FLUENT_HOST=127.0.0.1"
+	eniIPv4Address := "10.0.0.2"
+	getTask := func(logDriverType string, networkMode string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverType,
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+					NetworkModeUnsafe: networkMode,
+				},
+				{
+					Name: "test-container",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: "fluentd",
+					},
+					NetworkModeUnsafe: networkMode,
+					NetworkSettingsUnsafe: &types.NetworkSettings{
+						DefaultNetworkSettings: types.DefaultNetworkSettings{
+							IPAddress: bridgeIPAddr,
+						},
+					},
+				},
+			},
+		}
+	}
+	getTaskWithENI := func(logDriverType string, networkMode string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverType,
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			ENIs: []*apieni.ENI{
+				{
+					IPV4Addresses: []*apieni.ENIIPV4Address{
+						{
+							Address: eniIPv4Address,
+						},
+					},
+				},
+			},
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+					NetworkModeUnsafe: networkMode,
+				},
+				{
+					Name: "test-container",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: "fluentd",
+					},
+					NetworkModeUnsafe: networkMode,
+					NetworkSettingsUnsafe: &types.NetworkSettings{
+						DefaultNetworkSettings: types.DefaultNetworkSettings{
+							IPAddress: bridgeIPAddr,
+						},
+					},
+				},
+			},
+		}
+	}
+	testCases := []struct {
+		name                           string
+		task                           *apitask.Task
+		expectedLogConfigType          string
+		expectedLogConfigTag           string
+		expectedLogConfigFluentAddress string
+		expectedFluentdAsyncConnect    string
+		expectedIPAddress              string
+		expectedPort                   string
+	}{
+		{
+			name:                           "test container that uses firelens log driver with default mode",
+			task:                           getTask(logDriverTypeFirelens, ""),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedIPAddress:              envVarBridgeMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens log driver with bridge mode",
+			task:                           getTask(logDriverTypeFirelens, networkModeBridge),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedIPAddress:              envVarBridgeMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens log driver with awsvpc mode",
+			task:                           getTaskWithENI(logDriverTypeFirelens, networkModeAWSVPC),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedIPAddress:              envVarAWSVPCMode,
+			expectedPort:                   envVarPort,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Equal(t, tc.expectedLogConfigType, hostConfig.LogConfig.Type)
+					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
+					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
+					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+					assert.Contains(t, config.Env, tc.expectedIPAddress)
+					assert.Contains(t, config.Env, tc.expectedPort)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+
+	}
+}
+
+func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
+	testTask := &apitask.Task{
+		Arn: "test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+			},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context,
+			config *dockercontainer.Config,
+			hostConfig *dockercontainer.HostConfig,
+			name string,
+			timeout time.Duration) {
+			assert.Contains(t, config.Env, "FLUENT_UID=0")
+		})
+	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
+	assert.NoError(t, ret.Error)
+}
+
+func TestGetBridgeIP(t *testing.T) {
+	networkDefaultIP := "defaultIP"
+	getNetwork := func(defaultIP string, bridgeIP string, networkMode string) *types.NetworkSettings {
+		endPoint := network.EndpointSettings{
+			IPAddress: bridgeIP,
+		}
+		return &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: defaultIP,
+			},
+			Networks: map[string]*network.EndpointSettings{
+				networkMode: &endPoint,
+			},
+		}
+	}
+	testCases := []struct {
+		defaultIP         string
+		bridgeIP          string
+		networkMode       string
+		expectedOk        bool
+		expectedIPAddress string
+	}{
+		{
+			defaultIP:         networkDefaultIP,
+			bridgeIP:          networkBridgeIP,
+			networkMode:       networkModeBridge,
+			expectedOk:        true,
+			expectedIPAddress: networkDefaultIP,
+		},
+		{
+			defaultIP:         "",
+			bridgeIP:          networkBridgeIP,
+			networkMode:       networkModeBridge,
+			expectedOk:        true,
+			expectedIPAddress: networkBridgeIP,
+		},
+		{
+			defaultIP:         "",
+			bridgeIP:          networkBridgeIP,
+			networkMode:       networkModeAWSVPC,
+			expectedOk:        false,
+			expectedIPAddress: "",
+		},
+		{
+			defaultIP:         "",
+			bridgeIP:          "",
+			networkMode:       networkModeBridge,
+			expectedOk:        false,
+			expectedIPAddress: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		IPAddress, ok := getContainerHostIP(getNetwork(tc.defaultIP, tc.bridgeIP, tc.networkMode))
+		assert.Equal(t, tc.expectedOk, ok)
+		assert.Equal(t, tc.expectedIPAddress, IPAddress)
+	}
+}
+
+func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
+	dockerMetaDataWithoutNetworkSettings := dockerapi.DockerContainerMetadata{
+		DockerID: dockerContainerName,
+		Volumes: []types.MountPoint{
+			{
+				Name:        "volume",
+				Source:      "/src/vol",
+				Destination: "/vol",
+			},
+		},
+	}
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: "fluentd",
+			Config: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+	jsonBaseWithoutNetwork := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+		},
+	}
+
+	jsonBaseWithNetwork := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+		},
+		NetworkSettings: &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: networkBridgeIP,
+			},
+			Networks: map[string]*network.EndpointSettings{
+				apitask.BridgeNetworkMode: &network.EndpointSettings{
+					IPAddress: networkBridgeIP,
+				},
+			},
+		},
+	}
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+	testTask := &apitask.Task{
+		Arn:     "arn:aws:ecs:region:account-id:task/task-id",
+		Version: "1",
+		Family:  "logSenderTaskFamily",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "logSenderTask",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: func() *string {
+						s := string(rawHostConfig)
+						return &s
+					}(),
+				},
+				NetworkModeUnsafe: apitask.BridgeNetworkMode,
+			},
+			{
+				Name: "test-container",
+				FirelensConfig: &apicontainer.FirelensConfig{
+					Type: "fluentd",
+				},
+				NetworkModeUnsafe: apitask.BridgeNetworkMode,
+			},
+		},
+	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
+		Container:  testTask.Containers[1],
+		DockerName: "dockerContainerName",
+	}, testTask)
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerMetaDataWithoutNetworkSettings).AnyTimes()
+	gomock.InOrder(
+		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+			Return(jsonBaseWithoutNetwork, nil),
+		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+			Return(jsonBaseWithoutNetwork, nil),
+		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+			Return(jsonBaseWithNetwork, nil),
+	)
+	ret := taskEngine.(*DockerTaskEngine).startContainer(testTask, testTask.Containers[1])
+	assert.NoError(t, ret.Error)
+	assert.Equal(t, jsonBaseWithNetwork.NetworkSettings, ret.NetworkSettings)
 }
