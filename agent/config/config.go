@@ -62,7 +62,7 @@ const (
 
 	// DefaultPollingMetricsWaitDuration specifies the default value for polling metrics wait duration
 	// This is only used when PollMetrics is set to true
-	DefaultPollingMetricsWaitDuration = 15 * time.Second
+	DefaultPollingMetricsWaitDuration = DefaultContainerMetricsPublishInterval / 2
 
 	// defaultDockerStopTimeout specifies the value for container stop timeout duration
 	defaultDockerStopTimeout = 30 * time.Second
@@ -97,11 +97,11 @@ const (
 
 	// minimumPollingMetricsWaitDuration specifies the minimum duration to wait before polling for new stats
 	// from docker. This is only used when PollMetrics is set to true
-	minimumPollingMetricsWaitDuration = 1 * time.Second
+	minimumPollingMetricsWaitDuration = 5 * time.Second
 
 	// maximumPollingMetricsWaitDuration specifies the maximum duration to wait before polling for new stats
 	// from docker. This is only used when PollMetrics is set to true
-	maximumPollingMetricsWaitDuration = 20 * time.Second
+	maximumPollingMetricsWaitDuration = DefaultContainerMetricsPublishInterval
 
 	// minimumDockerStopTimeout specifies the minimum value for docker StopContainer API
 	minimumDockerStopTimeout = 1 * time.Second
@@ -350,13 +350,15 @@ func (cfg *Config) validateAndOverrideBounds() error {
 func (cfg *Config) pollMetricsOverrides() {
 	if cfg.PollMetrics {
 		if cfg.PollingMetricsWaitDuration < minimumPollingMetricsWaitDuration {
-			seelog.Warnf("Invalid value for polling metrics wait duration, will be overridden with the default value: %s. Parsed value: %v, minimum value: %v.", DefaultPollingMetricsWaitDuration.String(), cfg.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration)
-			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
+			seelog.Warnf("ECS_POLLING_METRICS_WAIT_DURATION parsed value (%s) is less than the minimum of %s. Setting polling interval to minimum.",
+				cfg.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration)
+			cfg.PollingMetricsWaitDuration = minimumPollingMetricsWaitDuration
 		}
 
 		if cfg.PollingMetricsWaitDuration > maximumPollingMetricsWaitDuration {
-			seelog.Warnf("Invalid value for polling metrics wait duration, will be overridden with the default value: %s. Parsed value: %v, maximum value: %v.", DefaultPollingMetricsWaitDuration.String(), cfg.PollingMetricsWaitDuration, maximumPollingMetricsWaitDuration)
-			cfg.PollingMetricsWaitDuration = DefaultPollingMetricsWaitDuration
+			seelog.Warnf("ECS_POLLING_METRICS_WAIT_DURATION parsed value (%s) is greater than the maximum of %s. Setting polling interval to maximum.",
+				cfg.PollingMetricsWaitDuration, maximumPollingMetricsWaitDuration)
+			cfg.PollingMetricsWaitDuration = maximumPollingMetricsWaitDuration
 		}
 	}
 }
@@ -547,7 +549,7 @@ func environmentConfig() (Config, error) {
 		SharedVolumeMatchFullConfig:         utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 		ContainerInstanceTags:               containerInstanceTags,
 		ContainerInstancePropagateTagsFrom:  parseContainerInstancePropagateTagsFrom(),
-		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), false),
+		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), true),
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		DisableDockerHealthCheck:            utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
