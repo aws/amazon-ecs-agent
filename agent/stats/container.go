@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
@@ -26,16 +27,7 @@ import (
 	"github.com/cihub/seelog"
 )
 
-const (
-	// SleepBetweenUsageDataCollection is the sleep duration between collecting usage data for a container.
-	SleepBetweenUsageDataCollection = 1 * time.Second
-
-	// ContainerStatsBufferLength is the number of usage metrics stored in memory for a container. It is calculated as
-	// Number of usage metrics gathered in a second (1) * 60 * Time duration in minutes to store the data for (2)
-	ContainerStatsBufferLength = 120
-)
-
-func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver) (*StatsContainer, error) {
+func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver resolver.ContainerMetadataResolver, cfg *config.Config) (*StatsContainer, error) {
 	dockerContainer, err := resolver.ResolveContainer(dockerID)
 	if err != nil {
 		return nil, err
@@ -51,13 +43,21 @@ func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver 
 		cancel:   cancel,
 		client:   client,
 		resolver: resolver,
+		config:   cfg,
 	}, nil
 }
 
 func (container *StatsContainer) StartStatsCollection() {
-	// Create the queue to store utilization data from docker stats
-	container.statsQueue = NewQueue(ContainerStatsBufferLength)
-	container.statsQueue.Reset()
+	// queue will be sized to hold enough stats for 4 publishing intervals.
+	var queueSize int
+	if container.config != nil && container.config.PollMetrics {
+		pollingInterval := container.config.PollingMetricsWaitDuration.Seconds()
+		queueSize = int(config.DefaultContainerMetricsPublishInterval.Seconds() / pollingInterval * 4)
+	} else {
+		// for streaming stats we assume 1 stat every second
+		queueSize = int(config.DefaultContainerMetricsPublishInterval.Seconds() * 4)
+	}
+	container.statsQueue = NewQueue(queueSize)
 	go container.collect()
 }
 

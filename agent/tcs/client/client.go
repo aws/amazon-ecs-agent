@@ -153,13 +153,6 @@ func (cs *clientServer) publishMetrics() {
 		return
 	}
 
-	// Publish metrics immediately after we connect and wait for ticks. This makes
-	// sure that there is no data loss when a scheduled metrics publishing fails
-	// due to a connection reset.
-	err := cs.publishMetricsOnce()
-	if err != nil && err != stats.EmptyMetricsError {
-		seelog.Warnf("Error publishing metrics: %v", err)
-	}
 	// don't simply range over the ticker since its channel doesn't ever get closed
 	for {
 		select {
