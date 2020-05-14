@@ -47,8 +47,6 @@ import (
 const (
 	testDockerStopTimeout  = 5 * time.Second
 	credentialsIDIntegTest = "credsid"
-	containerPortOne       = 24751
-	containerPortTwo       = 24752
 	serverContent          = "ecs test container"
 	dialTimeout            = 200 * time.Millisecond
 	localhost              = "127.0.0.1"
