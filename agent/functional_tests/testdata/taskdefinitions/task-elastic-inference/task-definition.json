@@ -1,0 +1,26 @@
+{
+  "family": "ecsftest-elastic-inference",
+  "networkMode": "awsvpc",
+  "containerDefinitions": [
+    {
+      "image": "127.0.0.1:51670/amazon/amazon-ecs-elastic-inference-validator:latest",
+      "name": "container_1",
+      "inferenceDevices": ["device_1"],
+      "memory": 50,
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"$$$TEST_AWSLOGS_STREAM_PREFIX$$$"
+        }
+      }
+    }
+  ],
+  "inferenceAccelerators": [
+    {
+      "deviceName": "device_1",
+      "deviceType": "eia1.medium"
+    }
+  ]
+}

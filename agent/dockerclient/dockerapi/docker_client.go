@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -164,7 +165,7 @@ type DockerClient interface {
 
 	// Stats returns a channel of stat data for the specified container. A context should be provided so the request can
 	// be canceled.
-	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, <-chan error)
+	Stats(context.Context, string, time.Duration) (<-chan *types.StatsJSON, error)
 
 	// Version returns the version of the Docker daemon.
 	Version(context.Context, time.Duration) (string, error)
@@ -1314,33 +1315,28 @@ func (dg *dockerGoClient) APIVersion() (dockerclient.DockerVersion, error) {
 }
 
 // Stats returns a channel of *types.StatsJSON entries for the container.
-func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, <-chan error) {
+func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeout time.Duration) (<-chan *types.StatsJSON, error) {
 	subCtx, cancelRequest := context.WithCancel(ctx)
 
-	errC := make(chan error)
-	statsC := make(chan *types.StatsJSON)
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		cancelRequest()
-		go func() {
-			// upstream function should consume error
-			errC <- err
-			close(statsC)
-		}()
-		return statsC, errC
+		return nil, err
 	}
 
+	// Create channel to hold the stats
+	statsChnl := make(chan *types.StatsJSON)
 	var resp types.ContainerStats
+
 	if !dg.config.PollMetrics {
-		// Streaming metrics is the default behavior
-		seelog.Infof("DockerGoClient: Starting streaming metrics for container %s", id)
 		go func() {
 			defer cancelRequest()
-			defer close(statsC)
+			defer close(statsChnl)
+			// ContainerStats outputs an io.ReadCloser and an OSType
 			stream := true
 			resp, err = client.ContainerStats(subCtx, id, stream)
 			if err != nil {
-				errC <- fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+				seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 				return
 			}
 
@@ -1351,72 +1347,59 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer resp.Body.Close()
 			defer close(ch)
 
+			// Returns a *Decoder and takes in a readCloser
 			decoder := json.NewDecoder(resp.Body)
 			data := new(types.StatsJSON)
 			for err := decoder.Decode(data); err != io.EOF; err = decoder.Decode(data) {
 				if err != nil {
-					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
 					return
 				}
 				if atomic.LoadUint32(&canceled) != 0 {
-					errC <- fmt.Errorf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
+					seelog.Warnf("DockerGoClient: inactivity time exceeded timeout while retrieving stats for container %s", id)
 					return
 				}
 
-				statsC <- data
+				statsChnl <- data
 				data = new(types.StatsJSON)
 			}
 		}()
 	} else {
 		seelog.Infof("DockerGoClient: Starting to Poll for metrics for container %s", id)
-		// firstStatC jitters the time at which containers ask for their first stat.
-		// We use this channel to 'seed' the queue with docker stats so that containers
-		// can publish metrics more quickly.
-		firstStatC := time.After(retry.AddJitter(time.Nanosecond, dg.config.PollingMetricsWaitDuration/2))
-		// sleeping here jitters the time at which the ticker is created, so that
-		// containers do not synchronize on calling the docker stats api.
-		// the max sleep is 80% of the polling interval so that we have a chance to
-		// get two stats in the first publishing interval.
-		time.Sleep(retry.AddJitter(time.Nanosecond, dg.config.PollingMetricsWaitDuration*8/10))
+		//Sleep for a random period time up to the polling interval. This will help make containers ask for stats at different times
+		time.Sleep(time.Second * time.Duration(rand.Intn(int(dg.config.PollingMetricsWaitDuration.Seconds()))))
+
 		statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
 		go func() {
 			defer cancelRequest()
-			defer close(statsC)
+			defer close(statsChnl)
 			defer statPollTicker.Stop()
 
-			for {
-				// this select statement is waiting on either the stat polling ticker channel
-				// or the firstStat time.After channel to fire. firstStat will fire
-				// first and then afterwards we will always grab stats on the ticker.
-				select {
-				case _, ok := <-statPollTicker.C:
-					if !ok {
-						return
-					}
-				case <-firstStatC:
-				}
-
+			for range statPollTicker.C {
+				// ContainerStats outputs an io.ReadCloser and an OSType
 				stream := false
 				resp, err = client.ContainerStats(subCtx, id, stream)
 				if err != nil {
-					errC <- fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
+					seelog.Warnf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 					return
 				}
 
+				// Returns a *Decoder and takes in a readCloser
 				decoder := json.NewDecoder(resp.Body)
 				data := new(types.StatsJSON)
 				err := decoder.Decode(data)
 				if err != nil {
-					errC <- fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+					seelog.Warnf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
 					return
 				}
 
-				statsC <- data
+				statsChnl <- data
+				data = new(types.StatsJSON)
 			}
 		}()
 	}
 
-	return statsC, errC
+	return statsChnl, nil
 }
 
 func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, timeout time.Duration) error {

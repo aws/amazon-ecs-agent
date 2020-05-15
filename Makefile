@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests run-functional-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -131,13 +131,20 @@ run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tes
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
+run-functional-tests: testnnp test-registry ecr-execution-role-image telemetry-test-image storage-stats-test-image
+	${GOTEST} -p 1 -tags functional -timeout=100m ./agent/functional_tests/...
+
 benchmark-test:
 	go test -run=XX -bench=. ./agent/...
 
 
-.PHONY: build-image-for-ecr upload-images replicate-images
+.PHONY: build-image-for-ecr ecr-execution-role-image-for-upload upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
+build-image-for-ecr: netkitten volumes-test squid awscli image-cleanup-test-images fluentd taskmetadata-validator \
+						testnnp container-health-check-image telemetry-test-image storage-stats-test-image ecr-execution-role-image-for-upload
+
+ecr-execution-role-image-for-upload:
+	$(MAKE) -C misc/ecr-execution-role-upload $(MFLAGS)
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -225,15 +232,20 @@ namespace-tests:
 	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
-
+test-registry: netkitten volumes-test namespace-tests pause-container squid awscli image-cleanup-test-images fluentd \
+				agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator \
+				container-metadata-file-validator elastic-inference-validator appmesh-plugin-validator \
+				eni-trunking-validator firelens-fluentbit-test-image firelens-fluentd-test-image \
+				firelens-fluent-logger-test-image
 	@./scripts/setup-test-registry
 
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
+.PHONY: squid awscli fluentd gremlin agent-introspection-validator taskmetadata-validator v3-task-endpoint-validator container-metadata-file-validator elastic-inference-validator image-cleanup-test-images ecr-execution-role-image container-health-check-image telemetry-test-image storage-stats-test-image firelens-fluentbit-test-image firelens-fluentd-test-image firelens-fluent-logger-test-image
+
+squid:
+	$(MAKE) -C misc/squid $(MFLAGS)
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
@@ -244,15 +256,55 @@ awscli:
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
 
+testnnp:
+	$(MAKE) -C misc/testnnp $(MFLAGS)
+
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
+
+agent-introspection-validator:
+	$(MAKE) -C misc/agent-introspection-validator $(MFLAGS)
 
 taskmetadata-validator:
 	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 
+v3-task-endpoint-validator:
+	$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS)
+
+eni-trunking-validator:
+	$(MAKE) -C misc/eni-trunking-validator $(MFLAGS)
+
+container-metadata-file-validator:
+	$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS)
+
+elastic-inference-validator:
+	$(MAKE) -C misc/elastic-inference-validator $(MFLAGS)
+
+ecr-execution-role-image:
+	$(MAKE) -C misc/ecr $(MFLAGS)
+
+telemetry-test-image:
+	$(MAKE) -C misc/telemetry $(MFLAGS)
+
+storage-stats-test-image:
+	$(MAKE) -C misc/storage-stats $(MFLAGS)
+
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
+appmesh-plugin-validator:
+	$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS)
+
+firelens-fluentbit-test-image:
+ifneq (${BUILD_PLATFORM},aarch64) # fluentbit image isn't supported on ARM.
+	$(MAKE) -C misc/firelens-fluentbit $(MFLAGS)
+endif
+
+firelens-fluentd-test-image:
+	$(MAKE) -C misc/firelens-fluentd $(MFLAGS)
+
+firelens-fluent-logger-test-image:
+	$(MAKE) -C misc/fluent-logger $(MFLAGS)
 
 # all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
@@ -319,9 +371,21 @@ clean:
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
+	-$(MAKE) -C misc/testnnp $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
+	-$(MAKE) -C misc/agent-introspection-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/v3-task-endpoint-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/container-metadata-file-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/elastic-inference-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
+	-$(MAKE) -C misc/telemetry $(MFLAGS) clean
+	-$(MAKE) -C misc/storage-stats $(MFLAGS) clean
+	-$(MAKE) -C misc/appmesh-plugin-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/eni-trunking-validator $(MFLAGS) clean
+	-$(MAKE) -C misc/firelens-fluentbit $(MFLAGS) clean
+	-$(MAKE) -C misc/firelens-fluentd $(MFLAGS) clean
+	-$(MAKE) -C misc/fluent-logger $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp

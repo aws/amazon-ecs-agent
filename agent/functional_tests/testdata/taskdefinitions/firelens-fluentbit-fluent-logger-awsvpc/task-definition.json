@@ -1,0 +1,46 @@
+{
+  "family": "ecsftest-firelens-fluentbit-fluent-logger-awsvpc",
+  "networkMode": "awsvpc",
+  "taskRoleArn": "$$$TASK_ROLE$$$",
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$",
+  "containerDefinitions": [
+    {
+      "name": "firelens",
+      "image": "127.0.0.1:51670/amazon/firelens-fluentbit:latest",
+      "essential": true,
+      "memory": 256,
+      "firelensConfiguration": {
+        "type": "fluentbit",
+        "options": {
+          "config-file-type": "file",
+          "config-file-value": "/tmp/local.conf"
+        }
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"firelens-fluentbit"
+        }
+      }
+    },
+    {
+      "name": "logsender",
+      "image": "127.0.0.1:51670/amazon/fluent-logger:latest",
+      "essential": true,
+      "memory": 256,
+      "logConfiguration": {
+        "logDriver": "awsfirelens",
+        "options": {
+         "Name": "stdout"
+        }
+      },
+      "environment": [
+        {
+          "name": "LOGGER_UUID",
+          "value": "$$$LOGGER_UUID$$$"
+        }]
+    }
+  ]
+}

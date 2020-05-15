@@ -34,7 +34,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStatsEngineAddRemoveContainers(t *testing.T) {
@@ -120,11 +119,19 @@ func TestStatsEngineAddRemoveContainers(t *testing.T) {
 	}
 
 	err = validateMetricsMetadata(metadata)
-	require.NoError(t, err)
-	require.Len(t, taskMetrics, 1, "Incorrect number of tasks.")
+	if err != nil {
+		t.Errorf("Error validating metadata: %v", err)
+	}
+	if len(taskMetrics) != 1 {
+		t.Errorf("Incorrect number of tasks. Expected: 1, got: %d", len(taskMetrics))
+	}
 	err = validateContainerMetrics(taskMetrics[0].ContainerMetrics, 2)
-	require.NoError(t, err)
-	require.Equal(t, "t1", *taskMetrics[0].TaskArn)
+	if err != nil {
+		t.Errorf("Error validating container metrics: %v", err)
+	}
+	if *taskMetrics[0].TaskArn != "t1" {
+		t.Errorf("Incorrect task arn. Expected: t1, got: %s", *taskMetrics[0].TaskArn)
+	}
 
 	// Ensure that only valid task shows up in metrics.
 	_, err = engine.taskContainerMetricsUnsafe("t2")
@@ -302,7 +309,7 @@ func TestGetTaskHealthMetrics(t *testing.T) {
 
 	containerToStats := make(map[string]*StatsContainer)
 	var err error
-	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver, nil)
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
 	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{
@@ -346,7 +353,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 
 	containerToStats := make(map[string]*StatsContainer)
 	var err error
-	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver, nil)
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver)
 	assert.NoError(t, err)
 	engine.tasksToHealthCheckContainers["t1"] = containerToStats
 	engine.tasksToDefinitions["t1"] = &taskDefinition{

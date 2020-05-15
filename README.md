@@ -239,6 +239,7 @@ The following targets are available. Each may be run with `make <target>`.
 | `test`                 | Runs all unit tests using `go test` |
 | `test-in-docker`       | Runs all tests inside a Docker container |
 | `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
+| `run-functional-tests` | Runs all functional tests |
 | `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
 
 ### Standalone (on Windows)
@@ -250,6 +251,7 @@ The Amazon ECS Container Agent may be built by typing `go build -o amazon-ecs-ag
 The following scripts are available to help develop the Amazon ECS Container Agent on Windows:
 
 * `scripts\run-integ-tests.ps1` - Runs all integration tests in the `engine` and `stats` packages
+* `scripts\run-functional-tests.ps1` - Runs all functional tests
 * `misc\windows-deploy\Install-ECSAgent.ps1` - Install the ECS agent as a Windows service
 * `misc\windows-deploy\amazon-ecs-agent.ps1` - Helper script to set up the host and run the agent as a process
 * `misc\windows-deploy\user-data.ps1` - Sample user-data that can be used with the Windows Server 2016 with Containers

@@ -1,0 +1,12 @@
+{
+  "family": "ecsinteg-simple-exit-windows",
+  "containerDefinitions": [{
+    "image": "amazon-ecs-ftest-windows-base:make",
+    "name": "exit",
+    "cpu": 1024,
+    "memory": 512,
+    "essential": true,
+    "entryPoint": ["powershell"],
+    "command": ["exit", "42"]
+  }]
+}

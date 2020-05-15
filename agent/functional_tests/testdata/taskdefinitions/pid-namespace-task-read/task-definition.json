@@ -1,0 +1,14 @@
+{
+    "family": "ecsftest-task-pid-namespace-read",
+    "pidMode": "task",
+    "containerDefinitions": [
+        {
+            "name": "pidConsumer",
+            "image": "busybox:latest",
+            "command": ["sh", "-c", "if [ `ps ax | grep pidNamespaceTest | grep -vc grep` -gt 0 ]; then exit 1; else exit 2; fi;"],
+            "cpu": 100,
+            "memory": 80
+        }
+    ]
+    
+}

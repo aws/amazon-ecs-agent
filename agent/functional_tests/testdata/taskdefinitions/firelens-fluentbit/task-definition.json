@@ -1,0 +1,67 @@
+{
+  "family": "ecsftest-firelens-fluentbit",
+  "networkMode": "bridge",
+  "taskRoleArn": "$$$TASK_ROLE$$$",
+  "executionRoleArn": "$$$EXECUTION_ROLE$$$",
+  "containerDefinitions": [
+    {
+      "name": "firelens",
+      "image": "127.0.0.1:51670/amazon/firelens-fluentbit:latest",
+      "essential": true,
+      "memory": 256,
+      "firelensConfiguration": {
+        "type": "fluentbit",
+        "options": {
+          "config-file-type": "file",
+          "config-file-value": "/tmp/local.conf"
+        }
+      },
+      "environment": [
+        {
+          "name": "FLB_LOG_LEVEL",
+          "value": "debug"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"firelens-container"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "echo '{\"health\": \"check\"}' | nc 127.0.0.1 8877 || exit 1"],
+        "interval": 5,
+        "retries": 5
+      }
+    },
+    {
+      "name": "logsender",
+      "image": "busybox:latest",
+      "essential": true,
+      "memory": 256,
+      "command": ["sh", "-c", "echo pass; echo filtered"],
+      "logConfiguration": {
+        "logDriver": "awsfirelens",
+        "options": {
+          "include-pattern": "pass",
+          "exclude-pattern": "filtered",
+          "region": "$$$TEST_REGION$$$",
+          "log_group_name": "ecs-functional-tests",
+          "log_stream_prefix": "firelens-fluentbit-"
+        },
+        "secretOptions": [{
+          "name": "$$$SECRET_OPTION_KEY$$$",
+          "valueFrom": "$$$SECRET_OPTION_PARAM$$$"
+        }]
+      },
+      "dependsOn": [
+        {
+          "containerName": "firelens",
+          "condition": "HEALTHY"
+        }
+      ]
+    }
+  ]
+}

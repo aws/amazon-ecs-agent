@@ -152,8 +152,7 @@ type DockerTaskEngine struct {
 	// This is set to defaultTaskSteadyStatePollInterval in production code.
 	// This can be used by tests that are looking to ensure that the steady state
 	// verification logic gets executed to set it to a low interval
-	taskSteadyStatePollInterval       time.Duration
-	taskSteadyStatePollIntervalJitter time.Duration
+	taskSteadyStatePollInterval time.Duration
 
 	resourceFields *taskresource.ResourceFields
 
@@ -191,11 +190,10 @@ func NewDockerTaskEngine(cfg *config.Config,
 		imageManager:               imageManager,
 		cniClient:                  ecscni.NewClient(cfg.CNIPluginsPath),
 
-		metadataManager:                   metadataManager,
-		taskSteadyStatePollInterval:       defaultTaskSteadyStatePollInterval,
-		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
-		resourceFields:                    resourceFields,
-		handleDelay:                       time.Sleep,
+		metadataManager:             metadataManager,
+		taskSteadyStatePollInterval: defaultTaskSteadyStatePollInterval,
+		resourceFields:              resourceFields,
+		handleDelay:                 time.Sleep,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()

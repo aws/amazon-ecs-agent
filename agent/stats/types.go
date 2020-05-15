@@ -18,7 +18,6 @@ import (
 
 	"context"
 
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/stats/resolver"
 )
@@ -54,8 +53,6 @@ type UsageStats struct {
 	NetworkStats      *NetworkStats `json:"networkStats"`
 	Timestamp         time.Time     `json:"timestamp"`
 	cpuUsage          uint64
-	// sent indicates if the stat has been sent to TACS already.
-	sent bool
 }
 
 // ContainerMetadata contains meta-data information for a container.
@@ -73,7 +70,6 @@ type StatsContainer struct {
 	client            dockerapi.DockerClient
 	statsQueue        *Queue
 	resolver          resolver.ContainerMetadataResolver
-	config            *config.Config
 }
 
 // taskDefinition encapsulates family and version strings for a task definition

@@ -37,10 +37,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 	return func(w http.ResponseWriter, r *http.Request) {
 		var taskArn, err = v3.GetTaskARNByRequest(r, state)
 		if err != nil {
-			ResponseJSON, err := json.Marshal(fmt.Sprintf("V4 task metadata handler: unable to get task arn from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
+			ResponseJSON, _ := json.Marshal(fmt.Sprintf("V4 task metadata handler: unable to get task arn from request: %s", err.Error()))
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, ResponseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
@@ -49,10 +46,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
 		if err != nil {
-			errResponseJson, err := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
+			errResponseJson, _ := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJson, utils.RequestTypeTaskMetadata)
 			return
 		}
@@ -65,10 +59,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			for _, containerResponse := range taskResponse.Containers {
 				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
 				if err != nil {
-					errResponseJSON, err := json.Marshal(err.Error())
-					if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-						return
-					}
+					errResponseJSON, _ := json.Marshal(err.Error())
 					utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
 					return
 				}
@@ -78,10 +69,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			taskResponse.Containers = responses
 		}
 
-		responseJSON, err := json.Marshal(taskResponse)
-		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-			return
-		}
+		responseJSON, _ := json.Marshal(taskResponse)
 		utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskMetadata)
 	}
 }

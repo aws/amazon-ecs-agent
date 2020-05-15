@@ -1,0 +1,11 @@
+{
+    "family": "task-server-endpoint-validator",
+    "taskRoleArn": "$$$TASK_ROLE$$$",
+    "networkMode": "host",
+    "containerDefinitions": [{
+        "image": "amazonlinux:2",
+        "name": "task_server_endpoint_validator_container",
+        "memory": 256,
+        "command": ["sh", "-c", "curl -L -o /dev/null -s -w \"%{http_code}\n\" http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI | grep \"200\" && exit 42 || exit 1"]
+    }]
+}

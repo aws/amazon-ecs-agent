@@ -33,21 +33,14 @@ const (
 
 // createTaskResponse creates JSON response and sets the http status code for the task queried.
 func createTaskResponse(task *apitask.Task, found bool, resourceID string, state dockerstate.TaskEngineState) ([]byte, int) {
-	var err error
 	var responseJSON []byte
 	status := http.StatusOK
 	if found {
 		containerMap, _ := state.ContainerMapByArn(task.Arn)
-		responseJSON, err = json.Marshal(NewTaskResponse(task, containerMap))
-		if err != nil {
-			return []byte("{}"), http.StatusInternalServerError
-		}
+		responseJSON, _ = json.Marshal(NewTaskResponse(task, containerMap))
 	} else {
 		seelog.Warn("Could not find requested resource: " + resourceID)
-		responseJSON, err = json.Marshal(&TaskResponse{})
-		if err != nil {
-			return []byte("{}"), http.StatusInternalServerError
-		}
+		responseJSON, _ = json.Marshal(&TaskResponse{})
 		status = http.StatusNotFound
 	}
 	return responseJSON, status
@@ -58,7 +51,6 @@ func createTaskResponse(task *apitask.Task, found bool, resourceID string, state
 // 'taskarn' are specified in the request.
 func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var err error
 		var responseJSON []byte
 		dockerTaskEngineState := taskEngine.State()
 		dockerID, dockerIDExists := utils.ValueFromRequest(r, dockerIDQueryField)
@@ -100,11 +92,7 @@ func TaskContainerMetadataHandler(taskEngine utils.DockerStateResolver) func(htt
 			w.WriteHeader(status)
 		} else {
 			// List all tasks.
-			responseJSON, err = json.Marshal(NewTasksResponse(dockerTaskEngineState))
-			if err != nil {
-				responseJSON = []byte("")
-				w.WriteHeader(http.StatusInternalServerError)
-			}
+			responseJSON, _ = json.Marshal(NewTasksResponse(dockerTaskEngineState))
 		}
 		w.Write(responseJSON)
 	}

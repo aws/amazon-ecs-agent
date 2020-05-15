@@ -15,7 +15,6 @@ package app
 
 import (
 	"context"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
 	"github.com/aws/amazon-ecs-agent/agent/logger"
@@ -40,11 +39,7 @@ func Run(arguments []string) int {
 	} else if *parsedArgs.Version {
 		return version.PrintVersion()
 	} else if *parsedArgs.Healthcheck {
-		// Timeout is purposely set to shorter than the default docker healthcheck
-		// timeout of 30s. This is so that we can catch any http timeout and log the
-		// issue within agent logs.
-		// see https://docs.docker.com/engine/reference/builder/#healthcheck
-		return runHealthcheck("http://localhost:51678/v1/metadata", time.Second*25)
+		return runHealthcheck()
 	}
 
 	logger.SetLevel(*parsedArgs.LogLevel)

@@ -1,0 +1,33 @@
+{
+    "family": "ecsftest-container-metadata-file-validator-windows",
+    "containerDefinitions": [{
+      "image": "amazon/amazon-ecs-container-metadata-file-validator-windows",
+      "name": "container-metadata-file-validator",
+      "memory": 512,
+      "cpu": 1024,
+      "healthCheck": {
+        "command": ["CMD-SHELL", "echo hello"],
+        "interval": 5,
+        "timeout": 5,
+        "retries": 2,
+        "startPeriod": 1
+      },
+      "environment": [
+        {
+          "name": "HAS_PUBLIC_IP",
+          "value": "$$$HAS_PUBLIC_IP$$$"
+        }
+      ],
+      "entryPoint": ["powershell"],
+      "command": ["$env:AWS_REGION=\"$$$TEST_REGION$$$\";.\\container-metadata-file-validator-windows.exe; exit $LASTEXITCODE"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":"ecs-functional-tests",
+          "awslogs-region":"$$$TEST_REGION$$$",
+          "awslogs-stream-prefix":"$$$TEST_AWSLOGS_STREAM_PREFIX$$$"
+        }
+      }
+    }]
+  }
+  

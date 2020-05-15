@@ -1,0 +1,35 @@
+{
+    "family": "ecsftest-task-local-volume",
+    "containerDefinitions": [
+        {
+            "name": "exit",
+            "image": "127.0.0.1:51670/busybox:latest",
+            "cpu": 10,
+            "command":["sh", "-c", "touch /ecs/success; [ -f /ecs/success ] && exit 42 || exit 1"],
+            "memory": 256,
+            "memoryReservation": 128,
+            "mountPoints": [
+                {
+                  "sourceVolume": "task-local",
+                  "containerPath": "/ecs/"
+                }
+            ]
+        }
+    ],
+    "volumes":[
+        {
+            "name": "task-local",
+            "dockerVolumeConfiguration" : {
+                "scope": "task",
+                "driver": "local",
+                "driverOpts": {
+                    "type": "tmpfs",
+                    "device": "tmpfs"
+                },
+                "labels": {
+                    "mylables": "test"
+                }
+            }
+        }
+    ]
+}

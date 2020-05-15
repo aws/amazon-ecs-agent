@@ -140,13 +140,6 @@ func init() {
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 	}
 
-	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
-		seelog.Error(err)
-	}
-	if err := seelog.RegisterCustomFormatter("EcsAgentJson", jsonFormatter); err != nil {
-		seelog.Error(err)
-	}
-
 	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR))
 	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
 		Config.RolloverType = RolloverType
@@ -169,6 +162,13 @@ func init() {
 		} else {
 			seelog.Error("Invalid value for "+LOG_MAX_FILE_SIZE_ENV_VAR, err)
 		}
+	}
+
+	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
+		seelog.Error(err)
+	}
+	if err := seelog.RegisterCustomFormatter("EcsAgentJson", jsonFormatter); err != nil {
+		seelog.Error(err)
 	}
 
 	registerPlatformLogger()

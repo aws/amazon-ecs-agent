@@ -44,11 +44,8 @@ func TaskContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine st
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := getTaskARNByRequest(r, state)
 		if err != nil {
-			errResponseJSON, err := json.Marshal(
+			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("Unable to get task arn from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
@@ -72,18 +69,12 @@ func WriteTaskStatsResponse(w http.ResponseWriter,
 	taskStatsResponse, err := NewTaskStatsResponse(taskARN, state, statsEngine)
 	if err != nil {
 		seelog.Warnf("Unable to get task stats for task '%s': %v", taskARN, err)
-		errResponseJSON, err := json.Marshal("Unable to get task stats for: " + taskARN)
-		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-			return
-		}
+		errResponseJSON, _ := json.Marshal("Unable to get task stats for: " + taskARN)
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 		return
 	}
 
-	responseJSON, err := json.Marshal(taskStatsResponse)
-	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-		return
-	}
+	responseJSON, _ := json.Marshal(taskStatsResponse)
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskStats)
 }
 
@@ -94,17 +85,11 @@ func WriteContainerStatsResponse(w http.ResponseWriter,
 	statsEngine stats.Engine) {
 	dockerStats, err := statsEngine.ContainerDockerStats(taskARN, containerID)
 	if err != nil {
-		errResponseJSON, err := json.Marshal("Unable to get container stats for: " + containerID)
-		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-			return
-		}
+		errResponseJSON, _ := json.Marshal("Unable to get container stats for: " + containerID)
 		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerStats)
 		return
 	}
 
-	responseJSON, err := json.Marshal(dockerStats)
-	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-		return
-	}
+	responseJSON, _ := json.Marshal(dockerStats)
 	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerStats)
 }

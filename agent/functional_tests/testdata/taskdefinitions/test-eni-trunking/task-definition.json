@@ -1,0 +1,22 @@
+{
+  "family": "test-eni-trunking",
+  "networkMode": "awsvpc",
+  "taskRoleArn": "$$$TASK_ROLE$$$",
+  "containerDefinitions": [
+	{
+	  "name": "eni-trunking-validator",
+	  "image": "127.0.0.1:51670/amazon/amazon-ecs-eni-trunking-validator:latest",
+	  "command": [""],
+	  "essential": true,
+	  "memory": 512,
+	  "logConfiguration": {
+		"logDriver": "awslogs",
+		"options": {
+		  "awslogs-group":"ecs-functional-tests",
+		  "awslogs-region":"$$$TEST_REGION$$$",
+		  "awslogs-stream-prefix":"ecs-functional-tests-eni-trunking-validator"
+		}
+	  }
+	}
+  ]
+}

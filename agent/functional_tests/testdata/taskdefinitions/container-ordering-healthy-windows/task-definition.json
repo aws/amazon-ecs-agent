@@ -1,0 +1,52 @@
+{
+  "family": "ecsftest-container-ordering-healthy-condition-windows",
+  "containerDefinitions": [
+    {
+      "name": "healthy",
+      "image": "amazon-ecs-ftest-windows-base:make",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "workingDirectory" : "C:/test",
+      "command": ["powershell", "-c", "cat test.txt"],
+      "dependsOn": [
+        {
+          "containerName": "healthy-dependency",
+          "condition": "HEALTHY"
+        }
+      ],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "C:/test"
+        }
+      ]
+    },
+    {
+      "name": "healthy-dependency",
+      "image": "amazon-ecs-ftest-windows-base:make",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["powershell", "-c", "sleep 60"],
+      "mountPoints" : [
+        {
+          "sourceVolume": "volume1",
+          "containerPath": "C:/test"
+        }
+      ],
+      "workingDirectory" : "C:/test",
+      "healthCheck": {
+        "command": ["powershell", "-c", "cd C:/test; New-Item -ItemType file test.txt; echo hi >> test.txt;"],
+        "interval": 5,
+        "timeout": 50,
+        "retries": 3
+      }
+    }
+  ],
+  "volumes" : [
+    {
+      "name" : "volume1"
+    }
+  ]
+}

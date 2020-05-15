@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,15 +48,7 @@ const (
 
 var (
 	defaultDockerClientAPIVersion = dockerclient.Version_1_17
-	// some unassigned ports to use for tests
-	// see https://www.speedguide.net/port.php?port=24685
-	unassignedPort int32 = 24685
 )
-
-// getUnassignedPort returns a NEW unassigned port each time it's called.
-func getUnassignedPort() uint16 {
-	return uint16(atomic.AddInt32(&unassignedPort, 1))
-}
 
 func discardEvents(from interface{}) func() {
 	done := make(chan bool)

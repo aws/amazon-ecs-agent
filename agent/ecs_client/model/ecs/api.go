@@ -1610,12 +1610,10 @@ func (c *ECS) ListClustersPagesWithContext(ctx aws.Context, input *ListClustersI
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListClustersOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListClustersOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -1761,12 +1759,10 @@ func (c *ECS) ListContainerInstancesPagesWithContext(ctx aws.Context, input *Lis
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListContainerInstancesOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListContainerInstancesOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -1908,12 +1904,10 @@ func (c *ECS) ListServicesPagesWithContext(ctx aws.Context, input *ListServicesI
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListServicesOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListServicesOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -2144,12 +2138,10 @@ func (c *ECS) ListTaskDefinitionFamiliesPagesWithContext(ctx aws.Context, input 
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListTaskDefinitionFamiliesOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTaskDefinitionFamiliesOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -2289,12 +2281,10 @@ func (c *ECS) ListTaskDefinitionsPagesWithContext(ctx aws.Context, input *ListTa
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListTaskDefinitionsOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTaskDefinitionsOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 
@@ -2445,12 +2435,10 @@ func (c *ECS) ListTasksPagesWithContext(ctx aws.Context, input *ListTasksInput, 
 		},
 	}
 
-	for p.Next() {
-		if !fn(p.Page().(*ListTasksOutput), !p.HasNextPage()) {
-			break
-		}
+	cont := true
+	for p.Next() && cont {
+		cont = fn(p.Page().(*ListTasksOutput), !p.HasNextPage())
 	}
-
 	return p.Err()
 }
 

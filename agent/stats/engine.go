@@ -78,7 +78,7 @@ type DockerStatsEngine struct {
 	cluster                    string
 	containerInstanceArn       string
 	lock                       sync.RWMutex
-	config                     *config.Config
+	disableMetrics             bool
 	containerChangeEventStream *eventstream.EventStream
 	resolver                   resolver.ContainerMetadataResolver
 	// tasksToContainers maps task arns to a map of container ids to StatsContainer objects.
@@ -121,7 +121,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 	return &DockerStatsEngine{
 		client:                       client,
 		resolver:                     nil,
-		config:                       cfg,
+		disableMetrics:               cfg.DisableMetrics,
 		tasksToContainers:            make(map[string]map[string]*StatsContainer),
 		tasksToHealthCheckContainers: make(map[string]map[string]*StatsContainer),
 		tasksToDefinitions:           make(map[string]*taskDefinition),
@@ -152,7 +152,7 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 		return
 	}
 
-	if engine.config.DisableMetrics || statsContainer == nil {
+	if engine.disableMetrics || statsContainer == nil {
 		return
 	}
 
@@ -248,7 +248,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
-	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver, engine.config)
+	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
 	}
@@ -257,7 +257,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
 	watchStatsContainer := false
-	if !engine.config.DisableMetrics {
+	if !engine.disableMetrics {
 		// Adding container to the map for collecting stats
 		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
 	}
@@ -366,6 +366,8 @@ func (engine *DockerStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, 
 		return nil, nil, EmptyMetricsError
 	}
 
+	// Reset current stats. Retaining older stats results in incorrect utilization stats
+	// until they are removed from the queue.
 	engine.resetStatsUnsafe()
 	return metricsMetadata, taskMetrics, nil
 }
@@ -585,6 +587,12 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			continue
 		}
 
+		if !container.statsQueue.enoughDatapointsInBuffer() &&
+			!container.statsQueue.resetThresholdElapsed(queueResetThreshold) {
+			seelog.Debugf("Stats not ready for container %s", dockerID)
+			continue
+		}
+
 		// CPU and Memory are both critical, so skip the container if either of these fail.
 		cpuStatsSet, err := container.statsQueue.GetCPUStatsSet()
 		if err != nil {
@@ -685,6 +693,7 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
 	return container.statsQueue.GetLastStat(), nil
+
 }
 
 // newMetricsMetadata creates the singleton metadata object.

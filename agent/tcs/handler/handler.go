@@ -33,6 +33,10 @@ import (
 )
 
 const (
+	// defaultPublishMetricsInterval is the interval at which utilization
+	// metrics from stats engine are published to the backend.
+	defaultPublishMetricsInterval = 20 * time.Second
+
 	// The maximum time to wait between heartbeats without disconnecting
 	defaultHeartbeatTimeout = 1 * time.Minute
 	defaultHeartbeatJitter  = 1 * time.Minute
@@ -83,11 +87,6 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 			seelog.Errorf("Error: lost websocket connection with ECS Telemetry service (TCS): %v", tcsError)
 			params.time().Sleep(backoff.Duration())
 		}
-		select {
-		case <-params.Ctx.Done():
-			return nil
-		default:
-		}
 	}
 }
 
@@ -99,7 +98,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine,
-		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
+		defaultHeartbeatTimeout, defaultHeartbeatJitter, defaultPublishMetricsInterval,
 		params.DeregisterInstanceEventStream)
 }
 

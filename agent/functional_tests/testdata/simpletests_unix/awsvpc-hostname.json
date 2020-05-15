@@ -1,0 +1,11 @@
+{
+  "Name": "HostNameAwsvpc",
+  "Description": "checks ec2 private dns was added as the container hostnmae",
+  "TaskDefinition": "hostname-awsvpc",
+  "AwsvpcMode": "true",
+  "Version": ">=1.17.3",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 0
+  }
+}

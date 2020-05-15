@@ -56,11 +56,8 @@ const (
 	ListPluginsTimeout = 1 * time.Minute
 
 	// StatsInactivityTimeout controls the amount of time we hold open a
-	// connection to the Docker daemon waiting for stats data.
-	// We set this a few seconds below our stats publishling interval (20s)
-	// so that we can disconnect and warn the user when metrics reporting
-	// may be impacted. This is usually caused by a over-stressed docker daemon.
-	StatsInactivityTimeout = 18 * time.Second
+	// connection to the Docker daemon waiting for stats data
+	StatsInactivityTimeout = 5 * time.Second
 
 	// DockerPullBeginTimeout is the timeout from when a 'pull' is called to when
 	// we expect to see output on the pull progress stream. This is to work

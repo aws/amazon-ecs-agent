@@ -180,7 +180,7 @@ func (vol *VolumeResource) GetTerminalReason() string {
 
 func (vol *VolumeResource) setTerminalReason(reason string) {
 	vol.terminalReasonOnce.Do(func() {
-		seelog.Infof("Volume Resource [%s]: setting terminal reason for volume resource, reason: %s", vol.Name, reason)
+		seelog.Infof("Volume Resource [%s]: setting terminal reason for volume resource", vol.Name)
 		vol.terminalReason = reason
 	})
 }

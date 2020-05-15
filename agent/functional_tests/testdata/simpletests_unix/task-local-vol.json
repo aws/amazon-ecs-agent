@@ -1,0 +1,10 @@
+{
+  "Name": "TaskLocalVolume",
+  "Description": "Verify that task specific Docker volume works as expected",
+  "TaskDefinition": "task-local-vol",
+  "Version": ">=1.20.0",
+  "Timeout": "2m",
+  "ExitCodes": {
+    "exit": 42
+  }
+}

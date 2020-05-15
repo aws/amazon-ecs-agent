@@ -142,10 +142,6 @@ const (
 	defaultCgroupCPUPeriod = 100 * time.Millisecond
 	maximumCgroupCPUPeriod = 100 * time.Millisecond
 	minimumCgroupCPUPeriod = 8 * time.Millisecond
-
-	// DefaultContainerMetricsPublishInterval is the default interval that we publish
-	// metrics to the ECS telemetry backend (TACS)
-	DefaultContainerMetricsPublishInterval = 20 * time.Second
 )
 
 const (

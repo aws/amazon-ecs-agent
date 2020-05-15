@@ -1,0 +1,12 @@
+{
+    "family": "ecsftest-host-ipc-namespace-share",
+    "ipcMode": "host",
+    "containerDefinitions": [
+        {
+            "name": "ipcProducer",
+            "image": "127.0.0.1:51670/amazon/amazon-ecs-ipc-namespace-test:latest",
+            "cpu": 100,
+            "memory": 80
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+{
+  "family": "ecsftest-container-ordering-timeout",
+  "containerDefinitions": [
+    {
+      "name": "success-timeout",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": true,
+      "command": ["sh", "-c", "sleep 1"],
+      "dependsOn": [
+        {
+          "containerName": "success-timeout-dependency",
+          "condition": "SUCCESS"
+        }
+      ]
+    },
+    {
+      "name": "success-timeout-dependency",
+      "image": "127.0.0.1:51670/busybox:latest",
+      "cpu": 0,
+      "memory": 64,
+      "essential": false,
+      "command": ["sh", "-c", "sleep 70"],
+      "startTimeout": 5
+    }
+  ]
+}

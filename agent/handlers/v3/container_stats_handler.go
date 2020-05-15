@@ -33,22 +33,16 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
-			errResponseJSON, err := json.Marshal(
+			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container stats handler: unable to get task arn from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}
 
 		containerID, err := GetContainerIDByRequest(r, state)
 		if err != nil {
-			responseJSON, err := json.Marshal(
+			responseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 container stats handler: unable to get container ID from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerStats)
 			return
 		}

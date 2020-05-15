@@ -15,25 +15,16 @@ package app
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/cihub/seelog"
 )
 
 // runHealthcheck runs the Agent's healthcheck
-func runHealthcheck(url string, timeout time.Duration) int {
-	client := &http.Client{
-		Timeout: timeout,
-	}
-	r, err := http.NewRequest("GET", url, nil)
+func runHealthcheck() int {
+	_, err := http.Get("http://localhost:51678/v1/metadata")
 	if err != nil {
-		seelog.Errorf("error creating healthcheck request: %v", err)
-		return exitcodes.ExitError
-	}
-	_, err = client.Do(r)
-	if err != nil {
-		seelog.Errorf("health check [GET %s] failed with error: %v", url, err)
+		seelog.Warnf("Health check failed with error: %v", err)
 		return exitcodes.ExitError
 	}
 	return exitcodes.ExitSuccess

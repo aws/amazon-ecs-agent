@@ -33,11 +33,8 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 	return func(w http.ResponseWriter, r *http.Request) {
 		taskARN, err := GetTaskARNByRequest(r, state)
 		if err != nil {
-			errResponseJSON, err := json.Marshal(
+			errResponseJSON, _ := json.Marshal(
 				fmt.Sprintf("V3 task stats handler: unable to get task arn from request: %s", err.Error()))
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
 			return
 		}

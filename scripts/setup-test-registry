@@ -57,12 +57,20 @@ setup_parallel_pull_image() {
 }
 
 for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" \
-				"amazon/amazon-ecs-ipc-namespace-test" "amazon/awscli" \
+				"amazon/amazon-ecs-ipc-namespace-test" "amazon/squid" "amazon/awscli" \
 				"amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
-				"amazon/image-cleanup-test-image3" "amazon/fluentd" \
-				"amazon/amazon-ecs-taskmetadata-validator"; do
+				"amazon/image-cleanup-test-image3" "amazon/fluentd" "amazon/amazon-ecs-agent-introspection-validator" \
+				"amazon/amazon-ecs-taskmetadata-validator" "amazon/amazon-ecs-v3-task-endpoint-validator" \
+				"amazon/amazon-ecs-container-metadata-file-validator" "amazon/amazon-ecs-elastic-inference-validator" \
+				"amazon/amazon-appmesh-plugin-validator" "amazon/amazon-ecs-eni-trunking-validator" \
+				"amazon/firelens-fluentd" "amazon/fluent-logger"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
+
+# amazon/firelens-fluentbit:make is only built on amd but not arm.
+if [[ -n $(docker images -q amazon/firelens-fluentbit:make) ]]; then
+	mirror_local_image "amazon/firelens-fluentbit:make" "127.0.0.1:51670/amazon/firelens-fluentbit:latest"
+fi
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
 docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
