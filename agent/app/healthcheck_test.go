@@ -62,3 +62,16 @@ func TestHealthcheck_404(t *testing.T) {
 	rc := runHealthcheck(ts.URL+"/foobar", time.Second*2)
 	require.Equal(t, 0, rc)
 }
+
+var brc int
+
+func BenchmarkHealthcheck(b *testing.B) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "hello")
+	}))
+	defer ts.Close()
+
+	for n := 0; n < b.N; n++ {
+		brc = runHealthcheck(ts.URL, time.Second*1)
+	}
+}
