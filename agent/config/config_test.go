@@ -239,7 +239,7 @@ func TestInvalidLoggingDriver(t *testing.T) {
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.False(t, conf.PollMetrics)
+	assert.True(t, conf.PollMetrics)
 }
 
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
@@ -357,16 +357,25 @@ func TestInvalidValueMaxPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "21s")()
 	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.Equal(t, conf.PollingMetricsWaitDuration, DefaultPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+	assert.Equal(t, maximumPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
 
 func TestInvalidValueMinPollingMetricsWaitDuration(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
+	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "1s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, minimumPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+}
+
+func TestInvalidValuePollingMetricsWaitDuration(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "0s")()
 	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.Equal(t, conf.PollingMetricsWaitDuration, DefaultPollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
+	assert.Equal(t, DefaultPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration, "Wrong value for PollingMetricsWaitDuration")
 }
 
 func TestInvalidFormatParseEnvVariableUint16(t *testing.T) {

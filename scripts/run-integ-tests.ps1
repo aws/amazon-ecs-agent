@@ -16,11 +16,11 @@ Param (
 )
 
 if ($Platform -like "windows2016") {
-  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2016"
-  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:91368f3cff77ad42259ccb3bf3d1a4e145cf5fa9e486f23999d32711c2913f3e"
+  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:42be24b8810c861cc1b3fe75c5e99f75061cb45fdbae1de46d151c18cc8e6a9a"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:42be24b8810c861cc1b3fe75c5e99f75061cb45fdbae1de46d151c18cc8e6a9a"
 } elseif ($Platform -like "windows2019")  {
-  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2019"
-  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:e20960b4c06acee08af55164e3abc37b39cdc128ce2f5fcdf3397c738cb91069"
+  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
 } else {
   echo "Invalid platform parameter"
   exit 1
