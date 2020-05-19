@@ -26,15 +26,16 @@ func runHealthcheck(url string, timeout time.Duration) int {
 	client := &http.Client{
 		Timeout: timeout,
 	}
-	r, err := http.NewRequest("GET", url, nil)
+	r, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		seelog.Errorf("error creating healthcheck request: %v", err)
 		return exitcodes.ExitError
 	}
-	_, err = client.Do(r)
+	resp, err := client.Do(r)
 	if err != nil {
-		seelog.Errorf("health check [GET %s] failed with error: %v", url, err)
+		seelog.Errorf("health check [HEAD %s] failed with error: %v", url, err)
 		return exitcodes.ExitError
 	}
+	resp.Body.Close()
 	return exitcodes.ExitSuccess
 }
