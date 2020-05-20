@@ -15,10 +15,10 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -78,22 +78,29 @@ func v1HandlersSetup(serverMux *http.ServeMux,
 // ServeIntrospectionHTTPEndpoint serves information about this agent/containerInstance and tasks
 // running on it. "V1" here indicates the hostname version of this server instead
 // of the handler versions, i.e. "V1" server can include "V1" and "V2" handlers.
-func ServeIntrospectionHTTPEndpoint(containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *config.Config) {
+func ServeIntrospectionHTTPEndpoint(ctx context.Context, containerInstanceArn *string, taskEngine engine.TaskEngine, cfg *config.Config) {
 	// Is this the right level to type assert, assuming we'd abstract multiple taskengines here?
 	// Revisit if we ever add another type..
 	dockerTaskEngine := taskEngine.(*engine.DockerTaskEngine)
 
 	server := introspectionServerSetup(containerInstanceArn, dockerTaskEngine, cfg)
+
+	go func() {
+		<-ctx.Done()
+		if err := server.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			seelog.Infof("HTTP server Shutdown: %v", err)
+		}
+	}()
+
 	for {
-		once := sync.Once{}
 		retry.RetryWithBackoff(retry.NewExponentialBackoff(time.Second, time.Minute, 0.2, 2), func() error {
-			// TODO, make this cancellable and use the passed in context; for
-			// now, not critical if this gets interrupted
-			err := server.ListenAndServe()
-			once.Do(func() {
-				seelog.Error("Error running http api", "err", err)
-			})
-			return err
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				seelog.Errorf("Error running introspection endpoint: %v", err)
+				return err
+			}
+			// server was cleanly closed via context
+			return nil
 		})
 	}
 }

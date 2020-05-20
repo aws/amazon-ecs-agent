@@ -209,16 +209,17 @@ func (mtask *managedTask) overseeTask() {
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
-		select {
-		case <-mtask.ctx.Done():
-			seelog.Infof("Managed task [%s]: parent context cancelled, exit", mtask.Arn)
+		if mtask.shouldExit() {
 			return
-		default:
 		}
 
 		// If it's steadyState, just spin until we need to do work
 		for mtask.steadyState() {
 			mtask.waitSteady()
+		}
+
+		if mtask.shouldExit() {
+			return
 		}
 
 		if !mtask.GetKnownStatus().Terminal() {
@@ -256,6 +257,16 @@ func (mtask *managedTask) overseeTask() {
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
 	mtask.cleanupTask(mtask.cfg.TaskCleanupWaitDuration)
+}
+
+// shouldExit checks if the task manager should exit, as the agent is exiting.
+func (mtask *managedTask) shouldExit() bool {
+	select {
+	case <-mtask.ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 // emitCurrentStatus emits a container event for every container and a task
@@ -311,9 +322,12 @@ func (mtask *managedTask) waitSteady() {
 	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, retry.AddJitter(mtask.steadyStatePollInterval, mtask.steadyStatePollIntervalJitter))
 	defer cancel()
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
+	if mtask.shouldExit() {
+		return
+	}
 
 	if timedOut {
-		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
+		seelog.Infof("Managed task [%s]: checking to verify it's still at steady state.", mtask.Arn)
 		go mtask.engine.checkTaskState(mtask.Task)
 	}
 }
@@ -323,7 +337,7 @@ func (mtask *managedTask) waitSteady() {
 func (mtask *managedTask) steadyState() bool {
 	select {
 	case <-mtask.ctx.Done():
-		seelog.Info("Context expired. No longer steady.")
+		seelog.Infof("Managed task [%s]: agent task manager exiting.", mtask.Arn)
 		return false
 	default:
 		taskKnownStatus := mtask.GetKnownStatus()
@@ -360,7 +374,6 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 		mtask.handleResourceStateChange(resChange)
 		return false
 	case <-stopWaiting:
-		seelog.Infof("Managed task [%s]: no longer waiting", mtask.Arn)
 		return true
 	}
 }

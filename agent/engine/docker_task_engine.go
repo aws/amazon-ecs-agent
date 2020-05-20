@@ -233,10 +233,8 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
 func (engine *DockerTaskEngine) Init(ctx context.Context) error {
-	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	derivedCtx, cancel := context.WithCancel(ctx)
 	engine.stopEngine = cancel
-
 	engine.ctx = derivedCtx
 
 	// Open the event stream before we sync state so that e.g. if a container

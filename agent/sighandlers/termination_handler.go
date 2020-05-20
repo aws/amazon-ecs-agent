@@ -19,6 +19,7 @@
 package sighandlers
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/signal"
@@ -27,7 +28,6 @@ import (
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
-	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 
 	"github.com/cihub/seelog"
@@ -39,23 +39,23 @@ const (
 )
 
 // TerminationHandler defines a handler used for terminating the agent
-type TerminationHandler func(saver statemanager.Saver, taskEngine engine.TaskEngine)
+type TerminationHandler func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc)
 
 // StartDefaultTerminationHandler defines a default termination handler suitable for running in a process
-func StartDefaultTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) {
-	signalChannel := make(chan os.Signal, 2)
-	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
+func StartDefaultTerminationHandler(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+	// when we receive a termination signal, first save the state, then
+	// cancel the agent's context so other goroutines can exit cleanly.
+	signalC := make(chan os.Signal, 2)
+	signal.Notify(signalC, os.Interrupt, syscall.SIGTERM)
 
-	sig := <-signalChannel
-	seelog.Debugf("Termination handler received termination signal: %s", sig.String())
+	sig := <-signalC
+	seelog.Infof("Agent received termination signal: %s", sig.String())
+	cancel()
 
 	err := FinalSave(saver, taskEngine)
 	if err != nil {
 		seelog.Criticalf("Error saving state before final shutdown: %v", err)
-		// Terminal because it's a sigterm; the user doesn't want it to restart
-		os.Exit(exitcodes.ExitTerminal)
 	}
-	os.Exit(exitcodes.ExitSuccess)
 }
 
 // FinalSave should be called immediately before exiting, and only before

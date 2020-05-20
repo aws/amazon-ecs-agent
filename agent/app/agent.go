@@ -94,6 +94,7 @@ type agent interface {
 // the newAgent() method
 type ecsAgent struct {
 	ctx                         context.Context
+	cancel                      context.CancelFunc
 	ec2MetadataClient           ec2.EC2MetadataClient
 	ec2Client                   ec2.Client
 	cfg                         *config.Config
@@ -117,11 +118,8 @@ type ecsAgent struct {
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
-func newAgent(
-	ctx context.Context,
-	blackholeEC2Metadata bool,
-	acceptInsecureCert *bool) (agent, error) {
-
+func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	ec2MetadataClient := ec2.NewEC2MetadataClient(nil)
 	if blackholeEC2Metadata {
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
@@ -133,6 +131,7 @@ func newAgent(
 		// All required config values can be inferred from EC2 Metadata,
 		// so this error could be transient.
 		seelog.Criticalf("Error loading config: %v", err)
+		cancel()
 		return nil, err
 	}
 	cfg.AcceptInsecureCert = aws.BoolValue(acceptInsecureCert)
@@ -148,6 +147,7 @@ func newAgent(
 	if err != nil {
 		// This is also non terminal in the current config
 		seelog.Criticalf("Error creating Docker client: %v", err)
+		cancel()
 		return nil, err
 	}
 
@@ -162,6 +162,7 @@ func newAgent(
 	initialSeqNumber := int64(-1)
 	return &ecsAgent{
 		ctx:               ctx,
+		cancel:            cancel,
 		ec2MetadataClient: ec2MetadataClient,
 		ec2Client:         ec2Client,
 		cfg:               cfg,
@@ -616,26 +617,26 @@ func (agent *ecsAgent) startAsyncRoutines(
 
 	// Start automatic spot instance draining poller routine
 	if agent.cfg.SpotInstanceDrainingEnabled {
-		go agent.startSpotInstanceDrainingPoller(client)
+		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
-	go agent.terminationHandler(stateManager, taskEngine)
+	go agent.terminationHandler(stateManager, taskEngine, agent.cancel)
 
 	// Agent introspection api
-	go handlers.ServeIntrospectionHTTPEndpoint(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
 	}
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler, attachmentEventHandler)
+	go eventhandler.HandleEngineEvents(agent.ctx, taskEngine, client, taskHandler, attachmentEventHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		Ctx:                           agent.ctx,
@@ -652,9 +653,14 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go tcshandler.StartMetricsSession(&telemetrySessionParams)
 }
 
-func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
+func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client api.ECSClient) {
 	for !agent.spotInstanceDrainingPoller(client) {
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(time.Second)
+		}
 	}
 }
 
@@ -725,8 +731,7 @@ func (agent *ecsAgent) startACSSession(
 		seelog.Criticalf("Unretriable error starting communicating with ACS: %v", err)
 		return exitcodes.ExitTerminal
 	}
-	seelog.Critical("ACS Session handler should never exit")
-	return exitcodes.ExitError
+	return exitcodes.ExitSuccess
 }
 
 // validateRequiredVersion validates docker version.

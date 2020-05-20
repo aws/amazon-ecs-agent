@@ -391,7 +391,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
 		metadataManager:    containermetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		ec2MetadataClient:  ec2MetadataClient,
 	}
 

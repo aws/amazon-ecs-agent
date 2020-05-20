@@ -194,6 +194,12 @@ func (acsSession *session) Start() error {
 			seelog.Debugf("Received connect to ACS message")
 			// Start a session with ACS
 			acsError := acsSession.startSessionOnce()
+			select {
+			case <-acsSession.ctx.Done():
+				// agent is shutting down, exiting cleanly
+				return nil
+			default:
+			}
 			// Session with ACS was stopped with some error, start processing the error
 			isInactiveInstance := isInactiveInstanceError(acsError)
 			if isInactiveInstance {
@@ -231,8 +237,8 @@ func (acsSession *session) Start() error {
 				}
 			}
 		case <-acsSession.ctx.Done():
-			seelog.Debugf("ACS session context cancelled")
-			return acsSession.ctx.Err()
+			// agent is shutting down, exiting cleanly
+			return nil
 		}
 
 	}
@@ -366,7 +372,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		case <-acsSession.ctx.Done():
 			// Stop receiving and sending messages from and to ACS when
 			// the context received from the main function is canceled
-			seelog.Infof("ACS session context cancelled.")
+			seelog.Infof("ACS session exited cleanly.")
 			return acsSession.ctx.Err()
 		case err := <-serveErr:
 			// Stop receiving and sending messages from and to ACS when
