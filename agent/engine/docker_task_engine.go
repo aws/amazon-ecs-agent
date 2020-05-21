@@ -659,8 +659,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 
 	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
-	// hold the lock until the message is sent so we don't send on a closed channel
-	defer engine.tasksLock.RUnlock()
+	engine.tasksLock.RUnlock()
 	if !ok {
 		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %s",
 			task.Arn, event.String())

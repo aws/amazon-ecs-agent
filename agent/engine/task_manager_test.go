@@ -754,6 +754,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		stateChangeEvents:          stateChangeEvents,
 		containerChangeEventStream: containerChangeEventStream,
 		dockerMessages:             make(chan dockerContainerChange),
+		ctx:                        context.TODO(),
 	}
 
 	eventsGenerated := sync.WaitGroup{}
@@ -878,6 +879,7 @@ func TestOnContainersUnableToTransitionStateForDesiredStoppedTask(t *testing.T) 
 			stateChangeEvents: stateChangeEvents,
 		},
 		stateChangeEvents: stateChangeEvents,
+		ctx:               context.TODO(),
 	}
 	eventsGenerated := sync.WaitGroup{}
 	eventsGenerated.Add(1)
@@ -908,6 +910,7 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 			},
 			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
+		ctx: context.TODO(),
 	}
 
 	task.handleContainersUnableToTransitionState()
@@ -1524,6 +1527,7 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 		Task:                       testdata.LoadTask("sleep5TaskCgroup"),
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1565,6 +1569,7 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 		Task:                       testdata.LoadTask("sleep5TaskCgroup"),
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
+		ctx:                        context.TODO(),
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1635,6 +1640,7 @@ func TestWaitForResourceTransition(t *testing.T) {
 		Task: &apitask.Task{
 			ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		},
+		ctx: context.TODO(),
 	}
 	transition := make(chan struct{}, 1)
 	transitionChangeResource := make(chan string, 1)
@@ -1665,6 +1671,7 @@ func TestApplyResourceStateHappyPath(t *testing.T) {
 			Arn:                "arn",
 			ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		},
+		ctx: context.TODO(),
 	}
 	gomock.InOrder(
 		mockResource.EXPECT().GetName(),
@@ -1702,6 +1709,7 @@ func TestApplyResourceStateFailures(t *testing.T) {
 					Arn:                "arn",
 					ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 				},
+				ctx: context.TODO(),
 			}
 			gomock.InOrder(
 				mockResource.EXPECT().GetName(),
