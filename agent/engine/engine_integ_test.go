@@ -637,9 +637,10 @@ func TestTaskCleanup(t *testing.T) {
 	_, err = client.ContainerInspect(ctx, cid)
 	assert.NoError(t, err, "Inspect should work")
 
-	testUpdate := *testTask
-	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&testUpdate)
+	// Create instead of copying the testTask, to avoid race condition.
+	taskUpdate := createTestTask(testArn)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
 

@@ -711,9 +711,9 @@ func TestPortForward(t *testing.T) {
 	}
 
 	// Stop the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -767,9 +767,9 @@ func TestMultiplePortForwards(t *testing.T) {
 	}
 	t.Log("Read second container")
 
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -822,9 +822,9 @@ func TestDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -893,9 +893,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	}
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -907,7 +907,8 @@ func TestLinking(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 
-	testTask := createTestTask("TestLinking")
+	testArn := "TestLinking"
+	testTask := createTestTask(testArn)
 	testTask.Containers = append(testTask.Containers, createTestContainer())
 	testTask.Containers[0].Command = []string{"-l=80", "-serve", "hello linker"}
 	testTask.Containers[0].Name = "linkee"
@@ -950,9 +951,9 @@ func TestLinking(t *testing.T) {
 		t.Error("Got response: " + string(response) + " instead of 'hello linker'")
 	}
 
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
@@ -1150,7 +1151,8 @@ func TestSignalEvent(t *testing.T) {
 
 	stateChangeEvents := taskEngine.StateChangeEvents()
 
-	testTask := createTestTask("signaltest")
+	testArn := "signaltest"
+	testTask := createTestTask(testArn)
 	testTask.Containers[0].Image = testBusyboxImage
 	testTask.Containers[0].Command = []string{
 		"sh",
@@ -1189,9 +1191,9 @@ check_events:
 	}
 
 	// Stop the container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -1304,9 +1306,9 @@ func TestSwapConfigurationTask(t *testing.T) {
 	require.EqualValues(t, 90, *state.HostConfig.MemorySwappiness)
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -1357,9 +1359,9 @@ func TestGPUAssociationTask(t *testing.T) {
 	require.Equal(t, testTask.NvidiaRuntime, state.HostConfig.Runtime)
 	require.Contains(t, state.Config.Env, "NVIDIA_VISIBLE_DEVICES=0")
 
-	taskUpdate := *testTask
+	taskUpdate := createTestGPUTask()
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -1430,9 +1432,9 @@ func TestMemoryOverCommit(t *testing.T) {
 	require.EqualValues(t, memoryReservation*1024*1024, state.HostConfig.MemoryReservation)
 
 	// Kill the existing container now
-	testUpdate := *testTask
+	testUpdate := createTestTask(testArn)
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&testUpdate)
+	go taskEngine.AddTask(testUpdate)
 
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
@@ -1508,9 +1510,9 @@ func TestFluentdTag(t *testing.T) {
 	state, _ := client.ContainerInspect(ctx, cid)
 
 	// Kill the fluentd driver task
-	testUpdate := *testTaskFleuntdDriver
+	testUpdate := createTestTask("testFleuntdDriver")
 	testUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&testUpdate)
+	go taskEngine.AddTask(testUpdate)
 	verifyContainerStoppedStateChange(t, taskEngine)
 	verifyTaskStoppedStateChange(t, taskEngine)
 
