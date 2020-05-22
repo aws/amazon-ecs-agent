@@ -765,6 +765,14 @@ func TestGPUSupportEnabled(t *testing.T) {
 	assert.True(t, cfg.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 }
 
+func TestInferentiaSupportEnabled(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_ENABLE_INF_SUPPORT", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.True(t, cfg.InferentiaSupportEnabled, "Wrong value for InferentiaSupportEnabled")
+}
+
 func TestTaskMetadataAZDisabled(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_DISABLE_TASK_METADATA_AZ", "true")()

@@ -282,6 +282,9 @@ type Config struct {
 
 	// GPUSupportEnabled specifies if the Agent is capable of launching GPU tasks
 	GPUSupportEnabled bool
+	// InferentiaSupportEnabled specifies whether the built-in support for inferentia task is enabled.
+	InferentiaSupportEnabled bool
+
 	// ImageCleanupExclusionList is the list of image names customers want to keep for their own use and delete automatically
 	ImageCleanupExclusionList []string
 

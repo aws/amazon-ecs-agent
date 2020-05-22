@@ -422,7 +422,8 @@ func TestPlatformHostConfigOverrideErrorPath(t *testing.T) {
 		},
 	}
 
-	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	dockerHostConfig, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Error(t, err)
 	assert.Empty(t, dockerHostConfig)
 }
@@ -464,7 +465,8 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+		minDockerClientAPIVersion, &config.Config{})
 	assert.Nil(t, configErr)
 
 	expected := dockercontainer.HostConfig{
