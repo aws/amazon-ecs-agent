@@ -18,7 +18,6 @@
 package engine
 
 import (
-	"container/list"
 	"context"
 	"errors"
 	"fmt"
@@ -632,29 +631,29 @@ func verifyTaskIsCleanedUp(taskName string, taskEngine TaskEngine) error {
 }
 
 func verifyImagesAreRemoved(imageManager *dockerImageManager, imageIDs ...string) error {
-	imagesNotRemovedList := list.New()
+	imagesNotRemovedList := []string{}
 	for _, imageID := range imageIDs {
-		_, ok := imageManager.getImageState(imageID)
+		imageState, ok := imageManager.getImageState(imageID)
 		if ok {
-			imagesNotRemovedList.PushFront(imageID)
+			imagesNotRemovedList = append(imagesNotRemovedList, imageState.Image.String())
 		}
 	}
-	if imagesNotRemovedList.Len() > 0 {
-		return fmt.Errorf("Image states still exist for: %v", imagesNotRemovedList)
+	if len(imagesNotRemovedList) > 0 {
+		return fmt.Errorf("Image states still exist for: %s", imagesNotRemovedList)
 	}
 	return nil
 }
 
 func verifyImagesAreNotRemoved(imageManager *dockerImageManager, imageIDs ...string) error {
-	imagesRemovedList := list.New()
+	imagesRemovedList := []string{}
 	for _, imageID := range imageIDs {
-		_, ok := imageManager.getImageState(imageID)
+		imageState, ok := imageManager.getImageState(imageID)
 		if !ok {
-			imagesRemovedList.PushFront(imageID)
+			imagesRemovedList = append(imagesRemovedList, imageState.Image.String())
 		}
 	}
-	if imagesRemovedList.Len() > 0 {
-		return fmt.Errorf("Could not find images: %v in ImageManager", imagesRemovedList)
+	if len(imagesRemovedList) > 0 {
+		return fmt.Errorf("Could not find images: %s in ImageManager", imagesRemovedList)
 	}
 	return nil
 }
