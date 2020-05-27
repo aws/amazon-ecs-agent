@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -54,6 +55,11 @@ const (
 //  e. Image has not passed the ‘hasNoAssociatedContainers’ criteria.
 //  f. Ensure that that if not eligible, image is not deleted from the instance and image reference in ImageManager is not removed.
 func TestIntegImageCleanupHappyCase(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip(`Skipping this test because of error: level=error time=2020-05-27T20:20:03Z msg="Error removing` +
+			` Image amazon/image-cleanup-test-image2:make - Error response from daemon: hcsshim::GetComputeSystems:` +
+			` The requested compute system operation is not valid in the current state." module=log.go`)
+	}
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 5 * time.Second
 
