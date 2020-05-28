@@ -16,14 +16,10 @@
 package dependencies
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-
 	"golang.org/x/sys/windows/registry"
 )
 
-//go:generate mockgen -destination=mocks/mocks_windows.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey,FS,File
+//go:generate mockgen -destination=mocks/mocks_windows.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies WindowsRegistry,RegistryKey
 
 // WindowsRegistry is an interface for the package-level methods in the golang.org/x/sys/windows/registry package
 type WindowsRegistry interface {
@@ -38,23 +34,6 @@ type RegistryKey interface {
 	Close() error
 }
 
-// FS is an interface for file-related operations in the os and ioutil packages
-type FS interface {
-	Open(name string) (File, error)
-	IsNotExist(err error) bool
-	ReadAll(f File) ([]byte, error)
-	TempFile(dir, prefix string) (File, error)
-	Remove(name string) error
-}
-
-// File is an interface for the os.File type
-type File interface {
-	Write(b []byte) (int, error)
-	Sync() error
-	Close() error
-	Name() string
-}
-
 type StdRegistry struct{}
 
 func (StdRegistry) CreateKey(k registry.Key, path string, access uint32) (RegistryKey, bool, error) {
@@ -63,27 +42,4 @@ func (StdRegistry) CreateKey(k registry.Key, path string, access uint32) (Regist
 
 func (StdRegistry) OpenKey(k registry.Key, path string, access uint32) (RegistryKey, error) {
 	return registry.OpenKey(k, path, access)
-}
-
-type StdFS struct{}
-
-func (StdFS) Open(name string) (File, error) {
-	return os.Open(name)
-}
-
-func (StdFS) IsNotExist(err error) bool {
-	return os.IsNotExist(err)
-}
-
-func (StdFS) ReadAll(f File) ([]byte, error) {
-	reader := f.(io.Reader)
-	return ioutil.ReadAll(reader)
-}
-
-func (StdFS) TempFile(dir, prefix string) (File, error) {
-	return ioutil.TempFile(dir, prefix)
-}
-
-func (StdFS) Remove(name string) error {
-	return os.Remove(name)
 }

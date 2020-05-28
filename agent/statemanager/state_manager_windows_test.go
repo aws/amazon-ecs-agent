@@ -16,6 +16,7 @@ package statemanager
 
 import (
 	"errors"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,22 +24,56 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/registry"
 )
 
+var (
+	testError = errors.New("test error")
+
+	mockNameImpl = func() string {
+		return `C:\new.json`
+	}
+	mockSyncImpl = func() error {
+		return nil
+	}
+)
+
+func mockTempFileError() func() {
+	otempFile := tempFile
+	tempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return nil, testError
+	}
+
+	return func() {
+		tempFile = otempFile
+	}
+}
+
+func mockOpenError() func() {
+	tempOpen := open
+	open = func(name string) (oswrapper.File, error) {
+		return nil, testError
+	}
+
+	return func() {
+		open = tempOpen
+	}
+}
+
 func setup(t *testing.T, options ...Option) (
 	*mock_dependencies.MockWindowsRegistry,
 	*mock_dependencies.MockRegistryKey,
-	*mock_dependencies.MockFS,
-	*mock_dependencies.MockFile,
+	oswrapper.File,
 	StateManager, func()) {
 	ctrl := gomock.NewController(t)
 	mockRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
 	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
-	mockFS := mock_dependencies.NewMockFS(ctrl)
-	mockFile := mock_dependencies.NewMockFile(ctrl)
+	mockFile := mocks.NewMockFile()
 
 	// TODO set this to platform-specific tmpdir
 	tmpDir, err := ioutil.TempDir("", "ecs_statemanager_test")
@@ -53,13 +88,12 @@ func setup(t *testing.T, options ...Option) (
 	basicManager := manager.(*basicStateManager)
 	basicManager.platformDependencies = windowsDependencies{
 		registry: mockRegistry,
-		fs:       mockFS,
 	}
-	return mockRegistry, mockKey, mockFS, mockFile, basicManager, cleanup
+	return mockRegistry, mockKey, mockFile, basicManager, cleanup
 }
 
 func TestStateManagerLoadNoRegistryKey(t *testing.T) {
-	mockRegistry, _, _, _, manager, cleanup := setup(t)
+	mockRegistry, _, _, manager, cleanup := setup(t)
 	defer cleanup()
 
 	// TODO figure out why gomock does not like registry.READ as the mode
@@ -70,31 +104,42 @@ func TestStateManagerLoadNoRegistryKey(t *testing.T) {
 }
 
 func TestStateManagerLoadNoFile(t *testing.T) {
-	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t)
+	mockRegistry, mockKey, _, manager, cleanup := setup(t)
 	defer cleanup()
+
+	defer mockOpenError()()
+	isNotExist = func(err error) bool {
+		return true
+	}
+	defer func() {
+		isNotExist = os.IsNotExist
+	}()
 
 	// TODO figure out why gomock does not like registry.READ as the mode
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	mockFS.EXPECT().Open(`C:\data.json`).Return(nil, errors.New("test error"))
-	mockFS.EXPECT().IsNotExist(gomock.Any()).Return(true)
 
 	err := manager.Load()
 	assert.Nil(t, err, "Expected loading a non-existent file to not be an error")
 }
 
 func TestStateManagerLoadError(t *testing.T) {
-	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t)
+	mockRegistry, mockKey, _, manager, cleanup := setup(t)
 	defer cleanup()
 
+	defer mockOpenError()()
+	isNotExist = func(err error) bool {
+		return false
+	}
+	defer func() {
+		isNotExist = os.IsNotExist
+	}()
+
 	// TODO figure out why gomock does not like registry.READ as the mode
-	testError := errors.New("test error")
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	mockFS.EXPECT().Open(`C:\data.json`).Return(nil, testError)
-	mockFS.EXPECT().IsNotExist(testError).Return(false)
 
 	err := manager.Load()
 	assert.Equal(t, testError, err, "Expected error opening file to be an error")
@@ -102,7 +147,7 @@ func TestStateManagerLoadError(t *testing.T) {
 
 func TestStateManagerLoadState(t *testing.T) {
 	containerInstanceArn := ""
-	mockRegistry, mockKey, mockFS, mockFile, manager, cleanup := setup(t, AddSaveable("ContainerInstanceArn", &containerInstanceArn))
+	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t, AddSaveable("ContainerInstanceArn", &containerInstanceArn))
 	defer cleanup()
 
 	data := `{"Version":1,"Data":{"ContainerInstanceArn":"foo"}}`
@@ -110,9 +155,18 @@ func TestStateManagerLoadState(t *testing.T) {
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	mockFS.EXPECT().Open(`C:\data.json`).Return(mockFile, nil)
-	mockFS.EXPECT().ReadAll(mockFile).Return([]byte(data), nil)
-	mockFile.EXPECT().Close()
+
+	tempOpen := open
+	open = func(name string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	readAll = func(r io.Reader) ([]byte, error) {
+		return []byte(data), nil
+	}
+	defer func() {
+		open = tempOpen
+		readAll = ioutil.ReadAll
+	}()
 
 	err := manager.Load()
 	assert.Nil(t, err, "Expected loading correctly")
@@ -122,7 +176,7 @@ func TestStateManagerLoadState(t *testing.T) {
 func TestStateManagerLoadV1Data(t *testing.T) {
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
-	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t,
+	mockRegistry, mockKey, _, manager, cleanup := setup(t,
 		AddSaveable("ContainerInstanceArn", &containerInstanceArn),
 		AddSaveable("Cluster", &cluster),
 		AddSaveable("EC2InstanceID", &savedInstanceID),
@@ -136,9 +190,18 @@ func TestStateManagerLoadV1Data(t *testing.T) {
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	mockFS.EXPECT().Open(`C:\data.json`).Return(dataFile, nil)
-	mockFS.EXPECT().ReadAll(dataFile).Return(ioutil.ReadAll(dataFile))
 
+	tempOpen := open
+	open = func(name string) (oswrapper.File, error) {
+		return dataFile, nil
+	}
+	readAll = func(r io.Reader) ([]byte, error) {
+		return ioutil.ReadAll(dataFile)
+	}
+	defer func() {
+		open = tempOpen
+		readAll = ioutil.ReadAll
+	}()
 	err = manager.Load()
 	assert.Nil(t, err, "Error loading state")
 	assert.Equal(t, "test", cluster, "Wrong cluster")
@@ -150,21 +213,30 @@ func TestStateManagerLoadV1Data(t *testing.T) {
 func TestStateManagerLoadV13Data(t *testing.T) {
 	var containerInstanceArn, cluster, savedInstanceID string
 	var sequenceNumber int64
-	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t,
+
+	mockRegistry, mockKey, _, manager, cleanup := setup(t,
 		AddSaveable("ContainerInstanceArn", &containerInstanceArn),
 		AddSaveable("Cluster", &cluster),
 		AddSaveable("EC2InstanceID", &savedInstanceID),
 		AddSaveable("SeqNum", &sequenceNumber))
 	defer cleanup()
+
 	dataFile, err := os.Open(filepath.Join(".", "testdata", "v13", "1", ecsDataFile))
 	assert.Nil(t, err, "Error opening test data")
 	defer dataFile.Close()
+
+	tempOpen := open
+	open = func(name string) (oswrapper.File, error) {
+		return dataFile, nil
+	}
+	defer func() {
+		open = tempOpen
+	}()
+
 	// TODO figure out why gomock does not like registry.READ as the mode
 	mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	mockFS.EXPECT().Open(`C:\data.json`).Return(dataFile, nil)
-	mockFS.EXPECT().ReadAll(dataFile).Return(ioutil.ReadAll(dataFile))
 	err = manager.Load()
 	assert.Nil(t, err, "Error loading state")
 	assert.Equal(t, "test-statefile", cluster, "Wrong cluster")
@@ -174,86 +246,94 @@ func TestStateManagerLoadV13Data(t *testing.T) {
 }
 
 func TestStateManagerSaveCreateFileError(t *testing.T) {
-	mockRegistry, mockKey, mockFS, _, manager, cleanup := setup(t)
+	mockRegistry, mockKey, _, manager, cleanup := setup(t)
 	defer cleanup()
 
-	testError := errors.New("test error")
-	basicManager := manager.(*basicStateManager)
 	// TODO figure out why gomock does not like registry.READ as the mode
 	gomock.InOrder(
 		mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil),
 		mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
-		mockFS.EXPECT().TempFile(basicManager.statePath, ecsDataFile).Return(nil, testError),
 	)
+	defer mockTempFileError()()
+
 	err := manager.Save()
 	assert.Equal(t, testError, err, "expected error creating file")
 }
 
 func TestStateManagerSaveSyncFileError(t *testing.T) {
-	mockRegistry, mockKey, mockFS, mockFile, manager, cleanup := setup(t)
+	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
 	defer cleanup()
 
-	testError := errors.New("test error")
-	basicManager := manager.(*basicStateManager)
+	mockFile.(*mocks.MockFile).NameImpl = mockNameImpl
+	mockFile.(*mock_oswrapper.MockFile).SyncImpl = func() error {
+		return errors.New("test error")
+	}
+	defer mockTempFileError()()
+
 	// TODO figure out why gomock does not like registry.READ as the mode
 	gomock.InOrder(
 		mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil),
 		mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\data.json`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
-		mockFS.EXPECT().TempFile(basicManager.statePath, ecsDataFile).Return(mockFile, nil),
-		mockFile.EXPECT().Write(gomock.Any()),
-		mockFile.EXPECT().Sync().Return(testError),
-		mockFile.EXPECT().Name(),
-		mockFile.EXPECT().Close(),
 	)
 	err := manager.Save()
 	assert.Equal(t, testError, err, "expected error creating file")
 }
 
 func TestStateManagerSave(t *testing.T) {
-	mockRegistry, mockKey, mockFS, mockFile, manager, cleanup := setup(t)
+	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
 	defer cleanup()
 
-	basicManager := manager.(*basicStateManager)
+	otempFile := tempFile
+	tempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	remove = func(name string) error {
+		return nil
+	}
+	mockFile.(*mocks.MockFile).NameImpl = mockNameImpl
+	mockFile.(*mock_oswrapper.MockFile).SyncImpl = mockSyncImpl
+	defer func() {
+		tempFile = otempFile
+		remove = os.Remove
+	}()
+
 	// TODO figure out why gomock does not like registry.READ as the mode
 	gomock.InOrder(
 		mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil),
 		mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(`C:\old.json`, uint32(0), nil),
 		mockKey.EXPECT().Close(),
-		mockFS.EXPECT().TempFile(basicManager.statePath, ecsDataFile).Return(mockFile, nil),
-		mockFile.EXPECT().Write(gomock.Any()),
-		mockFile.EXPECT().Sync(),
-		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name().Return(`C:\new.json`),
 		mockRegistry.EXPECT().CreateKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, false, nil),
 		mockKey.EXPECT().SetStringValue(ecsDataFileValueName, `C:\new.json`),
 		mockKey.EXPECT().Close(),
-		mockFS.EXPECT().Remove(`C:\old.json`),
-		mockFile.EXPECT().Close(),
 	)
 	err := manager.Save()
 	assert.Nil(t, err)
 }
 
 func TestStateManagerNoOldStateRemoval(t *testing.T) {
-	mockRegistry, mockKey, mockFS, mockFile, manager, cleanup := setup(t)
+	mockRegistry, mockKey, mockFile, manager, cleanup := setup(t)
 	defer cleanup()
 
-	basicManager := manager.(*basicStateManager)
+	otempFile := tempFile
+	tempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	mockFile.(*mock_oswrapper.MockFile).NameImpl = mockNameImpl
+	mockFile.(*mock_oswrapper.MockFile).SyncImpl = mockSyncImpl
+
+	defer func() {
+		tempFile = otempFile
+	}()
+
 	gomock.InOrder(
 		mockRegistry.EXPECT().OpenKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, nil),
 		mockKey.EXPECT().GetStringValue(ecsDataFileValueName).Return(``, uint32(0), nil),
 		mockKey.EXPECT().Close(),
-		mockFS.EXPECT().TempFile(basicManager.statePath, ecsDataFile).Return(mockFile, nil),
-		mockFile.EXPECT().Write(gomock.Any()),
-		mockFile.EXPECT().Sync(),
-		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name().Return(`C:\new.json`),
 		mockRegistry.EXPECT().CreateKey(ecsDataFileRootKey, ecsDataFileKeyPath, gomock.Any()).Return(mockKey, false, nil),
 		mockKey.EXPECT().SetStringValue(ecsDataFileValueName, `C:\new.json`),
 		mockKey.EXPECT().Close(),
-		mockFile.EXPECT().Close(),
 	)
 	err := manager.Save()
 	assert.Nil(t, err)

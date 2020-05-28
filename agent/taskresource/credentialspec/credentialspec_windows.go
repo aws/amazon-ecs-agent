@@ -48,7 +48,6 @@ type CredentialSpecResource struct {
 	executionCredentialsID string
 	credentialsManager     credentials.Manager
 	ioutil                 ioutilwrapper.IOUtil
-	os                     oswrapper.OS
 	createdAt              time.Time
 	desiredStatusUnsafe    resourcestatus.ResourceStatus
 	knownStatusUnsafe      resourcestatus.ResourceStatus
@@ -100,7 +99,6 @@ func NewCredentialSpecResource(taskARN, region string,
 		ssmClientCreator:        ssmClientCreator,
 		s3ClientCreator:         s3ClientCreator,
 		CredSpecMap:             make(map[string]string),
-		os:                      oswrapper.NewOS(),
 		ioutil:                  ioutilwrapper.NewIOUtil(),
 	}
 
@@ -463,6 +461,8 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	return nil
 }
 
+var rename = os.Rename
+
 func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File) error, filePath string) error {
 	temp, err := cs.ioutil.TempFile(cs.credentialSpecResourceLocation, tempFileName)
 	if err != nil {
@@ -480,7 +480,7 @@ func (cs *CredentialSpecResource) writeS3File(writeFunc func(file oswrapper.File
 		return err
 	}
 
-	err = cs.os.Rename(temp.Name(), filePath)
+	err = rename(temp.Name(), filePath)
 	if err != nil {
 		seelog.Errorf("Error while renaming the temporary file %s: %v", temp.Name(), err)
 		return err
@@ -525,6 +525,8 @@ func (cs *CredentialSpecResource) Cleanup() error {
 	return nil
 }
 
+var remove = os.Remove
+
 // clearCredentialSpec cycles through the collection of credentialspec data and
 // removes them from the task
 func (cs *CredentialSpecResource) clearCredentialSpec() {
@@ -544,7 +546,7 @@ func (cs *CredentialSpecResource) clearCredentialSpec() {
 		}
 		localCredentialSpecFile := credSpecSplit[1]
 		localCredentialSpecFilePath := filepath.Join(cs.credentialSpecResourceLocation, localCredentialSpecFile)
-		err := cs.os.Remove(localCredentialSpecFilePath)
+		err := remove(localCredentialSpecFilePath)
 		if err != nil {
 			seelog.Warnf("Unable to clear local credential spec file %s for task %s", localCredentialSpecFile, cs.taskARN)
 		}

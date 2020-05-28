@@ -11,6 +11,16 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package oswrapper
+package mock
 
-//go:generate mockgen -destination=mocks/oswrapper_mocks.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/utils/oswrapper File,OS
+import "io"
+
+type nopRWCloser struct {
+	io.ReadWriter
+}
+
+func (*nopRWCloser) Close() error { return nil }
+
+func NopReadWriteCloser(r io.ReadWriter) io.ReadWriteCloser {
+	return &nopRWCloser{r}
+}
