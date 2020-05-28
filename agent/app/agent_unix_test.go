@@ -117,7 +117,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  ec2MetadataClient,
 	}
@@ -235,7 +235,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		mobyPlugins:        mockMobyPlugins,
 	}
 
@@ -550,7 +550,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		pauseLoader:        mockPauseLoader,
 		dockerClient:       dockerClient,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
@@ -607,7 +607,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -697,7 +697,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		mobyPlugins:        mockMobyPlugins,
 		ec2MetadataClient:  ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
@@ -752,7 +752,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
@@ -800,7 +800,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		mobyPlugins:        mockMobyPlugins,
 	}
 
