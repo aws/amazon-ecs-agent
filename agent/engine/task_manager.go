@@ -498,11 +498,11 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 }
 
 func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit resource state change due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit resource state change due to exit", mtask.Arn)
+	case mtask.resourceStateChangeEvent <- change:
 	}
-	mtask.resourceStateChangeEvent <- change
 }
 
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
@@ -513,7 +513,11 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 		return
 	}
 	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
-	mtask.stateChangeEvents <- event
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to send task change event [%s] due to exit", mtask.Arn, event.String())
+	case mtask.stateChangeEvents <- event:
+	}
 	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
 }
 
@@ -527,27 +531,32 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 		return
 	}
 
-	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
+	seelog.Infof("Managed task [%s]: Container [%s]: sending container change event: %s",
 		mtask.Arn, cont.Name, event.String())
-	mtask.stateChangeEvents <- event
-	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: Container [%s]: unable to send container change event [%s] due to exit",
+			mtask.Arn, cont.Name, event.String())
+	case mtask.stateChangeEvents <- event:
+	}
+	seelog.Infof("Managed task [%s]: Container [%s]: sent container change event: %s",
 		mtask.Arn, cont.Name, event.String())
 }
 
 func (mtask *managedTask) emitDockerContainerChange(change dockerContainerChange) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit docker container change due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to exit", mtask.Arn)
+	case mtask.dockerMessages <- change:
 	}
-	mtask.dockerMessages <- change
 }
 
 func (mtask *managedTask) emitACSTransition(transition acsTransition) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit acs transition due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to exit", mtask.Arn)
+	case mtask.acsMessages <- transition:
 	}
-	mtask.acsMessages <- transition
 }
 
 func (mtask *managedTask) isContainerFound(container *apicontainer.Container) bool {
@@ -1195,11 +1204,6 @@ func (mtask *managedTask) discardEvents() {
 		case <-mtask.acsMessages:
 		case <-mtask.resourceStateChangeEvent:
 		case <-mtask.ctx.Done():
-			// The task has been cancelled. No need to process any more
-			// events
-			close(mtask.dockerMessages)
-			close(mtask.acsMessages)
-			close(mtask.resourceStateChangeEvent)
 			return
 		}
 	}
