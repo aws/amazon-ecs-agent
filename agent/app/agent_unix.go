@@ -17,6 +17,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -57,13 +58,15 @@ func (agent *ecsAgent) startWindowsService() int {
 	return 1
 }
 
+var getPid = os.Getpid
+
 // initializeTaskENIDependencies initializes all of the dependencies required by
 // the Agent to support the 'awsvpc' networking mode. A non nil error is returned
 // if an error is encountered during this process. An additional boolean flag to
 // indicate if this error is considered terminal is also returned
 func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) (error, bool) {
 	// Check if the Agent process's pid  == 1, which means it's running without an init system
-	if agent.os.Getpid() == initPID {
+	if getPid() == initPID {
 		// This is a terminal error. Bad things happen with invoking the
 		// the ENI plugin when there's no init process in the pid namespace.
 		// Specifically, the DHClient processes that are started as children

@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 
 	"github.com/pborman/uuid"
@@ -41,9 +40,13 @@ func createBindsEnv(binds []string, env []string, dataDirOnHost string, metadata
 	return binds, env
 }
 
+var openFile = func(name string, flag int, perm os.FileMode) (oswrapper.File, error) {
+	return os.OpenFile(name, flag, perm)
+}
+
 // writeToMetadata puts the metadata into JSON format and writes into
 // the metadata file
-func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, data []byte, taskARN string, containerName string, dataDir string) error {
+func writeToMetadataFile(data []byte, taskARN string, containerName string, dataDir string) error {
 	metadataFileDir, err := getMetadataFilePath(taskARN, containerName, dataDir)
 	// Boundary case if file path is bad (Such as if task arn is incorrectly formatted)
 	if err != nil {
@@ -51,7 +54,7 @@ func writeToMetadataFile(osWrap oswrapper.OS, ioutilWrap ioutilwrapper.IOUtil, d
 	}
 	metadataFileName := filepath.Join(metadataFileDir, metadataFile)
 
-	file, err := osWrap.OpenFile(metadataFileName, os.O_WRONLY|os.O_CREATE, metadataPerm)
+	file, err := openFile(metadataFileName, os.O_WRONLY|os.O_CREATE, metadataPerm)
 	if err != nil {
 		return err
 	}

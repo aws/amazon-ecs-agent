@@ -16,10 +16,12 @@
 package statemanager
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/cihub/seelog"
 
 	"golang.org/x/sys/windows/registry"
@@ -52,20 +54,25 @@ file to load.
 
 type windowsDependencies struct {
 	registry dependencies.WindowsRegistry
-	fs       dependencies.FS
 }
 
 func newPlatformDependencies() platformDependencies {
 	return windowsDependencies{
 		registry: dependencies.StdRegistry{},
-		fs:       dependencies.StdFS{},
 	}
+}
+
+var readAll = ioutil.ReadAll
+
+var isNotExist = os.IsNotExist
+
+var open = func(name string) (oswrapper.File, error) {
+	return os.Open(name)
 }
 
 func (manager *basicStateManager) readFile() ([]byte, error) {
 	manager.savingLock.Lock()
 	defer manager.savingLock.Unlock()
-	deps := manager.platformDependencies.(windowsDependencies)
 	path, err := manager.getPath()
 	if err != nil {
 		if err == registry.ErrNotExist {
@@ -74,16 +81,16 @@ func (manager *basicStateManager) readFile() ([]byte, error) {
 		}
 		return nil, err
 	}
-	file, err := deps.fs.Open(filepath.Clean(path))
+	file, err := open(filepath.Clean(path))
 	if err != nil {
-		if deps.fs.IsNotExist(err) {
+		if isNotExist(err) {
 			// Happens every first run; not a real error
 			return nil, nil
 		}
 		return nil, err
 	}
 	defer file.Close()
-	return deps.fs.ReadAll(file)
+	return readAll(file)
 }
 
 func (manager *basicStateManager) getPath() (string, error) {
@@ -108,8 +115,13 @@ func valueName() string {
 	return valueName
 }
 
+var remove = os.Remove
+
+var tempFile = func(dir, pattern string) (oswrapper.File, error) {
+	return ioutil.TempFile(dir, pattern)
+}
+
 func (manager *basicStateManager) writeFile(data []byte) error {
-	deps := manager.platformDependencies.(windowsDependencies)
 	oldFile, err := manager.getPath()
 	if err != nil {
 		if err != registry.ErrNotExist {
@@ -117,7 +129,7 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 		}
 		oldFile = ""
 	}
-	dataFile, err := deps.fs.TempFile(manager.statePath, ecsDataFile)
+	dataFile, err := tempFile(manager.statePath, ecsDataFile)
 	if err != nil {
 		seelog.Errorf("Error saving state; could not create file to save state: %v", err)
 		return err
@@ -150,7 +162,7 @@ func (manager *basicStateManager) writeFile(data []byte) error {
 		return nil
 	}
 
-	err = deps.fs.Remove(oldFile)
+	err = remove(oldFile)
 	if err != nil {
 		seelog.Errorf("Error removing old file %s; err %v", oldFile, err)
 		return err

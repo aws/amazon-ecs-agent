@@ -18,11 +18,11 @@ package app
 import (
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"testing"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
-	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/app/oswrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
@@ -52,6 +52,10 @@ const (
 	vpcID    = "vpc-1234"
 	subnetID = "subnet-1234"
 )
+
+func resetGetpid() {
+	getPid = os.Getpid
+}
 
 func TestDoStartHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client, dockerClient, _, _ := setup(t)
@@ -145,7 +149,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -176,7 +179,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 
 	gomock.InOrder(
-		mockOS.EXPECT().Getpid().Return(10),
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockMetadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
@@ -232,11 +234,15 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
-		os:                 mockOS,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 		mobyPlugins:        mockMobyPlugins,
 	}
+
+	getPid = func() int {
+		return 10
+	}
+	defer resetGetpid()
 
 	var agentW sync.WaitGroup
 	agentW.Add(1)
@@ -407,24 +413,24 @@ func TestQueryCNIPluginsCapabilitiesErrorGettingCapabilitiesFromPlugin(t *testin
 
 func setupMocksForInitializeTaskENIDependencies(t *testing.T) (*gomock.Controller,
 	*mock_dockerstate.MockTaskEngineState,
-	*mock_engine.MockTaskEngine,
-	*mock_oswrapper.MockOS) {
+	*mock_engine.MockTaskEngine) {
 	ctrl := gomock.NewController(t)
 
 	return ctrl,
 		mock_dockerstate.NewMockTaskEngineState(ctrl),
-		mock_engine.NewMockTaskEngine(ctrl),
-		mock_oswrapper.NewMockOS(ctrl)
+		mock_engine.NewMockTaskEngine(ctrl)
 }
 
 func TestInitializeTaskENIDependenciesNoInit(t *testing.T) {
-	ctrl, state, taskEngine, mockOS := setupMocksForInitializeTaskENIDependencies(t)
+	ctrl, state, taskEngine := setupMocksForInitializeTaskENIDependencies(t)
 	defer ctrl.Finish()
 
-	mockOS.EXPECT().Getpid().Return(1)
-	agent := &ecsAgent{
-		os: mockOS,
+	agent := &ecsAgent{}
+
+	getPid = func() int {
+		return 1
 	}
+	defer resetGetpid()
 
 	err, ok := agent.initializeTaskENIDependencies(state, taskEngine)
 	assert.Error(t, err)
@@ -432,41 +438,48 @@ func TestInitializeTaskENIDependenciesNoInit(t *testing.T) {
 }
 
 func TestInitializeTaskENIDependenciesSetVPCSubnetError(t *testing.T) {
-	ctrl, state, taskEngine, mockOS := setupMocksForInitializeTaskENIDependencies(t)
+	ctrl, state, taskEngine := setupMocksForInitializeTaskENIDependencies(t)
 	defer ctrl.Finish()
 
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	gomock.InOrder(
-		mockOS.EXPECT().Getpid().Return(10),
 		mockMetadata.EXPECT().PrimaryENIMAC().Return("", errors.New("error")),
 	)
 	agent := &ecsAgent{
-		os:                mockOS,
 		ec2MetadataClient: mockMetadata,
 	}
+	getPid = func() int {
+		return 10
+	}
+	defer resetGetpid()
+
 	err, ok := agent.initializeTaskENIDependencies(state, taskEngine)
 	assert.Error(t, err)
 	assert.False(t, ok)
 }
 
 func TestInitializeTaskENIDependenciesQueryCNICapabilitiesError(t *testing.T) {
-	ctrl, state, taskEngine, mockOS := setupMocksForInitializeTaskENIDependencies(t)
+	ctrl, state, taskEngine := setupMocksForInitializeTaskENIDependencies(t)
 	defer ctrl.Finish()
 
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	gomock.InOrder(
-		mockOS.EXPECT().Getpid().Return(10),
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
 		mockMetadata.EXPECT().VPCID(mac).Return(vpcID, nil),
 		mockMetadata.EXPECT().SubnetID(mac).Return(subnetID, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSENIPluginName).Return([]string{}, nil),
 	)
 	agent := &ecsAgent{
-		os:                mockOS,
 		ec2MetadataClient: mockMetadata,
 		cniClient:         cniClient,
 	}
+
+	getPid = func() int {
+		return 10
+	}
+	defer resetGetpid()
+
 	err, ok := agent.initializeTaskENIDependencies(state, taskEngine)
 	assert.Error(t, err)
 	assert.True(t, ok)
@@ -759,7 +772,6 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -787,7 +799,6 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
-		os:                 mockOS,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
 		mobyPlugins:        mockMobyPlugins,

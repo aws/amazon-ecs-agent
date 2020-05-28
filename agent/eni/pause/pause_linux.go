@@ -18,8 +18,8 @@ package pause
 import (
 	"context"
 	"fmt"
+	"os"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -32,7 +32,7 @@ import (
 // LoadImage helps load the pause container image for the agent
 func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
 	log.Debugf("Loading pause container tarball: %s", cfg.PauseContainerTarballPath)
-	if err := loadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient, os.Default); err != nil {
+	if err := loadFromFile(ctx, cfg.PauseContainerTarballPath, dockerClient); err != nil {
 		return nil, err
 	}
 
@@ -56,8 +56,10 @@ func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 	return true, nil
 }
 
-func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient, fs os.FileSystem) error {
-	pauseContainerReader, err := fs.Open(path)
+var open = os.Open
+
+func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.DockerClient) error {
+	pauseContainerReader, err := open(path)
 	if err != nil {
 		if err.Error() == noSuchFile {
 			return NewNoSuchFileError(errors.Wrapf(err,

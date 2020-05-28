@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/app/factory"
-	"github.com/aws/amazon-ecs-agent/agent/app/oswrapper"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -104,7 +103,6 @@ type ecsAgent struct {
 	saveableOptionFactory       factory.SaveableOption
 	pauseLoader                 pause.Loader
 	cniClient                   ecscni.CNIClient
-	os                          oswrapper.OS
 	vpc                         string
 	subnet                      string
 	mac                         string
@@ -174,7 +172,6 @@ func newAgent(
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
 		cniClient:                   ecscni.NewClient(cfg.CNIPluginsPath),
-		os:                          oswrapper.New(),
 		metadataManager:             metadataManager,
 		terminationHandler:          sighandlers.StartDefaultTerminationHandler,
 		mobyPlugins:                 mobypkgwrapper.NewPlugins(),

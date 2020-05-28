@@ -18,15 +18,18 @@ package containermetadata
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+
 	"github.com/stretchr/testify/assert"
 )
 
 // TestWriteTempFileFail checks case where temp file cannot be made
 func TestWriteTempFileFail(t *testing.T) {
-	mockIOUtil, _, _, done := writeSetup(t)
+	_, done := writeSetup(t)
 	defer done()
 
 	mockData := []byte("")
@@ -34,11 +37,15 @@ func TestWriteTempFileFail(t *testing.T) {
 	mockContainerName := containerName
 	mockDataDir := dataDir
 
-	gomock.InOrder(
-		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(nil, errors.New("temp file fail")),
-	)
+	oTempFile := TempFile
+	TempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return nil, errors.New("temp file fail")
+	}
+	defer func() {
+		TempFile = oTempFile
+	}()
 
-	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 	expectErrorMessage := "temp file fail"
 
 	assert.Error(t, err)
@@ -47,7 +54,7 @@ func TestWriteTempFileFail(t *testing.T) {
 
 // TestWriteFileWriteFail checks case where write to file fails
 func TestWriteFileWriteFail(t *testing.T) {
-	mockIOUtil, _, mockFile, done := writeSetup(t)
+	mockFile, done := writeSetup(t)
 	defer done()
 
 	mockData := []byte("")
@@ -55,13 +62,19 @@ func TestWriteFileWriteFail(t *testing.T) {
 	mockContainerName := containerName
 	mockDataDir := dataDir
 
-	gomock.InOrder(
-		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(mockData).Return(0, errors.New("write fail")),
-		mockFile.EXPECT().Close(),
-	)
+	mockFile.(*mock_oswrapper.MockFile).WriteImpl = func(bytes []byte) (i int, e error) {
+		return 0, errors.New("write fail")
+	}
 
-	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	oTempFile := TempFile
+	TempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	defer func() {
+		TempFile = oTempFile
+	}()
+
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 	expectErrorMessage := "write fail"
 
 	assert.Error(t, err)
@@ -70,22 +83,27 @@ func TestWriteFileWriteFail(t *testing.T) {
 
 // TestWriteChmodFail checks case where chmod fails
 func TestWriteChmodFail(t *testing.T) {
-	mockIOUtil, _, mockFile, done := writeSetup(t)
+	mockFile, done := writeSetup(t)
 	defer done()
+
+	mockFile.(*mock_oswrapper.MockFile).ChmodImpl = func(os.FileMode) error {
+		return errors.New("chmod fail")
+	}
+
+	oTempFile := TempFile
+	TempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	defer func() {
+		TempFile = oTempFile
+	}()
 
 	mockData := []byte("")
 	mockTaskARN := validTaskARN
 	mockContainerName := containerName
 	mockDataDir := dataDir
 
-	gomock.InOrder(
-		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(mockData).Return(0, nil),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(errors.New("chmod fail")),
-		mockFile.EXPECT().Close(),
-	)
-
-	err := writeToMetadataFile(nil, mockIOUtil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 	expectErrorMessage := "chmod fail"
 
 	assert.Error(t, err)

@@ -17,10 +17,12 @@ package containermetadata
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -28,9 +30,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	mockRename = func(oldpath, newpath string) error {
+		return nil
+	}
+	mockMkdirAll = func(path string, perm os.FileMode) error {
+		return nil
+	}
+)
+
 // TestCreate is the happypath case for metadata create
 func TestCreate(t *testing.T) {
-	_, mockIOUtil, mockOS, mockFile, done := managerSetup(t)
+	_, mockFile, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
@@ -40,20 +51,20 @@ func TestCreate(t *testing.T) {
 	mockHostConfig := &dockercontainer.HostConfig{Binds: make([]string, 0)}
 	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
-	gomock.InOrder(
-		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(nil),
-		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),
-		mockFile.EXPECT().Name().Return(""),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
-		mockFile.EXPECT().Close().Return(nil),
-	)
-
-	newManager := &metadataManager{
-		osWrap:     mockOS,
-		ioutilWrap: mockIOUtil,
+	oTempFile := TempFile
+	TempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
 	}
+	rename = mockRename
+	mkdirAll = mockMkdirAll
+
+	defer func() {
+		rename = os.Rename
+		mkdirAll = os.MkdirAll
+		TempFile = oTempFile
+	}()
+
+	newManager := &metadataManager{}
 	err := newManager.Create(mockConfig, mockHostConfig, mockTask, mockContainerName, mockDockerSecurityOptions)
 
 	assert.NoError(t, err)
@@ -63,7 +74,7 @@ func TestCreate(t *testing.T) {
 
 // TestUpdate is happypath case for metadata update
 func TestUpdate(t *testing.T) {
-	mockClient, mockIOUtil, mockOS, mockFile, done := managerSetup(t)
+	mockClient, mockFile, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -90,20 +101,24 @@ func TestUpdate(t *testing.T) {
 	}
 
 	newManager := &metadataManager{
-		client:     mockClient,
-		osWrap:     mockOS,
-		ioutilWrap: mockIOUtil,
+		client: mockClient,
 	}
 
 	gomock.InOrder(
 		mockClient.EXPECT().InspectContainer(gomock.Any(), mockDockerID, dockerclient.InspectContainerTimeout).Return(&mockContainer, nil),
-		mockIOUtil.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(gomock.Any()).Return(0, nil),
-		mockFile.EXPECT().Chmod(gomock.Any()).Return(nil),
-		mockFile.EXPECT().Name().Return(""),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
-		mockFile.EXPECT().Close().Return(nil),
 	)
+
+	oTempFile := TempFile
+	TempFile = func(dir, pattern string) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	rename = mockRename
+
+	defer func() {
+		rename = os.Rename
+		TempFile = oTempFile
+	}()
+
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	err := newManager.Update(ctx, mockDockerID, mockTask, mockContainerName)

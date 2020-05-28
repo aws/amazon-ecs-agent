@@ -18,14 +18,15 @@ package containermetadata
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
-	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
-
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -45,18 +46,16 @@ const (
 	hostPublicIPv4Address  = "127.0.0.1"
 )
 
-func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, *mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
+func managerSetup(t *testing.T) (*mock_containermetadata.MockDockerMetadataClient, oswrapper.File, func()) {
 	ctrl := gomock.NewController(t)
 	mockDockerMetadataClient := mock_containermetadata.NewMockDockerMetadataClient(ctrl)
-	mockIOUtil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
-	return mockDockerMetadataClient, mockIOUtil, mockOS, mockFile, ctrl.Finish
+	mockFile := mock_oswrapper.NewMockFile()
+	return mockDockerMetadataClient, mockFile, ctrl.Finish
 }
 
 // TestSetContainerInstanceARN checks whether the container instance ARN is set correctly.
 func TestSetContainerInstanceARN(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 
 	mockARN := containerInstanceARN
@@ -68,7 +67,7 @@ func TestSetContainerInstanceARN(t *testing.T) {
 
 // TestAvailabilityZone checks whether the container availabilityZone is set correctly.
 func TestSetAvailabilityZone(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 	mockAvailabilityZone := availabilityZone
 	newManager := &metadataManager{}
@@ -78,7 +77,7 @@ func TestSetAvailabilityZone(t *testing.T) {
 
 // TestSetHostPrivateIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
 func TestSetHostPrivateIPv4Address(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 	newManager := &metadataManager{}
 	newManager.SetHostPrivateIPv4Address(hostPrivateIPv4Address)
@@ -87,7 +86,7 @@ func TestSetHostPrivateIPv4Address(t *testing.T) {
 
 // TestSetHostPublicIPv4Address checks whether the container hostPublicIPv4Address is set correctly.
 func TestSetHostPublicIPv4Address(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 	newManager := &metadataManager{}
 	newManager.SetHostPublicIPv4Address(hostPublicIPv4Address)
@@ -96,7 +95,7 @@ func TestSetHostPublicIPv4Address(t *testing.T) {
 
 // TestCreateMalformedFilepath checks case when taskARN is invalid resulting in an invalid file path
 func TestCreateMalformedFilepath(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -111,7 +110,7 @@ func TestCreateMalformedFilepath(t *testing.T) {
 
 // TestCreateMkdirAllFail checks case when MkdirAll call fails
 func TestCreateMkdirAllFail(t *testing.T) {
-	_, _, mockOS, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
@@ -119,20 +118,21 @@ func TestCreateMkdirAllFail(t *testing.T) {
 	mockContainerName := containerName
 	mockDockerSecurityOptions := types.Info{SecurityOptions: make([]string, 0)}.SecurityOptions
 
-	gomock.InOrder(
-		mockOS.EXPECT().MkdirAll(gomock.Any(), gomock.Any()).Return(errors.New("err")),
-	)
-
-	newManager := &metadataManager{
-		osWrap: mockOS,
+	mkdirAll = func(path string, perm os.FileMode) error {
+		return errors.New("err")
 	}
+	defer func() {
+		mkdirAll = os.MkdirAll
+	}()
+
+	newManager := &metadataManager{}
 	err := newManager.Create(nil, nil, mockTask, mockContainerName, mockDockerSecurityOptions)
 	assert.Error(t, err)
 }
 
 // TestUpdateInspectFail checks case when Inspect call fails
 func TestUpdateInspectFail(t *testing.T) {
-	mockClient, _, _, _, done := managerSetup(t)
+	mockClient, _, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -154,7 +154,7 @@ func TestUpdateInspectFail(t *testing.T) {
 
 // TestUpdateNotRunningFail checks case where container is not running
 func TestUpdateNotRunningFail(t *testing.T) {
-	mockClient, _, _, _, done := managerSetup(t)
+	mockClient, _, done := managerSetup(t)
 	defer done()
 
 	mockDockerID := dockerID
@@ -183,7 +183,7 @@ func TestUpdateNotRunningFail(t *testing.T) {
 
 // TestMalformedFilepath checks case where ARN is invalid
 func TestMalformedFilepath(t *testing.T) {
-	_, _, _, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := invalidTaskARN
@@ -195,18 +195,19 @@ func TestMalformedFilepath(t *testing.T) {
 
 // TestHappyPath is the mainline case for metadata create
 func TestHappyPath(t *testing.T) {
-	_, _, mockOS, _, done := managerSetup(t)
+	_, _, done := managerSetup(t)
 	defer done()
 
 	mockTaskARN := validTaskARN
 
-	newManager := &metadataManager{
-		osWrap: mockOS,
+	removeAll = func(path string) error {
+		return nil
 	}
+	defer func() {
+		removeAll = os.RemoveAll
+	}()
 
-	gomock.InOrder(
-		mockOS.EXPECT().RemoveAll(gomock.Any()).Return(nil),
-	)
+	newManager := &metadataManager{}
 	err := newManager.Clean(mockTaskARN)
 	assert.NoError(t, err)
 }
