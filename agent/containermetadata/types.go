@@ -105,7 +105,6 @@ type DockerContainerMetadata struct {
 	dockerContainerName string
 	imageID             string
 	imageName           string
-	networkMode         string
 	ports               []apicontainer.PortBinding
 	networkInfo         NetworkMetadata
 }

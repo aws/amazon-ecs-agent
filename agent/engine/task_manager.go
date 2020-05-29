@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -58,14 +57,9 @@ const (
 )
 
 var (
-	_stoppedSentWaitInterval       = stoppedSentWaitInterval
-	_maxStoppedWaitTimes           = int(maxStoppedWaitTimes)
-	taskNotWaitForSteadyStateError = errors.New("managed task: steady state check context is nil")
+	_stoppedSentWaitInterval = stoppedSentWaitInterval
+	_maxStoppedWaitTimes     = int(maxStoppedWaitTimes)
 )
-
-type acsTaskUpdate struct {
-	apitaskstatus.TaskStatus
-}
 
 type dockerContainerChange struct {
 	container *apicontainer.Container

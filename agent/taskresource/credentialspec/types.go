@@ -13,20 +13,7 @@
 
 package credentialspec
 
-import "time"
-
 const (
 	// ResourceName is the name of the credentialspec resource
 	ResourceName = "credentialspec"
-
-	tempFileName = "temp_file"
-
-	// filePerm is the permission for the credentialspec file.
-	filePerm = 0644
-
-	s3DownloadTimeout = 30 * time.Second
-
-	// Environment variables to setup resource location
-	envProgramData              = "ProgramData"
-	dockerCredentialSpecDataDir = "docker/credentialspecs"
 )

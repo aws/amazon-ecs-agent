@@ -23,15 +23,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// minAPIVersionKey is the docker.Env key for min API version
-	// This is supported in Docker API versions >=1.25
-	// https://docs.docker.com/engine/api/version-history/#v125-api-changes
-	minAPIVersionKey = "MinAPIVersion"
-	// apiVersionKey is the docker.Env key for API version
-	apiVersionKey = "ApiVersion"
-)
-
 // Factory provides a collection of docker remote clients that include a
 // recommended client version as well as a set of alternative supported
 // docker clients.

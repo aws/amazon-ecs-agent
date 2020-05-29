@@ -27,8 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 )
 
-const defaultTimeout = 10 * time.Minute
-
 // Taken from the default http.Client behavior
 const defaultDialTimeout = 30 * time.Second
 const defaultDialKeepalive = 30 * time.Second

@@ -3434,5 +3434,14 @@ func TestRequiresEnvfiles(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 	}
 
-	assert.Equal(t, true, task.requireEnvfiles())
+	assert.Equal(t, true, requireEnvfiles(task))
+}
+
+func requireEnvfiles(task *Task) bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithEnvFiles() {
+			return true
+		}
+	}
+	return false
 }

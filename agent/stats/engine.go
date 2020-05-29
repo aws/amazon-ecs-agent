@@ -205,13 +205,10 @@ func (engine *DockerStatsEngine) Disable() {
 // waitToStop waits for the container change event stream close ans stop collection metrics
 func (engine *DockerStatsEngine) waitToStop() {
 	// Waiting for the event stream to close
-	ctx := engine.containerChangeEventStream.Context()
-	select {
-	case <-ctx.Done():
-		seelog.Debug("Event stream closed, stop listening to the event stream")
-		engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
-		engine.removeAll()
-	}
+	<-engine.containerChangeEventStream.Context().Done()
+	seelog.Debug("Event stream closed, stop listening to the event stream")
+	engine.containerChangeEventStream.Unsubscribe(containerChangeHandler)
+	engine.removeAll()
 }
 
 // removeAll stops the periodic usage data collection for all containers
@@ -685,12 +682,4 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
 	return container.statsQueue.GetLastStat(), nil
-}
-
-// newMetricsMetadata creates the singleton metadata object.
-func newMetricsMetadata(cluster *string, containerInstance *string) *ecstcs.MetricsMetadata {
-	return &ecstcs.MetricsMetadata{
-		Cluster:           cluster,
-		ContainerInstance: containerInstance,
-	}
 }

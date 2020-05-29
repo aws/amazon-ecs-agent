@@ -29,8 +29,6 @@ const (
 	HostVolumeType   = "host"
 	DockerVolumeType = "docker"
 	EFSVolumeType    = "efs"
-
-	efsVolumePluginCapability = "efsAuth"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to

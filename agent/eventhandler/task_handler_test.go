@@ -335,11 +335,20 @@ func TestCleanupTaskEventAfterSubmit(t *testing.T) {
 
 	// Wait for task events to be removed from the tasksToEvents map
 	for {
-		if handler.getTasksToEventsLen() == 0 {
+		if getTasksToEventsLen(handler) == 0 {
 			break
 		}
 		time.Sleep(time.Millisecond)
 	}
+}
+
+// getTasksToEventsLen returns the length of the tasksToEvents map. It is
+// used only in the test code to ascertain that map has been cleaned up
+func getTasksToEventsLen(handler *TaskHandler) int {
+	handler.lock.RLock()
+	defer handler.lock.RUnlock()
+
+	return len(handler.tasksToEvents)
 }
 
 func containerEvent(arn string) statechange.Event {
