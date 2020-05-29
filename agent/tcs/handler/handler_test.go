@@ -133,7 +133,7 @@ func TestStartSession(t *testing.T) {
 
 	deregisterInstanceEventStream := eventstream.NewEventStream("Deregister_Instance", context.Background())
 	// Start a session with the test server.
-	go startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
+	go startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 
@@ -197,7 +197,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	defer cancel()
 
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
+	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 
@@ -234,11 +234,11 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	deregisterInstanceEventStream.StartListening()
 	defer cancel()
 	// Start a session with the test server.
-	err = startSession(server.URL, testCfg, testCreds, &mockStatsEngine{},
+	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		50*time.Millisecond, 100*time.Millisecond,
 		testPublishMetricsInterval, deregisterInstanceEventStream)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
-	assert.Error(t, err, "Close the connection should cause the tcs client return error")
+	assert.NoError(t, err, "Close the connection should cause the tcs client return error")
 
 	assert.True(t, websocket.IsCloseError(<-serverErr, websocket.CloseAbnormalClosure),
 		"Read from closed connection should produce an io.EOF error")

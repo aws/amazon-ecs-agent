@@ -14,6 +14,7 @@
 package eventhandler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -24,13 +25,20 @@ import (
 
 // HandleEngineEvents handles state change events from the state change event channel by sending it to
 // responsible event handler
-func HandleEngineEvents(taskEngine engine.TaskEngine, client api.ECSClient, taskHandler *TaskHandler,
+func HandleEngineEvents(
+	ctx context.Context,
+	taskEngine engine.TaskEngine,
+	client api.ECSClient,
+	taskHandler *TaskHandler,
 	attachmentEventHandler *AttachmentEventHandler) {
 	for {
 		stateChangeEvents := taskEngine.StateChangeEvents()
 
 		for stateChangeEvents != nil {
 			select {
+			case <-ctx.Done():
+				seelog.Infof("Exiting the engine event handler.")
+				return
 			case event, ok := <-stateChangeEvents:
 				if !ok {
 					stateChangeEvents = nil

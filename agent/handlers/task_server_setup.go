@@ -14,6 +14,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -153,7 +154,9 @@ func v4HandlersSetup(muxRouter *mux.Router,
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, and IAM Role Credentials
 // for tasks being managed by the agent.
-func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
+func ServeTaskHTTPEndpoint(
+	ctx context.Context,
+	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
 	containerInstanceArn string,
@@ -161,7 +164,6 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 	statsEngine stats.Engine,
 	availabilityZone string) {
 	// Create and initialize the audit log
-	// TODO Use seelog's programmatic configuration instead of xml.
 	logger, err := seelog.LoggerFromConfigAsString(audit.AuditLoggerConfig(cfg))
 	if err != nil {
 		seelog.Errorf("Error initializing the audit log: %v", err)
@@ -174,14 +176,22 @@ func ServeTaskHTTPEndpoint(credentialsManager credentials.Manager,
 	server := taskServerSetup(credentialsManager, auditLogger, state, ecsClient, cfg.Cluster, statsEngine,
 		cfg.TaskMetadataSteadyStateRate, cfg.TaskMetadataBurstRate, availabilityZone, containerInstanceArn)
 
+	go func() {
+		<-ctx.Done()
+		if err := server.Shutdown(context.Background()); err != nil {
+			// Error from closing listeners, or context timeout:
+			seelog.Infof("HTTP server Shutdown: %v", err)
+		}
+	}()
+
 	for {
 		retry.RetryWithBackoff(retry.NewExponentialBackoff(time.Second, time.Minute, 0.2, 2), func() error {
-			// TODO, make this cancellable and use the passed in context;
-			err := server.ListenAndServe()
-			if err != nil {
-				seelog.Errorf("Error running http api: %v", err)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				seelog.Errorf("Error running task api: %v", err)
+				return err
 			}
-			return err
+			// server was cleanly closed via context
+			return nil
 		})
 	}
 }

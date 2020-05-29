@@ -616,26 +616,26 @@ func (agent *ecsAgent) startAsyncRoutines(
 
 	// Start automatic spot instance draining poller routine
 	if agent.cfg.SpotInstanceDrainingEnabled {
-		go agent.startSpotInstanceDrainingPoller(client)
+		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
 	go agent.terminationHandler(stateManager, taskEngine)
 
 	// Agent introspection api
-	go handlers.ServeIntrospectionHTTPEndpoint(&agent.containerInstanceARN, taskEngine, agent.cfg)
+	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
 
 	statsEngine := stats.NewDockerStatsEngine(agent.cfg, agent.dockerClient, containerChangeEventStream)
 
 	// Start serving the endpoint to fetch IAM Role credentials and other task metadata
 	if agent.cfg.TaskMetadataAZDisabled {
 		// send empty availability zone
-		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, "")
 	} else {
-		go handlers.ServeTaskHTTPEndpoint(credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
+		go handlers.ServeTaskHTTPEndpoint(agent.ctx, credentialsManager, state, client, agent.containerInstanceARN, agent.cfg, statsEngine, agent.availabilityZone)
 	}
 
 	// Start sending events to the backend
-	go eventhandler.HandleEngineEvents(taskEngine, client, taskHandler, attachmentEventHandler)
+	go eventhandler.HandleEngineEvents(agent.ctx, taskEngine, client, taskHandler, attachmentEventHandler)
 
 	telemetrySessionParams := tcshandler.TelemetrySessionParams{
 		Ctx:                           agent.ctx,
@@ -652,9 +652,14 @@ func (agent *ecsAgent) startAsyncRoutines(
 	go tcshandler.StartMetricsSession(&telemetrySessionParams)
 }
 
-func (agent *ecsAgent) startSpotInstanceDrainingPoller(client api.ECSClient) {
+func (agent *ecsAgent) startSpotInstanceDrainingPoller(ctx context.Context, client api.ECSClient) {
 	for !agent.spotInstanceDrainingPoller(client) {
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			time.Sleep(time.Second)
+		}
 	}
 }
 
