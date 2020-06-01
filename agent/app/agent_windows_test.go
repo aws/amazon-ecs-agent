@@ -105,16 +105,16 @@ func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
 
 	agent := &mockAgent{}
 
+	ctx, cancel := context.WithCancel(context.TODO())
 	done := make(chan struct{})
 	defer func() { done <- struct{}{} }()
 	startFunc := func() int {
-		go agent.terminationHandler(stateManager, taskEngine)
+		go agent.terminationHandler(stateManager, taskEngine, cancel)
 		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
 		return 0
 	}
 	agent.startFunc = startFunc
 	handler := &handler{agent}
-	ctx, cancel := context.WithCancel(context.TODO())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -200,10 +200,11 @@ func TestHandler_Execute_WindowsStops(t *testing.T) {
 
 	agent := &mockAgent{}
 
+	_, cancel := context.WithCancel(context.TODO())
 	done := make(chan struct{})
 	defer func() { done <- struct{}{} }()
 	startFunc := func() int {
-		go agent.terminationHandler(stateManager, taskEngine)
+		go agent.terminationHandler(stateManager, taskEngine, cancel)
 		<-done // block until after the test ends so that we can test that Execute returns when Stopped
 		return 0
 	}

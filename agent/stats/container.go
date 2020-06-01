@@ -69,15 +69,15 @@ func (container *StatsContainer) collect() {
 	dockerID := container.containerMetadata.DockerID
 	backoff := retry.NewExponentialBackoff(time.Second*1, time.Second*10, 0.5, 2)
 	for {
+		err := container.processStatsStream()
 		select {
 		case <-container.ctx.Done():
-			seelog.Debugf("Stopping stats collection for container %s", dockerID)
+			seelog.Infof("Container [%s]: Stopping stats collection", dockerID)
 			return
 		default:
-			err := container.processStatsStream()
 			if err != nil {
 				d := backoff.Duration()
-				seelog.Debugf("Error processing stats stream of container %s, backing off %s before reopening", dockerID, d)
+				seelog.Debugf("Container [%s]: Error processing stats stream of container, backing off %s before reopening", dockerID, d)
 				time.Sleep(d)
 			}
 			// We were disconnected from the stats stream.
@@ -91,11 +91,13 @@ func (container *StatsContainer) collect() {
 				// docker task engine. If the docker task engine has already removed
 				// the container from its state, there's no point in stats engine tracking the
 				// container. So, clean-up anyway.
-				seelog.Warnf("Error determining if the container %s is terminal, stopping stats collection: %v", dockerID, err)
+				seelog.Warnf("Container [%s]: Error determining if the container is terminal, stopping stats collection: %v", dockerID, err)
 				container.StopStatsCollection()
+				return
 			} else if terminal {
-				seelog.Infof("Container %s is terminal, stopping stats collection", dockerID)
+				seelog.Infof("Container [%s]: container is terminal, stopping stats collection", dockerID)
 				container.StopStatsCollection()
+				return
 			}
 		}
 	}
@@ -112,6 +114,8 @@ func (container *StatsContainer) processStatsStream() error {
 	returnError := false
 	for {
 		select {
+		case <-container.ctx.Done():
+			return nil
 		case err := <-errC:
 			seelog.Warnf("Error encountered processing metrics stream from docker, this may affect cloudwatch metric accuracy: %s", err)
 			returnError = true
@@ -123,7 +127,7 @@ func (container *StatsContainer) processStatsStream() error {
 				return nil
 			}
 			if err := container.statsQueue.Add(rawStat); err != nil {
-				seelog.Warnf("Error converting stats for container %s: %v", dockerID, err)
+				seelog.Warnf("Container [%s]: error converting stats for container: %v", dockerID, err)
 			}
 		}
 	}
