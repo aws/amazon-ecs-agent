@@ -62,6 +62,28 @@ const (
 	capabilityEnvFilesS3                        = "env-files.s3"
 )
 
+var nameOnlyAttributes = []string{
+	// ecs agent version 1.19.0 supports private registry authentication using
+	// aws secrets manager
+	capabilityPrivateRegistryAuthASM,
+	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
+	capabilitySecretEnvSSM,
+	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+	capabilitySecretLogDriverSSM,
+	// support ecr endpoint override
+	capabilityECREndpoint,
+	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
+	capabilitySecretEnvASM,
+	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+	capabilitySecretLogDriverASM,
+	// support container ordering in agent
+	capabilityContainerOrdering,
+	// support full task sync
+	capabilityFullTaskSync,
+	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
+	capabilityEnvFilesS3,
+}
+
 // capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
 //
@@ -111,6 +133,10 @@ const (
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
+	for _, cap := range nameOnlyAttributes {
+		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+cap)
+	}
+
 	if !agent.cfg.PrivilegedDisabled {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"privileged-container")
 	}
@@ -151,36 +177,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	capabilities = agent.appendVolumeDriverCapabilities(capabilities)
 
-	// ecs agent version 1.19.0 supports private registry authentication using
-	// aws secrets manager
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityPrivateRegistryAuthASM)
-
-	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvSSM)
-
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverSSM)
-
 	if agent.cfg.GPUSupportEnabled {
 		capabilities = agent.appendNvidiaDriverVersionAttribute(capabilities)
 	}
-	// support ecr endpoint override
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityECREndpoint)
-
-	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretEnvASM)
-
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilitySecretLogDriverASM)
-
-	// support container ordering in agent
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityContainerOrdering)
-
-	// support full task sync
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFullTaskSync)
-
-	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
-	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityEnvFilesS3)
 
 	// ecs agent version 1.22.0 supports sharing PID namespaces and IPC resource namespaces
 	// with host EC2 instance and among containers within the task
