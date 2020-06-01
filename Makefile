@@ -277,6 +277,9 @@ importcheck:
 
 .PHONY: static-check
 static-check: gocyclo govet importcheck
+	# check for unused code using staticcheck binary
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "U1000" ./agent/...
 
 .PHONY: goimports
 goimports:
@@ -287,6 +290,7 @@ goimports:
 	go get github.com/golang/mock/mockgen
 	go get golang.org/x/tools/cmd/goimports
 	go get github.com/fzipp/gocyclo
+	go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
