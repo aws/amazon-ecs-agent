@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.40.0
+* Enhancement - Change default behavior for docker metic gathering. This affects how default ECS_POLL_METRICS and ECS_POLLING_METRICS_WAIT_DURATION environemnt variable function [#2452](https://github.com/aws/amazon-ecs-agent/pull/2452)
+* Enhancement - Adds a jitter to this so that we don't query docker for every container's state all at the same time [#2444](https://github.com/aws/amazon-ecs-agent/pull/2444)
+* Bug - Register custom logger before it gets used to ensure that the formatter is initiated before it is loaded [#2438](https://github.com/aws/amazon-ecs-agent/pull/2438)
+
 ## 1.39.0
 * Feature - Add support for bulk loading env vars through environmentFiles field in task definition [#2420](https://github.com/aws/amazon-ecs-agent/pull/2420)
 * Feature - Add v4 task metadata endpoint, which includes additional network information compared to v3 [#2396](https://github.com/aws/amazon-ecs-agent/pull/2396)
