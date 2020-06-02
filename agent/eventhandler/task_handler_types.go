@@ -40,14 +40,6 @@ type sendableEvent struct {
 	lock sync.RWMutex
 }
 
-func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
-	return &sendableEvent{
-		isContainerEvent: true,
-		containerSent:    false,
-		containerChange:  event,
-	}
-}
-
 func newSendableTaskEvent(event api.TaskStateChange) *sendableEvent {
 	return &sendableEvent{
 		isContainerEvent: false,

@@ -277,8 +277,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 	}
 
 	// Construct a slice with credentials acks from all tasks
-	var credentialsAcks []*ecsacs.IAMRoleCredentialsAckRequest
-	credentialsAcks = append(stoppedTasksCredentialsAcks, newTasksCredentialsAcks...)
+	credentialsAcks := append(stoppedTasksCredentialsAcks, newTasksCredentialsAcks...)
 	return credentialsAcks, allTasksOK
 }
 

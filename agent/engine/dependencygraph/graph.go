@@ -201,15 +201,6 @@ func verifyContainerDependenciesResolvedForResource(target taskresource.TaskReso
 	return true
 }
 
-func linksToContainerNames(links []string) []string {
-	names := make([]string, 0, len(links))
-	for _, link := range links {
-		name := strings.Split(link, ":")[0]
-		names = append(names, name)
-	}
-	return names
-}
-
 func executionCredentialsResolved(target *apicontainer.Container, id string, manager credentials.Manager) bool {
 	if target.GetKnownStatus() >= apicontainerstatus.ContainerPulled ||
 		!target.ShouldPullWithExecutionRole() ||

@@ -2586,15 +2586,6 @@ func (task *Task) GetContainerIndex(containerName string) int {
 	return -1
 }
 
-func (task *Task) requireEnvfiles() bool {
-	for _, container := range task.Containers {
-		if container.ShouldCreateWithEnvFiles() {
-			return true
-		}
-	}
-	return false
-}
-
 func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsManager credentials.Manager) error {
 
 	for _, container := range task.Containers {

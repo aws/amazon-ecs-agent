@@ -22,7 +22,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -61,8 +60,6 @@ type metadataManager struct {
 	dataDirOnHost string
 	// containerInstanceARN is the Container Instance ARN registered for this agent
 	containerInstanceARN string
-	// ioutilWrap is a wrapper for 'ioutil' package operations
-	ioutilWrap ioutilwrapper.IOUtil
 	// availabilityZone is the availabiltyZone where task is in
 	availabilityZone string
 	// hostPrivateIPv4Address is the private IPv4 address associated with the EC2 instance

@@ -68,6 +68,12 @@ func init() {
 	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 }
 
+// parseNanoTime returns the time object from a string formatted with RFC3339Nano layout.
+func parseNanoTime(value string) time.Time {
+	ts, _ := time.Parse(time.RFC3339Nano, value)
+	return ts
+}
+
 // eventStream returns the event stream used to receive container change events
 func eventStream(name string) *eventstream.EventStream {
 	eventStream := eventstream.NewEventStream(name, context.Background())

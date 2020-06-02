@@ -497,11 +497,7 @@ func (c *Container) GetNextKnownStateProgression() apicontainerstatus.ContainerS
 // IsInternal returns true if the container type is `ContainerCNIPause`
 // or `ContainerNamespacePause`. It returns false otherwise
 func (c *Container) IsInternal() bool {
-	if c.Type == ContainerNormal {
-		return false
-	}
-
-	return true
+	return c.Type != ContainerNormal
 }
 
 // IsRunning returns true if the container's known status is either RUNNING

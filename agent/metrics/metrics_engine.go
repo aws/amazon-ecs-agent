@@ -14,7 +14,6 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -29,7 +28,6 @@ type APIType int32
 type MetricsEngine struct {
 	collection     bool
 	cfg            *config.Config
-	ctx            context.Context
 	Registry       *prometheus.Registry
 	managedMetrics map[APIType]MetricsClient
 }

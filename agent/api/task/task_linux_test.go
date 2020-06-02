@@ -61,6 +61,8 @@ const (
 	testTaskDefVersion         = "1"
 	testRegion                 = "testRegion"
 	testExecutionCredentialsID = "testExecutionCredentialsID"
+
+	defaultCPUPeriod = 100 * time.Millisecond // 100ms
 )
 
 func TestAddNetworkResourceProvisioningDependencyNop(t *testing.T) {

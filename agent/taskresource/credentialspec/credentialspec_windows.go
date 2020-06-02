@@ -41,6 +41,18 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	tempFileName = "temp_file"
+	// filePerm is the permission for the credentialspec file.
+	filePerm = 0644
+
+	s3DownloadTimeout = 30 * time.Second
+
+	// Environment variables to setup resource location
+	envProgramData              = "ProgramData"
+	dockerCredentialSpecDataDir = "docker/credentialspecs"
+)
+
 // CredentialSpecResource is the abstraction for credentialspec resources
 type CredentialSpecResource struct {
 	taskARN                string

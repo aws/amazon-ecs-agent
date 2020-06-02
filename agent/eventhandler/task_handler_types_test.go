@@ -29,6 +29,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
+	return &sendableEvent{
+		isContainerEvent: true,
+		containerSent:    false,
+		containerChange:  event,
+	}
+}
+
 func TestShouldContainerEventBeSent(t *testing.T) {
 	event := newSendableContainerEvent(api.ContainerStateChange{
 		Status: apicontainerstatus.ContainerStopped,
