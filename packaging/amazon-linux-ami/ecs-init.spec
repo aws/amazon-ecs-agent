@@ -32,8 +32,8 @@
 %endif
 
 Name:           ecs-init
-Version:        1.39.0
-Release:        2%{?dist}
+Version:        1.40.0
+Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -278,6 +278,9 @@ fi
 %endif
 
 %changelog
+* Tue Jun 02 2020 Meghna Srivastav <mssrivas@amazon.com> - 1.40.0-1
+- Cache Agent version 1.40.0
+
 * Fri Apr 03 2020 Yunhee Lee <yhlee@amazon.com> - 1.39.0-2
 - Cache Agent version 1.39.0
 - Ignore IPv6 disable failure if already disabled
