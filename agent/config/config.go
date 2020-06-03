@@ -188,8 +188,7 @@ var (
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
-// zero values present in the left that are not present in the right will be
-// overridden
+// zero values present in the left that are present in the right will be overridden
 func (cfg *Config) Merge(rhs Config) *Config {
 	left := reflect.ValueOf(cfg).Elem()
 	right := reflect.ValueOf(&rhs).Elem()
