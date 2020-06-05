@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.40.0-1
+* Cache Agent version 1.40.0
+
 ## 1.39.0-2
 * Cache Agent version 1.39.0
 * Ignore IPv6 disable failure if already disabled
