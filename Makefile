@@ -279,7 +279,7 @@ importcheck:
 static-check: gocyclo govet importcheck
 	# check for unused code using staticcheck binary
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "U1000" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019" ./agent/...
 
 .PHONY: goimports
 goimports:
