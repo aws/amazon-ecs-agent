@@ -418,7 +418,7 @@ func (imageManager *dockerImageManager) getNonECSContainerIDs(ctx context.Contex
 	if listContainersResponse.Error != nil {
 		return nil, fmt.Errorf("Error listing containers: %v", listContainersResponse.Error)
 	}
-        allContainersIDs = append(allContainersIDs, listContainersResponse.DockerIDs...)
+	allContainersIDs = append(allContainersIDs, listContainersResponse.DockerIDs...)
 	ECSContainersIDs := imageManager.state.GetAllContainerIDs()
 	nonECSContainersIDs := exclude(allContainersIDs, ECSContainersIDs)
 	return nonECSContainersIDs, nil

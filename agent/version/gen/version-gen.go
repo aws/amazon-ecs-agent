@@ -65,7 +65,7 @@ type versionInfo struct {
 func gitDirty() bool {
 	cmd := exec.Command("git", "status", "--porcelain")
 	err := cmd.Run()
-        return err != nil
+	return err != nil
 }
 
 func gitHash() string {

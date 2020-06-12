@@ -237,7 +237,7 @@ func (manager *basicStateManager) Save() error {
 		next := manager.lastSave.Add(minSaveInterval)
 		manager.nextPlannedSave = next
 		go func() {
-                        time.Sleep(time.Until(next))
+			time.Sleep(time.Until(next))
 			manager.Save()
 		}()
 	}
