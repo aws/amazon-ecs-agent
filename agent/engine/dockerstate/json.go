@@ -85,7 +85,7 @@ func (state *DockerTaskEngineState) UnmarshalJSON(data []byte) error {
 		state.AddImageState(imageState)
 	}
 	for id, container := range saved.IdToContainer {
-		taskArn, _ := saved.IdToTask[id]
+		taskArn := saved.IdToTask[id]
 		task, _ := state.TaskByArn(taskArn)
 		taskContainer, _ := task.ContainerByName(container.Container.Name)
 		container.Container = taskContainer

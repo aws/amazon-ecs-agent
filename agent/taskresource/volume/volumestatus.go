@@ -68,8 +68,8 @@ func (vs *VolumeStatus) UnmarshalJSON(b []byte) error {
 		return errors.New("resource status unmarshal: status must be a string or null; Got " + string(b))
 	}
 
-	strStatus := string(b[1 : len(b)-1])
-	stat, ok := resourceStatusMap[strStatus]
+	strStatus := b[1 : len(b)-1]
+	stat, ok := resourceStatusMap[string(strStatus)]
 	if !ok {
 		*vs = VolumeStatusNone
 		return errors.New("resource status unmarshal: unrecognized status")
