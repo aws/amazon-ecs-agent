@@ -53,6 +53,9 @@ importcheck:
 
 .PHONY: static-check
 static-check: gocyclo govet importcheck
+	# use default checks of staticcheck tool, except style checks (-ST*)
+	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
+	staticcheck -tests=false -checks "inherit,-ST*" ./ecs-init/...
 
 test-in-docker:
 	docker build -f scripts/dockerfiles/test.dockerfile -t "amazon/amazon-ecs-init-test:make" .
@@ -113,6 +116,7 @@ get-deps:
 	go get golang.org/x/tools/cmd/goimports
 	go get github.com/fzipp/gocyclo
 	go get github.com/golang/mock/mockgen
+	go get honnef.co/go/tools/cmd/staticcheck
 
 clean:
 	-rm -f ecs-init.spec
