@@ -29,7 +29,7 @@ static:
 	./scripts/gobuild.sh
 
 govet:
-	go vet $(shell go list ./ecs-init/...)
+	go vet ./...
 
 gotest:
 	go test -count=1 -short -v -cover ./...

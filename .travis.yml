@@ -1,7 +1,7 @@
 language: go
 sudo: false
 go:
-    - 1.9
+    - 1.12
 before_install: ./scripts/hack/symlink-gopath-travisci
 install:
     - go get golang.org/x/tools/cover
