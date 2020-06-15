@@ -1,0 +1,179 @@
+{
+  "Data": {
+    "Cluster": "state-file",
+    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:123456789012:container-instance/8fad4d88-d718-4718-a371-7d2a193fe22b",
+    "EC2InstanceID": "i-e94fe598fd890e38f",
+    "TaskEngine": {
+      "Tasks": [
+        {
+          "Arn": "arn:aws:ecs:us-west-2:123456789012:task/20ceacb3-2806-4701-a4d4-098515cebfe9",
+          "Family": "sleep360",
+          "Version": "2",
+          "Containers": [
+            {
+              "Name": "sleep",
+              "RuntimeID": "61de9f7eab11bc4cbcdc17baad35bfc880f97b5b3c8a55de65593650c35102e0",
+              "V3EndpointID": "22d0d19f-29e1-435d-8757-08b16e22f161",
+              "Image": "busybox",
+              "ImageID": "sha256:bdc74663f4992a185e2775f63abcc1a19186cc5ec22fa2957db8ee88ad09dceb",
+              "ImageDigest": "sha256:9f1003c480699be56815db0f8146ad2e22efea85129b5b5983d0e0fb52d9ab70",
+              "Command": [
+                "sleep",
+                "360"
+              ],
+              "Cpu": 10,
+              "GPUIDs": null,
+              "Memory": 100,
+              "Links": null,
+              "firelensConfiguration": null,
+              "volumesFrom": [],
+              "mountPoints": [],
+              "portMappings": [],
+              "secrets": null,
+              "Essential": true,
+              "EntryPoint": null,
+              "environment": {
+                "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+                "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/22d0d19f-29e1-435d-8757-08b16e22f161"
+              },
+              "overrides": {
+                "command": null
+              },
+              "dockerConfig": {
+                "config": "{}",
+                "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+                "version": "1.17"
+              },
+              "registryAuthentication": null,
+              "LogsAuthStrategy": "",
+              "StartTimeout": 0,
+              "StopTimeout": 0,
+              "desiredStatus": "RUNNING",
+              "KnownStatus": "RUNNING",
+              "TransitionDependencySet": {
+                "1": {
+                  "ContainerDependencies": null,
+                  "ResourceDependencies": [
+                    {
+                      "Name": "cgroup",
+                      "RequiredStatus": 1
+                    }
+                  ]
+                }
+              },
+              "RunDependencies": null,
+              "IsInternal": "NORMAL",
+              "ApplyingError": null,
+              "SentStatus": "RUNNING",
+              "metadataFileUpdated": false,
+              "KnownExitCode": null,
+              "KnownPortBindings": null
+            }
+          ],
+          "associations": [],
+          "volumes": [],
+          "DesiredStatus": "RUNNING",
+          "KnownStatus": "RUNNING",
+          "KnownTime": "2019-09-03T22:48:59.077558105Z",
+          "PullStartedAt": "2019-09-03T22:48:56.184445771Z",
+          "PullStoppedAt": "2019-09-03T22:48:58.659663871Z",
+          "ExecutionStoppedAt": "0001-01-01T00:00:00Z",
+          "SentStatus": "RUNNING",
+          "StartSequenceNumber": 2,
+          "StopSequenceNumber": 0,
+          "executionCredentialsID": "",
+          "ENI": null,
+          "AppMesh": null,
+          "MemoryCPULimitsEnabled": true,
+          "PlatformFields": {}
+        }
+      ],
+      "IdToContainer": {
+        "61de9f7eab11bc4cbcdc17baad35bfc880f97b5b3c8a55de65593650c35102e0": {
+          "DockerId": "61de9f7eab11bc4cbcdc17baad35bfc880f97b5b3c8a55de65593650c35102e0",
+          "DockerName": "ecs-sleep360-2-sleep-88eb808e8ee9ca94f101",
+          "Container": {
+            "Name": "sleep",
+            "RuntimeID": "61de9f7eab11bc4cbcdc17baad35bfc880f97b5b3c8a55de65593650c35102e0",
+            "V3EndpointID": "22d0d19f-29e1-435d-8757-08b16e22f161",
+            "Image": "busybox",
+            "ImageID": "sha256:bdc74663f4992a185e2775f63abcc1a19186cc5ec22fa2957db8ee88ad09dceb",
+            "ImageDigest": "sha256:9f1003c480699be56815db0f8146ad2e22efea85129b5b5983d0e0fb52d9ab70",
+            "Command": [
+              "sleep",
+              "360"
+            ],
+            "Cpu": 10,
+            "GPUIDs": null,
+            "Memory": 100,
+            "Links": null,
+            "firelensConfiguration": null,
+            "volumesFrom": [],
+            "mountPoints": [],
+            "portMappings": [],
+            "secrets": null,
+            "Essential": true,
+            "EntryPoint": null,
+            "environment": {
+              "AWS_EXECUTION_ENV": "AWS_ECS_EC2",
+              "ECS_CONTAINER_METADATA_URI": "http://169.254.170.2/v3/22d0d19f-29e1-435d-8757-08b16e22f161"
+            },
+            "overrides": {
+              "command": null
+            },
+            "dockerConfig": {
+              "config": "{}",
+              "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+              "version": "1.17"
+            },
+            "registryAuthentication": null,
+            "LogsAuthStrategy": "",
+            "StartTimeout": 0,
+            "StopTimeout": 0,
+            "desiredStatus": "RUNNING",
+            "KnownStatus": "RUNNING",
+            "TransitionDependencySet": {
+              "1": {
+                "ContainerDependencies": null,
+                "ResourceDependencies": [
+                  {
+                    "Name": "cgroup",
+                    "RequiredStatus": 1
+                  }
+                ]
+              }
+            },
+            "RunDependencies": null,
+            "IsInternal": "NORMAL",
+            "ApplyingError": null,
+            "SentStatus": "RUNNING",
+            "metadataFileUpdated": false,
+            "KnownExitCode": null,
+            "KnownPortBindings": null
+          }
+        }
+      },
+      "IdToTask": {
+        "61de9f7eab11bc4cbcdc17baad35bfc880f97b5b3c8a55de65593650c35102e0": "arn:aws:ecs:us-west-2:123456789012:task/20ceacb3-2806-4701-a4d4-098515cebfe9"
+      },
+      "ImageStates": [
+        {
+          "Image": {
+            "ImageID": "sha256:bdc74663f4992a185e2775f63abcc1a19186cc5ec22fa2957db8ee88ad09dceb",
+            "Names": [
+              "busybox"
+            ],
+            "Size": 1223894
+          },
+          "PulledAt": "2019-09-03T22:48:58.65791348Z",
+          "LastUsedAt": "2019-09-03T22:48:58.657913576Z",
+          "PullSucceeded": true
+        }
+      ],
+      "ENIAttachments": null,
+      "IPToTask": {}
+    },
+    "availabilityZone": "us-west-2b"
+  },
+  "Version": 24
+}

@@ -1,0 +1,11 @@
+version: 0.2
+
+phases:
+  build:
+    commands:
+      - make codebuild
+artifacts:
+  files:
+      - 'out/**/*'
+      - 'agent/functional_tests/testdata/**/*'
+  discard-paths: no

@@ -1,0 +1,139 @@
+{
+  "Data": {
+    "Cluster": "test-statefile",
+    "ContainerInstanceArn": "arn:aws:ecs:us-west-2:1234567890:container-instance/test-statefile/b9c2c229d5ce4f52851f3e9e6d4db894",
+    "EC2InstanceID": "i-1234567890",
+    "TaskEngine": {
+      "ENIAttachments": null,
+      "IPToTask": {},
+      "IdToContainer": {
+        "c3b86269ef62df4a27a4b612906f1f9776fa91747389b10d2361e488b223e44a": {
+          "Container": {
+            "ApplyingError": null,
+            "Command": [
+              "sh",
+              "-c",
+              "exit 128"
+            ],
+            "Cpu": 0,
+            "EntryPoint": null,
+            "Essential": true,
+            "Image": "busybox",
+            "ImageID": "sha256:e4db68de4ff27c2adfea0c54bbb73a61a42f5b667c326de4d7d5b19ab71c6a3b",
+            "IsInternal": "NORMAL",
+            "KnownExitCode": 128,
+            "KnownPortBindings": null,
+            "KnownStatus": "STOPPED",
+            "Links": null,
+            "LogsAuthStrategy": "",
+            "Memory": 512,
+            "Name": "container_1",
+            "RunDependencies": null,
+            "SentStatus": "STOPPED",
+            "TransitionDependencySet": {},
+            "desiredStatus": "STOPPED",
+            "dockerConfig": {
+              "config": "{}",
+              "hostConfig": "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+              "version": "1.17"
+            },
+            "environment": {
+              "AWS_EXECUTION_ENV": "AWS_ECS_EC2"
+            },
+            "metadataFileUpdated": false,
+            "mountPoints": [],
+            "overrides": {
+              "command": null
+            },
+            "portMappings": [],
+            "registryAuthentication": null,
+            "volumesFrom": []
+          },
+          "DockerId": "c3b86269ef62df4a27a4b612906f1f9776fa91747389b10d2361e488b223e44a",
+          "DockerName": "ecs-test-v13-td-2-container1-c694d49bb9b9aad0e801"
+        }
+      },
+      "IdToTask": {
+        "c3b86269ef62df4a27a4b612906f1f9776fa91747389b10d2361e488b223e44a": "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/6a86da4c40ed4a0b94cf359e840dda98"
+      },
+      "ImageStates": [
+        {
+          "Image": {
+            "ImageID": "sha256:e4db68de4ff27c2adfea0c54bbb73a61a42f5b667c326de4d7d5b19ab71c6a3b",
+            "Names": [
+              "busybox"
+            ],
+            "Size": 1223886
+          },
+          "LastUsedAt": "2019-06-26T15:56:53.636435606Z",
+          "PullSucceeded": true,
+          "PulledAt": "2019-06-26T15:56:53.636433654Z"
+        }
+      ],
+      "Tasks": [
+        {
+          "Arn": "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/6a86da4c40ed4a0b94cf359e840dda98",
+          "Containers": [
+            {
+              "ApplyingError": null,
+              "Command": [
+                "sh",
+                "-c",
+                "exit 128"
+              ],
+              "Cpu": 0,
+              "EntryPoint": null,
+              "Essential": true,
+              "Image": "busybox",
+              "ImageID": "sha256:e4db68de4ff27c2adfea0c54bbb73a61a42f5b667c326de4d7d5b19ab71c6a3b",
+              "IsInternal": "NORMAL",
+              "KnownExitCode": 128,
+              "KnownPortBindings": null,
+              "KnownStatus": "STOPPED",
+              "Links": null,
+              "LogsAuthStrategy": "",
+              "Memory": 512,
+              "Name": "container_1",
+              "RunDependencies": null,
+              "SentStatus": "STOPPED",
+              "TransitionDependencySet": {},
+              "desiredStatus": "STOPPED",
+              "dockerConfig": {
+                "config": "{}",
+                "hostConfig": "{\"NetworkMode\":\"bridge\",\"CapAdd\":[],\"CapDrop\":[]}",
+                "version": "1.17"
+              },
+              "environment": {
+                "AWS_EXECUTION_ENV": "AWS_ECS_EC2"
+              },
+              "metadataFileUpdated": false,
+              "mountPoints": [],
+              "overrides": {
+                "command": null
+              },
+              "portMappings": [],
+              "registryAuthentication": null,
+              "volumesFrom": []
+            }
+          ],
+          "DesiredStatus": "STOPPED",
+          "ENI": null,
+          "ExecutionStoppedAt": "2019-06-26T15:56:54.353046931Z",
+          "Family": "test-v13-td",
+          "KnownStatus": "STOPPED",
+          "KnownTime": "2019-06-26T15:56:54.353114618Z",
+          "PullStartedAt": "2019-06-26T15:56:52.350237867Z",
+          "PullStoppedAt": "2019-06-26T15:56:53.636768284Z",
+          "SentStatus": "STOPPED",
+          "StartSequenceNumber": 2,
+          "StopSequenceNumber": 0,
+          "Version": "2",
+          "executionCredentialsID": "",
+          "resources": {},
+          "volumes": []
+        }
+      ]
+    }
+  },
+  "Version": 13
+}

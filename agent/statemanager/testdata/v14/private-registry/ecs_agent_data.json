@@ -1,0 +1,181 @@
+{
+   "Data": {
+      "Cluster": "test-statefile",
+      "ContainerInstanceArn": "arn:aws:ecs:us-west-2:1234567890:container-instance/test-statefile/dca5eca99f9c4567866b3d1fba1bb562",
+      "EC2InstanceID": "i-1234567890",
+      "TaskEngine": {
+         "ENIAttachments": null,
+         "IPToTask": {},
+         "IdToContainer": {
+            "ecs-private-registry-state-1-container1-b2f386f88dcac192ac01": {
+               "Container": {
+                  "ApplyingError": {
+                     "error": "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password\n",
+                     "name": "CannotPullContainerError"
+                  },
+                  "Command": [
+                     "sleep",
+                     "3600"
+                  ],
+                  "Cpu": 0,
+                  "EntryPoint": null,
+                  "Essential": true,
+                  "Image": "amazonlinux:1",
+                  "ImageID": "",
+                  "IsInternal": "NORMAL",
+                  "KnownExitCode": null,
+                  "KnownPortBindings": null,
+                  "KnownStatus": "STOPPED",
+                  "Links": null,
+                  "LogsAuthStrategy": "",
+                  "Memory": 512,
+                  "Name": "container_1",
+                  "RunDependencies": null,
+                  "SentStatus": "STOPPED",
+                  "TransitionDependencySet": {
+                     "1": {
+                        "ContainerDependencies": null,
+                        "ResourceDependencies": [
+                           {
+                              "Name": "asm-auth",
+                              "RequiredStatus": 1
+                           }
+                        ]
+                     }
+                  },
+                  "desiredStatus": "STOPPED",
+                  "dockerConfig": {
+                     "config": "{}",
+                     "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+                     "version": "1.17"
+                  },
+                  "environment": {
+                     "AWS_EXECUTION_ENV": "AWS_ECS_EC2"
+                  },
+                  "metadataFileUpdated": false,
+                  "mountPoints": [],
+                  "overrides": {
+                     "command": null
+                  },
+                  "portMappings": [],
+                  "registryAuthentication": {
+                     "asmAuthData": {
+                        "credentialsParameter": "arn:aws:secretsmanager:us-west-2:1234567890:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs",
+                        "region": "us-west-2"
+                     },
+                     "ecrAuthData": null,
+                     "type": "asm"
+                  },
+                  "volumesFrom": []
+               },
+               "DockerId": "",
+               "DockerName": "ecs-private-registry-state-1-container1-b2f386f88dcac192ac01"
+            }
+         },
+         "IdToTask": {
+            "ecs-private-registry-state-1-container1-b2f386f88dcac192ac01": "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/19e8453e9a404cb58d55aaa0df65b4f5"
+         },
+         "ImageStates": null,
+         "Tasks": [
+            {
+               "Arn": "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/19e8453e9a404cb58d55aaa0df65b4f5",
+               "Containers": [
+                  {
+                     "ApplyingError": {
+                        "error": "API error (500): Get https://registry-1.docker.io/v2/library/amazonlinux/manifests/1: unauthorized: incorrect username or password\n",
+                        "name": "CannotPullContainerError"
+                     },
+                     "Command": [
+                        "sleep",
+                        "3600"
+                     ],
+                     "Cpu": 0,
+                     "EntryPoint": null,
+                     "Essential": true,
+                     "Image": "amazonlinux:1",
+                     "ImageID": "",
+                     "IsInternal": "NORMAL",
+                     "KnownExitCode": null,
+                     "KnownPortBindings": null,
+                     "KnownStatus": "STOPPED",
+                     "Links": null,
+                     "LogsAuthStrategy": "",
+                     "Memory": 512,
+                     "Name": "container_1",
+                     "RunDependencies": null,
+                     "SentStatus": "STOPPED",
+                     "TransitionDependencySet": {
+                        "1": {
+                           "ContainerDependencies": null,
+                           "ResourceDependencies": [
+                              {
+                                 "Name": "asm-auth",
+                                 "RequiredStatus": 1
+                              }
+                           ]
+                        }
+                     },
+                     "desiredStatus": "STOPPED",
+                     "dockerConfig": {
+                        "config": "{}",
+                        "hostConfig": "{\"CapAdd\":[],\"CapDrop\":[]}",
+                        "version": "1.17"
+                     },
+                     "environment": {
+                        "AWS_EXECUTION_ENV": "AWS_ECS_EC2"
+                     },
+                     "metadataFileUpdated": false,
+                     "mountPoints": [],
+                     "overrides": {
+                        "command": null
+                     },
+                     "portMappings": [],
+                     "registryAuthentication": {
+                        "asmAuthData": {
+                           "credentialsParameter": "arn:aws:secretsmanager:us-west-2:1234567890:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs",
+                           "region": "us-west-2"
+                        },
+                        "ecrAuthData": null,
+                        "type": "asm"
+                     },
+                     "volumesFrom": []
+                  }
+               ],
+               "DesiredStatus": "STOPPED",
+               "ENI": null,
+               "ExecutionStoppedAt": "2019-06-26T16:05:45.362191633Z",
+               "Family": "private-registry-state",
+               "KnownStatus": "STOPPED",
+               "KnownTime": "2019-06-26T16:05:45.362255714Z",
+               "PlatformFields": {},
+               "PullStartedAt": "2019-06-26T16:05:30.556076442Z",
+               "PullStoppedAt": "2019-06-26T16:05:45.358424513Z",
+               "SentStatus": "STOPPED",
+               "StartSequenceNumber": 2,
+               "StopSequenceNumber": 0,
+               "Version": "1",
+               "executionCredentialsID": "f3cb8a19-cf56-4b79-ad58-691f3e669cf7",
+               "resources": {
+                  "asm-auth": [
+                     {
+                        "asmResources": [
+                           {
+                              "credentialsParameter": "arn:aws:secretsmanager:us-west-2:1234567890:secret:FunctionalTest-PrivateRegistryAuth-I0nqxs",
+                              "region": "us-west-2"
+                           }
+                        ],
+                        "createdAt": "0001-01-01T00:00:00Z",
+                        "desiredStatus": "REMOVED",
+                        "executionCredentialsID": "f3cb8a19-cf56-4b79-ad58-691f3e669cf7",
+                        "knownStatus": "REMOVED",
+                        "taskARN": "arn:aws:ecs:us-west-2:1234567890:task/test-statefile/19e8453e9a404cb58d55aaa0df65b4f5"
+                     }
+                  ]
+               },
+               "volumes": []
+            }
+         ]
+      }
+   },
+   "Version": 14
+}

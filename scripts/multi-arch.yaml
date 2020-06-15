@@ -1,0 +1,10 @@
+image: amazon/amazon-ecs-agent:${docker-image-tag}
+manifests:
+  - image: amazon/amazon-ecs-agent:amd64-${docker-image-tag}
+    platform:
+      architecture: amd64
+      os: linux
+  - image: amazon/amazon-ecs-agent:arm64-${docker-image-tag}
+    platform:
+      architecture: arm64
+      os: linux

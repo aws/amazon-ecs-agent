@@ -1,0 +1,17 @@
+language: go
+go_import_path: github.com/aws/amazon-ecs-agent
+sudo: false
+go:
+  - 1.12
+
+matrix:
+  include:
+    - os: linux
+      script:
+        - make get-deps
+        - make test
+        - make static-check
+        - make xplatform-build
+    - os: windows
+      script:
+        - go test -v -race -tags unit -timeout 40s ./agent/...

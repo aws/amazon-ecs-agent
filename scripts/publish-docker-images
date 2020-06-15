@@ -1,0 +1,204 @@
+#!/bin/bash
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the
+# "License"). You may not use this file except in compliance
+#  with the License. A copy of the License is located at
+#
+# 		http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and
+# limitations under the License.
+
+set -e
+
+DRYRUN=true
+
+IMAGE_NAME="amazon/amazon-ecs-agent"
+
+AWS_PROFILE=""
+STAGE_S3_BUCKET=""
+
+source $(dirname "${0}")/publishing-common.sh
+
+usage() {
+	echo "Usage: ${0} -s BUCKET [OPTIONS]"
+	echo
+	echo "This script is responsible for pushing Amazon ECS Container Agent image to docker hub."
+	echo "1. Grab the staged image from S3"
+	echo "2. Push the linux amd image to a docker hub, tagged with :latest, :VERSION, and :SHA"
+	echo "3. Push the linux arm image to a docker hub, tagged with :latest, :VERSION, and :SHA"
+	echo "4. Push the manifest list, tagged with :latest, :VERSION, and :SHA"
+	echo
+	echo "Options"
+	echo "  -d  true|false  Dryrun (default is true)"
+	echo "  -p  PROFILE	 	AWS CLI Profile (default is none)"
+	echo "  -s  BUCKET	  	AWS S3 Bucket for staging"
+	echo "  -i  IMAGE	   	Docker image name"
+	echo "	-f  FILE_PATH	Path to file where manifest JSON output is stored"
+	echo "  -h			  	Display this help message"
+}
+
+verify_md5() {
+	if ! check_md5 "${1}" "${2}" ; then
+		echo "Failed to validate integrity of s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar"
+		exit 1
+	fi
+
+}
+
+push_linux_amd_agent_docker_hub() {
+	echo
+	echo "======================================================"
+	echo "Pushing linux amd images to docker hub"
+	echo "======================================================"
+	echo
+	tarball="$(mktemp)"  # Directory that contains the staged image of agent
+	tarball_md5="$(mktemp)" # Directory that contains md5sum of the staged image
+	# Pulling the staged image and its md5sum
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar" "${tarball}"
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5}"
+	echo "Checking ecs-agent-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-${IMAGE_TAG_SHA}.tar.md5"
+
+	verify_md5 "${tarball}" "${tarball_md5}"
+	echo "md5sum Check Successful"
+
+	# Pushing to docker hub
+	docker load < "${tarball}"
+	for image_tag in "${IMAGE_TAG_VERSION_AMD}" "${IMAGE_TAG_SHA_AMD}" "${IMAGE_TAG_LATEST_AMD}"; do
+		tag_and_push_docker "${IMAGE_NAME}" "${image_tag}"
+	done
+
+	rm "${tarball}"
+	rm "${tarball_md5}"
+}
+
+push_linux_arm_agent_docker_hub() {
+	echo
+	echo "======================================================="
+	echo "Pushing linux arm images to docker hub"
+	echo "======================================================="
+	echo
+	tarball_arm="$(mktemp)" # Directory that contains the staged image of agent
+	tarball_md5_arm="$(mktemp)" # Directory that contains the staged image of agent
+	# Pulling the staged image and its md5sum
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar" "${tarball_arm}"
+	s3_cp "s3://${STAGE_S3_BUCKET}/ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5" "${tarball_md5_arm}"
+	echo "Checking ecs-agent-arm64-${IMAGE_TAG_SHA}.tar md5 sum against ecs-agent-arm64-${IMAGE_TAG_SHA}.tar.md5"
+
+	verify_md5 "${tarball_arm}" "${tarball_md5_arm}"
+	echo "md5sum Check Successful"
+
+	# Pushing to docker hub
+	docker load < "${tarball_arm}"
+	for image_tag in "${IMAGE_TAG_VERSION_ARM}" "${IMAGE_TAG_SHA_ARM}" "${IMAGE_TAG_LATEST_ARM}"; do
+		tag_and_push_docker "${IMAGE_NAME}" "${image_tag}"
+	done
+
+	rm "${tarball_arm}"
+	rm "${tarball_md5_arm}"
+}
+
+push_multi-arch_manifest_docker_hub() {
+	echo
+	echo "=========================================================="
+	echo "Pushing multi-arch manifest list to docker hub"
+	echo "=========================================================="
+	echo
+
+	manifest_tool_dir="manifest-tool"
+	# Remove manifest-tool folder if it already exists
+	rm -rf "${manifest_tool_dir}"
+
+	# Clone the manifest-tool from github
+	git clone --depth 1 --branch v0.9.0 https://github.com/estesp/manifest-tool "${manifest_tool_dir}"
+
+	pushd "${manifest_tool_dir}"
+
+	make build
+	for image_tag in "${IMAGE_TAG_VERSION}" "${IMAGE_TAG_SHA}" "${IMAGE_TAG_LATEST}"; do
+		# Replace the tags in multi-arch.yaml
+		sed -e "s/\${docker-image-tag}/${image_tag}/"  ../scripts/multi-arch.yaml > multi-arch-temp.yaml
+		# Generate the manifest list and push to docker hub
+		dryval ./manifest-tool push from-spec multi-arch-temp.yaml
+		rm multi-arch-temp.yaml
+	done
+
+
+	# Create digest files
+	if [[ -n "${FILE_PATH}" ]]; then
+			echo "Creating digest files"
+			# Generate a combined JSON object for each image name with its
+			# manifest-tool output of the form:
+			#
+			# {
+			#    "amazon/amazon-ecs-agent:sha": [ ...inspected-manifest ],
+			# 	 "amazon/amazon-ecs-agent:arm64-sha": [ ...inspected-manifest ],
+			# 	 "amazon/amazon-ecs-agent:amd64-sha": [ ...inspected-manifest ]
+			# }
+			# The JSON is stored in a file passed in -f parameter
+
+			{
+				for v in "${IMAGE_TAG_SHA}" "${IMAGE_TAG_SHA_ARM}" "${IMAGE_TAG_SHA_AMD}"; do
+					./manifest-tool inspect --raw "${IMAGE_NAME}:${v}" | jq "{\"${IMAGE_NAME}:${v}\":.}"
+				done
+			} | jq -s add > "${FILE_PATH}"
+
+			echo "Digest file created"
+	fi
+
+	popd
+	rm -rf "${manifest_tool_dir}"
+
+}
+
+while getopts ":d:p:s:i:f:" opt; do
+	case ${opt} in
+		d)
+			if [[ "${OPTARG}" = "false" ]]; then
+				DRYRUN=false
+			else
+				DRYRUN=true
+			fi
+			;;
+		p)
+			AWS_PROFILE="${OPTARG}"
+			;;
+		s)
+			STAGE_S3_BUCKET="${OPTARG}"
+			;;
+		i)
+			IMAGE_NAME="${OPTARG}"
+			;;
+		f)
+			FILE_PATH="${OPTARG}"
+			;;
+		\?)
+			echo "Invalid option -${OPTARG}" >&2
+			usage
+			exit 1
+			;;
+		:)
+			echo "Option -${OPTARG} requires an argument." >&2
+			usage
+			exit 1
+			;;
+		h)
+			usage
+			exit 0
+			;;
+	esac
+done
+
+
+if [[ -z "${STAGE_S3_BUCKET}" ]]; then
+	usage
+	exit 1
+fi
+
+push_linux_amd_agent_docker_hub
+push_linux_arm_agent_docker_hub
+push_multi-arch_manifest_docker_hub
