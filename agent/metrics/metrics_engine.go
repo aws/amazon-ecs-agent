@@ -87,7 +87,7 @@ func NewMetricsEngine(cfg *config.Config, registry *prometheus.Registry) *Metric
 		Registry:       registry,
 		managedMetrics: make(map[APIType]MetricsClient),
 	}
-	for managedAPI, _ := range managedAPIs {
+	for managedAPI := range managedAPIs {
 		aClient := NewMetricsClient(managedAPI, metricsEngine.Registry)
 		metricsEngine.managedMetrics[managedAPI] = aClient
 	}

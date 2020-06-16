@@ -271,13 +271,13 @@ func (imageManager *dockerImageManager) getCandidateImagesForDeletion() []*image
 }
 
 func (imageManager *dockerImageManager) isImageOldEnough(imageState *image.ImageState) bool {
-	ageOfImage := time.Now().Sub(imageState.PulledAt)
+	ageOfImage := time.Since(imageState.PulledAt)
 	return ageOfImage > imageManager.minimumAgeBeforeDeletion
 }
 
 //TODO: change image createdTime to image lastUsedTime when docker support it in the future
 func (imageManager *dockerImageManager) nonECSImageOldEnough(NonECSImage ImageWithSizeID) bool {
-	ageOfImage := time.Now().Sub(NonECSImage.createdTime)
+	ageOfImage := time.Since(NonECSImage.createdTime)
 	return ageOfImage > imageManager.nonECSMinimumAgeBeforeDeletion
 }
 
@@ -391,7 +391,7 @@ func (imageManager *dockerImageManager) removeNonECSContainers(ctx context.Conte
 		if (response.State.Status == "exited" ||
 			response.State.Status == "dead" ||
 			response.State.Status == "created") &&
-			time.Now().Sub(finishedTime) > imageManager.nonECSContainerCleanupWaitDuration {
+			time.Since(finishedTime) > imageManager.nonECSContainerCleanupWaitDuration {
 			nonECSContainerRemoveAvailableIDs = append(nonECSContainerRemoveAvailableIDs, id)
 		}
 	}
@@ -418,9 +418,7 @@ func (imageManager *dockerImageManager) getNonECSContainerIDs(ctx context.Contex
 	if listContainersResponse.Error != nil {
 		return nil, fmt.Errorf("Error listing containers: %v", listContainersResponse.Error)
 	}
-	for _, dockerID := range listContainersResponse.DockerIDs {
-		allContainersIDs = append(allContainersIDs, dockerID)
-	}
+	allContainersIDs = append(allContainersIDs, listContainersResponse.DockerIDs...)
 	ECSContainersIDs := imageManager.state.GetAllContainerIDs()
 	nonECSContainersIDs := exclude(allContainersIDs, ECSContainersIDs)
 	return nonECSContainersIDs, nil
@@ -553,7 +551,7 @@ func exclude(allList []string, exclusionList []string) []string {
 		allMap[b] = false
 	}
 	for k := range allMap {
-		if allMap[k] == true {
+		if allMap[k] {
 			ret = append(ret, k)
 		}
 	}
