@@ -18,6 +18,7 @@ package stats
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -78,4 +79,6 @@ func validateNetworkMetrics(t *testing.T, netStats *NetworkStats) {
 	assert.Equal(t, expectedTxPackets, netStats.TxPackets)
 	assert.Equal(t, expectedTxDropped, netStats.TxDropped)
 	assert.Equal(t, expectedTxErrors, netStats.TxErrors)
+	assert.True(t, math.IsNaN(float64(netStats.RxBytesPerSecond)))
+	assert.True(t, math.IsNaN(float64(netStats.TxBytesPerSecond)))
 }

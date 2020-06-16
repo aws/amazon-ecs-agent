@@ -285,6 +285,10 @@ type NetworkStatsSet struct {
 	TxErrors *ULongStatsSet `locationName:"txErrors" type:"structure"`
 
 	TxPackets *ULongStatsSet `locationName:"txPackets" type:"structure"`
+
+	RxBytesPerSecond *CWStatsSet `locationName:"rxBytesPerSecond" type:"structure"`
+
+	TxBytesPerSecond *CWStatsSet `locationName:"txBytesPerSecond" type:"structure"`
 }
 
 // String returns the string representation
@@ -338,6 +342,16 @@ func (s *NetworkStatsSet) Validate() error {
 	if s.TxPackets != nil {
 		if err := s.TxPackets.Validate(); err != nil {
 			invalidParams.AddNested("TxPackets", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.RxBytesPerSecond != nil {
+		if err := s.TxPackets.Validate(); err != nil {
+			invalidParams.AddNested("RxBytesPerSecond", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.TxBytesPerSecond != nil {
+		if err := s.TxPackets.Validate(); err != nil {
+			invalidParams.AddNested("TxBytesPerSecond", err.(request.ErrInvalidParams))
 		}
 	}
 
