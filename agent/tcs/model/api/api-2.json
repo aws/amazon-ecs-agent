@@ -205,7 +205,9 @@
         "txBytes":{"shape":"ULongStatsSet"},
         "txDropped":{"shape":"ULongStatsSet"},
         "txErrors":{"shape":"ULongStatsSet"},
-        "txPackets":{"shape":"ULongStatsSet"}
+        "txPackets":{"shape":"ULongStatsSet"},
+        "txBytesPerSecond":{"shape":"CWStatsSet"},
+        "rxBytesPerSecond":{"shape":"CWStatsSet"}
       }
     },
     "PublishHealthRequest":{

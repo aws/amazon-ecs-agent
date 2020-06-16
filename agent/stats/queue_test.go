@@ -314,6 +314,18 @@ func validateNetStatsSet(t *testing.T, netStats *ecstcs.NetworkStatsSet, queueLe
 	assert.Equal(t, int64(queueLen), *netStats.TxErrors.SampleCount, "incorrect TxErrors sampleCount")
 	assert.Equal(t, int64(0), *netStats.TxErrors.Sum, "incorrect TxErrors sum")
 	assert.Equal(t, int64(0), *netStats.TxErrors.OverflowSum, "incorrect TxErrors overlfowSum")
+
+	assert.NotNil(t, *netStats.RxBytesPerSecond, "incorrect RxBytesPerSecond set")
+	assert.Equal(t, float64(1.26999248e+08), *netStats.RxBytesPerSecond.Min, "incorrect RxBytesPerSecond min")
+	assert.Equal(t, float64(1.373376384e+09), *netStats.RxBytesPerSecond.Max, "incorrect RxBytesPerSecond max")
+	assert.Equal(t, int64(queueLen), *netStats.RxBytesPerSecond.SampleCount, "incorrect RxBytesPerSecond sampleCount")
+	assert.Equal(t, float64(5.540383824e+09), *netStats.RxBytesPerSecond.Sum, "incorrect RxBytesPerSecond sum")
+
+	assert.NotNil(t, *netStats.TxBytesPerSecond, "incorrect TxBytesPerSecond set")
+	assert.Equal(t, float64(1.26999248e+08), *netStats.TxBytesPerSecond.Min, "incorrect TxBytesPerSecond min")
+	assert.Equal(t, float64(1.373376384e+09), *netStats.TxBytesPerSecond.Max, "incorrect TxBytesPerSecond max")
+	assert.Equal(t, int64(queueLen), *netStats.TxBytesPerSecond.SampleCount, "incorrect TxBytesPerSecond sampleCount")
+	assert.Equal(t, float64(5.540383824e+09), *netStats.TxBytesPerSecond.Sum, "incorrect TxBytesPerSecond sum")
 }
 
 func TestQueueUintStats(t *testing.T) {
@@ -509,4 +521,198 @@ func TestHugeCPUUsagePercentDoesntGetCapped(t *testing.T) {
 	require.Equal(t, float64(100), *statSet.Min)
 	require.Equal(t, int64(2), *statSet.SampleCount)
 	require.Equal(t, float64(30000001124), *statSet.Sum)
+}
+
+// If there are only 2 datapoints, and both have the same timestamp,
+// then sample count will be 0 for per sec metrics and GetNetworkStats should return error
+func TestPerSecNetworkStatSetFailsWhenSampleCountIsZero(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+	}
+
+	bytesReceivedTransmitted := []uint64{
+		364953689,
+		364953689,
+	}
+
+	queue := NewQueue(3)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{
+			cpuUsage:    cpuTimes[i],
+			memoryUsage: memoryUtilizationInBytes[i],
+			networkStats: &NetworkStats{
+				RxBytes:          bytesReceivedTransmitted[i],
+				RxDropped:        0,
+				RxErrors:         bytesReceivedTransmitted[i],
+				RxPackets:        bytesReceivedTransmitted[i],
+				TxBytes:          bytesReceivedTransmitted[i],
+				TxDropped:        bytesReceivedTransmitted[i],
+				TxErrors:         0,
+				TxPackets:        bytesReceivedTransmitted[i],
+				RxBytesPerSecond: float32(nan32()),
+				TxBytesPerSecond: float32(nan32()),
+			},
+			timestamp: time})
+	}
+
+	// if we have identical timestamps and 2 datapoints
+	// then there will not be enough valid network stats  to create
+	// a valid network stats set, and this function call should fail.
+	stats, err := queue.GetNetworkStatsSet()
+	require.Errorf(t, err, "Received unexpected network stats set %v", stats)
+}
+
+// If there are only 3 datapoints in total and among them 2 are identical, then GetNetworkStats should not return error
+func TestPerSecNetworkStatSetPassWithThreeDatapoints(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:32:05.131117533Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+		115436856,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+		3649536,
+	}
+
+	bytesReceivedTransmitted := []uint64{
+		364953689,
+		364953689,
+		364953689,
+	}
+
+	queue := NewQueue(3)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{
+			cpuUsage:    cpuTimes[i],
+			memoryUsage: memoryUtilizationInBytes[i],
+			networkStats: &NetworkStats{
+				RxBytes:          bytesReceivedTransmitted[i],
+				RxDropped:        0,
+				RxErrors:         bytesReceivedTransmitted[i],
+				RxPackets:        bytesReceivedTransmitted[i],
+				TxBytes:          bytesReceivedTransmitted[i],
+				TxDropped:        bytesReceivedTransmitted[i],
+				TxErrors:         0,
+				TxPackets:        bytesReceivedTransmitted[i],
+				RxBytesPerSecond: float32(nan32()),
+				TxBytesPerSecond: float32(nan32()),
+			},
+			timestamp: time})
+	}
+
+	// if we have identical timestamps and 2 datapoints
+	// then there will not be enough valid network stats  to create
+	// a valid network stats set, and this function call should fail.
+	stats, err := queue.GetNetworkStatsSet()
+	require.NoErrorf(t, err, "Received unexpected network stats set %v", stats)
+}
+
+// If there are only 2 datapoints, and both have different timestamp, GetNetworkStats should not return error
+func TestPerSecNetworkStatSetPassWithTwoDatapoints(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+		parseNanoTime("2015-02-12T21:32:05.131117533Z"),
+	}
+	cpuTimes := []uint64{
+		22400432,
+		116499979,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+		3649536,
+	}
+
+	bytesReceivedTransmitted := []uint64{
+		364953689,
+		364953689,
+	}
+
+	queue := NewQueue(3)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{
+			cpuUsage:    cpuTimes[i],
+			memoryUsage: memoryUtilizationInBytes[i],
+			networkStats: &NetworkStats{
+				RxBytes:          bytesReceivedTransmitted[i],
+				RxDropped:        0,
+				RxErrors:         bytesReceivedTransmitted[i],
+				RxPackets:        bytesReceivedTransmitted[i],
+				TxBytes:          bytesReceivedTransmitted[i],
+				TxDropped:        bytesReceivedTransmitted[i],
+				TxErrors:         0,
+				TxPackets:        bytesReceivedTransmitted[i],
+				RxBytesPerSecond: float32(nan32()),
+				TxBytesPerSecond: float32(nan32()),
+			},
+			timestamp: time})
+	}
+
+	// if we have identical timestamps and 2 datapoints
+	// then there will not be enough valid network stats  to create
+	// a valid network stats set, and this function call should fail.
+	stats, err := queue.GetNetworkStatsSet()
+	require.NoErrorf(t, err, "Received unexpected network stats set %v", stats)
+}
+
+// If there are only 1 datapoint, then GetNetworkStats should return error
+func TestPerSecNetworkStatSetFailWithOneDatapoint(t *testing.T) {
+	timestamps := []time.Time{
+		parseNanoTime("2015-02-12T21:22:05.131117533Z"),
+	}
+
+	cpuTimes := []uint64{
+		22400432,
+	}
+	memoryUtilizationInBytes := []uint64{
+		3649536,
+	}
+
+	bytesReceivedTransmitted := []uint64{
+		364953689,
+	}
+
+	queue := NewQueue(3)
+
+	for i, time := range timestamps {
+		queue.add(&ContainerStats{
+			cpuUsage:    cpuTimes[i],
+			memoryUsage: memoryUtilizationInBytes[i],
+			networkStats: &NetworkStats{
+				RxBytes:          bytesReceivedTransmitted[i],
+				RxDropped:        0,
+				RxErrors:         bytesReceivedTransmitted[i],
+				RxPackets:        bytesReceivedTransmitted[i],
+				TxBytes:          bytesReceivedTransmitted[i],
+				TxDropped:        bytesReceivedTransmitted[i],
+				TxErrors:         0,
+				TxPackets:        bytesReceivedTransmitted[i],
+				RxBytesPerSecond: float32(nan32()),
+				TxBytesPerSecond: float32(nan32()),
+			},
+			timestamp: time})
+	}
+
+	// if we have identical timestamps and 2 datapoints
+	// then there will not be enough valid network stats  to create
+	// a valid network stats set, and this function call should fail.
+	stats, err := queue.GetNetworkStatsSet()
+	require.Errorf(t, err, "Received unexpected network stats set %v", stats)
 }

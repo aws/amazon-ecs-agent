@@ -43,5 +43,7 @@ func getNetworkStats(dockerStats *types.StatsJSON) *NetworkStats {
 		networkStats.TxErrors += netStats.TxErrors
 		networkStats.TxPackets += netStats.TxPackets
 	}
+	networkStats.RxBytesPerSecond = float32(nan32())
+	networkStats.TxBytesPerSecond = float32(nan32())
 	return networkStats
 }
