@@ -14,25 +14,85 @@
 package data
 
 import (
+	"encoding/json"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
+	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 )
 
-func (c *client) SaveContainer(container *apicontainer.Container) error {
-	// TODO: implementation
-	return nil
-}
-
+// SaveDockerContainer saves a docker container to the container bucket.
 func (c *client) SaveDockerContainer(container *apicontainer.DockerContainer) error {
-	// TODO: implementation
-	return nil
+	id, err := getContainerID(container.Container)
+	if err != nil {
+		return errors.Wrap(err, "failed to generate database id")
+	}
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(containersBucketName))
+		return putObject(b, id, container)
+	})
 }
 
+// SaveContainer saves an apicontainer.Container to the container bucket. If a corresponding
+// apicontainer.DockerContainer exists, this updates the Container part of it; otherwise, a new
+// apicontainer.DockerContainer is created and saved.
+func (c *client) SaveContainer(container *apicontainer.Container) error {
+	id, err := getContainerID(container)
+	if err != nil {
+		return errors.Wrap(err, "failed to generate database id")
+	}
+
+	dockerContainer, err := c.getDockerContainer(id)
+	if err != nil {
+		dockerContainer = &apicontainer.DockerContainer{}
+	}
+	dockerContainer.Container = container
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(containersBucketName))
+		return putObject(b, id, dockerContainer)
+	})
+}
+
+func (c *client) getDockerContainer(id string) (*apicontainer.DockerContainer, error) {
+	container := &apicontainer.DockerContainer{}
+	err := c.db.View(func(tx *bolt.Tx) error {
+		return getObject(tx, containersBucketName, id, container)
+	})
+	return container, err
+}
+
+// DeleteContainer deletes a container from the container bucket.
 func (c *client) DeleteContainer(id string) error {
-	// TODO: implementation
-	return nil
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(containersBucketName))
+		return b.Delete([]byte(id))
+	})
 }
 
+// GetContainers returns all the containers in the container bucket.
 func (c *client) GetContainers() ([]*apicontainer.DockerContainer, error) {
-	// TODO: implementation
-	return nil, nil
+	var containers []*apicontainer.DockerContainer
+	err := c.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(containersBucketName))
+		return walk(bucket, func(id string, data []byte) error {
+			container := apicontainer.DockerContainer{}
+			if err := json.Unmarshal(data, &container); err != nil {
+				return err
+			}
+			containers = append(containers, &container)
+			return nil
+		})
+	})
+	return containers, err
+}
+
+// getContainerID returns a unique ID for a container to use as key when saving to DB.
+func getContainerID(c *apicontainer.Container) (string, error) {
+	taskID, err := utils.GetTaskID(c.TaskARN)
+	if err != nil {
+		return "", err
+	}
+	return taskID + "-" + c.Name, nil
 }

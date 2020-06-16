@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDefaultIfBlank(t *testing.T) {
@@ -172,4 +173,14 @@ func TestMapToTags(t *testing.T) {
 
 func TestNilMapToTags(t *testing.T) {
 	assert.Zero(t, len(MapToTags(nil)))
+}
+
+func TestGetTaskID(t *testing.T) {
+	taskARN := "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	id, err := GetTaskID(taskARN)
+	require.NoError(t, err)
+	assert.Equal(t, "abc", id)
+
+	_, err = GetTaskID("invalid")
+	assert.Error(t, err)
 }
