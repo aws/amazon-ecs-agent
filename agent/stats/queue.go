@@ -28,6 +28,7 @@ const (
 	// BytesInMiB is the number of bytes in a MebiByte.
 	BytesInMiB              = 1024 * 1024
 	MaxCPUUsagePerc float32 = 1024 * 1024
+	NanoSecToSec    float32 = 1000000000
 )
 
 // Queue abstracts a queue using UsageStats slice.
@@ -98,9 +99,21 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			// if we got a duplicate timestamp, set cpu percentage to the same value as the previous stat
 			seelog.Errorf("Received a docker stat object with duplicate timestamp")
 			stat.CPUUsagePerc = lastStat.CPUUsagePerc
+			if stat.NetworkStats != nil {
+				stat.NetworkStats.RxBytesPerSecond = lastStat.NetworkStats.RxBytesPerSecond
+				stat.NetworkStats.TxBytesPerSecond = lastStat.NetworkStats.TxBytesPerSecond
+			}
 		} else {
 			cpuUsageSinceLastStat := float32(rawStat.cpuUsage - lastStat.cpuUsage)
 			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
+
+			//calculate per second Network metrics
+			if stat.NetworkStats != nil {
+				rxBytesSinceLastStat := float32(stat.NetworkStats.RxBytes - lastStat.NetworkStats.RxBytes)
+				txBytesSinceLastStat := float32(stat.NetworkStats.TxBytes - lastStat.NetworkStats.TxBytes)
+				stat.NetworkStats.RxBytesPerSecond = NanoSecToSec * (rxBytesSinceLastStat / timeSinceLastStat)
+				stat.NetworkStats.TxBytesPerSecond = NanoSecToSec * (txBytesSinceLastStat / timeSinceLastStat)
+			}
 		}
 
 		if queueLength >= queue.maxSize {
@@ -187,6 +200,14 @@ func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 	if err != nil {
 		seelog.Warnf("Error getting network tx packets: %v", err)
 	}
+	networkStatsSet.RxBytesPerSecond, err = queue.getCWStatsSet(getNetworkRxPacketsPerSecond)
+	if err != nil {
+		seelog.Warnf("Error getting network rx bytes per second: %v", err)
+	}
+	networkStatsSet.TxBytesPerSecond, err = queue.getCWStatsSet(getNetworkTxPacketsPerSecond)
+	if err != nil {
+		seelog.Warnf("Error getting network tx bytes per second: %v", err)
+	}
 	return networkStatsSet, err
 }
 
@@ -244,6 +265,20 @@ func getNetworkTxPackets(s *UsageStats) uint64 {
 		return s.NetworkStats.TxPackets
 	}
 	return uint64(0)
+}
+
+func getNetworkRxPacketsPerSecond(s *UsageStats) float64 {
+	if s.NetworkStats != nil {
+		return float64(s.NetworkStats.RxBytesPerSecond)
+	}
+	return float64(0)
+}
+
+func getNetworkTxPacketsPerSecond(s *UsageStats) float64 {
+	if s.NetworkStats != nil {
+		return float64(s.NetworkStats.TxBytesPerSecond)
+	}
+	return float64(0)
 }
 
 func getCPUUsagePerc(s *UsageStats) float64 {
