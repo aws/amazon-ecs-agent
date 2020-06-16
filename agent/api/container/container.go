@@ -112,6 +112,8 @@ type Container struct {
 	Name string
 	// RuntimeID is the docker id of the container
 	RuntimeID string
+	// TaskARN is the task ARN of the task that the container belongs to.
+	TaskARN string
 	// DependsOnUnsafe is the field which specifies the ordering for container startup and shutdown.
 	DependsOnUnsafe []DependsOn `json:"dependsOn,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
@@ -1120,6 +1122,7 @@ func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
 	return c.EnvironmentFiles
 }
 
+// RequireNeuronRuntime checks if the container needs to use the neuron runtime.
 func (c *Container) RequireNeuronRuntime() bool {
 	c.lock.RLock()
 	defer c.lock.RUnlock()

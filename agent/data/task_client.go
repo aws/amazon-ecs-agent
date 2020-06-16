@@ -14,20 +14,48 @@
 package data
 
 import (
+	"encoding/json"
+
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
+	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 )
 
-func (c *client) SaveTask(tasi *apitask.Task) error {
-	// TODO: implementation
-	return nil
+// SaveTask saves a task to the task bucket.
+func (c *client) SaveTask(task *apitask.Task) error {
+	id, err := utils.GetTaskID(task.Arn)
+	if err != nil {
+		return errors.Wrap(err, "failed to generate database id")
+	}
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tasksBucketName))
+		return putObject(b, id, task)
+	})
 }
 
+// DeleteTask deletes a task from the task bucket.
 func (c *client) DeleteTask(id string) error {
-	// TODO: implementation
-	return nil
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(tasksBucketName))
+		return b.Delete([]byte(id))
+	})
 }
 
+// GetTasks returns all the tasks in the task bucket.
 func (c *client) GetTasks() ([]*apitask.Task, error) {
-	// TODO: implementation
-	return nil, nil
+	var tasks []*apitask.Task
+	err := c.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(tasksBucketName))
+		return walk(bucket, func(id string, data []byte) error {
+			task := apitask.Task{}
+			if err := json.Unmarshal(data, &task); err != nil {
+				return err
+			}
+			tasks = append(tasks, &task)
+			return nil
+		})
+	})
+	return tasks, err
 }
