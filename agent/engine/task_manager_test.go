@@ -38,6 +38,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
@@ -750,6 +751,7 @@ func TestStartContainerTransitionsInvokesHandleContainerChange(t *testing.T) {
 		engine: &DockerTaskEngine{
 			containerChangeEventStream: containerChangeEventStream,
 			stateChangeEvents:          stateChangeEvents,
+			dataClient:                 data.NewNoopClient(),
 		},
 		stateChangeEvents:          stateChangeEvents,
 		containerChangeEventStream: containerChangeEventStream,
@@ -910,6 +912,9 @@ func TestOnContainersUnableToTransitionStateForDesiredRunningTask(t *testing.T) 
 			},
 			DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		},
+		engine: &DockerTaskEngine{
+			dataClient: data.NewNoopClient(),
+		},
 		ctx: context.TODO(),
 	}
 
@@ -1035,6 +1040,7 @@ func TestCleanupTask(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1096,6 +1102,7 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1165,6 +1172,7 @@ func TestCleanupTaskGivesUpIfWaitingTooLong(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1220,6 +1228,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1350,6 +1359,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1408,6 +1418,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1470,6 +1481,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 		ctx:          ctx,
 		cfg:          &cfg,
 		saver:        statemanager.NewNoopStateManager(),
+		dataClient:   data.NewNoopClient(),
 		state:        mockState,
 		client:       mockClient,
 		imageManager: mockImageManager,
@@ -1528,6 +1540,9 @@ func TestHandleContainerChangeUpdateContainerHealth(t *testing.T) {
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
 		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			dataClient: data.NewNoopClient(),
+		},
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1570,6 +1585,9 @@ func TestHandleContainerChangeUpdateMetadataRedundant(t *testing.T) {
 		containerChangeEventStream: containerChangeEventStream,
 		stateChangeEvents:          make(chan statechange.Event),
 		ctx:                        context.TODO(),
+		engine: &DockerTaskEngine{
+			dataClient: data.NewNoopClient(),
+		},
 	}
 	// Discard all the statechange events
 	defer discardEvents(mTask.stateChangeEvents)()
@@ -1762,7 +1780,9 @@ func TestHandleVolumeResourceStateChangeAndSave(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
-				engine: &DockerTaskEngine{},
+				engine: &DockerTaskEngine{
+					dataClient: data.NewNoopClient(),
+				},
 			}
 			mtask.AddResource(volumeName, res)
 			mtask.engine.SetSaver(mockSaver)

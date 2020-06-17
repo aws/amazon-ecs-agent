@@ -394,6 +394,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.
 	}
 	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
+	mtask.engine.saveTaskData(mtask.Task)
 }
 
 // handleContainerChange updates a container's known status. If the message
@@ -426,9 +427,13 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		// Only update container metadata when status stays RUNNING
 		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
 			updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
+			mtask.engine.saveContainerData(container)
 		}
 		return
 	}
+
+	// Container has progressed its status if we reach here. Make sure to save it to database.
+	defer mtask.engine.saveContainerData(container)
 
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus
@@ -461,6 +466,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			taskStateChangeReason = mtask.Task.GetTerminalReason()
 		}
 		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
+		// Save the new task status to database.
+		mtask.engine.saveTaskData(mtask.Task)
 	}
 }
 
@@ -484,6 +491,10 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 			mtask.Arn, res.GetName(), res.StatusString(status), res.StatusString(currentKnownStatus))
 		return
 	}
+
+	// There is a resource state change. Resource is stored as part of the task, so make sure to save the task
+	// at the end.
+	defer mtask.engine.saveTaskData(mtask.Task)
 
 	defer mtask.engine.saver.Save()
 	// Set known status regardless of error so the applied status can be cleared. If there is error,

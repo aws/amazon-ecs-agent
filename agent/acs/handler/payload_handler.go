@@ -23,10 +23,12 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -41,6 +43,7 @@ type payloadRequestHandler struct {
 	taskEngine  engine.TaskEngine
 	ecsClient   api.ECSClient
 	saver       statemanager.Saver
+	dataClient  data.Client
 	taskHandler *eventhandler.TaskHandler
 	// cancel is used to stop go routines started by start() method
 	cancel                      context.CancelFunc
@@ -61,6 +64,7 @@ func newPayloadRequestHandler(
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
 	saver statemanager.Saver,
+	dataClient data.Client,
 	refreshHandler refreshCredentialsHandler,
 	credentialsManager credentials.Manager,
 	taskHandler *eventhandler.TaskHandler, seqNumTaskManifest *int64) payloadRequestHandler {
@@ -72,6 +76,7 @@ func newPayloadRequestHandler(
 		taskEngine:                  taskEngine,
 		ecsClient:                   ecsClient,
 		saver:                       saver,
+		dataClient:                  dataClient,
 		taskHandler:                 taskHandler,
 		ctx:                         derivedContext,
 		cancel:                      cancel,
@@ -291,6 +296,11 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			continue
 		}
 		payloadHandler.taskEngine.AddTask(task)
+		err := payloadHandler.dataClient.SaveTask(task)
+		if err != nil {
+			seelog.Errorf("Failed to save data for task %s: %v", task.Arn, err)
+			allTasksOK = false
+		}
 
 		ackCredentials := func(id string, description string) {
 			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)

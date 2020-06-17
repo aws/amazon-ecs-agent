@@ -331,17 +331,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	if task.requiresASMDockerAuthData() {
-		task.initializeASMAuthResource(credentialsManager, resourceFields)
-	}
-
-	if task.requiresSSMSecret() {
-		task.initializeSSMSecretResource(credentialsManager, resourceFields)
-	}
-
-	if task.requiresASMSecret() {
-		task.initializeASMSecretResource(credentialsManager, resourceFields)
-	}
+	task.initSecretResources(credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
@@ -379,8 +369,33 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		seelog.Errorf("Task [%s]: could not initialize environment files resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
+	task.populateTaskARN()
 
 	return nil
+}
+
+// populateTaskARN populates the arn of the task to the containers.
+func (task *Task) populateTaskARN() {
+	for _, c := range task.Containers {
+		// This should be safe assuming populateTaskARN is only called by PostUnmarshalTask, where
+		// the task and its containers are only accessed by single thread.
+		c.TaskARN = task.Arn
+	}
+}
+
+func (task *Task) initSecretResources(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	if task.requiresASMDockerAuthData() {
+		task.initializeASMAuthResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresSSMSecret() {
+		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresASMSecret() {
+		task.initializeASMSecretResource(credentialsManager, resourceFields)
+	}
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,

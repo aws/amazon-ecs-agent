@@ -30,6 +30,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
@@ -97,6 +98,7 @@ type ecsAgent struct {
 	ec2MetadataClient           ec2.EC2MetadataClient
 	ec2Client                   ec2.Client
 	cfg                         *config.Config
+	dataClient                  data.Client
 	dockerClient                dockerapi.DockerClient
 	containerInstanceARN        string
 	credentialProvider          *aws_credentials.Credentials
@@ -149,6 +151,18 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		return nil, err
 	}
 
+	var dataClient data.Client
+	if cfg.Checkpoint {
+		dataClient, err = data.New(cfg.DataDir)
+		if err != nil {
+			seelog.Criticalf("Error creating data client: %v", err)
+			cancel()
+			return nil, err
+		}
+	} else {
+		dataClient = data.NewNoopClient()
+	}
+
 	var metadataManager containermetadata.Manager
 	if cfg.ContainerMetadataEnabled {
 		// We use the default API client for the metadata inspect call. This version has some information
@@ -165,6 +179,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		ec2Client:         ec2Client,
 		cfg:               cfg,
 		dockerClient:      dockerClient,
+		dataClient:        dataClient,
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
@@ -317,6 +332,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetSaver(stateManager)
+	taskEngine.SetDataClient(agent.dataClient)
 	imageManager.SetSaver(stateManager)
 	taskEngine.MustInit(agent.ctx)
 
@@ -324,7 +340,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream := eventstream.NewEventStream(
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
-	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, state, client)
+	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, agent.dataClient, state, client)
 	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, stateManager, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state)
@@ -717,6 +733,7 @@ func (agent *ecsAgent) startACSSession(
 		client,
 		state,
 		stateManager,
+		agent.dataClient,
 		taskEngine,
 		credentialsManager,
 		taskHandler,

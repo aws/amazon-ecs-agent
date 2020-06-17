@@ -102,7 +102,7 @@ type client struct {
 func New(dataDir string) (Client, error) {
 	var err error
 	once.Do(func() {
-		err = setup(dataDir)
+		dbClient, err = setup(dataDir)
 	})
 	if err != nil {
 		return nil, err
@@ -110,8 +110,14 @@ func New(dataDir string) (Client, error) {
 	return dbClient, nil
 }
 
+// NewWithSetup returns a data client that implements the Client interface with boltdb.
+// It always runs the db setup. Used for testing.
+func NewWithSetup(dataDir string) (Client, error) {
+	return setup(dataDir)
+}
+
 // setup initiates the boltdb client and makes sure the buckets we use are created.
-func setup(dataDir string) error {
+func setup(dataDir string) (*client, error) {
 	db, err := bolt.Open(filepath.Join(dataDir, dbName), dbMode, nil)
 	err = db.Update(func(tx *bolt.Tx) error {
 		for _, b := range buckets {
@@ -124,12 +130,11 @@ func setup(dataDir string) error {
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	dbClient = &client{
+	return &client{
 		db: db,
-	}
-	return nil
+	}, nil
 }
 
 // Close closes the boltdb connection.

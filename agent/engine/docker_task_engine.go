@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -126,8 +127,9 @@ type DockerTaskEngine struct {
 	stateChangeEvents chan statechange.Event
 	saver             statemanager.Saver
 
-	client    dockerapi.DockerClient
-	cniClient ecscni.CNIClient
+	client     dockerapi.DockerClient
+	dataClient data.Client
+	cniClient  ecscni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -175,9 +177,10 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
-		cfg:    cfg,
-		client: client,
-		saver:  statemanager.NewNoopStateManager(),
+		cfg:        cfg,
+		client:     client,
+		dataClient: data.NewNoopClient(),
+		saver:      statemanager.NewNoopStateManager(),
 
 		state:         state,
 		managedTasks:  make(map[string]*managedTask),
@@ -281,6 +284,11 @@ func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
 	engine.saver = saver
 }
 
+// SetDataClient sets the saver that is used by the DockerTaskEngine.
+func (engine *DockerTaskEngine) SetDataClient(client data.Client) {
+	engine.dataClient = client
+}
+
 // Shutdown makes a best-effort attempt to cleanup after the task engine.
 // This should not be relied on for anything more complicated than testing.
 func (engine *DockerTaskEngine) Shutdown() {
@@ -338,6 +346,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
 		task.InitializeResources(engine.resourceFields)
+		engine.saveTaskData(task)
 	}
 
 	for _, task := range tasksToStart {
@@ -362,6 +371,7 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 
 		for _, cont := range conts {
 			engine.synchronizeContainerStatus(cont, task)
+			engine.saveDockerContainerData(cont) // persist the container with the updated information.
 		}
 
 		tasksToStart = append(tasksToStart, task)
@@ -558,6 +568,9 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 				task.Arn, taskENI.ID)
 		}
 	}
+
+	// Remove task and container data from database.
+	engine.removeTaskData(task)
 
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)

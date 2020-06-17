@@ -100,7 +100,7 @@ const (
 	networkBridgeIP             = "bridgeIP"
 	networkModeBridge           = "bridge"
 	networkModeAWSVPC           = "awsvpc"
-	taskArn                     = "task1"
+	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
 )
 
 var (

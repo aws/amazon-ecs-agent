@@ -19,7 +19,11 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
@@ -137,6 +141,7 @@ func (event *sendableEvent) send(
 	client api.ECSClient,
 	eventToSubmit *list.Element,
 	stateSaver statemanager.Saver,
+	dataClient data.Client,
 	backoff retry.Backoff,
 	taskEvents *taskSendableEvents) error {
 
@@ -150,7 +155,7 @@ func (event *sendableEvent) send(
 	// submitted; ensure we don't retry it
 	event.setSent()
 	// Mark event as sent
-	setChangeSent(event)
+	setChangeSent(event, dataClient)
 	// Update the state file
 	stateSaver.Save()
 	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
@@ -175,35 +180,35 @@ func sendTaskStatusToECS(client api.ECSClient, event *sendableEvent) error {
 }
 
 // setStatusSent defines a function type to mark the event as sent
-type setStatusSent func(event *sendableEvent)
+type setStatusSent func(event *sendableEvent, dataClient data.Client)
 
 // setContainerChangeSent sets the event's container change object as sent
-func setContainerChangeSent(event *sendableEvent) {
+func setContainerChangeSent(event *sendableEvent, dataClient data.Client) {
 	containerChangeStatus := event.containerChange.Status
 	container := event.containerChange.Container
 	if container != nil && container.GetSentStatus() < containerChangeStatus {
-		container.SetSentStatus(containerChangeStatus)
+		updateContainerSentStatus(container, containerChangeStatus, dataClient)
 	}
 }
 
 // setTaskChangeSent sets the event's task change object as sent
-func setTaskChangeSent(event *sendableEvent) {
+func setTaskChangeSent(event *sendableEvent, dataClient data.Client) {
 	taskChangeStatus := event.taskChange.Status
 	task := event.taskChange.Task
 	if task != nil && task.GetSentStatus() < taskChangeStatus {
-		task.SetSentStatus(taskChangeStatus)
+		updataTaskSentStatus(task, taskChangeStatus, dataClient)
 	}
 	for _, containerStateChange := range event.taskChange.Containers {
 		container := containerStateChange.Container
 		containerChangeStatus := containerStateChange.Status
 		if container.GetSentStatus() < containerChangeStatus {
-			container.SetSentStatus(containerStateChange.Status)
+			updateContainerSentStatus(container, containerStateChange.Status, dataClient)
 		}
 	}
 }
 
 // setTaskAttachmentSent sets the event's task attachment object as sent
-func setTaskAttachmentSent(event *sendableEvent) {
+func setTaskAttachmentSent(event *sendableEvent, dataClient data.Client) {
 	if event.taskChange.Attachment != nil {
 		event.taskChange.Attachment.SetSentStatus()
 		event.taskChange.Attachment.StopAckTimer()
@@ -218,5 +223,21 @@ func (event *sendableEvent) toString() string {
 		return "ContainerChange: [" + event.containerChange.String() + fmt.Sprintf("] sent: %t", event.containerSent)
 	} else {
 		return "TaskChange: [" + event.taskChange.String() + fmt.Sprintf("] sent: %t", event.taskSent)
+	}
+}
+
+func updataTaskSentStatus(task *apitask.Task, status apitaskstatus.TaskStatus, dataClient data.Client) {
+	task.SetSentStatus(status)
+	err := dataClient.SaveTask(task)
+	if err != nil {
+		seelog.Errorf("Failed to update task sent status in database for task %s: %v", task.Arn, err)
+	}
+}
+
+func updateContainerSentStatus(container *apicontainer.Container, status apicontainerstatus.ContainerStatus, dataClient data.Client) {
+	container.SetSentStatus(status)
+	err := dataClient.SaveContainer(container)
+	if err != nil {
+		seelog.Errorf("Failed to update container sent status in databse for container %s: %v", container.Name, err)
 	}
 }
