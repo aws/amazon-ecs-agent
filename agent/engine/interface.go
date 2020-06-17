@@ -19,6 +19,7 @@ import (
 	"context"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
@@ -37,6 +38,8 @@ type TaskEngine interface {
 	// running or stopped, as well as providing portbinding and other metadata
 	StateChangeEvents() chan statechange.Event
 	SetSaver(statemanager.Saver)
+	// SetDataClient sets the data client that is used by the task engine.
+	SetDataClient(data.Client)
 
 	// AddTask adds a new task to the task engine and manages its container's
 	// lifecycle. If it returns an error, the task was not added.

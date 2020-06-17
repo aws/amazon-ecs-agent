@@ -26,25 +26,34 @@ import (
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	task := &apitask.Task{}
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	task := &apitask.Task{
+		Arn: testTaskARN,
+	}
+	require.NoError(t, dataClient.SaveTask(task))
 
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	taskEngine := &DockerTaskEngine{
-		state: mockState,
-		saver: mockSaver,
-		cfg:   &defaultConfig,
-		ctx:   ctx,
+		state:      mockState,
+		saver:      mockSaver,
+		dataClient: dataClient,
+		cfg:        &defaultConfig,
+		ctx:        ctx,
 	}
 
 	gomock.InOrder(
@@ -53,6 +62,9 @@ func TestDeleteTask(t *testing.T) {
 	)
 
 	taskEngine.deleteTask(task)
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 0)
 }
 
 func TestCredentialSpecResourceTaskFile(t *testing.T) {

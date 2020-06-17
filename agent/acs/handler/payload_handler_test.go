@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,21 +31,27 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	clusterName          = "default"
 	containerInstanceArn = "instance"
 	payloadMessageId     = "123"
+	testTaskARN          = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	testContainerName    = "test-name"
 )
 
 // testHelper wraps all the object required for the test
@@ -68,7 +76,7 @@ func setup(t *testing.T) *testHelper {
 	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, data.NewNoopClient(), nil, nil)
 	latestSeqNumberTaskManifest := int64(10)
 
 	handler := newPayloadRequestHandler(
@@ -79,6 +87,7 @@ func setup(t *testing.T) *testHelper {
 		containerInstanceArn,
 		mockWsClient,
 		stateManager,
+		data.NewNoopClient(),
 		refreshCredentialsHandler{},
 		credentialsManager,
 		taskHandler, &latestSeqNumberTaskManifest)
@@ -154,6 +163,76 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 	}
 
 	assert.Equal(t, addedTask, expectedTask, "added task is not expected")
+}
+
+func TestHandlePayloadMessageSaveData(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+	var ackRequested *ecsacs.AckRequest
+	tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+		ackRequested = ackRequest
+		tester.cancel()
+	}).Times(1)
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+	tester.payloadHandler.dataClient = dataClient
+
+	go tester.payloadHandler.start()
+	err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String(testTaskARN),
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	})
+	assert.NoError(t, err)
+
+	// Wait till we get an ack from the ackBuffer.
+	select {
+	case <-tester.ctx.Done():
+	}
+	// Verify the message id acked
+	assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message is not expected")
+
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+}
+
+func TestHandlePayloadMessageSaveDataError(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+	tester.payloadHandler.dataClient = dataClient
+
+	err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String("invalid"), // An invalid task arn should trigger error in saving task.
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	})
+	assert.Error(t, err)
+}
+
+func newTestDataClient(t *testing.T) (data.Client, func()) {
+	testDir, err := ioutil.TempDir("", "agent_acs_handler_unit_test")
+	require.NoError(t, err)
+
+	testClient, err := data.NewWithSetup(testDir)
+
+	cleanup := func() {
+		require.NoError(t, testClient.Close())
+		require.NoError(t, os.RemoveAll(testDir))
+	}
+	return testClient, cleanup
 }
 
 // TestHandlePayloadMessageAckedWhenTaskAdded tests if the handler generates an ack
@@ -894,7 +973,7 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	}
 
 	mockECSACSClient := mock_api.NewMockECSClient(tester.ctrl)
-	taskHandler := eventhandler.NewTaskHandler(tester.ctx, tester.payloadHandler.saver, nil, mockECSACSClient)
+	taskHandler := eventhandler.NewTaskHandler(tester.ctx, tester.payloadHandler.saver, data.NewNoopClient(), dockerstate.NewTaskEngineState(), mockECSACSClient)
 	tester.payloadHandler.taskHandler = taskHandler
 
 	wait := &sync.WaitGroup{}

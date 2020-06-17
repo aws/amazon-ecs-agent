@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -84,6 +85,7 @@ type session struct {
 	ecsClient                       api.ECSClient
 	state                           dockerstate.TaskEngineState
 	stateManager                    statemanager.StateManager
+	dataClient                      data.Client
 	credentialsManager              rolecredentials.Manager
 	taskHandler                     *eventhandler.TaskHandler
 	ctx                             context.Context
@@ -142,6 +144,7 @@ func NewSession(ctx context.Context,
 	ecsClient api.ECSClient,
 	taskEngineState dockerstate.TaskEngineState,
 	stateManager statemanager.StateManager,
+	dataClient data.Client,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
 	taskHandler *eventhandler.TaskHandler, latestSeqNumTaskManifest *int64) Session {
@@ -158,6 +161,7 @@ func NewSession(ctx context.Context,
 		ecsClient:                       ecsClient,
 		state:                           taskEngineState,
 		stateManager:                    stateManager,
+		dataClient:                      dataClient,
 		taskEngine:                      taskEngine,
 		credentialsManager:              credentialsManager,
 		taskHandler:                     taskHandler,
@@ -322,6 +326,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.stateManager,
+		acsSession.dataClient,
 		refreshCredsHandler,
 		acsSession.credentialsManager,
 		acsSession.taskHandler, acsSession.latestSeqNumTaskManifest)

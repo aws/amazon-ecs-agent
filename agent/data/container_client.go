@@ -25,7 +25,7 @@ import (
 
 // SaveDockerContainer saves a docker container to the container bucket.
 func (c *client) SaveDockerContainer(container *apicontainer.DockerContainer) error {
-	id, err := getContainerID(container.Container)
+	id, err := GetContainerID(container.Container)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
@@ -39,7 +39,7 @@ func (c *client) SaveDockerContainer(container *apicontainer.DockerContainer) er
 // apicontainer.DockerContainer exists, this updates the Container part of it; otherwise, a new
 // apicontainer.DockerContainer is created and saved.
 func (c *client) SaveContainer(container *apicontainer.Container) error {
-	id, err := getContainerID(container)
+	id, err := GetContainerID(container)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
@@ -88,8 +88,8 @@ func (c *client) GetContainers() ([]*apicontainer.DockerContainer, error) {
 	return containers, err
 }
 
-// getContainerID returns a unique ID for a container to use as key when saving to DB.
-func getContainerID(c *apicontainer.Container) (string, error) {
+// GetContainerID returns a unique ID for a container to use as key when saving to DB.
+func GetContainerID(c *apicontainer.Container) (string, error) {
 	taskID, err := utils.GetTaskID(c.TaskARN)
 	if err != nil {
 		return "", err

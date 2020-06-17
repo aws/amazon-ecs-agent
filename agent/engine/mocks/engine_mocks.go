@@ -24,6 +24,7 @@ import (
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
+	data "github.com/aws/amazon-ecs-agent/agent/data"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -146,6 +147,18 @@ func (m *MockTaskEngine) MustInit(arg0 context.Context) {
 func (mr *MockTaskEngineMockRecorder) MustInit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustInit", reflect.TypeOf((*MockTaskEngine)(nil).MustInit), arg0)
+}
+
+// SetDataClient mocks base method
+func (m *MockTaskEngine) SetDataClient(arg0 data.Client) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetDataClient", arg0)
+}
+
+// SetDataClient indicates an expected call of SetDataClient
+func (mr *MockTaskEngineMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockTaskEngine)(nil).SetDataClient), arg0)
 }
 
 // SetSaver mocks base method

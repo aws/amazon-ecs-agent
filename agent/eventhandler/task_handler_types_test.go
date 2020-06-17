@@ -17,6 +17,8 @@ package eventhandler
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -26,7 +28,15 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	testConainerName = "test-name"
+	testTaskARN      = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 )
 
 func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
@@ -241,8 +251,17 @@ func TestShouldTaskAttachmentEventBeSent(t *testing.T) {
 }
 
 func TestSetTaskSentStatus(t *testing.T) {
-	testContainer := &apicontainer.Container{}
-	testTask := &apitask.Task{}
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	testContainer := &apicontainer.Container{
+		Name:    testConainerName,
+		TaskARN: testTaskARN,
+	}
+	testTask := &apitask.Task{
+		Arn:        testTaskARN,
+		Containers: []*apicontainer.Container{testContainer},
+	}
 
 	taskRunningStateChange := newSendableTaskEvent(api.TaskStateChange{
 		Status: apitaskstatus.TaskRunning,
@@ -265,16 +284,30 @@ func TestSetTaskSentStatus(t *testing.T) {
 		},
 	})
 
-	setTaskChangeSent(taskStoppedStateChange)
+	setTaskChangeSent(taskStoppedStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
-	setTaskChangeSent(taskRunningStateChange)
+	setTaskChangeSent(taskRunningStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	assert.Len(t, containers, 1)
 }
 
 func TestSetContainerSentStatus(t *testing.T) {
-	testContainer := &apicontainer.Container{}
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	testContainer := &apicontainer.Container{
+		Name:    testConainerName,
+		TaskARN: testTaskARN,
+	}
 
 	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{
 		Status:    apicontainerstatus.ContainerRunning,
@@ -285,8 +318,25 @@ func TestSetContainerSentStatus(t *testing.T) {
 		Container: testContainer,
 	})
 
-	setContainerChangeSent(containerStoppedStateChange)
+	setContainerChangeSent(containerStoppedStateChange, dataClient)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
-	setContainerChangeSent(containerRunningStateChange)
+	setContainerChangeSent(containerRunningStateChange, dataClient)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	assert.Len(t, containers, 1)
+}
+
+func newTestDataClient(t *testing.T) (data.Client, func()) {
+	testDir, err := ioutil.TempDir("", "agent_eventhandler_unit_test")
+	require.NoError(t, err)
+
+	testClient, err := data.NewWithSetup(testDir)
+
+	cleanup := func() {
+		require.NoError(t, testClient.Close())
+		require.NoError(t, os.RemoveAll(testDir))
+	}
+	return testClient, cleanup
 }

@@ -23,6 +23,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -77,7 +78,9 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 					ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
-				engine: &DockerTaskEngine{},
+				engine: &DockerTaskEngine{
+					dataClient: data.NewNoopClient(),
+				},
 			}
 			mtask.AddResource("cgroup", res)
 			mtask.engine.SetSaver(mockSaver)

@@ -88,3 +88,17 @@ func TestSaveContainerInvalidID(t *testing.T) {
 	assert.Error(t, testClient.SaveDockerContainer(testDockerContainer))
 	assert.Error(t, testClient.SaveContainer(testDockerContainer.Container))
 }
+
+func TestGetContainerID(t *testing.T) {
+	c := &apicontainer.Container{
+		TaskARN: testTaskArn,
+		Name:    testContainerName,
+	}
+	id, err := GetContainerID(c)
+	require.NoError(t, err)
+	assert.Equal(t, "abc-test-name", id)
+
+	c.TaskARN = "invalid"
+	_, err = GetContainerID(c)
+	assert.Error(t, err)
+}

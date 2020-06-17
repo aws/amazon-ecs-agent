@@ -31,6 +31,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
@@ -55,7 +56,6 @@ import (
 const (
 	cgroupMountPath = "/sys/fs/cgroup"
 
-	testTaskARN        = "arn:aws:ecs:region:account-id:task/task-id"
 	testTaskDefFamily  = "testFamily"
 	testTaskDefVersion = "1"
 )
@@ -144,9 +144,13 @@ func TestDeleteTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
 	task := &apitask.Task{
+		Arn: testTaskARN,
 		ENIs: []*apieni.ENI{
 			{
 				MacAddress: mac,
@@ -155,15 +159,18 @@ func TestDeleteTask(t *testing.T) {
 	}
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	task.AddResource("cgroup", cgroupResource)
+	require.NoError(t, dataClient.SaveTask(task))
+
 	cfg := defaultConfig
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 
 	taskEngine := &DockerTaskEngine{
-		state: mockState,
-		saver: mockSaver,
-		cfg:   &cfg,
+		state:      mockState,
+		saver:      mockSaver,
+		dataClient: dataClient,
+		cfg:        &cfg,
 	}
 
 	gomock.InOrder(
@@ -174,6 +181,9 @@ func TestDeleteTask(t *testing.T) {
 	)
 
 	taskEngine.deleteTask(task)
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 0)
 }
 
 func TestDeleteTaskBranchENIEnabled(t *testing.T) {
@@ -183,6 +193,7 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupResource := cgroup.NewCgroupResource("", mockControl, nil, "cgroupRoot", "", specs.LinuxResources{})
 	task := &apitask.Task{
+		Arn: testTaskARN,
 		ENIs: []*apieni.ENI{
 			{
 				MacAddress:                   mac,
@@ -198,9 +209,10 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 
 	taskEngine := &DockerTaskEngine{
-		state: mockState,
-		saver: mockSaver,
-		cfg:   &cfg,
+		state:      mockState,
+		saver:      mockSaver,
+		cfg:        &cfg,
+		dataClient: data.NewNoopClient(),
 	}
 
 	gomock.InOrder(
