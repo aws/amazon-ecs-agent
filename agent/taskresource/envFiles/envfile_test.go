@@ -313,7 +313,8 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	envfileResource := newMockEnvfileResource(envfiles, nil, nil, mockIOUtil)
 	envfileResource.bufio = mockBufio
 
-	envfileContent := "key=value"
+	envfileContentLine1 := "key1=value"
+	envFileContentLine2 := "key2=val1=val2"
 
 	tempOpen := open
 	open = func(name string) (oswrapper.File, error) {
@@ -325,7 +326,9 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 	gomock.InOrder(
 		mockBufio.EXPECT().NewScanner(mockFile).Return(mockScanner),
 		mockScanner.EXPECT().Scan().Return(true),
-		mockScanner.EXPECT().Text().Return(envfileContent),
+		mockScanner.EXPECT().Text().Return(envfileContentLine1),
+		mockScanner.EXPECT().Scan().Return(true),
+		mockScanner.EXPECT().Text().Return(envFileContentLine2),
 		mockScanner.EXPECT().Scan().Return(false),
 		mockScanner.EXPECT().Err().Return(nil),
 	)
@@ -334,7 +337,8 @@ func TestReadEnvVarsFromEnvfiles(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(envVarsList))
-	assert.Equal(t, "value", envVarsList[0]["key"])
+	assert.Equal(t, "value", envVarsList[0]["key1"])
+	assert.Equal(t, "val1=val2", envVarsList[0]["key2"])
 }
 
 func TestReadEnvVarsCommentFromEnvfiles(t *testing.T) {

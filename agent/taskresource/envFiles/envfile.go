@@ -559,7 +559,7 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 		}
 		// only read the line that has "="
 		if strings.Contains(line, envVariableDelimiter) {
-			variables := strings.Split(line, "=")
+			variables := strings.SplitN(line, envVariableDelimiter, 2)
 			// verify that there is at least a character on each side
 			if len(variables[0]) > 0 && len(variables[1]) > 0 {
 				envVars[variables[0]] = variables[1]
