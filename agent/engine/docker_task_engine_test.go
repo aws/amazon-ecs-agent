@@ -136,7 +136,7 @@ var (
 
 func init() {
 	defaultConfig = config.DefaultConfig()
-	defaultConfig.TaskCPUMemLimit = config.ExplicitlyDisabled
+	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
 func getCreatedContainerName() string {
@@ -212,7 +212,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
-			metadataConfig.TaskCPUMemLimit = tc.taskCPULimit
+			metadataConfig.TaskCPUMemLimit.Value = tc.taskCPULimit
 			metadataConfig.ContainerMetadataEnabled = true
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
@@ -1399,7 +1399,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	defer cancel()
 
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
 
 	delayedChan := make(chan time.Duration, 1)

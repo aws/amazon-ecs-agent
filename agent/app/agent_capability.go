@@ -275,13 +275,13 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Att
 	if agent.cfg.TaskCPUMemLimit.Enabled() {
 		if _, ok := supportedVersions[dockerclient.Version_1_22]; ok {
 			capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTaskCPUMemLimit)
-		} else if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
+		} else if agent.cfg.TaskCPUMemLimit.Value == config.ExplicitlyEnabled {
 			// explicitly enabled -- return an error because we cannot fulfil an explicit request
 			return nil, errors.New("engine: Task CPU + Mem limit cannot be enabled due to unsupported Docker version")
 		} else {
 			// implicitly enabled -- don't register the capability, but degrade gracefully
 			seelog.Warn("Task CPU + Mem Limit disabled due to unsupported Docker version. API version 1.22 or greater is required.")
-			agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+			agent.cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 		}
 	}
 	return capabilities, nil

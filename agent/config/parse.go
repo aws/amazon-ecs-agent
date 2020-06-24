@@ -201,17 +201,17 @@ func parseAdditionalLocalRoutes(errs []error) ([]cnitypes.IPNet, []error) {
 	return additionalLocalRoutes, errs
 }
 
-func parseTaskCPUMemLimitEnabled() Conditional {
-	var taskCPUMemLimitEnabled Conditional
+func parseTaskCPUMemLimitEnabled() BooleanDefaultTrue {
+	taskCPUMemLimitEnabled := BooleanDefaultTrue{Value: NotSet}
 	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
 
 	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
 	// We can do this by checking against the ParseBool default
 	if taskCPUMemLimitConfigString != "" {
 		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
-			taskCPUMemLimitEnabled = ExplicitlyEnabled
+			taskCPUMemLimitEnabled.Value = ExplicitlyEnabled
 		} else {
-			taskCPUMemLimitEnabled = ExplicitlyDisabled
+			taskCPUMemLimitEnabled.Value = ExplicitlyDisabled
 		}
 	}
 	return taskCPUMemLimitEnabled

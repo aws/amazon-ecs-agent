@@ -143,7 +143,7 @@ type Config struct {
 	DeleteNonECSImagesEnabled bool
 
 	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
-	TaskCPUMemLimit Conditional
+	TaskCPUMemLimit BooleanDefaultTrue
 
 	// CredentialsAuditLogFile specifies the path/filename of the audit log.
 	CredentialsAuditLogFile string

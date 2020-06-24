@@ -71,7 +71,7 @@ func DefaultConfig() Config {
 		PauseContainerTag:                   DefaultPauseContainerTag,
 		AWSVPCBlockInstanceMetdata:          false,
 		ContainerMetadataEnabled:            false,
-		TaskCPUMemLimit:                     DefaultEnabled,
+		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: NotSet},
 		CgroupPath:                          defaultCgroupPath,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
