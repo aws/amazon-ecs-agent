@@ -50,7 +50,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
-	assert.Equal(t, DefaultEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be DefaultEnabled")
+	assert.Equal(t, NotSet, cfg.TaskCPUMemLimit.Value, "TaskCPUMemLimit should be NotSet")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, defaultCredentialsAuditLogFile, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
 	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
@@ -121,7 +121,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedLocalRoute.IP, cfg.AWSVPCAdditionalLocalRoutes[0].IP, "should match expected route IP")
 	assert.Equal(t, expectedLocalRoute.Mask, cfg.AWSVPCAdditionalLocalRoutes[0].Mask, "should match expected route Mask")
-	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be explicitly enabled")
+	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit.Value, "TaskCPUMemLimit should be explicitly enabled")
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge

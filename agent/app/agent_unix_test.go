@@ -596,7 +596,7 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	mockControl.EXPECT().Init().Return(errors.New("test error"))
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines

@@ -259,7 +259,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -1421,6 +1421,6 @@ func TestSpotInstanceActionCheck_NoInstanceActionYet(t *testing.T) {
 
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
 }

@@ -588,7 +588,7 @@ func TestTaskResourceLimitsOverride(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.False(t, cfg.TaskCPUMemLimit.Enabled(), "Task cpu and memory limits should be overridden to false")
-	assert.Equal(t, ExplicitlyDisabled, cfg.TaskCPUMemLimit, "Task cpu and memory limits should be explicitly set")
+	assert.Equal(t, ExplicitlyDisabled, cfg.TaskCPUMemLimit.Value, "Task cpu and memory limits should be explicitly set")
 }
 
 func TestAWSVPCBlockInstanceMetadata(t *testing.T) {

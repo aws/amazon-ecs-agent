@@ -96,7 +96,7 @@ func DefaultConfig() Config {
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
 		ContainerMetadataEnabled:            false,
-		TaskCPUMemLimit:                     ExplicitlyDisabled,
+		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PlatformVariables:                   platformVariables,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
@@ -118,7 +118,7 @@ func (cfg *Config) platformOverrides() {
 	}
 
 	// ensure TaskResourceLimit is disabled
-	cfg.TaskCPUMemLimit = ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = ExplicitlyDisabled
 
 	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
 	memoryUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND"), false)

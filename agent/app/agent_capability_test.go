@@ -486,7 +486,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
@@ -529,7 +529,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.DefaultEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.NotSet}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
@@ -572,7 +572,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
