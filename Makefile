@@ -22,19 +22,19 @@ dev:
 generate:
 	PATH=$(PATH):$(shell pwd)/scripts go generate -v ./...
 
-lint:
-	./scripts/lint.sh
-
 static:
 	./scripts/gobuild.sh
 
 govet:
 	go vet ./...
 
-gotest:
-	go test -count=1 -short -v -cover ./...
+test:
+	go test -count=1 -short -v -coverprofile cover.out ./...
+	go tool cover -func cover.out > coverprofile.out
 
-test: generate lint govet gotest
+.PHONY: analyze-cover-profile
+analyze-cover-profile: coverprofile.out
+	./scripts/analyze-cover-profile
 
 # all .go files in the ecs-init
 GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./ecs-init/...)
@@ -109,12 +109,10 @@ ubuntu-trusty:
 	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
 
 get-deps:
-	go get golang.org/x/lint/golint
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/fzipp/gocyclo
 	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo
 	go get github.com/golang/mock/mockgen
 	go get honnef.co/go/tools/cmd/staticcheck
 
@@ -134,3 +132,5 @@ clean:
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
 	-rm -f .srpm-done .rpm-done
+	-rm -f cover.out
+	-rm -f coverprofile.out

@@ -1,12 +1,14 @@
 language: go
+go_import_path: github.com/aws/amazon-ecs-init
 sudo: false
 go:
-    - 1.12
-before_install: ./scripts/hack/symlink-gopath-travisci
-install:
-    - go get golang.org/x/tools/cover
-    - go get golang.org/x/tools/cmd/cover
-script:
-    - make get-deps
-    - make gotest
-    - make static-check
+  - 1.12
+
+matrix:
+  include:
+    - os: linux
+      script:
+        - make get-deps
+        - make static-check
+        - make test
+        - make analyze-cover-profile

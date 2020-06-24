@@ -14,4 +14,4 @@
 set -x
 make get-deps
 make govet
-make gotest
+make test
