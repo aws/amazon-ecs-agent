@@ -85,7 +85,7 @@ func main() {
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.Contains(line, "%changelog") {
-				amazonLinuxSpecBase += "%changelog"
+				amazonLinuxSpecBase += "%changelog\n"
 				break
 			}
 			amazonLinuxSpecBase += fmt.Sprintln(line)
