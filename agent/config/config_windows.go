@@ -57,6 +57,8 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
+	DefaultPauseContainerImageName = "amazonaws.com/ecs/pause-windows"
+	DefaultPauseContainerTag = "latest"
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    false,
 		MemoryUnbounded: false,
@@ -104,6 +106,8 @@ func DefaultConfig() Config {
 		PollMetrics:                         false,
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
+		PauseContainerImageName:             DefaultPauseContainerImageName,
+		PauseContainerTag:                   DefaultPauseContainerTag,
 	}
 }
 

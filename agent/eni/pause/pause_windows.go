@@ -1,4 +1,4 @@
-// +build !linux, !windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,7 +17,6 @@ package pause
 
 import (
 	"context"
-	"runtime"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -25,15 +24,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LoadImage returns UnsupportedPlatformError on the unsupported platform
 func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, NewUnsupportedPlatformError(errors.Errorf(
-		"pause container load: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return nil, errors.New("This functionality is not supported on this platform.")
 }
 
 func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return false, NewUnsupportedPlatformError(errors.Errorf(
-		"pause container isloaded: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return isImageLoaded(dockerClient)
 }

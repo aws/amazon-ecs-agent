@@ -154,7 +154,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 	agentCtx, cancel := context.WithCancel(ctx)
 	indicator := newTermHandlerIndicator()
 
-	terminationHandler := func(saver statemanager.Saver, taskEngine engine.TaskEngine) {
+	terminationHandler := func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
 		// We're using a custom indicator to record that the handler is scheduled to be executed (has been invoked) and
 		// to determine whether it should run (we skip when the agent engine has already exited).  After recording to
 		// the indicator that the handler has been invoked, we wait on the context.  When we wake up, we determine
@@ -279,5 +279,9 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 }
 
 func (agent *ecsAgent) loadPauseContainer() error {
-	return nil
+	//The pause image would be cached in th ECS-Optimized Windows AMI's and will be available. We will throw an error if the image is not loaded.
+	//If the agent is run on non-supported instances then pause image has to be loaded manually by the client.
+	_, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
+
+	return err
 }
