@@ -1580,7 +1580,7 @@ func TestGetIDErrorPaths(t *testing.T) {
 		{"", "EmptyString"},
 		{"invalidArn", "InvalidARN"},
 		{"arn:aws:ecs:region:account-id:task:task-id", "IncorrectSections"},
-		{"arn:aws:ecs:region:account-id:task", "IncorrectResouceSections"},
+		{"arn:aws:ecs:region:account-id:task", "IncorrectResourceSections"},
 	}
 
 	task := Task{}
@@ -1597,12 +1597,21 @@ func TestGetIDErrorPaths(t *testing.T) {
 
 // TestGetIDHappyPath validates the happy path of GetID
 func TestGetIDHappyPath(t *testing.T) {
-	task := Task{
+	taskNormalARN := Task{
 		Arn: "arn:aws:ecs:region:account-id:task/task-id",
 	}
-	taskID, err := task.GetID()
+	taskLongARN := Task{
+		Arn: "arn:aws:ecs:region:account-id:task/cluster-name/task-id",
+	}
+
+	taskID, err := taskNormalARN.GetID()
 	assert.NoError(t, err)
 	assert.Equal(t, "task-id", taskID)
+
+	taskID, err = taskLongARN.GetID()
+	assert.NoError(t, err)
+	assert.Equal(t, "task-id", taskID)
+
 }
 
 // TestTaskGetPrimaryENI tests the eni can be correctly acquired by calling GetTaskPrimaryENI

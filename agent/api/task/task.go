@@ -1074,9 +1074,10 @@ func (task *Task) collectFirelensLogEnvOptions(containerToLogOptions map[string]
 // container's host config.
 func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
 	config *config.Config) *apierrors.HostConfigError {
-	// TODO: fix task.GetID(). It's currently incorrect when opted in task long arn format.
-	fields := strings.Split(task.Arn, "/")
-	taskID := fields[len(fields)-1]
+	taskID, err := task.GetID()
+	if err != nil {
+		return &apierrors.HostConfigError{Msg: err.Error()}
+	}
 
 	var configBind, s3ConfigBind, socketBind string
 	switch firelensConfig.Type {
@@ -2224,14 +2225,8 @@ func (task *Task) GetID() (string, error) {
 		return "", errors.Errorf("task get-id: malformed task resource: %s", resource)
 	}
 
-	resourceSplit := strings.SplitN(resource, arnResourceDelimiter, arnResourceSections)
-	if len(resourceSplit) != arnResourceSections {
-		return "", errors.Errorf(
-			"task get-id: invalid task resource split: %s, expected=%d, actual=%d",
-			resource, arnResourceSections, len(resourceSplit))
-	}
-
-	return resourceSplit[1], nil
+	resourceSplit := strings.Split(resource, arnResourceDelimiter)
+	return resourceSplit[len(resourceSplit)-1], nil
 }
 
 // RecordExecutionStoppedAt checks if this is an essential container stopped
