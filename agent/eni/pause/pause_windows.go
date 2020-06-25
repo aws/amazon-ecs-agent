@@ -24,10 +24,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// In Linux, we use a tar archive to load the pause image. Whereas in Windows, we will cache the image during AMI build.
+// Therefore, this functionality is not supported in Windows.
 func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, errors.New("This functionality is not supported on this platform.")
+	return nil, errors.New("this functionality is not supported on this platform.")
 }
 
+// This method is used to inspect the presence of the pause image. If the image has not been loaded then we return false.
 func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
 	return isImageLoaded(dockerClient)
 }
