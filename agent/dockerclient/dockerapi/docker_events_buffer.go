@@ -42,7 +42,6 @@ type InfiniteBuffer struct {
 	events       []*events.Message
 	empty        bool
 	waitForEvent sync.WaitGroup
-	count        int
 	lock         sync.RWMutex
 }
 

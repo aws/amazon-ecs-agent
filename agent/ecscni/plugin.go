@@ -90,11 +90,6 @@ func (client *cniClient) SetupNS(
 	timeout time.Duration) (*current.Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
-	type output struct {
-		result *current.Result
-		err    error
-	}
 	return client.setupNS(ctx, cfg)
 }
 

@@ -19,24 +19,22 @@ import (
 	"fmt"
 	"testing"
 
-	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
 
-func writeSetup(t *testing.T) (*mock_ioutilwrapper.MockIOUtil, *mock_oswrapper.MockOS, *mock_oswrapper.MockFile, func()) {
+func writeSetup(t *testing.T) (oswrapper.File, func()) {
 	ctrl := gomock.NewController(t)
-	mockIOUtil := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
-	return mockIOUtil, mockOS, mockFile, ctrl.Finish
+	mockFile := mock_oswrapper.NewMockFile()
+	return mockFile, ctrl.Finish
 }
 
 // TestWriteInvalidARN checks case where task ARN passed in is invalid
 func TestWriteInvalidARN(t *testing.T) {
-	_, _, _, done := writeSetup(t)
+	_, done := writeSetup(t)
 	defer done()
 
 	mockData := []byte("")
@@ -45,6 +43,6 @@ func TestWriteInvalidARN(t *testing.T) {
 	mockDataDir := dataDir
 	expectErrorMessage := fmt.Sprintf("write to metadata file for task %s container %s: get metdata file path of task %s container %s: get task ARN: invalid TaskARN %s", mockTaskARN, mockContainerName, mockTaskARN, mockContainerName, mockTaskARN)
 
-	err := writeToMetadataFile(nil, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 	assert.Equal(t, expectErrorMessage, err.Error())
 }

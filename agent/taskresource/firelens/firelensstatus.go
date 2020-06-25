@@ -67,8 +67,8 @@ func (as *FirelensStatus) UnmarshalJSON(b []byte) error {
 		return errors.New("resource status unmarshal: status must be a string or null; Got " + string(b))
 	}
 
-	strStatus := string(b[1 : len(b)-1])
-	stat, ok := firelensStatusMap[strStatus]
+	strStatus := b[1 : len(b)-1]
+	stat, ok := firelensStatusMap[string(strStatus)]
 	if !ok {
 		*as = FirelensStatusNone
 		return errors.New("resource status unmarshal: unrecognized status")

@@ -14,6 +14,7 @@
 package tcshandler
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"strings"
@@ -85,6 +86,7 @@ func StartSession(params *TelemetrySessionParams, statsEngine stats.Engine) erro
 		}
 		select {
 		case <-params.Ctx.Done():
+			seelog.Info("TCS session exited cleanly.")
 			return nil
 		default:
 		}
@@ -98,12 +100,14 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 		return err
 	}
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
-	return startSession(url, params.Cfg, params.CredentialProvider, statsEngine,
+	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
 		params.DeregisterInstanceEventStream)
 }
 
-func startSession(url string,
+func startSession(
+	ctx context.Context,
+	url string,
 	cfg *config.Config,
 	credentialProvider *credentials.Credentials,
 	statsEngine stats.Engine,
@@ -129,18 +133,27 @@ func startSession(url string,
 	// start a timer and listens for tcs heartbeats/acks. The timer is reset when
 	// we receive a heartbeat from the server or when a publish metrics message
 	// is acked.
-	timer := time.AfterFunc(retry.AddJitter(heartbeatTimeout, heartbeatJitter), func() {
-		// Close the connection if there haven't been any messages received from backend
-		// for a long time.
-		seelog.Info("TCS Connection hasn't had any activity for too long; disconnecting")
-		client.Disconnect()
-	})
+	timer := time.NewTimer(retry.AddJitter(heartbeatTimeout, heartbeatJitter))
 	defer timer.Stop()
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
-	return client.Serve()
+	serveC := make(chan error)
+	go func() {
+		serveC <- client.Serve()
+	}()
+	select {
+	case <-ctx.Done():
+		// outer context done, agent is exiting
+		client.Disconnect()
+	case <-timer.C:
+		seelog.Info("TCS Connection hasn't had any activity for too long; disconnecting")
+		client.Disconnect()
+	case err := <-serveC:
+		return err
+	}
+	return nil
 }
 
 // heartbeatHandler resets the heartbeat timer when HeartbeatMessage message is received from tcs.

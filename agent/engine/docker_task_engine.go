@@ -233,10 +233,8 @@ func (engine *DockerTaskEngine) MarshalJSON() ([]byte, error) {
 // and operate normally.
 // This function must be called before any other function, except serializing and deserializing, can succeed without error.
 func (engine *DockerTaskEngine) Init(ctx context.Context) error {
-	// TODO, pass in a a context from main from background so that other things can stop us, not just the tests
 	derivedCtx, cancel := context.WithCancel(ctx)
 	engine.stopEngine = cancel
-
 	engine.ctx = derivedCtx
 
 	// Open the event stream before we sync state so that e.g. if a container
@@ -659,8 +657,7 @@ func (engine *DockerTaskEngine) handleDockerEvent(event dockerapi.DockerContaine
 
 	engine.tasksLock.RLock()
 	managedTask, ok := engine.managedTasks[task.Arn]
-	// hold the lock until the message is sent so we don't send on a closed channel
-	defer engine.tasksLock.RUnlock()
+	engine.tasksLock.RUnlock()
 	if !ok {
 		seelog.Criticalf("Task engine: could not find managed task [%s] corresponding to a docker event: %s",
 			task.Arn, event.String())
@@ -912,7 +909,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	if versionErr != nil {
 		return dockerapi.DockerContainerMetadata{Error: CannotGetDockerClientVersionError{versionErr}}
 	}
-	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion)
+	hostConfig, hcerr := task.DockerHostConfig(container, containerMap, dockerClientVersion, engine.cfg)
 	if hcerr != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(hcerr)}
 	}

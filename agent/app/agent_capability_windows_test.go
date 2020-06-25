@@ -16,19 +16,18 @@
 package app
 
 import (
-	"testing"
-
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
-
 	"context"
+	"testing"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
+	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
@@ -73,15 +72,17 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 	)
 
 	expectedCapabilityNames := []string{
-		"com.amazonaws.ecs.capability.privileged-container",
-		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
-		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
-		"com.amazonaws.ecs.capability.logging-driver.json-file",
-		"com.amazonaws.ecs.capability.logging-driver.syslog",
-		"com.amazonaws.ecs.capability.logging-driver.journald",
-		"com.amazonaws.ecs.capability.selinux",
-		"com.amazonaws.ecs.capability.apparmor",
+		capabilityPrefix + "privileged-container",
+		capabilityPrefix + "docker-remote-api.1.17",
+		capabilityPrefix + "docker-remote-api.1.18",
+		capabilityPrefix + "logging-driver.json-file",
+		capabilityPrefix + "logging-driver.syslog",
+		capabilityPrefix + "logging-driver.journald",
+		capabilityPrefix + "selinux",
+		capabilityPrefix + "apparmor",
+		attributePrefix + "docker-plugin.local",
 		attributePrefix + taskENIAttributeSuffix,
+		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -94,12 +95,6 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
-			},
-			{
-				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
-			},
-			{
-				Name: aws.String("ecs.capability.docker-plugin.local"),
 			},
 		}...)
 
@@ -116,10 +111,14 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
-	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+
+	for _, expected := range expectedCapabilities {
+		assert.Contains(t, capabilities, &ecs.Attribute{
+			Name:  expected.Name,
+			Value: expected.Value,
+		})
 	}
+
 }
 
 // Test the list of capabilities supported in windows
@@ -161,16 +160,26 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	)
 
 	expectedCapabilityNames := []string{
-		"com.amazonaws.ecs.capability.privileged-container",
-		"com.amazonaws.ecs.capability.docker-remote-api.1.17",
-		"com.amazonaws.ecs.capability.docker-remote-api.1.18",
-		"com.amazonaws.ecs.capability.logging-driver.json-file",
-		"com.amazonaws.ecs.capability.logging-driver.syslog",
-		"com.amazonaws.ecs.capability.logging-driver.journald",
-		"com.amazonaws.ecs.capability.selinux",
-		"com.amazonaws.ecs.capability.apparmor",
+		capabilityPrefix + "privileged-container",
+		capabilityPrefix + "docker-remote-api.1.17",
+		capabilityPrefix + "docker-remote-api.1.18",
+		capabilityPrefix + "logging-driver.json-file",
+		capabilityPrefix + "logging-driver.syslog",
+		capabilityPrefix + "logging-driver.journald",
+		capabilityPrefix + "selinux",
+		capabilityPrefix + "apparmor",
+		attributePrefix + "docker-plugin.local",
 		attributePrefix + taskENIAttributeSuffix,
-	}
+		attributePrefix + capabilityPrivateRegistryAuthASM,
+		attributePrefix + capabilitySecretEnvSSM,
+		attributePrefix + capabilitySecretLogDriverSSM,
+		attributePrefix + capabilityECREndpoint,
+		attributePrefix + capabilitySecretEnvASM,
+		attributePrefix + capabilitySecretLogDriverASM,
+		attributePrefix + capabilityContainerOrdering,
+		attributePrefix + capabilityFullTaskSync,
+		attributePrefix + capabilityEnvFilesS3,
+		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix}
 
 	var expectedCapabilities []*ecs.Attribute
 	for _, name := range expectedCapabilityNames {
@@ -182,39 +191,6 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			{
 				Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
 				Value: aws.String("v1"),
-			},
-			{
-				Name: aws.String(attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix),
-			},
-			{
-				Name: aws.String("ecs.capability.docker-plugin.local"),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilityPrivateRegistryAuthASM),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilitySecretEnvSSM),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilitySecretLogDriverSSM),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilityECREndpoint),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilitySecretEnvASM),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilitySecretLogDriverASM),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilityContainerOrdering),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilityFullTaskSync),
-			},
-			{
-				Name: aws.String(attributePrefix + capabilityEnvFilesS3),
 			},
 		}...)
 
@@ -231,10 +207,13 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 	}
 	capabilities, err := agent.capabilities()
 	assert.NoError(t, err)
+
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
-	for i, expected := range expectedCapabilities {
-		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
-		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	for _, expected := range expectedCapabilities {
+		assert.Contains(t, capabilities, &ecs.Attribute{
+			Name:  expected.Name,
+			Value: expected.Value,
+		})
 	}
 }
 

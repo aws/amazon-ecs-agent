@@ -154,7 +154,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 	agentCtx, cancel := context.WithCancel(ctx)
 	indicator := newTermHandlerIndicator()
 
-	terminationHandler := func(saver statemanager.Saver, taskEngine engine.TaskEngine) {
+	terminationHandler := func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
 		// We're using a custom indicator to record that the handler is scheduled to be executed (has been invoked) and
 		// to determine whether it should run (we skip when the agent engine has already exited).  After recording to
 		// the indicator that the handler has been invoked, we wait on the context.  When we wake up, we determine

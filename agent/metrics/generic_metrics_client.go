@@ -115,12 +115,6 @@ func (gm *GenericMetrics) FireCallEnd(callHash, callName string, timestamp time.
 	}
 }
 
-// Simple Timeout function
-func startTimeout(timeout chan bool) {
-	time.Sleep(callTimeout)
-	timeout <- true
-}
-
 // This function increments the call count for a specific API call
 // This is invoked at the API call's start, whereas the duration metrics
 // are updated at the API call's end.

@@ -18,14 +18,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/acs/update_handler/os"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
@@ -51,7 +52,6 @@ type updater struct {
 	// new update request, even with a different message id, is a duplicate or
 	// not
 	updateID   string
-	fs         os.FileSystem
 	acs        wsclient.ClientServer
 	config     *config.Config
 	httpclient *http.Client
@@ -77,7 +77,6 @@ func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver 
 	singleUpdater := &updater{
 		acs:        cs,
 		config:     cfg,
-		fs:         os.Default,
 		httpclient: httpclient.New(updateDownloadTimeout, false),
 	}
 	cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
@@ -162,6 +161,14 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 	}
 }
 
+var removeFile = os.Remove
+
+var writeFile = ioutil.WriteFile
+
+var createFile = func(name string) (io.ReadWriteCloser, error) {
+	return os.Create(name)
+}
+
 func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 	if info == nil || info.Location == nil {
 		return errors.New("No location given")
@@ -179,14 +186,14 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 
 	outFileBasename := utils.RandHex() + ".ecs-update.tar"
 	outFilePath := filepath.Join(u.config.UpdateDownloadDir, outFileBasename)
-	outFile, err := u.fs.Create(outFilePath)
+	outFile, err := createFile(outFilePath)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		outFile.Close()
 		if err != nil {
-			u.fs.Remove(outFilePath)
+			removeFile(outFilePath)
 		}
 	}()
 
@@ -203,9 +210,11 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 		return errors.New("Hashsum validation failed")
 	}
 
-	err = u.fs.WriteFile(filepath.Join(u.config.UpdateDownloadDir, desiredImageFile), []byte(outFileBasename+"\n"), 0644)
+	err = writeFile(filepath.Join(u.config.UpdateDownloadDir, desiredImageFile), []byte(outFileBasename+"\n"), 0644)
 	return err
 }
+
+var exit = os.Exit
 
 func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) func(req *ecsacs.PerformUpdateMessage) {
 	return func(req *ecsacs.PerformUpdateMessage) {
@@ -249,7 +258,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 		} else {
 			seelog.Debug("Saved state!")
 		}
-		u.fs.Exit(exitcodes.ExitUpdate)
+		exit(exitcodes.ExitUpdate)
 	}
 }
 

@@ -64,7 +64,6 @@ type EnvironmentFileResource struct {
 	executionCredentialsID string
 	credentialsManager     credentials.Manager
 	s3ClientCreator        factory.S3ClientCreator
-	os                     oswrapper.OS
 	ioutil                 ioutilwrapper.IOUtil
 	bufio                  bufiowrapper.Bufio
 
@@ -88,7 +87,6 @@ func NewEnvironmentFileResource(cluster, taskARN, region, dataDir, containerName
 		region:                 region,
 		containerName:          containerName,
 		environmentFilesSource: envfiles,
-		os:                     oswrapper.NewOS(),
 		ioutil:                 ioutilwrapper.NewIOUtil(),
 		bufio:                  bufiowrapper.NewBufio(),
 		s3ClientCreator:        factory.NewS3ClientCreator(),
@@ -115,7 +113,6 @@ func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.
 	envfile.initStatusToTransition()
 	envfile.credentialsManager = resourceFields.CredentialsManager
 	envfile.s3ClientCreator = factory.NewS3ClientCreator()
-	envfile.os = oswrapper.NewOS()
 	envfile.ioutil = ioutilwrapper.NewIOUtil()
 	envfile.bufio = bufiowrapper.NewBufio()
 
@@ -324,13 +321,15 @@ func (envfile *EnvironmentFileResource) Create() error {
 	return nil
 }
 
+var mkdirAll = os.MkdirAll
+
 // createEnvfileDirectory creates the directory that we will be writing the
 // envfile to - needs to be called for each different envfile
 func (envfile *EnvironmentFileResource) createEnvfileDirectory(bucket, key string) error {
 	// create directories to include bucket and key but not the actual resulting file
 	keyDir := filepath.Dir(key)
 	envfileDir := filepath.Join(envfile.resourceDir, bucket, keyDir)
-	err := envfile.os.MkdirAll(envfileDir, os.ModePerm)
+	err := mkdirAll(envfileDir, os.ModePerm)
 	if err != nil {
 		return errors.Wrapf(err, "unable to create envfiles directory with bucket %s", bucket)
 	}
@@ -375,6 +374,8 @@ func (envfile *EnvironmentFileResource) downloadEnvfileFromS3(envFilePath string
 	seelog.Debugf("Downloaded envfile from s3 and saved to %s", downloadPath)
 }
 
+var rename = os.Rename
+
 func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapper.File) error, fullPathName string) error {
 	// File moves (renaming) are atomic while file writes are not
 	// so we write to a temp file before renaming to actual file
@@ -401,7 +402,7 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 		return err
 	}
 
-	err = envfile.os.Rename(tmpFile.Name(), fullPathName)
+	err = rename(tmpFile.Name(), fullPathName)
 	if err != nil {
 		seelog.Errorf("Something went wrong when trying to rename envfile from %s to %s", tmpFile.Name(), fullPathName)
 		return err
@@ -410,9 +411,11 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 	return nil
 }
 
+var removeAll = os.RemoveAll
+
 // Cleanup removes env file directory for the task
 func (envfile *EnvironmentFileResource) Cleanup() error {
-	err := envfile.os.RemoveAll(envfile.resourceDir)
+	err := removeAll(envfile.resourceDir)
 	if err != nil {
 		return fmt.Errorf("unable to remove envfile resource directory %s: %v", envfile.resourceDir, err)
 	}
@@ -532,8 +535,12 @@ func (envfile *EnvironmentFileResource) ReadEnvVarsFromEnvfiles() ([]map[string]
 	return envVarsPerEnvfile, nil
 }
 
+var open = func(name string) (oswrapper.File, error) {
+	return os.Open(name)
+}
+
 func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) (map[string]string, error) {
-	file, err := envfile.os.Open(envfilePath)
+	file, err := open(envfilePath)
 	if err != nil {
 		seelog.Errorf("Unable to open environment file at %s to read the variables", envfilePath)
 		return nil, err
@@ -552,7 +559,7 @@ func (envfile *EnvironmentFileResource) readEnvVarsFromFile(envfilePath string) 
 		}
 		// only read the line that has "="
 		if strings.Contains(line, envVariableDelimiter) {
-			variables := strings.Split(line, "=")
+			variables := strings.SplitN(line, envVariableDelimiter, 2)
 			// verify that there is at least a character on each side
 			if len(variables[0]) > 0 && len(variables[1]) > 0 {
 				envVars[variables[0]] = variables[1]

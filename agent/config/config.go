@@ -188,8 +188,7 @@ var (
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or
-// zero values present in the left that are not present in the right will be
-// overridden
+// zero values present in the left that are present in the right will be overridden
 func (cfg *Config) Merge(rhs Config) *Config {
 	left := reflect.ValueOf(cfg).Elem()
 	right := reflect.ValueOf(&rhs).Elem()
@@ -553,6 +552,7 @@ func environmentConfig() (Config, error) {
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		DisableDockerHealthCheck:            utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),
+		InferentiaSupportEnabled:            utils.ParseBool(os.Getenv("ECS_ENABLE_INF_SUPPORT"), false),
 		NvidiaRuntime:                       os.Getenv("ECS_NVIDIA_RUNTIME"),
 		TaskMetadataAZDisabled:              utils.ParseBool(os.Getenv("ECS_DISABLE_TASK_METADATA_AZ"), false),
 		CgroupCPUPeriod:                     parseCgroupCPUPeriod(),
