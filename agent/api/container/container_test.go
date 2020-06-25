@@ -750,3 +750,10 @@ func TestMergeEnvironmentVariablesFromEnvfiles(t *testing.T) {
 		})
 	}
 }
+
+func TestRequireNeuronRuntime(t *testing.T) {
+	c := &Container{
+		Environment: map[string]string{neuronVisibleDevicesEnvVar: "all"},
+	}
+	assert.True(t, c.RequireNeuronRuntime())
+}

@@ -79,7 +79,6 @@ type FirelensResource struct {
 	externalConfigType     string
 	externalConfigValue    string
 	networkMode            string
-	os                     oswrapper.OS
 	ioutil                 ioutilwrapper.IOUtil
 	s3ClientCreator        factory.S3ClientCreator
 
@@ -107,7 +106,6 @@ func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDi
 		region:                 region,
 		networkMode:            networkMode,
 		containerToLogOptions:  containerToLogOptions,
-		os:                     oswrapper.NewOS(),
 		ioutil:                 ioutilwrapper.NewIOUtil(),
 		s3ClientCreator:        factory.NewS3ClientCreator(),
 		executionCredentialsID: executionCredentialsID,
@@ -215,7 +213,6 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 
 	// Initialize the fields that won't be populated by unmarshalling from state file.
 	firelens.initStatusToTransition()
-	firelens.os = oswrapper.NewOS()
 	firelens.ioutil = ioutilwrapper.NewIOUtil()
 	firelens.s3ClientCreator = factory.NewS3ClientCreator()
 	firelens.credentialsManager = resourceFields.CredentialsManager
@@ -430,6 +427,8 @@ func (firelens *FirelensResource) Create() error {
 	return nil
 }
 
+var mkdirAll = os.MkdirAll
+
 // createDirectories creates two directories:
 //  - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
 //    will be mounted to the firelens container at an expected path.
@@ -442,13 +441,13 @@ func (firelens *FirelensResource) Create() error {
 // see a way to avoid this failure since ECS_HOST_DATA_DIR can be arbitrary long..
 func (firelens *FirelensResource) createDirectories() error {
 	configDir := filepath.Join(firelens.resourceDir, "config")
-	err := firelens.os.MkdirAll(configDir, os.ModePerm)
+	err := mkdirAll(configDir, os.ModePerm)
 	if err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 
 	socketDir := filepath.Join(firelens.resourceDir, "socket")
-	err = firelens.os.MkdirAll(socketDir, os.ModePerm)
+	err = mkdirAll(socketDir, os.ModePerm)
 	if err != nil {
 		return errors.Wrap(err, "unable to create socket directory")
 	}
@@ -510,6 +509,8 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 	return nil
 }
 
+var rename = os.Rename
+
 // writeConfigFile writes a config file at a given path.
 func (firelens *FirelensResource) writeConfigFile(writeFunc func(file oswrapper.File) error, filePath string) error {
 	temp, err := firelens.ioutil.TempFile(firelens.resourceDir, tempFile)
@@ -534,7 +535,7 @@ func (firelens *FirelensResource) writeConfigFile(writeFunc func(file oswrapper.
 		return err
 	}
 
-	err = firelens.os.Rename(temp.Name(), filePath)
+	err = rename(temp.Name(), filePath)
 	if err != nil {
 		return err
 	}
@@ -542,9 +543,11 @@ func (firelens *FirelensResource) writeConfigFile(writeFunc func(file oswrapper.
 	return nil
 }
 
+var removeAll = os.RemoveAll
+
 // Cleanup performs resource cleanup.
 func (firelens *FirelensResource) Cleanup() error {
-	err := firelens.os.RemoveAll(firelens.resourceDir)
+	err := removeAll(firelens.resourceDir)
 	if err != nil {
 		return fmt.Errorf("unable to remove firelens resource directory %s: %v", firelens.resourceDir, err)
 	}

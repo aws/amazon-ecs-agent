@@ -36,20 +36,6 @@ const (
 	expectedTxErrors  = uint64(0)
 )
 
-func TestIsNetworkStatsError(t *testing.T) {
-	isNetStatsErr := isNetworkStatsError(fmt.Errorf("no such file or directory"))
-	if isNetStatsErr {
-		// Expect it to not be a net stats error
-		t.Error("Error incorrectly reported as network stats error")
-	}
-
-	isNetStatsErr = isNetworkStatsError(fmt.Errorf("open /sys/class/net/veth2f5f3e4/statistics/tx_bytes: no such file or directory"))
-	if !isNetStatsErr {
-		// Expect this to be a net stats error
-		t.Error("Error incorrectly reported as non network stats error")
-	}
-}
-
 func TestDockerStatsToContainerStatsMemUsage(t *testing.T) {
 	jsonStat := fmt.Sprintf(`
 		{

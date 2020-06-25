@@ -27,15 +27,7 @@ import (
 )
 
 const (
-	defaultCPUPeriod = 100 * time.Millisecond // 100ms
-
-	// With a 100ms CPU period, we can express 0.01 vCPU to 10 vCPUs
-	maxTaskVCPULimit = 10
-	// Reference: http://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_ContainerDefinition.html
-	minimumCPUShare = 2
-
 	minimumCPUPercent = 0
-	bytesPerMegabyte  = 1024 * 1024
 )
 
 // PlatformFields consists of fields specific to Linux for a task
@@ -78,11 +70,6 @@ func (task *Task) requiresCredentialSpecResource() bool {
 func (task *Task) initializeCredentialSpecResource(config *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
 	return errors.New("task credentialspec is only supported on windows")
-}
-
-// getAllCredentialSpecRequirements is used to build all the credential spec requirements for the task
-func (task *Task) getAllCredentialSpecRequirements() []string {
-	return nil
 }
 
 // GetCredentialSpecResource retrieves credentialspec resource from resource map

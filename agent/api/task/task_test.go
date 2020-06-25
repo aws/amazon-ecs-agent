@@ -94,7 +94,8 @@ func TestDockerHostConfigCPUShareZero(t *testing.T) {
 		},
 	}
 
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -118,7 +119,8 @@ func TestDockerHostConfigCPUShareMinimum(t *testing.T) {
 		},
 	}
 
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -143,7 +145,8 @@ func TestDockerHostConfigCPUShareUnchanged(t *testing.T) {
 		},
 	}
 
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -168,7 +171,8 @@ func TestDockerHostConfigPortBinding(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	config, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
 	bindings, ok := config.PortBindings["10/tcp"]
@@ -195,7 +199,8 @@ func TestDockerHostConfigVolumesFrom(t *testing.T) {
 		},
 	}
 
-	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion)
+	config, err := testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
 	if !reflect.DeepEqual(config.VolumesFrom, []string{"dockername-c1"}) {
@@ -240,7 +245,8 @@ func TestDockerHostConfigRawConfig(t *testing.T) {
 		},
 	}
 
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, configErr)
 
 	expectedOutput := rawHostConfigInput
@@ -274,20 +280,23 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	pauseContainer := testTask.Containers[1]
 	// Verify that the network mode is set to "container:<pause-container-docker-id>"
 	// for a non pause container
-	config, err := testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err := testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, "container:"+dockerIDPrefix+NetworkPauseContainerName, string(config.NetworkMode))
+	assert.Equal(t, "container:"+dockerIDPrefix+NetworkPauseContainerName, string(cfg.NetworkMode))
 
 	// Verify that the network mode is not set to "none"  for the
 	// empty volume container
-	config, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err = testTask.DockerHostConfig(testTask.Containers[1], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, networkModeNone, string(config.NetworkMode))
+	assert.Equal(t, networkModeNone, string(cfg.NetworkMode))
 
 	// Verify that the network mode is set to "none" for the pause container
-	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, networkModeNone, string(config.NetworkMode))
+	assert.Equal(t, networkModeNone, string(cfg.NetworkMode))
 
 	// Verify that overridden DNS settings are set for the pause container
 	// and not set for non pause containers
@@ -296,25 +305,28 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 
 	// DNS overrides are only applied to the pause container. Verify that the non-pause
 	// container contains no overrides
-	config, err = testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err = testTask.DockerHostConfig(customContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, 0, len(config.DNS))
-	assert.Equal(t, 0, len(config.DNSSearch))
+	assert.Equal(t, 0, len(cfg.DNS))
+	assert.Equal(t, 0, len(cfg.DNSSearch))
 
 	// Verify DNS settings are overridden for the pause container
-	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, []string{"169.254.169.253"}, config.DNS)
-	assert.Equal(t, []string{"us-west-2.compute.internal"}, config.DNSSearch)
+	assert.Equal(t, []string{"169.254.169.253"}, cfg.DNS)
+	assert.Equal(t, []string{"us-west-2.compute.internal"}, cfg.DNSSearch)
 
 	// Verify eni ExtraHosts  added to HostConfig for pause container
 	ipaddr := &apieni.ENIIPV4Address{Primary: true, Address: "10.0.1.1"}
 	testTask.ENIs[0].IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
 	testTask.ENIs[0].PrivateDNSName = "eni.ip.region.compute.internal"
 
-	config, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
-	assert.Equal(t, []string{"eni.ip.region.compute.internal:10.0.1.1"}, config.ExtraHosts)
+	assert.Equal(t, []string{"eni.ip.region.compute.internal:10.0.1.1"}, cfg.ExtraHosts)
 
 	// Verify eni Hostname is added to DockerConfig for pause container
 	dockerconfig, dockerConfigErr := testTask.DockerConfig(pauseContainer, defaultDockerClientAPIVersion)
@@ -338,7 +350,8 @@ func TestBadDockerHostConfigRawConfig(t *testing.T) {
 				},
 			},
 		}
-		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), defaultDockerClientAPIVersion)
+		_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(&testTask), defaultDockerClientAPIVersion,
+			&config.Config{})
 		assert.Error(t, err)
 	}
 }
@@ -980,7 +993,8 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 			docMaps := dockerMap(task)
 			for _, container := range task.Containers {
 				//configure HostConfig for each container
-				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion,
+					&config.Config{})
 				assert.Nil(t, err)
 				assert.Equal(t, task.IPCMode, string(dockHostCfg.IpcMode))
 				assert.Equal(t, task.PIDMode, string(dockHostCfg.PidMode))
@@ -1012,7 +1026,8 @@ func TestNamespaceProvisionDependencyAndHostConfig(t *testing.T) {
 
 			for _, container := range task.Containers {
 				//configure HostConfig for each container
-				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion)
+				dockHostCfg, err := task.DockerHostConfig(container, docMaps, defaultDockerClientAPIVersion,
+					&config.Config{})
 				assert.Nil(t, err)
 				if namespacePause == container {
 					// Expected behavior for IPCMode="task" is "shareable"
@@ -1733,13 +1748,14 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
 	task.initializeCredentialsEndpoint(credentialsManager)
 
-	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
 	assert.Nil(t, err)
 
-	endpoint, ok := config.LogConfig.Config["awslogs-credentials-endpoint"]
+	endpoint, ok := cfg.LogConfig.Config["awslogs-credentials-endpoint"]
 	assert.True(t, ok)
 	assert.Equal(t, expectedEndpoint, endpoint)
 }
@@ -1782,13 +1798,14 @@ func TestApplyExecutionRoleLogsAuthNoConfigInHostConfig(t *testing.T) {
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
 	task.initializeCredentialsEndpoint(credentialsManager)
 
-	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
 	assert.Nil(t, err)
 
-	endpoint, ok := config.LogConfig.Config["awslogs-credentials-endpoint"]
+	endpoint, ok := cfg.LogConfig.Config["awslogs-credentials-endpoint"]
 	assert.True(t, ok)
 	assert.Equal(t, expectedEndpoint, endpoint)
 }
@@ -1824,10 +1841,11 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 
-	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
 	assert.Error(t, err)
 }
 
@@ -1866,10 +1884,10 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(credentials.TaskIAMRoleCredentials{}, false)
 	task.initializeCredentialsEndpoint(credentialsManager)
 
-	config, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion)
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion, &config.Config{})
 	assert.Error(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(config, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
 	assert.Error(t, err)
 }
 
@@ -1884,12 +1902,14 @@ func TestSetMinimumMemoryLimit(t *testing.T) {
 		},
 	}
 
-	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Nil(t, err)
 
 	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
 
-	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18)
+	hostconfig, err = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), dockerclient.Version_1_18,
+		&config.Config{})
 	assert.Nil(t, err)
 
 	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), hostconfig.Memory)
@@ -2946,7 +2966,8 @@ func TestDockerHostConfigNvidiaRuntime(t *testing.T) {
 
 	cfg := &config.Config{GPUSupportEnabled: true, NvidiaRuntime: config.DefaultNvidiaRuntime}
 	testTask.addGPUResource(cfg)
-	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Equal(t, testTask.NvidiaRuntime, dockerHostConfig.Runtime)
 }
 
@@ -2963,7 +2984,8 @@ func TestDockerHostConfigRuntimeWithoutGPU(t *testing.T) {
 
 	cfg := &config.Config{GPUSupportEnabled: true}
 	testTask.addGPUResource(cfg)
-	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Equal(t, "", dockerHostConfig.Runtime)
 }
 
@@ -2994,8 +3016,28 @@ func TestDockerHostConfigNoNvidiaRuntime(t *testing.T) {
 
 	cfg := &config.Config{GPUSupportEnabled: true}
 	testTask.addGPUResource(cfg)
-	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	_, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{})
 	assert.Error(t, err)
+}
+
+func TestDockerHostConfigNeuronRuntime(t *testing.T) {
+	testTask := &Task{
+		Arn: "test",
+		Containers: []*apicontainer.Container{
+			{
+				Name:  "myName1",
+				Image: "image:tag",
+				Environment: map[string]string{
+					"AWS_NEURON_VISIBLE_DEVICES": "all",
+				},
+			},
+		},
+	}
+
+	dockerHostConfig, _ := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion,
+		&config.Config{InferentiaSupportEnabled: true})
+	assert.Equal(t, neuronRuntime, dockerHostConfig.Runtime)
 }
 
 func TestAssociationsByTypeAndContainer(t *testing.T) {
@@ -3434,5 +3476,14 @@ func TestRequiresEnvfiles(t *testing.T) {
 		Containers:         []*apicontainer.Container{container},
 	}
 
-	assert.Equal(t, true, task.requireEnvfiles())
+	assert.Equal(t, true, requireEnvfiles(task))
+}
+
+func requireEnvfiles(task *Task) bool {
+	for _, container := range task.Containers {
+		if container.ShouldCreateWithEnvFiles() {
+			return true
+		}
+	}
+	return false
 }

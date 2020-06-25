@@ -390,15 +390,6 @@ func (taskEvents *taskSendableEvents) toStringUnsafe() string {
 		taskEvents.taskARN, taskEvents.sending, taskEvents.createdAt.String())
 }
 
-// getTasksToEventsLen returns the length of the tasksToEvents map. It is
-// used only in the test code to ascertain that map has been cleaned up
-func (handler *TaskHandler) getTasksToEventsLen() int {
-	handler.lock.RLock()
-	defer handler.lock.RUnlock()
-
-	return len(handler.tasksToEvents)
-}
-
 // handleInvalidParamException removes the event from event queue when its parameters are
 // invalid to reduce redundant API call
 func handleInvalidParamException(err error, events *list.List, eventToSubmit *list.Element) {

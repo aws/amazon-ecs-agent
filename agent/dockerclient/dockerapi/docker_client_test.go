@@ -74,6 +74,7 @@ const (
 	xMaximumPullRetryDelay     = 100 * time.Microsecond
 	xPullRetryDelayMultiplier  = 2
 	xPullRetryJitterMultiplier = 0.2
+	dockerEventBufferSize      = 100
 )
 
 func defaultTestConfig() *config.Config {

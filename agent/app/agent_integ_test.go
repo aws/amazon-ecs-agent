@@ -15,7 +15,6 @@
 package app
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -25,11 +24,10 @@ import (
 )
 
 func TestNewAgent(t *testing.T) {
-	ctx := context.TODO()
 	os.Setenv("AWS_DEFAULT_REGION", "us-west-2")
 	defer os.Unsetenv("AWS_DEFAULT_REGION")
 
-	agent, err := newAgent(ctx, true, aws.Bool(true))
+	agent, err := newAgent(true, aws.Bool(true))
 
 	assert.NoError(t, err)
 	// printECSAttributes should ensure that agent's cfg is set with

@@ -187,7 +187,8 @@ func TestDockerHostConfigRawConfigMerging(t *testing.T) {
 		},
 	}
 
-	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
+	hostConfig, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+		minDockerClientAPIVersion, &config.Config{})
 	assert.Nil(t, configErr)
 
 	expected := dockercontainer.HostConfig{
@@ -258,7 +259,8 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 				},
 			}
 
-			hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), minDockerClientAPIVersion)
+			hostconfig, err := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+				minDockerClientAPIVersion, &config.Config{})
 			assert.Nil(t, err)
 			assert.Empty(t, hostconfig.CPUShares)
 			assert.Equal(t, tc.cpuPercent, hostconfig.CPUPercent)
@@ -297,17 +299,19 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 	}
 
 	// With MemoryUnbounded set to false, MemoryReservation is not overridden
-	config, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, configErr := testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+		defaultDockerClientAPIVersion, &config.Config{})
 
 	assert.Nil(t, configErr)
-	assert.EqualValues(t, nonZeroMemoryReservationValue, config.MemoryReservation)
+	assert.EqualValues(t, nonZeroMemoryReservationValue, cfg.MemoryReservation)
 
 	// With MemoryUnbounded set to true, tasks with no memory hard limit will have their memory reservation set to zero
 	testTask.PlatformFields.MemoryUnbounded = true
-	config, configErr = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask), defaultDockerClientAPIVersion)
+	cfg, configErr = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
+		defaultDockerClientAPIVersion, &config.Config{})
 
 	assert.Nil(t, configErr)
-	assert.EqualValues(t, expectedMemoryReservationValue, config.MemoryReservation)
+	assert.EqualValues(t, expectedMemoryReservationValue, cfg.MemoryReservation)
 }
 
 func TestGetCanonicalPath(t *testing.T) {

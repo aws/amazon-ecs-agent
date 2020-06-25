@@ -14,7 +14,6 @@
 package app
 
 import (
-	"context"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
@@ -50,9 +49,7 @@ func Run(arguments []string) int {
 	logger.SetLevel(*parsedArgs.LogLevel)
 
 	// Create an Agent object
-	agent, err := newAgent(context.Background(),
-		aws.BoolValue(parsedArgs.BlackholeEC2Metadata),
-		parsedArgs.AcceptInsecureCert)
+	agent, err := newAgent(aws.BoolValue(parsedArgs.BlackholeEC2Metadata), parsedArgs.AcceptInsecureCert)
 	if err != nil {
 		// Failure to initialize either the docker client or the EC2 metadata
 		// service client are non terminal errors as they could be transient

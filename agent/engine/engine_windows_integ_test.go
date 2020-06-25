@@ -344,9 +344,9 @@ func TestPortForward(t *testing.T) {
 	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of ", serverContent)
 
 	// Stop the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -403,9 +403,9 @@ func TestMultiplePortForwards(t *testing.T) {
 	assert.Equal(t, string(response), serverContent+"2", "got response: "+string(response)+" instead of "+serverContent+"2")
 	t.Log("Read second container")
 
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -459,9 +459,9 @@ func TestDynamicPortForward(t *testing.T) {
 	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of %s", serverContent)
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
@@ -518,9 +518,9 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of %s", serverContent)
 
 	// Kill the existing container now
-	taskUpdate := *testTask
+	taskUpdate := createTestTask(testArn)
 	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(&taskUpdate)
+	go taskEngine.AddTask(taskUpdate)
 	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 

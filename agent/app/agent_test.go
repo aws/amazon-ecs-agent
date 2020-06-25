@@ -391,7 +391,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
 		mobyPlugins:        mockMobyPlugins,
 		metadataManager:    containermetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine) {},
+		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
 		ec2MetadataClient:  ec2MetadataClient,
 	}
 
@@ -579,7 +579,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.Error(t, err)
-	assert.True(t, isClusterMismatch(err))
+	assert.IsType(t, clusterMismatchError{}, err)
 }
 
 func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {

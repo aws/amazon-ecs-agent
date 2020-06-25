@@ -17,7 +17,7 @@ package credentialspec
 
 import (
 	"encoding/json"
-	"path/filepath"
+	"os"
 	"testing"
 	"time"
 
@@ -47,11 +47,19 @@ const (
 	testTempFile           = "testtempfile"
 )
 
+func mockRename() func() {
+	rename = func(oldpath, newpath string) error {
+		return nil
+	}
+
+	return func() {
+		rename = os.Rename
+	}
+}
+
 func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
 
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
@@ -62,16 +70,8 @@ func TestClearCredentialSpecDataHappyPath(t *testing.T) {
 	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
 		CredSpecMap:                    credSpecMapData,
-		os:                             mockOS,
 		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
-
-	expectedS3FilePath := filepath.Join(credentialSpecResourceLocation, "s3_taskARN_fileName.json")
-	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
-
-	// Mock returns for test
-	mockOS.EXPECT().Remove(expectedS3FilePath).Return(nil)
-	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(nil)
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
@@ -82,8 +82,6 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-
 	credSpecMapData := map[string]string{
 		"credentialspec:file://localfilePath.json": "credentialspec=file://localfilePath.json",
 		"credentialspec:ssmARN":                    "credentialspec=file://ssm_taskARN_fileName.json",
@@ -92,14 +90,15 @@ func TestClearCredentialSpecDataErr(t *testing.T) {
 	credentialSpecResourceLocation := "C:/ProgramData/docker/credentialspecs/"
 	credspecRes := &CredentialSpecResource{
 		CredSpecMap:                    credSpecMapData,
-		os:                             mockOS,
 		credentialSpecResourceLocation: credentialSpecResourceLocation,
 	}
 
-	expectedSSMFilePath := filepath.Join(credentialSpecResourceLocation, "ssm_taskARN_fileName.json")
-
-	// Mock returns for test
-	mockOS.EXPECT().Remove(expectedSSMFilePath).Return(errors.New("test-error"))
+	remove = func(name string) error {
+		return errors.New("test-error")
+	}
+	defer func() {
+		remove = os.Remove
+	}()
 
 	err := credspecRes.Cleanup()
 	assert.NoError(t, err)
@@ -386,8 +385,7 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
+	mockFile := mock_oswrapper.NewMockFile()
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
 	iamCredentials := credentials.IAMRoleCredentials{
 		CredentialsID: "test-cred-id",
@@ -405,7 +403,6 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		CredSpecMap:             map[string]string{},
 		taskARN:                 taskARN,
 		ioutil:                  mockIO,
-		os:                      mockOS,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -415,14 +412,14 @@ func TestHandleS3CredentialspecFile(t *testing.T) {
 		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
+	defer mockRename()()
+	mockFile.(*mock_oswrapper.MockFile).NameImpl = func() string {
+		return testTempFile
+	}
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
-		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name().Return(testTempFile),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -491,8 +488,7 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
+	mockFile := mock_oswrapper.NewMockFile()
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
 
 	iamCredentials := credentials.IAMRoleCredentials{
@@ -510,7 +506,6 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		CredSpecMap:             map[string]string{},
 		taskARN:                 taskARN,
 		ioutil:                  mockIO,
-		os:                      mockOS,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -520,15 +515,21 @@ func TestHandleS3CredentialspecFileWriteErr(t *testing.T) {
 		S3ClientCreator: s3ClientCreator,
 	}, apitaskstatus.TaskStatusNone, apitaskstatus.TaskRunning)
 
+	mockFile.(*mock_oswrapper.MockFile).NameImpl = func() string {
+		return testTempFile
+	}
+
+	rename = func(oldpath, newpath string) error {
+		return errors.New("test-error")
+	}
+	defer func() {
+		rename = os.Rename
+	}()
+
 	gomock.InOrder(
 		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
-		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name().Return(tempFileName),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(errors.New("test-error")),
-		mockFile.EXPECT().Name().Return(tempFileName),
 	)
 
 	err := cs.handleS3CredentialspecFile(s3CredentialSpec, credentialSpecS3ARN, iamCredentials)
@@ -612,8 +613,7 @@ func TestCreateS3(t *testing.T) {
 	ssmClientCreator := mock_factory.NewMockSSMClientCreator(ctrl)
 	s3ClientCreator := mock_s3_factory.NewMockS3ClientCreator(ctrl)
 	mockIO := mock_ioutilwrapper.NewMockIOUtil(ctrl)
-	mockOS := mock_oswrapper.NewMockOS(ctrl)
-	mockFile := mock_oswrapper.NewMockFile(ctrl)
+	mockFile := mock_oswrapper.NewMockFile()
 	mockS3Client := mock_s3.NewMockS3Client(ctrl)
 
 	s3CredentialSpec := "credentialspec:arn:aws:s3:::bucket_name/test"
@@ -627,7 +627,6 @@ func TestCreateS3(t *testing.T) {
 		CredSpecMap:             map[string]string{},
 		taskARN:                 taskARN,
 		ioutil:                  mockIO,
-		os:                      mockOS,
 	}
 	cs.Initialize(&taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -645,15 +644,12 @@ func TestCreateS3(t *testing.T) {
 		},
 	}
 
+	defer mockRename()()
 	gomock.InOrder(
 		credentialsManager.EXPECT().GetTaskCredentials(gomock.Any()).Return(creds, true),
 		s3ClientCreator.EXPECT().NewS3ClientForBucket(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockS3Client, nil),
 		mockIO.EXPECT().TempFile(gomock.Any(), gomock.Any()).Return(mockFile, nil),
 		mockS3Client.EXPECT().DownloadWithContext(gomock.Any(), mockFile, gomock.Any()).Return(int64(0), nil),
-		mockFile.EXPECT().Write(gomock.Any()).AnyTimes(),
-		mockFile.EXPECT().Close(),
-		mockFile.EXPECT().Name(),
-		mockOS.EXPECT().Rename(gomock.Any(), gomock.Any()).Return(nil),
 	)
 
 	assert.NoError(t, cs.Create())

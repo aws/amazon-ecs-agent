@@ -77,6 +77,9 @@ const (
 	NvidiaVisibleDevicesEnvVar = "NVIDIA_VISIBLE_DEVICES"
 	GPUAssociationType         = "gpu"
 
+	// neuronRuntime is the name of the neuron docker runtime.
+	neuronRuntime = "neuron"
+
 	ContainerOrderingCreateCondition = "CREATE"
 	ContainerOrderingStartCondition  = "START"
 
@@ -1430,8 +1433,8 @@ func (task *Task) dockerExposedPorts(container *apicontainer.Container) nat.Port
 }
 
 // DockerHostConfig construct the configuration recognized by docker
-func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
-	return task.dockerHostConfig(container, dockerContainerMap, apiVersion)
+func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion, cfg *config.Config) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+	return task.dockerHostConfig(container, dockerContainerMap, apiVersion, cfg)
 }
 
 // ApplyExecutionRoleLogsAuth will check whether the task has execution role
@@ -1459,7 +1462,7 @@ func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostCon
 	return nil
 }
 
-func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
+func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerContainerMap map[string]*apicontainer.DockerContainer, apiVersion dockerclient.DockerVersion, cfg *config.Config) (*dockercontainer.HostConfig, *apierrors.HostConfigError) {
 	dockerLinkArr, err := task.dockerLinks(container, dockerContainerMap)
 	if err != nil {
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
@@ -1488,12 +1491,8 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		Resources:    resources,
 	}
 
-	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
-		if task.NvidiaRuntime == "" {
-			return nil, &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
-		}
-		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
-		hostConfig.Runtime = task.NvidiaRuntime
+	if err := task.overrideContainerRuntime(container, hostConfig, cfg); err != nil {
+		return nil, err
 	}
 
 	if container.DockerConfig.HostConfig != nil {
@@ -1535,6 +1534,24 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 	}
 
 	return hostConfig, nil
+}
+
+// overrideContainerRuntime overrides the runtime for the container in host config if needed.
+func (task *Task) overrideContainerRuntime(container *apicontainer.Container, hostCfg *dockercontainer.HostConfig,
+	cfg *config.Config) *apierrors.HostConfigError {
+	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
+		if task.NvidiaRuntime == "" {
+			return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
+		}
+		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
+		hostCfg.Runtime = task.NvidiaRuntime
+	}
+
+	if cfg.InferentiaSupportEnabled && container.RequireNeuronRuntime() {
+		seelog.Debugf("Setting runtime as %s for container %s", neuronRuntime, container.Name)
+		hostCfg.Runtime = neuronRuntime
+	}
+	return nil
 }
 
 // Requires an *apicontainer.Container and returns the Resources for the HostConfig struct
@@ -2584,15 +2601,6 @@ func (task *Task) GetContainerIndex(containerName string) int {
 		idx++
 	}
 	return -1
-}
-
-func (task *Task) requireEnvfiles() bool {
-	for _, container := range task.Containers {
-		if container.ShouldCreateWithEnvFiles() {
-			return true
-		}
-	}
-	return false
 }
 
 func (task *Task) initializeEnvfilesResource(config *config.Config, credentialsManager credentials.Manager) error {

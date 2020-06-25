@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 
 	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -58,14 +57,9 @@ const (
 )
 
 var (
-	_stoppedSentWaitInterval       = stoppedSentWaitInterval
-	_maxStoppedWaitTimes           = int(maxStoppedWaitTimes)
-	taskNotWaitForSteadyStateError = errors.New("managed task: steady state check context is nil")
+	_stoppedSentWaitInterval = stoppedSentWaitInterval
+	_maxStoppedWaitTimes     = int(maxStoppedWaitTimes)
 )
-
-type acsTaskUpdate struct {
-	apitaskstatus.TaskStatus
-}
 
 type dockerContainerChange struct {
 	container *apicontainer.Container
@@ -209,16 +203,17 @@ func (mtask *managedTask) overseeTask() {
 
 	// Main infinite loop. This is where we receive messages and dispatch work.
 	for {
-		select {
-		case <-mtask.ctx.Done():
-			seelog.Infof("Managed task [%s]: parent context cancelled, exit", mtask.Arn)
+		if mtask.shouldExit() {
 			return
-		default:
 		}
 
 		// If it's steadyState, just spin until we need to do work
 		for mtask.steadyState() {
 			mtask.waitSteady()
+		}
+
+		if mtask.shouldExit() {
+			return
 		}
 
 		if !mtask.GetKnownStatus().Terminal() {
@@ -256,6 +251,16 @@ func (mtask *managedTask) overseeTask() {
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
 	mtask.cleanupTask(mtask.cfg.TaskCleanupWaitDuration)
+}
+
+// shouldExit checks if the task manager should exit, as the agent is exiting.
+func (mtask *managedTask) shouldExit() bool {
+	select {
+	case <-mtask.ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 // emitCurrentStatus emits a container event for every container and a task
@@ -311,9 +316,12 @@ func (mtask *managedTask) waitSteady() {
 	timeoutCtx, cancel := context.WithTimeout(mtask.ctx, retry.AddJitter(mtask.steadyStatePollInterval, mtask.steadyStatePollIntervalJitter))
 	defer cancel()
 	timedOut := mtask.waitEvent(timeoutCtx.Done())
+	if mtask.shouldExit() {
+		return
+	}
 
 	if timedOut {
-		seelog.Debugf("Managed task [%s]: checking to make sure it's still at steadystate", mtask.Arn)
+		seelog.Infof("Managed task [%s]: checking to verify it's still at steady state.", mtask.Arn)
 		go mtask.engine.checkTaskState(mtask.Task)
 	}
 }
@@ -323,7 +331,7 @@ func (mtask *managedTask) waitSteady() {
 func (mtask *managedTask) steadyState() bool {
 	select {
 	case <-mtask.ctx.Done():
-		seelog.Info("Context expired. No longer steady.")
+		seelog.Infof("Managed task [%s]: agent task manager exiting.", mtask.Arn)
 		return false
 	default:
 		taskKnownStatus := mtask.GetKnownStatus()
@@ -360,7 +368,6 @@ func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
 		mtask.handleResourceStateChange(resChange)
 		return false
 	case <-stopWaiting:
-		seelog.Infof("Managed task [%s]: no longer waiting", mtask.Arn)
 		return true
 	}
 }
@@ -498,11 +505,11 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 }
 
 func (mtask *managedTask) emitResourceChange(change resourceStateChange) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit resource state change due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit resource state change due to exit", mtask.Arn)
+	case mtask.resourceStateChangeEvent <- change:
 	}
-	mtask.resourceStateChangeEvent <- change
 }
 
 func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
@@ -513,7 +520,11 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 		return
 	}
 	seelog.Infof("Managed task [%s]: sending task change event [%s]", mtask.Arn, event.String())
-	mtask.stateChangeEvents <- event
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to send task change event [%s] due to exit", mtask.Arn, event.String())
+	case mtask.stateChangeEvents <- event:
+	}
 	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
 }
 
@@ -527,27 +538,32 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 		return
 	}
 
-	seelog.Infof("Managed task [%s]: sending container change event [%s]: %s",
+	seelog.Infof("Managed task [%s]: Container [%s]: sending container change event: %s",
 		mtask.Arn, cont.Name, event.String())
-	mtask.stateChangeEvents <- event
-	seelog.Infof("Managed task [%s]: sent container change event [%s]: %s",
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: Container [%s]: unable to send container change event [%s] due to exit",
+			mtask.Arn, cont.Name, event.String())
+	case mtask.stateChangeEvents <- event:
+	}
+	seelog.Infof("Managed task [%s]: Container [%s]: sent container change event: %s",
 		mtask.Arn, cont.Name, event.String())
 }
 
 func (mtask *managedTask) emitDockerContainerChange(change dockerContainerChange) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit docker container change due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to exit", mtask.Arn)
+	case mtask.dockerMessages <- change:
 	}
-	mtask.dockerMessages <- change
 }
 
 func (mtask *managedTask) emitACSTransition(transition acsTransition) {
-	if mtask.ctx.Err() != nil {
-		seelog.Infof("Managed task [%s]: unable to emit acs transition due to closed context: %v",
-			mtask.Arn, mtask.ctx.Err())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to emit docker container change due to exit", mtask.Arn)
+	case mtask.acsMessages <- transition:
 	}
-	mtask.acsMessages <- transition
 }
 
 func (mtask *managedTask) isContainerFound(container *apicontainer.Container) bool {
@@ -1195,11 +1211,6 @@ func (mtask *managedTask) discardEvents() {
 		case <-mtask.acsMessages:
 		case <-mtask.resourceStateChangeEvent:
 		case <-mtask.ctx.Done():
-			// The task has been cancelled. No need to process any more
-			// events
-			close(mtask.dockerMessages)
-			close(mtask.acsMessages)
-			close(mtask.resourceStateChangeEvent)
 			return
 		}
 	}

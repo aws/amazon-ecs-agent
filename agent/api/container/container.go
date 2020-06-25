@@ -77,6 +77,9 @@ const (
 
 	// TargetLogDriver is to show secret target being "LOG_DRIVER", the default will be "CONTAINER"
 	SecretTargetLogDriver = "LOG_DRIVER"
+
+	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
+	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -497,11 +500,7 @@ func (c *Container) GetNextKnownStateProgression() apicontainerstatus.ContainerS
 // IsInternal returns true if the container type is `ContainerCNIPause`
 // or `ContainerNamespacePause`. It returns false otherwise
 func (c *Container) IsInternal() bool {
-	if c.Type == ContainerNormal {
-		return false
-	}
-
-	return true
+	return c.Type != ContainerNormal
 }
 
 // IsRunning returns true if the container's known status is either RUNNING
@@ -1119,4 +1118,12 @@ func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
 	defer c.lock.RUnlock()
 
 	return c.EnvironmentFiles
+}
+
+func (c *Container) RequireNeuronRuntime() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	_, ok := c.Environment[neuronVisibleDevicesEnvVar]
+	return ok
 }

@@ -22,8 +22,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
 	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
@@ -62,10 +60,6 @@ type metadataManager struct {
 	dataDirOnHost string
 	// containerInstanceARN is the Container Instance ARN registered for this agent
 	containerInstanceARN string
-	// osWrap is a wrapper for 'os' package operations
-	osWrap oswrapper.OS
-	// ioutilWrap is a wrapper for 'ioutil' package operations
-	ioutilWrap ioutilwrapper.IOUtil
 	// availabilityZone is the availabiltyZone where task is in
 	availabilityZone string
 	// hostPrivateIPv4Address is the private IPv4 address associated with the EC2 instance
@@ -81,8 +75,6 @@ func NewManager(client DockerMetadataClient, cfg *config.Config) Manager {
 		cluster:       cfg.Cluster,
 		dataDir:       cfg.DataDir,
 		dataDirOnHost: cfg.DataDirOnHost,
-		osWrap:        oswrapper.NewOS(),
-		ioutilWrap:    ioutilwrapper.NewIOUtil(),
 	}
 }
 
@@ -110,6 +102,8 @@ func (manager *metadataManager) SetHostPublicIPv4Address(ipv4address string) {
 	manager.hostPublicIPv4Address = ipv4address
 }
 
+var mkdirAll = os.MkdirAll
+
 // Create creates the metadata file and adds the metadata directory to
 // the container's mounted host volumes
 // Pointer hostConfig is modified directly so there is risk of concurrency errors.
@@ -122,7 +116,7 @@ func (manager *metadataManager) Create(config *dockercontainer.Config, hostConfi
 		return fmt.Errorf("container metadata create for task %s container %s: %v", task.Arn, containerName, err)
 	}
 
-	err = manager.osWrap.MkdirAll(metadataDirectoryPath, os.ModePerm)
+	err = mkdirAll(metadataDirectoryPath, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("creating metadata directory for task %s: %v", task.Arn, err)
 	}
@@ -160,13 +154,15 @@ func (manager *metadataManager) Update(ctx context.Context, dockerID string, tas
 	return manager.marshalAndWrite(metadata, task.Arn, containerName)
 }
 
+var removeAll = os.RemoveAll
+
 // Clean removes the metadata files of all containers associated with a task
 func (manager *metadataManager) Clean(taskARN string) error {
 	metadataPath, err := getTaskMetadataDir(taskARN, manager.dataDir)
 	if err != nil {
 		return fmt.Errorf("clean task metadata: unable to get metadata directory for task %s: %v", taskARN, err)
 	}
-	return manager.osWrap.RemoveAll(metadataPath)
+	return removeAll(metadataPath)
 }
 
 func (manager *metadataManager) marshalAndWrite(metadata Metadata, taskARN string, containerName string) error {
@@ -176,5 +172,5 @@ func (manager *metadataManager) marshalAndWrite(metadata Metadata, taskARN strin
 	}
 
 	// Write the metadata to file
-	return writeToMetadataFile(manager.osWrap, manager.ioutilWrap, data, taskARN, containerName, manager.dataDir)
+	return writeToMetadataFile(data, taskARN, containerName, manager.dataDir)
 }

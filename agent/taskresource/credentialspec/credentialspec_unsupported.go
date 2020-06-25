@@ -98,10 +98,6 @@ func (cs *CredentialSpecResource) SteadyState() resourcestatus.ResourceStatus {
 func (cs *CredentialSpecResource) SetKnownStatus(status resourcestatus.ResourceStatus) {
 }
 
-// updateAppliedStatusUnsafe updates the resource transitioning status
-func (cs *CredentialSpecResource) updateAppliedStatusUnsafe(knownStatus resourcestatus.ResourceStatus) {
-}
-
 // SetAppliedStatus sets the applied status of resource and returns whether
 // the resource is already in a transition
 func (cs *CredentialSpecResource) SetAppliedStatus(status resourcestatus.ResourceStatus) bool {

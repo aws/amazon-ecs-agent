@@ -29,8 +29,3 @@ func isTransient(err error) bool {
 type clusterMismatchError struct {
 	error
 }
-
-func isClusterMismatch(err error) bool {
-	_, ok := err.(clusterMismatchError)
-	return ok
-}

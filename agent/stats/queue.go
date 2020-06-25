@@ -52,7 +52,7 @@ func NewQueue(maxSize int) *Queue {
 func (queue *Queue) Reset() {
 	queue.lock.Lock()
 	defer queue.lock.Unlock()
-	for i, _ := range queue.buffer {
+	for i := range queue.buffer {
 		queue.buffer[i].sent = true
 	}
 }

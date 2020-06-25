@@ -17,15 +17,18 @@ package containermetadata
 
 import (
 	"errors"
+	"os"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	mock_oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper/mocks"
+
 	"github.com/stretchr/testify/assert"
 )
 
 // TestWriteOpenFileFail checks case where open file fails and does not return a NotExist error
 func TestWriteOpenFileFail(t *testing.T) {
-	_, mockOS, _, done := writeSetup(t)
+	_, done := writeSetup(t)
 	defer done()
 
 	mockData := []byte("")
@@ -34,11 +37,15 @@ func TestWriteOpenFileFail(t *testing.T) {
 	mockDataDir := dataDir
 	mockOpenErr := errors.New("does exist")
 
-	gomock.InOrder(
-		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, mockOpenErr),
-	)
+	tempOpenFile := openFile
+	openFile = func(name string, flag int, perm os.FileMode) (oswrapper.File, error) {
+		return nil, mockOpenErr
+	}
+	defer func() {
+		openFile = tempOpenFile
+	}()
 
-	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 
 	expectErrorMessage := "does exist"
 
@@ -48,7 +55,7 @@ func TestWriteOpenFileFail(t *testing.T) {
 
 // TestWriteFileWrtieFail checks case where we fail to write to file
 func TestWriteFileWriteFail(t *testing.T) {
-	_, mockOS, mockFile, done := writeSetup(t)
+	mockFile, done := writeSetup(t)
 	defer done()
 
 	mockData := []byte("")
@@ -56,13 +63,18 @@ func TestWriteFileWriteFail(t *testing.T) {
 	mockContainerName := containerName
 	mockDataDir := dataDir
 
-	gomock.InOrder(
-		mockOS.EXPECT().OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).Return(mockFile, nil),
-		mockFile.EXPECT().Write(mockData).Return(0, errors.New("write fail")),
-		mockFile.EXPECT().Close(),
-	)
+	mockFile.(*mock_oswrapper.MockFile).WriteImpl = func(bytes []byte) (i int, e error) {
+		return 0, errors.New("write fail")
+	}
+	tempOpenFile := openFile
+	openFile = func(name string, flag int, perm os.FileMode) (oswrapper.File, error) {
+		return mockFile, nil
+	}
+	defer func() {
+		openFile = tempOpenFile
+	}()
 
-	err := writeToMetadataFile(mockOS, nil, mockData, mockTaskARN, mockContainerName, mockDataDir)
+	err := writeToMetadataFile(mockData, mockTaskARN, mockContainerName, mockDataDir)
 
 	expectErrorMessage := "write fail"
 

@@ -54,10 +54,6 @@ import (
 
 const (
 	dockerDefaultTag = "latest"
-	// imageNameFormat is the name of a image may look like: repo:tag
-	imageNameFormat = "%s:%s"
-	// the buffer size will ensure agent doesn't miss any event from docker
-	dockerEventBufferSize = 100
 	// healthCheckStarting is the initial status returned from docker container health check
 	healthCheckStarting = "starting"
 	// healthCheckHealthy is the healthy status returned from docker container health check
@@ -242,9 +238,6 @@ func (dg *dockerGoClient) WithVersion(version dockerclient.DockerVersion) Docker
 		context:          dg.context,
 	}
 }
-
-// scratchCreateLock guards against multiple 'scratch' image creations at once
-var scratchCreateLock sync.Mutex
 
 // NewDockerGoClient creates a new DockerGoClient
 // TODO Remove clientfactory parameter once migration to Docker SDK is complete.
@@ -1035,15 +1028,13 @@ func (dg *dockerGoClient) listImages(ctx context.Context) ListImagesResponse {
 	if err != nil {
 		return ListImagesResponse{Error: err}
 	}
-	var imagesRepoTag []string
+	var imageRepoTags []string
 	imageIDs := make([]string, len(images))
 	for i, image := range images {
 		imageIDs[i] = image.ID
-		for _, imageRepoTag := range image.RepoTags {
-			imagesRepoTag = append(imagesRepoTag, imageRepoTag)
-		}
+		imageRepoTags = append(imageRepoTags, image.RepoTags...)
 	}
-	return ListImagesResponse{ImageIDs: imageIDs, RepoTags: imagesRepoTag, Error: nil}
+	return ListImagesResponse{ImageIDs: imageIDs, RepoTags: imageRepoTags, Error: nil}
 }
 
 func (dg *dockerGoClient) SupportedVersions() []dockerclient.DockerVersion {
