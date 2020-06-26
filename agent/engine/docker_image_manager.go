@@ -63,7 +63,7 @@ type dockerImageManager struct {
 	imageCleanupTimeInterval           time.Duration
 	imagePullBehavior                  config.ImagePullBehaviorType
 	imageCleanupExclusionList          []string
-	deleteNonECSImagesEnabled          bool
+	deleteNonECSImagesEnabled          config.BooleanDefaultFalse
 	nonECSContainerCleanupWaitDuration time.Duration
 	numNonECSContainersToDelete        int
 	nonECSMinimumAgeBeforeDeletion     time.Duration
@@ -359,7 +359,7 @@ func (imageManager *dockerImageManager) removeUnusedImages(ctx context.Context) 
 			break
 		}
 	}
-	if imageManager.deleteNonECSImagesEnabled {
+	if imageManager.deleteNonECSImagesEnabled.Enabled() {
 		// remove nonecs containers
 		imageManager.removeNonECSContainers(ctx)
 		// remove nonecs images

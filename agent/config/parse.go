@@ -201,20 +201,24 @@ func parseAdditionalLocalRoutes(errs []error) ([]cnitypes.IPNet, []error) {
 	return additionalLocalRoutes, errs
 }
 
-func parseTaskCPUMemLimitEnabled() BooleanDefaultTrue {
-	taskCPUMemLimitEnabled := BooleanDefaultTrue{Value: NotSet}
-	taskCPUMemLimitConfigString := os.Getenv("ECS_ENABLE_TASK_CPU_MEM_LIMIT")
-
-	// We only want to set taskCPUMemLimit if it is explicitly set to true or false.
-	// We can do this by checking against the ParseBool default
-	if taskCPUMemLimitConfigString != "" {
-		if utils.ParseBool(taskCPUMemLimitConfigString, false) {
-			taskCPUMemLimitEnabled.Value = ExplicitlyEnabled
-		} else {
-			taskCPUMemLimitEnabled.Value = ExplicitlyDisabled
-		}
+func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
+	boolDefaultFalseCofig := BooleanDefaultFalse{Value: NotSet}
+	configString := os.Getenv(envVarName)
+	err := json.Unmarshal([]byte(configString), &boolDefaultFalseCofig)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"%s\", expected an integer. err %v", envVarName, err)
 	}
-	return taskCPUMemLimitEnabled
+	return boolDefaultFalseCofig
+}
+
+func parseBooleanDefaultTrueConfig(envVarName string) BooleanDefaultTrue {
+	boolDefaultTrueCofig := BooleanDefaultTrue{Value: NotSet}
+	configString := os.Getenv(envVarName)
+	err := json.Unmarshal([]byte(configString), &boolDefaultTrueCofig)
+	if err != nil {
+		seelog.Warnf("Invalid format for \"%s\", expected an integer. err %v", envVarName, err)
+	}
+	return boolDefaultTrueCofig
 }
 
 func parseTaskMetadataThrottles() (int, int) {
