@@ -235,7 +235,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
 	client api.ECSClient) int {
-
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
 		return exitcode
@@ -322,12 +321,21 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 		return exitcodes.ExitTerminal
 	}
+
 	// Add container instance ARN to metadata manager
 	if agent.cfg.ContainerMetadataEnabled {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
 		agent.metadataManager.SetHostPrivateIPv4Address(agent.getHostPrivateIPv4AddressFromEC2Metadata())
 		agent.metadataManager.SetHostPublicIPv4Address(agent.getHostPublicIPv4AddressFromEC2Metadata())
+	}
+
+	if agent.cfg.Checkpoint {
+		agent.saveMetadata(data.AgentVersionKey, version.Version)
+		agent.saveMetadata(data.AvailabilityZoneKey, agent.availabilityZone)
+		agent.saveMetadata(data.ClusterNameKey, agent.cfg.Cluster)
+		agent.saveMetadata(data.ContainerInstanceARNKey, agent.containerInstanceARN)
+		agent.saveMetadata(data.EC2InstanceIDKey, currentEC2InstanceID)
 	}
 
 	// Begin listening to the docker daemon and saving changes
@@ -486,18 +494,16 @@ func (agent *ecsAgent) newStateManager(
 	containerInstanceArn *string,
 	savedInstanceID *string,
 	availabilityZone *string, latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
-
 	if !agent.cfg.Checkpoint {
 		return statemanager.NewNoopStateManager(), nil
 	}
 
 	return agent.stateManagerFactory.NewStateManager(agent.cfg,
-		statemanager.AddSaveable("TaskEngine", taskEngine),
 		// This is for making testing easier as we can mock this
+		agent.saveableOptionFactory.AddSaveable("TaskEngine", taskEngine),
 		agent.saveableOptionFactory.AddSaveable("ContainerInstanceArn",
 			containerInstanceArn),
 		agent.saveableOptionFactory.AddSaveable("Cluster", cluster),
-		// This is for making testing easier as we can mock this
 		agent.saveableOptionFactory.AddSaveable("EC2InstanceID", savedInstanceID),
 		agent.saveableOptionFactory.AddSaveable("availabilityZone", availabilityZone),
 		agent.saveableOptionFactory.AddSaveable("latestSeqNumberTaskManifest", latestSeqNumberTaskManifest),
@@ -820,4 +826,11 @@ func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
 		return ""
 	}
 	return hostPublicIPv4Address
+}
+
+func (agent *ecsAgent) saveMetadata(key, val string) {
+	err := agent.dataClient.SaveMetadata(key, val)
+	if err != nil {
+		seelog.Errorf("Failed to save agent metadata to disk (key: [%s], value: [%s]): %v", key, val, err)
+	}
 }

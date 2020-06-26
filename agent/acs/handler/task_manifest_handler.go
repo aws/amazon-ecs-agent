@@ -14,11 +14,13 @@ package handler
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
@@ -36,6 +38,7 @@ type taskManifestHandler struct {
 	taskEngine                               engine.TaskEngine
 	cancel                                   context.CancelFunc
 	saver                                    statemanager.Saver
+	dataClient                               data.Client
 	cluster                                  string
 	containerInstanceArn                     string
 	acsClient                                wsclient.ClientServer
@@ -47,7 +50,8 @@ type taskManifestHandler struct {
 // newTaskManifestHandler returns an instance of the taskManifestHandler struct
 func newTaskManifestHandler(ctx context.Context,
 	cluster string, containerInstanceArn string, acsClient wsclient.ClientServer,
-	saver statemanager.Saver, taskEngine engine.TaskEngine, latestSeqNumberTaskManifest *int64) taskManifestHandler {
+	saver statemanager.Saver, dataClient data.Client,
+	taskEngine engine.TaskEngine, latestSeqNumberTaskManifest *int64) taskManifestHandler {
 
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
@@ -64,6 +68,7 @@ func newTaskManifestHandler(ctx context.Context,
 		acsClient:                                acsClient,
 		taskEngine:                               taskEngine,
 		saver:                                    saver,
+		dataClient:                               dataClient,
 		latestSeqNumberTaskManifest:              latestSeqNumberTaskManifest,
 	}
 }
@@ -250,6 +255,11 @@ func (taskManifestHandler *taskManifestHandler) handleTaskManifestSingleMessage(
 		// Update state file
 		*taskManifestHandler.latestSeqNumberTaskManifest = *message.Timeline
 		err = taskManifestHandler.saver.Save()
+		if err != nil {
+			return err
+		}
+
+		err = taskManifestHandler.dataClient.SaveMetadata(data.TaskManifestSeqNumKey, strconv.FormatInt(*message.Timeline, 10))
 		if err != nil {
 			return err
 		}

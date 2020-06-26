@@ -13,12 +13,30 @@
 
 package data
 
-func (c *client) SaveMetadata(string, string) error {
-	// TODO: implementation
-	return nil
+import (
+	"github.com/boltdb/bolt"
+)
+
+const (
+	AgentVersionKey         = "agent-version"
+	AvailabilityZoneKey     = "availability-zone"
+	ClusterNameKey          = "cluster-name"
+	ContainerInstanceARNKey = "container-instance-arn"
+	EC2InstanceIDKey        = "ec2-instance-id"
+	TaskManifestSeqNumKey   = "task-manifest-seq-num"
+)
+
+func (c *client) SaveMetadata(key, val string) error {
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(metadataBucketName))
+		return putObject(b, key, val)
+	})
 }
 
-func (c *client) GetMetadata(string) (string, error) {
-	// TODO: implementation
-	return "", nil
+func (c *client) GetMetadata(key string) (string, error) {
+	var val string
+	err := c.db.View(func(tx *bolt.Tx) error {
+		return getObject(tx, metadataBucketName, key, &val)
+	})
+	return val, err
 }

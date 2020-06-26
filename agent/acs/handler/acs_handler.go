@@ -308,7 +308,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.stateManager, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+		client, acsSession.stateManager, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
 
 	defer taskManifestHandler.clearAcks()
 	taskManifestHandler.start()
