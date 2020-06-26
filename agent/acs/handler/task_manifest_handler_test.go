@@ -16,18 +16,25 @@ package handler
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	testSeqNum = 12
 )
 
 // Tests the case when all the tasks running on the instance needs to be killed
@@ -44,8 +51,11 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		manager, dataClient, taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -102,7 +112,7 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 		Tasks: []*ecsacs.TaskIdentifier{
 			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String("arn-long")},
 		},
-		Timeline: aws.Int64(12),
+		Timeline: aws.Int64(testSeqNum),
 	}
 
 	go newTaskManifest.start()
@@ -117,6 +127,11 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
+
+	// Verify that new seq num has been correctly saved in database.
+	seqnum, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+	require.NoError(t, err)
+	assert.Equal(t, strconv.FormatInt(int64(testSeqNum), 10), seqnum)
 }
 
 // Tests the case when two of three tasks running on the instance needs to be killed
@@ -133,8 +148,8 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		manager, data.NewNoopClient(), taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -229,8 +244,8 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		manager, data.NewNoopClient(), taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -315,8 +330,8 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		manager, data.NewNoopClient(), taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -425,8 +440,8 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 
 			ctx := context.TODO()
 			mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager,
-				taskEngine, aws.Int64(tc.inputSequenceNumber))
+			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+				manager, data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber))
 
 			taskList := []*task.Task{
 				{Arn: "arn2", DesiredStatusUnsafe: apitaskstatus.TaskRunning},

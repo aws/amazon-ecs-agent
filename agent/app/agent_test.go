@@ -19,6 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sort"
 	"sync"
 	"testing"
@@ -32,6 +34,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_containermetadata "github.com/aws/amazon-ecs-agent/agent/containermetadata/mocks"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -45,11 +48,14 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/version"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -58,6 +64,7 @@ const (
 	availabilityZone       = "us-west-2b"
 	hostPrivateIPv4Address = "127.0.0.1"
 	hostPublicIPv4Address  = "127.0.0.1"
+	instanceID             = "i-123"
 )
 
 var apiVersions = []dockerclient.DockerVersion{
@@ -151,6 +158,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -191,6 +199,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	expectedInstanceID := "inst-1"
 	gomock.InOrder(
 		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -202,6 +211,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 			statemanager.NewNoopStateManager(), nil),
 		state.EXPECT().AllTasks().AnyTimes(),
 		ec2MetadataClient.EXPECT().InstanceID().Return(expectedInstanceID, nil),
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -322,15 +332,20 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	assert.Equal(t, exitcodes.ExitError, exitCode)
 }
 
-func TestDoStartRegisterAvailabilityZone(t *testing.T) {
+func TestDoStartHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
+
+	saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any()).
+		Return(statemanager.NewNoopStateManager(), nil).AnyTimes()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
+	ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -366,8 +381,8 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("arn:123", availabilityZone, nil),
-		containermetadata.EXPECT().SetContainerInstanceARN("arn:123"),
+			gomock.Any(), gomock.Any()).Return(containerInstanceARN, availabilityZone, nil),
+		containermetadata.EXPECT().SetContainerInstanceARN(containerInstanceARN),
 		containermetadata.EXPECT().SetAvailabilityZone(availabilityZone),
 		containermetadata.EXPECT().SetHostPrivateIPv4Address(hostPrivateIPv4Address),
 		containermetadata.EXPECT().SetHostPublicIPv4Address(hostPublicIPv4Address),
@@ -380,19 +395,27 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 
 	cfg := getTestConfig()
 	cfg.ContainerMetadataEnabled = true
+	cfg.Checkpoint = true
+	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
 
 	// Cancel the context to cancel async routines
 	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                &cfg,
-		dockerClient:       dockerClient,
-		pauseLoader:        mockPauseLoader,
-		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:        mockMobyPlugins,
-		metadataManager:    containermetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		ec2MetadataClient:  ec2MetadataClient,
+		ctx:                   ctx,
+		cfg:                   &cfg,
+		dockerClient:          dockerClient,
+		dataClient:            dataClient,
+		pauseLoader:           mockPauseLoader,
+		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:           mockMobyPlugins,
+		metadataManager:       containermetadata,
+		terminationHandler:    func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		stateManagerFactory:   stateManagerFactory,
+		ec2MetadataClient:     ec2MetadataClient,
+		saveableOptionFactory: saveableOptionFactory,
 	}
 
 	var agentW sync.WaitGroup
@@ -406,6 +429,18 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	discoverEndpointsInvoked.Wait()
 	cancel()
 	agentW.Wait()
+
+	assertMetadata(t, data.AgentVersionKey, version.Version, dataClient)
+	assertMetadata(t, data.AvailabilityZoneKey, availabilityZone, dataClient)
+	assertMetadata(t, data.ClusterNameKey, clusterName, dataClient)
+	assertMetadata(t, data.ContainerInstanceARNKey, containerInstanceARN, dataClient)
+	assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
+}
+
+func assertMetadata(t *testing.T, key, expectedVal string, dataClient data.Client) {
+	val, err := dataClient.GetMetadata(key)
+	require.NoError(t, err)
+	assert.Equal(t, expectedVal, val)
 }
 
 func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *testing.T) {
@@ -422,6 +457,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	cfg.Checkpoint = true
 	expectedInstanceID := "inst-1"
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
 			func(name string, saveable statemanager.Saveable) {
 				previousContainerInstanceARN, ok := saveable.(*string)
@@ -475,6 +511,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	expectedInstanceID := "inst-1"
 
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
 			func(name string, saveable statemanager.Saveable) {
 				previousContainerInstanceARN, ok := saveable.(*string)
@@ -540,6 +577,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	ec2InstanceID := "inst-1"
 
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
 			func(name string, saveable statemanager.Saveable) {
 				previousContainerInstanceARN, ok := saveable.(*string)
@@ -594,6 +632,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -636,6 +675,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -679,6 +719,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	gomock.InOrder(
+		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("Cluster", gomock.Any()).Return(nil),
 		saveableOptionFactory.EXPECT().AddSaveable("EC2InstanceID", gomock.Any()).Return(nil),
@@ -1419,8 +1460,34 @@ func TestSpotInstanceActionCheck_NoInstanceActionYet(t *testing.T) {
 	assert.False(t, agent.spotInstanceDrainingPoller(ecsClient))
 }
 
+func TestSaveMetadata(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	agent := &ecsAgent{
+		dataClient: dataClient,
+	}
+	agent.saveMetadata(data.AvailabilityZoneKey, availabilityZone)
+	az, err := dataClient.GetMetadata(data.AvailabilityZoneKey)
+	require.NoError(t, err)
+	assert.Equal(t, availabilityZone, az)
+}
+
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
 	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
 	return cfg
+}
+
+func newTestDataClient(t *testing.T) (data.Client, func()) {
+	testDir, err := ioutil.TempDir("", "agent_app_unit_test")
+	require.NoError(t, err)
+
+	testClient, err := data.NewWithSetup(testDir)
+
+	cleanup := func() {
+		require.NoError(t, testClient.Close())
+		require.NoError(t, os.RemoveAll(testDir))
+	}
+	return testClient, cleanup
 }
