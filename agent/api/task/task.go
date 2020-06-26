@@ -80,7 +80,6 @@ const (
 	ContainerOrderingCreateCondition = "CREATE"
 	ContainerOrderingStartCondition  = "START"
 
-	arnResourceSections  = 2
 	arnResourceDelimiter = "/"
 	// networkModeNone specifies the string used to define the `none` docker networking mode
 	networkModeNone = "none"
