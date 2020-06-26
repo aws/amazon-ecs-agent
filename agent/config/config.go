@@ -195,8 +195,16 @@ func (cfg *Config) Merge(rhs Config) *Config {
 
 	for i := 0; i < left.NumField(); i++ {
 		leftField := left.Field(i)
-		if utils.ZeroOrNil(leftField.Interface()) {
-			leftField.Set(reflect.ValueOf(right.Field(i).Interface()))
+		switch leftField.Interface().(type) {
+		case BooleanDefaultFalse, BooleanDefaultTrue:
+			str, _ := json.Marshal(reflect.ValueOf(leftField.Interface()).Interface())
+			if string(str) == "null" {
+				leftField.Set(reflect.ValueOf(right.Field(i).Interface()))
+			}
+		default:
+			if utils.ZeroOrNil(leftField.Interface()) {
+				leftField.Set(reflect.ValueOf(right.Field(i).Interface()))
+			}
 		}
 	}
 
@@ -519,8 +527,8 @@ func environmentConfig() (Config, error) {
 		TaskCleanupWaitDuration:             parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
 		TaskENIEnabled:                      utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false),
 		TaskIAMRoleEnabled:                  utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE"), false),
-		DeleteNonECSImagesEnabled:           utils.ParseBool(os.Getenv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"), false),
-		TaskCPUMemLimit:                     parseTaskCPUMemLimitEnabled(),
+		DeleteNonECSImagesEnabled:           parseBooleanDefaultFalseConfig("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"),
+		TaskCPUMemLimit:                     parseBooleanDefaultTrueConfig("ECS_ENABLE_TASK_CPU_MEM_LIMIT"),
 		DockerStopTimeout:                   parseDockerStopTimeout(),
 		ContainerStartTimeout:               parseContainerStartTimeout(),
 		ImagePullInactivityTimeout:          parseImagePullInactivityTimeout(),

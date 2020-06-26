@@ -140,7 +140,7 @@ type Config struct {
 	TaskIAMRoleEnabled bool
 
 	// DeleteNonECSImagesEnabled specifies if the Agent can delete the cached, unused non-ecs images.
-	DeleteNonECSImagesEnabled bool
+	DeleteNonECSImagesEnabled BooleanDefaultFalse
 
 	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
 	TaskCPUMemLimit BooleanDefaultTrue

@@ -43,19 +43,29 @@ func TestMerge(t *testing.T) {
 	assert.Equal(t, "us-west-2", conf1.AWSRegion, "Incorrect region")
 }
 
-// TestBooleanMerge isn't supported with current config/merge implementation, as there is no
-// way to differentiate intentionally set false config value from defaulted false value because it's not set.
-// Leaving it here as valid test case, but we'll need to refactor config implementation to enable this.
-func TestBooleanMerge(t *testing.T) {
-	t.Skip("not implemented")
+// TODO: we need to move all boolean configs to use BooleanDefaultTrue/False
+// Below TestBooleanMerge* tests pass for one that's been migrated.
+func TestBooleanMergeFalseNotOverridden(t *testing.T) {
 	conf1 := &Config{Cluster: "Foo"}
-	conf2 := Config{Cluster: "ignored", DeleteNonECSImagesEnabled: false}
-	conf3 := Config{AWSRegion: "us-west-2", DeleteNonECSImagesEnabled: true}
+	conf2 := Config{Cluster: "ignored", DeleteNonECSImagesEnabled: BooleanDefaultFalse{Value: ExplicitlyDisabled}}
+	conf3 := Config{AWSRegion: "us-west-2", DeleteNonECSImagesEnabled: BooleanDefaultFalse{Value: ExplicitlyEnabled}}
 
 	conf1.Merge(conf2).Merge(conf3)
 
 	assert.Equal(t, "Foo", conf1.Cluster, "The cluster should not have been overridden")
-	assert.Equal(t, false, conf1.DeleteNonECSImagesEnabled, "The DeleteNonECSImagesEnabled should not have been overridden")
+	assert.Equal(t, ExplicitlyDisabled, conf1.DeleteNonECSImagesEnabled.Value, "The DeleteNonECSImagesEnabled should not have been overridden")
+	assert.Equal(t, "us-west-2", conf1.AWSRegion, "Incorrect region")
+}
+
+func TestBooleanMergeNotSetOverridden(t *testing.T) {
+	conf1 := &Config{Cluster: "Foo"}
+	conf2 := Config{Cluster: "ignored", DeleteNonECSImagesEnabled: BooleanDefaultFalse{Value: NotSet}}
+	conf3 := Config{AWSRegion: "us-west-2", DeleteNonECSImagesEnabled: BooleanDefaultFalse{Value: ExplicitlyDisabled}}
+
+	conf1.Merge(conf2).Merge(conf3)
+
+	assert.Equal(t, "Foo", conf1.Cluster, "The cluster should not have been overridden")
+	assert.Equal(t, ExplicitlyDisabled, conf1.DeleteNonECSImagesEnabled.Value, "The DeleteNonECSImagesEnabled should have been overridden")
 	assert.Equal(t, "us-west-2", conf1.AWSRegion, "Incorrect region")
 }
 
@@ -158,7 +168,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
 	assert.True(t, conf.AppArmorCapable, "Wrong value for AppArmorCapable")
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
-	assert.True(t, conf.DeleteNonECSImagesEnabled, "Wrong value for DeleteNonECSImagesEnabled")
+	assert.Equal(t, ExplicitlyEnabled, conf.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
 	assert.True(t, conf.PollMetrics, "Wrong value for PollMetrics")
@@ -480,7 +490,7 @@ func TestDeleteNonECSImagesEnabled(t *testing.T) {
 	defer setTestEnv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.True(t, cfg.DeleteNonECSImagesEnabled, "Wrong value for DeleteNonECSImagesEnabled")
+	assert.Equal(t, ExplicitlyEnabled, cfg.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 }
 
 func TestTaskIAMRoleForHostNetworkEnabled(t *testing.T) {
