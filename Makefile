@@ -41,9 +41,9 @@ static:
 
 # Cross-platform build target for travis
 xplatform-build:
-	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
-	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
-	GOOS=darwin GOARCH=amd64 ./scripts/build true "" false
+	GOOS=linux GOARCH=arm64 TARGET_OS=linux ./scripts/build true "" false
+	GOOS=windows GOARCH=amd64 TARGET_OS=windows ./scripts/build true "" false
+	GOOS=darwin GOARCH=amd64 TARGET_OS=darwin ./scripts/build true "" false
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
