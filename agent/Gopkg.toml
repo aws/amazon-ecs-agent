@@ -80,7 +80,6 @@ required = ["github.com/golang/mock/mockgen/model"]
 [[constraint]]
   name = "github.com/vishvananda/netlink"
   revision ="fe3b5664d23a11b52ba59bece4ff29c52772a56b"
-
 [[constraint]]
   name = "github.com/didip/tollbooth"
   version = "3.0.2"
@@ -96,3 +95,7 @@ required = ["github.com/golang/mock/mockgen/model"]
 [[constraint]]
   branch = "master"
   name = "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
+
+[[constraint]]
+  name = "github.com/containernetworking/plugins"
+  version = "0.8.6"

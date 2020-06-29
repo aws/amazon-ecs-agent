@@ -10,7 +10,7 @@
   version = "v0.4.7"
 
 [[projects]]
-  digest = "1:59564f8de34af5bb19953175ba0f3094fdee9cb3d9cba97fbcc98aebe97ef5bd"
+  digest = "1:4dfad161aee05f73bbd9740d329bb068a18028c0a9d6c0572f931ad320f71873"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -49,15 +49,11 @@
     "private/protocol/query",
     "private/protocol/query/queryutil",
     "private/protocol/rest",
-    "private/protocol/restjson",
     "private/protocol/restxml",
     "private/protocol/xml/xmlutil",
     "private/util",
-    "service/cloudwatch",
     "service/cloudwatchlogs",
     "service/ec2",
-    "service/efs",
-    "service/iam",
     "service/s3",
     "service/s3/internal/arn",
     "service/s3/s3iface",
@@ -117,7 +113,7 @@
   revision = "c220ac4f01b8a301edcb9c9c05d7600249138cfa"
 
 [[projects]]
-  digest = "1:7e981651f8cc87275ad60b2c48927f13cd5e55815d8db0d44bfd899e476ddd32"
+  digest = "1:1a07bbfee1d0534e8dda4773948e6dcd3a061ea7ab047ce04619476946226483"
   name = "github.com/containernetworking/cni"
   packages = [
     "libcni",
@@ -128,8 +124,16 @@
     "pkg/version",
   ]
   pruneopts = "UT"
-  revision = "7d76556571b6cf1ab90d7026a73092ac8d5e0c23"
-  version = "v0.7.0"
+  revision = "4cfb7b568922a3c79a23e438dc52fe537fc9687e"
+  version = "v0.7.1"
+
+[[projects]]
+  digest = "1:b657713432ed8677bfb1467dc3da20de35d25438286f5d4530cbff4ab0e82af1"
+  name = "github.com/containernetworking/plugins"
+  packages = ["pkg/ns"]
+  pruneopts = "UT"
+  revision = "ad10b6fa91aacd720f1f9ab94341a97a82a24965"
+  version = "v0.8.6"
 
 [[projects]]
   digest = "1:6bf7f66890675dcbc7952f7afd044a2a46a8bd3143f837c46fd3ccd15da383d7"
@@ -525,11 +529,8 @@
     "github.com/aws/aws-sdk-go/private/protocol/json/jsonutil",
     "github.com/aws/aws-sdk-go/private/protocol/jsonrpc",
     "github.com/aws/aws-sdk-go/private/util",
-    "github.com/aws/aws-sdk-go/service/cloudwatch",
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
     "github.com/aws/aws-sdk-go/service/ec2",
-    "github.com/aws/aws-sdk-go/service/efs",
-    "github.com/aws/aws-sdk-go/service/iam",
     "github.com/aws/aws-sdk-go/service/s3",
     "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/aws/aws-sdk-go/service/secretsmanager",
@@ -541,6 +542,7 @@
     "github.com/containernetworking/cni/libcni",
     "github.com/containernetworking/cni/pkg/types",
     "github.com/containernetworking/cni/pkg/types/current",
+    "github.com/containernetworking/plugins/pkg/ns",
     "github.com/deniswernert/udev",
     "github.com/didip/tollbooth",
     "github.com/docker/docker/api/types",
