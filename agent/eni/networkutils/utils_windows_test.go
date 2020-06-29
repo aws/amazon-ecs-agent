@@ -21,7 +21,8 @@ import (
 	"net"
 	"testing"
 
-	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper/mocks"
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,12 +38,12 @@ func TestGetInterfaceMACByIndex(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 	hardwareAddr, err := net.ParseMAC(macAddress)
 
-	mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		&net.Interface{
 			Index:        interfaceIndex,
 			HardwareAddr: hardwareAddr,
@@ -51,7 +52,7 @@ func TestGetInterfaceMACByIndex(t *testing.T) {
 	mac, err := netUtils.GetInterfaceMACByIndex(interfaceIndex, ctx, macAddressBackoffMax)
 
 	assert.Equal(t, macAddress, mac)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 // In this test case, an empty MAC Address is returned everytime.
@@ -61,11 +62,11 @@ func TestGetInterfaceMACByIndexEmptyAddress(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 
-	mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		&net.Interface{
 			Index:        interfaceIndex,
 			HardwareAddr: make([]byte, 0),
@@ -84,19 +85,19 @@ func TestGetInterfaceMACByIndexRetries(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 	hardwareAddr, err := net.ParseMAC(macAddress)
 	emptyaddr := make([]byte, 0)
 
 	gomock.InOrder(
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 			&net.Interface{
 				Index:        interfaceIndex,
 				HardwareAddr: emptyaddr,
 			}, nil).Times(3),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 			&net.Interface{
 				Index:        interfaceIndex,
 				HardwareAddr: hardwareAddr,
@@ -105,9 +106,8 @@ func TestGetInterfaceMACByIndexRetries(t *testing.T) {
 
 	mac, err := netUtils.GetInterfaceMACByIndex(interfaceIndex, ctx, macAddressBackoffMax*3)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, macAddress, mac)
-
 }
 
 // In this test case, the context times out before any response is received.
@@ -117,11 +117,11 @@ func TestGetInterfaceMACByIndexContextTimeout(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 
-	mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		&net.Interface{
 			Index:        interfaceIndex,
 			HardwareAddr: make([]byte, 0),
@@ -140,18 +140,17 @@ func TestGetInterfaceMACByIndexWithGolangNetError(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.TODO()
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 
-	mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
+	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
 		nil, errors.New("Unable to retrieve interface"))
 
 	mac, err := netUtils.GetInterfaceMACByIndex(interfaceIndex, ctx, macAddressBackoffMax)
 
 	assert.Error(t, err)
 	assert.Empty(t, mac)
-
 }
 
 // Test for GetALlNetworkInterfaces. In this test case, all the interfaces would be returned.
@@ -159,25 +158,25 @@ func TestGetAllNetworkInterfaces(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 
-	expec_inf := make([]net.Interface, 1)
+	expectedIface := make([]net.Interface, 1)
 
-	expec_inf[0] = net.Interface{
+	expectedIface[0] = net.Interface{
 		Index:        interfaceIndex,
 		HardwareAddr: make([]byte, 0),
 	}
 
-	mockgonetutils.EXPECT().GetAllNetworkInterfaces().Return(
-		expec_inf, nil,
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(
+		expectedIface, nil,
 	)
 
-	inf, err := netUtils.GetAllNetworkInterfaces()
+	iface, err := netUtils.GetAllNetworkInterfaces()
 
-	assert.Nil(t, err)
-	assert.Equal(t, expec_inf, inf)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedIface, iface)
 }
 
 // Test for GetALlNetworkInterfaces. In this test case, we will simulate an error connecting to the host.
@@ -186,11 +185,11 @@ func TestGetAllNetworkInterfacesError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	netUtils := GetNetworkUtils()
-	netUtils.SetGoNetUtils(mockgonetutils)
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := New()
+	netUtils.SetNetWrapper(mocknetwrapper)
 
-	mockgonetutils.EXPECT().GetAllNetworkInterfaces().Return(
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(
 		nil, errors.New("Error occured while fetching interfaces"),
 	)
 

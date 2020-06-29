@@ -18,6 +18,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
+
 	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
 
@@ -61,6 +64,12 @@ const (
 	eniStatusSentMsg = "eni status already sent"
 )
 
+// New is used to return an instance of the ENIWatcher struct
+func New(ctx context.Context, primaryMAC string,
+	state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) (*ENIWatcher, error) {
+	return newWatcher(ctx, primaryMAC, state, stateChangeEvents)
+}
+
 // unmanagedENIError is used to indicate that the agent found an ENI, but the agent isn't
 // aware if this ENI is being managed by ECS
 type unmanagedENIError struct {
@@ -69,82 +78,82 @@ type unmanagedENIError struct {
 
 // Error returns the error string for the unmanagedENIError type
 func (err *unmanagedENIError) Error() string {
-	return fmt.Sprintf("udev watcher send ENI state change: eni not managed by ecs: %s", err.mac)
+	return fmt.Sprintf("eni watcher send ENI state change: eni not managed by ecs: %s", err.mac)
 }
 
 // Init initializes a new ENI Watcher
-func (udevWatcher *UdevWatcher) Init() error {
+func (eniWatcher *ENIWatcher) Init() error {
 	// Retry in the first reconciliation, in case the ENI is attached before we connect to ACS.
-	return udevWatcher.reconcileOnce(true)
+	return eniWatcher.reconcileOnce(true)
 }
 
 // Start periodically updates the state of ENIs connected to the system
-func (udevWatcher *UdevWatcher) Start() {
-	// Udev Event Handler
-	go udevWatcher.eventHandler()
-	udevWatcher.performPeriodicReconciliation(defaultReconciliationInterval)
+func (eniWatcher *ENIWatcher) Start() {
+	// ENI Watcher Event Handler
+	go eniWatcher.eventHandler()
+	eniWatcher.performPeriodicReconciliation(defaultReconciliationInterval)
 }
 
 // Stop is used to invoke the cancellation routine
-func (udevWatcher *UdevWatcher) Stop() {
-	udevWatcher.cancel()
+func (eniWatcher *ENIWatcher) Stop() {
+	eniWatcher.cancel()
 }
 
 // performPeriodicReconciliation is used to periodically invoke the
 // reconciliation process based on a ticker
-func (udevWatcher *UdevWatcher) performPeriodicReconciliation(updateInterval time.Duration) {
-	udevWatcher.updateIntervalTicker = time.NewTicker(updateInterval)
+func (eniWatcher *ENIWatcher) performPeriodicReconciliation(updateInterval time.Duration) {
+	eniWatcher.updateIntervalTicker = time.NewTicker(updateInterval)
 	for {
 		select {
-		case <-udevWatcher.updateIntervalTicker.C:
-			if err := udevWatcher.reconcileOnce(false); err != nil {
-				log.Warnf("Udev watcher reconciliation failed: %v", err)
+		case <-eniWatcher.updateIntervalTicker.C:
+			if err := eniWatcher.reconcileOnce(false); err != nil {
+				log.Warnf("ENI watcher reconciliation failed: %v", err)
 			}
-		case <-udevWatcher.ctx.Done():
-			udevWatcher.updateIntervalTicker.Stop()
+		case <-eniWatcher.ctx.Done():
+			eniWatcher.updateIntervalTicker.Stop()
 			return
 		}
 	}
 }
 
-// sendENIStateChange handles the eni event from udev or reconcile phase
-func (udevWatcher *UdevWatcher) sendENIStateChange(mac string) error {
+// sendENIStateChange handles the eni event from eni monitoring or reconcile phase
+func (eniWatcher *ENIWatcher) sendENIStateChange(mac string) error {
 	if mac == "" {
-		return errors.New("udev watcher send ENI state change: empty mac address")
+		return errors.New("eni watcher send ENI state change: empty mac address")
 	}
 	// check if this is an eni required by a task
-	eni, ok := udevWatcher.agentState.ENIByMac(mac)
+	eni, ok := eniWatcher.agentState.ENIByMac(mac)
 	if !ok {
 		return &unmanagedENIError{mac}
 	}
 	if eni.IsSent() {
-		return errors.Errorf("udev watcher send ENI state change: %s: %s", eniStatusSentMsg, eni.String())
+		return errors.Errorf("eni watcher send ENI state change: %s: %s", eniStatusSentMsg, eni.String())
 	}
 	if eni.HasExpired() {
 		// Agent is aware of the ENI, but we decide not to ack it
 		// as it's ack timeout has expired
-		udevWatcher.agentState.RemoveENIAttachment(eni.MACAddress)
+		eniWatcher.agentState.RemoveENIAttachment(eni.MACAddress)
 		return errors.Errorf(
-			"udev watcher send ENI state change: eni status expired, no longer tracking it: %s",
+			"eni watcher send ENI state change: eni status expired, no longer tracking it: %s",
 			eni.String())
 	}
 
 	// We found an ENI, which has the expiration time set in future and
 	// needs to be acknowledged as having been 'attached' to the Instance
 	if eni.AttachmentType == apieni.ENIAttachmentTypeInstanceENI {
-		go udevWatcher.emitInstanceENIAttachedEvent(eni)
+		go eniWatcher.emitInstanceENIAttachedEvent(eni)
 	} else {
-		go udevWatcher.emitTaskENIAttachedEvent(eni)
+		go eniWatcher.emitTaskENIAttachedEvent(eni)
 	}
 	return nil
 }
 
 // emitTaskENIChangeEvent sends a state change event for a task ENI attachment to the event channel with eni status as
 // attached
-func (udevWatcher *UdevWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment) {
+func (eniWatcher *ENIWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachment) {
 	eni.Status = apieni.ENIAttached
 	log.Infof("Emitting task ENI attached event for: %s", eni.String())
-	udevWatcher.eniChangeEvent <- api.TaskStateChange{
+	eniWatcher.eniChangeEvent <- api.TaskStateChange{
 		TaskARN:    eni.TaskARN,
 		Attachment: eni,
 	}
@@ -152,17 +161,17 @@ func (udevWatcher *UdevWatcher) emitTaskENIAttachedEvent(eni *apieni.ENIAttachme
 
 // emitInstanceENIChangeEvent sends a state change event for an instance ENI attachment to the event channel with eni
 // status as attached
-func (udevWatcher *UdevWatcher) emitInstanceENIAttachedEvent(eni *apieni.ENIAttachment) {
+func (eniWatcher *ENIWatcher) emitInstanceENIAttachedEvent(eni *apieni.ENIAttachment) {
 	eni.Status = apieni.ENIAttached
 	log.Infof("Emitting instance ENI attached event for: %s", eni.String())
-	udevWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
+	eniWatcher.eniChangeEvent <- api.NewAttachmentStateChangeEvent(eni)
 }
 
 // sendENIStateChangeWithRetries invokes the sendENIStateChange method, with backoff and
 // retries. Retries are only effective if sendENIStateChange returns an unmanagedENIError.
 // We're effectively waiting for the ENI attachment message from ACS for a network device
 // at this point of time.
-func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.Context,
+func (eniWatcher *ENIWatcher) sendENIStateChangeWithRetries(parentCtx context.Context,
 	macAddress string,
 	timeout time.Duration) error {
 	backoff := retry.NewExponentialBackoff(sendENIStateChangeBackoffMin, sendENIStateChangeBackoffMax,
@@ -171,7 +180,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.
 	defer cancel()
 
 	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
-		sendErr := udevWatcher.sendENIStateChange(macAddress)
+		sendErr := eniWatcher.sendENIStateChange(macAddress)
 		if sendErr != nil {
 			if _, ok := sendErr.(*unmanagedENIError); ok {
 				// This can happen in two scenarios: (1) the ENI is indeed not managed by ECS (i.e. attached manually
@@ -194,7 +203,7 @@ func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.
 	// a timeout here. TODO: Fix RetryWithBackoffCtx to return ctx.Err() on context Done()
 	if err = ctx.Err(); err != nil {
 		return errors.Wrapf(err,
-			"udev watcher send ENI state change: timed out waiting for eni '%s' in state", macAddress)
+			"eni watcher send ENI state change: timed out waiting for eni '%s' in state", macAddress)
 	}
 
 	return nil

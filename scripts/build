@@ -30,6 +30,11 @@ version_gen=${3:-true}
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
+# Set TARGET_OS from GOOS if it is not set
+if [[ "${TARGET_OS}" == "" && "${GOOS}" != "" ]]; then
+  TARGET_OS="${GOOS}"
+fi
+
 if [[ "${version_gen}" == "true" ]]; then
     # Versioning stuff. We run the generator to setup the version and then always
     # restore ourselves to a clean state

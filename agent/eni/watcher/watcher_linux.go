@@ -43,10 +43,10 @@ const (
 	encapTypeLoopback = "loopback"
 )
 
-// UdevWatcher maintains the state of attached ENIs
+// ENIWatcher maintains the state of attached ENIs
 // to the instance. It also has supporting elements to
 // maintain consistency and update intervals
-type UdevWatcher struct {
+type ENIWatcher struct {
 	ctx                  context.Context
 	cancel               context.CancelFunc
 	updateIntervalTicker *time.Ticker
@@ -58,44 +58,47 @@ type UdevWatcher struct {
 	events               chan *udev.UEvent
 }
 
-// New is used to return an instance of the UdevWatcher struct
-func New(ctx context.Context, primaryMAC string, udevwrap udevwrapper.Udev,
-	state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) *UdevWatcher {
-	return newWatcher(ctx, primaryMAC, netlinkwrapper.New(), udevwrap, state, stateChangeEvents)
-}
-
-// newWatcher is used to nest the return of the UdevWatcher struct
+// newWatcher is used to nest the return of the ENIWatcher struct
 func newWatcher(ctx context.Context,
 	primaryMAC string,
-	nlWrap netlinkwrapper.NetLink,
-	udevWrap udevwrapper.Udev,
 	state dockerstate.TaskEngineState,
-	stateChangeEvents chan<- statechange.Event) *UdevWatcher {
+	stateChangeEvents chan<- statechange.Event) (*ENIWatcher, error) {
+
+	udevWrap, err := udevwrapper.New()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to create udev monitor")
+	}
+
+	nlWrap := netlinkwrapper.New()
 
 	derivedContext, cancel := context.WithCancel(ctx)
-	return &UdevWatcher{
+	log.Info("eni watcher has been initialized")
+	return &ENIWatcher{
 		ctx:            derivedContext,
 		cancel:         cancel,
 		agentState:     state,
 		eniChangeEvent: stateChangeEvents,
 		primaryMAC:     primaryMAC,
-	}
+		netlinkClient:  nlWrap,
+		udevMonitor:    udevWrap,
+		events:         make(chan *udev.UEvent),
+	}, nil
 }
 
 // reconcileOnce is used to reconcile the state of ENIs attached to the instance
-func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
-	links, err := udevWatcher.netlinkClient.LinkList()
+func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
+	links, err := eniWatcher.netlinkClient.LinkList()
 	if err != nil {
-		return errors.Wrapf(err, "udev watcher: unable to retrieve network interfaces")
+		return errors.Wrapf(err, "eni watcher: unable to retrieve network interfaces")
 	}
 
 	// Return on empty list
 	if len(links) == 0 {
-		log.Info("Udev watcher reconciliation: no network interfaces discovered for reconciliation")
+		log.Info("ENI watcher reconciliation: no network interfaces discovered for reconciliation")
 		return nil
 	}
 
-	currentState := udevWatcher.buildState(links)
+	currentState := eniWatcher.buildState(links)
 
 	// NOTE: For correct semantics, this entire function needs to be locked.
 	// As we postulate the netlinkClient.LinkList() call to be expensive, we allow
@@ -105,20 +108,20 @@ func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
 	for mac := range currentState {
 		if withRetry {
 			go func(ctx context.Context, macAddress string, timeout time.Duration) {
-				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
-					log.Infof("Udev watcher event-handler: unable to send state change: %v", err)
+				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
+					log.Infof("ENI watcher event-handler: unable to send state change: %v", err)
 				}
-			}(udevWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
+			}(eniWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
 			continue
 		}
-		if err := udevWatcher.sendENIStateChange(mac); err != nil {
+		if err := eniWatcher.sendENIStateChange(mac); err != nil {
 			// skip logging status sent error as it's redundant and doesn't really indicate a problem
 			if strings.Contains(err.Error(), eniStatusSentMsg) {
 				continue
 			} else if _, ok := err.(*unmanagedENIError); ok {
-				log.Debugf("Udev watcher reconciliation: unable to send state change: %v", err)
+				log.Debugf("ENI watcher reconciliation: unable to send state change: %v", err)
 			} else {
-				log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
+				log.Warnf("ENI watcher reconciliation: unable to send state change: %v", err)
 			}
 		}
 	}
@@ -126,7 +129,7 @@ func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
 }
 
 // buildState is used to build a state of the system for reconciliation
-func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]string {
+func (eniWatcher *ENIWatcher) buildState(links []netlink.Link) map[string]string {
 	state := make(map[string]string)
 	for _, link := range links {
 		if link.Type() != linkTypeDevice {
@@ -139,7 +142,7 @@ func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]stri
 			continue
 		}
 		macAddress := link.Attrs().HardwareAddr.String()
-		if macAddress != "" && macAddress != udevWatcher.primaryMAC {
+		if macAddress != "" && macAddress != eniWatcher.primaryMAC {
 			state[macAddress] = link.Attrs().Name
 		}
 	}
@@ -147,12 +150,12 @@ func (udevWatcher *UdevWatcher) buildState(links []netlink.Link) map[string]stri
 }
 
 // eventHandler is used to manage udev net subsystem events to add/remove interfaces
-func (udevWatcher *UdevWatcher) eventHandler() {
+func (eniWatcher *ENIWatcher) eventHandler() {
 	// The shutdown channel will be used to terminate the watch for udev events
-	shutdown := udevWatcher.udevMonitor.Monitor(udevWatcher.events)
+	shutdown := eniWatcher.udevMonitor.Monitor(eniWatcher.events)
 	for {
 		select {
-		case event := <-udevWatcher.events:
+		case event := <-eniWatcher.events:
 			subsystem, ok := event.Env[udevSubsystem]
 			if !ok || subsystem != udevNetSubsystem {
 				continue
@@ -161,7 +164,7 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 				continue
 			}
 			if !networkutils.IsValidNetworkDevice(event.Env[udevDevPath]) {
-				log.Debugf("Udev watcher event handler: ignoring event for invalid network device: %s", event.String())
+				log.Debugf("ENI watcher event handler: ignoring event for invalid network device: %s", event.String())
 				continue
 			}
 			netInterface := event.Env[udevInterface]
@@ -169,23 +172,23 @@ func (udevWatcher *UdevWatcher) eventHandler() {
 			// of this method for a few seconds in the worst-case scenario.
 			// Execute these within a go-routine
 			go func(ctx context.Context, dev string, timeout time.Duration) {
-				log.Debugf("Udev watcher event-handler: add interface: %s", dev)
-				macAddress, err := networkutils.GetMACAddress(udevWatcher.ctx, macAddressRetryTimeout,
-					dev, udevWatcher.netlinkClient)
+				log.Debugf("ENI watcher event-handler: add interface: %s", dev)
+				macAddress, err := networkutils.GetMACAddress(eniWatcher.ctx, macAddressRetryTimeout,
+					dev, eniWatcher.netlinkClient)
 				if err != nil {
-					log.Warnf("Udev watcher event-handler: error obtaining MACAddress for interface %s", dev)
+					log.Warnf("ENI watcher event-handler: error obtaining MACAddress for interface %s", dev)
 					return
 				}
 
-				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
-					log.Warnf("Udev watcher event-handler: unable to send state change: %v", err)
+				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
+					log.Warnf("ENI watcher event-handler: unable to send state change: %v", err)
 				}
-			}(udevWatcher.ctx, netInterface, sendENIStateChangeRetryTimeout)
-		case <-udevWatcher.ctx.Done():
+			}(eniWatcher.ctx, netInterface, sendENIStateChangeRetryTimeout)
+		case <-eniWatcher.ctx.Done():
 			log.Info("Stopping udev event handler")
 			// Send the shutdown signal and close the connection
 			shutdown <- true
-			if err := udevWatcher.udevMonitor.Close(); err != nil {
+			if err := eniWatcher.udevMonitor.Close(); err != nil {
 				log.Warnf("Unable to close the udev monitoring socket: %v", err)
 			}
 			return

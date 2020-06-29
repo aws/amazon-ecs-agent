@@ -34,10 +34,10 @@ const (
 	defaultVirtualAdapterPrefix = "vEthernet"
 )
 
-// UdevWatcher maintains the state of attached ENIs to the instance. It also has supporting elements to
+// ENIWatcher maintains the state of attached ENIs to the instance. It also has supporting elements to
 // maintain consistency and update intervals
 // Platform specific fields are included at the end
-type UdevWatcher struct {
+type ENIWatcher struct {
 	ctx                  context.Context
 	cancel               context.CancelFunc
 	updateIntervalTicker *time.Ticker
@@ -46,39 +46,44 @@ type UdevWatcher struct {
 	primaryMAC           string
 	interfaceMonitor     iphelperwrapper.InterfaceMonitor
 	notifications        chan int
-	netutils             networkutils.WindowsNetworkUtils
+	netutils             networkutils.NetworkUtils
 }
 
-// NewWindowsWatcher is used to return an instance of the UdevWatcher
+// NewWindowsWatcher is used to return an instance of the ENIWatcher
 // This method starts the interface monitor as well.
 // If the interface monitor cannot be started then we return an error
-func NewWindowsWatcher(ctx context.Context, primaryMAC string, state dockerstate.TaskEngineState,
-	stateChangeEvents chan<- statechange.Event, infMonitor iphelperwrapper.InterfaceMonitor) (*UdevWatcher, error) {
+// newWatcher is used to nest the return of the ENIWatcher struct
+func newWatcher(ctx context.Context,
+	primaryMAC string,
+	state dockerstate.TaskEngineState,
+	stateChangeEvents chan<- statechange.Event) (*ENIWatcher, error) {
 
 	derivedContext, cancel := context.WithCancel(ctx)
 
+	eniMonitor := iphelperwrapper.NewMonitor()
 	notificationChannel := make(chan int)
-	err := infMonitor.StartMonitor(notificationChannel)
+	err := eniMonitor.Start(notificationChannel)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error occurred while instantiating watcher")
+		return nil, errors.Wrapf(err, "unable to start eni watcher")
 	}
+	log.Info("windows eni watcher has been initialized")
 
-	return &UdevWatcher{
+	return &ENIWatcher{
 		ctx:              derivedContext,
 		cancel:           cancel,
 		agentState:       state,
 		eniChangeEvent:   stateChangeEvents,
 		primaryMAC:       primaryMAC,
-		interfaceMonitor: infMonitor,
+		interfaceMonitor: eniMonitor,
 		notifications:    notificationChannel,
-		netutils:         networkutils.GetNetworkUtils(),
+		netutils:         networkutils.New(),
 	}, nil
 }
 
-// This method is used to reconcile the state of the ENIs attached to the instance
+// reconcileOnce is used to reconcile the state of the ENIs attached to the instance
 // We get a map of all the interfaces and then reconcile the state of each interface
-func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
-	state, err := udevWatcher.getAllInterfaces()
+func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
+	state, err := eniWatcher.getAllInterfaces()
 	if err != nil {
 		return err
 	} else if state == nil || len(state) == 0 {
@@ -88,63 +93,65 @@ func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
 	for mac := range state {
 		if withRetry {
 			go func(ctx context.Context, macAddress string, timeout time.Duration) {
-				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
-					log.Infof("Udev watcher event-handler: unable to send state change: %v", err)
+				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
+					log.Infof("windows eni watcher event-handler: unable to send state change: %v", err)
 				}
-			}(udevWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
+			}(eniWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
 			continue
 		}
-		if err := udevWatcher.sendENIStateChange(mac); err != nil {
+		if err := eniWatcher.sendENIStateChange(mac); err != nil {
 			// This is not an error condition as the eni status message has already been sent
 			if strings.Contains(err.Error(), eniStatusSentMsg) {
 				continue
 			} else if _, ok := err.(*unmanagedENIError); ok {
-				log.Debugf("Udev watcher reconciliation: unable to send state change: %v", err)
+				log.Debugf("windows eni watcher reconciliation: unable to send state change %v", err)
 			} else {
-				log.Warnf("Udev watcher reconciliation: unable to send state change: %v", err)
+				log.Warnf("windows eni watcher reconciliation: unable to send state change %v", err)
 			}
 		}
 	}
 	return nil
 }
 
-// This method is used to continuously monitor the notification channel for any notification
+// eventHandler is used to continuously monitor the notification channel for any notification
 // If any new notification is received then we will retrieve the MAC address of that interface and send the ENI state change event
 // If the context is cancelled then we will stop the monitor
-func (udevWatcher *UdevWatcher) eventHandler() {
+func (eniWatcher *ENIWatcher) eventHandler() {
 	for {
 		select {
-		case event := <-udevWatcher.notifications:
+		case event := <-eniWatcher.notifications:
 			if event == iphelperwrapper.InitialNotification {
 				continue
 			}
+			// If any notification is received then we handle it in a separate goroutine
+			// as handling the notification in same routine can lead to blocking of subsequent notifications
 			go func(ctx context.Context, timeout time.Duration) {
-				mac, err := udevWatcher.netutils.GetInterfaceMACByIndex(event, ctx, timeout)
+				mac, err := eniWatcher.netutils.GetInterfaceMACByIndex(event, ctx, timeout)
 				if err != nil {
-					log.Debugf("udevWatcher : event-handler : Cannot retrieve MAC Address for the interface with index : %v", event)
+					log.Debugf("windows eni watcher event-handler: cannot retrieve mac address for the interface with index %v", event)
 					return
 				}
 
-				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, mac, timeout); err != nil {
-					log.Warnf("udevWatcher : event-handler : Unable to send ENI State Change : %v", err)
+				if err := eniWatcher.sendENIStateChangeWithRetries(ctx, mac, timeout); err != nil {
+					log.Warnf("windows eni watcher event-handler: unable to send eni state change %v", err)
 					return
 				}
 
-			}(udevWatcher.ctx, sendENIStateChangeRetryTimeout)
-		case <-udevWatcher.ctx.Done():
-			if err := udevWatcher.interfaceMonitor.Close(); err != nil {
-				log.Errorf("udevWatcher : event-handler : Cannot close the Windows interface monitor : %v", err)
+			}(eniWatcher.ctx, sendENIStateChangeRetryTimeout)
+		case <-eniWatcher.ctx.Done():
+			if err := eniWatcher.interfaceMonitor.Close(); err != nil {
+				log.Errorf("windows eni watcher event-handler: cannot close the windows interface monitor %v", err)
 			}
 			return
 		}
 	}
 }
 
-// This method is used to obtain a list of all available valid interfaces
-func (udevWatcher *UdevWatcher) getAllInterfaces() (state map[string]int, err error) {
-	interfaces, err := udevWatcher.netutils.GetAllNetworkInterfaces()
+// getAllInterfaces is used to obtain a list of all available valid interfaces
+func (eniWatcher *ENIWatcher) getAllInterfaces() (state map[string]int, err error) {
+	interfaces, err := eniWatcher.netutils.GetAllNetworkInterfaces()
 	if err != nil {
-		return nil, errors.Wrap(err, "Error occured while retrieving details of available interfaces.")
+		return nil, errors.Wrap(err, "error retrieving available interfaces")
 	}
 
 	if len(interfaces) == 0 {
@@ -153,20 +160,20 @@ func (udevWatcher *UdevWatcher) getAllInterfaces() (state map[string]int, err er
 
 	state = make(map[string]int)
 
-	for _, inf := range interfaces {
-		mac := inf.HardwareAddr.String()
-		//We are considering only those adapters which have non-empty non-primary MAC address.
-		//Also, We are considering only those adapters which are not virtual and are not connected to any vSwitch
-		//This is because only such interfaces would be new and need to be reconciled.
-		if mac != "" && mac != udevWatcher.primaryMAC && !strings.HasPrefix(inf.Name, defaultVirtualAdapterPrefix) {
-			state[mac] = inf.Index
+	for _, iface := range interfaces {
+		mac := iface.HardwareAddr.String()
+		// We are considering only those adapters which have non-empty non-primary MAC address.
+		// Also, We are considering only those adapters which are not virtual and are not connected to any vSwitch
+		// This is because only such interfaces would be new and need to be reconciled.
+		if mac != "" && mac != eniWatcher.primaryMAC && !strings.HasPrefix(iface.Name, defaultVirtualAdapterPrefix) {
+			state[mac] = iface.Index
 		}
 	}
 	return state, nil
 }
 
-// This method is used for injecting NetworkUtils instance in udevWatcher
+// SetNetworkUtils is used for injecting NetworkUtils instance in eniWatcher
 // This will be handy while testing to inject mock objects
-func (udevWatcher *UdevWatcher) SetNetworkUtils(utils networkutils.WindowsNetworkUtils) {
-	udevWatcher.netutils = utils
+func (eniWatcher *ENIWatcher) SetNetworkUtils(utils networkutils.NetworkUtils) {
+	eniWatcher.netutils = utils
 }
