@@ -1260,6 +1260,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	taskIP := result.IPs[0].Address.IP.String()
 	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
 	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	task.SetLocalIPAddress(taskIP)
+	engine.saveTaskData(task)
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
