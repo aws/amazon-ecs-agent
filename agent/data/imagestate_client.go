@@ -14,20 +14,44 @@
 package data
 
 import (
+	"encoding/json"
+
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
+
+	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 )
 
 func (c *client) SaveImageState(img *image.ImageState) error {
-	// TODO: implementation
-	return nil
+	id := img.GetImageID()
+	if id == "" {
+		return errors.New("failed to generate database image id")
+	}
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(imagesBucketName))
+		return putObject(b, id, img)
+	})
 }
 
 func (c *client) DeleteImageState(id string) error {
-	// TODO: implementation
-	return nil
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(imagesBucketName))
+		return b.Delete([]byte(id))
+	})
 }
 
 func (c *client) GetImageStates() ([]*image.ImageState, error) {
-	// TODO: implementation
-	return nil, nil
+	var imageStates []*image.ImageState
+	err := c.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(imagesBucketName))
+		return walk(bucket, func(id string, data []byte) error {
+			imageState := image.ImageState{}
+			if err := json.Unmarshal(data, &imageState); err != nil {
+				return err
+			}
+			imageStates = append(imageStates, &imageState)
+			return nil
+		})
+	})
+	return imageStates, err
 }

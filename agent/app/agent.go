@@ -341,7 +341,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetSaver(stateManager)
 	taskEngine.SetDataClient(agent.dataClient)
-	imageManager.SetSaver(stateManager)
+	imageManager.SetDataClient(agent.dataClient)
 	taskEngine.MustInit(agent.ctx)
 
 	// Start back ground routines, including the telemetry session

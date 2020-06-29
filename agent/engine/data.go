@@ -17,6 +17,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
@@ -64,5 +65,19 @@ func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
 		if err != nil {
 			seelog.Errorf("Failed to remove data for container %s: %v", c.Name, err)
 		}
+	}
+}
+
+func (imageManager *dockerImageManager) saveImageStateData(imageState *image.ImageState) {
+	err := imageManager.dataClient.SaveImageState(imageState)
+	if err != nil {
+		seelog.Errorf("Failed to save data for image state: %s, %v", imageState.GetImageID(), err)
+	}
+}
+
+func (imageManager *dockerImageManager) removeImageStateData(imageId string) {
+	err := imageManager.dataClient.DeleteImageState(imageId)
+	if err != nil {
+		seelog.Errorf("Failed to remove data for image state: %s, %v", imageId, err)
 	}
 }
