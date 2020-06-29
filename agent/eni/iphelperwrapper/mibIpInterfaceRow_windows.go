@@ -15,7 +15,7 @@
 
 package iphelperwrapper
 
-// This is the implementation of Mib_IPInterface_Row struct of Windows API
+// MibIPInterfaceRow is the implementation of Mib_IPInterface_Row struct of Windows API
 // https://docs.microsoft.com/en-us/windows/desktop/api/netioapi/ns-netioapi-_mib_ipinterface_row
 type MibIPInterfaceRow struct {
 	Family                               uint16

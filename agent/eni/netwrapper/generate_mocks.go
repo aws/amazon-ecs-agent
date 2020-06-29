@@ -11,6 +11,6 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package gonetwrapper
+package netwrapper
 
-//go:generate mockgen -destination=mocks/mock_gonetwrapper_windows.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper GolangNetUtils
+//go:generate mockgen -destination=mocks/mock_netwrapper.go -copyright_file=../../../scripts/copyright_file github.com/aws/amazon-ecs-agent/agent/eni/netwrapper NetWrapper
