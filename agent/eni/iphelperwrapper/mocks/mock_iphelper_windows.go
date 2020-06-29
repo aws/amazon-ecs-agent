@@ -61,16 +61,16 @@ func (mr *MockInterfaceMonitorMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockInterfaceMonitor)(nil).Close))
 }
 
-// StartMonitor mocks base method
-func (m *MockInterfaceMonitor) StartMonitor(arg0 chan int) error {
+// Start mocks base method
+func (m *MockInterfaceMonitor) Start(arg0 chan int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartMonitor", arg0)
+	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// StartMonitor indicates an expected call of StartMonitor
-func (mr *MockInterfaceMonitorMockRecorder) StartMonitor(arg0 interface{}) *gomock.Call {
+// Start indicates an expected call of Start
+func (mr *MockInterfaceMonitorMockRecorder) Start(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartMonitor", reflect.TypeOf((*MockInterfaceMonitor)(nil).StartMonitor), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockInterfaceMonitor)(nil).Start), arg0)
 }

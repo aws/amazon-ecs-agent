@@ -17,6 +17,7 @@ package iphelperwrapper
 
 import (
 	"C"
+
 	"math"
 	"syscall"
 	"time"
@@ -31,96 +32,105 @@ const (
 	// After registering a callback with NotifyIPInterfaceChange API, we get an initial notification to confirm that the callback is registered
 	// All other notifications sent on the channel would be positive except this one
 	InitialNotification = math.MinInt16
-	// This is the timeout for the initial notification. If notification is not received within this timeout then we will assume error
-	InitialNotificationTimeout = 3 * time.Second
 )
 
 var (
-	moduleiphlpapi = windows.NewLazySystemDLL("iphlpapi.dll")
-
-	procNotifyIPInterfaceChange = moduleiphlpapi.NewProc("NotifyIpInterfaceChange")
-	proccancelMibChangeNotify2  = moduleiphlpapi.NewProc("CancelMibChangeNotify2")
-
-	//Added these to allow unit testing for this module. We will swap these System calls with dummy calls in unit tests
-	funcNotifyIPInterfaceChange = procNotifyIPInterfaceChange.Call
-	funcCancelMibChangeNotify2  = proccancelMibChangeNotify2.Call
-
-	// The notification channel is used for communication between the notification callback from Windows APIs and the consumer
+	// notificationChannel is used for communication between the notification callback from Windows APIs and the consumer
 	notificationChannel chan int
+
+	// initialNotificationTimeout is the timeout for the initial notification.
+	// If notification is not received within this timeout then we will assume error
+	// We have made this as a var so as to override this value in tests
+	initialNotificationTimeout = 4 * time.Second
 )
 
-// Interface for using the monitor
-// We will mock this interface while unit testing other packages
+// InterfaceMonitor is used for monitoring interface additions
+// InterfaceMonitor can be mocked while unit testing other packages
 type InterfaceMonitor interface {
-	StartMonitor(notification chan int) error
+	Start(notification chan int) error
 	Close() error
 }
 
-type monitoringInterface struct {
-	notificationHandle windows.Handle
+type eniMonitor struct {
+	notificationHandle          windows.Handle
+	funcNotifyIPInterfaceChange func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
+	funcCancelMibChangeNotify2  func(a ...uintptr) (r1 uintptr, r2 uintptr, lastErr error)
 }
 
-//Returns a new monitoringInterface which conforms to InterfaceMonitor interface
-func NewMonitor() (monitor *monitoringInterface) {
-	monitor = &monitoringInterface{}
+// NewMonitor creates a new monitor to implement the interface
+func NewMonitor() InterfaceMonitor {
+	monitor := &eniMonitor{}
+
+	moduleiphlpapi := windows.NewLazySystemDLL("iphlpapi.dll")
+	procNotifyIPInterfaceChange := moduleiphlpapi.NewProc("NotifyIpInterfaceChange")
+	procCancelMibChangeNotify2 := moduleiphlpapi.NewProc("CancelMibChangeNotify2")
+
+	monitor.funcNotifyIPInterfaceChange = procNotifyIPInterfaceChange.Call
+	monitor.funcCancelMibChangeNotify2 = procCancelMibChangeNotify2.Call
 
 	notificationHandle := windows.Handle(0)
 	monitor.notificationHandle = notificationHandle
 
-	return
+	return monitor
 }
 
-// This method is used to start the monitoring of new interfaces attached to the instance.
+// Start is used to start the monitoring of new interfaces attached to the instance.
 // We register a notification callback with Windows API for any changes in instance interfaces (NotifyIPInterfaceChange).
 // Initial notification received within timeout is considered as a confirmation of successful registration
 // notificationChannel is used for any communication between the callback and the consumer
-func (monitor *monitoringInterface) StartMonitor(notification chan int) error {
+func (monitor *eniMonitor) Start(notification chan int) error {
 	notificationChannel = notification
 
-	log.Info("Starting the monitor")
-	_, _, _ = funcNotifyIPInterfaceChange(syscall.AF_UNSPEC,
+	log.Debug("IPHelper: Starting the eni monitor. Trying to register the callback from Windows API")
+	retVal, _, _ := monitor.funcNotifyIPInterfaceChange(syscall.AF_UNSPEC,
 		syscall.NewCallback(callback),
 		uintptr(unsafe.Pointer(&(monitor))),
 		1,
 		uintptr(unsafe.Pointer(&(monitor.notificationHandle))))
 
+	// If there is any error while registering callback then retVal will not be 0. Therefore, we will return with an error.
+	if retVal != 0 {
+		return errors.Errorf("error occured while calling Windows API: %s", syscall.Errno(retVal))
+	}
+
 	// Initial notification is sent immediately once the callback is registered.
 	// If the same is not received within a defined timeout then we assume an error and close the monitor
-initialNotificationLoop:
 	for {
 		select {
 		case event := <-notificationChannel:
 			if event == InitialNotification {
-				break initialNotificationLoop
+				log.Debug("IPHelper: NotifyIPInterfaceChange Windows API call successful. ENI Monitor started.")
+				return nil
 			}
-		case <-time.After(InitialNotificationTimeout):
-			log.Errorf("IPHelper : Initial notification not received within timeout. Closing the Monitor.")
-			monitor.Close()
-			return errors.Errorf("IPHelper : Initial notification not received.")
+		case <-time.After(initialNotificationTimeout):
+			log.Errorf("IPHelper: Initial notification not received within timeout. Closing the Monitor.")
+			if retErr := monitor.Close(); retErr != nil {
+				return errors.Wrapf(retErr, "initial notification not received")
+			}
+			return errors.Errorf("initial notification not received while starting ENI monitor")
 		}
 	}
-
-	return nil
 }
 
-// This is the callback function invoked by NotifyIPInterfaceChange Windows API
+// callback function is invoked by NotifyIPInterfaceChange Windows API
 // The api returns the information about changed interface as a MIB_IPInterface_Row struct
 // The type of event can be inferred using the notificationType. Since we are concerned about addition of new ENIs,
-// therefore we will pass information to notification channel when the event is of interface addition
+// therefore we will pass information to notification channel when the event is of interface addition i.e.1
 func callback(callerContext, row, notificationType uintptr) uintptr {
 
 	// Notification type 1 means addition of a device. InterfaceIndex would always be a positive value
 	if notificationType == 1 {
 		rowdata := *(*MibIPInterfaceRow)(unsafe.Pointer(row))
-		log.Debugf("Interface added with index : %v", rowdata.InterfaceIndex)
+		log.Debugf("Interface added with index: %v", rowdata.InterfaceIndex)
 		notificationChannel <- int(rowdata.InterfaceIndex)
 	} else if notificationType == 3 {
+		// Notification type = 3 means Initial notification. This block would be executed only once i.e. when agent starts
 		// Initial notification is sent immediately after registration.
 		// Only after sending this, any other types of notification can be sent
-		// Sending this notification on separate goroutine inorder to avoid deadlock with calling function
+		// Reason for goroutine - callback with notification == 3 is called as part of call from Start method
+		// notification channel is being listened to in Start.
+		// If we send the initial notification on same routine from which Start was called then application hangs
 		go func() {
-			time.Sleep(10 * time.Millisecond)
-			log.Info("Initial notification received!")
 			// In order to confirm the registration of callback, we will send a negative number on the notification channel
 			notificationChannel <- InitialNotification
 		}()
@@ -129,20 +139,20 @@ func callback(callerContext, row, notificationType uintptr) uintptr {
 	return 0
 }
 
-// This method can be called to cancel the notification callback.
+// Close can be called to cancel the notification callback.
 // Alternatively the notification callback would be cancelled when application exits
-func (monitor *monitoringInterface) Close() (err error) {
-	log.Info("IPHelper : Cancelling the interface change notification callback")
-	res := monitor.cancelNotifications()
-	if res != 0 {
-		return errors.Errorf("IPHelper : Error caused while deregistering from windows notification : %v", res)
-	}
-	return nil
+func (monitor *eniMonitor) Close() (err error) {
+	log.Info("IPHelper: Cancelling the interface change notification callback")
+	return monitor.cancelNotification()
 }
 
-// This method is used to cancel the notification callback for any changes in the interfaces attached to the system
-func (monitor *monitoringInterface) cancelNotifications() int32 {
-	res, _, _ := funcCancelMibChangeNotify2(uintptr(monitor.notificationHandle))
-	result := int32(res)
-	return result
+// cancelNotification is used to cancel the notification callback for any changes in the interfaces attached to the system
+// If the call is successful then res is 0. Otherwise we will return the corresponding error.
+func (monitor *eniMonitor) cancelNotification() error {
+	res, _, _ := monitor.funcCancelMibChangeNotify2(uintptr(monitor.notificationHandle))
+
+	if res != 0 {
+		return errors.Errorf("error caused while deregistering from windows notification: %s", syscall.Errno(res))
+	}
+	return nil
 }

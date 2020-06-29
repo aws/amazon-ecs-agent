@@ -18,32 +18,24 @@ package watcher
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
-type UdevWatcher struct {
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	updateIntervalTicker *time.Ticker
-	agentState           dockerstate.TaskEngineState
-	eniChangeEvent       chan<- statechange.Event
-	primaryMAC           string
+type ENIWatcher struct{}
+
+// newWatcher is used to nest the return of the ENIWatcher struct
+func newWatcher(ctx context.Context,
+	primaryMAC string,
+	state dockerstate.TaskEngineState,
+	stateChangeEvents chan<- statechange.Event) (*ENIWatcher, error) {
+	return nil, errors.New("unsupported platform")
 }
 
-func New() error {
-	return errors.New("Unsupported platform")
-}
-
-func NewWindowsWatcher() (*UdevWatcher, error) {
-	return nil, errors.New("Unsupported platform")
-}
-
-func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
+func (eniWatcher *ENIWatcher) reconcileOnce(withRetry bool) error {
 	return nil
 }
 
-func (udevWatcher *UdevWatcher) eventHandler() {
+func (eniWatcher *ENIWatcher) eventHandler() {
 }

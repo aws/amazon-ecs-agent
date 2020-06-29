@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -88,7 +87,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, true
 	}
 
-	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
+	if err := agent.startENIWatcher(state, taskEngine.StateChangeEvents()); err != nil {
 		// If udev watcher was not initialized in this run because of the udev socket
 		// file not being available etc, the Agent might be able to retry and succeed
 		// on the next run. Hence, returning a false here for terminal bool
@@ -167,23 +166,17 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	return nil
 }
 
-// startUdevWatcher starts the udev monitor and the watcher for receiving
+// startENIWatcher starts the udev monitor and the watcher for receiving
 // notifications from the monitor
-func (agent *ecsAgent) startUdevWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
+func (agent *ecsAgent) startENIWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
 	seelog.Debug("Setting up ENI Watcher")
-	if agent.udevMonitor == nil {
-		monitor, err := udevwrapper.New()
-		if err != nil {
-			return errors.Wrapf(err, "unable to create udev monitor")
-		}
-		agent.udevMonitor = monitor
+	eniWatcher, err := watcher.New(agent.ctx, agent.mac, state, stateChangeEvents)
+	if err != nil {
+		return errors.Wrapf(err, "unable to create ENI watcher")
+	}
 
-		// Create Watcher
-		eniWatcher := watcher.New(agent.ctx, agent.mac, agent.udevMonitor, state, stateChangeEvents)
-		if err := eniWatcher.Init(); err != nil {
-			return errors.Wrapf(err, "unable to initialize eni watcher")
-		}
-		go eniWatcher.Start()
+	if err := eniWatcher.Init(); err != nil {
+		return errors.Wrapf(err, "unable to initialize eni watcher")
 	}
 	return nil
 }

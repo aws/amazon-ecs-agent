@@ -17,30 +17,27 @@ package watcher
 
 import (
 	"context"
-	"errors"
+
 	"net"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
-	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
-	"github.com/stretchr/testify/require"
-
-	"testing"
-
+	"github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper"
 	mock_iphelperwrapper "github.com/aws/amazon-ecs-agent/agent/eni/iphelperwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
+	mock_gonetwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
 const (
-	// MAC Address of the primary interface
-	primaryMAC = "02:22:ea:8c:80:ae"
-
 	interfaceIndex1 = 9
 	macAddress1     = "02:22:ea:8c:81:dc"
 	interfacename1  = "Ethernet 9"
@@ -52,6 +49,9 @@ const (
 	virtualInerfaceIndex = 35
 	virtualMacAddress    = "00:15:5d:cb:fa:26"
 	virtualInterfacename = "vEthernet (nat)"
+
+	// Time delay after which the watcher context is cancelled at the end of the test
+	cancelContextDelay = time.Second
 )
 
 // This function returns a list of all the interfaces(2 real and one v-switch attached interface)
@@ -78,34 +78,57 @@ func constructInterfaceList() []net.Interface {
 	return interfaces
 }
 
+// newTestWatcher is used to create a watcher for testing purpose
+func newTestWatcher(ctx context.Context, primaryMAC string, state dockerstate.TaskEngineState,
+	stateChangeEvents chan<- statechange.Event, eniMonitor iphelperwrapper.InterfaceMonitor) (*ENIWatcher, error) {
+	derivedContext, cancel := context.WithCancel(ctx)
+
+	notificationChannel := make(chan int)
+	err := eniMonitor.Start(notificationChannel)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error occurred while instantiating watcher")
+	}
+
+	return &ENIWatcher{
+		ctx:              derivedContext,
+		cancel:           cancel,
+		agentState:       state,
+		eniChangeEvent:   stateChangeEvents,
+		primaryMAC:       primaryMAC,
+		interfaceMonitor: eniMonitor,
+		notifications:    notificationChannel,
+		netutils:         networkutils.New(),
+	}, nil
+}
+
 // NewWindowsWatcher test case. All works well here and we get a working ENI watcher
-func TestNewWindowsWatcherWithoutError(t *testing.T) {
+func TestNewWatcherWithoutError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
 	eventChannel := make(chan statechange.Event)
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(
+	mockiphelper.EXPECT().Start(gomock.Any()).Return(
 		nil)
 
-	_, err := NewWindowsWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
+	_, err := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 // NewWindowsWatcher test case. An error occurs while starting the monitor in this case. Therefore we get an error
-func TestNewWindowsWatcherWithError(t *testing.T) {
+func TestNewWatcherWithError(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
 	eventChannel := make(chan statechange.Event)
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(
+	mockiphelper.EXPECT().Start(gomock.Any()).Return(
 		errors.New("Error while starting monitor"))
 
-	_, err := NewWindowsWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
+	_, err := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
 
 	assert.Error(t, err)
 }
@@ -126,7 +149,7 @@ func TestReconcileOnce(t *testing.T) {
 		Return(&apieni.ENIAttachment{
 			MACAddress:       macAddress1,
 			AttachStatusSent: false,
-			ExpiresAt:        time.Now().Add(time.Second * 5),
+			ExpiresAt:        time.Now().Add(expirationTimeAddition),
 		}, true)
 	mockStateManager.EXPECT().ENIByMac(macAddress2).
 		Return(&apieni.ENIAttachment{
@@ -134,13 +157,13 @@ func TestReconcileOnce(t *testing.T) {
 			AttachStatusSent: true,
 		}, true)
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	mockgonetutils.EXPECT().GetAllNetworkInterfaces().Return(constructInterfaceList(), nil)
+	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(constructInterfaceList(), nil)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	waitForEvents := sync.WaitGroup{}
@@ -156,7 +179,7 @@ func TestReconcileOnce(t *testing.T) {
 	err := watcher.Init()
 	waitForEvents.Wait()
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	select {
 	case <-eventChannel:
@@ -175,13 +198,13 @@ func TestReconcileOnceNetUtilsError(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	mockgonetutils.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("Error while retrieving interfaces"))
+	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("Error while retrieving interfaces"))
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	err := watcher.Init()
@@ -198,17 +221,17 @@ func TestReconcileOnceEmptyInterfaceList(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
-	mockgonetutils.EXPECT().GetAllNetworkInterfaces().Return(make([]net.Interface, 0), nil)
+	mockiphelper.EXPECT().Start(gomock.Any()).Return(nil)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(make([]net.Interface, 0), nil)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	err := watcher.Init()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 // The following tests would cover eventHandler method
@@ -224,13 +247,13 @@ func TestEventHandlerSuccess(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 
 	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
+		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
 			Index:        interfaceIndex1,
 			Name:         interfacename1,
 			HardwareAddr: mac1,
@@ -238,13 +261,13 @@ func TestEventHandlerSuccess(t *testing.T) {
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress: macAddress1,
-				ExpiresAt:  time.Now().Add(time.Second * 5),
+				ExpiresAt:  time.Now().Add(expirationTimeAddition),
 			}, true),
 	)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	go watcher.eventHandler()
@@ -282,21 +305,22 @@ func TestEventHandlerGetInterfaceByMACError(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 
 	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(gomock.Any()).Return(nil, errors.New("Error while retrieving details")),
+		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(gomock.Any()).Return(nil, errors.New("Error while retrieving details")),
 	)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, nil, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
 
+	time.Sleep(cancelContextDelay)
 	var wait sync.WaitGroup
 	wait.Add(1)
 
@@ -319,13 +343,13 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 
 	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
+		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
 			Index:        interfaceIndex1,
 			Name:         interfacename1,
 			HardwareAddr: mac1,
@@ -334,17 +358,18 @@ func TestEventHandlerENIStatusAlreadySent(t *testing.T) {
 			Return(&apieni.ENIAttachment{
 				MACAddress:       macAddress1,
 				AttachStatusSent: true,
-			}, true),
+			}, true).AnyTimes(),
 	)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
 
+	time.Sleep(cancelContextDelay)
 	var wait sync.WaitGroup
 	wait.Add(1)
 
@@ -367,29 +392,30 @@ func TestEventHandlerUnmanagedENI(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 
 	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
+		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
 			Index:        interfaceIndex1,
 			Name:         interfacename1,
 			HardwareAddr: mac1,
 		}, nil),
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
-			Return(nil, false),
+			Return(nil, false).AnyTimes(),
 	)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
 
+	time.Sleep(cancelContextDelay)
 	var wait sync.WaitGroup
 	wait.Add(1)
 
@@ -412,13 +438,13 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	mockgonetutils := mock_gonetwrapper.NewMockGolangNetUtils(mockCtrl)
+	mocknetwrapper := mock_gonetwrapper.NewMockNetWrapper(mockCtrl)
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 
 	mac1, _ := net.ParseMAC(macAddress1)
 	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockgonetutils.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
+		mockiphelper.EXPECT().Start(gomock.Any()).Return(nil),
+		mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex1).Return(&net.Interface{
 			Index:        interfaceIndex1,
 			Name:         interfacename1,
 			HardwareAddr: mac1,
@@ -426,19 +452,20 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 		mockStateManager.EXPECT().ENIByMac(macAddress1).
 			Return(&apieni.ENIAttachment{
 				MACAddress: macAddress1,
-				ExpiresAt:  time.Now().Add(-1 * time.Second),
+				ExpiresAt:  time.Now().Add(expirationTimeSubtraction),
 			}, true),
 		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
 	)
 
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	netutils := networkutils.GetNetworkUtils()
-	netutils.SetGoNetUtils(mockgonetutils)
+	watcher, _ := newTestWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
+	netutils := networkutils.New()
+	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
 	go watcher.eventHandler()
 	watcher.notifications <- interfaceIndex1
 
+	time.Sleep(cancelContextDelay)
 	var wait sync.WaitGroup
 	wait.Add(1)
 
@@ -449,218 +476,4 @@ func TestEventHandlerExpiredENI(t *testing.T) {
 		})
 	go watcher.Stop()
 	wait.Wait()
-}
-
-// These are tests for common functionality of Linux and Windows
-
-// Test for SendENIStateChange. We send a StateChange notification for an ECS managed ENI which is yet to expire.
-func TestSendENIStateChange(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			ExpiresAt: time.Now().Add(time.Second * 5),
-		}, true),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-
-	go watcher.sendENIStateChange(macAddress1)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
-}
-
-// Test for SendENIStateChange. We call the method for an Unmanaged ENI. Therefore we get an error.
-func TestSendENIStateChangeUnmanaged(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(nil, false),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	assert.Error(t, watcher.sendENIStateChange(macAddress1))
-}
-
-// Test for SendENIStateChange. We call the method for an ENI whose state change message has already been sent.
-// Therefore, we will not send another message
-func TestSendENIStateChangeAlreadySent(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			AttachStatusSent: true,
-			ExpiresAt:        time.Now().Add(time.Second * 5),
-			MACAddress:       macAddress1,
-		}, true),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	assert.Error(t, watcher.sendENIStateChange(macAddress1))
-}
-
-// Test for SendENIStateChange. We call the method for an expired ENI.
-// The ENI is removed from the state and no new notification is sent
-func TestSendENIStateChangeExpired(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(
-			&apieni.ENIAttachment{
-				AttachStatusSent: false,
-				ExpiresAt:        time.Now().Add(-1 * time.Second),
-				MACAddress:       macAddress1,
-			}, true),
-		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-	assert.Error(t, watcher.sendENIStateChange(macAddress1))
-}
-
-// Test for SendENIStateChangeWithRetries. We send a notification after retry in this case.
-func TestSendENIStateChangeWithRetries(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(nil, false),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			ExpiresAt:  time.Now().Add(5 * time.Second),
-			MACAddress: macAddress1,
-		}, true),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-
-	go watcher.sendENIStateChangeWithRetries(ctx, macAddress1, sendENIStateChangeRetryTimeout)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
-}
-
-// Test for SendENIStateChangeWithRetries. We call this method for an expired ENI.
-// Therefore, we remove the ENI from state and return without any message on channel
-func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		// ENIByMAC returns an error for exipred ENI attachment, which should
-		// mean that it doesn't get retried.
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(
-			&apieni.ENIAttachment{
-				AttachStatusSent: false,
-				ExpiresAt:        time.Now().Add(time.Second * -1),
-				MACAddress:       macAddress1,
-			}, true),
-		mockStateManager.EXPECT().RemoveENIAttachment(macAddress1),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, nil, mockiphelper)
-
-	assert.Error(t, watcher.sendENIStateChangeWithRetries(
-		ctx, macAddress1, sendENIStateChangeRetryTimeout))
-}
-
-// TestSendENIStateChangeWithAttachmentTypeInstanceENI tests that we send the attachment state change
-// of an instance level eni as an attachment state change
-func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
-			ExpiresAt:      time.Now().Add(5 * time.Second),
-		}, true),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-
-	go watcher.sendENIStateChange(macAddress1)
-
-	eniChangeEvent := <-eventChannel
-	attachmentStateChange, ok := eniChangeEvent.(api.AttachmentStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, attachmentStateChange.Attachment.Status)
-}
-
-// TestSendENIStateChangeWithAttachmentTypeTaskENI tests that we send the attachment state change
-// of a regular eni as a task state change
-func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	mockiphelper := mock_iphelperwrapper.NewMockInterfaceMonitor(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-	ctx := context.TODO()
-
-	gomock.InOrder(
-		mockiphelper.EXPECT().StartMonitor(gomock.Any()).Return(nil),
-		mockStateManager.EXPECT().ENIByMac(macAddress1).Return(&apieni.ENIAttachment{
-			AttachmentType: apieni.ENIAttachmentTypeTaskENI,
-			ExpiresAt:      time.Now().Add(5 * time.Second),
-		}, true),
-	)
-
-	watcher, _ := NewWindowsWatcher(ctx, primaryMAC, mockStateManager, eventChannel, mockiphelper)
-
-	go watcher.sendENIStateChange(macAddress1)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 }
