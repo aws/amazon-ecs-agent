@@ -35,17 +35,38 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper"
 	mock_netlinkwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netlinkwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	mock_udevwrapper "github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
 )
 
 const (
 	randomDevice     = "eth1"
-	primaryMAC       = "00:0a:95:9d:68:61"
-	randomMAC        = "00:0a:95:9d:68:16"
 	randomDevPath    = " ../../devices/pci0000:00/0000:00:03.0/net/eth1"
 	incorrectDevPath = "../../devices/totally/wrong/net/path"
 )
+
+// newTestWatcher creates an ENIWatcher for testing
+func newTestWatcher(ctx context.Context,
+	primaryMAC string,
+	nlWrap netlinkwrapper.NetLink,
+	udevWrap udevwrapper.Udev,
+	state dockerstate.TaskEngineState,
+	stateChangeEvents chan<- statechange.Event) *ENIWatcher {
+
+	derivedContext, cancel := context.WithCancel(ctx)
+	return &ENIWatcher{
+		ctx:            derivedContext,
+		cancel:         cancel,
+		agentState:     state,
+		eniChangeEvent: stateChangeEvents,
+		primaryMAC:     primaryMAC,
+		netlinkClient:  nlWrap,
+		udevMonitor:    udevWrap,
+		events:         make(chan *udev.UEvent),
+	}
+}
 
 // TestWatcherInit checks the sanity of watcher initialization
 func TestWatcherInit(t *testing.T) {
@@ -69,7 +90,7 @@ func TestWatcherInit(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
@@ -122,7 +143,7 @@ func TestInitWithNetlinkError(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	err := watcher.Init()
 	assert.Error(t, err)
 }
@@ -138,7 +159,7 @@ func TestWatcherInitWithEmptyList(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 
 	// Init() uses netlink.LinkList() to build initial state
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
@@ -170,7 +191,7 @@ func TestReconcileENIs(t *testing.T) {
 	}()
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	require.NoError(t, watcher.reconcileOnce(false))
 
 	<-done
@@ -267,7 +288,7 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	assert.Error(t, watcher.reconcileOnce(false))
 
 	select {
@@ -291,7 +312,7 @@ func TestReconcileENIsWithEmptyList(t *testing.T) {
 	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{}, nil)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
 	assert.NoError(t, watcher.reconcileOnce(false))
 	watcher.Stop()
 
@@ -329,7 +350,7 @@ func TestUdevAddEvent(t *testing.T) {
 	eventChannel := make(chan statechange.Event)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, mockUdev, mockStateManager, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, mockUdev, mockStateManager, eventChannel)
 
 	shutdown := make(chan bool)
 	gomock.InOrder(
@@ -380,7 +401,7 @@ func TestUdevSubsystemFilter(t *testing.T) {
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
+	watcher := newTestWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
 
 	shutdown := make(chan bool)
 	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
@@ -417,7 +438,7 @@ func TestUdevAddEventWithInvalidInterface(t *testing.T) {
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
+	watcher := newTestWatcher(ctx, primaryMAC, nil, mockUdev, nil, nil)
 
 	shutdown := make(chan bool)
 	mockUdev.EXPECT().Monitor(watcher.events).Return(shutdown)
@@ -455,7 +476,7 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 	// Setup Mock Udev
 	mockUdev := mock_udevwrapper.NewMockUdev(mockCtrl)
 
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, mockUdev, nil, nil)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, mockUdev, nil, nil)
 
 	var invoked sync.WaitGroup
 	invoked.Add(1)
@@ -490,170 +511,4 @@ func TestUdevAddEventWithoutMACAdress(t *testing.T) {
 
 	go watcher.Stop()
 	waitForClose.Wait()
-}
-
-func TestSendENIStateChange(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
-
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
-		ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
-	}, true)
-
-	go watcher.sendENIStateChange(randomMAC)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
-}
-
-func TestSendENIStateChangeUnmanaged(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
-
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false)
-	assert.Error(t, watcher.sendENIStateChange(randomMAC))
-}
-
-func TestSendENIStateChangeAlreadySent(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
-
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
-		AttachStatusSent: true,
-		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
-		MACAddress:       randomMAC,
-	}, true)
-
-	assert.Error(t, watcher.sendENIStateChange(randomMAC))
-}
-
-func TestSendENIStateChangeExpired(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
-
-	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&apieni.ENIAttachment{
-				AttachStatusSent: false,
-				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
-				MACAddress:       randomMAC,
-			}, true),
-		mockStateManager.EXPECT().RemoveENIAttachment(randomMAC),
-	)
-
-	assert.Error(t, watcher.sendENIStateChange(randomMAC))
-}
-
-func TestSendENIStateChangeWithRetries(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
-
-	gomock.InOrder(
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(nil, false),
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
-			ExpiresAt: time.Unix(time.Now().Unix()+10, 0),
-		}, true),
-	)
-
-	ctx := context.TODO()
-	go watcher.sendENIStateChangeWithRetries(ctx, randomMAC, sendENIStateChangeRetryTimeout)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
-}
-
-func TestSendENIStateChangeWithRetriesDoesNotRetryExpiredENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, nil)
-
-	gomock.InOrder(
-		// ENIByMAC returns an error for exipred ENI attachment, which should
-		// mean that it doesn't get retried.
-		mockStateManager.EXPECT().ENIByMac(randomMAC).Return(
-			&apieni.ENIAttachment{
-				AttachStatusSent: false,
-				ExpiresAt:        time.Unix(time.Now().Unix()-10, 0),
-				MACAddress:       randomMAC,
-			}, true),
-		mockStateManager.EXPECT().RemoveENIAttachment(randomMAC),
-	)
-
-	ctx := context.TODO()
-	assert.Error(t, watcher.sendENIStateChangeWithRetries(
-		ctx, randomMAC, sendENIStateChangeRetryTimeout))
-}
-
-// TestSendENIStateChangeWithAttachmentTypeInstanceENI tests that we send the attachment state change
-// of an instance level eni as an attachment state change
-func TestSendENIStateChangeWithAttachmentTypeInstanceENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
-
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
-		AttachmentType: apieni.ENIAttachmentTypeInstanceENI,
-		ExpiresAt:      time.Unix(time.Now().Unix()+10, 0),
-	}, true)
-
-	go watcher.sendENIStateChange(randomMAC)
-
-	eniChangeEvent := <-eventChannel
-	attachmentStateChange, ok := eniChangeEvent.(api.AttachmentStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, attachmentStateChange.Attachment.Status)
-}
-
-// TestSendENIStateChangeWithAttachmentTypeTaskENI tests that we send the attachment state change
-// of a regular eni as a task state change
-func TestSendENIStateChangeWithAttachmentTypeTaskENI(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
-	eventChannel := make(chan statechange.Event)
-
-	watcher := newWatcher(context.TODO(), primaryMAC, nil, nil, mockStateManager, eventChannel)
-
-	mockStateManager.EXPECT().ENIByMac(randomMAC).Return(&apieni.ENIAttachment{
-		AttachmentType: apieni.ENIAttachmentTypeTaskENI,
-		ExpiresAt:      time.Unix(time.Now().Unix()+10, 0),
-	}, true)
-
-	go watcher.sendENIStateChange(randomMAC)
-
-	eniChangeEvent := <-eventChannel
-	taskStateChange, ok := eniChangeEvent.(api.TaskStateChange)
-	require.True(t, ok)
-	assert.Equal(t, apieni.ENIAttached, taskStateChange.Attachment.Status)
 }

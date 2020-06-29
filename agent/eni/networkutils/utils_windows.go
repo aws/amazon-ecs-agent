@@ -21,17 +21,21 @@ import (
 	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
-	"github.com/aws/amazon-ecs-agent/agent/eni/gonetwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
 
-// Interface for NetworkUtils
-// We will abstract the Golang's net package from its direct use in watcher.
-type WindowsNetworkUtils interface {
+// NetworkUtils is the interface used for accessing network utils
+// The methods declared in this package may or may not add any additional logic over the actual networking api calls.
+// Moreover, we will use a wrapper over Golang's net package. This is done to ensure that any future change which
+// requires a package different from Golang's net, can be easily implemented by changing the underlying wrapper without
+// impacting watcher
+type NetworkUtils interface {
 	GetInterfaceMACByIndex(int, context.Context, time.Duration) (string, error)
 	GetAllNetworkInterfaces() ([]net.Interface, error)
+	SetNetWrapper(netWrapper netwrapper.NetWrapper)
 }
 
 type networkUtils struct {
@@ -43,13 +47,13 @@ type networkUtils struct {
 	timeout time.Duration
 	ctx     context.Context
 	// A wrapper over Golang's net package
-	gonetutils gonetwrapper.GolangNetUtils
+	netWrapper netwrapper.NetWrapper
 }
 
-// Returns an instance of networkUtils which can be used to access this package's functionality
-func GetNetworkUtils() *networkUtils {
+// New creates a new network utils
+func New() NetworkUtils {
 	return &networkUtils{
-		gonetutils: gonetwrapper.NewGoNetUtilWrapper(),
+		netWrapper: netwrapper.New(),
 	}
 }
 
@@ -68,7 +72,6 @@ func (utils *networkUtils) GetInterfaceMACByIndex(index int, ctx context.Context
 // This method is used to retrieve MAC address using retry with backoff.
 // We use retry logic in order to account for any delay in MAC Address becoming available after the interface addition notification is received
 func (utils *networkUtils) retrieveMAC() (string, error) {
-
 	backoff := retry.NewExponentialBackoff(macAddressBackoffMin, macAddressBackoffMax,
 		macAddressBackoffJitter, macAddressBackoffMultiple)
 
@@ -77,18 +80,18 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 
 	err := retry.RetryWithBackoffCtx(ctx, backoff, func() error {
 
-		inf, err := utils.gonetutils.FindInterfaceByIndex(utils.interfaceIndex)
+		iface, err := utils.netWrapper.FindInterfaceByIndex(utils.interfaceIndex)
 		if err != nil {
-			seelog.Warnf("Unable to retrieve MAC Address for Interface Index : %v , %v", utils.interfaceIndex, err)
+			seelog.Warnf("Unable to retrieve mac address for Interface Index: %v , %v", utils.interfaceIndex, err)
 			return apierrors.NewRetriableError(apierrors.NewRetriable(false), err)
 		}
 
-		if inf.HardwareAddr.String() == "" {
-			seelog.Debugf("Empty MAC Address for interface with index : %v", utils.interfaceIndex)
-			return errors.Errorf("Empty MAC Address for interface with index : %v", utils.interfaceIndex)
+		if iface.HardwareAddr.String() == "" {
+			seelog.Debugf("Empty MAC Address for interface with index: %v", utils.interfaceIndex)
+			return errors.Errorf("empty mac address for interface with index: %v", utils.interfaceIndex)
 		}
 
-		utils.macAddress = inf.HardwareAddr.String()
+		utils.macAddress = iface.HardwareAddr.String()
 		return nil
 	})
 
@@ -97,7 +100,7 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 	}
 
 	if err = ctx.Err(); err != nil {
-		return "", errors.Wrapf(err, "Timed out waiting for MAC Address for interface with Index : %v", utils.interfaceIndex)
+		return "", errors.Wrapf(err, "timed out waiting for mac address for interface with Index: %v", utils.interfaceIndex)
 	}
 
 	return utils.macAddress, nil
@@ -105,10 +108,10 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 
 // Returns all the network interfaces
 func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error) {
-	return utils.gonetutils.GetAllNetworkInterfaces()
+	return utils.netWrapper.GetAllNetworkInterfaces()
 }
 
-// This method is used to inject GolangNetUtils instance. This will be handy while testing to inject mocks.
-func (utils *networkUtils) SetGoNetUtils(gutils gonetwrapper.GolangNetUtils) {
-	utils.gonetutils = gutils
+// This method is used to inject netWrapper instance. This will be handy while testing to inject mocks.
+func (utils *networkUtils) SetNetWrapper(netWrapper netwrapper.NetWrapper) {
+	utils.netWrapper = netWrapper
 }

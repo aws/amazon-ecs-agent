@@ -1,5 +1,3 @@
-// +build windows
-
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -13,20 +11,21 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package gonetwrapper
+package netwrapper
 
 import "net"
 
-// This interface is created to abstract Golang's net package from its usage in the watcher
+// NetWrapper interface is created to abstract Golang's net package from its usage in the watcher
 // Also, this enables us to mock this interface for unit tests
-type GolangNetUtils interface {
+type NetWrapper interface {
 	FindInterfaceByIndex(int) (*net.Interface, error)
 	GetAllNetworkInterfaces() ([]net.Interface, error)
 }
 
 type utils struct{}
 
-func NewGoNetUtilWrapper() *utils {
+// New returns a wrapper over Golang's net package
+func New() NetWrapper {
 	return &utils{}
 }
 
