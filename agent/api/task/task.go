@@ -255,6 +255,11 @@ type Task struct {
 	// NvidiaRuntime is the runtime to pass Nvidia GPU devices to containers
 	NvidiaRuntime string `json:"NvidiaRuntime,omitempty"`
 
+	// LocalIPAddressUnsafe stores the local IP address allocated to the bridge that connects the task network
+	// namespace and the host network namespace, for tasks in awsvpc network mode (tasks in other network mode won't
+	// have a value for this). This field should be accessed via GetLocalIPAddress and SetLocalIPAddress.
+	LocalIPAddressUnsafe string `json:"LocalIPAddress,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -2678,4 +2683,20 @@ func (task *Task) MergeEnvVarsFromEnvfiles(container *apicontainer.Container) *a
 	}
 
 	return nil
+}
+
+// GetLocalIPAddress returns the local IP address of the task.
+func (task *Task) GetLocalIPAddress() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.LocalIPAddressUnsafe
+}
+
+// SetLocalIPAddress sets the local IP address of the task.
+func (task *Task) SetLocalIPAddress(addr string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.LocalIPAddressUnsafe = addr
 }

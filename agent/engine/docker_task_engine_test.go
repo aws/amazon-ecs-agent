@@ -1259,11 +1259,15 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	require.Len(t, cniConfig.NetworkConfigs, 3)
 }
 
-func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
+func TestProvisionContainerResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+	taskEngine.SetDataClient(dataClient)
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
@@ -1297,6 +1301,10 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 
 	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 	assert.Equal(t, strconv.Itoa(containerPid), volRes.GetPauseContainerPID())
+	assert.Equal(t, taskIP, testTask.GetLocalIPAddress())
+	savedTasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, savedTasks, 1)
 }
 
 func TestProvisionContainerResourcesInspectError(t *testing.T) {
