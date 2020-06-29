@@ -182,6 +182,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 		},
 	}, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
 
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestStatsEngineMetadataInStatsSets"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -416,11 +417,14 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		statsStarted <- struct{}{}
 	}).Return(statsChan, nil)
 
-	resolver.EXPECT().ResolveTask(containerID).Return(&apitask.Task{
+	testTask := &apitask.Task{
 		Arn:               "t1",
 		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 		Family:            "f1",
-	}, nil)
+	}
+
+	resolver.EXPECT().ResolveTask(containerID).Return(testTask, nil).Times(2)
+	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(testTask, nil).AnyTimes()
 	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
 		DockerID: containerID,
 		Container: &apicontainer.Container{
@@ -457,20 +461,38 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, empt
 	defer mockCtrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
 	mockDockerClient := mock_dockerapi.NewMockDockerClient(mockCtrl)
-	t1 := &apitask.Task{
-		Arn:    "t1",
-		Family: "f1",
-		ENIs:   enis,
-	}
-	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
-	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(&apicontainer.DockerContainer{
+
+	testContainer := &apicontainer.DockerContainer{
 		Container: &apicontainer.Container{
 			Name:              "test",
 			NetworkModeUnsafe: netMode,
+			Type:              apicontainer.ContainerCNIPause,
 		},
-	}, nil)
+	}
+
+	t1 := &apitask.Task{
+		Arn:               "t1",
+		Family:            "f1",
+		ENIs:              enis,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+		Containers: []*apicontainer.Container{
+			{Name: "test"},
+			{Name: "test1"},
+		},
+	}
+
+	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
+	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
+
+	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(testContainer, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
+	mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    "test",
+			State: &types.ContainerState{Pid: 23},
+		},
+	}, nil).AnyTimes()
 	engine := NewDockerStatsEngine(&cfg, nil, eventStream("TestTaskNetworkStatsSet"))
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()

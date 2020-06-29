@@ -67,6 +67,15 @@ type ContainerMetadata struct {
 	NetworkMode string `json:"-"`
 }
 
+// TaskMetadata contains meta-data information for a task.
+type TaskMetadata struct {
+	TaskArn string `json:"-"`
+	// ContainerPID is the PID of the pause container in the awsvpc task.
+	ContainerPID     string   `json:"-"`
+	DeviceName       []string `json:"-"`
+	NumberContainers int      `json:"-"`
+}
+
 // StatsContainer abstracts methods to gather and aggregate utilization data for a container.
 type StatsContainer struct {
 	containerMetadata *ContainerMetadata
