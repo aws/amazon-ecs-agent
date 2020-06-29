@@ -398,7 +398,7 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 
 	err = tmpFile.Close()
 	if err != nil {
-		seelog.Errorf("Error while closing temporary file %s created for envfile resource", tmpFile.Name(), err)
+		seelog.Errorf("Error while closing temporary file %s created for envfile resource", tmpFile.Name())
 		return err
 	}
 
