@@ -24,4 +24,5 @@ import (
 type ContainerMetadataResolver interface {
 	ResolveTask(string) (*apitask.Task, error)
 	ResolveContainer(string) (*apicontainer.DockerContainer, error)
+	ResolveTaskByARN(string) (*apitask.Task, error)
 }
