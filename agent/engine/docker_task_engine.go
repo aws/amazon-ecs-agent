@@ -182,10 +182,9 @@ func NewDockerTaskEngine(cfg *config.Config,
 		dataClient: data.NewNoopClient(),
 		saver:      statemanager.NewNoopStateManager(),
 
-		state:         state,
-		managedTasks:  make(map[string]*managedTask),
-		taskStopGroup: utilsync.NewSequentialWaitGroup(),
-
+		state:             state,
+		managedTasks:      make(map[string]*managedTask),
+		taskStopGroup:     utilsync.NewSequentialWaitGroup(),
 		stateChangeEvents: make(chan statechange.Event),
 
 		credentialsManager: credentialsManager,
@@ -442,7 +441,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 			container.Container.SetKnownStatus(dockerapi.DockerStateToState(describedContainer.State))
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
-			engine.imageManager.RecordContainerReference(container.Container)
+			err := engine.imageManager.RecordContainerReference(container.Container)
+			if err != nil {
+				seelog.Warnf("Task engine [%s]: unable to add container reference to image state: %v",
+					task.Arn, err)
+			}
 		}
 		return
 	}
@@ -456,7 +459,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 				task.Arn, container.DockerID, container.DockerName, metadata.Error)
 			if !container.Container.KnownTerminal() {
 				container.Container.ApplyingError = apierrors.NewNamedError(&ContainerVanishedError{})
-				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+				err := engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+				if err != nil {
+					seelog.Warnf("Task engine [%s]: could not remove container reference for image state %s: %v",
+						container.Container.Image, err)
+				}
 			}
 		} else {
 			// If this is a container state error
@@ -466,7 +473,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 	} else {
 		// update the container metadata in case the container status/metadata changed during agent restart
 		updateContainerMetadata(&metadata, container.Container, task)
-		engine.imageManager.RecordContainerReference(container.Container)
+		err := engine.imageManager.RecordContainerReference(container.Container)
+		if err != nil {
+			seelog.Warnf("Task engine [%s]: unable to add container reference to image state: %v",
+				task.Arn, err)
+		}
 		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
 		}
@@ -890,6 +901,11 @@ func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, con
 		imageState.SetPullSucceeded(true)
 	}
 	engine.state.AddImageState(imageState)
+	err = engine.dataClient.SaveImageState(imageState)
+	if err != nil {
+		seelog.Warnf("Task engine [%s]: unable to save image state: %v",
+			taskArn, err)
+	}
 	engine.saver.Save()
 }
 

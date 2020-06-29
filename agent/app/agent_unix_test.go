@@ -134,7 +134,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 				assert.True(t, vpcFound)
 				assert.True(t, subnetFound)
 			}).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
@@ -440,7 +440,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
@@ -586,7 +586,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),

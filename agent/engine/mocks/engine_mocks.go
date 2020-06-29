@@ -294,16 +294,16 @@ func (mr *MockImageManagerMockRecorder) RemoveContainerReferenceFromImageState(a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveContainerReferenceFromImageState", reflect.TypeOf((*MockImageManager)(nil).RemoveContainerReferenceFromImageState), arg0)
 }
 
-// SetSaver mocks base method
-func (m *MockImageManager) SetSaver(arg0 statemanager.Saver) {
+// SetDataClient mocks base method
+func (m *MockImageManager) SetDataClient(arg0 data.Client) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetSaver", arg0)
+	m.ctrl.Call(m, "SetDataClient", arg0)
 }
 
-// SetSaver indicates an expected call of SetSaver
-func (mr *MockImageManagerMockRecorder) SetSaver(arg0 interface{}) *gomock.Call {
+// SetDataClient indicates an expected call of SetDataClient
+func (mr *MockImageManagerMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSaver", reflect.TypeOf((*MockImageManager)(nil).SetSaver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockImageManager)(nil).SetDataClient), arg0)
 }
 
 // StartImageCleanupProcess mocks base method

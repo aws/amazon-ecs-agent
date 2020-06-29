@@ -386,7 +386,7 @@ func TestDoStartHappyPath(t *testing.T) {
 		containermetadata.EXPECT().SetAvailabilityZone(availabilityZone),
 		containermetadata.EXPECT().SetHostPrivateIPv4Address(hostPrivateIPv4Address),
 		containermetadata.EXPECT().SetHostPublicIPv4Address(hostPublicIPv4Address),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),

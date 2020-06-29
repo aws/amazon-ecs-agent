@@ -23,6 +23,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,7 @@ import (
 
 const (
 	testContainerName = "test-name"
+	testImageId       = "test-imageId"
 )
 
 var (
@@ -40,6 +42,14 @@ var (
 	testTask = &apitask.Task{
 		Arn:        testTaskARN,
 		Containers: []*apicontainer.Container{testContainer},
+	}
+
+	testImageState = &image.ImageState{
+		Image:         testImage,
+		PullSucceeded: false,
+	}
+	testImage = &image.Image{
+		ImageID: testImageId,
 	}
 )
 
@@ -101,4 +111,22 @@ func TestSaveDockerContainerData(t *testing.T) {
 	containers, err := dataClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
+}
+
+func TestSaveAndRemoveImageStateData(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	imageManager := &dockerImageManager{
+		dataClient: dataClient,
+	}
+	imageManager.saveImageStateData(testImageState)
+	res, err := dataClient.GetImageStates()
+	require.NoError(t, err)
+	assert.Len(t, res, 1)
+
+	imageManager.removeImageStateData(testImageId)
+	res, err = dataClient.GetImageStates()
+	require.NoError(t, err)
+	assert.Len(t, res, 0)
 }
