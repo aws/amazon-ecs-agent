@@ -19,8 +19,9 @@
 package mock_iphelperwrapper
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockInterfaceMonitor is a mock of InterfaceMonitor interface

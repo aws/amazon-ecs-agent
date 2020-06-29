@@ -19,9 +19,10 @@
 package mock_gonetwrapper
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	net "net"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockGolangNetUtils is a mock of GolangNetUtils interface
