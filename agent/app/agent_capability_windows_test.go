@@ -68,7 +68,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.ECSVPCSharedENIPluginExecutable).Return("v1", nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -156,7 +156,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(ecscni.ECSVPCSharedENIPluginExecutable).Return("v1", nil),
 	)
 
 	expectedCapabilityNames := []string{

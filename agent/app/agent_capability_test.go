@@ -27,7 +27,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
@@ -77,7 +76,9 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		// CNI plugins are platform dependent.
+		// Therefore, for any version query for any plugin return an appropriate version
+		cniClient.EXPECT().Version(gomock.Any()).Return("v1", nil),
 		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
@@ -451,7 +452,9 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 		dockerclient.Version_1_17,
 	})
 	client.EXPECT().KnownVersions().Return(nil)
-	cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", errors.New("some error happened"))
+	// CNI plugins are platform dependent.
+	// Therefore, for any version query for any plugin return an error
+	cniClient.EXPECT().Version(gomock.Any()).Return("v1", errors.New("some error happened"))
 	mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil)
 	client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any()).AnyTimes().Return([]string{}, nil)

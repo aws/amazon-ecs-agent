@@ -1188,6 +1188,20 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 
 		}
 	}
+
+	// On Windows, we need to invoke CNI plugins for all containers
+	// invokePluginsForContainer will return nil for other platforms
+	if dockerContainerMD.Error == nil && task.IsNetworkModeAWSVPC() && !container.IsInternal() {
+		err := engine.invokePluginsForContainer(task, container)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{
+				Error: ContainerNetworkingError{
+					fromError: errors.Wrapf(err, "startContainer: cni plugin invocation failed"),
+				},
+			}
+		}
+	}
+
 	return dockerContainerMD
 }
 
@@ -1228,9 +1242,12 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	taskIP := result.IPs[0].Address.IP.String()
-	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
-	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	// This is the IP of the task assigned on the bridge for IAM Task roles
+	if result != nil {
+		taskIP := result.IPs[0].Address.IP.String()
+		seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
+		engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	}
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1278,6 +1295,17 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 
 	cniConfig.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cniConfig.ContainerID = containerInspectOutput.ID
+	cniConfig.ContainerNetNS = ""
+
+	// For pause containers, NetNS would be none
+	// For other containers, NetNS would be of format container:<pause_container_ID>
+	if containerInspectOutput.HostConfig.NetworkMode.IsNone() {
+		cniConfig.ContainerNetNS = containerInspectOutput.HostConfig.NetworkMode.NetworkName()
+	} else if containerInspectOutput.HostConfig.NetworkMode.IsContainer() {
+		cniConfig.ContainerNetNS = fmt.Sprintf("container:%s", containerInspectOutput.HostConfig.NetworkMode.ConnectedContainer())
+	} else {
+		return nil, errors.New("engine: failed to build cni configuration from the task due to invalid container network namespace")
+	}
 
 	cniConfig, err := task.BuildCNIConfig(includeIPAMConfig, cniConfig)
 	if err != nil {

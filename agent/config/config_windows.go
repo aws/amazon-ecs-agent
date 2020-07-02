@@ -50,6 +50,8 @@ const (
 	minimumContainerStartTimeout = 2 * time.Minute
 	// default image pull inactivity time is extra time needed on container extraction
 	defaultImagePullInactivityTimeout = 3 * time.Minute
+	// default directory name of CNI Plugins
+	defaultCNIPluginDirName = "cni"
 )
 
 // DefaultConfig returns the default configuration for Windows
@@ -57,6 +59,9 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
+
+	programFiles := utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
+	ecsBinaryDir := filepath.Join(programFiles, "Amazon", "ECS")
 
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    false,
@@ -107,6 +112,7 @@ func DefaultConfig() Config {
 		GMSACapable:                         true,
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
+		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),
 	}
 }
 

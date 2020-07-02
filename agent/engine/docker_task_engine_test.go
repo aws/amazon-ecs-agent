@@ -45,7 +45,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
@@ -80,6 +79,7 @@ const (
 	ipv4                        = "10.0.0.1"
 	mac                         = "1.2.3.4"
 	ipv6                        = "f0:234:23"
+	gateway                     = "10.0.0.2/20"
 	dockerContainerName         = "docker-container-name"
 	containerPid                = 123
 	taskIP                      = "169.254.170.3"
@@ -101,6 +101,7 @@ const (
 	networkModeBridge           = "bridge"
 	networkModeAWSVPC           = "awsvpc"
 	taskArn                     = "task1"
+	containerNetworkMode        = "none"
 )
 
 var (
@@ -121,6 +122,7 @@ var (
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	}
 
 	// createdContainerName is used to save the name of the created
@@ -308,140 +310,6 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestTaskWithSteadyStateResourcesProvisioned tests container and task transitions
-// when the steady state for the pause container is set to RESOURCES_PROVISIONED and
-// the steady state for the normal container is set to RUNNING
-func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, mockTime, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
-	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
-	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
-	// sleep5 contains a single 'sleep' container, with DesiredStatus == RUNNING
-	sleepTask := testdata.LoadTask("sleep5")
-	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-	sleepContainer.BuildContainerDependency("pause", apicontainerstatus.ContainerResourcesProvisioned, apicontainerstatus.ContainerPulled)
-	// Add a second container with DesiredStatus == RESOURCES_PROVISIONED and
-	// steadyState == RESOURCES_PROVISIONED
-	pauseContainer := apicontainer.NewContainerWithSteadyState(apicontainerstatus.ContainerResourcesProvisioned)
-	pauseContainer.Name = "pause"
-	pauseContainer.Image = "pause"
-	pauseContainer.CPU = 10
-	pauseContainer.Memory = 10
-	pauseContainer.Essential = true
-	pauseContainer.Type = apicontainer.ContainerCNIPause
-	sleepTask.Containers = append(sleepTask.Containers, pauseContainer)
-	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
-	// containerEventsWG is used to force the test to wait until the container created and started
-	// events are processed
-	containerEventsWG := sync.WaitGroup{}
-
-	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-	// We cannot rely on the order of pulls between images as they can still be downloaded in
-	// parallel. The dependency graph enforcement comes into effect for CREATED transitions.
-	// Hence, do not enforce the order of invocation of these calls
-	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	client.EXPECT().PullImage(gomock.Any(), sleepContainer.Image, nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
-	imageManager.EXPECT().RecordContainerReference(sleepContainer).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(sleepContainer.Image).Return(nil, false)
-
-	gomock.InOrder(
-		// Ensure that the pause container is created first
-		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
-				sleepTask.AddTaskENI(mockENI)
-				sleepTask.SetAppMesh(&appmesh.AppMesh{
-					IgnoredUID:       ignoredUID,
-					ProxyIngressPort: proxyIngressPort,
-					ProxyEgressPort:  proxyEgressPort,
-					AppPorts: []string{
-						appPort,
-					},
-					EgressIgnoredIPs: []string{
-						egressIgnoredIP,
-					},
-				})
-				assert.Equal(t, "none", string(hostConfig.NetworkMode))
-				assert.True(t, strings.Contains(containerName, pauseContainer.Name))
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
-		// Ensure that the pause container is started after it's created
-		client.EXPECT().StartContainer(gomock.Any(), containerID+":"+pauseContainer.Name, defaultConfig.ContainerStartTimeout).Do(
-			func(ctx interface{}, id string, timeout time.Duration) {
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + pauseContainer.Name}),
-		client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: 23},
-			},
-		}, nil),
-		// Then setting up the pause container network namespace
-		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
-
-		// Once the pause container is started, sleep container will be created
-		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *dockercontainer.Config, hostConfig *dockercontainer.HostConfig, containerName string, z time.Duration) {
-				assert.True(t, strings.Contains(containerName, sleepContainer.Name))
-				assert.Equal(t, "container:"+containerID+":"+pauseContainer.Name, string(hostConfig.NetworkMode))
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerCreated)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
-		// Next, the sleep container is started
-		client.EXPECT().StartContainer(gomock.Any(), containerID+":"+sleepContainer.Name, defaultConfig.ContainerStartTimeout).Do(
-			func(ctx interface{}, id string, timeout time.Duration) {
-				containerEventsWG.Add(1)
-				go func() {
-					eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
-					containerEventsWG.Done()
-				}()
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: containerID + ":" + sleepContainer.Name}),
-	)
-
-	addTaskToEngine(t, ctx, taskEngine, sleepTask, mockTime, &containerEventsWG)
-	taskARNByIP, ok := taskEngine.(*DockerTaskEngine).state.GetTaskByIPAddress(taskIP)
-	assert.True(t, ok)
-	assert.Equal(t, sleepTask.Arn, taskARNByIP)
-	cleanup := make(chan time.Time, 1)
-	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
-	client.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		&types.ContainerJSON{
-			ContainerJSONBase: &types.ContainerJSONBase{
-				ID:    containerID,
-				State: &types.ContainerState{Pid: 23},
-			},
-		}, nil)
-	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	client.EXPECT().StopContainer(gomock.Any(), containerID+":"+pauseContainer.Name, gomock.Any()).MinTimes(1)
-	mockCNIClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1)
-
-	// Simulate a container stop event from docker
-	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
-		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
-			DockerID: containerID + ":" + sleepContainer.Name,
-			ExitCode: aws.Int(exitCode),
-		},
-	}
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
 }
 
 // TestRemoveEvents tests if the task engine can handle task events while the task is being
@@ -1101,164 +969,6 @@ func TestGetTaskByArn(t *testing.T) {
 	assert.False(t, found, "Task with invalid arn found in the task engine")
 }
 
-func TestPauseContainerHappyPath(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, dockerClient, mockTime, taskEngine, _, imageManager, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
-	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
-	taskEngine.(*DockerTaskEngine).cniClient = cniClient
-	taskEngine.(*DockerTaskEngine).taskSteadyStatePollInterval = taskSteadyStatePollInterval
-	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
-	sleepTask := testdata.LoadTask("sleep5")
-	sleepContainer := sleepTask.Containers[0]
-	sleepContainer.TransitionDependenciesMap = make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet)
-
-	// Add eni information to the task so the task can add dependency of pause container
-	sleepTask.AddTaskENI(mockENI)
-
-	sleepTask.SetAppMesh(&appmesh.AppMesh{
-		IgnoredUID:       ignoredUID,
-		ProxyIngressPort: proxyIngressPort,
-		ProxyEgressPort:  proxyEgressPort,
-		AppPorts: []string{
-			appPort,
-		},
-		EgressIgnoredIPs: []string{
-			egressIgnoredIP,
-		},
-	})
-
-	dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
-
-	pauseContainerID := "pauseContainerID"
-	// Pause container will be launched first
-	gomock.InOrder(
-		dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
-		dockerClient.EXPECT().CreateContainer(
-			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(ctx interface{}, config *dockercontainer.Config, x, y, z interface{}) {
-				name, ok := config.Labels[labelPrefix+"container-name"]
-				assert.True(t, ok)
-				assert.Equal(t, apitask.NetworkPauseContainerName, name)
-			}).Return(dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().StartContainer(gomock.Any(), pauseContainerID, defaultConfig.ContainerStartTimeout).Return(
-			dockerapi.DockerContainerMetadata{DockerID: "pauseContainerID"}),
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    pauseContainerID,
-					State: &types.ContainerState{Pid: containerPid},
-				},
-			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
-	)
-
-	// For the other container
-	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().PullImage(gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(dockerapi.DockerContainerMetadata{})
-	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Return(nil)
-	imageManager.EXPECT().GetImageStateFromImageName(gomock.Any()).Return(nil, false)
-	dockerClient.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
-	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
-		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: containerID})
-	dockerClient.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Return(
-		dockerapi.DockerContainerMetadata{DockerID: containerID})
-
-	cleanup := make(chan time.Time)
-	defer close(cleanup)
-	mockTime.EXPECT().Now().Return(time.Now()).MinTimes(1)
-	dockerClient.EXPECT().DescribeContainer(gomock.Any(), containerID).AnyTimes()
-	dockerClient.EXPECT().DescribeContainer(gomock.Any(), pauseContainerID).AnyTimes()
-
-	err := taskEngine.Init(ctx)
-	assert.NoError(t, err)
-
-	taskEngine.AddTask(sleepTask)
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	verifyTaskIsRunning(stateChangeEvents, sleepTask)
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
-	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    pauseContainerID,
-			State: &types.ContainerState{Pid: containerPid},
-		},
-	}, nil)
-	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-	dockerClient.EXPECT().StopContainer(gomock.Any(), pauseContainerID, gomock.Any()).Return(
-		dockerapi.DockerContainerMetadata{DockerID: pauseContainerID})
-	cniClient.EXPECT().ReleaseIPResource(gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(ctx context.Context, cfg *ecscni.Config, timeout time.Duration) {
-			wg.Done()
-		}).Return(nil)
-	dockerClient.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
-
-	// Simulate a container stop event from docker
-	eventStream <- dockerapi.DockerContainerChangeEvent{
-		Status: apicontainerstatus.ContainerStopped,
-		DockerContainerMetadata: dockerapi.DockerContainerMetadata{
-			DockerID: containerID,
-			ExitCode: aws.Int(exitCode),
-		},
-	}
-
-	verifyTaskIsStopped(stateChangeEvents, sleepTask)
-	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
-	cleanup <- time.Now()
-	for {
-		tasks, _ := taskEngine.(*DockerTaskEngine).ListTasks()
-		if len(tasks) == 0 {
-			break
-		}
-		t.Logf("Found %d tasks in the engine; first task arn: %s", len(tasks), tasks[0].Arn)
-		fmt.Printf("Found %d tasks in the engine; first task arn: %s\n", len(tasks), tasks[0].Arn)
-		time.Sleep(5 * time.Millisecond)
-	}
-	wg.Wait()
-}
-
-func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
-	config := defaultConfig
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
-	defer ctrl.Finish()
-
-	testTask := testdata.LoadTask("sleep5")
-	testTask.AddTaskENI(mockENI)
-	testTask.SetAppMesh(&appmesh.AppMesh{
-		IgnoredUID:       ignoredUID,
-		ProxyIngressPort: proxyIngressPort,
-		ProxyEgressPort:  proxyEgressPort,
-		AppPorts: []string{
-			appPort,
-		},
-		EgressIgnoredIPs: []string{
-			egressIgnoredIP,
-		},
-	})
-	containerInspectOutput := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    containerID,
-			State: &types.ContainerState{Pid: containerPid},
-		},
-	}
-
-	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, containerInspectOutput, true)
-	assert.NoError(t, err)
-	assert.Equal(t, containerID, cniConfig.ContainerID)
-	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
-	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-	// We expect 3 NetworkConfig objects in the cni Config wrapper object:
-	// ENI, Bridge and Appmesh
-	require.Len(t, cniConfig.NetworkConfigs, 3)
-}
-
 func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1290,6 +1000,9 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetworkMode,
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
@@ -1356,6 +1069,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	})
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
@@ -1380,6 +1094,9 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetworkMode,
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -1430,6 +1147,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	})
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
@@ -1443,6 +1161,9 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetworkMode,
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -2253,6 +1974,9 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 						State: &types.ContainerState{
 							Health: &types.Health{},
 						},
+						HostConfig: &dockercontainer.HostConfig{
+							NetworkMode: containerNetworkMode,
+						},
 					},
 					Config: &dockercontainer.Config{
 						Labels: labels,
@@ -3035,6 +2759,9 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:    containerID,
 			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
+			},
 		},
 	}
 
@@ -3042,6 +2769,9 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:    containerID,
 			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetworkMode,
+			},
 		},
 		NetworkSettings: &types.NetworkSettings{
 			DefaultNetworkSettings: types.DefaultNetworkSettings{
