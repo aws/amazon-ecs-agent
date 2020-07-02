@@ -41,7 +41,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -54,7 +53,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
 	"github.com/cihub/seelog"
-	"github.com/containernetworking/cni/libcni"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pkg/errors"
 )
@@ -1142,70 +1140,6 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.Fi
 		hostConfig.Binds = append(hostConfig.Binds, s3ConfigBind)
 	}
 	return nil
-}
-
-// BuildCNIConfig builds a list of CNI network configurations for the task.
-// If includeIPAMConfig is set to true, the list also includes the bridge IPAM configuration.
-func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
-	if !task.IsNetworkModeAWSVPC() {
-		return nil, errors.New("task config: task network mode is not AWSVPC")
-	}
-
-	var netconf *libcni.NetworkConfig
-	var ifName string
-	var err error
-
-	// Build a CNI network configuration for each ENI.
-	for _, eni := range task.ENIs {
-		switch eni.InterfaceAssociationProtocol {
-		// If the association protocol is set to "default" or unset (to preserve backwards
-		// compatibility), consider it a "standard" ENI attachment.
-		case "", apieni.DefaultInterfaceAssociationProtocol:
-			cniConfig.ID = eni.MacAddress
-			ifName, netconf, err = ecscni.NewENINetworkConfig(eni, cniConfig)
-		case apieni.VLANInterfaceAssociationProtocol:
-			cniConfig.ID = eni.MacAddress
-			ifName, netconf, err = ecscni.NewBranchENINetworkConfig(eni, cniConfig)
-		default:
-			err = errors.Errorf("task config: unknown interface association type: %s",
-				eni.InterfaceAssociationProtocol)
-		}
-
-		if err != nil {
-			return nil, err
-		}
-
-		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           ifName,
-			CNINetworkConfig: netconf,
-		})
-	}
-
-	// Build the bridge CNI network configuration.
-	// All AWSVPC tasks have a bridge network.
-	ifName, netconf, err = ecscni.NewBridgeNetworkConfig(cniConfig, includeIPAMConfig)
-	if err != nil {
-		return nil, err
-	}
-	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-		IfName:           ifName,
-		CNINetworkConfig: netconf,
-	})
-
-	// Build a CNI network configuration for AppMesh if enabled.
-	appMeshConfig := task.GetAppMesh()
-	if appMeshConfig != nil {
-		ifName, netconf, err = ecscni.NewAppMeshConfig(appMeshConfig, cniConfig)
-		if err != nil {
-			return nil, err
-		}
-		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           ifName,
-			CNINetworkConfig: netconf,
-		})
-	}
-
-	return cniConfig, nil
 }
 
 // IsNetworkModeAWSVPC checks if the task is configured to use the AWSVPC task networking feature.

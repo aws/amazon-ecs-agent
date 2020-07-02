@@ -23,8 +23,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
@@ -498,27 +496,6 @@ func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {
 
 	isDirectory := fileInfo.IsDir()
 	return (isDirectory && shouldBeDirectory) || (!isDirectory && !shouldBeDirectory), nil
-}
-
-// getTaskENIPluginVersionAttribute returns the version information of the ECS
-// CNI plugins. It just executes the ENI plugin as the assumption is that these
-// plugins are packaged with the ECS Agent, which means all of the other plugins
-// should also emit the same version information. Also, the version information
-// doesn't contribute to placement decisions and just serves as additional
-// debugging information
-func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
-	version, err := agent.cniClient.Version(ecscni.ECSENIPluginName)
-	if err != nil {
-		seelog.Warnf(
-			"Unable to determine the version of the plugin '%s': %v",
-			ecscni.ECSENIPluginName, err)
-		return nil, err
-	}
-
-	return &ecs.Attribute{
-		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
-		Value: aws.String(version),
-	}, nil
 }
 
 func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
