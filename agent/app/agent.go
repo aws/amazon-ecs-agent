@@ -349,7 +349,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
 	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, agent.dataClient, state, client)
-	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, stateManager, client)
+	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, stateManager, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
 		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state)
 

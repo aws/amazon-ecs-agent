@@ -285,7 +285,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.state,
-		acsSession.stateManager,
+		acsSession.dataClient,
 	)
 	eniAttachHandler.start()
 	defer eniAttachHandler.stop()
@@ -299,7 +299,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.state,
-		acsSession.stateManager,
+		acsSession.dataClient,
 	)
 	instanceENIAttachHandler.start()
 	defer instanceENIAttachHandler.stop()
