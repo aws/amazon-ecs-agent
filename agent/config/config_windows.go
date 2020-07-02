@@ -107,6 +107,7 @@ func DefaultConfig() Config {
 		GMSACapable:                         true,
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
+		CNIPluginsPath:                      filepath.Join(ecsRoot, defaultCNIPluginsPath),
 	}
 }
 

@@ -16,18 +16,28 @@ package engine
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	containerNetNS = "container:abcd"
 )
 
 func TestDeleteTask(t *testing.T) {
@@ -209,4 +219,45 @@ func TestCredentialSpecResourceTaskFileErr(t *testing.T) {
 
 	ret := taskEngine.(*DockerTaskEngine).createContainer(testTask, testTask.Containers[0])
 	assert.Error(t, ret.Error)
+}
+
+func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
+	config := defaultConfig
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	testTask.AddTaskENI(mockENI)
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+	containerInspectOutput := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: containerNetNS,
+			},
+		},
+	}
+
+	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, containerInspectOutput, true)
+	assert.NoError(t, err)
+	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+	assert.Equal(t, containerNetNS, cniConfig.ContainerNetNS)
+	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
+	// Bridge for Task ENI
+	require.Len(t, cniConfig.NetworkConfigs, 1)
 }

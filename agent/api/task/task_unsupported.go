@@ -18,6 +18,8 @@ package task
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -75,4 +77,10 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 // GetCredentialSpecResource retrieves credentialspec resource from resource map
 func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
 	return []taskresource.TaskResource{}, false
+}
+
+// BuildCNIConfig builds the configuration for the CNI plugins
+// On unsupported platforms, we will not support this functionality
+func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+	return nil, errors.New("unsupported platform")
 }

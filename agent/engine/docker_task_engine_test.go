@@ -80,6 +80,7 @@ const (
 	ipv4                        = "10.0.0.1"
 	mac                         = "1.2.3.4"
 	ipv6                        = "f0:234:23"
+	gateway                     = "10.0.0.2/20"
 	dockerContainerName         = "docker-container-name"
 	containerPid                = 123
 	taskIP                      = "169.254.170.3"
@@ -121,6 +122,7 @@ var (
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	}
 
 	// createdContainerName is used to save the name of the created
@@ -388,6 +390,9 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: 23},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: "",
+				},
 			},
 		}, nil),
 		// Then setting up the pause container network namespace
@@ -427,6 +432,9 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: 23},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: "",
+				},
 			},
 		}, nil)
 	mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -1150,6 +1158,9 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				ContainerJSONBase: &types.ContainerJSONBase{
 					ID:    pauseContainerID,
 					State: &types.ContainerState{Pid: containerPid},
+					HostConfig: &dockercontainer.HostConfig{
+						NetworkMode: "",
+					},
 				},
 			}, nil),
 		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
@@ -1186,6 +1197,9 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:    pauseContainerID,
 			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: "",
+			},
 		},
 	}, nil)
 	cniClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -1222,43 +1236,6 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	wg.Wait()
 }
 
-func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
-	config := defaultConfig
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
-	defer ctrl.Finish()
-
-	testTask := testdata.LoadTask("sleep5")
-	testTask.AddTaskENI(mockENI)
-	testTask.SetAppMesh(&appmesh.AppMesh{
-		IgnoredUID:       ignoredUID,
-		ProxyIngressPort: proxyIngressPort,
-		ProxyEgressPort:  proxyEgressPort,
-		AppPorts: []string{
-			appPort,
-		},
-		EgressIgnoredIPs: []string{
-			egressIgnoredIP,
-		},
-	})
-	containerInspectOutput := &types.ContainerJSON{
-		ContainerJSONBase: &types.ContainerJSONBase{
-			ID:    containerID,
-			State: &types.ContainerState{Pid: containerPid},
-		},
-	}
-
-	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, containerInspectOutput, true)
-	assert.NoError(t, err)
-	assert.Equal(t, containerID, cniConfig.ContainerID)
-	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
-	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-	// We expect 3 NetworkConfig objects in the cni Config wrapper object:
-	// ENI, Bridge and Appmesh
-	require.Len(t, cniConfig.NetworkConfigs, 3)
-}
-
 func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -1290,6 +1267,9 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: "",
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
@@ -1356,6 +1336,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	})
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
@@ -1380,6 +1361,9 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: "",
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -1430,6 +1414,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gateway,
 	})
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
@@ -1443,6 +1428,9 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: "",
+				},
 			},
 		}, nil),
 		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
@@ -2253,6 +2241,9 @@ func TestContainerMetadataUpdatedOnRestart(t *testing.T) {
 						State: &types.ContainerState{
 							Health: &types.Health{},
 						},
+						HostConfig: &dockercontainer.HostConfig{
+							NetworkMode: "",
+						},
 					},
 					Config: &dockercontainer.Config{
 						Labels: labels,
@@ -3035,6 +3026,9 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:    containerID,
 			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: "",
+			},
 		},
 	}
 
@@ -3042,6 +3036,9 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 		ContainerJSONBase: &types.ContainerJSONBase{
 			ID:    containerID,
 			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: "",
+			},
 		},
 		NetworkSettings: &types.NetworkSettings{
 			DefaultNetworkSettings: types.DefaultNetworkSettings{

@@ -17,6 +17,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
@@ -57,6 +58,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		AWSVPCBlockInstanceMetdata: true,
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
+	pluginName := fmt.Sprintf("%s.exe", ecscni.ECSVPCSharedENIPluginName)
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -68,7 +70,7 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(pluginName).Return("v1", nil),
 	)
 
 	expectedCapabilityNames := []string{
@@ -145,6 +147,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		AWSVPCBlockInstanceMetdata: true,
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
+	pluginName := fmt.Sprintf("%s.exe", ecscni.ECSVPCSharedENIPluginName)
 
 	gomock.InOrder(
 		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
@@ -156,7 +159,7 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 			dockerclient.Version_1_18,
 			dockerclient.Version_1_19,
 		}),
-		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		cniClient.EXPECT().Version(pluginName).Return("v1", nil),
 	)
 
 	expectedCapabilityNames := []string{

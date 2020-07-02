@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
@@ -803,4 +805,51 @@ func (agent *ecsAgent) getHostPublicIPv4AddressFromEC2Metadata() string {
 		return ""
 	}
 	return hostPublicIPv4Address
+}
+
+// setVPCSubnet sets the vpc and subnet ids for the agent by querying the
+// instance metadata service
+func (agent *ecsAgent) setVPCSubnet() (error, bool) {
+	mac, err := agent.ec2MetadataClient.PrimaryENIMAC()
+	if err != nil {
+		return fmt.Errorf("unable to get mac address of instance's primary ENI from instance metadata: %v", err), false
+	}
+
+	vpcID, err := agent.ec2MetadataClient.VPCID(mac)
+	if err != nil {
+		if isInstanceLaunchedInVPC(err) {
+			return fmt.Errorf("unable to get vpc id from instance metadata: %v", err), true
+		}
+		return instanceNotLaunchedInVPCError, false
+	}
+
+	subnetID, err := agent.ec2MetadataClient.SubnetID(mac)
+	if err != nil {
+		return fmt.Errorf("unable to get subnet id from instance metadata: %v", err), false
+	}
+	agent.vpc = vpcID
+	agent.subnet = subnetID
+	agent.mac = mac
+	return nil, false
+}
+
+// isInstanceLaunchedInVPC returns false when the awserr returned is an EC2MetadataError
+// when querying the vpc id from instance metadata
+func isInstanceLaunchedInVPC(err error) bool {
+	if aerr, ok := err.(awserr.Error); ok &&
+		aerr.Code() == "EC2MetadataError" {
+		return false
+	}
+	return true
+}
+
+// contains is a comparision function which checks if the target string is present in the array
+func contains(capabilities []string, capability string) bool {
+	for _, cap := range capabilities {
+		if cap == capability {
+			return true
+		}
+	}
+
+	return false
 }

@@ -1228,9 +1228,12 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	taskIP := result.IPs[0].Address.IP.String()
-	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
-	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	// This is the IP of the task assigned on the bridge for IAM Task roles
+	if result != nil {
+		taskIP := result.IPs[0].Address.IP.String()
+		seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
+		engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	}
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1278,6 +1281,15 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 
 	cniConfig.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cniConfig.ContainerID = containerInspectOutput.ID
+	cniConfig.ContainerNetNS = ""
+
+	// For pause containers, NetNS would be none
+	// For other containers, NetNS would be of format container:<pause_container_ID>
+	if containerInspectOutput.HostConfig.NetworkMode.IsNone() {
+		cniConfig.ContainerNetNS = containerInspectOutput.HostConfig.NetworkMode.NetworkName()
+	} else if containerInspectOutput.HostConfig.NetworkMode.IsContainer() {
+		cniConfig.ContainerNetNS = fmt.Sprintf("container:%s", containerInspectOutput.HostConfig.NetworkMode.ConnectedContainer())
+	}
 
 	cniConfig, err := task.BuildCNIConfig(includeIPAMConfig, cniConfig)
 	if err != nil {

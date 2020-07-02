@@ -17,15 +17,18 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
@@ -1194,5 +1197,113 @@ func getFirelensTask(t *testing.T) *Task {
 				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
 			},
 		},
+	}
+}
+
+func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.AddTaskENI(&apieni.ENI{
+				ID: "TestBuildCNIConfigRegularENI",
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Primary: true,
+						Address: ipv4,
+					},
+				},
+				MacAddress: mac,
+				IPV6Addresses: []*apieni.ENIIPV6Address{
+					{
+						Address: ipv6,
+					},
+				},
+			})
+			testTask.SetAppMesh(&appmesh.AppMesh{
+				IgnoredUID:       ignoredUID,
+				ProxyIngressPort: proxyIngressPort,
+				ProxyEgressPort:  proxyEgressPort,
+				AppPorts: []string{
+					appPort,
+				},
+				EgressIgnoredIPs: []string{
+					egressIgnoredIP,
+				},
+			})
+			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+				BlockInstanceMetadata: blockIMDS,
+			})
+			assert.NoError(t, err)
+			// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+			// ENI, Bridge and Appmesh
+			require.Len(t, cniConfig.NetworkConfigs, 3)
+			// The first one should be for the ENI.
+			var eniConfig ecscni.ENIConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+			require.NoError(t, err)
+			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
+			assert.Equal(t, ipv4, eniConfig.IPV4Address)
+			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			// The second one should be for the Bridge.
+			var bridgeConfig ecscni.BridgeConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
+			require.NoError(t, err)
+			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+			// The third one should be for Appmesh.
+			var appMeshConfig ecscni.AppMeshConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[2].CNINetworkConfig.Bytes, &appMeshConfig)
+			require.NoError(t, err)
+			assert.Equal(t, ignoredUID, appMeshConfig.IgnoredUID)
+			assert.Equal(t, proxyIngressPort, appMeshConfig.ProxyIngressPort)
+			assert.Equal(t, proxyEgressPort, appMeshConfig.ProxyEgressPort)
+			assert.Equal(t, appPort, appMeshConfig.AppPorts[0])
+			assert.Equal(t, egressIgnoredIP, appMeshConfig.EgressIgnoredIPs[0])
+		})
+	}
+}
+
+func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
+	for _, blockIMDS := range []bool{true, false} {
+		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
+			testTask := &Task{}
+			testTask.AddTaskENI(&apieni.ENI{
+				ID:                           "TestBuildCNIConfigTrunkBranchENI",
+				MacAddress:                   mac,
+				InterfaceAssociationProtocol: apieni.VLANInterfaceAssociationProtocol,
+				InterfaceVlanProperties: &apieni.InterfaceVlanProperties{
+					VlanID:                   "1234",
+					TrunkInterfaceMacAddress: "macTrunk",
+				},
+				SubnetGatewayIPV4Address: "10.0.1.0/24",
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Primary: true,
+						Address: ipv4,
+					},
+				},
+			})
+
+			cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+				BlockInstanceMetadata: blockIMDS,
+			})
+			assert.NoError(t, err)
+			// We expect 2 NetworkConfig objects in the cni Config wrapper object:
+			// Branch ENI and Bridge.
+			require.Len(t, cniConfig.NetworkConfigs, 2)
+			// The first one should be for the ENI.
+			var eniConfig ecscni.BranchENIConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+			require.NoError(t, err)
+			assert.Equal(t, mac, eniConfig.BranchMACAddress, eniConfig)
+			assert.Equal(t, "macTrunk", eniConfig.TrunkMACAddress, eniConfig)
+			assert.Equal(t, "1234", eniConfig.BranchVlanID)
+			assert.Equal(t, ipv4+"/24", eniConfig.BranchIPAddress)
+			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
+			// The second one should be for the Bridge.
+			var bridgeConfig ecscni.BridgeConfig
+			err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &bridgeConfig)
+			require.NoError(t, err)
+			assert.Equal(t, "ecs-bridge", bridgeConfig.BridgeName)
+		})
 	}
 }

@@ -24,8 +24,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -35,6 +37,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
@@ -509,4 +512,33 @@ func TestGetCredentialSpecResource(t *testing.T) {
 	credentialspecTaskResource, ok := task.GetCredentialSpecResource()
 	assert.True(t, ok)
 	assert.NotEmpty(t, credentialspecTaskResource)
+}
+
+// TestBuildCNIConfig tests if the generated CNI config is correct
+func TestBuildCNIConfig(t *testing.T) {
+	testTask := &Task{}
+	testTask.AddTaskENI(&apieni.ENI{
+		ID:                           "TestBuildCNIConfig",
+		MacAddress:                   mac,
+		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
+		SubnetGatewayIPV4Address:     "10.0.1.0/24",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+	})
+
+	cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+		MinSupportedCNIVersion: "latest",
+	})
+	assert.NoError(t, err)
+	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
+	// vpc-shared-eni for task ENI setup
+	require.Len(t, cniConfig.NetworkConfigs, 1)
+	var eniConfig ecscni.BridgeForTaskENIConfig
+	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+	require.NoError(t, err)
+	assert.Equal(t, ecscni.ECSVPCSharedENIPluginName, eniConfig.Type)
 }

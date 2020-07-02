@@ -19,11 +19,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -510,4 +512,44 @@ func TestCreateFirelensContainer(t *testing.T) {
 			assert.NoError(t, ret.Error)
 		})
 	}
+}
+
+func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
+	config := defaultConfig
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &config)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	testTask.AddTaskENI(mockENI)
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+	containerInspectOutput := &types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID:    containerID,
+			State: &types.ContainerState{Pid: containerPid},
+			HostConfig: &dockercontainer.HostConfig{
+				NetworkMode: "",
+			},
+		},
+	}
+
+	cniConfig, err := taskEngine.(*DockerTaskEngine).buildCNIConfigFromTaskContainer(testTask, containerInspectOutput, true)
+	assert.NoError(t, err)
+	assert.Equal(t, containerID, cniConfig.ContainerID)
+	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
+	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
+	// We expect 3 NetworkConfig objects in the cni Config wrapper object:
+	// ENI, Bridge and Appmesh
+	require.Len(t, cniConfig.NetworkConfigs, 3)
 }
