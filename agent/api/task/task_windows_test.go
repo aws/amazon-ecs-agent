@@ -24,8 +24,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
@@ -722,4 +724,33 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 		"desiredStatus": "NONE",
 		"knownStatus": "NONE"
 	  }`), string(b))
+}
+
+// TestBuildCNIConfig tests if the generated CNI config is correct
+func TestBuildCNIConfig(t *testing.T) {
+	testTask := &Task{}
+	testTask.AddTaskENI(&apieni.ENI{
+		ID:                           "TestBuildCNIConfig",
+		MacAddress:                   mac,
+		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
+		SubnetGatewayIPV4Address:     "10.0.1.0/24",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+	})
+
+	cniConfig, err := testTask.BuildCNIConfig(true, &ecscni.Config{
+		MinSupportedCNIVersion: "latest",
+	})
+	assert.NoError(t, err)
+	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
+	// vpc-shared-eni for task ENI setup
+	require.Len(t, cniConfig.NetworkConfigs, 1)
+	var eniConfig ecscni.BridgeForTaskENIConfig
+	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
+	require.NoError(t, err)
+	assert.EqualValues(t, ecscni.ECSVPCSharedENIPluginName, eniConfig.Type)
 }

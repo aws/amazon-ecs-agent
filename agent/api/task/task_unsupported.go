@@ -18,6 +18,8 @@ package task
 import (
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -89,4 +91,10 @@ func (task *Task) requiresFSxWindowsFileServerResource() bool {
 func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, credentialsManager credentials.Manager,
 	resourceFields *taskresource.ResourceFields) error {
 	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
+}
+
+// BuildCNIConfig builds the configuration for the CNI plugins
+// On unsupported platforms, we will not support this functionality
+func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+	return nil, errors.New("unsupported platform")
 }
