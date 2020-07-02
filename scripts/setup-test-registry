@@ -47,8 +47,8 @@ mirror_local_image() {
 setup_parallel_pull_image() {
   local image_name="127.0.0.1:51670/$1:parallel-pull-fts"
   echo "Generating parallel pull image $image_name"
- 
-  # Get new random bits every time we build 
+
+  # Get new random bits every time we build
   head -c 25m < /dev/urandom > docker-context/random-bits
   docker build -t "$image_name" docker-context
 
@@ -67,7 +67,7 @@ done
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
 docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
 
-mirror_image busybox:1.29.3 "127.0.0.1:51670/busybox:latest"
+mirror_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
 mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
 mirror_image ubuntu:16.04 "127.0.0.1:51670/ubuntu:latest"
 
@@ -75,7 +75,7 @@ mirror_image ubuntu:16.04 "127.0.0.1:51670/ubuntu:latest"
 # full of random bits so that the parallel pull images are different.
 mkdir -p docker-context
 cat << EOF > docker-context/Dockerfile
-FROM amazon/amazon-ecs-pause:0.1.0 
+FROM amazon/amazon-ecs-pause:0.1.0
 ADD random-bits /random-bits
 EOF
 
@@ -84,7 +84,7 @@ for image in "busybox" "ubuntu" "consul" "debian" "httpd" "crux" "nginx" "redis"
 done
 
 # cleanup the context
-rm -rf docker-context 
+rm -rf docker-context
 
 mirror_local_image "${REGISTRY_IMAGE}" "127.0.0.1:51670/registry:parallel-pull-fts"
 
