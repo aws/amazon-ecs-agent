@@ -16,6 +16,7 @@
 package app
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -120,4 +121,9 @@ func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ec
 
 func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
+}
+
+// getTaskENIPluginVersionAttribute for unsupported platform would return an error
+func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
+	return nil, errors.New("unsupported platform")
 }
