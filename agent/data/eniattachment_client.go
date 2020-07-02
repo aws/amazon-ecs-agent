@@ -14,20 +14,45 @@
 package data
 
 import (
+	"encoding/json"
+
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
+
+	"github.com/boltdb/bolt"
+	"github.com/pkg/errors"
 )
 
 func (c *client) SaveENIAttachment(eni *apieni.ENIAttachment) error {
-	// TODO: implementation
-	return nil
+	id, err := utils.GetENIAttachmentId(eni.AttachmentARN)
+	if err != nil {
+		return errors.Wrap(err, "failed to generate database id")
+	}
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(eniAttachmentsBucketName))
+		return putObject(b, id, eni)
+	})
 }
 
 func (c *client) DeleteENIAttachment(id string) error {
-	// TODO: implementation
-	return nil
+	return c.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(eniAttachmentsBucketName))
+		return b.Delete([]byte(id))
+	})
 }
 
 func (c *client) GetENIAttachments() ([]*apieni.ENIAttachment, error) {
-	// TODO: implementation
-	return nil, nil
+	var eniAttachments []*apieni.ENIAttachment
+	err := c.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(eniAttachmentsBucketName))
+		return walk(bucket, func(id string, data []byte) error {
+			eniAttachment := apieni.ENIAttachment{}
+			if err := json.Unmarshal(data, &eniAttachment); err != nil {
+				return err
+			}
+			eniAttachments = append(eniAttachments, &eniAttachment)
+			return nil
+		})
+	})
+	return eniAttachments, err
 }

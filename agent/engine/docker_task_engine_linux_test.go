@@ -173,17 +173,34 @@ func TestDeleteTask(t *testing.T) {
 		cfg:        &cfg,
 	}
 
+	attachment := &apieni.ENIAttachment{
+		TaskARN:          "TaskARN",
+		AttachmentARN:    testAttachmentArn,
+		MACAddress:       "MACAddress",
+		Status:           apieni.ENIAttachmentNone,
+		AttachStatusSent: true,
+	}
+
 	gomock.InOrder(
 		mockControl.EXPECT().Remove("cgroupRoot").Return(nil),
 		mockState.EXPECT().RemoveTask(task),
+		mockState.EXPECT().ENIByMac(gomock.Any()).Return(attachment, true),
 		mockState.EXPECT().RemoveENIAttachment(mac),
 		mockSaver.EXPECT().Save(),
 	)
+
+	assert.NoError(t, taskEngine.dataClient.SaveENIAttachment(attachment))
+	attachments, err := taskEngine.dataClient.GetENIAttachments()
+	assert.NoError(t, err)
+	assert.Len(t, attachments, 1)
 
 	taskEngine.deleteTask(task)
 	tasks, err := dataClient.GetTasks()
 	require.NoError(t, err)
 	assert.Len(t, tasks, 0)
+	attachments, err = taskEngine.dataClient.GetENIAttachments()
+	assert.NoError(t, err)
+	assert.Len(t, attachments, 0)
 }
 
 func TestDeleteTaskBranchENIEnabled(t *testing.T) {

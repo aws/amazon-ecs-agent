@@ -68,6 +68,23 @@ func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
 	}
 }
 
+func (engine *DockerTaskEngine) removeENIAttachmentData(mac string) {
+	attachmentToRemove, ok := engine.state.ENIByMac(mac)
+	if !ok {
+		seelog.Warnf("Unable to retrieve ENI Attachment for mac address %s: ", mac)
+		return
+	}
+	attachmentId, err := utils.GetENIAttachmentId(attachmentToRemove.AttachmentARN)
+	if err != nil {
+		seelog.Errorf("Failed to get attachment id for %s: %v", attachmentToRemove.AttachmentARN, err)
+	} else {
+		err = engine.dataClient.DeleteENIAttachment(attachmentId)
+		if err != nil {
+			seelog.Errorf("Failed to remove data for eni attachment %s: %v", attachmentId, err)
+		}
+	}
+}
+
 func (imageManager *dockerImageManager) saveImageStateData(imageState *image.ImageState) {
 	err := imageManager.dataClient.SaveImageState(imageState)
 	if err != nil {

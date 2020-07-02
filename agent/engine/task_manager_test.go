@@ -1284,6 +1284,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
 	mockState.EXPECT().RemoveENIAttachment(mac)
+	mockState.EXPECT().ENIByMac(mac)
 	mTask.cleanupTask(taskStoppedDuration)
 }
 

@@ -2516,6 +2516,41 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 	attachment.StopAckTimer()
 }
 
+func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	taskEngine.(*DockerTaskEngine).dataClient = dataClient
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+
+	attachment := &apieni.ENIAttachment{
+		TaskARN:          "TaskARN",
+		AttachmentARN:    testAttachmentArn,
+		MACAddress:       "MACAddress",
+		Status:           apieni.ENIAttachmentNone,
+		AttachStatusSent: false,
+	}
+
+	// eni attachment data is removed if AttachStatusSent is unset
+	dockerTaskEngine.state.AddENIAttachment(attachment)
+	assert.NoError(t, dockerTaskEngine.dataClient.SaveENIAttachment(attachment))
+
+	dockerTaskEngine.synchronizeState()
+	attachments, err := dockerTaskEngine.dataClient.GetENIAttachments()
+	assert.NoError(t, err)
+	assert.Len(t, attachments, 0)
+}
+
 func TestTaskSecretsEnvironmentVariables(t *testing.T) {
 	// metadata required for createContainer workflow validation
 	taskARN := "secretsTask"

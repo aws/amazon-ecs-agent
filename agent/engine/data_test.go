@@ -21,8 +21,10 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
 	"github.com/stretchr/testify/assert"
@@ -32,6 +34,8 @@ import (
 const (
 	testContainerName = "test-name"
 	testImageId       = "test-imageId"
+	testMac           = "test-mac"
+	testAttachmentArn = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
 )
 
 var (
@@ -127,6 +131,33 @@ func TestSaveAndRemoveImageStateData(t *testing.T) {
 
 	imageManager.removeImageStateData(testImageId)
 	res, err = dataClient.GetImageStates()
+	require.NoError(t, err)
+	assert.Len(t, res, 0)
+}
+
+func TestRemoveENIAttachmentData(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	attachment := &eni.ENIAttachment{
+		AttachmentARN:    testAttachmentArn,
+		AttachStatusSent: false,
+		MACAddress:       testMac,
+	}
+
+	engine := &DockerTaskEngine{
+		state:      dockerstate.NewTaskEngineState(),
+		dataClient: dataClient,
+	}
+
+	engine.state.AddENIAttachment(attachment)
+	dataClient.SaveENIAttachment(attachment)
+	res, err := dataClient.GetENIAttachments()
+	require.NoError(t, err)
+	assert.Len(t, res, 1)
+
+	engine.removeENIAttachmentData(testMac)
+	res, err = dataClient.GetENIAttachments()
 	require.NoError(t, err)
 	assert.Len(t, res, 0)
 }

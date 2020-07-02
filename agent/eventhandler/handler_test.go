@@ -38,7 +38,7 @@ func TestHandleEngineEvent(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	taskHandler := NewTaskHandler(ctx, stateManager, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client)
-	attachmentHandler := NewAttachmentEventHandler(ctx, statemanager.NewNoopStateManager(), client)
+	attachmentHandler := NewAttachmentEventHandler(ctx, statemanager.NewNoopStateManager(), data.NewNoopClient(), client)
 	defer cancel()
 
 	var wg sync.WaitGroup

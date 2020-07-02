@@ -19,8 +19,9 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -30,8 +31,9 @@ import (
 
 // ackTimeoutHandler remove ENI attachment from agent state after the ENI ack timeout
 type ackTimeoutHandler struct {
-	mac   string
-	state dockerstate.TaskEngineState
+	mac        string
+	state      dockerstate.TaskEngineState
+	dataClient data.Client
 }
 
 func (handler *ackTimeoutHandler) handle() {
@@ -42,7 +44,25 @@ func (handler *ackTimeoutHandler) handle() {
 	}
 	if !eniAttachment.IsSent() {
 		seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", handler.mac)
+		handler.removeENIAttachmentData(handler.mac)
 		handler.state.RemoveENIAttachment(handler.mac)
+	}
+}
+
+func (handler *ackTimeoutHandler) removeENIAttachmentData(mac string) {
+	attachmentToRemove, ok := handler.state.ENIByMac(mac)
+	if !ok {
+		seelog.Errorf("Unable to retrieve ENI Attachment for mac address %s: ", mac)
+		return
+	}
+	attachmentId, err := utils.GetENIAttachmentId(attachmentToRemove.AttachmentARN)
+	if err != nil {
+		seelog.Errorf("Failed to get attachment id for %s: %v", attachmentToRemove.AttachmentARN, err)
+	} else {
+		err = handler.dataClient.DeleteENIAttachment(attachmentId)
+		if err != nil {
+			seelog.Errorf("Failed to remove data for eni attachment %s: %v", attachmentId, err)
+		}
 	}
 }
 
@@ -65,25 +85,22 @@ func sendAck(acsClient wsclient.ClientServer, clusterArn *string, containerInsta
 func handleENIAttachment(attachmentType, attachmentARN, taskARN, mac string,
 	expiresAt time.Time,
 	state dockerstate.TaskEngineState,
-	saver statemanager.Saver) error {
+	dataClient data.Client) error {
 	seelog.Infof("Handling ENI attachment: %s", attachmentARN)
 
 	if eniAttachment, ok := state.ENIByMac(mac); ok {
 		seelog.Infof("Duplicate %s attachment message for ENI with MAC address: %s", attachmentType, mac)
-		eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: state}
+		eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: state, dataClient: dataClient}
 		return eniAttachment.StartTimer(eniAckTimeoutHandler.handle)
 	}
-	if err := addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac, expiresAt, state); err != nil {
+	if err := addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac, expiresAt, state, dataClient); err != nil {
 		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add eni attachment to engine state", attachmentType))
-	}
-	if err := saver.Save(); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to save agent state", attachmentType))
 	}
 	return nil
 }
 
 // addENIAttachmentToState adds an ENI attachment to state, and start its ack timer
-func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string, expiresAt time.Time, state dockerstate.TaskEngineState) error {
+func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string, expiresAt time.Time, state dockerstate.TaskEngineState, dataClient data.Client) error {
 	eniAttachment := &apieni.ENIAttachment{
 		TaskARN:          taskARN,
 		AttachmentType:   attachmentType,
@@ -92,7 +109,7 @@ func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string,
 		MACAddress:       mac,
 		ExpiresAt:        expiresAt, // Stop tracking the eni attachment after timeout
 	}
-	eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: state}
+	eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: state, dataClient: dataClient}
 	if err := eniAttachment.StartTimer(eniAckTimeoutHandler.handle); err != nil {
 		return err
 	}
@@ -106,7 +123,9 @@ func addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac string,
 	default:
 		return fmt.Errorf("unrecognized eni attachment type: %s", attachmentType)
 	}
-
 	state.AddENIAttachment(eniAttachment)
+	if err := dataClient.SaveENIAttachment(eniAttachment); err != nil {
+		seelog.Errorf("Failed to save data for eni attachment %s: %v", eniAttachment.AttachmentARN, err)
+	}
 	return nil
 }
