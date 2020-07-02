@@ -17,7 +17,7 @@
 set -e
 
 REGISTRY_IMAGE="registry:2.7.0"
-NGINX_IMAGE="nginx:1.15.8"
+NGINX_IMAGE="nginx:stable"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -69,7 +69,7 @@ docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image
 
 mirror_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
 mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
-mirror_image ubuntu:16.04 "127.0.0.1:51670/ubuntu:latest"
+mirror_image ubuntu:20.04 "127.0.0.1:51670/ubuntu:latest"
 
 # create a context folder used by docker build. It will only have a file
 # full of random bits so that the parallel pull images are different.
