@@ -1,4 +1,4 @@
-// +build !linux,!windows
+// +build windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -17,7 +17,6 @@ package pause
 
 import (
 	"context"
-	"runtime"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -25,15 +24,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-// LoadImage returns UnsupportedPlatformError on the unsupported platform
+// In Linux, we use a tar archive to load the pause image. Whereas in Windows, we will cache the image during AMI build.
+// Therefore, this functionality is not supported in Windows.
 func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	return nil, NewUnsupportedPlatformError(errors.Errorf(
-		"pause container load: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return nil, errors.New("this functionality is not supported on this platform.")
 }
 
+// This method is used to inspect the presence of the pause image. If the image has not been loaded then we return false.
 func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	return false, NewUnsupportedPlatformError(errors.Errorf(
-		"pause container isloaded: unsupported platform: %s/%s",
-		runtime.GOOS, runtime.GOARCH))
+	return isImageLoaded(dockerClient)
 }

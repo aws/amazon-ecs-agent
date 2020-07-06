@@ -248,7 +248,7 @@ The following targets are available. Each may be run with `make <target>`.
 
 ### Standalone (on Windows)
 
-The Amazon ECS Container Agent may be built by typing `go build -o amazon-ecs-agent.exe ./agent`.
+The Amazon ECS Container Agent may be built by invoking `scripts\build_agent.ps1`
 
 ### Scripts (on Windows)
 

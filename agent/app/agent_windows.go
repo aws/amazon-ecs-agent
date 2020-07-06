@@ -283,5 +283,9 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 }
 
 func (agent *ecsAgent) loadPauseContainer() error {
-	return nil
+	// The pause image would be cached in th ECS-Optimized Windows AMI's and will be available. We will throw an error if the image is not loaded.
+	// If the agent is run on non-supported instances then pause image has to be loaded manually by the client.
+	_, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
+
+	return err
 }

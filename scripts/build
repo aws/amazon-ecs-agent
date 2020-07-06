@@ -31,13 +31,13 @@ ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
 if [[ "${version_gen}" == "true" ]]; then
-  # Versioning stuff. We run the generator to setup the version and then always
-  # restore ourselves to a clean state
-  cp agent/version/version.go agent/version/_version.go
-  trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
+    # Versioning stuff. We run the generator to setup the version and then always
+    # restore ourselves to a clean state
+    cp agent/version/version.go agent/version/_version.go
+    trap "cd \"${ROOT}\"; mv agent/version/_version.go agent/version/version.go" EXIT SIGHUP SIGINT SIGTERM
 
-  cd ./agent/version/
-  go run gen/version-gen.go
+    cd ./agent/version/
+    go run gen/version-gen.go
 fi
 
 if [ "${TARGET_OS}" == "windows" ]; then
@@ -49,12 +49,14 @@ else
 fi
 
 cd "${ROOT}"
-if [[ "${static}" == "true" ]]; then
-	CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+if [[ "${TARGET_OS}" == "windows" ]]; then
+    go build -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+elif [[ "${static}" == "true" ]]; then
+    CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
 else
-	go build -o $build_exe ./agent/
+    go build -o $build_exe ./agent/
 fi
 
 if [[ -n "${output_directory}" ]]; then
-  mv $build_exe "${output_directory}"
+    mv $build_exe "${output_directory}"
 fi

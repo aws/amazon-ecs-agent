@@ -113,6 +113,8 @@ func DefaultConfig() Config {
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
 		FSxWindowsFileServerCapable:         true,
+		PauseContainerImageName:             DefaultPauseContainerImageName,
+		PauseContainerTag:                   DefaultPauseContainerTag,
 	}
 }
 
