@@ -58,6 +58,8 @@ build-in-docker: .builder-image-stamp .out-stamp
 		--env TARGET_OS="${TARGET_OS}" \
 		--env LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
 			-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE)" \
+		--env LDFLAGS_WINDOWS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG_WINDOWS) \
+            -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE_WINDOWS)" \
 		--volume "$(PWD)/out:/out" \
 		--volume "$(PWD):/go/src/github.com/aws/amazon-ecs-agent" \
 		--user "$(USERID)" \
@@ -80,6 +82,8 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--env TARGET_OS="${TARGET_OS}" \
 		--env LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
 			-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE)" \
+		--env LDFLAGS_WINDOWS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG_WINDOWS) \
+            -X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerImageName=$(PAUSE_CONTAINER_IMAGE_WINDOWS)" \
 		--user "$(USERID)" \
 		--volume "$(PWD)/out:/out" \
 		--volume "$(PWD):/src/amazon-ecs-agent" \
@@ -155,6 +159,8 @@ replicate-images: build-image-for-ecr
 PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
+PAUSE_CONTAINER_IMAGE_WINDOWS = "amazonaws.com/ecs/pause-windows"
+PAUSE_CONTAINER_TAG_WINDOWS = "latest"
 
 pause-container: .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
