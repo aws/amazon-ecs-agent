@@ -33,10 +33,11 @@ const (
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
-	buffer   []UsageStats
-	maxSize  int
-	lastStat *types.StatsJSON
-	lock     sync.RWMutex
+	buffer                []UsageStats
+	maxSize               int
+	lastStat              *types.StatsJSON
+	lastNetworkStatPerSec NetworkStatsPerSec
+	lock                  sync.RWMutex
 }
 
 // NewQueue creates a queue.
@@ -126,6 +127,14 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			seelog.Errorf("Calculated CPU usage percent (%.1f) is larger than backend maximum (%.1f). lastStatTS=%s lastStatCPUTime=%d thisStatTS=%s thisStatCPUTime=%d queueLength=%d",
 				stat.CPUUsagePerc, MaxCPUUsagePerc, lastStat.Timestamp.Format(time.RFC3339Nano), lastStat.cpuUsage, rawStat.timestamp.Format(time.RFC3339Nano), rawStat.cpuUsage, queueLength)
 		}
+
+		if stat.NetworkStats != nil {
+			networkStatPerSec := NetworkStatsPerSec{
+				RxBytesPerSecond: stat.NetworkStats.RxBytesPerSecond,
+				TxBytesPerSecond: stat.NetworkStats.TxBytesPerSecond,
+			}
+			queue.lastNetworkStatPerSec = networkStatPerSec
+		}
 	}
 
 	queue.buffer = append(queue.buffer, stat)
@@ -137,6 +146,13 @@ func (queue *Queue) GetLastStat() *types.StatsJSON {
 	defer queue.lock.RUnlock()
 
 	return queue.lastStat
+}
+
+func (queue *Queue) GetLastNetworkStatPerSec() NetworkStatsPerSec {
+	queue.lock.RLock()
+	defer queue.lock.RUnlock()
+
+	return queue.lastNetworkStatPerSec
 }
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
