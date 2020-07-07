@@ -225,7 +225,7 @@ func TestStatsEngineMetadataInStatsSets(t *testing.T) {
 		t.Errorf("Error validating metadata: %v", err)
 	}
 
-	dockerStat, err := engine.ContainerDockerStats("t1", "c1")
+	dockerStat, _, err := engine.ContainerDockerStats("t1", "c1")
 	assert.NoError(t, err)
 	assert.Equal(t, ts2, dockerStat.Read)
 
