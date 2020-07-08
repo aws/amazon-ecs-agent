@@ -1,3 +1,9 @@
+amazon-ecs-init (1.41.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.41.1
+
+ -- Yajie Chu <cya@amazon.com>  Mon, 06 Jul 2020 23:45:00 +0000
+
 amazon-ecs-init (1.41.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.41.0
