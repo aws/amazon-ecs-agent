@@ -81,12 +81,25 @@ func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state do
 		numImagesToDelete:                  cfg.NumImagesToDeletePerCycle,
 		imageCleanupTimeInterval:           cfg.ImageCleanupInterval,
 		imagePullBehavior:                  cfg.ImagePullBehavior,
-		imageCleanupExclusionList:          cfg.ImageCleanupExclusionList,
+		imageCleanupExclusionList:          buildImageCleanupExclusionList(cfg),
 		deleteNonECSImagesEnabled:          cfg.DeleteNonECSImagesEnabled,
 		nonECSContainerCleanupWaitDuration: cfg.TaskCleanupWaitDuration,
 		numNonECSContainersToDelete:        cfg.NumNonECSContainersToDeletePerCycle,
 		nonECSMinimumAgeBeforeDeletion:     cfg.NonECSMinimumImageDeletionAge,
 	}
+}
+
+func buildImageCleanupExclusionList(cfg *config.Config) []string {
+	// append known cached internal images to imageCleanupExclusionList
+	excludedImages := append(cfg.ImageCleanupExclusionList,
+		cfg.PauseContainerImageName+":"+cfg.PauseContainerTag,
+		config.DefaultPauseContainerImageName+":"+config.DefaultPauseContainerTag,
+		config.CachedImageNameAgentContainer,
+	)
+	for _, image := range excludedImages {
+		seelog.Infof("Image excluded from cleanup: %s", image)
+	}
+	return excludedImages
 }
 
 func (imageManager *dockerImageManager) SetSaver(stateManager statemanager.Saver) {
