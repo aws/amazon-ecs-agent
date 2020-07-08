@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.41.1-2
+* Drop traffic to 127.0.0.1 that isn't originated from the host
+
 ## 1.41.1-1
 * Cache Agent version 1.41.1
 

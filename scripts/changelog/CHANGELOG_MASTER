@@ -1,3 +1,8 @@
+1.41.1-2
+Feng Xiong <fenxiong@amazon.com>
+2020-07-08T16:46:00-08:00
+Drop traffic to 127.0.0.1 that isn't originated from the host
+
 1.41.1-1
 Yajie Chu <cya@amazon.com>
 2020-07-06T15:45:00-08:00

@@ -1,3 +1,9 @@
+amazon-ecs-init (1.41.1-2) trusty; urgency=medium
+
+  * Drop traffic to 127.0.0.1 that isn't originated from the host
+
+ -- Feng Xiong <fenxiong@amazon.com>  Thu, 09 Jul 2020 00:46:00 +0000
+
 amazon-ecs-init (1.41.1-1) trusty; urgency=medium
 
   * Cache Agent version 1.41.1

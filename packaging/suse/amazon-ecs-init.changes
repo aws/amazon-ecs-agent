@@ -1,4 +1,8 @@
 -------------------------------------------------------------------
+Thu Jul 09, 00:46:00 UTC 2020 - fenxiong@amazon.com - 1.41.1-2
+
+- Drop traffic to 127.0.0.1 that isn't originated from the host
+-------------------------------------------------------------------
 Mon Jul 06, 23:45:00 UTC 2020 - cya@amazon.com - 1.41.1-1
 
 - Cache Agent version 1.41.1
