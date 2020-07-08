@@ -15,10 +15,37 @@ package iptables
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+var (
+	testErr             = errors.New("test error")
+	preroutingRouteArgs = []string{
+		"-p", "tcp",
+		"-d", credentialsProxyIpAddress,
+		"--dport", credentialsProxyPort,
+		"-j", "DNAT",
+		"--to-destination", localhostIpAddress + ":" + localhostCredentialsProxyPort,
+	}
+	inputRouteArgs = []string{
+		"--dst", localhostNetwork,
+		"!", "--src", localhostNetwork,
+		"-m", "conntrack",
+		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
+		"-j", "DROP",
+	}
+	outputRouteArgs = []string{
+		"-p", "tcp",
+		"-d", credentialsProxyIpAddress,
+		"--dport", credentialsProxyPort,
+		"-j", "REDIRECT",
+		"--to-ports", localhostCredentialsProxyPort,
+	}
 )
 
 func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
@@ -29,9 +56,7 @@ func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
 	mockExec.EXPECT().LookPath(iptablesExecutable).Return("", fmt.Errorf("Not found"))
 
 	_, err := NewNetfilterRoute(mockExec)
-	if err == nil {
-		t.Error("Expected error when executable's path lookup fails")
-	}
+	assert.Error(t, err, "Expected error when executable's path lookup fails")
 }
 
 func TestCreate(t *testing.T) {
@@ -45,34 +70,21 @@ func TestCreate(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-A", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-A", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
-	if err != nil {
-		t.Errorf("Error creating route: %v", err)
-	}
+	assert.NoError(t, err, "Error creating route")
 }
 
 func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
@@ -84,26 +96,39 @@ func TestCreateErrorOnPreRoutingCommandError(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-A", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to create the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
-	if err == nil {
-		t.Error("Expected error creating route")
-	}
+	assert.Error(t, err, "Expected error creating route")
+}
+
+func TestCreateErrorOnInputChainCommandError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	require.NoError(t, err)
+
+	err = route.Create()
+	assert.Error(t, err)
 }
 
 func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
@@ -115,35 +140,22 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-A", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-A", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
+			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		// Mock a failed execution of the iptables command to create the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("didn't expect this, did you?")),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Create()
-	if err == nil {
-		t.Error("Expected error creating route")
-	}
+	assert.Error(t, err, "Expected error creating route")
 }
 
 func TestRemove(t *testing.T) {
@@ -155,38 +167,27 @@ func TestRemove(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a successful execution of the iptables command to create the
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		// Mock a successful execution of the iptables command to delete the
 		// route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a successful execution of the iptables command to create the
+			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+		// Mock a successful execution of the iptables command to delete the
+		// route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		// Mock a successful execution of the iptables command to delete the
 		// route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
-	if err != nil {
-		t.Errorf("Error removing route: %v", err)
-	}
+	assert.NoError(t, err, "Error removing route")
 }
 
 func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
@@ -198,36 +199,22 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		// Mock a failed execution of the iptables command to delete the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
+			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
-	if err == nil {
-		t.Error("Expected error removing route")
-	}
+	assert.Error(t, err, "Expected error removing route")
 }
 
 func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
@@ -239,39 +226,25 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
+			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		// Mock a failed execution of the iptables command to delete the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
-	if err == nil {
-		t.Error("Expected error removing route")
-	}
+	assert.Error(t, err, "Expected error removing route")
 }
 
-func TestRemoveErrorOnPreroutingChainOutputChainCommandsErrors(t *testing.T) {
+func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -280,42 +253,33 @@ func TestRemoveErrorOnPreroutingChainOutputChainCommandsErrors(t *testing.T) {
 	gomock.InOrder(
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "PREROUTING",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "DNAT",
-			"--to-destination", localhostIpAddress+":"+localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			"-t", "nat",
-			"-D", "OUTPUT",
-			"-p", "tcp",
-			"-d", credentialsProxyIpAddress,
-			"--dport", credentialsProxyPort,
-			"-j", "REDIRECT",
-			"--to-ports", localhostCredentialsProxyPort).Return(mockCmd),
-		// Mock a failed execution of the iptables command to create the route
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
+			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
 	route, err := NewNetfilterRoute(mockExec)
-	if err != nil {
-		t.Fatalf("Error creating netfilter route object: %v", err)
-	}
+	require.NoError(t, err, "Error creating netfilter route object")
 
 	err = route.Remove()
-	if err == nil {
-		t.Error("Expected error removing route")
-	}
+	assert.Error(t, err, "Expected error removing route")
 }
 
-func TestGetNatTableArgs(t *testing.T) {
-	if !reflect.DeepEqual(getNatTableArgs(), []string{"-t", "nat"}) {
-		t.Error("Incorrect arguments returned for nat table")
-	}
+func TestCombinedError(t *testing.T) {
+	err1 := errors.New("err1")
+	err2 := errors.New("err2")
+	err := combinedError(err1, err2)
+	require.NotNil(t, err)
+	assert.Equal(t, "err1;err2", err.Error())
+}
+
+func TestGetTableArgs(t *testing.T) {
+	assert.Equal(t, []string{"-t", "nat"}, getTableArgs("nat"))
 }
 
 func TestGetPreroutingChainArgs(t *testing.T) {
@@ -327,9 +291,19 @@ func TestGetPreroutingChainArgs(t *testing.T) {
 		"-j", "DNAT",
 		"--to-destination", "127.0.0.1:51679",
 	}
-	if !reflect.DeepEqual(getPreroutingChainArgs(), preroutingChainAgrs) {
-		t.Error("Incorrect arguments for modifying prerouting chain")
-	}
+	assert.Equal(t, preroutingChainAgrs, getPreroutingChainArgs(),
+		"Incorrect arguments for modifying prerouting chain")
+}
+
+func TestGetInputChainArgs(t *testing.T) {
+	assert.Equal(t, []string{
+		"INPUT",
+		"--dst", "127.0.0.0/8",
+		"!", "--src", "127.0.0.0/8",
+		"-m", "conntrack",
+		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
+		"-j", "DROP",
+	}, getInputChainArgs())
 }
 
 func TestGetOutputChainArgs(t *testing.T) {
@@ -341,16 +315,16 @@ func TestGetOutputChainArgs(t *testing.T) {
 		"-j", "REDIRECT",
 		"--to-ports", "51679",
 	}
-	if !reflect.DeepEqual(getOutputChainArgs(), outputChainAgrs) {
-		t.Error("Incorrect arguments for modifying output chain")
-	}
+	assert.Equal(t, outputChainAgrs, getOutputChainArgs(),
+		"Incorrect arguments for modifying output chain")
 }
 
 func TestGetActionName(t *testing.T) {
-	if getActionName(iptablesAppend) != "append" {
-		t.Errorf("Incorrect action name returned for %v", iptablesAppend)
-	}
-	if getActionName(iptablesDelete) != "delete" {
-		t.Errorf("Incorrect action name returned for %v", iptablesDelete)
-	}
+	assert.Equal(t, "append", getActionName(iptablesAppend))
+	assert.Equal(t, "insert", getActionName(iptablesInsert))
+	assert.Equal(t, "delete", getActionName(iptablesDelete))
+}
+
+func expectedArgs(table, action, chain string, args []string) []string {
+	return append([]string{"-t", table, action, chain}, args...)
 }
