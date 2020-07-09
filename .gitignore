@@ -20,3 +20,5 @@ _bin/
 /misc/taskmetadata-validator/taskmetadata-validator
 /bin
 *.iml
+cover.out
+coverprofile.out
