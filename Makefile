@@ -111,6 +111,7 @@ VERBOSE=-v -cover
 # -count=1 runs the test without using the build cache.  The build cache can
 # provide false positives when running integ tests, so we err on the side of
 # caution. See `go help test`
+# unit tests include the coverage profile
 GOTEST=${GO_EXECUTABLE} test -count=1 ${VERBOSE}
 
 # -race sometimes causes compile issues on Arm
@@ -119,11 +120,17 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	${GOTEST} -tags unit -timeout=60s ./agent/...
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
+	go tool cover -func cover.out > coverprofile.out
 
 test-silent:
 	$(eval VERBOSE=)
-	${GOTEST} -tags unit -timeout=60s ./agent/...
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
+	go tool cover -func cover.out > coverprofile.out
+
+.PHONY: analyze-cover-profile
+analyze-cover-profile: coverprofile.out
+	./scripts/analyze-cover-profile
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
 	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
@@ -331,4 +338,6 @@ clean:
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
 	-rm -rf $(PWD)/bin
+	-rm -rf cover.out
+	-rm -rf coverprofile.out
 
