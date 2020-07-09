@@ -220,7 +220,7 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 		resp.FinishedAt = &finishedAt
 	}
 
-	for _, binding := range container.Ports {
+	for _, binding := range container.GetKnownPortBindings() {
 		port := v1.PortResponse{
 			ContainerPort: binding.ContainerPort,
 			Protocol:      binding.Protocol.String(),
