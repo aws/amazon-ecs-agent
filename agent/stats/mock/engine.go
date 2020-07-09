@@ -51,11 +51,11 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 }
 
 // ContainerDockerStats mocks base method
-func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.StatsJSON, stats.NetworkStatsPerSec, error) {
+func (m *MockEngine) ContainerDockerStats(arg0, arg1 string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerDockerStats", arg0, arg1)
 	ret0, _ := ret[0].(*types.StatsJSON)
-	ret1, _ := ret[1].(stats.NetworkStatsPerSec)
+	ret1, _ := ret[1].(*stats.NetworkStatsPerSec)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

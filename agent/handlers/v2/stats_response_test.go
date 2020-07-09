@@ -44,7 +44,7 @@ func TestTaskStatsResponseSuccess(t *testing.T) {
 	}
 	gomock.InOrder(
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerMap, true),
-		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, stats.NetworkStatsPerSec{}, nil),
+		statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, &stats.NetworkStatsPerSec{}, nil),
 	)
 
 	resp, err := NewTaskStatsResponse(taskARN, state, statsEngine)
