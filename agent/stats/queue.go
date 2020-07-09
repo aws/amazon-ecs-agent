@@ -36,7 +36,7 @@ type Queue struct {
 	buffer                []UsageStats
 	maxSize               int
 	lastStat              *types.StatsJSON
-	lastNetworkStatPerSec NetworkStatsPerSec
+	lastNetworkStatPerSec *NetworkStatsPerSec
 	lock                  sync.RWMutex
 }
 
@@ -129,7 +129,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 		}
 
 		if stat.NetworkStats != nil {
-			networkStatPerSec := NetworkStatsPerSec{
+			networkStatPerSec := &NetworkStatsPerSec{
 				RxBytesPerSecond: stat.NetworkStats.RxBytesPerSecond,
 				TxBytesPerSecond: stat.NetworkStats.TxBytesPerSecond,
 			}
@@ -148,7 +148,7 @@ func (queue *Queue) GetLastStat() *types.StatsJSON {
 	return queue.lastStat
 }
 
-func (queue *Queue) GetLastNetworkStatPerSec() NetworkStatsPerSec {
+func (queue *Queue) GetLastNetworkStatPerSec() *NetworkStatsPerSec {
 	queue.lock.RLock()
 	defer queue.lock.RUnlock()
 
