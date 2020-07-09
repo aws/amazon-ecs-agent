@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.41.1
+* Bug - Fixed a bug [#2476](https://github.com/aws/amazon-ecs-agent/issues/2476) where HostPort is not present in ECS Task Metadata Endpoint response with bridge network type [#2495](https://github.com/aws/amazon-ecs-agent/pull/2495)
+
 ## 1.41.0
 * Feature - Add inferentia support [#2458](https://github.com/aws/amazon-ecs-agent/pull/2458)
 * Bug - fixes a bug where env file feature would not accept "=", which is the delimiter in the values of a env var [#2487](https://github.com/aws/amazon-ecs-agent/pull/2487)
