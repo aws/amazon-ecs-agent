@@ -66,7 +66,7 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
-	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, NetworkStatsPerSec, error)
+	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 }
 
@@ -740,27 +740,27 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, NetworkStatsPerSec, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
 	containerIDToStatsContainer, ok := engine.tasksToContainers[taskARN]
 	taskToTaskStats := engine.taskToTaskStats
 	if !ok {
-		return nil, NetworkStatsPerSec{}, errors.Errorf("stats engine: task '%s' for container '%s' not found",
+		return nil, nil, errors.Errorf("stats engine: task '%s' for container '%s' not found",
 			taskARN, containerID)
 	}
 
 	container, ok := containerIDToStatsContainer[containerID]
 	if !ok {
-		return nil, NetworkStatsPerSec{}, errors.Errorf("stats engine: container not found: %s", containerID)
+		return nil, nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
 	containerStats := container.statsQueue.GetLastStat()
 
 	// Insert network stats in container stats
 	task, err := engine.resolver.ResolveTaskByARN(taskARN)
 	if err != nil {
-		return nil, NetworkStatsPerSec{}, errors.Errorf("stats engine: task '%s' not found",
+		return nil, nil, errors.Errorf("stats engine: task '%s' not found",
 			taskARN)
 	}
 

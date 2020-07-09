@@ -25,7 +25,7 @@ import (
 // with the docker stats.
 type StatsResponse struct {
 	*types.StatsJSON
-	Network_rate_stats stats.NetworkStatsPerSec `json:"network_rate_stats,omitempty"`
+	Network_rate_stats *stats.NetworkStatsPerSec `json:"network_rate_stats,omitempty"`
 }
 
 // NewV4TaskStatsResponse returns a new v4 task stats response object
