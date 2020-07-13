@@ -93,7 +93,7 @@ func (cfg *Config) platformOverrides() {
 	}
 
 	if cfg.TaskENIEnabled { // when task networking is enabled, eni trunking is enabled by default
-		cfg.ENITrunkingEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_HIGH_DENSITY_ENI"), true)
+		cfg.ENITrunkingEnabled = parseBooleanDefaultTrueConfig("ECS_ENABLE_HIGH_DENSITY_ENI")
 	}
 }
 

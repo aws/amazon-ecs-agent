@@ -224,7 +224,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 
 	cfg := getTestConfig()
 	cfg.TaskENIEnabled = true
-	cfg.ENITrunkingEnabled = true
+	cfg.ENITrunkingEnabled = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	agent := &ecsAgent{
@@ -357,7 +357,7 @@ func TestQueryCNIPluginsCapabilitiesHappyPath(t *testing.T) {
 	agent := &ecsAgent{
 		cniClient: cniClient,
 		cfg: &config.Config{
-			ENITrunkingEnabled: true,
+			ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 		},
 	}
 	assert.NoError(t, agent.verifyCNIPluginsCapabilities())
@@ -790,7 +790,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 
 	cfg := getTestConfig()
 	cfg.TaskENIEnabled = true
-	cfg.ENITrunkingEnabled = true
+	cfg.ENITrunkingEnabled = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 	ctx, _ := context.WithCancel(context.TODO())
 	agent := &ecsAgent{
 		ctx:                ctx,

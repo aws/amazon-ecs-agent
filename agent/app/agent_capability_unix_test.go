@@ -285,7 +285,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	conf := &config.Config{
 		PrivilegedDisabled: true,
 		TaskENIEnabled:     true,
-		ENITrunkingEnabled: true,
+		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -368,7 +368,7 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	conf := &config.Config{
 		PrivilegedDisabled: true,
 		TaskENIEnabled:     true,
-		ENITrunkingEnabled: false,
+		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)

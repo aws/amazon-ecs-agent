@@ -161,7 +161,7 @@ type Config struct {
 
 	// ENITrunkingEnabled specifies if the Agent is enabled to launch awsvpc
 	// task with ENI Trunking
-	ENITrunkingEnabled bool
+	ENITrunkingEnabled BooleanDefaultTrue
 
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
