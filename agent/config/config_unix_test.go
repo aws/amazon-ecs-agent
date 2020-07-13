@@ -201,7 +201,7 @@ func TestENITrunkingEnabled(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg.platformOverrides()
-	assert.True(t, cfg.ENITrunkingEnabled, "ENI trunking should be enabled")
+	assert.True(t, cfg.ENITrunkingEnabled.Enabled(), "ENI trunking should be enabled")
 }
 
 // TestENITrunkingDisabled tests that when task networking is enabled, eni trunking can be disabled
@@ -213,7 +213,7 @@ func TestENITrunkingDisabled(t *testing.T) {
 
 	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
 	cfg.platformOverrides()
-	assert.False(t, cfg.ENITrunkingEnabled, "ENI trunking should be disabled")
+	assert.False(t, cfg.ENITrunkingEnabled.Enabled(), "ENI trunking should be disabled")
 }
 
 // setupFileConfiguration create a temp file store the configuration

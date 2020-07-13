@@ -146,7 +146,7 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
 		// skip verifying branch cni plugin if eni trunking is not enabled
-		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled {
+		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled.Enabled() {
 			continue
 		}
 
