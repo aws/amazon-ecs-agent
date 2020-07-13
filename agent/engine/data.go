@@ -88,13 +88,13 @@ func (engine *DockerTaskEngine) removeENIAttachmentData(mac string) {
 func (imageManager *dockerImageManager) saveImageStateData(imageState *image.ImageState) {
 	err := imageManager.dataClient.SaveImageState(imageState)
 	if err != nil {
-		seelog.Errorf("Failed to save data for image state: %s, %v", imageState.GetImageID(), err)
+		seelog.Errorf("Failed to save data for image state %s:, %v", imageState.GetImageID(), err)
 	}
 }
 
 func (imageManager *dockerImageManager) removeImageStateData(imageId string) {
 	err := imageManager.dataClient.DeleteImageState(imageId)
 	if err != nil {
-		seelog.Errorf("Failed to remove data for image state: %s, %v", imageId, err)
+		seelog.Errorf("Failed to remove data for image state %s:, %v", imageId, err)
 	}
 }

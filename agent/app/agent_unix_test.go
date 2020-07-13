@@ -24,22 +24,24 @@ import (
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_gpu "github.com/aws/amazon-ecs-agent/agent/gpu/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -154,8 +156,9 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins: mockMobyPlugins,
 	}
 
 	getPid = func() int {
@@ -469,9 +472,10 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		pauseLoader:        mockPauseLoader,
 		dockerClient:       dockerClient,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
-		ec2MetadataClient:  ec2MetadataClient,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins:       mockMobyPlugins,
+		ec2MetadataClient: ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -526,7 +530,8 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -616,9 +621,10 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
-		ec2MetadataClient:  ec2MetadataClient,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins:       mockMobyPlugins,
+		ec2MetadataClient: ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
@@ -671,7 +677,8 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
@@ -719,8 +726,9 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins: mockMobyPlugins,
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),

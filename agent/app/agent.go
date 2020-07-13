@@ -639,7 +639,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 
-	go agent.terminationHandler(stateManager, taskEngine, agent.cancel)
+	go agent.terminationHandler(state, agent.dataClient, taskEngine, agent.cancel)
 
 	// Agent introspection api
 	go handlers.ServeIntrospectionHTTPEndpoint(agent.ctx, &agent.containerInstanceARN, taskEngine, agent.cfg)
