@@ -25,8 +25,6 @@ import (
 	"sync"
 	"testing"
 
-	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
-
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	mock_factory "github.com/aws/amazon-ecs-agent/agent/app/factory/mocks"
@@ -41,8 +39,10 @@ import (
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -404,15 +404,16 @@ func TestDoStartHappyPath(t *testing.T) {
 
 	// Cancel the context to cancel async routines
 	agent := &ecsAgent{
-		ctx:                   ctx,
-		cfg:                   &cfg,
-		dockerClient:          dockerClient,
-		dataClient:            dataClient,
-		pauseLoader:           mockPauseLoader,
-		credentialProvider:    aws_credentials.NewCredentials(mockCredentialsProvider),
-		mobyPlugins:           mockMobyPlugins,
-		metadataManager:       containermetadata,
-		terminationHandler:    func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		ctx:                ctx,
+		cfg:                &cfg,
+		dockerClient:       dockerClient,
+		dataClient:         dataClient,
+		pauseLoader:        mockPauseLoader,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+		metadataManager:    containermetadata,
+		terminationHandler: func(taskEngineState dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 		stateManagerFactory:   stateManagerFactory,
 		ec2MetadataClient:     ec2MetadataClient,
 		saveableOptionFactory: saveableOptionFactory,

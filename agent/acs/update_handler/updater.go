@@ -28,14 +28,16 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -73,14 +75,14 @@ const (
 
 // AddAgentUpdateHandlers adds the needed update handlers to perform agent
 // updates
-func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, saver statemanager.Saver, taskEngine engine.TaskEngine) {
+func AddAgentUpdateHandlers(cs wsclient.ClientServer, cfg *config.Config, state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine) {
 	singleUpdater := &updater{
 		acs:        cs,
 		config:     cfg,
 		httpclient: httpclient.New(updateDownloadTimeout, false),
 	}
 	cs.AddRequestHandler(singleUpdater.stageUpdateHandler())
-	cs.AddRequestHandler(singleUpdater.performUpdateHandler(saver, taskEngine))
+	cs.AddRequestHandler(singleUpdater.performUpdateHandler(state, dataClient, taskEngine))
 }
 
 func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
@@ -216,7 +218,7 @@ func (u *updater) download(info *ecsacs.UpdateInfo) (err error) {
 
 var exit = os.Exit
 
-func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engine.TaskEngine) func(req *ecsacs.PerformUpdateMessage) {
+func (u *updater) performUpdateHandler(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine) func(req *ecsacs.PerformUpdateMessage) {
 	return func(req *ecsacs.PerformUpdateMessage) {
 		u.Lock()
 		defer u.Unlock()
@@ -252,7 +254,7 @@ func (u *updater) performUpdateHandler(saver statemanager.Saver, taskEngine engi
 			MessageId:         req.MessageId,
 		})
 
-		err := sighandlers.FinalSave(saver, taskEngine)
+		err := sighandlers.FinalSave(state, dataClient, taskEngine)
 		if err != nil {
 			seelog.Critical("Error saving before update exit", "err", err)
 		} else {

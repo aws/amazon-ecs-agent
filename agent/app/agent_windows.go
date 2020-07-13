@@ -23,6 +23,7 @@ import (
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -30,8 +31,8 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+
 	"github.com/cihub/seelog"
 	"golang.org/x/sys/windows/svc"
 )
@@ -154,7 +155,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 	agentCtx, cancel := context.WithCancel(ctx)
 	indicator := newTermHandlerIndicator()
 
-	terminationHandler := func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+	terminationHandler := func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
 		// We're using a custom indicator to record that the handler is scheduled to be executed (has been invoked) and
 		// to determine whether it should run (we skip when the agent engine has already exited).  After recording to
 		// the indicator that the handler has been invoked, we wait on the context.  When we wake up, we determine
@@ -167,7 +168,7 @@ func (h *handler) runAgent(ctx context.Context) uint32 {
 		}
 
 		seelog.Info("Termination handler received signal to stop")
-		err := sighandlers.FinalSave(saver, taskEngine)
+		err := sighandlers.FinalSave(state, dataClient, taskEngine)
 		if err != nil {
 			seelog.Criticalf("Error saving state before final shutdown: %v", err)
 		}

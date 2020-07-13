@@ -22,12 +22,15 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	statemanager_mocks "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/svc"
@@ -96,12 +99,17 @@ func TestHandler_RunAgent_NoSaveWithNoTerminationHandler(t *testing.T) {
 
 func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngineState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	defer ctrl.Finish()
+	dataClient := data.NewNoopClient()
 
 	taskEngine.EXPECT().Disable()
-	stateManager.EXPECT().ForceSave()
+	taskEngineState.EXPECT().AllTasks().Return(nil)
+	taskEngineState.EXPECT().AllImageStates().Return(nil)
+	taskEngineState.EXPECT().AllENIAttachments().Return(nil)
+	taskEngineState.EXPECT().GetAllContainerIDs().Return([]string{"test-container"})
+	taskEngineState.EXPECT().ContainerByID("test-container").Return(nil, false)
 
 	agent := &mockAgent{}
 
@@ -109,7 +117,7 @@ func TestHandler_RunAgent_ForceSaveWithTerminationHandler(t *testing.T) {
 	done := make(chan struct{})
 	defer func() { done <- struct{}{} }()
 	startFunc := func() int {
-		go agent.terminationHandler(stateManager, taskEngine, cancel)
+		go agent.terminationHandler(taskEngineState, dataClient, taskEngine, cancel)
 		<-done // block until after the test ends so that we can test that runAgent returns when cancelled
 		return 0
 	}
@@ -191,12 +199,17 @@ func TestHandler_HandleWindowsRequests_Cancel(t *testing.T) {
 
 func TestHandler_Execute_WindowsStops(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	stateManager := statemanager_mocks.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	taskEngineState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 	defer ctrl.Finish()
+	dataClient := data.NewNoopClient()
 
 	taskEngine.EXPECT().Disable()
-	stateManager.EXPECT().ForceSave()
+	taskEngineState.EXPECT().AllTasks().Return(nil)
+	taskEngineState.EXPECT().AllImageStates().Return(nil)
+	taskEngineState.EXPECT().AllENIAttachments().Return(nil)
+	taskEngineState.EXPECT().GetAllContainerIDs().Return([]string{"test-container"})
+	taskEngineState.EXPECT().ContainerByID("test-container").Return(nil, false)
 
 	agent := &mockAgent{}
 
@@ -204,7 +217,7 @@ func TestHandler_Execute_WindowsStops(t *testing.T) {
 	done := make(chan struct{})
 	defer func() { done <- struct{}{} }()
 	startFunc := func() int {
-		go agent.terminationHandler(stateManager, taskEngine, cancel)
+		go agent.terminationHandler(taskEngineState, dataClient, taskEngine, cancel)
 		<-done // block until after the test ends so that we can test that Execute returns when Stopped
 		return 0
 	}

@@ -340,7 +340,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	// Ignore heartbeat messages; anyMessageHandler gets 'em
 	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
-	updater.AddAgentUpdateHandlers(client, cfg, acsSession.stateManager, acsSession.taskEngine)
+	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 
 	err := client.Connect()
 	if err != nil {
