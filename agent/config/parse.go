@@ -23,20 +23,23 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
 
-func parseCheckpoint(dataDir string) bool {
-	var checkPoint bool
+func parseCheckpoint(dataDir string) BooleanDefaultFalse {
+	checkPoint := parseBooleanDefaultFalseConfig("ECS_CHECKPOINT")
 	if dataDir != "" {
 		// if we have a directory to checkpoint to, default it to be on
-		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), true)
+		if checkPoint.Value == NotSet {
+			checkPoint.Value = ExplicitlyEnabled
+		}
 	} else {
 		// if the directory is not set, default to checkpointing off for
 		// backwards compatibility
-		checkPoint = utils.ParseBool(os.Getenv("ECS_CHECKPOINT"), false)
+		if checkPoint.Value == NotSet {
+			checkPoint.Value = ExplicitlyDisabled
+		}
 	}
 	return checkPoint
 }
