@@ -216,11 +216,11 @@ func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 	if err != nil {
 		seelog.Warnf("Error getting network tx packets: %v", err)
 	}
-	networkStatsSet.RxBytesPerSecond, err = queue.getCWStatsSet(getNetworkRxPacketsPerSecond)
+	networkStatsSet.RxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkRxPacketsPerSecond)
 	if err != nil {
 		seelog.Warnf("Error getting network rx bytes per second: %v", err)
 	}
-	networkStatsSet.TxBytesPerSecond, err = queue.getCWStatsSet(getNetworkTxPacketsPerSecond)
+	networkStatsSet.TxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkTxPacketsPerSecond)
 	if err != nil {
 		seelog.Warnf("Error getting network tx bytes per second: %v", err)
 	}
@@ -428,5 +428,52 @@ func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*ecstcs.ULong
 		SampleCount: &sampleCount,
 		Sum:         &baseSum,
 		OverflowSum: &overflowSum,
+	}, nil
+}
+
+// getUDoubleCWStatsSet gets the stats set for per second network metrics
+func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecstcs.UDoubleCWStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate CW stats set")
+	}
+
+	var min, max, sum float64
+	var sampleCount int64
+	min = math.MaxFloat64
+	max = -math.MaxFloat64
+	sum = 0
+	sampleCount = 0
+
+	for _, stat := range queue.buffer {
+		if stat.sent {
+			// don't send stats to TACS if already sent
+			continue
+		}
+		thisStat := getUsageFloat(&stat)
+		if math.IsNaN(thisStat) {
+			continue
+		}
+
+		min = math.Min(min, thisStat)
+		max = math.Max(max, thisStat)
+		sampleCount++
+		sum += thisStat
+	}
+
+	// don't emit metrics when sampleCount == 0
+	if sampleCount == 0 {
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
+	}
+
+	return &ecstcs.UDoubleCWStatsSet{
+		Max:         &max,
+		Min:         &min,
+		SampleCount: &sampleCount,
+		Sum:         &sum,
 	}, nil
 }
