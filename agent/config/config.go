@@ -516,7 +516,7 @@ func environmentConfig() (Config, error) {
 		Checkpoint:                          parseCheckpoint(dataDir),
 		EngineAuthType:                      os.Getenv("ECS_ENGINE_AUTH_TYPE"),
 		EngineAuthData:                      NewSensitiveRawMessage([]byte(os.Getenv("ECS_ENGINE_AUTH_DATA"))),
-		UpdatesEnabled:                      utils.ParseBool(os.Getenv("ECS_UPDATES_ENABLED"), false),
+		UpdatesEnabled:                      parseBooleanDefaultFalseConfig("ECS_UPDATES_ENABLED"),
 		UpdateDownloadDir:                   os.Getenv("ECS_UPDATE_DOWNLOAD_DIR"),
 		DisableMetrics:                      utils.ParseBool(os.Getenv("ECS_DISABLE_METRICS"), false),
 		ReservedMemory:                      parseEnvVariableUint16("ECS_RESERVED_MEMORY"),

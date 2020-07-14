@@ -79,7 +79,7 @@ type Config struct {
 
 	// UpdatesEnabled specifies whether updates should be applied to this agent.
 	// Default true
-	UpdatesEnabled bool
+	UpdatesEnabled BooleanDefaultFalse
 	// UpdateDownloadDir specifies where new agent versions should be placed
 	// within the container in order for the external updating process to
 	// correctly handle them.
