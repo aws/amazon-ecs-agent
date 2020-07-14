@@ -271,21 +271,21 @@ func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.False(t, conf.Checkpoint)
+	assert.False(t, conf.Checkpoint.Enabled())
 }
 
 func TestDefaultCheckpointWithECSDataDir(t *testing.T) {
 	defer setTestEnv("ECS_DATADIR", "/some/dir")()
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.True(t, conf.Checkpoint)
+	assert.True(t, conf.Checkpoint.Enabled())
 }
 
 func TestCheckpointWithoutECSDataDir(t *testing.T) {
 	defer setTestEnv("ECS_CHECKPOINT", "true")()
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.True(t, conf.Checkpoint)
+	assert.True(t, conf.Checkpoint.Enabled())
 }
 
 func TestInvalidFormatDockerStopTimeout(t *testing.T) {

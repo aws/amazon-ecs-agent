@@ -343,7 +343,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	containerChangeEventStream.StartListening()
 
-	if !agent.cfg.Checkpoint {
+	if !agent.cfg.Checkpoint.Enabled() {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
@@ -471,7 +471,7 @@ func (agent *ecsAgent) newStateManager(
 	savedInstanceID *string,
 	availabilityZone *string, latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
 
-	if !agent.cfg.Checkpoint {
+	if !agent.cfg.Checkpoint.Enabled() {
 		return statemanager.NewNoopStateManager(), nil
 	}
 

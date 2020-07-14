@@ -68,7 +68,7 @@ type Config struct {
 	// Checkpoint configures whether data should be periodically to a checkpoint
 	// file, in DataDir, such that on instance or agent restarts it will resume
 	// as the same ContainerInstance. It defaults to false.
-	Checkpoint bool
+	Checkpoint BooleanDefaultFalse
 
 	// EngineAuthType configures what type of data is in EngineAuthData.
 	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth
