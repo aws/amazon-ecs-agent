@@ -756,6 +756,7 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 		return nil, nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
 	containerStats := container.statsQueue.GetLastStat()
+	containerNetworkRateStats := container.statsQueue.GetLastNetworkStatPerSec()
 
 	// Insert network stats in container stats
 	task, err := engine.resolver.ResolveTaskByARN(taskARN)
@@ -769,10 +770,11 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 		if ok {
 			taskNetworkStats := taskStats.StatsQueue.GetLastStat().Networks
 			containerStats.Networks = taskNetworkStats
+			containerNetworkRateStats = taskStats.StatsQueue.GetLastNetworkStatPerSec()
 		} else {
 			seelog.Warnf("Network stats not found for container %s", containerID)
 		}
 	}
 
-	return containerStats, container.statsQueue.GetLastNetworkStatPerSec(), nil
+	return containerStats, containerNetworkRateStats, nil
 }
