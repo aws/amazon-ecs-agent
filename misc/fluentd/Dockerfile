@@ -1,4 +1,4 @@
-#    fluent/fluentd:v1.2.5
-FROM fluent/fluentd@sha256:c99d55c78d383df803d49f2f54755e41c654ea8e3c1ef34ba695d3a1af33151c
+#    fluent/fluentd:v1.11-1
+FROM fluent/fluentd@sha256:708cb509799785a40a07c4269e5dded4bfa6df1ae50631f24e4921ae98fda1e5
 
 COPY fluent.conf /fluentd/etc/
