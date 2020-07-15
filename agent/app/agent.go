@@ -259,9 +259,9 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
 		credentialsManager, state, imageManager)
 	if err != nil {
+		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
 	}
-
 	agent.initMetricsEngine()
 
 	// Initialize the state manager
@@ -374,37 +374,22 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 			agent.metadataManager, agent.resourceFields), "", nil
 	}
 
-	// We try to set these values by loading the existing state file first
-	var previousCluster, previousEC2InstanceID, previousContainerInstanceArn, previousAZ string
-	previousTaskEngine := engine.NewTaskEngine(agent.cfg, agent.dockerClient,
-		credentialsManager, containerChangeEventStream, imageManager, state,
-		agent.metadataManager, agent.resourceFields)
-
-	// previousStateManager is used to verify that our current runtime configuration is
-	// compatible with our past configuration as reflected by our state-file
-	previousStateManager, err := agent.newStateManager(previousTaskEngine, &previousCluster,
-		&previousContainerInstanceArn, &previousEC2InstanceID, &previousAZ, agent.latestSeqNumberTaskManifest)
-	if err != nil {
-		seelog.Criticalf("Error creating state manager: %v", err)
-		return nil, "", err
-	}
-
-	err = previousStateManager.Load()
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
 	}
 
-	err = agent.checkCompatibility(previousTaskEngine)
+	err = agent.checkCompatibility(savedData.taskEngine)
 	if err != nil {
 		seelog.Criticalf("Error checking compatibility with previously saved state: %v", err)
 		return nil, "", err
 	}
 
 	currentEC2InstanceID := agent.getEC2InstanceID()
-	if previousEC2InstanceID != "" && previousEC2InstanceID != currentEC2InstanceID {
+	if savedData.ec2InstanceID != "" && savedData.ec2InstanceID != currentEC2InstanceID {
 		seelog.Warnf(instanceIDMismatchErrorFormat,
-			previousEC2InstanceID, currentEC2InstanceID)
+			savedData.ec2InstanceID, currentEC2InstanceID)
 
 		// Reset agent state as a new container instance
 		state.Reset()
@@ -414,16 +399,18 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 			agent.resourceFields), currentEC2InstanceID, nil
 	}
 
-	if previousCluster != "" {
-		if err := agent.setClusterInConfig(previousCluster); err != nil {
+	if savedData.cluster != "" {
+		if err := agent.setClusterInConfig(savedData.cluster); err != nil {
 			return nil, "", err
 		}
 	}
 
 	// Use the values we loaded if there's no issue
-	agent.containerInstanceARN = previousContainerInstanceArn
+	agent.containerInstanceARN = savedData.containerInstanceARN
+	agent.availabilityZone = savedData.availabilityZone
+	agent.latestSeqNumberTaskManifest = &savedData.latestTaskManifestSeqNum
 
-	return previousTaskEngine, currentEC2InstanceID, nil
+	return savedData.taskEngine, currentEC2InstanceID, nil
 }
 
 func (agent *ecsAgent) initMetricsEngine() {

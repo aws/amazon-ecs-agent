@@ -255,8 +255,8 @@ func TestSetTaskSentStatus(t *testing.T) {
 	defer cleanup()
 
 	testContainer := &apicontainer.Container{
-		Name:    testConainerName,
-		TaskARN: testTaskARN,
+		Name:          testConainerName,
+		TaskARNUnsafe: testTaskARN,
 	}
 	testTask := &apitask.Task{
 		Arn:        testTaskARN,
@@ -305,8 +305,8 @@ func TestSetContainerSentStatus(t *testing.T) {
 	defer cleanup()
 
 	testContainer := &apicontainer.Container{
-		Name:    testConainerName,
-		TaskARN: testTaskARN,
+		Name:          testConainerName,
+		TaskARNUnsafe: testTaskARN,
 	}
 
 	containerRunningStateChange := newSendableContainerEvent(api.ContainerStateChange{

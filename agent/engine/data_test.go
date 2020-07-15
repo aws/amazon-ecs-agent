@@ -42,8 +42,8 @@ const (
 
 var (
 	testContainer = &apicontainer.Container{
-		Name:    testContainerName,
-		TaskARN: testTaskARN,
+		Name:          testContainerName,
+		TaskARNUnsafe: testTaskARN,
 	}
 	testDockerContainer = &apicontainer.DockerContainer{
 		DockerID:  testDockerID,
@@ -105,6 +105,37 @@ func TestLoadState(t *testing.T) {
 	assert.True(t, ok)
 	assert.Len(t, engine.state.AllImageStates(), 1)
 	assert.Len(t, engine.state.AllENIAttachments(), 1)
+}
+
+func TestSaveState(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	engine := &DockerTaskEngine{
+		state:      dockerstate.NewTaskEngineState(),
+		dataClient: dataClient,
+	}
+	engine.state.AddTask(testTask)
+	engine.state.AddContainer(testDockerContainer, testTask)
+	engine.state.AddImageState(testImageState)
+	engine.state.AddENIAttachment(testENIAttachment)
+
+	require.NoError(t, engine.SaveState())
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	assert.Len(t, containers, 1)
+
+	images, err := dataClient.GetImageStates()
+	require.NoError(t, err)
+	assert.Len(t, images, 1)
+
+	eniAttachments, err := dataClient.GetENIAttachments()
+	require.NoError(t, err)
+	assert.Len(t, eniAttachments, 1)
 }
 
 func TestSaveAndRemoveTaskData(t *testing.T) {

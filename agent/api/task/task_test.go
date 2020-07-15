@@ -3498,5 +3498,5 @@ func TestPopulateTaskARN(t *testing.T) {
 		},
 	}
 	task.populateTaskARN()
-	assert.Equal(t, task.Arn, task.Containers[0].TaskARN)
+	assert.Equal(t, task.Arn, task.Containers[0].GetTaskARN())
 }

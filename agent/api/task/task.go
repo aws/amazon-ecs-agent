@@ -382,9 +382,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 // populateTaskARN populates the arn of the task to the containers.
 func (task *Task) populateTaskARN() {
 	for _, c := range task.Containers {
-		// This should be safe assuming populateTaskARN is only called by PostUnmarshalTask, where
-		// the task and its containers are only accessed by single thread.
-		c.TaskARN = task.Arn
+		c.SetTaskARN(task.Arn)
 	}
 }
 

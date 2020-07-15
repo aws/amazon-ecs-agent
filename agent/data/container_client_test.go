@@ -41,8 +41,8 @@ func TestManageContainers(t *testing.T) {
 		DockerID:   testDockerID,
 		DockerName: testDockerName,
 		Container: &apicontainer.Container{
-			Name:    testContainerName,
-			TaskARN: testTaskArn,
+			Name:          testContainerName,
+			TaskARNUnsafe: testTaskArn,
 		},
 	}
 	require.NoError(t, testClient.SaveDockerContainer(testDockerContainer))
@@ -57,8 +57,8 @@ func TestManageContainers(t *testing.T) {
 
 	// Test saving a container with SaveContainer.
 	testContainer := &apicontainer.Container{
-		Name:    testContainerName2,
-		TaskARN: testTaskArn,
+		Name:          testContainerName2,
+		TaskARNUnsafe: testTaskArn,
 	}
 	require.NoError(t, testClient.SaveContainer(testContainer))
 	res, err = testClient.GetContainers()
@@ -81,8 +81,8 @@ func TestSaveContainerInvalidID(t *testing.T) {
 		DockerID:   testDockerID,
 		DockerName: testDockerName,
 		Container: &apicontainer.Container{
-			Name:    testContainerName,
-			TaskARN: "invalid-arn",
+			Name:          testContainerName,
+			TaskARNUnsafe: "invalid-arn",
 		},
 	}
 	assert.Error(t, testClient.SaveDockerContainer(testDockerContainer))
@@ -91,14 +91,14 @@ func TestSaveContainerInvalidID(t *testing.T) {
 
 func TestGetContainerID(t *testing.T) {
 	c := &apicontainer.Container{
-		TaskARN: testTaskArn,
-		Name:    testContainerName,
+		TaskARNUnsafe: testTaskArn,
+		Name:          testContainerName,
 	}
 	id, err := GetContainerID(c)
 	require.NoError(t, err)
 	assert.Equal(t, "abc-test-name", id)
 
-	c.TaskARN = "invalid"
+	c.TaskARNUnsafe = "invalid"
 	_, err = GetContainerID(c)
 	assert.Error(t, err)
 }

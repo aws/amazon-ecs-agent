@@ -90,7 +90,7 @@ func (c *client) GetContainers() ([]*apicontainer.DockerContainer, error) {
 
 // GetContainerID returns a unique ID for a container to use as key when saving to DB.
 func GetContainerID(c *apicontainer.Container) (string, error) {
-	taskID, err := utils.GetTaskID(c.TaskARN)
+	taskID, err := utils.GetTaskID(c.GetTaskARN())
 	if err != nil {
 		return "", err
 	}
