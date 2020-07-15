@@ -419,7 +419,7 @@ func TestValidForImagesCleanupExclusion(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_EXCLUDE_UNTRACKED_IMAGE", "amazonlinux:2,amazonlinux:3")()
 	imagesNotDelete := parseImageCleanupExclusionList("ECS_EXCLUDE_UNTRACKED_IMAGE")
-	expectedImages := []string{"amazonlinux:2", "amazonlinux:3", CachedImageNameAgentContainer, CachedImageNamePauseContainer}
+	expectedImages := []string{"amazonlinux:2", "amazonlinux:3"}
 	assert.Equal(t, expectedImages, imagesNotDelete, "unexpected imageCleanupExclusionList")
 }
 
