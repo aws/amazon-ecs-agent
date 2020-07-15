@@ -329,6 +329,10 @@ func (engine *MockTaskEngine) Version() (string, error) {
 	return "", nil
 }
 
+func (engine *MockTaskEngine) LoadState() error {
+	return nil
+}
+
 func (engine *MockTaskEngine) Capabilities() []*ecs.Attribute {
 	return nil
 }

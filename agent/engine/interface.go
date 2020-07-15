@@ -53,6 +53,9 @@ type TaskEngine interface {
 
 	Version() (string, error)
 
+	// LoadState loads the task engine state with data in db.
+	LoadState() error
+
 	json.Marshaler
 	json.Unmarshaler
 }

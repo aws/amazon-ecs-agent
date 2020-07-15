@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -36,12 +37,17 @@ const (
 	testImageId       = "test-imageId"
 	testMac           = "test-mac"
 	testAttachmentArn = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
+	testDockerID      = "test-docker-id"
 )
 
 var (
 	testContainer = &apicontainer.Container{
 		Name:    testContainerName,
 		TaskARN: testTaskARN,
+	}
+	testDockerContainer = &apicontainer.DockerContainer{
+		DockerID:  testDockerID,
+		Container: testContainer,
 	}
 	testTask = &apitask.Task{
 		Arn:        testTaskARN,
@@ -54,6 +60,12 @@ var (
 	}
 	testImage = &image.Image{
 		ImageID: testImageId,
+	}
+
+	testENIAttachment = &eni.ENIAttachment{
+		AttachmentARN:    testAttachmentArn,
+		AttachStatusSent: false,
+		MACAddress:       testMac,
 	}
 )
 
@@ -68,6 +80,31 @@ func newTestDataClient(t *testing.T) (data.Client, func()) {
 		require.NoError(t, os.RemoveAll(testDir))
 	}
 	return testClient, cleanup
+}
+
+func TestLoadState(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	engine := &DockerTaskEngine{
+		state:      dockerstate.NewTaskEngineState(),
+		dataClient: dataClient,
+	}
+	require.NoError(t, dataClient.SaveTask(testTask))
+	testDockerContainer.Container.SetKnownStatus(apicontainerstatus.ContainerRunning)
+	require.NoError(t, dataClient.SaveDockerContainer(testDockerContainer))
+	require.NoError(t, dataClient.SaveENIAttachment(testENIAttachment))
+	require.NoError(t, dataClient.SaveImageState(testImageState))
+
+	require.NoError(t, engine.LoadState())
+	task, ok := engine.state.TaskByArn(testTaskARN)
+	assert.True(t, ok)
+	// Also check that the container in the task has the updated status from container table.
+	assert.Equal(t, apicontainerstatus.ContainerRunning, task.Containers[0].GetKnownStatus())
+	_, ok = engine.state.ContainerByID(testDockerID)
+	assert.True(t, ok)
+	assert.Len(t, engine.state.AllImageStates(), 1)
+	assert.Len(t, engine.state.AllENIAttachments(), 1)
 }
 
 func TestSaveAndRemoveTaskData(t *testing.T) {
@@ -139,19 +176,13 @@ func TestRemoveENIAttachmentData(t *testing.T) {
 	dataClient, cleanup := newTestDataClient(t)
 	defer cleanup()
 
-	attachment := &eni.ENIAttachment{
-		AttachmentARN:    testAttachmentArn,
-		AttachStatusSent: false,
-		MACAddress:       testMac,
-	}
-
 	engine := &DockerTaskEngine{
 		state:      dockerstate.NewTaskEngineState(),
 		dataClient: dataClient,
 	}
 
-	engine.state.AddENIAttachment(attachment)
-	dataClient.SaveENIAttachment(attachment)
+	engine.state.AddENIAttachment(testENIAttachment)
+	dataClient.SaveENIAttachment(testENIAttachment)
 	res, err := dataClient.GetENIAttachments()
 	require.NoError(t, err)
 	assert.Len(t, res, 1)
