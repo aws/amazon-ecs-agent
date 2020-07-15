@@ -122,6 +122,20 @@ func (mr *MockTaskEngineMockRecorder) ListTasks() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTasks", reflect.TypeOf((*MockTaskEngine)(nil).ListTasks))
 }
 
+// LoadState mocks base method
+func (m *MockTaskEngine) LoadState() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadState")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadState indicates an expected call of LoadState
+func (mr *MockTaskEngineMockRecorder) LoadState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadState", reflect.TypeOf((*MockTaskEngine)(nil).LoadState))
+}
+
 // MarshalJSON mocks base method
 func (m *MockTaskEngine) MarshalJSON() ([]byte, error) {
 	m.ctrl.T.Helper()
