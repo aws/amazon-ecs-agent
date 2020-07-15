@@ -309,7 +309,7 @@ func TestHandleResourceStateChangeSaveData(t *testing.T) {
 func newTestContainer(name string, knownStatus, desiredStatus apicontainerstatus.ContainerStatus) *apicontainer.Container {
 	return &apicontainer.Container{
 		Name:                name,
-		TaskARN:             testTaskARN,
+		TaskARNUnsafe:       testTaskARN,
 		KnownStatusUnsafe:   knownStatus,
 		DesiredStatusUnsafe: desiredStatus,
 	}

@@ -60,7 +60,7 @@ func resetGetpid() {
 }
 
 func TestDoStartTaskENIHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
+	ctrl, credentialsManager, _, imageManager, client,
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
@@ -108,7 +108,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBranchENIPluginName).Return(cniCapabilities, nil),
-		state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).AnyTimes(),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
@@ -138,9 +137,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 			}).Return("arn", "", nil),
 		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
-		state.EXPECT().AllImageStates().Return(nil),
-		state.EXPECT().AllENIAttachments().Return(nil),
-		state.EXPECT().AllTasks().Return(nil),
 	)
 
 	cfg := getTestConfig()
@@ -152,6 +148,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		ctx:                ctx,
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dataClient:         data.NewNoopClient(),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
@@ -170,7 +167,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, state, imageManager, client)
+			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client)
 		agentW.Done()
 	}()
 

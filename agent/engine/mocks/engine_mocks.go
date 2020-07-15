@@ -163,6 +163,20 @@ func (mr *MockTaskEngineMockRecorder) MustInit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustInit", reflect.TypeOf((*MockTaskEngine)(nil).MustInit), arg0)
 }
 
+// SaveState mocks base method
+func (m *MockTaskEngine) SaveState() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveState")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveState indicates an expected call of SaveState
+func (mr *MockTaskEngineMockRecorder) SaveState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveState", reflect.TypeOf((*MockTaskEngine)(nil).SaveState))
+}
+
 // SetDataClient mocks base method
 func (m *MockTaskEngine) SetDataClient(arg0 data.Client) {
 	m.ctrl.T.Helper()

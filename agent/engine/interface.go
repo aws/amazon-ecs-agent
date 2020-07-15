@@ -55,6 +55,8 @@ type TaskEngine interface {
 
 	// LoadState loads the task engine state with data in db.
 	LoadState() error
+	// SaveState saves all the data in task engine state to db.
+	SaveState() error
 
 	json.Marshaler
 	json.Unmarshaler

@@ -57,8 +57,8 @@ func TestFinalSave(t *testing.T) {
 		DockerID:   "docker-id",
 		DockerName: "docker-name",
 		Container: &apicontainer.Container{
-			Name:    "container-name",
-			TaskARN: taskARN,
+			Name:          "container-name",
+			TaskARNUnsafe: taskARN,
 		},
 	}
 
