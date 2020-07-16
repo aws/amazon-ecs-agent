@@ -771,6 +771,9 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 			taskNetworkStats := taskStats.StatsQueue.GetLastStat().Networks
 			containerStats.Networks = taskNetworkStats
 			containerNetworkRateStats = taskStats.StatsQueue.GetLastNetworkStatPerSec()
+			if len(containerStats.Networks) == 0 {
+				containerNetworkRateStats = nil
+			}
 		} else {
 			seelog.Warnf("Network stats not found for container %s", containerID)
 		}
