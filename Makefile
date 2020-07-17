@@ -12,6 +12,8 @@
 # language governing permissions and limitations under the License.
 
 USERID=$(shell id -u)
+# default value of TARGET_OS
+TARGET_OS=linux
 
 .PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
@@ -183,6 +185,12 @@ ECS_CNI_REPOSITORY_REVISION=master
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
 
+# Variable to store the platform specific dockerfile for vpc-cni-plugins
+VPC_CNI_REPOSITORY_DOCKER_FILE=scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins
+ifeq (${TARGET_OS}, windows)
+    VPC_CNI_REPOSITORY_DOCKER_FILE=scripts/dockerfiles/Dockerfile.buildWindowsVPCCNIPlugins
+endif
+
 get-cni-sources:
 	git submodule update --init --recursive --remote
 
@@ -198,11 +206,11 @@ build-ecs-cni-plugins:
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 build-vpc-cni-plugins:
-	@docker build --build-arg GOARCH=$(GOARCH) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
+	@docker build --build-arg GOARCH=$(GOARCH) -f $(VPC_CNI_REPOSITORY_DOCKER_FILE) -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-u "$(USERID)" \
-		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/linux_$(GOARCH)" \
+		-v "$(PWD)/out/amazon-vpc-cni-plugins:/go/src/github.com/aws/amazon-vpc-cni-plugins/build/${TARGET_OS}_$(GOARCH)" \
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
 		"amazon/amazon-ecs-build-vpc-cni-plugins:make"
 	@echo "Built amazon-vpc-cni-plugins successfully."
