@@ -60,7 +60,7 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 		},
 		PrivilegedDisabled:         false,
 		SELinuxCapable:             true,
-		AppArmorCapable:            true,
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskENIEnabled:             true,
 		AWSVPCBlockInstanceMetdata: true,
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,

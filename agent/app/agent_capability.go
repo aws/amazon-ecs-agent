@@ -154,7 +154,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	if agent.cfg.SELinuxCapable {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
 	}
-	if agent.cfg.AppArmorCapable {
+	if agent.cfg.AppArmorCapable.Enabled() {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"apparmor")
 	}
 

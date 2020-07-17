@@ -129,7 +129,7 @@ type Config struct {
 
 	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
 	// security options
-	AppArmorCapable bool
+	AppArmorCapable BooleanDefaultFalse
 
 	// TaskCleanupWaitDuration specifies the time to wait after a task is stopped
 	// until cleanup of task resources is started.

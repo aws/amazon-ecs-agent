@@ -166,7 +166,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
 	assert.True(t, conf.PrivilegedDisabled)
 	assert.True(t, conf.SELinuxCapable, "Wrong value for SELinuxCapable")
-	assert.True(t, conf.AppArmorCapable, "Wrong value for AppArmorCapable")
+	assert.True(t, conf.AppArmorCapable.Enabled(), "Wrong value for AppArmorCapable")
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.Equal(t, ExplicitlyEnabled, conf.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
