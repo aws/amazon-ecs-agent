@@ -46,7 +46,11 @@ func Run(arguments []string) int {
 		return runHealthcheck("http://localhost:51678/v1/metadata", time.Second*25)
 	}
 
-	logger.SetLevel(*parsedArgs.LogLevel)
+	if *parsedArgs.LogLevel != "" {
+		logger.SetLevel(*parsedArgs.LogLevel, *parsedArgs.LogLevel)
+	} else {
+		logger.SetLevel(*parsedArgs.DriverLogLevel, *parsedArgs.InstanceLogLevel)
+	}
 
 	// Create an Agent object
 	agent, err := newAgent(aws.BoolValue(parsedArgs.BlackholeEC2Metadata), parsedArgs.AcceptInsecureCert)
