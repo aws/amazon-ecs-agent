@@ -137,7 +137,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+cap)
 	}
 
-	if !agent.cfg.PrivilegedDisabled {
+	if !agent.cfg.PrivilegedDisabled.Enabled() {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"privileged-container")
 	}
 
