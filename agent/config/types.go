@@ -91,7 +91,7 @@ type Config struct {
 
 	// PollMetrics configures whether metrics are constantly streamed for each container or
 	// polled on interval instead.
-	PollMetrics bool
+	PollMetrics BooleanDefaultTrue
 
 	// PollingMetricsWaitDuration configures how long a container should wait before polling metrics
 	// again when PollMetrics is set to true

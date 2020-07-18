@@ -78,7 +78,7 @@ func DefaultConfig() Config {
 		SharedVolumeMatchFullConfig:         false, // only requiring shared volumes to match on name, which is default docker behavior
 		ContainerInstancePropagateTagsFrom:  ContainerInstancePropagateTagsFromNoneType,
 		PrometheusMetricsEnabled:            false,
-		PollMetrics:                         false,
+		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
