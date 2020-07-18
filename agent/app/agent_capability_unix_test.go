@@ -59,7 +59,7 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 			dockerclient.FluentdDriver,
 		},
 		PrivilegedDisabled:         false,
-		SELinuxCapable:             true,
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskENIEnabled:             true,
 		AWSVPCBlockInstanceMetdata: true,

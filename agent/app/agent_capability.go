@@ -151,7 +151,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	capabilities = agent.appendLoggingDriverCapabilities(capabilities)
 
-	if agent.cfg.SELinuxCapable {
+	if agent.cfg.SELinuxCapable.Enabled() {
 		capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+"selinux")
 	}
 	if agent.cfg.AppArmorCapable.Enabled() {

@@ -125,7 +125,7 @@ type Config struct {
 
 	// SELinxuCapable specifies whether the Agent is capable of using SELinux
 	// security options
-	SELinuxCapable bool
+	SELinuxCapable BooleanDefaultFalse
 
 	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
 	// security options
