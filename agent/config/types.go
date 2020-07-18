@@ -121,7 +121,7 @@ type Config struct {
 
 	// PrivilegedDisabled specified whether the Agent is capable of launching
 	// tasks with privileged containers
-	PrivilegedDisabled bool
+	PrivilegedDisabled BooleanDefaultFalse
 
 	// SELinxuCapable specifies whether the Agent is capable of using SELinux
 	// security options

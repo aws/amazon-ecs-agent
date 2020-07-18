@@ -164,7 +164,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	expectedDurationContainerStartTimeout, _ := time.ParseDuration("5m")
 	assert.Equal(t, expectedDurationContainerStartTimeout, conf.ContainerStartTimeout)
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
-	assert.True(t, conf.PrivilegedDisabled)
+	assert.True(t, conf.PrivilegedDisabled.Enabled())
 	assert.True(t, conf.SELinuxCapable.Enabled(), "Wrong value for SELinuxCapable")
 	assert.True(t, conf.AppArmorCapable.Enabled(), "Wrong value for AppArmorCapable")
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
