@@ -355,7 +355,7 @@ func (cfg *Config) validateAndOverrideBounds() error {
 }
 
 func (cfg *Config) pollMetricsOverrides() {
-	if cfg.PollMetrics {
+	if cfg.PollMetrics.Enabled() {
 		if cfg.PollingMetricsWaitDuration < minimumPollingMetricsWaitDuration {
 			seelog.Warnf("ECS_POLLING_METRICS_WAIT_DURATION parsed value (%s) is less than the minimum of %s. Setting polling interval to minimum.",
 				cfg.PollingMetricsWaitDuration, minimumPollingMetricsWaitDuration)
@@ -556,7 +556,7 @@ func environmentConfig() (Config, error) {
 		SharedVolumeMatchFullConfig:         utils.ParseBool(os.Getenv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG"), false),
 		ContainerInstanceTags:               containerInstanceTags,
 		ContainerInstancePropagateTagsFrom:  parseContainerInstancePropagateTagsFrom(),
-		PollMetrics:                         utils.ParseBool(os.Getenv("ECS_POLL_METRICS"), true),
+		PollMetrics:                         parseBooleanDefaultTrueConfig("ECS_POLL_METRICS"),
 		PollingMetricsWaitDuration:          parseEnvVariableDuration("ECS_POLLING_METRICS_WAIT_DURATION"),
 		DisableDockerHealthCheck:            utils.ParseBool(os.Getenv("ECS_DISABLE_DOCKER_HEALTH_CHECK"), false),
 		GPUSupportEnabled:                   utils.ParseBool(os.Getenv("ECS_ENABLE_GPU_SUPPORT"), false),

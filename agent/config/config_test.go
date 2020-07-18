@@ -171,7 +171,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, ExplicitlyEnabled, conf.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
-	assert.True(t, conf.PollMetrics, "Wrong value for PollMetrics")
+	assert.True(t, conf.PollMetrics.Enabled(), "Wrong value for PollMetrics")
 	expectedDurationPollingMetricsWaitDuration, _ := time.ParseDuration("10s")
 	assert.Equal(t, expectedDurationPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration)
 	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
@@ -265,7 +265,7 @@ func TestInvalidLoggingDriver(t *testing.T) {
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.True(t, conf.PollMetrics)
+	assert.True(t, conf.PollMetrics.Enabled())
 }
 
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {

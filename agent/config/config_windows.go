@@ -101,7 +101,7 @@ func DefaultConfig() Config {
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
 		SharedVolumeMatchFullConfig:         false, //only requiring shared volumes to match on name, which is default docker behavior
-		PollMetrics:                         false,
+		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
 	}
