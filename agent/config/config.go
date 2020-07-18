@@ -522,7 +522,7 @@ func environmentConfig() (Config, error) {
 		ReservedMemory:                      parseEnvVariableUint16("ECS_RESERVED_MEMORY"),
 		AvailableLoggingDrivers:             parseAvailableLoggingDrivers(),
 		PrivilegedDisabled:                  utils.ParseBool(os.Getenv("ECS_DISABLE_PRIVILEGED"), false),
-		SELinuxCapable:                      utils.ParseBool(os.Getenv("ECS_SELINUX_CAPABLE"), false),
+		SELinuxCapable:                      parseBooleanDefaultFalseConfig("ECS_SELINUX_CAPABLE"),
 		AppArmorCapable:                     parseBooleanDefaultFalseConfig("ECS_APPARMOR_CAPABLE"),
 		TaskCleanupWaitDuration:             parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
 		TaskENIEnabled:                      utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_ENI"), false),
