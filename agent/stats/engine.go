@@ -179,8 +179,16 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 	if err != nil {
 		return
 	}
+
+	dockerContainer, errResolveContainer := engine.resolver.ResolveContainer(containerID)
+	if errResolveContainer != nil {
+		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", containerID, err)
+		return
+	}
+
 	if task.IsNetworkModeAWSVPC() {
-		if statsTaskContainer != nil {
+		// Start stats collector only for pause container
+		if statsTaskContainer != nil && dockerContainer.Container.Type == apicontainer.ContainerCNIPause {
 			statsTaskContainer.StartStatsCollection()
 		} else {
 			seelog.Debugf("stats task container is nil, cannot start task stats collection")
