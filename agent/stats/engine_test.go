@@ -430,7 +430,7 @@ func TestSynchronizeOnRestart(t *testing.T) {
 		Container: &apicontainer.Container{
 			HealthCheckType: "docker",
 		},
-	}, nil).Times(2)
+	}, nil).Times(3)
 	err := engine.synchronizeState()
 	assert.NoError(t, err)
 

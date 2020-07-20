@@ -124,13 +124,6 @@ func (taskStat *StatsTask) collect() {
 
 func (taskStat *StatsTask) processStatsStream() error {
 	taskArn := taskStat.TaskMetadata.TaskArn
-	if len(taskStat.TaskMetadata.DeviceName) == 0 {
-		var err error
-		taskStat.TaskMetadata.DeviceName, err = taskStat.populateNIDeviceList(taskStat.TaskMetadata.ContainerPID)
-		if err != nil {
-			return err
-		}
-	}
 	awsvpcNetworkStats, errC := taskStat.getAWSVPCNetworkStats(taskStat.TaskMetadata.DeviceName,
 		taskStat.TaskMetadata.ContainerPID, taskStat.TaskMetadata.NumberContainers)
 
@@ -222,6 +215,14 @@ func (taskStat *StatsTask) getAWSVPCNetworkStats(deviceList []string, containerP
 			defer statPollTicker.Stop()
 			for range statPollTicker.C {
 				networkStats := make(map[string]dockerstats.NetworkStats, len(deviceList))
+				if len(taskStat.TaskMetadata.DeviceName) == 0 {
+					var err error
+					taskStat.TaskMetadata.DeviceName, err = taskStat.populateNIDeviceList(taskStat.TaskMetadata.ContainerPID)
+					if err != nil {
+						errC <- err
+						return
+					}
+				}
 				for _, device := range deviceList {
 					var link netlinklib.Link
 					err := taskStat.nswrapperinterface.WithNetNSPath(fmt.Sprintf(ecscni.NetnsFormat, containerPID),
