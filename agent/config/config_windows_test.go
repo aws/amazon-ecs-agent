@@ -54,12 +54,12 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
-	assert.False(t, cfg.PlatformVariables.CPUUnbounded, "CPUUnbounded should be false by default")
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded.Enabled(), "CPUUnbounded should be false by default")
 	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
 		"Default TaskMetadataSteadyStateRate is set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
-	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -104,7 +104,7 @@ func TestCPUUnboundedSet(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.True(t, cfg.PlatformVariables.CPUUnbounded)
+	assert.True(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
 }
 
 func TestCPUUnboundedWindowsDisabled(t *testing.T) {
@@ -112,7 +112,7 @@ func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
 }
 
 func TestMemoryUnboundedSet(t *testing.T) {
@@ -121,7 +121,7 @@ func TestMemoryUnboundedSet(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.True(t, cfg.PlatformVariables.MemoryUnbounded)
+	assert.True(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
 }
 
 func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
@@ -129,5 +129,5 @@ func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.False(t, cfg.PlatformVariables.MemoryUnbounded)
+	assert.False(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
 }

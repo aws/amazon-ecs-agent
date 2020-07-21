@@ -58,8 +58,8 @@ func DefaultConfig() Config {
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
 	platformVariables := PlatformVariables{
-		CPUUnbounded:    false,
-		MemoryUnbounded: false,
+		CPUUnbounded:    BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		MemoryUnbounded: BooleanDefaultFalse{Value: ExplicitlyDisabled},
 	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
@@ -100,7 +100,7 @@ func DefaultConfig() Config {
 		PlatformVariables:                   platformVariables,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
-		SharedVolumeMatchFullConfig:         false, //only requiring shared volumes to match on name, which is default docker behavior
+		SharedVolumeMatchFullConfig:         BooleanDefaultFalse{Value: ExplicitlyDisabled}, //only requiring shared volumes to match on name, which is default docker behavior
 		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
@@ -120,8 +120,8 @@ func (cfg *Config) platformOverrides() {
 	// ensure TaskResourceLimit is disabled
 	cfg.TaskCPUMemLimit.Value = ExplicitlyDisabled
 
-	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
-	memoryUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	cpuUnbounded := parseBooleanDefaultFalseConfig("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND")
+	memoryUnbounded := parseBooleanDefaultFalseConfig("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND")
 
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    cpuUnbounded,

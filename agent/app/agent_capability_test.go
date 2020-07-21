@@ -661,7 +661,7 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 	defer cancel()
 	agent := &ecsAgent{
 		ctx:          ctx,
-		cfg:          &config.Config{DisableDockerHealthCheck: true},
+		cfg:          &config.Config{DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}},
 		dockerClient: client,
 		pauseLoader:  mockPauseLoader,
 		mobyPlugins:  mockMobyPlugins,

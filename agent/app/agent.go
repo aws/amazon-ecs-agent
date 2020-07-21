@@ -613,7 +613,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	}
 
 	// Start automatic spot instance draining poller routine
-	if agent.cfg.SpotInstanceDrainingEnabled {
+	if agent.cfg.SpotInstanceDrainingEnabled.Enabled() {
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 

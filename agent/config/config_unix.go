@@ -75,7 +75,7 @@ func DefaultConfig() Config {
 		CgroupPath:                          defaultCgroupPath,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
-		SharedVolumeMatchFullConfig:         false, // only requiring shared volumes to match on name, which is default docker behavior
+		SharedVolumeMatchFullConfig:         BooleanDefaultFalse{Value: ExplicitlyDisabled}, // only requiring shared volumes to match on name, which is default docker behavior
 		ContainerInstancePropagateTagsFrom:  ContainerInstancePropagateTagsFromNoneType,
 		PrometheusMetricsEnabled:            false,
 		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
