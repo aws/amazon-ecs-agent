@@ -2966,7 +2966,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 
 func TestCreateFirelensContainerSetFluentdUID(t *testing.T) {
 	testTask := &apitask.Task{
-		Arn: "test-task-arn",
+		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
 		Containers: []*apicontainer.Container{
 			{
 				Name: "test-container",

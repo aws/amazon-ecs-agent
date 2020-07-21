@@ -294,7 +294,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		V3EndpointID: "",
 		Image:        imageName,
 		ImageID:      imageID,
-		Ports: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
@@ -414,7 +414,7 @@ func TestContainerResponseMarshal(t *testing.T) {
 			Status: apicontainerstatus.ContainerHealthy,
 			Since:  aws.Time(timeRFC3339),
 		},
-		Ports: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,

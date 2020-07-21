@@ -44,6 +44,23 @@ func defaultTestConfig() *config.Config {
 	return cfg
 }
 
+func TestNewImageManagerExcludesCachedImages(t *testing.T) {
+	cfg := defaultTestConfig()
+	cfg.PauseContainerImageName = "pause-name"
+	cfg.PauseContainerTag = "pause-tag"
+	cfg.ImageCleanupExclusionList = []string{"excluded:1"}
+	expected := []string{
+		"excluded:1",
+		"pause-name:pause-tag",
+		config.DefaultPauseContainerImageName + ":" + config.DefaultPauseContainerTag,
+		config.CachedImageNameAgentContainer,
+	}
+	imageManager := NewImageManager(cfg, nil, nil)
+	dockerImageManager, ok := imageManager.(*dockerImageManager)
+	require.True(t, ok, "imageManager must be *dockerImageManager")
+	assert.ElementsMatch(t, expected, dockerImageManager.imageCleanupExclusionList)
+}
+
 // TestImagePullRemoveDeadlock tests if there's a deadlock when trying to
 // pull an image while image clean up is in progress
 func TestImagePullRemoveDeadlock(t *testing.T) {
