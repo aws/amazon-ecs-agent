@@ -48,7 +48,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
-	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
+	assert.False(t, cfg.ImageCleanupDisabled.Enabled(), "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultNonECSImageDeletionAge, cfg.NonECSMinimumImageDeletionAge, "NonECSMinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
