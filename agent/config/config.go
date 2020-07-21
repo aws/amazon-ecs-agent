@@ -132,7 +132,6 @@ const (
 	DefaultTaskMetadataBurstRate = 60
 
 	//Known cached image names
-	CachedImageNamePauseContainer = "amazon/amazon-ecs-pause:0.1.0"
 	CachedImageNameAgentContainer = "amazon/amazon-ecs-agent:latest"
 
 	// DefaultNvidiaRuntime is the name of the runtime to pass Nvidia GPUs to containers

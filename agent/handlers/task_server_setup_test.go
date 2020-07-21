@@ -139,7 +139,7 @@ var (
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: containerPort,
 				Protocol:      apicontainer.TransportProtocolTCP,
@@ -229,7 +229,7 @@ var (
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: containerPort,
 				Protocol:      apicontainer.TransportProtocolTCP,
