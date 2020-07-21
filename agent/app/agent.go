@@ -264,14 +264,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 	agent.initMetricsEngine()
 
-	// Initialize the state manager
-	stateManager, err := agent.newStateManager(taskEngine, &agent.cfg.Cluster, &agent.containerInstanceARN,
-		&currentEC2InstanceID, &agent.availabilityZone, agent.latestSeqNumberTaskManifest)
-	if err != nil {
-		seelog.Criticalf("Error creating state manager: %v", err)
-		return exitcodes.ExitTerminal
-	}
-
 	loadPauseErr := agent.loadPauseContainer()
 	if loadPauseErr != nil {
 		seelog.Errorf("Failed to load pause container: %v", loadPauseErr)
@@ -314,7 +306,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Register the container instance
-	err = agent.registerContainerInstance(stateManager, client, vpcSubnetAttributes)
+	err = agent.registerContainerInstance(client, vpcSubnetAttributes)
 	if err != nil {
 		if isTransient(err) {
 			return exitcodes.ExitError
@@ -339,7 +331,6 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	}
 
 	// Begin listening to the docker daemon and saving changes
-	taskEngine.SetSaver(stateManager)
 	taskEngine.SetDataClient(agent.dataClient)
 	imageManager.SetDataClient(agent.dataClient)
 	taskEngine.MustInit(agent.ctx)
@@ -348,13 +339,13 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	deregisterInstanceEventStream := eventstream.NewEventStream(
 		deregisterContainerInstanceEventStreamName, agent.ctx)
 	deregisterInstanceEventStream.StartListening()
-	taskHandler := eventhandler.NewTaskHandler(agent.ctx, stateManager, agent.dataClient, state, client)
-	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, stateManager, agent.dataClient, client)
+	taskHandler := eventhandler.NewTaskHandler(agent.ctx, agent.dataClient, state, client)
+	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
-		taskEngine, stateManager, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state)
+		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state)
 
 	// Start the acs session, which should block doStart
-	return agent.startACSSession(credentialsManager, taskEngine, stateManager,
+	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler)
 }
 
@@ -514,7 +505,6 @@ func (agent *ecsAgent) constructVPCSubnetAttributes() []*ecs.Attribute {
 
 // registerContainerInstance registers the container instance ID for the ECS Agent
 func (agent *ecsAgent) registerContainerInstance(
-	stateManager statemanager.StateManager,
 	client api.ECSClient,
 	additionalAttributes []*ecs.Attribute) error {
 	// Preflight request to make sure they're good
@@ -572,8 +562,6 @@ func (agent *ecsAgent) registerContainerInstance(
 	seelog.Infof("Registration completed successfully. I am running as '%s' in cluster '%s'", containerInstanceArn, agent.cfg.Cluster)
 	agent.containerInstanceARN = containerInstanceArn
 	agent.availabilityZone = availabilityZone
-	// Save our shiny new containerInstanceArn
-	stateManager.Save()
 	return nil
 }
 
@@ -609,7 +597,6 @@ func (agent *ecsAgent) startAsyncRoutines(
 	credentialsManager credentials.Manager,
 	imageManager engine.ImageManager,
 	taskEngine engine.TaskEngine,
-	stateManager statemanager.StateManager,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
 	taskHandler *eventhandler.TaskHandler,
@@ -711,7 +698,6 @@ func (agent *ecsAgent) spotInstanceDrainingPoller(client api.ECSClient) bool {
 func (agent *ecsAgent) startACSSession(
 	credentialsManager credentials.Manager,
 	taskEngine engine.TaskEngine,
-	stateManager statemanager.StateManager,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
 	state dockerstate.TaskEngineState,
@@ -725,7 +711,6 @@ func (agent *ecsAgent) startACSSession(
 		agent.credentialProvider,
 		client,
 		state,
-		stateManager,
 		agent.dataClient,
 		taskEngine,
 		credentialsManager,

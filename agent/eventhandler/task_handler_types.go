@@ -24,7 +24,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
@@ -140,7 +139,6 @@ func (event *sendableEvent) send(
 	eventType string,
 	client api.ECSClient,
 	eventToSubmit *list.Element,
-	stateSaver statemanager.Saver,
 	dataClient data.Client,
 	backoff retry.Backoff,
 	taskEvents *taskSendableEvents) error {
@@ -156,8 +154,6 @@ func (event *sendableEvent) send(
 	event.setSent()
 	// Mark event as sent
 	setChangeSent(event, dataClient)
-	// Update the state file
-	stateSaver.Save()
 	seelog.Debugf("TaskHandler: Submitted task state change: %s", event.toString())
 	taskEvents.events.Remove(eventToSubmit)
 	backoff.Reset()
@@ -210,8 +206,13 @@ func setTaskChangeSent(event *sendableEvent, dataClient data.Client) {
 // setTaskAttachmentSent sets the event's task attachment object as sent
 func setTaskAttachmentSent(event *sendableEvent, dataClient data.Client) {
 	if event.taskChange.Attachment != nil {
-		event.taskChange.Attachment.SetSentStatus()
-		event.taskChange.Attachment.StopAckTimer()
+		attachment := event.taskChange.Attachment
+		attachment.SetSentStatus()
+		attachment.StopAckTimer()
+		err := dataClient.SaveENIAttachment(attachment)
+		if err != nil {
+			seelog.Errorf("Failed to update attachment sent status in database for attachment %s: %v", attachment.AttachmentARN, err)
+		}
 	}
 }
 

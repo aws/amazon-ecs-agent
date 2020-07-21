@@ -22,7 +22,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
 )
@@ -30,10 +29,6 @@ import (
 // AttachmentEventHandler is a handler that is responsible for submitting attachment state change events
 // to backend
 type AttachmentEventHandler struct {
-	// stateSaver is a statemanager which may be used to save any
-	// changes to an attachment's SentStatus
-	stateSaver statemanager.Saver
-
 	// backoff is the backoff object used in submitting attachment state change
 	backoff retry.Backoff
 
@@ -56,10 +51,6 @@ type attachmentHandler struct {
 	// attachmentARN is the arn of the attachment that the attachmentHandler is handling
 	attachmentARN string
 
-	// stateSaver is a statemanager which may be used to save any
-	// changes to an attachment's SentStatus
-	stateSaver statemanager.Saver
-
 	// dataClient is used to save any changes to an attachment's SentStatus
 	dataClient data.Client
 
@@ -75,12 +66,10 @@ type attachmentHandler struct {
 
 // NewAttachmentEventHandler returns a new AttachmentEventHandler object
 func NewAttachmentEventHandler(ctx context.Context,
-	stateSaver statemanager.Saver,
 	dataClient data.Client,
 	client api.ECSClient) *AttachmentEventHandler {
 	return &AttachmentEventHandler{
 		ctx:                    ctx,
-		stateSaver:             stateSaver,
 		client:                 client,
 		dataClient:             dataClient,
 		attachmentARNToHandler: make(map[string]*attachmentHandler),
@@ -108,7 +97,6 @@ func (eventHandler *AttachmentEventHandler) AddStateChangeEvent(change statechan
 	if _, ok := eventHandler.attachmentARNToHandler[attachmentARN]; !ok {
 		eventHandler.attachmentARNToHandler[attachmentARN] = &attachmentHandler{
 			attachmentARN: attachmentARN,
-			stateSaver:    eventHandler.stateSaver,
 			dataClient:    eventHandler.dataClient,
 			client:        eventHandler.client,
 			ctx:           eventHandler.ctx,
