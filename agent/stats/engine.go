@@ -152,7 +152,7 @@ func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 		return
 	}
 
-	if engine.config.DisableMetrics || statsContainer == nil {
+	if engine.config.DisableMetrics.Enabled() || statsContainer == nil {
 		return
 	}
 
@@ -254,7 +254,7 @@ func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsCont
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
 	watchStatsContainer := false
-	if !engine.config.DisableMetrics {
+	if !engine.config.DisableMetrics.Enabled() {
 		// Adding container to the map for collecting stats
 		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
 	}

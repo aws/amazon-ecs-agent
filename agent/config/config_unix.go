@@ -50,7 +50,7 @@ func DefaultConfig() Config {
 		ReservedPortsUDP:                    []uint16{},
 		DataDir:                             "/data/",
 		DataDirOnHost:                       "/var/lib/ecs",
-		DisableMetrics:                      false,
+		DisableMetrics:                      BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		ReservedMemory:                      0,
 		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,

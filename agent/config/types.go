@@ -87,7 +87,7 @@ type Config struct {
 
 	// DisableMetrics configures whether task utilization metrics should be
 	// sent to the ECS telemetry endpoint
-	DisableMetrics bool
+	DisableMetrics BooleanDefaultFalse
 
 	// PollMetrics configures whether metrics are constantly streamed for each container or
 	// polled on interval instead.

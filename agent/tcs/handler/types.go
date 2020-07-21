@@ -54,7 +54,7 @@ func (params *TelemetrySessionParams) time() ttime.Time {
 
 func (params *TelemetrySessionParams) isContainerHealthMetricsDisabled() (bool, error) {
 	if params.Cfg != nil {
-		return params.Cfg.DisableMetrics && params.Cfg.DisableDockerHealthCheck.Enabled(), nil
+		return params.Cfg.DisableMetrics.Enabled() && params.Cfg.DisableDockerHealthCheck.Enabled(), nil
 	}
 	return false, errors.New("Config is empty in the tcs session parameter")
 }
