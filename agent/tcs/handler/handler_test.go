@@ -81,7 +81,7 @@ func TestDisableMetrics(t *testing.T) {
 	params := TelemetrySessionParams{
 		Cfg: &config.Config{
 			DisableMetrics:           true,
-			DisableDockerHealthCheck: true,
+			DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		},
 	}
 

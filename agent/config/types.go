@@ -99,7 +99,7 @@ type Config struct {
 
 	// DisableDockerHealthCheck configures whether container health feature was enabled
 	// on the instance
-	DisableDockerHealthCheck bool
+	DisableDockerHealthCheck BooleanDefaultFalse
 
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
@@ -261,7 +261,7 @@ type Config struct {
 	// provisioned volume, if false (default). If true, we perform deep comparison including driver options
 	// and labels. For comparing shared volume across 2 instances, this should be set to false as docker's
 	// default behavior is to match name only, and does not propagate driver options and labels through volume drivers.
-	SharedVolumeMatchFullConfig bool
+	SharedVolumeMatchFullConfig BooleanDefaultFalse
 
 	// NoIID when set to true, specifies that the agent should not register the instance
 	// with instance identity document. This is required in order to accomodate scenarios in
@@ -307,7 +307,7 @@ type Config struct {
 	// If the instance is not spot then the poller will still run but it will never receive a termination notice.
 	// Defaults to false.
 	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
-	SpotInstanceDrainingEnabled bool
+	SpotInstanceDrainingEnabled BooleanDefaultFalse
 
 	// GMSACapable is the config option to indicate if gMSA is supported.
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.

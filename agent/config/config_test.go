@@ -190,12 +190,12 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
 	assert.Equal(t, 1000, conf.TaskMetadataSteadyStateRate)
 	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
-	assert.True(t, conf.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
+	assert.True(t, conf.SharedVolumeMatchFullConfig.Enabled(), "Wrong value for SharedVolumeMatchFullConfig")
 	assert.True(t, conf.GPUSupportEnabled, "Wrong value for GPUSupportEnabled")
 	assert.Equal(t, "nvidia", conf.NvidiaRuntime)
 	assert.True(t, conf.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
-	assert.False(t, conf.SpotInstanceDrainingEnabled)
+	assert.False(t, conf.SpotInstanceDrainingEnabled.Enabled())
 	assert.Equal(t, []string{"efsAuth"}, conf.VolumePluginCapabilities)
 }
 
@@ -229,8 +229,8 @@ func TestConfigBoolean(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.DisableMetrics)
-	assert.True(t, cfg.DisableDockerHealthCheck)
-	assert.True(t, cfg.SpotInstanceDrainingEnabled)
+	assert.True(t, cfg.DisableDockerHealthCheck.Enabled())
+	assert.True(t, cfg.SpotInstanceDrainingEnabled.Enabled())
 }
 
 func TestBadLoggingDriverSerialization(t *testing.T) {
@@ -547,7 +547,7 @@ func TestSharedVolumeMatchFullConfigEnabled(t *testing.T) {
 	defer setTestEnv("ECS_SHARED_VOLUME_MATCH_FULL_CONFIG", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.True(t, cfg.SharedVolumeMatchFullConfig, "Wrong value for SharedVolumeMatchFullConfig")
+	assert.True(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Wrong value for SharedVolumeMatchFullConfig")
 }
 
 func TestParseImagePullBehavior(t *testing.T) {
