@@ -165,7 +165,7 @@ type Config struct {
 
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
-	ImageCleanupDisabled bool
+	ImageCleanupDisabled BooleanDefaultFalse
 
 	// MinimumImageDeletionAge specifies the minimum time since it was pulled
 	// before it can be deleted

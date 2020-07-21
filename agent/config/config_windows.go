@@ -89,7 +89,7 @@ func DefaultConfig() Config {
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
 		CredentialsAuditLogFile:             filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled:         false,
-		ImageCleanupDisabled:                false,
+		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
 		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,

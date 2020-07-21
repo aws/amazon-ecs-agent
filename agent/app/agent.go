@@ -608,7 +608,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 	state dockerstate.TaskEngineState) {
 
 	// Start of the periodic image cleanup process
-	if !agent.cfg.ImageCleanupDisabled {
+	if !agent.cfg.ImageCleanupDisabled.Enabled() {
 		go imageManager.StartImageCleanupProcess(agent.ctx)
 	}
 

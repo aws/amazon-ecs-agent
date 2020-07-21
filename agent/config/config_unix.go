@@ -58,7 +58,7 @@ func DefaultConfig() Config {
 		ContainerStartTimeout:               defaultContainerStartTimeout,
 		CredentialsAuditLogFile:             defaultCredentialsAuditLogFile,
 		CredentialsAuditLogDisabled:         false,
-		ImageCleanupDisabled:                false,
+		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
 		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,

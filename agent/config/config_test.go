@@ -170,7 +170,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
 	assert.Equal(t, ExplicitlyEnabled, conf.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
-	assert.True(t, conf.ImageCleanupDisabled, "Wrong value for ImageCleanupDisabled")
+	assert.True(t, conf.ImageCleanupDisabled.Enabled(), "Wrong value for ImageCleanupDisabled")
 	assert.True(t, conf.PollMetrics.Enabled(), "Wrong value for PollMetrics")
 	expectedDurationPollingMetricsWaitDuration, _ := time.ParseDuration("10s")
 	assert.Equal(t, expectedDurationPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration)
