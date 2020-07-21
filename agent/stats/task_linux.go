@@ -124,8 +124,7 @@ func (taskStat *StatsTask) collect() {
 
 func (taskStat *StatsTask) processStatsStream() error {
 	taskArn := taskStat.TaskMetadata.TaskArn
-	awsvpcNetworkStats, errC := taskStat.getAWSVPCNetworkStats(taskStat.TaskMetadata.DeviceName,
-		taskStat.TaskMetadata.ContainerPID, taskStat.TaskMetadata.NumberContainers)
+	awsvpcNetworkStats, errC := taskStat.getAWSVPCNetworkStats()
 
 	returnError := false
 	for {
@@ -203,18 +202,16 @@ func linkStatsToDockerStats(netLinkStats *netlinklib.LinkStatistics, numberOfCon
 	return networkStats
 }
 
-func (taskStat *StatsTask) getAWSVPCNetworkStats(deviceList []string, containerPID string,
-	numberOfContainers int) (<-chan *types.StatsJSON, <-chan error) {
+func (taskStat *StatsTask) getAWSVPCNetworkStats() (<-chan *types.StatsJSON, <-chan error) {
 
 	errC := make(chan error)
 	statsC := make(chan *dockerstats.StatsJSON)
-	if numberOfContainers > 0 {
+	if taskStat.TaskMetadata.NumberContainers > 0 {
 		go func() {
 			defer close(statsC)
 			statPollTicker := time.NewTicker(taskStat.metricPublishInterval)
 			defer statPollTicker.Stop()
 			for range statPollTicker.C {
-				networkStats := make(map[string]dockerstats.NetworkStats, len(deviceList))
 				if len(taskStat.TaskMetadata.DeviceName) == 0 {
 					var err error
 					taskStat.TaskMetadata.DeviceName, err = taskStat.populateNIDeviceList(taskStat.TaskMetadata.ContainerPID)
@@ -223,9 +220,11 @@ func (taskStat *StatsTask) getAWSVPCNetworkStats(deviceList []string, containerP
 						return
 					}
 				}
-				for _, device := range deviceList {
+				networkStats := make(map[string]dockerstats.NetworkStats, len(taskStat.TaskMetadata.DeviceName))
+				for _, device := range taskStat.TaskMetadata.DeviceName {
 					var link netlinklib.Link
-					err := taskStat.nswrapperinterface.WithNetNSPath(fmt.Sprintf(ecscni.NetnsFormat, containerPID),
+					err := taskStat.nswrapperinterface.WithNetNSPath(fmt.Sprintf(ecscni.NetnsFormat,
+						taskStat.TaskMetadata.ContainerPID),
 						func(ns.NetNS) error {
 							var linkErr error
 							if link, linkErr = taskStat.netlinkinterface.LinkByName(device); linkErr != nil {
@@ -239,7 +238,8 @@ func (taskStat *StatsTask) getAWSVPCNetworkStats(deviceList []string, containerP
 						return
 					}
 					netLinkStats := link.Attrs().Statistics
-					networkStats[link.Attrs().Name] = linkStatsToDockerStats(netLinkStats, uint64(numberOfContainers))
+					networkStats[link.Attrs().Name] = linkStatsToDockerStats(netLinkStats,
+						uint64(taskStat.TaskMetadata.NumberContainers))
 				}
 
 				dockerStats := &types.StatsJSON{
