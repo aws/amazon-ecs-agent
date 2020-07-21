@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -42,7 +41,6 @@ type payloadRequestHandler struct {
 	ctx         context.Context
 	taskEngine  engine.TaskEngine
 	ecsClient   api.ECSClient
-	saver       statemanager.Saver
 	dataClient  data.Client
 	taskHandler *eventhandler.TaskHandler
 	// cancel is used to stop go routines started by start() method
@@ -63,7 +61,6 @@ func newPayloadRequestHandler(
 	cluster string,
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
-	saver statemanager.Saver,
 	dataClient data.Client,
 	refreshHandler refreshCredentialsHandler,
 	credentialsManager credentials.Manager,
@@ -75,7 +72,6 @@ func newPayloadRequestHandler(
 		ackRequest:                  make(chan string, payloadMessageBufferSize),
 		taskEngine:                  taskEngine,
 		ecsClient:                   ecsClient,
-		saver:                       saver,
 		dataClient:                  dataClient,
 		taskHandler:                 taskHandler,
 		ctx:                         derivedContext,
@@ -166,14 +162,6 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 		*payloadHandler.latestSeqNumberTaskManifest = *payload.SeqNum
 	}
 
-	// save the state of tasks we know about after passing them to the task engine
-	err := payloadHandler.saver.Save()
-	if err != nil {
-		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err,
-			aws.StringValue(payload.MessageId))
-		// Don't ack; maybe we can save it in the future.
-		return fmt.Errorf("error saving state for payload message, with messageId: %s", aws.StringValue(payload.MessageId))
-	}
 	if !allTasksHandled {
 		return fmt.Errorf("did not handle all tasks")
 	}

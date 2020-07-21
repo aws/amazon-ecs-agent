@@ -35,8 +35,9 @@ import (
 )
 
 const (
-	testConainerName = "test-name"
-	testTaskARN      = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	testConainerName  = "test-name"
+	testTaskARN       = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	testAttachmentARN = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
 )
 
 func newSendableContainerEvent(event api.ContainerStateChange) *sendableEvent {
@@ -294,10 +295,12 @@ func TestSetTaskSentStatus(t *testing.T) {
 	tasks, err := dataClient.GetTasks()
 	require.NoError(t, err)
 	assert.Len(t, tasks, 1)
+	assert.Equal(t, apitaskstatus.TaskStopped, tasks[0].GetSentStatus())
 
 	containers, err := dataClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
 }
 
 func TestSetContainerSentStatus(t *testing.T) {
@@ -326,6 +329,28 @@ func TestSetContainerSentStatus(t *testing.T) {
 	containers, err := dataClient.GetContainers()
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
+	assert.Equal(t, apicontainerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
+}
+
+func TestSetAttachmentSentStatus(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	testAttachment := &apieni.ENIAttachment{
+		AttachStatusSent: true,
+		ExpiresAt:        time.Unix(time.Now().Unix()+100, 0),
+		AttachmentARN:    testAttachmentARN,
+	}
+	require.NoError(t, testAttachment.StartTimer(func() {}))
+	event := newSendableTaskEvent(api.TaskStateChange{
+		Status:     apitaskstatus.TaskStatusNone,
+		Attachment: testAttachment,
+	})
+	setTaskAttachmentSent(event, dataClient)
+	atts, err := dataClient.GetENIAttachments()
+	require.NoError(t, err)
+	assert.Len(t, atts, 1)
+	assert.True(t, atts[0].IsSent())
 }
 
 func newTestDataClient(t *testing.T) (data.Client, func()) {

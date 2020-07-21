@@ -34,7 +34,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -84,7 +83,6 @@ type session struct {
 	taskEngine                      engine.TaskEngine
 	ecsClient                       api.ECSClient
 	state                           dockerstate.TaskEngineState
-	stateManager                    statemanager.StateManager
 	dataClient                      data.Client
 	credentialsManager              rolecredentials.Manager
 	taskHandler                     *eventhandler.TaskHandler
@@ -143,7 +141,6 @@ func NewSession(ctx context.Context,
 	credentialsProvider *credentials.Credentials,
 	ecsClient api.ECSClient,
 	taskEngineState dockerstate.TaskEngineState,
-	stateManager statemanager.StateManager,
 	dataClient data.Client,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
@@ -160,7 +157,6 @@ func NewSession(ctx context.Context,
 		credentialsProvider:             credentialsProvider,
 		ecsClient:                       ecsClient,
 		state:                           taskEngineState,
-		stateManager:                    stateManager,
 		dataClient:                      dataClient,
 		taskEngine:                      taskEngine,
 		credentialsManager:              credentialsManager,
@@ -308,7 +304,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.stateManager, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
 
 	defer taskManifestHandler.clearAcks()
 	taskManifestHandler.start()
@@ -325,7 +321,6 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.stateManager,
 		acsSession.dataClient,
 		refreshCredsHandler,
 		acsSession.credentialsManager,
