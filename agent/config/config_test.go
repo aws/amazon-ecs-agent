@@ -228,7 +228,7 @@ func TestConfigBoolean(t *testing.T) {
 	defer setTestEnv("ECS_ENABLE_SPOT_INSTANCE_DRAINING", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.True(t, cfg.DisableMetrics)
+	assert.True(t, cfg.DisableMetrics.Enabled())
 	assert.True(t, cfg.DisableDockerHealthCheck.Enabled())
 	assert.True(t, cfg.SpotInstanceDrainingEnabled.Enabled())
 }

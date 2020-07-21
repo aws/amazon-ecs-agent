@@ -115,7 +115,7 @@ func startSession(
 	publishMetricsInterval time.Duration,
 	deregisterInstanceEventStream *eventstream.EventStream) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
-		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics)
+		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled())
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)

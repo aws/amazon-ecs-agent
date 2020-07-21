@@ -26,6 +26,7 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	mock_resolver "github.com/aws/amazon-ecs-agent/agent/stats/resolver/mock"
@@ -363,7 +364,7 @@ func TestGetTaskHealthMetricsStoppedContainer(t *testing.T) {
 // but will track container health when metrics is disabled in agent.
 func TestMetricsDisabled(t *testing.T) {
 	disableMetricsConfig := cfg
-	disableMetricsConfig.DisableMetrics = true
+	disableMetricsConfig.DisableMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 	containerID := "containerID"
 	mockCtrl := gomock.NewController(t)
