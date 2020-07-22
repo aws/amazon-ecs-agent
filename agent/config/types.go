@@ -137,7 +137,7 @@ type Config struct {
 
 	// TaskIAMRoleEnabled specifies if the Agent is capable of launching
 	// tasks with IAM Roles.
-	TaskIAMRoleEnabled bool
+	TaskIAMRoleEnabled BooleanDefaultFalse
 
 	// DeleteNonECSImagesEnabled specifies if the Agent can delete the cached, unused non-ecs images.
 	DeleteNonECSImagesEnabled BooleanDefaultFalse
@@ -157,7 +157,7 @@ type Config struct {
 
 	// TaskENIEnabled specifies if the Agent is capable of launching task within
 	// defined EC2 networks
-	TaskENIEnabled bool
+	TaskENIEnabled BooleanDefaultFalse
 
 	// ENITrunkingEnabled specifies if the Agent is enabled to launch awsvpc
 	// task with ENI Trunking
@@ -222,7 +222,7 @@ type Config struct {
 
 	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
 	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true
-	AWSVPCBlockInstanceMetdata bool
+	AWSVPCBlockInstanceMetdata BooleanDefaultFalse
 
 	// OverrideAWSVPCLocalIPv4Address overrides the local IPv4 address chosen
 	// for a task using the `awsvpc` networking mode. Using this configuration
@@ -238,11 +238,11 @@ type Config struct {
 
 	// ContainerMetadataEnabled specifies if the agent should provide a metadata
 	// file for containers.
-	ContainerMetadataEnabled bool
+	ContainerMetadataEnabled BooleanDefaultFalse
 
 	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
 	// driver authentication over the task's execution role
-	OverrideAWSLogsExecutionRole bool
+	OverrideAWSLogsExecutionRole BooleanDefaultFalse
 
 	// CgroupPath is the path expected by the agent, defaults to
 	// '/sys/fs/cgroup'

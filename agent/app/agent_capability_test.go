@@ -59,8 +59,8 @@ func TestCapabilities(t *testing.T) {
 		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
@@ -190,7 +190,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	defer ctrl.Finish()
 
 	conf := &config.Config{
-		TaskIAMRoleEnabled: true,
+		TaskIAMRoleEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -234,7 +234,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	conf := &config.Config{
-		TaskIAMRoleEnabled: true,
+		TaskIAMRoleEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -372,8 +372,8 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
 		},
-		TaskENIEnabled:             false,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -442,8 +442,8 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	conf := &config.Config{
-		OverrideAWSLogsExecutionRole: true,
-		TaskENIEnabled:               true,
+		OverrideAWSLogsExecutionRole: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:               config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 

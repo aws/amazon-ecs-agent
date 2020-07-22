@@ -53,8 +53,8 @@ func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
@@ -141,8 +141,8 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 

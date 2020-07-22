@@ -61,8 +61,8 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
@@ -284,7 +284,7 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
 		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:     true,
+		TaskENIEnabled:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 	}
 
@@ -367,7 +367,7 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
 		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
-		TaskENIEnabled:     true,
+		TaskENIEnabled:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled},
 	}
 

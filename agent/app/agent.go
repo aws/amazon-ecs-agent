@@ -150,7 +150,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	}
 
 	var metadataManager containermetadata.Manager
-	if cfg.ContainerMetadataEnabled {
+	if cfg.ContainerMetadataEnabled.Enabled() {
 		// We use the default API client for the metadata inspect call. This version has some information
 		// missing which means if we need those fields later we will need to change this client to
 		// the appropriate version
@@ -265,7 +265,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
-	if agent.cfg.TaskENIEnabled {
+	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
 		if loadPauseErr != nil {
 			if pause.IsNoSuchFileError(loadPauseErr) || pause.UnsupportedPlatform(loadPauseErr) {
@@ -287,7 +287,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			// to not update the config to disable the TaskENIEnabled flag and
 			// move on
 			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
-			agent.cfg.TaskENIEnabled = false
+			agent.cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 		default:
 			// Encountered an error initializing dependencies for dealing with
 			// ENIs for Tasks. Exit with the appropriate error code
@@ -308,7 +308,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 	// Add container instance ARN to metadata manager
-	if agent.cfg.ContainerMetadataEnabled {
+	if agent.cfg.ContainerMetadataEnabled.Enabled() {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
 		agent.metadataManager.SetHostPrivateIPv4Address(agent.getHostPrivateIPv4AddressFromEC2Metadata())

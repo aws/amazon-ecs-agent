@@ -167,14 +167,14 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.True(t, conf.PrivilegedDisabled.Enabled())
 	assert.True(t, conf.SELinuxCapable.Enabled(), "Wrong value for SELinuxCapable")
 	assert.True(t, conf.AppArmorCapable.Enabled(), "Wrong value for AppArmorCapable")
-	assert.True(t, conf.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
+	assert.True(t, conf.TaskIAMRoleEnabled.Enabled(), "Wrong value for TaskIAMRoleEnabled")
 	assert.Equal(t, ExplicitlyEnabled, conf.DeleteNonECSImagesEnabled.Value, "Wrong value for DeleteNonECSImagesEnabled")
 	assert.True(t, conf.TaskIAMRoleEnabledForNetworkHost, "Wrong value for TaskIAMRoleEnabledForNetworkHost")
 	assert.True(t, conf.ImageCleanupDisabled.Enabled(), "Wrong value for ImageCleanupDisabled")
 	assert.True(t, conf.PollMetrics.Enabled(), "Wrong value for PollMetrics")
 	expectedDurationPollingMetricsWaitDuration, _ := time.ParseDuration("10s")
 	assert.Equal(t, expectedDurationPollingMetricsWaitDuration, conf.PollingMetricsWaitDuration)
-	assert.True(t, conf.TaskENIEnabled, "Wrong value for TaskNetwork")
+	assert.True(t, conf.TaskENIEnabled.Enabled(), "Wrong value for TaskNetwork")
 	assert.Equal(t, (30 * time.Minute), conf.MinimumImageDeletionAge)
 	assert.Equal(t, (30 * time.Minute), conf.NonECSMinimumImageDeletionAge)
 	assert.Equal(t, (2 * time.Hour), conf.ImageCleanupInterval)
@@ -187,7 +187,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.NoError(t, err, "should marshal additional local routes")
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))
 	assert.Equal(t, "/etc/ecs/", conf.DataDirOnHost, "Wrong value for DataDirOnHost")
-	assert.True(t, conf.ContainerMetadataEnabled, "Wrong value for ContainerMetadataEnabled")
+	assert.True(t, conf.ContainerMetadataEnabled.Enabled(), "Wrong value for ContainerMetadataEnabled")
 	assert.Equal(t, 1000, conf.TaskMetadataSteadyStateRate)
 	assert.Equal(t, 1100, conf.TaskMetadataBurstRate)
 	assert.True(t, conf.SharedVolumeMatchFullConfig.Enabled(), "Wrong value for SharedVolumeMatchFullConfig")
@@ -482,7 +482,7 @@ func TestTaskIAMRoleEnabled(t *testing.T) {
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.True(t, cfg.TaskIAMRoleEnabled, "Wrong value for TaskIAMRoleEnabled")
+	assert.True(t, cfg.TaskIAMRoleEnabled.Enabled(), "Wrong value for TaskIAMRoleEnabled")
 }
 
 func TestDeleteNonECSImagesEnabled(t *testing.T) {
@@ -606,7 +606,7 @@ func TestAWSVPCBlockInstanceMetadata(t *testing.T) {
 	defer setTestRegion()()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
-	assert.True(t, cfg.AWSVPCBlockInstanceMetdata)
+	assert.True(t, cfg.AWSVPCBlockInstanceMetdata.Enabled())
 }
 
 func TestInvalidAWSVPCAdditionalLocalRoutes(t *testing.T) {
@@ -620,7 +620,7 @@ func TestAWSLogsExecutionRole(t *testing.T) {
 	setTestEnv("ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE", "true")
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.True(t, conf.OverrideAWSLogsExecutionRole)
+	assert.True(t, conf.OverrideAWSLogsExecutionRole.Enabled())
 }
 
 func TestTaskMetadataRPSLimits(t *testing.T) {

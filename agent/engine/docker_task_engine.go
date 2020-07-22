@@ -457,7 +457,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 		// update the container metadata in case the container status/metadata changed during agent restart
 		updateContainerMetadata(&metadata, container.Container, task)
 		engine.imageManager.RecordContainerReference(container.Container)
-		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
+		if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
 		}
 	}
@@ -520,7 +520,7 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 	}
 
 	// Clean metadata directory for task
-	if engine.cfg.ContainerMetadataEnabled {
+	if engine.cfg.ContainerMetadataEnabled.Enabled() {
 		err := engine.metadataManager.Clean(task.Arn)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: clean task metadata failed: %v", task.Arn, err)
@@ -1061,7 +1061,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
+	if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.IsInternal() {
 		info, infoErr := engine.client.Info(engine.ctx, dockerclient.InfoTimeout)
 		if infoErr != nil {
 			seelog.Warnf("Task engine [%s]: unable to get docker info : %v",
@@ -1138,7 +1138,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	// TODO: Add a state to the apicontainer.Container for the status of the metadata file (Whether it needs update) and
 	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
 	if dockerContainerMD.Error == nil &&
-		engine.cfg.ContainerMetadataEnabled &&
+		engine.cfg.ContainerMetadataEnabled.Enabled() &&
 		!container.IsInternal() {
 		go func() {
 			err := engine.metadataManager.Update(engine.ctx, dockerContainer.DockerID, task, container.Name)
@@ -1264,7 +1264,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	containerInspectOutput *types.ContainerJSON,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
 	cniConfig := &ecscni.Config{
-		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata,
+		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	}
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&

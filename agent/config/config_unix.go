@@ -69,8 +69,8 @@ func DefaultConfig() Config {
 		PauseContainerTarballPath:           pauseContainerTarballPath,
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
-		AWSVPCBlockInstanceMetdata:          false,
-		ContainerMetadataEnabled:            false,
+		AWSVPCBlockInstanceMetdata:          BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		ContainerMetadataEnabled:            BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: NotSet},
 		CgroupPath:                          defaultCgroupPath,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
@@ -92,7 +92,7 @@ func (cfg *Config) platformOverrides() {
 		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
 	}
 
-	if cfg.TaskENIEnabled { // when task networking is enabled, eni trunking is enabled by default
+	if cfg.TaskENIEnabled.Enabled() { // when task networking is enabled, eni trunking is enabled by default
 		cfg.ENITrunkingEnabled = parseBooleanDefaultTrueConfig("ECS_ENABLE_HIGH_DENSITY_ENI")
 	}
 }

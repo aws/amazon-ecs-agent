@@ -171,7 +171,7 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// TODO: gate this on docker api version when ecs supported docker includes
 	// credentials endpoint feature from upstream docker
-	if agent.cfg.OverrideAWSLogsExecutionRole {
+	if agent.cfg.OverrideAWSLogsExecutionRole.Enabled() {
 		capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+"execution-role-awslogs")
 	}
 
@@ -249,7 +249,7 @@ func (agent *ecsAgent) appendLoggingDriverCapabilities(capabilities []*ecs.Attri
 }
 
 func (agent *ecsAgent) appendTaskIamRoleCapabilities(capabilities []*ecs.Attribute, supportedVersions map[dockerclient.DockerVersion]bool) []*ecs.Attribute {
-	if agent.cfg.TaskIAMRoleEnabled {
+	if agent.cfg.TaskIAMRoleEnabled.Enabled() {
 		// The "task-iam-role" capability is supported for docker v1.7.x onwards
 		// Refer https://github.com/docker/docker/blob/master/docs/reference/api/docker_remote_api.md
 		// to lookup the table of docker supportedVersions to API supportedVersions
@@ -288,7 +288,7 @@ func (agent *ecsAgent) appendTaskCPUMemLimitCapabilities(capabilities []*ecs.Att
 }
 
 func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if agent.cfg.TaskENIEnabled {
+	if agent.cfg.TaskENIEnabled.Enabled() {
 		// The assumption here is that all of the dependencies for supporting the
 		// Task ENI in the Agent have already been validated prior to the invocation of
 		// the `agent.capabilities()` call
@@ -302,7 +302,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 		capabilities = append(capabilities, taskENIVersionAttribute)
 
 		// We only care about AWSVPCBlockInstanceMetdata if Task ENI is enabled
-		if agent.cfg.AWSVPCBlockInstanceMetdata {
+		if agent.cfg.AWSVPCBlockInstanceMetdata.Enabled() {
 			// If the Block Instance Metadata flag is set for AWS VPC networking mode, register a capability
 			// indicating the same
 			capabilities = append(capabilities, &ecs.Attribute{
