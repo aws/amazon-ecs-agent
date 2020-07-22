@@ -44,7 +44,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
-	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
+	assert.False(t, cfg.TaskIAMRoleEnabled.Enabled(), "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")

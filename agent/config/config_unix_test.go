@@ -47,8 +47,8 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
-	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
-	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
+	assert.False(t, cfg.TaskENIEnabled.Enabled(), "TaskENIEnabled set incorrectly")
+	assert.False(t, cfg.TaskIAMRoleEnabled.Enabled(), "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.Equal(t, NotSet, cfg.TaskCPUMemLimit.Value, "TaskCPUMemLimit should be NotSet")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
@@ -59,7 +59,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
-	assert.False(t, cfg.AWSVPCBlockInstanceMetdata, "AWSVPCBlockInstanceMetdata default is incorrectly set")
+	assert.False(t, cfg.AWSVPCBlockInstanceMetdata.Enabled(), "AWSVPCBlockInstanceMetdata default is incorrectly set")
 	assert.Equal(t, "/var/lib/ecs", cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
 		"Default TaskMetadataSteadyStateRate is set incorrectly")

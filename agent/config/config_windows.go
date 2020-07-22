@@ -95,7 +95,7 @@ func DefaultConfig() Config {
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
-		ContainerMetadataEnabled:            false,
+		ContainerMetadataEnabled:            BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PlatformVariables:                   platformVariables,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
@@ -110,7 +110,7 @@ func DefaultConfig() Config {
 func (cfg *Config) platformOverrides() {
 	// Enabling task IAM roles for Windows requires the credential proxy to run on port 80,
 	// so we reserve this port by default when that happens.
-	if cfg.TaskIAMRoleEnabled {
+	if cfg.TaskIAMRoleEnabled.Enabled() {
 		if cfg.ReservedPorts == nil {
 			cfg.ReservedPorts = []uint16{}
 		}

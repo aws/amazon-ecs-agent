@@ -379,7 +379,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.ContainerMetadataEnabled = true
+	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	// Cancel the context to cancel async routines

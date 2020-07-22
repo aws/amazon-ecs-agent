@@ -223,7 +223,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.TaskENIEnabled = true
+	cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.ENITrunkingEnabled = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -789,7 +789,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("error")).AnyTimes()
 
 	cfg := getTestConfig()
-	cfg.TaskENIEnabled = true
+	cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.ENITrunkingEnabled = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 	ctx, _ := context.WithCancel(context.TODO())
 	agent := &ecsAgent{

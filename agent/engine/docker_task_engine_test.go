@@ -213,7 +213,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
 			metadataConfig.TaskCPUMemLimit.Value = tc.taskCPULimit
-			metadataConfig.ContainerMetadataEnabled = true
+			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(
@@ -756,7 +756,7 @@ func TestCreateContainerMetadata(t *testing.T) {
 			defer ctrl.Finish()
 
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-			taskEngine.cfg.ContainerMetadataEnabled = true
+			taskEngine.cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 			sleepTask := testdata.LoadTask("sleep5")
 			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
@@ -1703,7 +1703,7 @@ func TestUpdateContainerReference(t *testing.T) {
 // during task engine init, metadata file updated
 func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	conf := &defaultConfig
-	conf.ContainerMetadataEnabled = true
+	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager := mocks(t, ctx, conf)
@@ -1713,7 +1713,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	var metadataUpdateWG sync.WaitGroup
 	metadataUpdateWG.Add(1)
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled, "ContainerMetadataEnabled set to false.")
+	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled.Enabled(), "ContainerMetadataEnabled set to false.")
 
 	taskEngine._time = nil
 	taskEngine.SetSaver(saver)
@@ -1948,7 +1948,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	taskNotStarted.Arn = "task_Not_started"
 
 	conf := &defaultConfig
-	conf.ContainerMetadataEnabled = false
+	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
