@@ -272,7 +272,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
 			metadataConfig.TaskCPUMemLimit = tc.taskCPULimit
-			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(
