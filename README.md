@@ -19,6 +19,12 @@ configurations can be used to configure other properties of the ECS Agent contai
 |:----------------|:----------------------------|:------------|:-----------------------|
 | `ECS_AGENT_LABELS` | `{"test.label.1":"value1","test.label.2":"value2"}` | The labels to add to the ECS Agent container. | |
 
+Additionally, the following environment variable(s) can be used to configure the behavior of the RPM:
+
+| Environment Variable Name | Example Value(s)            | Description | Default value |
+|:----------------|:----------------------------|:------------|:-----------------------|
+| `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to drop non-local packets to localhost if they're not part of an existing forwarded connection or DNAT, and removes the rule upon stop. If `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` is set to true, this rule will not be added/removed. | false |
+
 ## Usage
 The upstart script installed by the Amazon Elastic Container Service RPM can be started or stopped with the following commands respectively:
 

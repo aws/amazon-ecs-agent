@@ -15,6 +15,8 @@ package iptables
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/exec"
@@ -74,9 +76,11 @@ func (route *NetfilterRoute) Create() error {
 		return err
 	}
 
-	err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getInputChainArgs)
-	if err != nil {
-		return err
+	if !skipLocalhostTrafficFilter() {
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getInputChainArgs)
+		if err != nil {
+			return err
+		}
 	}
 
 	return route.modifyNetfilterEntry(iptablesTableNat, iptablesAppend, getOutputChainArgs)
@@ -91,9 +95,12 @@ func (route *NetfilterRoute) Remove() error {
 		preroutingErr = fmt.Errorf("error removing prerouting chain entry: %v", preroutingErr)
 	}
 
-	inputErr := route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getInputChainArgs)
-	if inputErr != nil {
-		inputErr = fmt.Errorf("error removing input chain entry: %v", inputErr)
+	var inputErr error
+	if !skipLocalhostTrafficFilter() {
+		inputErr = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getInputChainArgs)
+		if inputErr != nil {
+			inputErr = fmt.Errorf("error removing input chain entry: %v", inputErr)
+		}
 	}
 
 	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs)
@@ -181,4 +188,17 @@ func getActionName(action iptablesAction) string {
 	default:
 		return "delete"
 	}
+}
+
+func skipLocalhostTrafficFilter() bool {
+	s := os.Getenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
+	if s == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		log.Errorf("Failed to parse value for ECS_SKIP_LOCALHOST_TRAFFIC_FILTER [%s]: %v. Default it to false.", s, err)
+		return false
+	}
+	return b
 }

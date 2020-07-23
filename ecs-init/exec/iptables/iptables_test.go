@@ -15,6 +15,7 @@ package iptables
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -74,6 +75,32 @@ func TestCreate(t *testing.T) {
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	require.NoError(t, err, "Error creating netfilter route object")
+
+	err = route.Create()
+	assert.NoError(t, err, "Error creating route")
+}
+
+func TestCreateSkipLocalTrafficFilter(t *testing.T) {
+	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
+	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -180,6 +207,32 @@ func TestRemove(t *testing.T) {
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		// Mock a successful execution of the iptables command to delete the
 		// route
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	require.NoError(t, err, "Error creating netfilter route object")
+
+	err = route.Remove()
+	assert.NoError(t, err, "Error removing route")
+}
+
+func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
+	os.Setenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER", "true")
+	defer os.Unsetenv("ECS_SKIP_LOCALHOST_TRAFFIC_FILTER")
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
