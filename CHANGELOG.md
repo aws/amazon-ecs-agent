@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.42.0-1
+* Cache Agent version 1.42.0
+* Add a flag ECS\_SKIP\_LOCALHOST\_TRAFFIC\_FILTER to allow skipping local traffic filtering
+
 ## 1.41.1-2
 * Drop traffic to 127.0.0.1 that isn't originated from the host
 

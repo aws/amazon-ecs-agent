@@ -32,8 +32,8 @@
 %endif
 
 Name:           ecs-init
-Version:        1.41.1
-Release:        2%{?dist}
+Version:        1.42.0
+Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -278,6 +278,10 @@ fi
 %endif
 
 %changelog
+* Thu Jul 23 2020 Yunhee Lee <yhlee@amazon.com> - 1.42.0-1
+- Cache Agent version 1.42.0
+- Add a flag ECS_SKIP_LOCALHOST_TRAFFIC_FILTER to allow skipping local traffic filtering
+
 * Thu Jul 09 2020 Feng Xiong <fenxiong@amazon.com> - 1.41.1-2
 - Drop traffic to 127.0.0.1 that isn't originated from the host
 

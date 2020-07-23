@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Jul 23, 17:55:00 UTC 2020 - yhlee@amazon.com - 1.42.0-1
+
+- Cache Agent version 1.42.0
+- Add a flag ECS_SKIP_LOCALHOST_TRAFFIC_FILTER to allow skipping local traffic filtering
+-------------------------------------------------------------------
 Thu Jul 09, 00:46:00 UTC 2020 - fenxiong@amazon.com - 1.41.1-2
 
 - Drop traffic to 127.0.0.1 that isn't originated from the host

@@ -1,3 +1,10 @@
+amazon-ecs-init (1.42.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.42.0
+  * Add a flag ECS_SKIP_LOCALHOST_TRAFFIC_FILTER to allow skipping local traffic filtering
+
+ -- Yunhee Lee <yhlee@amazon.com>  Thu, 23 Jul 2020 17:55:00 +0000
+
 amazon-ecs-init (1.41.1-2) trusty; urgency=medium
 
   * Drop traffic to 127.0.0.1 that isn't originated from the host
