@@ -1,3 +1,9 @@
+1.42.0-1
+Yunhee Lee <yhlee@amazon.com>
+2020-07-23T09:55:00-08:00
+Cache Agent version 1.42.0
+Add a flag ECS_SKIP_LOCALHOST_TRAFFIC_FILTER to allow skipping local traffic filtering
+
 1.41.1-2
 Feng Xiong <fenxiong@amazon.com>
 2020-07-08T16:46:00-08:00
