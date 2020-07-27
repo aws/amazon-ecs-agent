@@ -23,7 +23,6 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 
@@ -45,12 +44,10 @@ func TestDeleteTask(t *testing.T) {
 	require.NoError(t, dataClient.SaveTask(task))
 
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	taskEngine := &DockerTaskEngine{
 		state:      mockState,
-		saver:      mockSaver,
 		dataClient: dataClient,
 		cfg:        &defaultConfig,
 		ctx:        ctx,
@@ -58,7 +55,6 @@ func TestDeleteTask(t *testing.T) {
 
 	gomock.InOrder(
 		mockState.EXPECT().RemoveTask(task),
-		mockSaver.EXPECT().Save(),
 	)
 
 	taskEngine.deleteTask(task)

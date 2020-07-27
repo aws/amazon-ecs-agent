@@ -42,7 +42,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
@@ -125,7 +124,6 @@ type DockerTaskEngine struct {
 
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
-	saver             statemanager.Saver
 
 	client     dockerapi.DockerClient
 	dataClient data.Client
@@ -180,7 +178,6 @@ func NewDockerTaskEngine(cfg *config.Config,
 		cfg:        cfg,
 		client:     client,
 		dataClient: data.NewNoopClient(),
-		saver:      statemanager.NewNoopStateManager(),
 
 		state:             state,
 		managedTasks:      make(map[string]*managedTask),
@@ -278,11 +275,6 @@ func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	})
 }
 
-// SetSaver sets the saver that is used by the DockerTaskEngine
-func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
-	engine.saver = saver
-}
-
 // SetDataClient sets the saver that is used by the DockerTaskEngine.
 func (engine *DockerTaskEngine) SetDataClient(client data.Client) {
 	engine.dataClient = client
@@ -353,8 +345,6 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	for _, task := range tasksToStart {
 		engine.startTask(task)
 	}
-
-	engine.saver.Save()
 }
 
 // filterTasksToStartUnsafe filters only the tasks that need to be started after
@@ -549,7 +539,6 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 			seelog.Warnf("Task engine [%s]: clean task metadata failed: %v", task.Arn, err)
 		}
 	}
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
@@ -589,7 +578,6 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
 	engine.tasksLock.Unlock()
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
@@ -909,7 +897,6 @@ func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, con
 		seelog.Warnf("Task engine [%s]: unable to save image state: %v",
 			taskArn, err)
 	}
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
@@ -1088,7 +1075,6 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}, task)
 		seelog.Infof("Task engine [%s]: created container name mapping for task:  %s -> %s",
 			task.Arn, container.Name, dockerContainerName)
-		engine.saver.ForceSave()
 	}
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
@@ -1455,7 +1441,6 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 	} else {
 		seelog.Debugf("Task engine [%s]: transitioned container [%s (Runtime ID: %s)] to [%s]",
 			task.Arn, container.Name, container.GetRuntimeID(), nextState.String())
-		engine.saver.Save()
 	}
 	return metadata
 }

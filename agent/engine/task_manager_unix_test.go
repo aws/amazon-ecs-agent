@@ -25,7 +25,6 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -69,7 +68,6 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
-			mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 			res := &cgroup.CgroupResource{}
 			res.SetKnownStatus(tc.KnownStatus)
 			mtask := managedTask{
@@ -83,10 +81,6 @@ func TestHandleResourceStateChangeAndSave(t *testing.T) {
 				},
 			}
 			mtask.AddResource("cgroup", res)
-			mtask.engine.SetSaver(mockSaver)
-			gomock.InOrder(
-				mockSaver.EXPECT().Save(),
-			)
 			mtask.handleResourceStateChange(resourceStateChange{
 				res, tc.DesiredKnownStatus, tc.Err,
 			})

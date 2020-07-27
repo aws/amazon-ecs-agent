@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -298,9 +297,6 @@ func (engine *MockTaskEngine) MustInit(ctx context.Context) {
 
 func (engine *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 	return make(chan statechange.Event)
-}
-
-func (engine *MockTaskEngine) SetSaver(statemanager.Saver) {
 }
 
 func (engine *MockTaskEngine) SetDataClient(data.Client) {

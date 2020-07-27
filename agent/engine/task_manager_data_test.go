@@ -26,7 +26,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
@@ -286,7 +285,6 @@ func TestHandleResourceStateChangeSaveData(t *testing.T) {
 					DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 				},
 				engine: &DockerTaskEngine{
-					saver:      statemanager.NewNoopStateManager(),
 					dataClient: dataClient,
 				},
 			}
