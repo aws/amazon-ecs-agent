@@ -21,7 +21,6 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 )
 
 // TaskEngine is an interface for the DockerTaskEngine
@@ -37,7 +36,6 @@ type TaskEngine interface {
 	// executed. Specifically, it will provide information when they reach
 	// running or stopped, as well as providing portbinding and other metadata
 	StateChangeEvents() chan statechange.Event
-	SetSaver(statemanager.Saver)
 	// SetDataClient sets the data client that is used by the task engine.
 	SetDataClient(data.Client)
 

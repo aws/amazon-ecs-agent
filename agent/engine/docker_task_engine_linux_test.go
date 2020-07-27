@@ -35,7 +35,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
@@ -164,11 +163,9 @@ func TestDeleteTask(t *testing.T) {
 	cfg := defaultConfig
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 
 	taskEngine := &DockerTaskEngine{
 		state:      mockState,
-		saver:      mockSaver,
 		dataClient: dataClient,
 		cfg:        &cfg,
 	}
@@ -186,7 +183,6 @@ func TestDeleteTask(t *testing.T) {
 		mockState.EXPECT().RemoveTask(task),
 		mockState.EXPECT().ENIByMac(gomock.Any()).Return(attachment, true),
 		mockState.EXPECT().RemoveENIAttachment(mac),
-		mockSaver.EXPECT().Save(),
 	)
 
 	assert.NoError(t, taskEngine.dataClient.SaveENIAttachment(attachment))
@@ -223,11 +219,9 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	cfg := defaultConfig
 	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	mockSaver := mock_statemanager.NewMockStateManager(ctrl)
 
 	taskEngine := &DockerTaskEngine{
 		state:      mockState,
-		saver:      mockSaver,
 		cfg:        &cfg,
 		dataClient: data.NewNoopClient(),
 	}
@@ -235,7 +229,6 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	gomock.InOrder(
 		mockControl.EXPECT().Remove("cgroupRoot").Return(nil),
 		mockState.EXPECT().RemoveTask(task),
-		mockSaver.EXPECT().Save(),
 	)
 
 	taskEngine.deleteTask(task)

@@ -27,7 +27,6 @@ import (
 	data "github.com/aws/amazon-ecs-agent/agent/data"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
-	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -187,18 +186,6 @@ func (m *MockTaskEngine) SetDataClient(arg0 data.Client) {
 func (mr *MockTaskEngineMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockTaskEngine)(nil).SetDataClient), arg0)
-}
-
-// SetSaver mocks base method
-func (m *MockTaskEngine) SetSaver(arg0 statemanager.Saver) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetSaver", arg0)
-}
-
-// SetSaver indicates an expected call of SetSaver
-func (mr *MockTaskEngineMockRecorder) SetSaver(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSaver", reflect.TypeOf((*MockTaskEngine)(nil).SetSaver), arg0)
 }
 
 // StateChangeEvents mocks base method
