@@ -38,6 +38,7 @@ const (
 	testMac           = "test-mac"
 	testAttachmentArn = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
 	testDockerID      = "test-docker-id"
+	testTaskIP        = "10.1.2.3"
 )
 
 var (
@@ -50,8 +51,9 @@ var (
 		Container: testContainer,
 	}
 	testTask = &apitask.Task{
-		Arn:        testTaskARN,
-		Containers: []*apicontainer.Container{testContainer},
+		Arn:                  testTaskARN,
+		Containers:           []*apicontainer.Container{testContainer},
+		LocalIPAddressUnsafe: testTaskIP,
 	}
 
 	testImageState = &image.ImageState{
@@ -105,6 +107,14 @@ func TestLoadState(t *testing.T) {
 	assert.True(t, ok)
 	assert.Len(t, engine.state.AllImageStates(), 1)
 	assert.Len(t, engine.state.AllENIAttachments(), 1)
+
+	// Check ip <-> task arn mapping is loaded in state.
+	ip, ok := engine.state.GetIPAddressByTaskARN(testTaskARN)
+	require.True(t, ok)
+	assert.Equal(t, testTaskIP, ip)
+	arn, ok := engine.state.GetTaskByIPAddress(testTaskIP)
+	require.True(t, ok)
+	assert.Equal(t, testTaskARN, arn)
 }
 
 func TestSaveState(t *testing.T) {
@@ -136,6 +146,44 @@ func TestSaveState(t *testing.T) {
 	eniAttachments, err := dataClient.GetENIAttachments()
 	require.NoError(t, err)
 	assert.Len(t, eniAttachments, 1)
+}
+
+func TestSaveStateEnsureBoltDBCompatibility(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	engine := &DockerTaskEngine{
+		state:      dockerstate.NewTaskEngineState(),
+		dataClient: dataClient,
+	}
+
+	// Save a container without task ARN populated in taskARNUnsafe field and a task without ip address
+	// populated in localIPAddressUnsafe field. Check they are populated upon saving to boltdb.
+	testContainer := &apicontainer.Container{
+		Name: testContainerName,
+	}
+	testDockerContainer := &apicontainer.DockerContainer{
+		DockerID:  testDockerID,
+		Container: testContainer,
+	}
+	testTask := &apitask.Task{
+		Arn:        testTaskARN,
+		Containers: []*apicontainer.Container{testContainer},
+	}
+	engine.state.AddTask(testTask)
+	engine.state.AddContainer(testDockerContainer, testTask)
+	engine.state.AddTaskIPAddress(testTaskIP, testTaskARN)
+
+	require.NoError(t, engine.SaveState())
+	tasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, tasks, 1)
+	assert.Equal(t, testTaskIP, tasks[0].GetLocalIPAddress())
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	assert.Len(t, containers, 1)
+	assert.Equal(t, testTaskARN, containers[0].Container.GetTaskARN())
 }
 
 func TestSaveAndRemoveTaskData(t *testing.T) {
