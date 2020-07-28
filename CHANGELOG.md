@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.42.0
+* Feature - Support for sub second precision in FluentD [#2538](https://github.com/aws/amazon-ecs-agent/pull/2538).
+* Bug - Fixed a bug that caused configured values for ImageCleanupExclusionList
+to be ignored in some situations [#2513](https://github.com/aws/amazon-ecs-agent/pull/2513)
+
 ## 1.41.1
 * Bug - Fixed a bug [#2476](https://github.com/aws/amazon-ecs-agent/issues/2476) where HostPort is not present in ECS Task Metadata Endpoint response with bridge network type [#2495](https://github.com/aws/amazon-ecs-agent/pull/2495)
 

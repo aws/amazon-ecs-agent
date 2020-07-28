@@ -79,14 +79,15 @@ const (
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
-	logDriverTypeFirelens   = "awsfirelens"
-	logDriverTypeFluentd    = "fluentd"
-	logDriverTag            = "tag"
-	logDriverFluentdAddress = "fluentd-address"
-	dataLogDriverPath       = "/data/firelens/"
-	logDriverAsyncConnect   = "fluentd-async-connect"
-	dataLogDriverSocketPath = "/socket/fluent.sock"
-	socketPathPrefix        = "unix://"
+	logDriverTypeFirelens       = "awsfirelens"
+	logDriverTypeFluentd        = "fluentd"
+	logDriverTag                = "tag"
+	logDriverFluentdAddress     = "fluentd-address"
+	dataLogDriverPath           = "/data/firelens/"
+	logDriverAsyncConnect       = "fluentd-async-connect"
+	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
+	dataLogDriverSocketPath     = "/socket/fluent.sock"
+	socketPathPrefix            = "unix://"
 
 	// fluentTagDockerFormat is the format for the log tag, which is "containerName-firelens-taskID"
 	fluentTagDockerFormat = "%s-firelens-%s"
@@ -1102,6 +1103,7 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
 	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
+	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
 	seelog.Debugf("Applying firelens log config for container %s: %v", container.Name, logConfig)
 	return logConfig
 }
