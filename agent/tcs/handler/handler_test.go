@@ -80,8 +80,8 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 func TestDisableMetrics(t *testing.T) {
 	params := TelemetrySessionParams{
 		Cfg: &config.Config{
-			DisableMetrics:           true,
-			DisableDockerHealthCheck: true,
+			DisableMetrics:           config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		},
 	}
 

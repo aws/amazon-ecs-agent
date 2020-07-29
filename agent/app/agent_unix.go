@@ -146,7 +146,7 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	// Check if we can get capabilities from each plugin
 	for _, plugin := range awsVPCCNIPlugins {
 		// skip verifying branch cni plugin if eni trunking is not enabled
-		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled {
+		if plugin == ecscni.ECSBranchENIPluginName && agent.cfg != nil && !agent.cfg.ENITrunkingEnabled.Enabled() {
 			continue
 		}
 
@@ -219,11 +219,11 @@ func (agent *ecsAgent) cgroupInit() error {
 	if err == nil {
 		return nil
 	}
-	if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
+	if agent.cfg.TaskCPUMemLimit.Value == config.ExplicitlyEnabled {
 		return errors.Wrapf(err, "unable to setup '/ecs' cgroup")
 	}
 	seelog.Warnf("Disabling TaskCPUMemLimit because agent is unabled to setup '/ecs' cgroup: %v", err)
-	agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	agent.cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return nil
 }
 

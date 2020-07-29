@@ -109,7 +109,7 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 	seqNum := int64(42)
 	task, err := TaskFromACS(&taskFromAcs, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 	assert.Nil(t, err, "Should be able to handle acs task")
-	cfg := config.Config{TaskCPUMemLimit: config.ExplicitlyDisabled}
+	cfg := config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled}}
 	task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
 
 	for _, container := range task.Containers { // remove v3 endpoint from each container because it's randomly generated
@@ -210,43 +210,43 @@ func TestCPUPercentBasedOnUnboundedEnabled(t *testing.T) {
 	cpuShareScaleFactor := runtime.NumCPU() * cpuSharesPerCore
 	testcases := []struct {
 		cpu          int64
-		cpuUnbounded bool
+		cpuUnbounded config.BooleanDefaultFalse
 		cpuPercent   int64
 	}{
 		{
 			cpu:          0,
-			cpuUnbounded: true,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 			cpuPercent:   0,
 		},
 		{
 			cpu:          1,
-			cpuUnbounded: true,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 			cpuPercent:   1,
 		},
 		{
 			cpu:          0,
-			cpuUnbounded: false,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 			cpuPercent:   1,
 		},
 		{
 			cpu:          1,
-			cpuUnbounded: false,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 			cpuPercent:   1,
 		},
 		{
 			cpu:          100,
-			cpuUnbounded: true,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 			cpuPercent:   100 * percentageFactor / int64(cpuShareScaleFactor),
 		},
 		{
 			cpu:          100,
-			cpuUnbounded: false,
+			cpuUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 			cpuPercent:   100 * percentageFactor / int64(cpuShareScaleFactor),
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("container cpu-%d,cpu unbounded tasks enabled- %t,expected cpu percent-%d",
-			tc.cpu, tc.cpuUnbounded, tc.cpuPercent), func(t *testing.T) {
+			tc.cpu, tc.cpuUnbounded.Enabled(), tc.cpuPercent), func(t *testing.T) {
 			testTask := &Task{
 				Containers: []*apicontainer.Container{
 					{
@@ -294,7 +294,7 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 			},
 		},
 		PlatformFields: PlatformFields{
-			MemoryUnbounded: false,
+			MemoryUnbounded: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 		},
 	}
 
@@ -306,7 +306,7 @@ func TestWindowsMemoryReservationOption(t *testing.T) {
 	assert.EqualValues(t, nonZeroMemoryReservationValue, cfg.MemoryReservation)
 
 	// With MemoryUnbounded set to true, tasks with no memory hard limit will have their memory reservation set to zero
-	testTask.PlatformFields.MemoryUnbounded = true
+	testTask.PlatformFields.MemoryUnbounded = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg, configErr = testTask.DockerHostConfig(testTask.Containers[0], dockerMap(testTask),
 		defaultDockerClientAPIVersion, &config.Config{})
 

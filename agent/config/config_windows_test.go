@@ -35,31 +35,31 @@ func TestConfigDefault(t *testing.T) {
 
 	assert.Equal(t, "npipe:////./pipe/docker_engine", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDir, "Default datadir set incorrectly")
-	assert.False(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
+	assert.False(t, cfg.DisableMetrics.Enabled(), "Default disablemetrics set incorrectly")
 	assert.Equal(t, 11, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.Equal(t, 8*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
-	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
+	assert.False(t, cfg.PrivilegedDisabled.Enabled(), "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
-	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
+	assert.False(t, cfg.TaskIAMRoleEnabled.Enabled(), "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\log\audit.log`, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
-	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
+	assert.False(t, cfg.ImageCleanupDisabled.Enabled(), "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultNonECSImageDeletionAge, cfg.NonECSMinimumImageDeletionAge, "NonECSMinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, `C:\ProgramData\Amazon\ECS\data`, cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
-	assert.False(t, cfg.PlatformVariables.CPUUnbounded, "CPUUnbounded should be false by default")
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded.Enabled(), "CPUUnbounded should be false by default")
 	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
 		"Default TaskMetadataSteadyStateRate is set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
-	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {
@@ -104,7 +104,7 @@ func TestCPUUnboundedSet(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.True(t, cfg.PlatformVariables.CPUUnbounded)
+	assert.True(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
 }
 
 func TestCPUUnboundedWindowsDisabled(t *testing.T) {
@@ -112,7 +112,7 @@ func TestCPUUnboundedWindowsDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.False(t, cfg.PlatformVariables.CPUUnbounded)
+	assert.False(t, cfg.PlatformVariables.CPUUnbounded.Enabled())
 }
 
 func TestMemoryUnboundedSet(t *testing.T) {
@@ -121,7 +121,7 @@ func TestMemoryUnboundedSet(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.True(t, cfg.PlatformVariables.MemoryUnbounded)
+	assert.True(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
 }
 
 func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
@@ -129,5 +129,5 @@ func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.platformOverrides()
 	assert.NoError(t, err)
-	assert.False(t, cfg.PlatformVariables.MemoryUnbounded)
+	assert.False(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
 }

@@ -101,7 +101,7 @@ func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -127,7 +127,7 @@ func TestDoStartMinimumSupportedDockerVersionError(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -165,7 +165,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -214,7 +214,7 @@ func TestDoStartNewStateManagerError(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -259,7 +259,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -379,7 +379,7 @@ func TestDoStartRegisterAvailabilityZone(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.ContainerMetadataEnabled = true
+	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 
 	// Cancel the context to cancel async routines
@@ -419,7 +419,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	expectedInstanceID := "inst-1"
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("ContainerInstanceArn", gomock.Any()).Do(
@@ -471,7 +471,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	expectedInstanceID := "inst-1"
 
 	gomock.InOrder(
@@ -535,7 +535,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Cluster = "default"
 	ec2InstanceID := "inst-1"
 
@@ -588,7 +588,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
@@ -630,7 +630,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
@@ -672,7 +672,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	expectedInstanceID := "inst-1"
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
@@ -1421,6 +1421,6 @@ func TestSpotInstanceActionCheck_NoInstanceActionYet(t *testing.T) {
 
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
 }

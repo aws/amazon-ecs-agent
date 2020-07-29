@@ -68,7 +68,7 @@ type Config struct {
 	// Checkpoint configures whether data should be periodically to a checkpoint
 	// file, in DataDir, such that on instance or agent restarts it will resume
 	// as the same ContainerInstance. It defaults to false.
-	Checkpoint bool
+	Checkpoint BooleanDefaultFalse
 
 	// EngineAuthType configures what type of data is in EngineAuthData.
 	// Supported types, right now, can be found in the dockerauth package: https://godoc.org/github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerauth
@@ -79,7 +79,7 @@ type Config struct {
 
 	// UpdatesEnabled specifies whether updates should be applied to this agent.
 	// Default true
-	UpdatesEnabled bool
+	UpdatesEnabled BooleanDefaultFalse
 	// UpdateDownloadDir specifies where new agent versions should be placed
 	// within the container in order for the external updating process to
 	// correctly handle them.
@@ -87,11 +87,11 @@ type Config struct {
 
 	// DisableMetrics configures whether task utilization metrics should be
 	// sent to the ECS telemetry endpoint
-	DisableMetrics bool
+	DisableMetrics BooleanDefaultFalse
 
 	// PollMetrics configures whether metrics are constantly streamed for each container or
 	// polled on interval instead.
-	PollMetrics bool
+	PollMetrics BooleanDefaultTrue
 
 	// PollingMetricsWaitDuration configures how long a container should wait before polling metrics
 	// again when PollMetrics is set to true
@@ -99,7 +99,7 @@ type Config struct {
 
 	// DisableDockerHealthCheck configures whether container health feature was enabled
 	// on the instance
-	DisableDockerHealthCheck bool
+	DisableDockerHealthCheck BooleanDefaultFalse
 
 	// ReservedMemory specifies the amount of memory (in MB) to reserve for things
 	// other than containers managed by ECS
@@ -121,15 +121,15 @@ type Config struct {
 
 	// PrivilegedDisabled specified whether the Agent is capable of launching
 	// tasks with privileged containers
-	PrivilegedDisabled bool
+	PrivilegedDisabled BooleanDefaultFalse
 
 	// SELinxuCapable specifies whether the Agent is capable of using SELinux
 	// security options
-	SELinuxCapable bool
+	SELinuxCapable BooleanDefaultFalse
 
 	// AppArmorCapable specifies whether the Agent is capable of using AppArmor
 	// security options
-	AppArmorCapable bool
+	AppArmorCapable BooleanDefaultFalse
 
 	// TaskCleanupWaitDuration specifies the time to wait after a task is stopped
 	// until cleanup of task resources is started.
@@ -137,13 +137,13 @@ type Config struct {
 
 	// TaskIAMRoleEnabled specifies if the Agent is capable of launching
 	// tasks with IAM Roles.
-	TaskIAMRoleEnabled bool
+	TaskIAMRoleEnabled BooleanDefaultFalse
 
 	// DeleteNonECSImagesEnabled specifies if the Agent can delete the cached, unused non-ecs images.
-	DeleteNonECSImagesEnabled bool
+	DeleteNonECSImagesEnabled BooleanDefaultFalse
 
 	// TaskCPUMemLimit specifies if Agent can launch a task with a hierarchical cgroup
-	TaskCPUMemLimit Conditional
+	TaskCPUMemLimit BooleanDefaultTrue
 
 	// CredentialsAuditLogFile specifies the path/filename of the audit log.
 	CredentialsAuditLogFile string
@@ -157,15 +157,15 @@ type Config struct {
 
 	// TaskENIEnabled specifies if the Agent is capable of launching task within
 	// defined EC2 networks
-	TaskENIEnabled bool
+	TaskENIEnabled BooleanDefaultFalse
 
 	// ENITrunkingEnabled specifies if the Agent is enabled to launch awsvpc
 	// task with ENI Trunking
-	ENITrunkingEnabled bool
+	ENITrunkingEnabled BooleanDefaultTrue
 
 	// ImageCleanupDisabled specifies whether the Agent will periodically perform
 	// automated image cleanup
-	ImageCleanupDisabled bool
+	ImageCleanupDisabled BooleanDefaultFalse
 
 	// MinimumImageDeletionAge specifies the minimum time since it was pulled
 	// before it can be deleted
@@ -222,7 +222,7 @@ type Config struct {
 
 	// AWSVPCBlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked
 	// for tasks that are launched with network mode "awsvpc" when ECS_AWSVPC_BLOCK_IMDS=true
-	AWSVPCBlockInstanceMetdata bool
+	AWSVPCBlockInstanceMetdata BooleanDefaultFalse
 
 	// OverrideAWSVPCLocalIPv4Address overrides the local IPv4 address chosen
 	// for a task using the `awsvpc` networking mode. Using this configuration
@@ -238,11 +238,11 @@ type Config struct {
 
 	// ContainerMetadataEnabled specifies if the agent should provide a metadata
 	// file for containers.
-	ContainerMetadataEnabled bool
+	ContainerMetadataEnabled BooleanDefaultFalse
 
 	// OverrideAWSLogsExecutionRole is config option used to enable awslogs
 	// driver authentication over the task's execution role
-	OverrideAWSLogsExecutionRole bool
+	OverrideAWSLogsExecutionRole BooleanDefaultFalse
 
 	// CgroupPath is the path expected by the agent, defaults to
 	// '/sys/fs/cgroup'
@@ -261,7 +261,7 @@ type Config struct {
 	// provisioned volume, if false (default). If true, we perform deep comparison including driver options
 	// and labels. For comparing shared volume across 2 instances, this should be set to false as docker's
 	// default behavior is to match name only, and does not propagate driver options and labels through volume drivers.
-	SharedVolumeMatchFullConfig bool
+	SharedVolumeMatchFullConfig BooleanDefaultFalse
 
 	// NoIID when set to true, specifies that the agent should not register the instance
 	// with instance identity document. This is required in order to accomodate scenarios in
@@ -307,7 +307,7 @@ type Config struct {
 	// If the instance is not spot then the poller will still run but it will never receive a termination notice.
 	// Defaults to false.
 	// see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/container-instance-draining.html
-	SpotInstanceDrainingEnabled bool
+	SpotInstanceDrainingEnabled BooleanDefaultFalse
 
 	// GMSACapable is the config option to indicate if gMSA is supported.
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.

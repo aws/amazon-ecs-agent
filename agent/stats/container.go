@@ -50,7 +50,7 @@ func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver 
 func (container *StatsContainer) StartStatsCollection() {
 	// queue will be sized to hold enough stats for 4 publishing intervals.
 	var queueSize int
-	if container.config != nil && container.config.PollMetrics {
+	if container.config != nil && container.config.PollMetrics.Enabled() {
 		pollingInterval := container.config.PollingMetricsWaitDuration.Seconds()
 		queueSize = int(config.DefaultContainerMetricsPublishInterval.Seconds() / pollingInterval * 4)
 	} else {

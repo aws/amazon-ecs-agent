@@ -278,8 +278,8 @@ func TestDoStartTaskLimitsFail(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
