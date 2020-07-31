@@ -39,7 +39,7 @@ func TestDockerStatsToContainerStatsZeroCoresGeneratesError(t *testing.T) {
 		}`, 100)
 	dockerStat := &types.StatsJSON{}
 	json.Unmarshal([]byte(jsonStat), dockerStat)
-	_, err := dockerStatsToContainerStats(dockerStat)
+	err := validateDockerStats(dockerStat)
 	assert.Error(t, err, "expected error converting container stats with zero cpu cores")
 }
 

@@ -60,8 +60,8 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 
 	//Task that needs to be stopped, sent back by agent
 	taskIdentifierFinal := []*ecsacs.TaskIdentifier{
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn1")},
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2")},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn1"), TaskClusterArn: aws.String(cluster)},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2"), TaskClusterArn: aws.String(cluster)},
 	}
 
 	taskStopVerificationMessage := &ecsacs.TaskStopVerificationMessage{
@@ -100,7 +100,7 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 		ClusterArn:           aws.String(cluster),
 		ContainerInstanceArn: aws.String(containerInstanceArn),
 		Tasks: []*ecsacs.TaskIdentifier{
-			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String("arn-long")},
+			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String("arn-long"), TaskClusterArn: aws.String(cluster)},
 		},
 		Timeline: aws.Int64(12),
 	}
@@ -150,8 +150,8 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 
 	//Task that needs to be stopped, sent back by agent
 	taskIdentifierFinal := []*ecsacs.TaskIdentifier{
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2")},
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn3")},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2"), TaskClusterArn: aws.String(cluster)},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn3"), TaskClusterArn: aws.String(cluster)},
 	}
 
 	taskStopVerificationMessage := &ecsacs.TaskStopVerificationMessage{
@@ -189,12 +189,14 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 		ContainerInstanceArn: aws.String(containerInstanceArn),
 		Tasks: []*ecsacs.TaskIdentifier{
 			{
-				DesiredStatus: aws.String(apitaskstatus.TaskRunningString),
-				TaskArn:       aws.String("arn1"),
+				DesiredStatus:  aws.String(apitaskstatus.TaskRunningString),
+				TaskArn:        aws.String("arn1"),
+				TaskClusterArn: aws.String(cluster),
 			},
 			{
-				DesiredStatus: aws.String(apitaskstatus.TaskStoppedString),
-				TaskArn:       aws.String("arn2"),
+				DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
+				TaskArn:        aws.String("arn2"),
+				TaskClusterArn: aws.String(cluster),
 			},
 		},
 		Timeline: aws.Int64(12),
@@ -331,20 +333,21 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 
 	// tasks that suppose to be running
 	taskIdentifierInitial := ecsacs.TaskIdentifier{
-		DesiredStatus: aws.String(apitaskstatus.TaskStoppedString),
-		TaskArn:       aws.String("arn1"),
+		DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
+		TaskArn:        aws.String("arn1"),
+		TaskClusterArn: aws.String(cluster),
 	}
 
 	//Task that needs to be stopped, sent back by agent
 	taskIdentifierAckFinal := []*ecsacs.TaskIdentifier{
-		{DesiredStatus: aws.String(apitaskstatus.TaskRunningString), TaskArn: aws.String("arn1")},
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2")},
+		{DesiredStatus: aws.String(apitaskstatus.TaskRunningString), TaskArn: aws.String("arn1"), TaskClusterArn: aws.String(cluster)},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2"), TaskClusterArn: aws.String(cluster)},
 	}
 
 	//Task that needs to be stopped, sent back by agent
 	taskIdentifierMessage := []*ecsacs.TaskIdentifier{
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn1")},
-		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2")},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn1"), TaskClusterArn: aws.String(cluster)},
+		{DesiredStatus: aws.String(apitaskstatus.TaskStoppedString), TaskArn: aws.String("arn2"), TaskClusterArn: aws.String(cluster)},
 	}
 
 	taskStopVerificationMessage := &ecsacs.TaskStopVerificationMessage{
@@ -479,7 +482,7 @@ func TestCompareTasksDifferentTasks(t *testing.T) {
 		{Arn: "arn1", DesiredStatusUnsafe: apitaskstatus.TaskRunning},
 	}
 
-	compareTaskList := compareTasks(receivedTaskList, taskList)
+	compareTaskList := compareTasks(receivedTaskList, taskList, "test-cluster-arn")
 
 	assert.Equal(t, 2, len(compareTaskList))
 }
@@ -501,7 +504,7 @@ func TestCompareTasksSameTasks(t *testing.T) {
 		{Arn: "arn1", DesiredStatusUnsafe: apitaskstatus.TaskRunning},
 	}
 
-	compareTaskList := compareTasks(receivedTaskList, taskList)
+	compareTaskList := compareTasks(receivedTaskList, taskList, "test-cluster-arn")
 
 	assert.Equal(t, 0, len(compareTaskList))
 }

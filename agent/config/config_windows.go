@@ -58,8 +58,8 @@ func DefaultConfig() Config {
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
 	platformVariables := PlatformVariables{
-		CPUUnbounded:    false,
-		MemoryUnbounded: false,
+		CPUUnbounded:    BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		MemoryUnbounded: BooleanDefaultFalse{Value: ExplicitlyDisabled},
 	}
 	return Config{
 		DockerEndpoint: "npipe:////./pipe/docker_engine",
@@ -89,19 +89,19 @@ func DefaultConfig() Config {
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
 		CredentialsAuditLogFile:             filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled:         false,
-		ImageCleanupDisabled:                false,
+		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
 		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
-		ContainerMetadataEnabled:            false,
-		TaskCPUMemLimit:                     ExplicitlyDisabled,
+		ContainerMetadataEnabled:            BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PlatformVariables:                   platformVariables,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
-		SharedVolumeMatchFullConfig:         false, //only requiring shared volumes to match on name, which is default docker behavior
-		PollMetrics:                         false,
+		SharedVolumeMatchFullConfig:         BooleanDefaultFalse{Value: ExplicitlyDisabled}, //only requiring shared volumes to match on name, which is default docker behavior
+		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
 	}
@@ -110,7 +110,7 @@ func DefaultConfig() Config {
 func (cfg *Config) platformOverrides() {
 	// Enabling task IAM roles for Windows requires the credential proxy to run on port 80,
 	// so we reserve this port by default when that happens.
-	if cfg.TaskIAMRoleEnabled {
+	if cfg.TaskIAMRoleEnabled.Enabled() {
 		if cfg.ReservedPorts == nil {
 			cfg.ReservedPorts = []uint16{}
 		}
@@ -118,10 +118,10 @@ func (cfg *Config) platformOverrides() {
 	}
 
 	// ensure TaskResourceLimit is disabled
-	cfg.TaskCPUMemLimit = ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = ExplicitlyDisabled
 
-	cpuUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND"), false)
-	memoryUnbounded := utils.ParseBool(os.Getenv("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND"), false)
+	cpuUnbounded := parseBooleanDefaultFalseConfig("ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND")
+	memoryUnbounded := parseBooleanDefaultFalseConfig("ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND")
 
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    cpuUnbounded,

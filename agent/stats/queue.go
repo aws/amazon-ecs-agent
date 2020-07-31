@@ -28,14 +28,16 @@ const (
 	// BytesInMiB is the number of bytes in a MebiByte.
 	BytesInMiB              = 1024 * 1024
 	MaxCPUUsagePerc float32 = 1024 * 1024
+	NanoSecToSec    float32 = 1000000000
 )
 
 // Queue abstracts a queue using UsageStats slice.
 type Queue struct {
-	buffer   []UsageStats
-	maxSize  int
-	lastStat *types.StatsJSON
-	lock     sync.RWMutex
+	buffer                []UsageStats
+	maxSize               int
+	lastStat              *types.StatsJSON
+	lastNetworkStatPerSec *NetworkStatsPerSec
+	lock                  sync.RWMutex
 }
 
 // NewQueue creates a queue.
@@ -98,9 +100,21 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			// if we got a duplicate timestamp, set cpu percentage to the same value as the previous stat
 			seelog.Errorf("Received a docker stat object with duplicate timestamp")
 			stat.CPUUsagePerc = lastStat.CPUUsagePerc
+			if stat.NetworkStats != nil {
+				stat.NetworkStats.RxBytesPerSecond = lastStat.NetworkStats.RxBytesPerSecond
+				stat.NetworkStats.TxBytesPerSecond = lastStat.NetworkStats.TxBytesPerSecond
+			}
 		} else {
 			cpuUsageSinceLastStat := float32(rawStat.cpuUsage - lastStat.cpuUsage)
 			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
+
+			//calculate per second Network metrics
+			if stat.NetworkStats != nil {
+				rxBytesSinceLastStat := float32(stat.NetworkStats.RxBytes - lastStat.NetworkStats.RxBytes)
+				txBytesSinceLastStat := float32(stat.NetworkStats.TxBytes - lastStat.NetworkStats.TxBytes)
+				stat.NetworkStats.RxBytesPerSecond = NanoSecToSec * (rxBytesSinceLastStat / timeSinceLastStat)
+				stat.NetworkStats.TxBytesPerSecond = NanoSecToSec * (txBytesSinceLastStat / timeSinceLastStat)
+			}
 		}
 
 		if queueLength >= queue.maxSize {
@@ -113,6 +127,14 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			seelog.Errorf("Calculated CPU usage percent (%.1f) is larger than backend maximum (%.1f). lastStatTS=%s lastStatCPUTime=%d thisStatTS=%s thisStatCPUTime=%d queueLength=%d",
 				stat.CPUUsagePerc, MaxCPUUsagePerc, lastStat.Timestamp.Format(time.RFC3339Nano), lastStat.cpuUsage, rawStat.timestamp.Format(time.RFC3339Nano), rawStat.cpuUsage, queueLength)
 		}
+
+		if stat.NetworkStats != nil {
+			networkStatPerSec := &NetworkStatsPerSec{
+				RxBytesPerSecond: stat.NetworkStats.RxBytesPerSecond,
+				TxBytesPerSecond: stat.NetworkStats.TxBytesPerSecond,
+			}
+			queue.lastNetworkStatPerSec = networkStatPerSec
+		}
 	}
 
 	queue.buffer = append(queue.buffer, stat)
@@ -124,6 +146,13 @@ func (queue *Queue) GetLastStat() *types.StatsJSON {
 	defer queue.lock.RUnlock()
 
 	return queue.lastStat
+}
+
+func (queue *Queue) GetLastNetworkStatPerSec() *NetworkStatsPerSec {
+	queue.lock.RLock()
+	defer queue.lock.RUnlock()
+
+	return queue.lastNetworkStatPerSec
 }
 
 // GetCPUStatsSet gets the stats set for CPU utilization.
@@ -187,6 +216,14 @@ func (queue *Queue) GetNetworkStatsSet() (*ecstcs.NetworkStatsSet, error) {
 	if err != nil {
 		seelog.Warnf("Error getting network tx packets: %v", err)
 	}
+	networkStatsSet.RxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkRxPacketsPerSecond)
+	if err != nil {
+		seelog.Warnf("Error getting network rx bytes per second: %v", err)
+	}
+	networkStatsSet.TxBytesPerSecond, err = queue.getUDoubleCWStatsSet(getNetworkTxPacketsPerSecond)
+	if err != nil {
+		seelog.Warnf("Error getting network tx bytes per second: %v", err)
+	}
 	return networkStatsSet, err
 }
 
@@ -244,6 +281,20 @@ func getNetworkTxPackets(s *UsageStats) uint64 {
 		return s.NetworkStats.TxPackets
 	}
 	return uint64(0)
+}
+
+func getNetworkRxPacketsPerSecond(s *UsageStats) float64 {
+	if s.NetworkStats != nil {
+		return float64(s.NetworkStats.RxBytesPerSecond)
+	}
+	return float64(0)
+}
+
+func getNetworkTxPacketsPerSecond(s *UsageStats) float64 {
+	if s.NetworkStats != nil {
+		return float64(s.NetworkStats.TxBytesPerSecond)
+	}
+	return float64(0)
 }
 
 func getCPUUsagePerc(s *UsageStats) float64 {
@@ -377,5 +428,52 @@ func (queue *Queue) getULongStatsSet(getUsageInt getUsageIntFunc) (*ecstcs.ULong
 		SampleCount: &sampleCount,
 		Sum:         &baseSum,
 		OverflowSum: &overflowSum,
+	}, nil
+}
+
+// getUDoubleCWStatsSet gets the stats set for per second network metrics
+func (queue *Queue) getUDoubleCWStatsSet(getUsageFloat getUsageFloatFunc) (*ecstcs.UDoubleCWStatsSet, error) {
+	queue.lock.Lock()
+	defer queue.lock.Unlock()
+
+	queueLength := len(queue.buffer)
+	if queueLength < 2 {
+		// Need at least 2 data points to calculate this.
+		return nil, fmt.Errorf("need at least 2 data points in queue to calculate CW stats set")
+	}
+
+	var min, max, sum float64
+	var sampleCount int64
+	min = math.MaxFloat64
+	max = -math.MaxFloat64
+	sum = 0
+	sampleCount = 0
+
+	for _, stat := range queue.buffer {
+		if stat.sent {
+			// don't send stats to TACS if already sent
+			continue
+		}
+		thisStat := getUsageFloat(&stat)
+		if math.IsNaN(thisStat) {
+			continue
+		}
+
+		min = math.Min(min, thisStat)
+		max = math.Max(max, thisStat)
+		sampleCount++
+		sum += thisStat
+	}
+
+	// don't emit metrics when sampleCount == 0
+	if sampleCount == 0 {
+		return nil, fmt.Errorf("need at least 1 non-NaN data points in queue to calculate CW stats set")
+	}
+
+	return &ecstcs.UDoubleCWStatsSet{
+		Max:         &max,
+		Min:         &min,
+		SampleCount: &sampleCount,
+		Sum:         &sum,
 	}, nil
 }

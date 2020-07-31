@@ -150,7 +150,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	}
 
 	var metadataManager containermetadata.Manager
-	if cfg.ContainerMetadataEnabled {
+	if cfg.ContainerMetadataEnabled.Enabled() {
 		// We use the default API client for the metadata inspect call. This version has some information
 		// missing which means if we need those fields later we will need to change this client to
 		// the appropriate version
@@ -265,7 +265,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	var vpcSubnetAttributes []*ecs.Attribute
 	// Check if Task ENI is enabled
-	if agent.cfg.TaskENIEnabled {
+	if agent.cfg.TaskENIEnabled.Enabled() {
 		// check pause container image load
 		if loadPauseErr != nil {
 			if pause.IsNoSuchFileError(loadPauseErr) || pause.UnsupportedPlatform(loadPauseErr) {
@@ -287,7 +287,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 			// to not update the config to disable the TaskENIEnabled flag and
 			// move on
 			seelog.Warnf("Unable to detect VPC ID for the Instance, disabling Task ENI capability: %v", err)
-			agent.cfg.TaskENIEnabled = false
+			agent.cfg.TaskENIEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 		default:
 			// Encountered an error initializing dependencies for dealing with
 			// ENIs for Tasks. Exit with the appropriate error code
@@ -308,7 +308,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		return exitcodes.ExitTerminal
 	}
 	// Add container instance ARN to metadata manager
-	if agent.cfg.ContainerMetadataEnabled {
+	if agent.cfg.ContainerMetadataEnabled.Enabled() {
 		agent.metadataManager.SetContainerInstanceARN(agent.containerInstanceARN)
 		agent.metadataManager.SetAvailabilityZone(agent.availabilityZone)
 		agent.metadataManager.SetHostPrivateIPv4Address(agent.getHostPrivateIPv4AddressFromEC2Metadata())
@@ -343,7 +343,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 
 	containerChangeEventStream.StartListening()
 
-	if !agent.cfg.Checkpoint {
+	if !agent.cfg.Checkpoint.Enabled() {
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
@@ -471,7 +471,7 @@ func (agent *ecsAgent) newStateManager(
 	savedInstanceID *string,
 	availabilityZone *string, latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
 
-	if !agent.cfg.Checkpoint {
+	if !agent.cfg.Checkpoint.Enabled() {
 		return statemanager.NewNoopStateManager(), nil
 	}
 
@@ -608,12 +608,12 @@ func (agent *ecsAgent) startAsyncRoutines(
 	state dockerstate.TaskEngineState) {
 
 	// Start of the periodic image cleanup process
-	if !agent.cfg.ImageCleanupDisabled {
+	if !agent.cfg.ImageCleanupDisabled.Enabled() {
 		go imageManager.StartImageCleanupProcess(agent.ctx)
 	}
 
 	// Start automatic spot instance draining poller routine
-	if agent.cfg.SpotInstanceDrainingEnabled {
+	if agent.cfg.SpotInstanceDrainingEnabled.Enabled() {
 		go agent.startSpotInstanceDrainingPoller(agent.ctx, client)
 	}
 

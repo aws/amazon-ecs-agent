@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
@@ -54,6 +53,33 @@ func ContainerStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.
 
 		seelog.Infof("V4 container stats handler: writing response for container '%s'", containerID)
 		// v4 handler shares the same container states response format with v2 handler.
-		v2.WriteContainerStatsResponse(w, taskArn, containerID, statsEngine)
+		WriteV4ContainerStatsResponse(w, taskArn, containerID, statsEngine)
 	}
+}
+
+// WriteContainerStatsResponse writes the container stats to response writer.
+func WriteV4ContainerStatsResponse(w http.ResponseWriter,
+	taskARN string,
+	containerID string,
+	statsEngine stats.Engine) {
+	dockerStats, network_rate_stats, err := statsEngine.ContainerDockerStats(taskARN, containerID)
+	if err != nil {
+		errResponseJSON, err := json.Marshal("Unable to get container stats for: " + containerID)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
+		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerStats)
+		return
+	}
+
+	containerStatsResponse := StatsResponse{
+		StatsJSON:          dockerStats,
+		Network_rate_stats: network_rate_stats,
+	}
+
+	responseJSON, err := json.Marshal(containerStatsResponse)
+	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
+	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeContainerStats)
 }

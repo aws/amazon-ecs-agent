@@ -20,7 +20,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/cihub/seelog"
@@ -40,7 +39,31 @@ func TaskStatsHandler(state dockerstate.TaskEngineState, statsEngine stats.Engin
 			return
 		}
 		seelog.Infof("V4 tasks stats handler: writing response for task '%s'", taskArn)
-		// v4 handler shares with the same task response format with v2 handler
-		v2.WriteTaskStatsResponse(w, taskArn, state, statsEngine)
+		WriteV4TaskStatsResponse(w, taskArn, state, statsEngine)
 	}
+}
+
+// WriteV4TaskStatsResponse writes the task stats to response writer.
+func WriteV4TaskStatsResponse(w http.ResponseWriter,
+	taskARN string,
+	state dockerstate.TaskEngineState,
+	statsEngine stats.Engine) {
+
+	taskStatsResponse, err := NewV4TaskStatsResponse(taskARN, state, statsEngine)
+	if err != nil {
+		seelog.Warnf("Unable to get task stats for task '%s': %v", taskARN, err)
+		errResponseJSON, err := json.Marshal("Unable to get task stats for: " + taskARN)
+		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			return
+		}
+		utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeTaskStats)
+		return
+	}
+
+	responseJSON, err := json.Marshal(taskStatsResponse)
+	if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+		return
+	}
+	seelog.Infof("V4 Stats response json is %v", responseJSON)
+	utils.WriteJSONToResponse(w, http.StatusOK, responseJSON, utils.RequestTypeTaskStats)
 }
