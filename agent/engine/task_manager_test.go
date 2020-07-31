@@ -1401,7 +1401,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	taskEngine := &DockerTaskEngine{
@@ -1463,7 +1463,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	taskEngine := &DockerTaskEngine{
@@ -1971,7 +1971,7 @@ func TestStartVolumeResourceTransitionsEmpty(t *testing.T) {
 
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
 }
 

@@ -58,11 +58,11 @@ func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
-		PrivilegedDisabled:         false,
-		SELinuxCapable:             true,
-		AppArmorCapable:            true,
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
@@ -146,7 +146,7 @@ func TestNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		GPUSupportEnabled:  true,
 	}
 
@@ -215,7 +215,7 @@ func TestEmptyNvidiaDriverCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		GPUSupportEnabled:  true,
 	}
 
@@ -283,9 +283,9 @@ func TestENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
-		TaskENIEnabled:     true,
-		ENITrunkingEnabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -366,9 +366,9 @@ func TestNoENITrunkingCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
-		TaskENIEnabled:     true,
-		ENITrunkingEnabled: false,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		ENITrunkingEnabled: config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -439,7 +439,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -506,7 +506,7 @@ func TestPIDAndIPCNamespaceSharingCapabilitiesNoPauseContainer(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, errors.New("mock error"))
@@ -572,7 +572,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -646,7 +646,7 @@ func TestTaskEIACapabilitiesNoOptimizedCPU(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)
@@ -689,7 +689,7 @@ func TestTaskEIACapabilitiesWithOptimizedCPU(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	utils.OpenFile = func(path string) (*os.File, error) {
@@ -738,7 +738,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled:       true,
+		PrivilegedDisabled:       config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		VolumePluginCapabilities: []string{capabilityEFSAuth},
 	}
 
@@ -811,7 +811,7 @@ func TestFirelensConfigCapabilitiesUnix(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 	conf := &config.Config{
-		PrivilegedDisabled: true,
+		PrivilegedDisabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil)

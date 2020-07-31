@@ -35,14 +35,16 @@ type ContainerStats struct {
 
 // NetworkStats contains the network stats information for a container
 type NetworkStats struct {
-	RxBytes   uint64 `json:"rxBytes"`
-	RxDropped uint64 `json:"rxDropped"`
-	RxErrors  uint64 `json:"rxErrors"`
-	RxPackets uint64 `json:"rxPackets"`
-	TxBytes   uint64 `json:"txBytes"`
-	TxDropped uint64 `json:"txDropped"`
-	TxErrors  uint64 `json:"txErrors"`
-	TxPackets uint64 `json:"txPackets"`
+	RxBytes          uint64  `json:"rxBytes"`
+	RxDropped        uint64  `json:"rxDropped"`
+	RxErrors         uint64  `json:"rxErrors"`
+	RxPackets        uint64  `json:"rxPackets"`
+	TxBytes          uint64  `json:"txBytes"`
+	TxDropped        uint64  `json:"txDropped"`
+	TxErrors         uint64  `json:"txErrors"`
+	TxPackets        uint64  `json:"txPackets"`
+	RxBytesPerSecond float32 `json:"rxBytesPerSecond"`
+	TxBytesPerSecond float32 `json:"txBytesPerSecond"`
 }
 
 // UsageStats abstracts the format in which the queue stores data.
@@ -65,6 +67,15 @@ type ContainerMetadata struct {
 	NetworkMode string `json:"-"`
 }
 
+// TaskMetadata contains meta-data information for a task.
+type TaskMetadata struct {
+	TaskArn string `json:"-"`
+	// ContainerPID is the PID of the pause container in the awsvpc task.
+	ContainerPID     string   `json:"-"`
+	DeviceName       []string `json:"-"`
+	NumberContainers int      `json:"-"`
+}
+
 // StatsContainer abstracts methods to gather and aggregate utilization data for a container.
 type StatsContainer struct {
 	containerMetadata *ContainerMetadata
@@ -80,4 +91,9 @@ type StatsContainer struct {
 type taskDefinition struct {
 	family  string
 	version string
+}
+
+type NetworkStatsPerSec struct {
+	RxBytesPerSecond float32 `json:"rx_bytes_per_sec"`
+	TxBytesPerSecond float32 `json:"tx_bytes_per_sec"`
 }

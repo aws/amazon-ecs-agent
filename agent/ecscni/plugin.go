@@ -99,7 +99,7 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 	var bridgeResult cnitypes.Result
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
-		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
+		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
 	}
 
 	// Execute all CNI network configurations serially, in the given order.
@@ -162,7 +162,7 @@ func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
 
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
-		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
+		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
 	}
 
 	// Execute all CNI network configurations serially, in the reverse order.
@@ -197,7 +197,7 @@ func (client *cniClient) ReleaseIPResource(ctx context.Context, cfg *Config, tim
 
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
-		NetNS:       fmt.Sprintf(netnsFormat, cfg.ContainerPID),
+		NetNS:       fmt.Sprintf(NetnsFormat, cfg.ContainerPID),
 	}
 
 	seelog.Debugf("[ECSCNI] Releasing the ip resource from ipam db, id: [%s], ip: [%v]", cfg.ID, cfg.IPAMV4Address)

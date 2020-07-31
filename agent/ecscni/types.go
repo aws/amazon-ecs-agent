@@ -34,11 +34,11 @@ const (
 	// defaultAppMeshIfName is the default name of app mesh to setup iptable rules
 	// for app mesh container. IfName is mandatory field to invoke CNI plugin.
 	defaultAppMeshIfName = "aws-appmesh"
-	// netnsFormat is used to construct the path to cotainer network namespace
-	netnsFormat = "/host/proc/%s/ns/net"
 	// ecsSubnet is the available ip addresses to use for task networking
 	ecsSubnet = "169.254.172.0/22"
 
+	// NetnsFormat is used to construct the path to cotainer network namespace
+	NetnsFormat = "/host/proc/%s/ns/net"
 	// ECSIPAMPluginName is the binary of the ipam plugin
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin

@@ -35,8 +35,8 @@ func TestCompatibilityEnabledSuccess(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
-	cfg.TaskCPUMemLimit = config.DefaultEnabled
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.TaskCPUMemLimit = config.BooleanDefaultTrue{Value: config.NotSet}
 
 	agent := &ecsAgent{
 		cfg:                   &cfg,
@@ -63,14 +63,14 @@ func TestCompatibilityEnabledSuccess(t *testing.T) {
 	assert.True(t, cfg.TaskCPUMemLimit.Enabled())
 }
 
-func TestCompatibilityDefaultEnabledFail(t *testing.T) {
+func TestCompatibilityNotSetFail(t *testing.T) {
 	ctrl, creds, state, images, _, _, stateManagerFactory, saveableOptionFactory := setup(t)
 	defer ctrl.Finish()
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
-	cfg.TaskCPUMemLimit = config.DefaultEnabled
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.TaskCPUMemLimit = config.BooleanDefaultTrue{Value: config.NotSet}
 
 	agent := &ecsAgent{
 		cfg:                   &cfg,
@@ -101,8 +101,8 @@ func TestCompatibilityExplicitlyEnabledFail(t *testing.T) {
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.TaskCPUMemLimit = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
 
 	agent := &ecsAgent{
 		cfg:                   &cfg,

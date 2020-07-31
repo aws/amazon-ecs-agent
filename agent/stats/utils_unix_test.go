@@ -25,17 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
-	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
-	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
-	dockerStat := &types.StatsJSON{}
-	json.Unmarshal([]byte(jsonBytes), dockerStat)
-	// empty the PercpuUsage array
-	dockerStat.CPUStats.CPUUsage.PercpuUsage = make([]uint64, 0)
-	_, err := dockerStatsToContainerStats(dockerStat)
-	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
-}
-
 func TestDockerStatsToContainerStats(t *testing.T) {
 	// numCores is a global variable in package agent/stats
 	// which denotes the number of cpu cores
@@ -56,4 +45,15 @@ func TestDockerStatsToContainerStats(t *testing.T) {
 	netStats := containerStats.networkStats
 	assert.NotNil(t, netStats, "networkStats should not be nil")
 	validateNetworkMetrics(t, netStats)
+}
+
+func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
+	inputJsonFile, _ := filepath.Abs("./unix_test_stats.json")
+	jsonBytes, _ := ioutil.ReadFile(inputJsonFile)
+	dockerStat := &types.StatsJSON{}
+	json.Unmarshal([]byte(jsonBytes), dockerStat)
+	// empty the PercpuUsage array
+	dockerStat.CPUStats.CPUUsage.PercpuUsage = make([]uint64, 0)
+	err := validateDockerStats(dockerStat)
+	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
 }

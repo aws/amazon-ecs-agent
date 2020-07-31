@@ -198,10 +198,12 @@
     "NetworkStatsSet":{
       "type":"structure",
       "members":{
+        "rxBytesPerSecond":{"shape":"UDoubleCWStatsSet"},
         "rxBytes":{"shape":"ULongStatsSet"},
         "rxDropped":{"shape":"ULongStatsSet"},
         "rxErrors":{"shape":"ULongStatsSet"},
         "rxPackets":{"shape":"ULongStatsSet"},
+        "txBytesPerSecond":{"shape":"UDoubleCWStatsSet"},
         "txBytes":{"shape":"ULongStatsSet"},
         "txDropped":{"shape":"ULongStatsSet"},
         "txErrors":{"shape":"ULongStatsSet"},
@@ -287,6 +289,25 @@
       "max":10
     },
     "Timestamp":{"type":"timestamp"},
+    "UDouble":{
+      "type":"double",
+      "min":0
+    },
+    "UDoubleCWStatsSet":{
+      "type":"structure",
+      "required":[
+        "min",
+        "max",
+        "sampleCount",
+        "sum"
+      ],
+      "members":{
+        "min":{"shape":"UDouble"},
+        "max":{"shape":"UDouble"},
+        "sampleCount":{"shape":"UInteger"},
+        "sum":{"shape":"UDouble"}
+      }
+    },
     "UInteger":{
       "type":"integer",
       "min":0

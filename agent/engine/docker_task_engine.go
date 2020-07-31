@@ -79,14 +79,15 @@ const (
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
-	logDriverTypeFirelens   = "awsfirelens"
-	logDriverTypeFluentd    = "fluentd"
-	logDriverTag            = "tag"
-	logDriverFluentdAddress = "fluentd-address"
-	dataLogDriverPath       = "/data/firelens/"
-	logDriverAsyncConnect   = "fluentd-async-connect"
-	dataLogDriverSocketPath = "/socket/fluent.sock"
-	socketPathPrefix        = "unix://"
+	logDriverTypeFirelens       = "awsfirelens"
+	logDriverTypeFluentd        = "fluentd"
+	logDriverTag                = "tag"
+	logDriverFluentdAddress     = "fluentd-address"
+	dataLogDriverPath           = "/data/firelens/"
+	logDriverAsyncConnect       = "fluentd-async-connect"
+	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
+	dataLogDriverSocketPath     = "/socket/fluent.sock"
+	socketPathPrefix            = "unix://"
 
 	// fluentTagDockerFormat is the format for the log tag, which is "containerName-firelens-taskID"
 	fluentTagDockerFormat = "%s-firelens-%s"
@@ -457,7 +458,7 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 		// update the container metadata in case the container status/metadata changed during agent restart
 		updateContainerMetadata(&metadata, container.Container, task)
 		engine.imageManager.RecordContainerReference(container.Container)
-		if engine.cfg.ContainerMetadataEnabled && !container.Container.IsMetadataFileUpdated() {
+		if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
 		}
 	}
@@ -520,7 +521,7 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 	}
 
 	// Clean metadata directory for task
-	if engine.cfg.ContainerMetadataEnabled {
+	if engine.cfg.ContainerMetadataEnabled.Enabled() {
 		err := engine.metadataManager.Clean(task.Arn)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: clean task metadata failed: %v", task.Arn, err)
@@ -1061,7 +1062,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
 	// Afterwards add this directory to the container's mounts if file creation was successful
-	if engine.cfg.ContainerMetadataEnabled && !container.IsInternal() {
+	if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.IsInternal() {
 		info, infoErr := engine.client.Info(engine.ctx, dockerclient.InfoTimeout)
 		if infoErr != nil {
 			seelog.Warnf("Task engine [%s]: unable to get docker info : %v",
@@ -1102,6 +1103,7 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
 	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
+	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
 	seelog.Debugf("Applying firelens log config for container %s: %v", container.Name, logConfig)
 	return logConfig
 }
@@ -1138,7 +1140,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	// TODO: Add a state to the apicontainer.Container for the status of the metadata file (Whether it needs update) and
 	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
 	if dockerContainerMD.Error == nil &&
-		engine.cfg.ContainerMetadataEnabled &&
+		engine.cfg.ContainerMetadataEnabled.Enabled() &&
 		!container.IsInternal() {
 		go func() {
 			err := engine.metadataManager.Update(engine.ctx, dockerContainer.DockerID, task, container.Name)
@@ -1264,7 +1266,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	containerInspectOutput *types.ContainerJSON,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
 	cniConfig := &ecscni.Config{
-		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata,
+		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
 	}
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&

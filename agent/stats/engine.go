@@ -18,6 +18,7 @@ package stats
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -65,12 +66,13 @@ type DockerContainerMetadataResolver struct {
 // defined to make testing easier.
 type Engine interface {
 	GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error)
-	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, error)
+	ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error)
 	GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error)
 }
 
 // DockerStatsEngine is used to monitor docker container events and to report
-// utlization metrics of the same.
+// utilization metrics of the same.
+
 type DockerStatsEngine struct {
 	ctx                        context.Context
 	stopEngine                 context.CancelFunc
@@ -87,6 +89,7 @@ type DockerStatsEngine struct {
 	tasksToHealthCheckContainers map[string]map[string]*StatsContainer
 	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
 	tasksToDefinitions map[string]*taskDefinition
+	taskToTaskStats    map[string]*StatsTask
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -100,6 +103,18 @@ func (resolver *DockerContainerMetadataResolver) ResolveTask(dockerID string) (*
 	}
 
 	return task, nil
+}
+
+func (resolver *DockerContainerMetadataResolver) ResolveTaskByARN(taskArn string) (*apitask.Task, error) {
+	if resolver.dockerTaskEngine == nil {
+		return nil, fmt.Errorf("docker task engine uninitialized")
+	}
+	task, found := resolver.dockerTaskEngine.State().TaskByArn(taskArn)
+	if !found {
+		return nil, fmt.Errorf("could not map task arn to task: %s", taskArn)
+	}
+	return task, nil
+
 }
 
 // ResolveContainer resolves the api container object, given container id.
@@ -125,6 +140,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		tasksToContainers:            make(map[string]map[string]*StatsContainer),
 		tasksToHealthCheckContainers: make(map[string]map[string]*StatsContainer),
 		tasksToDefinitions:           make(map[string]*taskDefinition),
+		taskToTaskStats:              make(map[string]*StatsTask),
 		containerChangeEventStream:   containerChangeEventStream,
 	}
 }
@@ -139,6 +155,7 @@ func (engine *DockerStatsEngine) synchronizeState() error {
 	for _, containerID := range listContainersResponse.DockerIDs {
 		engine.addAndStartStatsContainer(containerID)
 	}
+
 	return nil
 }
 
@@ -146,17 +163,38 @@ func (engine *DockerStatsEngine) synchronizeState() error {
 func (engine *DockerStatsEngine) addAndStartStatsContainer(containerID string) {
 	engine.lock.Lock()
 	defer engine.lock.Unlock()
-	statsContainer, err := engine.addContainerUnsafe(containerID)
+	statsContainer, statsTaskContainer, err := engine.addContainerUnsafe(containerID)
 	if err != nil {
 		seelog.Debugf("Adding container to stats watch list failed, container: %s, err: %v", containerID, err)
 		return
 	}
 
-	if engine.config.DisableMetrics || statsContainer == nil {
+	if engine.config.DisableMetrics.Enabled() || statsContainer == nil {
 		return
 	}
 
 	statsContainer.StartStatsCollection()
+
+	task, err := engine.resolver.ResolveTask(containerID)
+	if err != nil {
+		return
+	}
+
+	dockerContainer, errResolveContainer := engine.resolver.ResolveContainer(containerID)
+	if errResolveContainer != nil {
+		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", containerID, err)
+		return
+	}
+
+	if task.IsNetworkModeAWSVPC() {
+		// Start stats collector only for pause container
+		if statsTaskContainer != nil && dockerContainer.Container.Type == apicontainer.ContainerCNIPause {
+			statsTaskContainer.StartStatsCollection()
+		} else {
+			seelog.Debugf("stats task container is nil, cannot start task stats collection")
+		}
+	}
+
 }
 
 // MustInit initializes fields of the DockerStatsEngine object.
@@ -181,7 +219,6 @@ func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecseng
 	if err != nil {
 		return fmt.Errorf("Failed to subscribe to container change event stream, err %v", err)
 	}
-
 	err = engine.synchronizeState()
 	if err != nil {
 		seelog.Warnf("Synchronize the container state failed, err: %v", err)
@@ -191,7 +228,7 @@ func (engine *DockerStatsEngine) MustInit(ctx context.Context, taskEngine ecseng
 	return nil
 }
 
-// Shutdown cleans up the resources after the statas engine.
+// Shutdown cleans up the resources after the stats engine.
 func (engine *DockerStatsEngine) Shutdown() {
 	engine.stopEngine()
 	engine.Disable()
@@ -228,49 +265,83 @@ func (engine *DockerStatsEngine) removeAll() {
 	}
 }
 
+func (engine *DockerStatsEngine) addToStatsTaskMapUnsafe(task *apitask.Task, dockerContainerName string,
+	containerType apicontainer.ContainerType) {
+	var statsTaskContainer *StatsTask
+	if task.IsNetworkModeAWSVPC() && containerType == apicontainer.ContainerCNIPause {
+		// Excluding the pause container
+		numberOfContainers := len(task.Containers) - 1
+		var taskExists bool
+		statsTaskContainer, taskExists = engine.taskToTaskStats[task.Arn]
+		if !taskExists {
+			containerInspect, err := engine.client.InspectContainer(engine.ctx, dockerContainerName,
+				dockerclient.InspectContainerTimeout)
+			if err != nil {
+				return
+			}
+			containerpid := strconv.Itoa(containerInspect.State.Pid)
+			statsTaskContainer, err = newStatsTaskContainer(task.Arn, containerpid, numberOfContainers,
+				engine.resolver, engine.config.PollingMetricsWaitDuration)
+			if err != nil {
+				return
+			}
+			engine.taskToTaskStats[task.Arn] = statsTaskContainer
+		} else {
+			statsTaskContainer.TaskMetadata.NumberContainers = numberOfContainers
+		}
+	}
+}
+
 // addContainerUnsafe adds a container to the map of containers being watched.
-func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsContainer, error) {
+func (engine *DockerStatsEngine) addContainerUnsafe(dockerID string) (*StatsContainer, *StatsTask, error) {
 	// Make sure that this container belongs to a task and that the task
 	// is not terminal.
 	task, err := engine.resolver.ResolveTask(dockerID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not map container to task, ignoring container: %s", dockerID)
+		return nil, nil, errors.Wrapf(err, "could not map container to task, ignoring container: %s", dockerID)
 	}
 
 	if len(task.Arn) == 0 || len(task.Family) == 0 {
-		return nil, errors.Errorf("stats add container: invalid task fields, arn: %s, familiy: %s", task.Arn, task.Family)
+		return nil, nil, errors.Errorf("stats add container: invalid task fields, arn: %s, familiy: %s", task.Arn, task.Family)
 	}
 
 	if task.GetKnownStatus().Terminal() {
-		return nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
+		return nil, nil, errors.Errorf("stats add container: task is terminal, ignoring container: %s, task: %s", dockerID, task.Arn)
 	}
 
 	statsContainer, err := newStatsContainer(dockerID, engine.client, engine.resolver, engine.config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
+		return nil, nil, errors.Wrapf(err, "could not map docker container ID to container, ignoring container: %s", dockerID)
 	}
 
 	seelog.Debugf("Adding container to stats watch list, id: %s, task: %s", dockerID, task.Arn)
 	engine.tasksToDefinitions[task.Arn] = &taskDefinition{family: task.Family, version: task.Version}
 
-	watchStatsContainer := false
-	if !engine.config.DisableMetrics {
-		// Adding container to the map for collecting stats
-		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.containerMetricsMapUnsafe)
+	dockerContainer, errResolveContainer := engine.resolver.ResolveContainer(dockerID)
+	if errResolveContainer != nil {
+		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
 	}
 
-	if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
-		seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
-	} else if dockerContainer.Container.HealthStatusShouldBeReported() {
+	watchStatsContainer := false
+	if !engine.config.DisableMetrics.Enabled() {
+		// Adding container to the map for collecting stats
+		watchStatsContainer = engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer,
+			engine.containerMetricsMapUnsafe)
+		if errResolveContainer == nil {
+			engine.addToStatsTaskMapUnsafe(task, dockerContainer.DockerName, dockerContainer.Container.Type)
+		}
+	}
+
+	if errResolveContainer == nil && dockerContainer.Container.HealthStatusShouldBeReported() {
 		// Track the container health status
 		engine.addToStatsContainerMapUnsafe(task.Arn, dockerID, statsContainer, engine.healthCheckContainerMapUnsafe)
 		seelog.Debugf("Adding container to stats health check watch list, id: %s, task: %s", dockerID, task.Arn)
 	}
 
 	if !watchStatsContainer {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return statsContainer, nil
+	return statsContainer, engine.taskToTaskStats[task.Arn], nil
 }
 
 func (engine *DockerStatsEngine) containerMetricsMapUnsafe() map[string]map[string]*StatsContainer {
@@ -568,7 +639,7 @@ func newDockerContainerMetadataResolver(taskEngine ecsengine.TaskEngine) (*Docke
 func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*ecstcs.ContainerMetric, error) {
 	containerMap, taskExists := engine.tasksToContainers[taskArn]
 	if !taskExists {
-		return nil, fmt.Errorf("Task not found")
+		return nil, fmt.Errorf("task not found")
 	}
 
 	var containerMetrics []*ecstcs.ContainerMetric
@@ -593,6 +664,7 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 			seelog.Infof("cloudwatch metrics for container %v not collected, reason (memory): %v", dockerID, err)
 			continue
 		}
+
 		containerMetric := &ecstcs.ContainerMetric{
 			ContainerName:  &container.containerMetadata.Name,
 			CpuStatsSet:    cpuStatsSet,
@@ -610,9 +682,8 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 		if err != nil {
 			seelog.Warnf("Task not found for container ID: %s", dockerID)
 		} else {
-			// send network stats for default/bridge/nat network modes
-			if !task.IsNetworkModeAWSVPC() &&
-				container.containerMetadata.NetworkMode != hostNetworkMode &&
+			// send network stats for default/bridge/nat/awsvpc network modes
+			if !task.IsNetworkModeAWSVPC() && container.containerMetadata.NetworkMode != hostNetworkMode &&
 				container.containerMetadata.NetworkMode != noneNetworkMode {
 				networkStatsSet, err := container.statsQueue.GetNetworkStatsSet()
 				if err != nil {
@@ -621,9 +692,19 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				} else {
 					containerMetric.NetworkStatsSet = networkStatsSet
 				}
+			} else if task.IsNetworkModeAWSVPC() {
+				taskStatsMap, taskExistsInTaskStats := engine.taskToTaskStats[taskArn]
+				if !taskExistsInTaskStats {
+					return nil, fmt.Errorf("task not found")
+				}
+				networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
+				if err != nil {
+					seelog.Warnf("error getting network stats: %v, task: %v", err, taskArn)
+				} else {
+					containerMetric.NetworkStatsSet = networkStats
+				}
 			}
 		}
-
 		containerMetrics = append(containerMetrics, containerMetric)
 	}
 
@@ -667,19 +748,41 @@ func (engine *DockerStatsEngine) resetStatsUnsafe() {
 }
 
 // ContainerDockerStats returns the last stored raw docker stats object for a container
-func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, error) {
+func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerID string) (*types.StatsJSON, *NetworkStatsPerSec, error) {
 	engine.lock.RLock()
 	defer engine.lock.RUnlock()
 
 	containerIDToStatsContainer, ok := engine.tasksToContainers[taskARN]
+	taskToTaskStats := engine.taskToTaskStats
 	if !ok {
-		return nil, errors.Errorf("stats engine: task '%s' for container '%s' not found",
+		return nil, nil, errors.Errorf("stats engine: task '%s' for container '%s' not found",
 			taskARN, containerID)
 	}
 
 	container, ok := containerIDToStatsContainer[containerID]
 	if !ok {
-		return nil, errors.Errorf("stats engine: container not found: %s", containerID)
+		return nil, nil, errors.Errorf("stats engine: container not found: %s", containerID)
 	}
-	return container.statsQueue.GetLastStat(), nil
+	containerStats := container.statsQueue.GetLastStat()
+	containerNetworkRateStats := container.statsQueue.GetLastNetworkStatPerSec()
+
+	// Insert network stats in container stats
+	task, err := engine.resolver.ResolveTaskByARN(taskARN)
+	if err != nil {
+		return nil, nil, errors.Errorf("stats engine: task '%s' not found",
+			taskARN)
+	}
+
+	if task.IsNetworkModeAWSVPC() {
+		taskStats, ok := taskToTaskStats[taskARN]
+		if ok {
+			taskNetworkStats := taskStats.StatsQueue.GetLastStat().Networks
+			containerStats.Networks = taskNetworkStats
+			containerNetworkRateStats = taskStats.StatsQueue.GetLastNetworkStatPerSec()
+		} else {
+			seelog.Warnf("Network stats not found for container %s", containerID)
+		}
+	}
+
+	return containerStats, containerNetworkRateStats, nil
 }

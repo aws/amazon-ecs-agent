@@ -568,7 +568,7 @@ func TestPostUnmarshalWithCPULimitsFail(t *testing.T) {
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 	}
 	cfg := config.Config{
-		TaskCPUMemLimit: config.ExplicitlyEnabled,
+		TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 	}
 	assert.Error(t, task.PostUnmarshalTask(&cfg, nil, nil, nil, nil))
 	assert.Equal(t, 0, len(task.GetResources()))
