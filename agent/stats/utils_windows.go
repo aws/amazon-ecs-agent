@@ -17,17 +17,11 @@ package stats
 import (
 	"fmt"
 
-	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
 func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats, error) {
-	if numCores == uint64(0) {
-		seelog.Error("Invalid number of cpu cores acquired from the system")
-		return nil, fmt.Errorf("invalid number of cpu cores acquired from the system")
-	}
-
 	cpuUsage := (dockerStats.CPUStats.CPUUsage.TotalUsage * 100) / numCores
 	memoryUsage := dockerStats.MemoryStats.PrivateWorkingSet
 	networkStats := getNetworkStats(dockerStats)
@@ -41,4 +35,11 @@ func dockerStatsToContainerStats(dockerStats *types.StatsJSON) (*ContainerStats,
 		storageWriteBytes: storageWriteBytes,
 		networkStats:      networkStats,
 	}, nil
+}
+
+func validateDockerStats(dockerStats *types.StatsJSON) error {
+	if numCores == uint64(0) {
+		return fmt.Errorf("invalid container statistics reported, no cpu core usage reported")
+	}
+	return nil
 }

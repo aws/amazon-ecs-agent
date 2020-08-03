@@ -36,7 +36,7 @@ func NewTaskStatsResponse(taskARN string,
 	resp := make(map[string]*types.StatsJSON)
 	for _, dockerContainer := range containerMap {
 		containerID := dockerContainer.DockerID
-		dockerStats, err := statsEngine.ContainerDockerStats(taskARN, containerID)
+		dockerStats, _, err := statsEngine.ContainerDockerStats(taskARN, containerID)
 		if err != nil {
 			seelog.Warnf("V2 task stats response: Unable to get stats for container '%s' for task '%s': %v",
 				containerID, taskARN, err)

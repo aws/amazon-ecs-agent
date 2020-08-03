@@ -24,17 +24,21 @@ const (
 	_ Conditional = iota
 	ExplicitlyEnabled
 	ExplicitlyDisabled
-	DefaultEnabled
+	NotSet
 )
 
+type BooleanDefaultTrue struct {
+	Value Conditional
+}
+
 // Enabled is a convenience function for when consumers don't care if the value is implicit or explicit
-func (b Conditional) Enabled() bool {
-	return b == ExplicitlyEnabled || b == DefaultEnabled
+func (b BooleanDefaultTrue) Enabled() bool {
+	return b.Value == ExplicitlyEnabled || b.Value == NotSet
 }
 
 // MarshalJSON is used to serialize the type to json, per the Marshaller interface
-func (b Conditional) MarshalJSON() ([]byte, error) {
-	switch b {
+func (b BooleanDefaultTrue) MarshalJSON() ([]byte, error) {
+	switch b.Value {
 	case ExplicitlyEnabled:
 		return json.Marshal(true)
 	case ExplicitlyDisabled:
@@ -45,7 +49,7 @@ func (b Conditional) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON is used to deserialize json types into Conditional, per the Unmarshaller interface
-func (b *Conditional) UnmarshalJSON(jsonData []byte) error {
+func (b *BooleanDefaultTrue) UnmarshalJSON(jsonData []byte) error {
 	jsonString := string(jsonData)
 	jsonBool, err := strconv.ParseBool(jsonString)
 	if err != nil && jsonString != "null" {
@@ -53,11 +57,51 @@ func (b *Conditional) UnmarshalJSON(jsonData []byte) error {
 	}
 
 	if jsonString == "" || jsonString == "null" {
-		*b = DefaultEnabled
+		b.Value = NotSet
 	} else if jsonBool {
-		*b = ExplicitlyEnabled
+		b.Value = ExplicitlyEnabled
 	} else {
-		*b = ExplicitlyDisabled
+		b.Value = ExplicitlyDisabled
+	}
+
+	return nil
+}
+
+type BooleanDefaultFalse struct {
+	Value Conditional
+}
+
+/// Enabled is a convenience function for when consumers don't care if the value is implicit or explicit
+func (b BooleanDefaultFalse) Enabled() bool {
+	return b.Value == ExplicitlyEnabled
+}
+
+// MarshalJSON is used to serialize the type to json, per the Marshaller interface
+func (b BooleanDefaultFalse) MarshalJSON() ([]byte, error) {
+	switch b.Value {
+	case ExplicitlyEnabled:
+		return json.Marshal(true)
+	case ExplicitlyDisabled:
+		return json.Marshal(false)
+	default:
+		return json.Marshal(nil)
+	}
+}
+
+// UnmarshalJSON is used to deserialize json types into Conditional, per the Unmarshaller interface
+func (b *BooleanDefaultFalse) UnmarshalJSON(jsonData []byte) error {
+	jsonString := string(jsonData)
+	jsonBool, err := strconv.ParseBool(jsonString)
+	if err != nil && jsonString != "null" {
+		return err
+	}
+
+	if jsonString == "" || jsonString == "null" {
+		b.Value = NotSet
+	} else if jsonBool {
+		b.Value = ExplicitlyEnabled
+	} else {
+		b.Value = ExplicitlyDisabled
 	}
 
 	return nil

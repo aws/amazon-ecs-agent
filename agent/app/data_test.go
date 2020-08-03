@@ -92,7 +92,7 @@ func TestLoadDataNoPreviousState(t *testing.T) {
 	defer cleanup()
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(cfg *config.Config, options ...statemanager.Option) {
@@ -128,7 +128,7 @@ func TestLoadDataLoadFromBoltDB(t *testing.T) {
 	populateBoltDB(dataClient, t)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
@@ -159,7 +159,7 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 	generateStateFile(stateManager, t)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	stateManagerFactory.EXPECT().NewStateManager(gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(cfg *config.Config, options ...statemanager.Option) {

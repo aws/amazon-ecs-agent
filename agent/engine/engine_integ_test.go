@@ -221,7 +221,7 @@ func TestHostVolumeMount(t *testing.T) {
 func TestSweepContainer(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Minute
-	cfg.ContainerMetadataEnabled = true
+	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 

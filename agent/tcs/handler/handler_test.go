@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	tcsclient "github.com/aws/amazon-ecs-agent/agent/tcs/client"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -67,8 +68,8 @@ func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return req.Metadata, req.TaskMetrics, nil
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -80,8 +81,8 @@ func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstc
 func TestDisableMetrics(t *testing.T) {
 	params := TelemetrySessionParams{
 		Cfg: &config.Config{
-			DisableMetrics:           true,
-			DisableDockerHealthCheck: true,
+			DisableMetrics:           config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		},
 	}
 

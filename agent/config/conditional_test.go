@@ -22,32 +22,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConditional(t *testing.T) {
-	x := DefaultEnabled
-	y := ExplicitlyEnabled
-	z := ExplicitlyDisabled
+func TestBooleanDefaultTrue(t *testing.T) {
+	x := BooleanDefaultTrue{Value: NotSet}
+	y := BooleanDefaultTrue{Value: ExplicitlyEnabled}
+	z := BooleanDefaultTrue{Value: ExplicitlyDisabled}
 
-	assert.True(t, x.Enabled(), "DefaultEnabled is enabled")
+	assert.True(t, x.Enabled(), "NotSet is enabled")
 	assert.True(t, y.Enabled(), "ExplicitlyEnabled is enabled")
 	assert.False(t, z.Enabled(), "ExplicitlyDisabled is not enabled")
 }
 
-func TestConditionalImplements(t *testing.T) {
-	assert.Implements(t, (*json.Marshaler)(nil), (Conditional)(1))
-	assert.Implements(t, (*json.Unmarshaler)(nil), (*Conditional)(nil))
+func TestBooleanDefaultTrueImplements(t *testing.T) {
+	assert.Implements(t, (*json.Marshaler)(nil), BooleanDefaultTrue{Value: NotSet})
+	assert.Implements(t, (*json.Unmarshaler)(nil), (*BooleanDefaultTrue)(nil))
 }
 
 // main conversion cases for Conditional marshalling
 var cases = []struct {
-	defaultBool Conditional
+	defaultBool BooleanDefaultTrue
 	bytes       []byte
 }{
-	{ExplicitlyEnabled, []byte("true")},
-	{ExplicitlyDisabled, []byte("false")},
-	{DefaultEnabled, []byte("null")},
+	{BooleanDefaultTrue{Value: ExplicitlyEnabled}, []byte("true")},
+	{BooleanDefaultTrue{Value: ExplicitlyDisabled}, []byte("false")},
+	{BooleanDefaultTrue{Value: NotSet}, []byte("null")},
 }
 
-func TestConditionalMarshal(t *testing.T) {
+func TestBooleanDefaultTrueMarshal(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(string(tc.bytes), func(t *testing.T) {
 			m, err := json.Marshal(tc.defaultBool)
@@ -57,10 +57,10 @@ func TestConditionalMarshal(t *testing.T) {
 	}
 }
 
-func TestConditionalUnmarshal(t *testing.T) {
+func TestBooleanDefaultTrueUnmarshal(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(string(tc.bytes), func(t *testing.T) {
-			var target Conditional
+			var target BooleanDefaultTrue
 			err := json.Unmarshal(tc.bytes, &target)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.defaultBool, target)

@@ -272,6 +272,8 @@ type NetworkStatsSet struct {
 
 	RxBytes *ULongStatsSet `locationName:"rxBytes" type:"structure"`
 
+	RxBytesPerSecond *UDoubleCWStatsSet `locationName:"rxBytesPerSecond" type:"structure"`
+
 	RxDropped *ULongStatsSet `locationName:"rxDropped" type:"structure"`
 
 	RxErrors *ULongStatsSet `locationName:"rxErrors" type:"structure"`
@@ -279,6 +281,8 @@ type NetworkStatsSet struct {
 	RxPackets *ULongStatsSet `locationName:"rxPackets" type:"structure"`
 
 	TxBytes *ULongStatsSet `locationName:"txBytes" type:"structure"`
+
+	TxBytesPerSecond *UDoubleCWStatsSet `locationName:"txBytesPerSecond" type:"structure"`
 
 	TxDropped *ULongStatsSet `locationName:"txDropped" type:"structure"`
 
@@ -305,6 +309,11 @@ func (s *NetworkStatsSet) Validate() error {
 			invalidParams.AddNested("RxBytes", err.(request.ErrInvalidParams))
 		}
 	}
+	if s.RxBytesPerSecond != nil {
+		if err := s.RxBytesPerSecond.Validate(); err != nil {
+			invalidParams.AddNested("RxBytesPerSecond", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.RxDropped != nil {
 		if err := s.RxDropped.Validate(); err != nil {
 			invalidParams.AddNested("RxDropped", err.(request.ErrInvalidParams))
@@ -323,6 +332,11 @@ func (s *NetworkStatsSet) Validate() error {
 	if s.TxBytes != nil {
 		if err := s.TxBytes.Validate(); err != nil {
 			invalidParams.AddNested("TxBytes", err.(request.ErrInvalidParams))
+		}
+	}
+	if s.TxBytesPerSecond != nil {
+		if err := s.TxBytesPerSecond.Validate(); err != nil {
+			invalidParams.AddNested("TxBytesPerSecond", err.(request.ErrInvalidParams))
 		}
 	}
 	if s.TxDropped != nil {
@@ -673,6 +687,54 @@ func (s *TaskMetric) Validate() error {
 				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ContainerMetrics", i), err.(request.ErrInvalidParams))
 			}
 		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+type UDoubleCWStatsSet struct {
+	_ struct{} `type:"structure"`
+
+	// Max is a required field
+	Max *float64 `locationName:"max" type:"double" required:"true"`
+
+	// Min is a required field
+	Min *float64 `locationName:"min" type:"double" required:"true"`
+
+	// SampleCount is a required field
+	SampleCount *int64 `locationName:"sampleCount" type:"integer" required:"true"`
+
+	// Sum is a required field
+	Sum *float64 `locationName:"sum" type:"double" required:"true"`
+}
+
+// String returns the string representation
+func (s UDoubleCWStatsSet) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s UDoubleCWStatsSet) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *UDoubleCWStatsSet) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "UDoubleCWStatsSet"}
+	if s.Max == nil {
+		invalidParams.Add(request.NewErrParamRequired("Max"))
+	}
+	if s.Min == nil {
+		invalidParams.Add(request.NewErrParamRequired("Min"))
+	}
+	if s.SampleCount == nil {
+		invalidParams.Add(request.NewErrParamRequired("SampleCount"))
+	}
+	if s.Sum == nil {
+		invalidParams.Add(request.NewErrParamRequired("Sum"))
 	}
 
 	if invalidParams.Len() > 0 {

@@ -56,8 +56,8 @@ func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return nil, nil, fmt.Errorf("uninitialized")
 }
 
-func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*mockStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*mockStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -70,8 +70,8 @@ func (*emptyStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstc
 	return nil, nil, fmt.Errorf("empty stats")
 }
 
-func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*emptyStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*emptyStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -90,8 +90,8 @@ func (*idleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs
 	return metadata, []*ecstcs.TaskMetric{}, nil
 }
 
-func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*idleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*idleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {
@@ -118,8 +118,8 @@ func (engine *nonIdleStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata,
 	return metadata, taskMetrics, nil
 }
 
-func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*nonIdleStatsEngine) ContainerDockerStats(taskARN string, id string) (*types.StatsJSON, *stats.NetworkStatsPerSec, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 func (*nonIdleStatsEngine) GetTaskHealthMetrics() (*ecstcs.HealthMetadata, []*ecstcs.TaskHealth, error) {

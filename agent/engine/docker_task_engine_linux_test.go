@@ -61,7 +61,7 @@ const (
 
 func init() {
 	defaultConfig = config.DefaultConfig()
-	defaultConfig.TaskCPUMemLimit = config.ExplicitlyDisabled
+	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
 // TestResourceContainerProgression tests the container progression based on a
@@ -161,7 +161,7 @@ func TestDeleteTask(t *testing.T) {
 	require.NoError(t, dataClient.SaveTask(task))
 
 	cfg := defaultConfig
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 
 	taskEngine := &DockerTaskEngine{
@@ -217,7 +217,7 @@ func TestDeleteTaskBranchENIEnabled(t *testing.T) {
 	task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
 	task.AddResource("cgroup", cgroupResource)
 	cfg := defaultConfig
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
 
 	taskEngine := &DockerTaskEngine{
@@ -279,14 +279,14 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 		metadataCreateError error
 		metadataUpdateError error
 		metadataCleanError  error
-		taskCPULimit        config.Conditional
+		taskCPULimit        config.BooleanDefaultTrue
 	}{
 		{
 			name:                "Task CPU Limit Succeeds",
 			metadataCreateError: nil,
 			metadataUpdateError: nil,
 			metadataCleanError:  nil,
-			taskCPULimit:        config.ExplicitlyEnabled,
+			taskCPULimit:        config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 		},
 	}
 
@@ -294,7 +294,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
 			metadataConfig.TaskCPUMemLimit = tc.taskCPULimit
-			metadataConfig.ContainerMetadataEnabled = true
+			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(

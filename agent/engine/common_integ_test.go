@@ -46,7 +46,7 @@ import (
 
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ImagePullBehavior = config.ImagePullPreferCachedBehavior
 	return cfg
 }
