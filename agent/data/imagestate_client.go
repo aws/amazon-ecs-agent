@@ -27,14 +27,14 @@ func (c *client) SaveImageState(img *image.ImageState) error {
 	if id == "" {
 		return errors.New("failed to generate database image id")
 	}
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(imagesBucketName))
 		return putObject(b, id, img)
 	})
 }
 
 func (c *client) DeleteImageState(id string) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(imagesBucketName))
 		return b.Delete([]byte(id))
 	})

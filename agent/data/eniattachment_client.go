@@ -28,14 +28,14 @@ func (c *client) SaveENIAttachment(eni *apieni.ENIAttachment) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(eniAttachmentsBucketName))
 		return putObject(b, id, eni)
 	})
 }
 
 func (c *client) DeleteENIAttachment(id string) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(eniAttachmentsBucketName))
 		return b.Delete([]byte(id))
 	})

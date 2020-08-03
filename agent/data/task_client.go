@@ -29,7 +29,7 @@ func (c *client) SaveTask(task *apitask.Task) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(tasksBucketName))
 		return putObject(b, id, task)
 	})
@@ -37,7 +37,7 @@ func (c *client) SaveTask(task *apitask.Task) error {
 
 // DeleteTask deletes a task from the task bucket.
 func (c *client) DeleteTask(id string) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(tasksBucketName))
 		return b.Delete([]byte(id))
 	})

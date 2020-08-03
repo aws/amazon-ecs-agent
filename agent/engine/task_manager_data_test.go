@@ -126,15 +126,7 @@ func TestHandleContainerStateChangeSaveData(t *testing.T) {
 			shouldSaveContainer: true,
 		},
 		{
-			name:                "redundant container state change with metadata update is saved",
-			knownState:          apicontainerstatus.ContainerRunning,
-			nextState:           apicontainerstatus.ContainerRunning,
-			taskKnownState:      apitaskstatus.TaskRunning,
-			taskDesiredState:    apitaskstatus.TaskRunning,
-			shouldSaveContainer: true,
-		},
-		{
-			name:             "redundant container state change without metadata update is not saved",
+			name:             "redundant container state change is not saved",
 			knownState:       apicontainerstatus.ContainerCreated,
 			nextState:        apicontainerstatus.ContainerCreated,
 			taskKnownState:   apitaskstatus.TaskCreated,
