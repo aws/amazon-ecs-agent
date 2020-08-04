@@ -207,9 +207,11 @@ func parseAdditionalLocalRoutes(errs []error) ([]cnitypes.IPNet, []error) {
 func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
 	boolDefaultFalseCofig := BooleanDefaultFalse{Value: NotSet}
 	configString := os.Getenv(envVarName)
-	err := json.Unmarshal([]byte(configString), &boolDefaultFalseCofig)
-	if err != nil {
-		seelog.Warnf("Invalid format for \"%s\", expected an integer. err %v", envVarName, err)
+	if configString != "" {
+		err := json.Unmarshal([]byte(configString), &boolDefaultFalseCofig)
+		if err != nil {
+			seelog.Warnf("Invalid format for \"%s\", expected a boolean. err %v", envVarName, err)
+		}
 	}
 	return boolDefaultFalseCofig
 }
@@ -217,9 +219,11 @@ func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
 func parseBooleanDefaultTrueConfig(envVarName string) BooleanDefaultTrue {
 	boolDefaultTrueCofig := BooleanDefaultTrue{Value: NotSet}
 	configString := os.Getenv(envVarName)
-	err := json.Unmarshal([]byte(configString), &boolDefaultTrueCofig)
-	if err != nil {
-		seelog.Warnf("Invalid format for \"%s\", expected an integer. err %v", envVarName, err)
+	if configString != "" {
+		err := json.Unmarshal([]byte(configString), &boolDefaultTrueCofig)
+		if err != nil {
+			seelog.Warnf("Invalid format for \"%s\", expected a boolean. err %v", envVarName, err)
+		}
 	}
 	return boolDefaultTrueCofig
 }
