@@ -1322,7 +1322,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	}
 
 	var resp types.ContainerStats
-	if !dg.config.PollMetrics {
+	if !dg.config.PollMetrics.Enabled() {
 		// Streaming metrics is the default behavior
 		seelog.Infof("DockerGoClient: Starting streaming metrics for container %s", id)
 		go func() {

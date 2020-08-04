@@ -38,34 +38,34 @@ func TestConfigDefault(t *testing.T) {
 
 	assert.Equal(t, "unix:///var/run/docker.sock", cfg.DockerEndpoint, "Default docker endpoint set incorrectly")
 	assert.Equal(t, "/data/", cfg.DataDir, "Default datadir set incorrectly")
-	assert.False(t, cfg.DisableMetrics, "Default disablemetrics set incorrectly")
+	assert.False(t, cfg.DisableMetrics.Enabled(), "Default disablemetrics set incorrectly")
 	assert.Equal(t, 5, len(cfg.ReservedPorts), "Default reserved ports set incorrectly")
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.Equal(t, 3*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
-	assert.False(t, cfg.PrivilegedDisabled, "Default PrivilegedDisabled set incorrectly")
+	assert.False(t, cfg.PrivilegedDisabled.Enabled(), "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
 	assert.Equal(t, 3*time.Hour, cfg.TaskCleanupWaitDuration, "Default task cleanup wait duration set incorrectly")
-	assert.False(t, cfg.TaskENIEnabled, "TaskENIEnabled set incorrectly")
-	assert.False(t, cfg.TaskIAMRoleEnabled, "TaskIAMRoleEnabled set incorrectly")
+	assert.False(t, cfg.TaskENIEnabled.Enabled(), "TaskENIEnabled set incorrectly")
+	assert.False(t, cfg.TaskIAMRoleEnabled.Enabled(), "TaskIAMRoleEnabled set incorrectly")
 	assert.False(t, cfg.TaskIAMRoleEnabledForNetworkHost, "TaskIAMRoleEnabledForNetworkHost set incorrectly")
-	assert.Equal(t, DefaultEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be DefaultEnabled")
+	assert.Equal(t, NotSet, cfg.TaskCPUMemLimit.Value, "TaskCPUMemLimit should be NotSet")
 	assert.False(t, cfg.CredentialsAuditLogDisabled, "CredentialsAuditLogDisabled set incorrectly")
 	assert.Equal(t, defaultCredentialsAuditLogFile, cfg.CredentialsAuditLogFile, "CredentialsAuditLogFile is set incorrectly")
-	assert.False(t, cfg.ImageCleanupDisabled, "ImageCleanupDisabled default is set incorrectly")
+	assert.False(t, cfg.ImageCleanupDisabled.Enabled(), "ImageCleanupDisabled default is set incorrectly")
 	assert.Equal(t, DefaultImageDeletionAge, cfg.MinimumImageDeletionAge, "MinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultNonECSImageDeletionAge, cfg.NonECSMinimumImageDeletionAge, "NonECSMinimumImageDeletionAge default is set incorrectly")
 	assert.Equal(t, DefaultImageCleanupTimeInterval, cfg.ImageCleanupInterval, "ImageCleanupInterval default is set incorrectly")
 	assert.Equal(t, DefaultNumImagesToDeletePerCycle, cfg.NumImagesToDeletePerCycle, "NumImagesToDeletePerCycle default is set incorrectly")
 	assert.Equal(t, defaultCNIPluginsPath, cfg.CNIPluginsPath, "CNIPluginsPath default is set incorrectly")
-	assert.False(t, cfg.AWSVPCBlockInstanceMetdata, "AWSVPCBlockInstanceMetdata default is incorrectly set")
+	assert.False(t, cfg.AWSVPCBlockInstanceMetdata.Enabled(), "AWSVPCBlockInstanceMetdata default is incorrectly set")
 	assert.Equal(t, "/var/lib/ecs", cfg.DataDirOnHost, "Default DataDirOnHost set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataSteadyStateRate, cfg.TaskMetadataSteadyStateRate,
 		"Default TaskMetadataSteadyStateRate is set incorrectly")
 	assert.Equal(t, DefaultTaskMetadataBurstRate, cfg.TaskMetadataBurstRate,
 		"Default TaskMetadataBurstRate is set incorrectly")
-	assert.False(t, cfg.SharedVolumeMatchFullConfig, "Default SharedVolumeMatchFullConfig set incorrectly")
+	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 	assert.Equal(t, defaultCgroupCPUPeriod, cfg.CgroupCPUPeriod, "CFS cpu period set incorrectly")
 }
 
@@ -121,7 +121,7 @@ func TestConfigFromFile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, expectedLocalRoute.IP, cfg.AWSVPCAdditionalLocalRoutes[0].IP, "should match expected route IP")
 	assert.Equal(t, expectedLocalRoute.Mask, cfg.AWSVPCAdditionalLocalRoutes[0].Mask, "should match expected route Mask")
-	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit, "TaskCPUMemLimit should be explicitly enabled")
+	assert.Equal(t, ExplicitlyEnabled, cfg.TaskCPUMemLimit.Value, "TaskCPUMemLimit should be explicitly enabled")
 }
 
 // TestDockerAuthMergeFromFile tests docker auth read from file correctly after merge
@@ -201,7 +201,7 @@ func TestENITrunkingEnabled(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg.platformOverrides()
-	assert.True(t, cfg.ENITrunkingEnabled, "ENI trunking should be enabled")
+	assert.True(t, cfg.ENITrunkingEnabled.Enabled(), "ENI trunking should be enabled")
 }
 
 // TestENITrunkingDisabled tests that when task networking is enabled, eni trunking can be disabled
@@ -213,7 +213,7 @@ func TestENITrunkingDisabled(t *testing.T) {
 
 	defer setTestEnv("ECS_ENABLE_HIGH_DENSITY_ENI", "false")()
 	cfg.platformOverrides()
-	assert.False(t, cfg.ENITrunkingEnabled, "ENI trunking should be disabled")
+	assert.False(t, cfg.ENITrunkingEnabled.Enabled(), "ENI trunking should be disabled")
 }
 
 // setupFileConfiguration create a temp file store the configuration

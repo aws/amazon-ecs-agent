@@ -135,7 +135,7 @@ var (
 
 func init() {
 	defaultConfig = config.DefaultConfig()
-	defaultConfig.TaskCPUMemLimit = config.ExplicitlyDisabled
+	defaultConfig.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 }
 
 func getCreatedContainerName() string {
@@ -211,8 +211,8 @@ func TestBatchContainerHappyPath(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			metadataConfig := defaultConfig
-			metadataConfig.TaskCPUMemLimit = tc.taskCPULimit
-			metadataConfig.ContainerMetadataEnabled = true
+			metadataConfig.TaskCPUMemLimit.Value = tc.taskCPULimit
+			metadataConfig.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 			ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager := mocks(
@@ -725,7 +725,7 @@ func TestCreateContainerMetadata(t *testing.T) {
 			defer ctrl.Finish()
 
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-			taskEngine.cfg.ContainerMetadataEnabled = true
+			taskEngine.cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 			sleepTask := testdata.LoadTask("sleep5")
 			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
@@ -1376,7 +1376,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	defer cancel()
 
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	cfg.ENIPauseContainerCleanupDelaySeconds = expectedDelaySeconds
 
 	delayedChan := make(chan time.Duration, 1)
@@ -1663,7 +1663,7 @@ func TestUpdateContainerReference(t *testing.T) {
 // during task engine init, metadata file updated
 func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	conf := &defaultConfig
-	conf.ContainerMetadataEnabled = true
+	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager := mocks(t, ctx, conf)
@@ -1672,7 +1672,7 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	var metadataUpdateWG sync.WaitGroup
 	metadataUpdateWG.Add(1)
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled, "ContainerMetadataEnabled set to false.")
+	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled.Enabled(), "ContainerMetadataEnabled set to false.")
 
 	taskEngine._time = nil
 	state := taskEngine.State()
@@ -1904,7 +1904,7 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	taskNotStarted.Arn = "task_Not_started"
 
 	conf := &defaultConfig
-	conf.ContainerMetadataEnabled = false
+	conf.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
@@ -2846,6 +2846,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
 		expectedFluentdAsyncConnect    string
+		expectedSubSecondPrecision     string
 		expectedIPAddress              string
 		expectedPort                   string
 	}{
@@ -2855,6 +2856,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarBridgeMode,
 			expectedPort:                   envVarPort,
@@ -2865,6 +2867,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarBridgeMode,
 			expectedPort:                   envVarPort,
@@ -2875,6 +2878,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarAWSVPCMode,
 			expectedPort:                   envVarPort,
@@ -2899,6 +2903,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
 					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
 					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+					assert.Equal(t, tc.expectedSubSecondPrecision, hostConfig.LogConfig.Config["fluentd-sub-second-precision"])
 					assert.Contains(t, config.Env, tc.expectedIPAddress)
 					assert.Contains(t, config.Env, tc.expectedPort)
 				})

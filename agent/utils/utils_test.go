@@ -16,6 +16,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"errors"
 	"sort"
 	"testing"
@@ -37,10 +38,19 @@ func TestDefaultIfBlank(t *testing.T) {
 	assert.Equal(t, defaultValue, result)
 }
 
+type dummyStruct struct {
+	// no contents
+}
+
+func (d dummyStruct) MarshalJSON([]byte, error) {
+	json.Marshal(nil)
+}
+
 func TestZeroOrNil(t *testing.T) {
 	type ZeroTest struct {
-		testInt int
-		TestStr string
+		testInt     int
+		TestStr     string
+		testNilJson dummyStruct
 	}
 
 	var strMap map[string]string
@@ -55,6 +65,7 @@ func TestZeroOrNil(t *testing.T) {
 		{"", true, "\"\" is the string zerovalue"},
 		{ZeroTest{}, true, "ZeroTest zero-value should be zero"},
 		{ZeroTest{TestStr: "asdf"}, false, "ZeroTest with a field populated isn't zero"},
+		{ZeroTest{testNilJson: dummyStruct{}}, true, "nil is nil"},
 		{1, false, "1 is not 0"},
 		{[]uint16{1, 2, 3}, false, "[1,2,3] is not zero"},
 		{[]uint16{}, true, "[] is zero"},
@@ -70,6 +81,7 @@ func TestZeroOrNil(t *testing.T) {
 			assert.Equal(t, tc.expected, ZeroOrNil(tc.param), tc.name)
 		})
 	}
+
 }
 
 func TestSlicesDeepEqual(t *testing.T) {

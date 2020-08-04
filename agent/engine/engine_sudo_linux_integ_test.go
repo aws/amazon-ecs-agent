@@ -65,7 +65,7 @@ const (
 func TestStartStopWithCgroup(t *testing.T) {
 	cfg := defaultTestConfigIntegTest()
 	cfg.TaskCleanupWaitDuration = 1 * time.Second
-	cfg.TaskCPUMemLimit = config.ExplicitlyEnabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyEnabled
 	cfg.CgroupPath = "/cgroup"
 
 	taskEngine, done, _ := setup(cfg, nil, t)

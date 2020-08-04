@@ -56,11 +56,11 @@ func TestCapabilities(t *testing.T) {
 			dockerclient.GelfDriver,
 			dockerclient.FluentdDriver,
 		},
-		PrivilegedDisabled:         false,
-		SELinuxCapable:             true,
-		AppArmorCapable:            true,
-		TaskENIEnabled:             true,
-		AWSVPCBlockInstanceMetdata: true,
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
 	}
 
@@ -190,7 +190,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 	defer ctrl.Finish()
 
 	conf := &config.Config{
-		TaskIAMRoleEnabled: true,
+		TaskIAMRoleEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -234,7 +234,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	conf := &config.Config{
-		TaskIAMRoleEnabled: true,
+		TaskIAMRoleEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -372,8 +372,8 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
 			dockerclient.JSONFileDriver,
 		},
-		TaskENIEnabled:             false,
-		AWSVPCBlockInstanceMetdata: true,
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -442,8 +442,8 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	conf := &config.Config{
-		OverrideAWSLogsExecutionRole: true,
-		TaskENIEnabled:               true,
+		OverrideAWSLogsExecutionRole: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:               config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -486,7 +486,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_22}
@@ -529,7 +529,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.DefaultEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.NotSet}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
@@ -572,7 +572,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	conf := &config.Config{TaskCPUMemLimit: config.ExplicitlyEnabled}
+	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
@@ -661,7 +661,7 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 	defer cancel()
 	agent := &ecsAgent{
 		ctx:          ctx,
-		cfg:          &config.Config{DisableDockerHealthCheck: true},
+		cfg:          &config.Config{DisableDockerHealthCheck: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}},
 		dockerClient: client,
 		pauseLoader:  mockPauseLoader,
 		mobyPlugins:  mockMobyPlugins,

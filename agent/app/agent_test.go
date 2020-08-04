@@ -108,7 +108,7 @@ func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -134,7 +134,7 @@ func TestDoStartMinimumSupportedDockerVersionError(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -174,7 +174,7 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -220,7 +220,7 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	mockEC2Metadata.EXPECT().OutpostARN().Return("", nil)
 
 	cfg := getTestConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	ctx, cancel := context.WithCancel(context.TODO())
 	// Cancel the context to cancel async routines
 	defer cancel()
@@ -342,8 +342,8 @@ func TestDoStartHappyPath(t *testing.T) {
 	)
 
 	cfg := getTestConfig()
-	cfg.ContainerMetadataEnabled = true
-	cfg.Checkpoint = true
+	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 
@@ -401,7 +401,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	expectedInstanceID := "inst-1"
 	gomock.InOrder(
 		saveableOptionFactory.EXPECT().AddSaveable("TaskEngine", gomock.Any()).Return(nil),
@@ -455,7 +455,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	expectedInstanceID := "inst-1"
 
 	gomock.InOrder(
@@ -520,7 +520,7 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Cluster = "default"
 	ec2InstanceID := "inst-1"
 
@@ -577,7 +577,7 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
@@ -624,7 +624,7 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
@@ -671,7 +671,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	cfg := getTestConfig()
-	cfg.Checkpoint = true
+	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Cluster = testCluster
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
 
@@ -1429,7 +1429,7 @@ func TestSaveMetadata(t *testing.T) {
 
 func getTestConfig() config.Config {
 	cfg := config.DefaultConfig()
-	cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 	return cfg
 }
 

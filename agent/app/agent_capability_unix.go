@@ -88,7 +88,7 @@ func (agent *ecsAgent) appendNvidiaDriverVersionAttribute(capabilities []*ecs.At
 }
 
 func (agent *ecsAgent) appendENITrunkingCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-	if !agent.cfg.ENITrunkingEnabled {
+	if !agent.cfg.ENITrunkingEnabled.Enabled() {
 		return capabilities
 	}
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskENITrunkingAttributeSuffix)

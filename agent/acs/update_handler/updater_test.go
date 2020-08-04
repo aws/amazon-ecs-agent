@@ -50,7 +50,7 @@ func ptr(i interface{}) interface{} {
 func mocks(t *testing.T, cfg *config.Config) (*updater, *gomock.Controller, *config.Config, *mock_client.MockClientServer, *mock_http.MockRoundTripper) {
 	if cfg == nil {
 		cfg = &config.Config{
-			UpdatesEnabled:    true,
+			UpdatesEnabled:    config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 			UpdateDownloadDir: filepath.Clean("/tmp/test/"),
 		}
 	}
@@ -91,7 +91,7 @@ func mockOS() func() {
 }
 func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 	u, ctrl, _, mockacs, _ := mocks(t, &config.Config{
-		UpdatesEnabled: false,
+		UpdatesEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 	})
 	defer ctrl.Finish()
 
@@ -116,7 +116,7 @@ func TestStageUpdateWithUpdatesDisabled(t *testing.T) {
 
 func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 	u, ctrl, cfg, mockacs, _ := mocks(t, &config.Config{
-		UpdatesEnabled: false,
+		UpdatesEnabled: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
 	})
 	defer ctrl.Finish()
 

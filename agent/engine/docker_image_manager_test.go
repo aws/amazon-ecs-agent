@@ -1113,7 +1113,7 @@ func TestNonECSImageAndContainersCleanupRemoveImage(t *testing.T) {
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1169,7 +1169,7 @@ func TestNonECSImageAndContainersCleanupRemoveImage_OneImageThreeTags(t *testing
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1229,7 +1229,7 @@ func TestNonECSImageAndContainersCleanupRemoveImage_DontDeleteExcludedImage(t *t
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 		imageCleanupExclusionList:          []string{"tester"},
 	}
@@ -1287,7 +1287,7 @@ func TestNonECSImageAndContainerCleanupRemoveImage_DontDeleteNotOldEnoughImage(t
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 		nonECSMinimumAgeBeforeDeletion:     time.Hour * 100,
 	}
@@ -1341,7 +1341,7 @@ func TestNonECSImageAndContainerCleanupRemoveImage_DeleteOldEnoughImage(t *testi
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 		nonECSMinimumAgeBeforeDeletion:     time.Hour * 3,
 	}
@@ -1396,7 +1396,7 @@ func TestNonECSImageAndContainersCleanupRemoveImage_DontDeleteECSImages(t *testi
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1460,7 +1460,7 @@ func TestNonECSImageAndContainers_RemoveDeadContainer(t *testing.T) {
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1517,7 +1517,7 @@ func TestNonECSImageAndContainersCleanup_RemoveOldCreatedContainer(t *testing.T)
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1573,7 +1573,7 @@ func TestNonECSImageAndContainersCleanup_DontRemoveContainerWithInvalidFinishedT
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())
@@ -1630,7 +1630,7 @@ func TestNonECSImageAndContainersCleanup_DoNotRemoveNewlyCreatedContainer(t *tes
 		numImagesToDelete:                  config.DefaultNumImagesToDeletePerCycle,
 		numNonECSContainersToDelete:        10,
 		imageCleanupTimeInterval:           config.DefaultImageCleanupTimeInterval,
-		deleteNonECSImagesEnabled:          true,
+		deleteNonECSImagesEnabled:          config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 		nonECSContainerCleanupWaitDuration: time.Hour * 3,
 	}
 	imageManager.SetDataClient(data.NewNoopClient())

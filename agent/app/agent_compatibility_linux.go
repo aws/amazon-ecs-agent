@@ -52,12 +52,12 @@ func (agent *ecsAgent) checkCompatibility(engine engine.TaskEngine) error {
 		return nil
 	}
 
-	if agent.cfg.TaskCPUMemLimit == config.ExplicitlyEnabled {
+	if agent.cfg.TaskCPUMemLimit.Value == config.ExplicitlyEnabled {
 		return errors.New("App: unable to load old tasks because TaskCPUMemLimits setting is incompatible with old state.")
 	}
 
 	seelog.Warn("App: disabling TaskCPUMemLimit.")
-	agent.cfg.TaskCPUMemLimit = config.ExplicitlyDisabled
+	agent.cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
 
 	return nil
 }

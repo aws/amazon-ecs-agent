@@ -106,7 +106,7 @@ func (u *updater) stageUpdateHandler() func(req *ecsacs.StageUpdateMessage) {
 			u.reset()
 		}
 
-		if !u.config.UpdatesEnabled {
+		if !u.config.UpdatesEnabled.Enabled() {
 			nack("Updates are disabled")
 			return
 		}
@@ -225,7 +225,7 @@ func (u *updater) performUpdateHandler(state dockerstate.TaskEngineState, dataCl
 
 		seelog.Debug("Got perform update request")
 
-		if !u.config.UpdatesEnabled {
+		if !u.config.UpdatesEnabled.Enabled() {
 			reason := "Updates are disabled"
 			seelog.Errorf("Nacking PerformUpdate; reason: %s", reason)
 			u.acs.MakeRequest(&ecsacs.NackRequest{

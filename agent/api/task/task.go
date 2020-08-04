@@ -298,7 +298,7 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
-	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig, dockerClient, ctx)
+	err = task.initializeDockerVolumes(cfg.SharedVolumeMatchFullConfig.Enabled(), dockerClient, ctx)
 	if err != nil {
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}

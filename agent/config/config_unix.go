@@ -50,7 +50,7 @@ func DefaultConfig() Config {
 		ReservedPortsUDP:                    []uint16{},
 		DataDir:                             "/data/",
 		DataDirOnHost:                       "/var/lib/ecs",
-		DisableMetrics:                      false,
+		DisableMetrics:                      BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		ReservedMemory:                      0,
 		AvailableLoggingDrivers:             []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver},
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
@@ -58,7 +58,7 @@ func DefaultConfig() Config {
 		ContainerStartTimeout:               defaultContainerStartTimeout,
 		CredentialsAuditLogFile:             defaultCredentialsAuditLogFile,
 		CredentialsAuditLogDisabled:         false,
-		ImageCleanupDisabled:                false,
+		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		MinimumImageDeletionAge:             DefaultImageDeletionAge,
 		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
@@ -69,16 +69,16 @@ func DefaultConfig() Config {
 		PauseContainerTarballPath:           pauseContainerTarballPath,
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
-		AWSVPCBlockInstanceMetdata:          false,
-		ContainerMetadataEnabled:            false,
-		TaskCPUMemLimit:                     DefaultEnabled,
+		AWSVPCBlockInstanceMetdata:          BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		ContainerMetadataEnabled:            BooleanDefaultFalse{Value: ExplicitlyDisabled},
+		TaskCPUMemLimit:                     BooleanDefaultTrue{Value: NotSet},
 		CgroupPath:                          defaultCgroupPath,
 		TaskMetadataSteadyStateRate:         DefaultTaskMetadataSteadyStateRate,
 		TaskMetadataBurstRate:               DefaultTaskMetadataBurstRate,
-		SharedVolumeMatchFullConfig:         false, // only requiring shared volumes to match on name, which is default docker behavior
+		SharedVolumeMatchFullConfig:         BooleanDefaultFalse{Value: ExplicitlyDisabled}, // only requiring shared volumes to match on name, which is default docker behavior
 		ContainerInstancePropagateTagsFrom:  ContainerInstancePropagateTagsFromNoneType,
 		PrometheusMetricsEnabled:            false,
-		PollMetrics:                         false,
+		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
@@ -92,8 +92,8 @@ func (cfg *Config) platformOverrides() {
 		cfg.ReservedPorts = append(cfg.ReservedPorts, AgentPrometheusExpositionPort)
 	}
 
-	if cfg.TaskENIEnabled { // when task networking is enabled, eni trunking is enabled by default
-		cfg.ENITrunkingEnabled = utils.ParseBool(os.Getenv("ECS_ENABLE_HIGH_DENSITY_ENI"), true)
+	if cfg.TaskENIEnabled.Enabled() { // when task networking is enabled, eni trunking is enabled by default
+		cfg.ENITrunkingEnabled = parseBooleanDefaultTrueConfig("ECS_ENABLE_HIGH_DENSITY_ENI")
 	}
 }
 

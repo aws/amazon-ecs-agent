@@ -52,7 +52,6 @@ func newTaskManifestHandler(ctx context.Context,
 
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
-
 	return taskManifestHandler{
 		messageBufferTaskManifest:                make(chan *ecsacs.TaskManifestMessage),
 		messageBufferTaskManifestAck:             make(chan string),
@@ -187,7 +186,7 @@ func (taskManifestHandler *taskManifestHandler) sendTaskStopVerificationMessage(
 
 // compares the list of tasks received in the task manifest message and tasks running on the the instance
 // It returns all the task that are running on the instance but not present in task manifest message task list
-func compareTasks(receivedTaskList []*ecsacs.TaskIdentifier, runningTaskList []*apitask.Task) []*ecsacs.TaskIdentifier {
+func compareTasks(receivedTaskList []*ecsacs.TaskIdentifier, runningTaskList []*apitask.Task, clusterARN string) []*ecsacs.TaskIdentifier {
 	tasksToBeKilled := make([]*ecsacs.TaskIdentifier, 0)
 	for _, runningTask := range runningTaskList {
 		// For every task running on the instance check if the task is present in receivedTaskList with the DesiredState
@@ -204,8 +203,9 @@ func compareTasks(receivedTaskList []*ecsacs.TaskIdentifier, runningTaskList []*
 			}
 			if !taskPresent {
 				tasksToBeKilled = append(tasksToBeKilled, &ecsacs.TaskIdentifier{
-					DesiredStatus: aws.String(apitaskstatus.TaskStoppedString),
-					TaskArn:       aws.String(runningTask.Arn),
+					DesiredStatus:  aws.String(apitaskstatus.TaskStoppedString),
+					TaskArn:        aws.String(runningTask.Arn),
+					TaskClusterArn: aws.String(clusterARN),
 				})
 			}
 		}
@@ -240,6 +240,7 @@ func (taskManifestHandler *taskManifestHandler) handleTaskManifestSingleMessage(
 	message *ecsacs.TaskManifestMessage) error {
 	taskListManifestHandler := message.Tasks
 	seqNumberFromMessage := *message.Timeline
+	clusterARN := *message.ClusterArn
 	agentLatestSequenceNumber := *taskManifestHandler.latestSeqNumberTaskManifest
 
 	// Check if the sequence number of message received is more than the one stored in Agent
@@ -255,7 +256,7 @@ func (taskManifestHandler *taskManifestHandler) handleTaskManifestSingleMessage(
 			return err
 		}
 
-		tasksToKill := compareTasks(taskListManifestHandler, runningTasksOnInstance)
+		tasksToKill := compareTasks(taskListManifestHandler, runningTasksOnInstance, clusterARN)
 
 		// Update messageId so that it can be compared to the messageId in TaskStopVerificationAck message
 		taskManifestHandler.setMessageId(*message.MessageId)
