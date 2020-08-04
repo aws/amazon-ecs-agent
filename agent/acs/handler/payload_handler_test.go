@@ -122,40 +122,65 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 }
 
 func TestHandlePayloadMessageSaveData(t *testing.T) {
-	tester := setup(t)
-	defer tester.ctrl.Finish()
-	var ackRequested *ecsacs.AckRequest
-	tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
-		ackRequested = ackRequest
-		tester.cancel()
-	}).Times(1)
-	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
-
-	dataClient, cleanup := newTestDataClient(t)
-	defer cleanup()
-	tester.payloadHandler.dataClient = dataClient
-
-	go tester.payloadHandler.start()
-	err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
-		Tasks: []*ecsacs.Task{
-			{
-				Arn: aws.String(testTaskARN),
-			},
+	testCases := []struct {
+		name              string
+		taskDesiredStatus string
+		shouldSave        bool
+	}{
+		{
+			name:              "task with desired status RUNNING is saved",
+			taskDesiredStatus: "RUNNING",
+			shouldSave:        true,
 		},
-		MessageId: aws.String(payloadMessageId),
-	})
-	assert.NoError(t, err)
-
-	// Wait till we get an ack from the ackBuffer.
-	select {
-	case <-tester.ctx.Done():
+		{
+			name:              "task with desired status STOPPED is not saved",
+			taskDesiredStatus: "STOPPED",
+		},
 	}
-	// Verify the message id acked
-	assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message is not expected")
 
-	tasks, err := dataClient.GetTasks()
-	require.NoError(t, err)
-	assert.Len(t, tasks, 1)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tester := setup(t)
+			defer tester.ctrl.Finish()
+			var ackRequested *ecsacs.AckRequest
+			tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+				ackRequested = ackRequest
+				tester.cancel()
+			}).Times(1)
+			tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
+
+			dataClient, cleanup := newTestDataClient(t)
+			defer cleanup()
+			tester.payloadHandler.dataClient = dataClient
+
+			go tester.payloadHandler.start()
+			err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
+				Tasks: []*ecsacs.Task{
+					{
+						Arn:           aws.String(testTaskARN),
+						DesiredStatus: aws.String(tc.taskDesiredStatus),
+					},
+				},
+				MessageId: aws.String(payloadMessageId),
+			})
+			assert.NoError(t, err)
+
+			// Wait till we get an ack from the ackBuffer.
+			select {
+			case <-tester.ctx.Done():
+			}
+			// Verify the message id acked
+			assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message is not expected")
+
+			tasks, err := dataClient.GetTasks()
+			require.NoError(t, err)
+			if tc.shouldSave {
+				assert.Len(t, tasks, 1)
+			} else {
+				assert.Len(t, tasks, 0)
+			}
+		})
+	}
 }
 
 // TestHandlePayloadMessageSaveDataError tests that agent does not ack payload messages
@@ -179,7 +204,8 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 	err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
 			{
-				Arn: aws.String("t1"), // Use an invalid task arn to trigger error on saving task.
+				Arn:           aws.String("t1"), // Use an invalid task arn to trigger error on saving task.
+				DesiredStatus: aws.String("RUNNING"),
 			},
 		},
 		MessageId: aws.String(payloadMessageId),
@@ -188,8 +214,9 @@ func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 
 	// We expect task to be added to the engine even though it couldn't be saved.
 	expectedTask := &apitask.Task{
-		Arn:                "t1",
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Arn:                 "t1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
 
 	assert.Equal(t, addedTask, expectedTask, "added task is not expected")

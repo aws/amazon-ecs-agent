@@ -29,7 +29,7 @@ func (c *client) SaveDockerContainer(container *apicontainer.DockerContainer) er
 	if err != nil {
 		return errors.Wrap(err, "failed to generate database id")
 	}
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(containersBucketName))
 		return putObject(b, id, container)
 	})
@@ -49,7 +49,7 @@ func (c *client) SaveContainer(container *apicontainer.Container) error {
 		dockerContainer = &apicontainer.DockerContainer{}
 	}
 	dockerContainer.Container = container
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(containersBucketName))
 		return putObject(b, id, dockerContainer)
 	})
@@ -65,7 +65,7 @@ func (c *client) getDockerContainer(id string) (*apicontainer.DockerContainer, e
 
 // DeleteContainer deletes a container from the container bucket.
 func (c *client) DeleteContainer(id string) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(containersBucketName))
 		return b.Delete([]byte(id))
 	})

@@ -414,7 +414,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		// Only update container metadata when status stays RUNNING
 		if event.Status == containerKnownStatus && event.Status == apicontainerstatus.ContainerRunning {
 			updateContainerMetadata(&event.DockerContainerMetadata, container, mtask.Task)
-			mtask.engine.saveContainerData(container)
 		}
 		return
 	}

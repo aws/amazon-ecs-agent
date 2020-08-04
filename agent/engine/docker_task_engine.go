@@ -890,14 +890,17 @@ func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, con
 	}
 	imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
 	if ok && pullSucceeded {
-		imageState.SetPullSucceeded(true)
+		// Only need to update the pullSucceeded flag of the image state when its not yet set to true.
+		if !imageState.GetPullSucceeded() {
+			imageState.SetPullSucceeded(true)
+			err = engine.dataClient.SaveImageState(imageState)
+			if err != nil {
+				seelog.Warnf("Task engine [%s]: unable to save image state: %v",
+					taskArn, err)
+			}
+		}
 	}
 	engine.state.AddImageState(imageState)
-	err = engine.dataClient.SaveImageState(imageState)
-	if err != nil {
-		seelog.Warnf("Task engine [%s]: unable to save image state: %v",
-			taskArn, err)
-	}
 }
 
 func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {

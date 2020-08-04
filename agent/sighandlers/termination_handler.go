@@ -32,6 +32,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 
+	"github.com/boltdb/bolt"
 	"github.com/cihub/seelog"
 )
 
@@ -133,4 +134,6 @@ func saveStateAll(state dockerstate.TaskEngineState, dataClient data.Client) {
 			seelog.Errorf("Failed to save data for eni attachment %s: %v", eniAttachment.AttachmentARN, err)
 		}
 	}
+	// Wait to ensure data is saved.
+	time.Sleep(bolt.DefaultMaxBatchDelay)
 }

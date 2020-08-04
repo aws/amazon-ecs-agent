@@ -284,10 +284,15 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			continue
 		}
 		payloadHandler.taskEngine.AddTask(task)
-		err := payloadHandler.dataClient.SaveTask(task)
-		if err != nil {
-			seelog.Errorf("Failed to save data for task %s: %v", task.Arn, err)
-			allTasksOK = false
+		// Only need to save task to DB when its desired status is RUNNING (i.e. this is a new task that we are going
+		// to manage). When its desired status is STOPPED, the task is already in the DB and the desired status change
+		// will be saved by task manager.
+		if task.GetDesiredStatus() == apitaskstatus.TaskRunning {
+			err := payloadHandler.dataClient.SaveTask(task)
+			if err != nil {
+				seelog.Errorf("Failed to save data for task %s: %v", task.Arn, err)
+				allTasksOK = false
+			}
 		}
 
 		ackCredentials := func(id string, description string) {

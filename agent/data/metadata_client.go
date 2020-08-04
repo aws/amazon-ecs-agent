@@ -27,7 +27,7 @@ const (
 )
 
 func (c *client) SaveMetadata(key, val string) error {
-	return c.db.Update(func(tx *bolt.Tx) error {
+	return c.db.Batch(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(metadataBucketName))
 		return putObject(b, key, val)
 	})
