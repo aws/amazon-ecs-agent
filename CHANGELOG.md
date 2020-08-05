@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.43.0-1
+## 1.43.0-2
 * Cache Agent version 1.43.0
 
 ## 1.42.0-1

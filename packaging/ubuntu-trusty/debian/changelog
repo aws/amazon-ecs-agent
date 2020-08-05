@@ -1,4 +1,4 @@
-amazon-ecs-init (1.43.0-1) trusty; urgency=medium
+amazon-ecs-init (1.43.0-2) trusty; urgency=medium
 
   * Cache Agent version 1.43.0
 
