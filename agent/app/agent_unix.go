@@ -171,16 +171,20 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 // notifications from the monitor
 func (agent *ecsAgent) startUdevWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
 	seelog.Debug("Setting up ENI Watcher")
-	udevMonitor, err := udevwrapper.New()
-	if err != nil {
-		return errors.Wrapf(err, "unable to create udev monitor")
+	if agent.udevMonitor == nil {
+		monitor, err := udevwrapper.New()
+		if err != nil {
+			return errors.Wrapf(err, "unable to create udev monitor")
+		}
+		agent.udevMonitor = monitor
+
+		// Create Watcher
+		eniWatcher := watcher.New(agent.ctx, agent.mac, agent.udevMonitor, state, stateChangeEvents)
+		if err := eniWatcher.Init(); err != nil {
+			return errors.Wrapf(err, "unable to initialize eni watcher")
+		}
+		go eniWatcher.Start()
 	}
-	// Create Watcher
-	eniWatcher := watcher.New(agent.ctx, agent.mac, udevMonitor, state, stateChangeEvents)
-	if err := eniWatcher.Init(); err != nil {
-		return errors.Wrapf(err, "unable to initialize eni watcher")
-	}
-	go eniWatcher.Start()
 	return nil
 }
 
