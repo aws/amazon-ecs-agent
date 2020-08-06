@@ -1,4 +1,6 @@
 # Changelog
+## 1.43.0
+* Feature - Collect network stats for awsvpc network mode and display network rate stats for bridge and awsvpc network mode through v4 metadata endpoint - [#2545](https://github.com/aws/amazon-ecs-agent/pull/2545)
 
 ## 1.42.0
 * Feature - Support for sub second precision in FluentD [#2538](https://github.com/aws/amazon-ecs-agent/pull/2538).
