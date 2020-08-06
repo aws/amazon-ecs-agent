@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -177,9 +177,6 @@ ECS_CNI_REPOSITORY_REVISION=master
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
 
-get-cni-sources:
-	git submodule update --init --recursive --remote
-
 build-ecs-cni-plugins:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
 	docker run --rm --net=none \
@@ -201,7 +198,7 @@ build-vpc-cni-plugins:
 		"amazon/amazon-ecs-build-vpc-cni-plugins:make"
 	@echo "Built amazon-vpc-cni-plugins successfully."
 
-cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plugins
+cni-plugins: .out-stamp build-ecs-cni-plugins build-vpc-cni-plugins
 	mv $(PWD)/out/amazon-ecs-cni-plugins/* $(PWD)/out/cni-plugins
 	mv $(PWD)/out/amazon-vpc-cni-plugins/* $(PWD)/out/cni-plugins
 	@echo "Built all cni plugins successfully."
@@ -340,4 +337,3 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
-
