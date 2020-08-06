@@ -178,7 +178,7 @@ ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
 
 get-cni-sources:
-	git submodule update --init --recursive --remote
+	git submodule update --init --recursive
 
 build-ecs-cni-plugins:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
