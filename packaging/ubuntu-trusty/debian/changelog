@@ -1,3 +1,9 @@
+amazon-ecs-init (1.43.0-2) trusty; urgency=medium
+
+  * Cache Agent version 1.43.0
+
+ -- Feng Xiong <fenxiong@amazon.com>  Tue, 04 Aug 2020 17:22:32 +0000
+
 amazon-ecs-init (1.42.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.42.0

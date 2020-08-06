@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.43.0-2
+* Cache Agent version 1.43.0
+
 ## 1.42.0-1
 * Cache Agent version 1.42.0
 * Add a flag ECS\_SKIP\_LOCALHOST\_TRAFFIC\_FILTER to allow skipping local traffic filtering
