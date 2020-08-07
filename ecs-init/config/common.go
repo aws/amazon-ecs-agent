@@ -14,10 +14,14 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/cihub/seelog"
 
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	godocker "github.com/fsouza/go-dockerclient"
@@ -67,6 +71,17 @@ const (
 	// be used to override the default value used of
 	// dockerJSONLogMaxFiles for managed containers.
 	dockerJSONLogMaxFilesEnvVar = "ECS_INIT_DOCKER_LOG_FILE_NUM"
+
+	// agentLogDriverEnvVar is the environment variable that may be used
+	// to set a log driver for the agent container
+	agentLogDriverEnvVar = "ECS_LOG_DRIVER"
+	// agentLogOptionsEnvVar is the environment variable that may be used to specify options
+	// for the log driver set in agentLogDriverEnvVar
+	agentLogOptionsEnvVar = "ECS_LOG_OPTS"
+	// defaultLogDriver is the logging driver that will be used if one is not explicitly
+	// set in agentLogDriverEnvVar
+	defaultLogDriver = "json-file"
+
 	// GPUSupportEnvVar indicates that the AMI has support for GPU
 	GPUSupportEnvVar = "ECS_ENABLE_GPU_SUPPORT"
 
@@ -85,6 +100,19 @@ var partitionBucketRegion = map[string]string{
 // goarch is an injectable GOARCH runtime string. This controls the
 // formatting of configuration for supported architectures.
 var goarch string = runtime.GOARCH
+
+// validDrivers is the set of all supported Docker logging drivers that
+// can be used as the log driver for the Agent container
+var validDrivers = map[string]struct{}{
+	"awslogs":    {},
+	"fluentd":    {},
+	"gelf":       {},
+	"json-file":  {},
+	"journald":   {},
+	"logentries": {},
+	"syslog":     {},
+	"splunk":     {},
+}
 
 // GetAgentPartitionBucketRegion returns the s3 bucket region where ECS Agent artifact is located
 func GetAgentPartitionBucketRegion(region string) (string, error) {
@@ -202,23 +230,46 @@ func HostPKIDirPath() string {
 // AgentDockerLogDriverConfiguration returns a LogConfig object
 // suitable for used with the managed container.
 func AgentDockerLogDriverConfiguration() godocker.LogConfig {
-	maxSize := dockerJSONLogMaxSize
-	if fromEnv := os.Getenv(dockerJSONLogMaxSizeEnvVar); fromEnv != "" {
-		maxSize = fromEnv
+	driver := defaultLogDriver
+	options := parseLogOptions()
+	if envDriver := os.Getenv(agentLogDriverEnvVar); envDriver != "" {
+		if _, ok := validDrivers[envDriver]; ok {
+			driver = envDriver
+		} else {
+			seelog.Warnf("Input value for \"ECS_LOG_DRIVER\" is not a supported log driver, overriding to %s and using default log options", defaultLogDriver)
+			options = nil
+		}
 	}
-
-	maxFiles := dockerJSONLogMaxFiles
-	if fromEnv := os.Getenv(dockerJSONLogMaxFilesEnvVar); fromEnv != "" {
-		maxFiles = fromEnv
-	}
-
-	return godocker.LogConfig{
-		Type: "json-file",
-		Config: map[string]string{
+	if driver == defaultLogDriver && options == nil {
+		maxSize := dockerJSONLogMaxSize
+		if fromEnv := os.Getenv(dockerJSONLogMaxSizeEnvVar); fromEnv != "" {
+			maxSize = fromEnv
+		}
+		maxFiles := dockerJSONLogMaxFiles
+		if fromEnv := os.Getenv(dockerJSONLogMaxFilesEnvVar); fromEnv != "" {
+			maxFiles = fromEnv
+		}
+		options = map[string]string{
 			"max-size": maxSize,
 			"max-file": maxFiles,
-		},
+		}
 	}
+	return godocker.LogConfig{
+		Type:   driver,
+		Config: options,
+	}
+}
+
+func parseLogOptions() map[string]string {
+	opts := os.Getenv(agentLogOptionsEnvVar)
+	logOptsDecoder := json.NewDecoder(strings.NewReader(opts))
+	var logOptions map[string]string
+	err := logOptsDecoder.Decode(&logOptions)
+	// blank string is not a warning
+	if err != io.EOF && err != nil {
+		seelog.Warnf("Invalid format for \"ECS_LOG_OPTS\", expected a json object with string key value. error: %v", err)
+	}
+	return logOptions
 }
 
 // InstanceConfigDirectory returns the location on disk for custom instance configuration

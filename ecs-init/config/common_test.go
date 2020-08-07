@@ -16,6 +16,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 )
 
@@ -84,38 +85,76 @@ func TestGetAgentPartitionBucketRegion(t *testing.T) {
 
 func TestAgentDockerLogDriverConfiguration(t *testing.T) {
 	resetEnv := func() {
+		os.Unsetenv(agentLogDriverEnvVar)
+		os.Unsetenv(agentLogOptionsEnvVar)
 		os.Unsetenv(dockerJSONLogMaxFilesEnvVar)
 		os.Unsetenv(dockerJSONLogMaxSizeEnvVar)
 	}
 	resetEnv()
 
 	testcases := []struct {
-		name string
-
-		envFiles string
-		envSize  string
-
-		expectedFiles string
-		expectedSize  string
+		name           string
+		envDriver      string
+		envOpts        string
+		envFiles       string
+		envSize        string
+		expectedDriver string
+		expectedOpts   map[string]string
 	}{
 
 		{
-			name: "defaults",
-
-			envFiles: "",
-			envSize:  "",
-
-			expectedFiles: dockerJSONLogMaxFiles,
-			expectedSize:  dockerJSONLogMaxSize,
+			name:           "all defaults",
+			envDriver:      "",
+			envOpts:        "",
+			envFiles:       "",
+			envSize:        "",
+			expectedDriver: "json-file",
+			expectedOpts:   map[string]string{"max-size": dockerJSONLogMaxSize, "max-file": dockerJSONLogMaxFiles},
 		},
 		{
-			name: "environment set",
-
-			envFiles: "1",
-			envSize:  "1m",
-
-			expectedFiles: "1",
-			expectedSize:  "1m",
+			name:           "opts default",
+			envDriver:      "awslogs",
+			envOpts:        "",
+			envFiles:       "1",
+			envSize:        "1m",
+			expectedDriver: "awslogs",
+			expectedOpts:   nil,
+		},
+		{
+			name:           "override empty json opts outside of config",
+			envDriver:      "json-file",
+			envOpts:        "",
+			envFiles:       "1",
+			envSize:        "1m",
+			expectedDriver: "json-file",
+			expectedOpts:   map[string]string{"max-size": "1m", "max-file": "1"},
+		},
+		{
+			name:           "json log options take precedence",
+			envDriver:      "json-file",
+			envOpts:        "{\"max-size\":\"17m\",\"max-file\":\"5\"}",
+			envFiles:       "1",
+			envSize:        "1m",
+			expectedDriver: "json-file",
+			expectedOpts:   map[string]string{"max-size": "17m", "max-file": "5"},
+		},
+		{
+			name:           "malformed opts",
+			envDriver:      "splunk",
+			envOpts:        "{\"loggingOptions\"}",
+			envFiles:       "",
+			envSize:        "",
+			expectedDriver: "splunk",
+			expectedOpts:   nil,
+		},
+		{
+			name:           "invalid driver",
+			envDriver:      "invalidDriver",
+			envOpts:        "{\"max-size\":\"17m\",\"max-file\":\"5\"}",
+			envFiles:       "",
+			envSize:        "",
+			expectedDriver: "json-file",
+			expectedOpts:   map[string]string{"max-size": dockerJSONLogMaxSize, "max-file": dockerJSONLogMaxFiles},
 		},
 	}
 
@@ -123,15 +162,17 @@ func TestAgentDockerLogDriverConfiguration(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			resetEnv()
 
+			os.Setenv(agentLogDriverEnvVar, test.envDriver)
+			os.Setenv(agentLogOptionsEnvVar, test.envOpts)
 			os.Setenv(dockerJSONLogMaxFilesEnvVar, test.envFiles)
 			os.Setenv(dockerJSONLogMaxSizeEnvVar, test.envSize)
 
 			result := AgentDockerLogDriverConfiguration()
-			if actual := result.Config["max-size"]; actual != test.expectedSize {
-				t.Errorf("Configured max-size %q is not the expected %q", actual, test.expectedSize)
+			if actual := result.Type; actual != test.expectedDriver {
+				t.Errorf("Configured log driver %q is not the expected %q", actual, test.expectedDriver)
 			}
-			if actual := result.Config["max-file"]; actual != test.expectedFiles {
-				t.Errorf("Configured max-files %q is not the expected %q", actual, test.expectedFiles)
+			if actual := result.Config; !reflect.DeepEqual(actual, test.expectedOpts) {
+				t.Errorf("Configured log options %v is not the expected %v", actual, test.expectedOpts)
 			}
 		})
 	}
