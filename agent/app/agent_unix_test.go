@@ -33,6 +33,7 @@ import (
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
+	mock_udev "github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_gpu "github.com/aws/amazon-ecs-agent/agent/gpu/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
@@ -145,10 +146,12 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
+	monitoShutdownEvents := make(chan bool)
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockUdevMonitor := mock_udev.NewMockUdev(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -177,6 +180,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockMetadata.EXPECT().OutpostARN().Return("", nil)
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -233,6 +237,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
+		udevMonitor:        mockUdevMonitor,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
