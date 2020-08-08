@@ -13,11 +13,15 @@
 
 package args
 
-import "flag"
+import (
+	"flag"
+)
 
 const (
 	versionUsage             = "Print the agent version information and exit"
-	logLevelUsage            = "Loglevel: [<crit>|<error>|<warn>|<info>|<debug>]"
+	logLevelUsage            = "Loglevel overrides loglevel-driver and loglevel-on-instance and sets the same level for both on-instance and driver logging: [<crit>|<error>|<warn>|<info>|<debug>]"
+	driverLogLevelUsage      = "Loglevel for docker logging driver: [<crit>|<error>|<warn>|<info>|<debug>]"
+	instanceLogLevelUsage    = "Loglevel for Agent on-instance log file: [<none>|<crit>|<error>|<warn>|<info>|<debug>]"
 	ecsAttributesUsage       = "Print the Agent's ECS Attributes based on its environment"
 	acceptInsecureCertUsage  = "Disable SSL certificate verification. We do not recommend setting this option"
 	licenseUsage             = "Print the LICENSE and NOTICE files and exit"
@@ -27,6 +31,8 @@ const (
 
 	versionFlagName              = "version"
 	logLevelFlagName             = "loglevel"
+	driverLogLevelFlagName       = "loglevel-driver"
+	instanceLogLevelFlagName     = "loglevel-on-instance"
 	ecsAttributesFlagName        = "ecs-attributes"
 	acceptInsecureCertFlagName   = "k"
 	licenseFlagName              = "license"
@@ -39,8 +45,12 @@ const (
 type Args struct {
 	// Version indicates if the version information should be printed
 	Version *bool
-	// LogLevel represents the ECS Agent's log level
+	// LogLevel represents the ECS Agent's logging level for both the on-instance file and the logging driver
 	LogLevel *string
+	// DriverLogLevel represents the ECS Agent's logging driver log level
+	DriverLogLevel *string
+	// InstanceLogLevel represents the ECS Agent's on-instance file log level
+	InstanceLogLevel *string
 	// AcceptInsecureCert indicates if SSL certificate verification
 	// should be disabled
 	AcceptInsecureCert *bool
@@ -64,6 +74,8 @@ func New(arguments []string) (*Args, error) {
 	args := &Args{
 		Version:              flagset.Bool(versionFlagName, false, versionUsage),
 		LogLevel:             flagset.String(logLevelFlagName, "", logLevelUsage),
+		DriverLogLevel:       flagset.String(driverLogLevelFlagName, "", driverLogLevelUsage),
+		InstanceLogLevel:     flagset.String(instanceLogLevelFlagName, "", instanceLogLevelUsage),
 		AcceptInsecureCert:   flagset.Bool(acceptInsecureCertFlagName, false, acceptInsecureCertUsage),
 		License:              flagset.Bool(licenseFlagName, false, licenseUsage),
 		BlackholeEC2Metadata: flagset.Bool(blackholeEC2MetadataFlagName, false, blacholeEC2MetadataUsage),

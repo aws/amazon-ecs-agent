@@ -25,18 +25,21 @@ import (
 )
 
 const (
-	LOGLEVEL_ENV_VAR           = "ECS_LOGLEVEL"
-	LOGFILE_ENV_VAR            = "ECS_LOGFILE"
-	LOG_ROLLOVER_TYPE_ENV_VAR  = "ECS_LOG_ROLLOVER_TYPE"
-	LOG_OUTPUT_FORMAT_ENV_VAR  = "ECS_LOG_OUTPUT_FORMAT"
-	LOG_MAX_FILE_SIZE_ENV_VAR  = "ECS_LOG_MAX_FILE_SIZE_MB"
-	LOG_MAX_ROLL_COUNT_ENV_VAR = "ECS_LOG_MAX_ROLL_COUNT"
+	LOGLEVEL_ENV_VAR             = "ECS_LOGLEVEL"
+	LOGLEVEL_ON_INSTANCE_ENV_VAR = "ECS_LOGLEVEL_ON_INSTANCE"
+	LOGFILE_ENV_VAR              = "ECS_LOGFILE"
+	LOG_DRIVER_ENV_VAR           = "ECS_LOG_DRIVER"
+	LOG_ROLLOVER_TYPE_ENV_VAR    = "ECS_LOG_ROLLOVER_TYPE"
+	LOG_OUTPUT_FORMAT_ENV_VAR    = "ECS_LOG_OUTPUT_FORMAT"
+	LOG_MAX_FILE_SIZE_ENV_VAR    = "ECS_LOG_MAX_FILE_SIZE_MB"
+	LOG_MAX_ROLL_COUNT_ENV_VAR   = "ECS_LOG_MAX_ROLL_COUNT"
 
-	DEFAULT_LOGLEVEL               = "info"
-	DEFAULT_ROLLOVER_TYPE          = "date"
-	DEFAULT_OUTPUT_FORMAT          = "logfmt"
-	DEFAULT_MAX_FILE_SIZE  float64 = 10
-	DEFAULT_MAX_ROLL_COUNT int     = 24
+	DEFAULT_LOGLEVEL                         = "info"
+	DEFAULT_LOGLEVEL_WHEN_DRIVER_SET         = "off"
+	DEFAULT_ROLLOVER_TYPE                    = "date"
+	DEFAULT_OUTPUT_FORMAT                    = "logfmt"
+	DEFAULT_MAX_FILE_SIZE            float64 = 10
+	DEFAULT_MAX_ROLL_COUNT           int     = 24
 )
 
 type logConfig struct {
@@ -44,7 +47,8 @@ type logConfig struct {
 	MaxRollCount  int
 	MaxFileSizeMB float64
 	logfile       string
-	level         string
+	driverLevel   string
+	instanceLevel string
 	outputFormat  string
 	lock          sync.Mutex
 }
@@ -76,22 +80,27 @@ func reloadConfig() {
 
 func seelogConfig() string {
 	c := `
-<seelog type="asyncloop" minlevel="` + Config.level + `">
+<seelog type="asyncloop">
 	<outputs formatid="` + Config.outputFormat + `">
-		<console />`
+		<filter levels="` + getLevelList(Config.driverLevel) + `">
+			<console />`
 	c += platformLogConfig()
+	c += `
+		</filter>
+		<filter levels="` + getLevelList(Config.instanceLevel) + `">`
 	if Config.logfile != "" {
 		if Config.RolloverType == "size" {
 			c += `
-		<rollingfile filename="` + Config.logfile + `" type="size"
-		 maxsize="` + strconv.Itoa(int(Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
+			<rollingfile filename="` + Config.logfile + `" type="size"
+			 maxsize="` + strconv.Itoa(int(Config.MaxFileSizeMB*1000000)) + `" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
 		} else {
 			c += `
-		<rollingfile filename="` + Config.logfile + `" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
+			<rollingfile filename="` + Config.logfile + `" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
 		}
 	}
 	c += `
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -99,11 +108,24 @@ func seelogConfig() string {
 		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`
+
 	return c
 }
 
-// SetLevel sets the log level for logging
-func SetLevel(logLevel string) {
+func getLevelList(fileLevel string) string {
+	levelLists := map[string]string{
+		"debug":    "debug,info,warn,error,critical",
+		"info":     "info,warn,error,critical",
+		"warn":     "warn,error,critical",
+		"error":    "error,critical",
+		"critical": "critical",
+		"off":      "off",
+	}
+	return levelLists[fileLevel]
+}
+
+// SetLevel sets the log levels for logging
+func SetLevel(driverLogLevel, instanceLogLevel string) {
 	levels := map[string]string{
 		"debug": "debug",
 		"info":  "info",
@@ -112,12 +134,19 @@ func SetLevel(logLevel string) {
 		"crit":  "critical",
 		"none":  "off",
 	}
-	parsedLevel, ok := levels[strings.ToLower(logLevel)]
 
-	if ok {
+	parsedDriverLevel, driverOk := levels[strings.ToLower(driverLogLevel)]
+	parsedInstanceLevel, instanceOk := levels[strings.ToLower(instanceLogLevel)]
+
+	if instanceOk || driverOk {
 		Config.lock.Lock()
 		defer Config.lock.Unlock()
-		Config.level = parsedLevel
+		if instanceOk {
+			Config.instanceLevel = parsedInstanceLevel
+		}
+		if driverOk {
+			Config.driverLevel = parsedDriverLevel
+		}
 		reloadConfig()
 	}
 }
@@ -127,13 +156,21 @@ func GetLevel() string {
 	Config.lock.Lock()
 	defer Config.lock.Unlock()
 
-	return Config.level
+	return Config.driverLevel
+}
+
+func setInstanceLevelDefault() string {
+	if logDriver := os.Getenv(LOG_DRIVER_ENV_VAR); logDriver != "" {
+		return DEFAULT_LOGLEVEL_WHEN_DRIVER_SET
+	}
+	return DEFAULT_LOGLEVEL
 }
 
 func init() {
 	Config = &logConfig{
 		logfile:       os.Getenv(LOGFILE_ENV_VAR),
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: setInstanceLevelDefault(),
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
@@ -147,7 +184,8 @@ func init() {
 		seelog.Error(err)
 	}
 
-	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR))
+	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR), os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR))
+
 	if RolloverType := os.Getenv(LOG_ROLLOVER_TYPE_ENV_VAR); RolloverType != "" {
 		Config.RolloverType = RolloverType
 	}
