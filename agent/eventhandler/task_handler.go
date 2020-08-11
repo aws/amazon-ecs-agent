@@ -23,11 +23,11 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
@@ -65,9 +65,9 @@ type TaskHandler struct {
 	// * tasksToContainerStates
 	lock sync.RWMutex
 
-	// stateSaver is a statemanager which may be used to save any
-	// changes to a task or container's SentStatus
-	stateSaver statemanager.Saver
+	// dataClient is used to save changes to database, mainly to save
+	// changes of a task or container's SentStatus.
+	dataClient data.Client
 
 	// min and max drain events frequency refer to the range of
 	// time over which a call to SubmitTaskStateChange is made.
@@ -100,7 +100,7 @@ type taskSendableEvents struct {
 
 // NewTaskHandler returns a pointer to TaskHandler
 func NewTaskHandler(ctx context.Context,
-	stateManager statemanager.Saver,
+	dataClient data.Client,
 	state dockerstate.TaskEngineState,
 	client api.ECSClient) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
@@ -109,7 +109,7 @@ func NewTaskHandler(ctx context.Context,
 		tasksToEvents:           make(map[string]*taskSendableEvents),
 		submitSemaphore:         utils.NewSemaphore(concurrentEventCalls),
 		tasksToContainerStates:  make(map[string][]api.ContainerStateChange),
-		stateSaver:              stateManager,
+		dataClient:              dataClient,
 		state:                   state,
 		client:                  client,
 		minDrainEventsFrequency: minDrainEventsFrequency,
@@ -355,18 +355,18 @@ func (taskEvents *taskSendableEvents) submitFirstEvent(handler *TaskHandler, bac
 
 	if event.containerShouldBeSent() {
 		if err := event.send(sendContainerStatusToECS, setContainerChangeSent, "container",
-			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			handler.client, eventToSubmit, handler.dataClient, backoff, taskEvents); err != nil {
 			return false, err
 		}
 	} else if event.taskShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskChangeSent, "task",
-			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			handler.client, eventToSubmit, handler.dataClient, backoff, taskEvents); err != nil {
 			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}
 	} else if event.taskAttachmentShouldBeSent() {
 		if err := event.send(sendTaskStatusToECS, setTaskAttachmentSent, "task attachment",
-			handler.client, eventToSubmit, handler.stateSaver, backoff, taskEvents); err != nil {
+			handler.client, eventToSubmit, handler.dataClient, backoff, taskEvents); err != nil {
 			handleInvalidParamException(err, taskEvents.events, eventToSubmit)
 			return false, err
 		}

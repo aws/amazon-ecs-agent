@@ -26,18 +26,19 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	mock_io "github.com/aws/amazon-ecs-agent/agent/acs/update_handler/mock"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	mock_http "github.com/aws/amazon-ecs-agent/agent/httpclient/mock"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	mock_client "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func ptr(i interface{}) interface{} {
@@ -137,7 +138,7 @@ func TestPerformUpdateWithUpdatesDisabled(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 }
 
 func TestFullUpdateFlow(t *testing.T) {
@@ -191,7 +192,7 @@ func TestFullUpdateFlow(t *testing.T) {
 				},
 			}
 
-			u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+			u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 		})
 	}
 }
@@ -255,7 +256,7 @@ func TestUndownloadedUpdate(t *testing.T) {
 		MessageId:            ptr("mid").(*string),
 	}
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 }
 
 func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
@@ -317,7 +318,7 @@ func TestDuplicateUpdateMessagesWithSuccess(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 }
 
 func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
@@ -386,7 +387,7 @@ func TestDuplicateUpdateMessagesWithFailure(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 }
 
 func TestNewerUpdateMessages(t *testing.T) {
@@ -457,7 +458,7 @@ func TestNewerUpdateMessages(t *testing.T) {
 		},
 	}
 
-	u.performUpdateHandler(statemanager.NewNoopStateManager(), taskEngine)(msg)
+	u.performUpdateHandler(dockerstate.NewTaskEngineState(), data.NewNoopClient(), taskEngine)(msg)
 }
 
 func TestValidationError(t *testing.T) {

@@ -227,6 +227,21 @@ func (mr *MockTaskEngineStateMockRecorder) GetAllContainerIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllContainerIDs", reflect.TypeOf((*MockTaskEngineState)(nil).GetAllContainerIDs))
 }
 
+// GetIPAddressByTaskARN mocks base method
+func (m *MockTaskEngineState) GetIPAddressByTaskARN(arg0 string) (string, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIPAddressByTaskARN", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// GetIPAddressByTaskARN indicates an expected call of GetIPAddressByTaskARN
+func (mr *MockTaskEngineStateMockRecorder) GetIPAddressByTaskARN(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIPAddressByTaskARN", reflect.TypeOf((*MockTaskEngineState)(nil).GetIPAddressByTaskARN), arg0)
+}
+
 // GetTaskByIPAddress mocks base method
 func (m *MockTaskEngineState) GetTaskByIPAddress(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()

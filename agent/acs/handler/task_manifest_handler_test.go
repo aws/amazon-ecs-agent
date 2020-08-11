@@ -16,18 +16,24 @@ package handler
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const (
+	testSeqNum = 12
 )
 
 // Tests the case when all the tasks running on the instance needs to be killed
@@ -35,7 +41,6 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	manager := mock_statemanager.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	cluster := "mock-cluster"
 	containerInstanceArn := "mock-container-instance"
@@ -44,8 +49,11 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		dataClient, taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -77,7 +85,6 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 
 	gomock.InOrder(
 		taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(1),
-		manager.EXPECT().Save().Return(nil).Times(1),
 		// AddTask function needs to be called twice for both the tasks getting stopped
 		taskEngine.EXPECT().AddTask(gomock.Any()),
 		taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task1 *task.Task) {
@@ -102,7 +109,7 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 		Tasks: []*ecsacs.TaskIdentifier{
 			{DesiredStatus: aws.String("STOPPED"), TaskArn: aws.String("arn-long"), TaskClusterArn: aws.String(cluster)},
 		},
-		Timeline: aws.Int64(12),
+		Timeline: aws.Int64(testSeqNum),
 	}
 
 	go newTaskManifest.start()
@@ -117,6 +124,11 @@ func TestManifestHandlerKillAllTasks(t *testing.T) {
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
+
+	// Verify that new seq num has been correctly saved in database.
+	seqnum, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+	require.NoError(t, err)
+	assert.Equal(t, strconv.FormatInt(int64(testSeqNum), 10), seqnum)
 }
 
 // Tests the case when two of three tasks running on the instance needs to be killed
@@ -124,7 +136,6 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	manager := mock_statemanager.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	cluster := "mock-cluster"
 	containerInstanceArn := "mock-container-instance"
@@ -133,8 +144,11 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		dataClient, taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -167,7 +181,6 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 
 	gomock.InOrder(
 		taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(1),
-		manager.EXPECT().Save().Return(nil).Times(1),
 		taskEngine.EXPECT().AddTask(gomock.Any()),
 		taskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task1 *task.Task) {
 			newTaskManifest.stop()
@@ -199,7 +212,7 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 				TaskClusterArn: aws.String(cluster),
 			},
 		},
-		Timeline: aws.Int64(12),
+		Timeline: aws.Int64(testSeqNum),
 	}
 
 	go newTaskManifest.start()
@@ -214,6 +227,11 @@ func TestManifestHandlerKillFewTasks(t *testing.T) {
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
+
+	// Verify that new seq num has been correctly saved in database.
+	seqnum, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+	require.NoError(t, err)
+	assert.Equal(t, strconv.FormatInt(int64(testSeqNum), 10), seqnum)
 }
 
 // Tests the case when their is no difference in task running on the instance and tasks received in task manifest. No
@@ -222,7 +240,6 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	manager := mock_statemanager.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	cluster := "mock-cluster"
 	containerInstanceArn := "mock-container-instance"
@@ -231,8 +248,11 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		dataClient, taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -257,10 +277,7 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 		StopCandidates: taskIdentifierFinal,
 	}
 
-	gomock.InOrder(
-		taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(1),
-		manager.EXPECT().Save().Return(nil).Times(1),
-	)
+	taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(1)
 
 	mockWSClient.EXPECT().MakeRequest(taskStopVerificationMessage).Times(0)
 	mockWSClient.EXPECT().MakeRequest(ackRequested).Times(1).Do(func(message *ecsacs.AckRequest) {
@@ -285,7 +302,7 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 				TaskArn:       aws.String("arn3"),
 			},
 		},
-		Timeline: aws.Int64(12),
+		Timeline: aws.Int64(testSeqNum),
 	}
 
 	go newTaskManifest.start()
@@ -300,6 +317,11 @@ func TestManifestHandlerKillNoTasks(t *testing.T) {
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
+
+	// Verify that new seq num has been correctly saved in database.
+	seqnum, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+	require.NoError(t, err)
+	assert.Equal(t, strconv.FormatInt(int64(testSeqNum), 10), seqnum)
 }
 
 // Tests the case when the task list received in TaskManifest message is different than the one received in
@@ -308,7 +330,6 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	manager := mock_statemanager.NewMockStateManager(ctrl)
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	cluster := "mock-cluster"
 	containerInstanceArn := "mock-container-instance"
@@ -317,8 +338,11 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	ctx := context.TODO()
 	mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
 
-	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager, taskEngine,
-		aws.Int64(11))
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+		dataClient, taskEngine, aws.Int64(11))
 
 	ackRequested := &ecsacs.AckRequest{
 		Cluster:           aws.String(cluster),
@@ -363,7 +387,6 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 
 	gomock.InOrder(
 		taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(1),
-		manager.EXPECT().Save().Return(nil).Times(1),
 		taskEngine.EXPECT().AddTask(gomock.Any()).Times(1).Do(func(task1 *task.Task) {
 			newTaskManifest.stop()
 		}),
@@ -386,7 +409,7 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 		Tasks: []*ecsacs.TaskIdentifier{
 			&taskIdentifierInitial,
 		},
-		Timeline: aws.Int64(12),
+		Timeline: aws.Int64(testSeqNum),
 	}
 
 	go newTaskManifest.start()
@@ -401,9 +424,17 @@ func TestManifestHandlerDifferentTaskLists(t *testing.T) {
 	select {
 	case <-newTaskManifest.ctx.Done():
 	}
+
+	// Verify that new seq num has been correctly saved in database.
+	seqnum, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+	require.NoError(t, err)
+	assert.Equal(t, strconv.FormatInt(int64(testSeqNum), 10), seqnum)
 }
 
 func TestManifestHandlerSequenceNumbers(t *testing.T) {
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
 	testcases := []struct {
 		name                string
 		inputSequenceNumber int64
@@ -423,13 +454,16 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			manager := mock_statemanager.NewMockStateManager(ctrl)
+			// Save the initial sequence number.
+			require.NoError(t, dataClient.SaveMetadata(data.TaskManifestSeqNumKey,
+				strconv.FormatInt(tc.inputSequenceNumber, 10)))
+
 			taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 
 			ctx := context.TODO()
 			mockWSClient := mock_wsclient.NewMockClientServer(ctrl)
-			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient, manager,
-				taskEngine, aws.Int64(tc.inputSequenceNumber))
+			newTaskManifest := newTaskManifestHandler(ctx, cluster, containerInstanceArn, mockWSClient,
+				data.NewNoopClient(), taskEngine, aws.Int64(tc.inputSequenceNumber))
 
 			taskList := []*task.Task{
 				{Arn: "arn2", DesiredStatusUnsafe: apitaskstatus.TaskRunning},
@@ -439,7 +473,6 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			gomock.InOrder(
 				taskEngine.EXPECT().ListTasks().Return(taskList, nil).Times(0),
 				taskEngine.EXPECT().AddTask(gomock.Any()).Times(0),
-				manager.EXPECT().Save().Return(nil).Times(0),
 			)
 
 			message := &ecsacs.TaskManifestMessage{
@@ -461,6 +494,12 @@ func TestManifestHandlerSequenceNumbers(t *testing.T) {
 			err := newTaskManifest.handleTaskManifestSingleMessage(message)
 			assert.NoError(t, err)
 
+			// Verify that the sequence number in db remains unchanged.
+			s, err := dataClient.GetMetadata(data.TaskManifestSeqNumKey)
+			require.NoError(t, err)
+			seqNum, err := strconv.ParseInt(s, 10, 64)
+			require.NoError(t, err)
+			assert.Equal(t, tc.inputSequenceNumber, seqNum)
 		})
 	}
 }

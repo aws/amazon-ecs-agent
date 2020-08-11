@@ -33,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
@@ -127,7 +126,6 @@ type managedTask struct {
 
 	engine             *DockerTaskEngine
 	cfg                *config.Config
-	saver              statemanager.Saver
 	credentialsManager credentials.Manager
 	cniClient          ecscni.CNIClient
 	taskStopWG         *utilsync.SequentialWaitGroup
@@ -176,7 +174,6 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		cfg:                           engine.cfg,
 		stateChangeEvents:             engine.stateChangeEvents,
 		containerChangeEventStream:    engine.containerChangeEventStream,
-		saver:                         engine.saver,
 		credentialsManager:            engine.credentialsManager,
 		cniClient:                     engine.cniClient,
 		taskStopWG:                    engine.taskStopGroup,
@@ -223,16 +220,6 @@ func (mtask *managedTask) overseeTask() {
 				mtask.Arn)
 
 			mtask.progressTask()
-		}
-
-		// If we reach this point, we've changed the task in some way.
-		// Conversely, for it to spin in steady state it will have to have been
-		// loaded in steady state or progressed through here, so saving here should
-		// be sufficient to capture state changes.
-		err := mtask.saver.Save()
-		if err != nil {
-			seelog.Warnf("Managed task [%s]: unable to checkpoint task's states to disk: %v",
-				mtask.Arn, err)
 		}
 
 		if mtask.GetKnownStatus().Terminal() {
@@ -394,6 +381,7 @@ func (mtask *managedTask) handleDesiredStatusChange(desiredStatus apitaskstatus.
 	}
 	mtask.SetDesiredStatus(desiredStatus)
 	mtask.UpdateDesiredStatus()
+	mtask.engine.saveTaskData(mtask.Task)
 }
 
 // handleContainerChange updates a container's known status. If the message
@@ -430,6 +418,9 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		return
 	}
 
+	// Container has progressed its status if we reach here. Make sure to save it to database.
+	defer mtask.engine.saveContainerData(container)
+
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus
 	container.SetKnownStatus(event.Status)
@@ -461,6 +452,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 			taskStateChangeReason = mtask.Task.GetTerminalReason()
 		}
 		mtask.emitTaskEvent(mtask.Task, taskStateChangeReason)
+		// Save the new task status to database.
+		mtask.engine.saveTaskData(mtask.Task)
 	}
 }
 
@@ -485,7 +478,10 @@ func (mtask *managedTask) handleResourceStateChange(resChange resourceStateChang
 		return
 	}
 
-	defer mtask.engine.saver.Save()
+	// There is a resource state change. Resource is stored as part of the task, so make sure to save the task
+	// at the end.
+	defer mtask.engine.saveTaskData(mtask.Task)
+
 	// Set known status regardless of error so the applied status can be cleared. If there is error,
 	// the known status might be set again below (but that won't affect the applied status anymore).
 	// This follows how container state change is handled.

@@ -254,6 +254,11 @@ type Task struct {
 	// NvidiaRuntime is the runtime to pass Nvidia GPU devices to containers
 	NvidiaRuntime string `json:"NvidiaRuntime,omitempty"`
 
+	// LocalIPAddressUnsafe stores the local IP address allocated to the bridge that connects the task network
+	// namespace and the host network namespace, for tasks in awsvpc network mode (tasks in other network mode won't
+	// have a value for this). This field should be accessed via GetLocalIPAddress and SetLocalIPAddress.
+	LocalIPAddressUnsafe string `json:"LocalIPAddress,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -330,17 +335,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
 
-	if task.requiresASMDockerAuthData() {
-		task.initializeASMAuthResource(credentialsManager, resourceFields)
-	}
-
-	if task.requiresSSMSecret() {
-		task.initializeSSMSecretResource(credentialsManager, resourceFields)
-	}
-
-	if task.requiresASMSecret() {
-		task.initializeASMSecretResource(credentialsManager, resourceFields)
-	}
+	task.initSecretResources(credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
 	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
@@ -378,8 +373,31 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		seelog.Errorf("Task [%s]: could not initialize environment files resource: %v", task.Arn, err)
 		return apierrors.NewResourceInitError(task.Arn, err)
 	}
+	task.populateTaskARN()
 
 	return nil
+}
+
+// populateTaskARN populates the arn of the task to the containers.
+func (task *Task) populateTaskARN() {
+	for _, c := range task.Containers {
+		c.SetTaskARN(task.Arn)
+	}
+}
+
+func (task *Task) initSecretResources(credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) {
+	if task.requiresASMDockerAuthData() {
+		task.initializeASMAuthResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresSSMSecret() {
+		task.initializeSSMSecretResource(credentialsManager, resourceFields)
+	}
+
+	if task.requiresASMSecret() {
+		task.initializeASMSecretResource(credentialsManager, resourceFields)
+	}
 }
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
@@ -2657,4 +2675,20 @@ func (task *Task) MergeEnvVarsFromEnvfiles(container *apicontainer.Container) *a
 	}
 
 	return nil
+}
+
+// GetLocalIPAddress returns the local IP address of the task.
+func (task *Task) GetLocalIPAddress() string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.LocalIPAddressUnsafe
+}
+
+// SetLocalIPAddress sets the local IP address of the task.
+func (task *Task) SetLocalIPAddress(addr string) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.LocalIPAddressUnsafe = addr
 }
