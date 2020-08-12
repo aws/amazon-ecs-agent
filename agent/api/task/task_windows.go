@@ -17,10 +17,7 @@ package task
 
 import (
 	"errors"
-	"path/filepath"
-	"regexp"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -30,7 +27,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
+	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -71,49 +70,16 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 func (task *Task) downcaseAllVolumePaths() {
 	for _, volume := range task.Volumes {
 		if hostVol, ok := volume.Volume.(*taskresourcevolume.FSHostVolume); ok {
-			hostVol.FSSourcePath = getCanonicalPath(hostVol.FSSourcePath)
+			hostVol.FSSourcePath = utils.GetCanonicalPath(hostVol.FSSourcePath)
 		}
 	}
 	for _, container := range task.Containers {
 		for i, mountPoint := range container.MountPoints {
 			// container.MountPoints is a slice of values, not a slice of pointers so
 			// we need to mutate the actual value instead of the copied value
-			container.MountPoints[i].ContainerPath = getCanonicalPath(mountPoint.ContainerPath)
+			container.MountPoints[i].ContainerPath = utils.GetCanonicalPath(mountPoint.ContainerPath)
 		}
 	}
-}
-
-func getCanonicalPath(path string) string {
-	lowercasedPath := strings.ToLower(path)
-	// if the path is a bare drive like "d:", don't filepath.Clean it because it will add a '.'.
-	// this is to fix the case where mounting from D:\ to D: is supported by docker but not ecs
-	if isBareDrive(lowercasedPath) {
-		return lowercasedPath
-	}
-
-	if isNamedPipesPath(lowercasedPath) {
-		return lowercasedPath
-	}
-
-	return filepath.Clean(lowercasedPath)
-}
-
-func isBareDrive(path string) bool {
-	if filepath.VolumeName(path) == path {
-		return true
-	}
-
-	return false
-}
-
-func isNamedPipesPath(path string) bool {
-	matched, err := regexp.MatchString(`\\{2}\.[\\]pipe[\\].+`, path)
-
-	if err != nil {
-		return false
-	}
-
-	return matched
 }
 
 // platformHostConfigOverride provides an entry point to set up default HostConfig options to be
@@ -216,4 +182,73 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	return
+}
+
+// requiresFSxWindowsFileServerResource returns true if at least one volume in the task
+// is of type 'fsxWindowsFileServer'
+func (task *Task) requiresFSxWindowsFileServerResource() bool {
+	for _, volume := range task.Volumes {
+		if volume.Type == FSxWindowsFileServerVolumeType {
+			return true
+		}
+	}
+	return false
+}
+
+// initializeFSxWindowsFileServerResource builds the resource dependency map for the fsxwindowsfileserver resource
+func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) error {
+	for i, vol := range task.Volumes {
+		if vol.Type != FSxWindowsFileServerVolumeType {
+			continue
+		}
+
+		fsxWindowsFileServerVol, ok := vol.Volume.(*fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig)
+		if !ok {
+			return errors.New("task volume: volume configuration does not match the type 'fsxWindowsFileServer'")
+		}
+
+		err := task.addFSxWindowsFileServerResource(cfg, credentialsManager, resourceFields, &task.Volumes[i], fsxWindowsFileServerVol)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// addFSxWindowsFileServerResource creates a fsxwindowsfileserver resource for every fsxwindowsfileserver task volume
+// and updates container dependency
+func (task *Task) addFSxWindowsFileServerResource(
+	cfg *config.Config,
+	credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields,
+	vol *TaskVolume,
+	fsxWindowsFileServerVol *fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig,
+) error {
+	hostPath, err := utils.FindUnusedDriveLetter()
+	if err != nil {
+		return err
+	}
+
+	fsxwindowsfileserverResource, err := fsxwindowsfileserver.NewFSxWindowsFileServerResource(
+		task.Arn,
+		cfg.AWSRegion,
+		vol.Name,
+		FSxWindowsFileServerVolumeType,
+		fsxWindowsFileServerVol,
+		hostPath,
+		task.ExecutionCredentialsID,
+		credentialsManager,
+		resourceFields.SSMClientCreator,
+		resourceFields.ASMClientCreator,
+		resourceFields.FSxClientCreator)
+	if err != nil {
+		return err
+	}
+
+	vol.Volume = &fsxwindowsfileserverResource.VolumeConfig
+	task.AddResource(resourcetype.FSxWindowsFileServerKey, fsxwindowsfileserverResource)
+	task.updateContainerVolumeDependency(vol.Name)
+
+	return nil
 }

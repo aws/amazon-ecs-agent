@@ -394,6 +394,21 @@
         "message":{"shape":"String"}
       }
     },
+    "FSxWindowsFileServerAuthorizationConfig":{
+      "type":"structure",
+      "members":{
+        "credentialsParameter":{"shape":"String"},
+        "domain":{"shape":"String"}
+      }
+    },
+    "FSxWindowsFileServerVolumeConfiguration":{
+      "type":"structure",
+      "members":{
+        "fileSystemId":{"shape":"String"},
+        "rootDirectory":{"shape":"String"},
+        "authorizationConfig":{"shape":"FSxWindowsFileServerAuthorizationConfig"}
+      }
+    },
     "HealthCheckType":{
       "type":"string",
       "enum":["docker"]
@@ -720,7 +735,8 @@
         "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
-        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
+        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"},
+        "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -743,7 +759,8 @@
       "enum":[
         "host",
         "docker",
-        "efs"
+        "efs",
+        "fsxWindowsFileServer"
       ]
     },
     "TaskIdentifier": {

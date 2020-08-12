@@ -1,4 +1,4 @@
-// +build !linux,!windows
+// +build windows,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -6,19 +6,30 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//	httpaws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package config
+package utils
 
-func parseGMSACapability() bool {
-	return false
-}
+import (
+	"testing"
 
-func parseFSxWindowsFileServerCapability() bool {
-	return false
+	"github.com/stretchr/testify/assert"
+)
+
+func TestFindUnusedDriveLetter(t *testing.T) {
+	DriveLetterAvailable = func(string) bool {
+		return true
+	}
+
+	defer func() {
+		DriveLetterAvailable = IsAvailableDriveLetter
+	}()
+	driveLetter, err := FindUnusedDriveLetter()
+	assert.NoError(t, err)
+	assert.Equal(t, `Z:\`, driveLetter)
 }

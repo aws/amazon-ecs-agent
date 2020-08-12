@@ -18,3 +18,7 @@ package config
 func parseGMSACapability() bool {
 	return false
 }
+
+func parseFSxWindowsFileServerCapability() bool {
+	return false
+}
