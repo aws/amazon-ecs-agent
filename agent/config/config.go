@@ -87,6 +87,9 @@ const (
 	// has been created before it can be deleted
 	DefaultNonECSImageDeletionAge = 1 * time.Hour
 
+	//DefaultImagePullTimeout specifies the timeout for PullImage API.
+	DefaultImagePullTimeout = 2 * time.Hour
+
 	// minimumTaskCleanupWaitDuration specifies the minimum duration to wait before cleaning up
 	// a task's container. This is used to enforce sane values for the config.TaskCleanupWaitDuration field.
 	minimumTaskCleanupWaitDuration = 1 * time.Minute
@@ -531,6 +534,7 @@ func environmentConfig() (Config, error) {
 		DockerStopTimeout:                   parseDockerStopTimeout(),
 		ContainerStartTimeout:               parseContainerStartTimeout(),
 		ImagePullInactivityTimeout:          parseImagePullInactivityTimeout(),
+		ImagePullTimeout:                    parseEnvVariableDuration("ECS_IMAGE_PULL_TIMEOUT"),
 		CredentialsAuditLogFile:             os.Getenv("ECS_AUDIT_LOGFILE"),
 		CredentialsAuditLogDisabled:         utils.ParseBool(os.Getenv("ECS_AUDIT_LOGFILE_DISABLED"), false),
 		TaskIAMRoleEnabledForNetworkHost:    utils.ParseBool(os.Getenv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST"), false),
