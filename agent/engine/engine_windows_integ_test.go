@@ -36,6 +36,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -43,7 +44,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -731,7 +731,7 @@ func setupGMSA(cfg *config.Config, state dockerstate.TaskEngineState, t *testing
 		state = dockerstate.NewTaskEngineState()
 	}
 	imageManager := NewImageManager(cfg, dockerClient, state)
-	imageManager.SetSaver(statemanager.NewNoopStateManager())
+	imageManager.SetDataClient(data.NewNoopClient())
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 
 	resourceFields := &taskresource.ResourceFields{

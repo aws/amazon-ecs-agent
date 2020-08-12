@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,21 +31,24 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
 	clusterName          = "default"
 	containerInstanceArn = "instance"
 	payloadMessageId     = "123"
+	testTaskARN          = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 )
 
 // testHelper wraps all the object required for the test
@@ -53,7 +58,6 @@ type testHelper struct {
 	mockTaskEngine     *mock_engine.MockTaskEngine
 	ecsClient          api.ECSClient
 	mockWsClient       *mock_wsclient.MockClientServer
-	saver              statemanager.Saver
 	credentialsManager credentials.Manager
 	eventHandler       *eventhandler.TaskHandler
 	ctx                context.Context
@@ -65,10 +69,9 @@ func setup(t *testing.T) *testHelper {
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-	stateManager := statemanager.NewNoopStateManager()
 	credentialsManager := credentials.NewManager()
 	ctx, cancel := context.WithCancel(context.Background())
-	taskHandler := eventhandler.NewTaskHandler(ctx, stateManager, nil, nil)
+	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
 	latestSeqNumberTaskManifest := int64(10)
 
 	handler := newPayloadRequestHandler(
@@ -78,7 +81,7 @@ func setup(t *testing.T) *testHelper {
 		clusterName,
 		containerInstanceArn,
 		mockWsClient,
-		stateManager,
+		data.NewNoopClient(),
 		refreshCredentialsHandler{},
 		credentialsManager,
 		taskHandler, &latestSeqNumberTaskManifest)
@@ -89,7 +92,6 @@ func setup(t *testing.T) *testHelper {
 		mockTaskEngine:     taskEngine,
 		ecsClient:          ecsClient,
 		mockWsClient:       mockWsClient,
-		saver:              stateManager,
 		credentialsManager: credentialsManager,
 		eventHandler:       taskHandler,
 		ctx:                ctx,
@@ -119,11 +121,76 @@ func TestHandlePayloadMessageWithNoMessageId(t *testing.T) {
 	assert.Error(t, err, "Expected error while adding a task with no message id")
 }
 
-// TestHandlePayloadMessageStateSaveError tests that agent does not ack payload messages
-// when state saver fails to save state
-func TestHandlePayloadMessageStateSaveError(t *testing.T) {
+func TestHandlePayloadMessageSaveData(t *testing.T) {
+	testCases := []struct {
+		name              string
+		taskDesiredStatus string
+		shouldSave        bool
+	}{
+		{
+			name:              "task with desired status RUNNING is saved",
+			taskDesiredStatus: "RUNNING",
+			shouldSave:        true,
+		},
+		{
+			name:              "task with desired status STOPPED is not saved",
+			taskDesiredStatus: "STOPPED",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tester := setup(t)
+			defer tester.ctrl.Finish()
+			var ackRequested *ecsacs.AckRequest
+			tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+				ackRequested = ackRequest
+				tester.cancel()
+			}).Times(1)
+			tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Times(1)
+
+			dataClient, cleanup := newTestDataClient(t)
+			defer cleanup()
+			tester.payloadHandler.dataClient = dataClient
+
+			go tester.payloadHandler.start()
+			err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
+				Tasks: []*ecsacs.Task{
+					{
+						Arn:           aws.String(testTaskARN),
+						DesiredStatus: aws.String(tc.taskDesiredStatus),
+					},
+				},
+				MessageId: aws.String(payloadMessageId),
+			})
+			assert.NoError(t, err)
+
+			// Wait till we get an ack from the ackBuffer.
+			select {
+			case <-tester.ctx.Done():
+			}
+			// Verify the message id acked
+			assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message is not expected")
+
+			tasks, err := dataClient.GetTasks()
+			require.NoError(t, err)
+			if tc.shouldSave {
+				assert.Len(t, tasks, 1)
+			} else {
+				assert.Len(t, tasks, 0)
+			}
+		})
+	}
+}
+
+// TestHandlePayloadMessageSaveDataError tests that agent does not ack payload messages
+// when state saver fails to save task into db.
+func TestHandlePayloadMessageSaveDataError(t *testing.T) {
 	tester := setup(t)
 	defer tester.ctrl.Finish()
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
 
 	// Save added task in the addedTask variable
 	var addedTask *apitask.Task
@@ -131,29 +198,41 @@ func TestHandlePayloadMessageStateSaveError(t *testing.T) {
 		addedTask = task
 	}).Times(1)
 
-	stateManager := mock_statemanager.NewMockStateManager(tester.ctrl)
-	tester.payloadHandler.saver = stateManager
-	// State manager returns error on save
-	stateManager.EXPECT().Save().Return(fmt.Errorf("oops"))
+	tester.payloadHandler.dataClient = dataClient
 
-	// Check if handleSingleMessage returns an error when state manager returns error on Save()
+	// Check if handleSingleMessage returns an error when we get error saving task data.
 	err := tester.payloadHandler.handleSingleMessage(&ecsacs.PayloadMessage{
 		Tasks: []*ecsacs.Task{
 			{
-				Arn: aws.String("t1"),
+				Arn:           aws.String("t1"), // Use an invalid task arn to trigger error on saving task.
+				DesiredStatus: aws.String("RUNNING"),
 			},
 		},
 		MessageId: aws.String(payloadMessageId),
 	})
 	assert.Error(t, err, "Expected error while adding a task from statemanager")
 
-	// We expect task to be added to the engine even though it hasn't been saved
+	// We expect task to be added to the engine even though it couldn't be saved.
 	expectedTask := &apitask.Task{
-		Arn:                "t1",
-		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Arn:                 "t1",
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		ResourcesMapUnsafe:  make(map[string][]taskresource.TaskResource),
 	}
 
 	assert.Equal(t, addedTask, expectedTask, "added task is not expected")
+}
+
+func newTestDataClient(t *testing.T) (data.Client, func()) {
+	testDir, err := ioutil.TempDir("", "agent_acs_handler_unit_test")
+	require.NoError(t, err)
+
+	testClient, err := data.NewWithSetup(testDir)
+
+	cleanup := func() {
+		require.NoError(t, testClient.Close())
+		require.NoError(t, os.RemoveAll(testDir))
+	}
+	return testClient, cleanup
 }
 
 // TestHandlePayloadMessageAckedWhenTaskAdded tests if the handler generates an ack
@@ -894,7 +973,7 @@ func TestHandleUnrecognizedTask(t *testing.T) {
 	}
 
 	mockECSACSClient := mock_api.NewMockECSClient(tester.ctrl)
-	taskHandler := eventhandler.NewTaskHandler(tester.ctx, tester.payloadHandler.saver, nil, mockECSACSClient)
+	taskHandler := eventhandler.NewTaskHandler(tester.ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), mockECSACSClient)
 	tester.payloadHandler.taskHandler = taskHandler
 
 	wait := &sync.WaitGroup{}

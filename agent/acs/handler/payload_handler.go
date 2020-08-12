@@ -23,10 +23,11 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
 )
@@ -40,7 +41,7 @@ type payloadRequestHandler struct {
 	ctx         context.Context
 	taskEngine  engine.TaskEngine
 	ecsClient   api.ECSClient
-	saver       statemanager.Saver
+	dataClient  data.Client
 	taskHandler *eventhandler.TaskHandler
 	// cancel is used to stop go routines started by start() method
 	cancel                      context.CancelFunc
@@ -60,7 +61,7 @@ func newPayloadRequestHandler(
 	cluster string,
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
-	saver statemanager.Saver,
+	dataClient data.Client,
 	refreshHandler refreshCredentialsHandler,
 	credentialsManager credentials.Manager,
 	taskHandler *eventhandler.TaskHandler, seqNumTaskManifest *int64) payloadRequestHandler {
@@ -71,7 +72,7 @@ func newPayloadRequestHandler(
 		ackRequest:                  make(chan string, payloadMessageBufferSize),
 		taskEngine:                  taskEngine,
 		ecsClient:                   ecsClient,
-		saver:                       saver,
+		dataClient:                  dataClient,
 		taskHandler:                 taskHandler,
 		ctx:                         derivedContext,
 		cancel:                      cancel,
@@ -161,14 +162,6 @@ func (payloadHandler *payloadRequestHandler) handleSingleMessage(payload *ecsacs
 		*payloadHandler.latestSeqNumberTaskManifest = *payload.SeqNum
 	}
 
-	// save the state of tasks we know about after passing them to the task engine
-	err := payloadHandler.saver.Save()
-	if err != nil {
-		seelog.Errorf("Error saving state for payload message! err: %v, messageId: %s", err,
-			aws.StringValue(payload.MessageId))
-		// Don't ack; maybe we can save it in the future.
-		return fmt.Errorf("error saving state for payload message, with messageId: %s", aws.StringValue(payload.MessageId))
-	}
 	if !allTasksHandled {
 		return fmt.Errorf("did not handle all tasks")
 	}
@@ -291,6 +284,16 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			continue
 		}
 		payloadHandler.taskEngine.AddTask(task)
+		// Only need to save task to DB when its desired status is RUNNING (i.e. this is a new task that we are going
+		// to manage). When its desired status is STOPPED, the task is already in the DB and the desired status change
+		// will be saved by task manager.
+		if task.GetDesiredStatus() == apitaskstatus.TaskRunning {
+			err := payloadHandler.dataClient.SaveTask(task)
+			if err != nil {
+				seelog.Errorf("Failed to save data for task %s: %v", task.Arn, err)
+				allTasksOK = false
+			}
+		}
 
 		ackCredentials := func(id string, description string) {
 			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)

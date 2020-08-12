@@ -2261,7 +2261,7 @@ func TestPostUnmarshalTaskASMDockerAuth(t *testing.T) {
 	}
 
 	task := &Task{
-		Arn:                "test",
+		Arn:                testTaskARN,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers:         []*apicontainer.Container{container},
 	}
@@ -2300,7 +2300,7 @@ func TestPostUnmarshalTaskSecret(t *testing.T) {
 	}
 
 	task := &Task{
-		Arn:                "test",
+		Arn:                testTaskARN,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers:         []*apicontainer.Container{container},
 	}
@@ -2339,7 +2339,7 @@ func TestPostUnmarshalTaskASMSecret(t *testing.T) {
 	}
 
 	task := &Task{
-		Arn:                "test",
+		Arn:                testTaskARN,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers:         []*apicontainer.Container{container},
 	}
@@ -3396,7 +3396,7 @@ func TestPostUnmarshalTaskEnvfiles(t *testing.T) {
 	}
 
 	task := &Task{
-		Arn:                "testArn",
+		Arn:                testTaskARN,
 		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
 		Containers:         []*apicontainer.Container{container},
 	}
@@ -3495,4 +3495,17 @@ func requireEnvfiles(task *Task) bool {
 		}
 	}
 	return false
+}
+
+func TestPopulateTaskARN(t *testing.T) {
+	task := &Task{
+		Arn: testTaskARN,
+		Containers: []*apicontainer.Container{
+			{
+				Name: "test",
+			},
+		},
+	}
+	task.populateTaskARN()
+	assert.Equal(t, task.Arn, task.Containers[0].GetTaskARN())
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -41,7 +42,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
@@ -125,10 +125,10 @@ type DockerTaskEngine struct {
 
 	events            <-chan dockerapi.DockerContainerChangeEvent
 	stateChangeEvents chan statechange.Event
-	saver             statemanager.Saver
 
-	client    dockerapi.DockerClient
-	cniClient ecscni.CNIClient
+	client     dockerapi.DockerClient
+	dataClient data.Client
+	cniClient  ecscni.CNIClient
 
 	containerChangeEventStream *eventstream.EventStream
 
@@ -176,14 +176,13 @@ func NewDockerTaskEngine(cfg *config.Config,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
-		cfg:    cfg,
-		client: client,
-		saver:  statemanager.NewNoopStateManager(),
+		cfg:        cfg,
+		client:     client,
+		dataClient: data.NewNoopClient(),
 
-		state:         state,
-		managedTasks:  make(map[string]*managedTask),
-		taskStopGroup: utilsync.NewSequentialWaitGroup(),
-
+		state:             state,
+		managedTasks:      make(map[string]*managedTask),
+		taskStopGroup:     utilsync.NewSequentialWaitGroup(),
 		stateChangeEvents: make(chan statechange.Event),
 
 		credentialsManager: credentialsManager,
@@ -277,9 +276,9 @@ func (engine *DockerTaskEngine) MustInit(ctx context.Context) {
 	})
 }
 
-// SetSaver sets the saver that is used by the DockerTaskEngine
-func (engine *DockerTaskEngine) SetSaver(saver statemanager.Saver) {
-	engine.saver = saver
+// SetDataClient sets the saver that is used by the DockerTaskEngine.
+func (engine *DockerTaskEngine) SetDataClient(client data.Client) {
+	engine.dataClient = client
 }
 
 // Shutdown makes a best-effort attempt to cleanup after the task engine.
@@ -323,6 +322,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			}
 			if !eniAttachment.IsSent() {
 				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", eniAttachment.MACAddress)
+				engine.removeENIAttachmentData(eniAttachment.MACAddress)
 				engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 			}
 		}
@@ -331,6 +331,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 			// The only case where we get an error from Initialize is that the attachment has expired. In that case, remove the expired
 			// attachment from state.
 			seelog.Warnf("ENI attachment with mac address %s has expired. Removing it from state.", eniAttachment.MACAddress)
+			engine.removeENIAttachmentData(eniAttachment.MACAddress)
 			engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 		}
 	}
@@ -339,13 +340,12 @@ func (engine *DockerTaskEngine) synchronizeState() {
 	tasksToStart := engine.filterTasksToStartUnsafe(tasks)
 	for _, task := range tasks {
 		task.InitializeResources(engine.resourceFields)
+		engine.saveTaskData(task)
 	}
 
 	for _, task := range tasksToStart {
 		engine.startTask(task)
 	}
-
-	engine.saver.Save()
 }
 
 // filterTasksToStartUnsafe filters only the tasks that need to be started after
@@ -363,6 +363,7 @@ func (engine *DockerTaskEngine) filterTasksToStartUnsafe(tasks []*apitask.Task) 
 
 		for _, cont := range conts {
 			engine.synchronizeContainerStatus(cont, task)
+			engine.saveDockerContainerData(cont) // persist the container with the updated information.
 		}
 
 		tasksToStart = append(tasksToStart, task)
@@ -433,7 +434,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 			container.Container.SetKnownStatus(dockerapi.DockerStateToState(describedContainer.State))
 			// update mappings that need dockerid
 			engine.state.AddContainer(container, task)
-			engine.imageManager.RecordContainerReference(container.Container)
+			err := engine.imageManager.RecordContainerReference(container.Container)
+			if err != nil {
+				seelog.Warnf("Task engine [%s]: unable to add container reference to image state: %v",
+					task.Arn, err)
+			}
 		}
 		return
 	}
@@ -447,7 +452,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 				task.Arn, container.DockerID, container.DockerName, metadata.Error)
 			if !container.Container.KnownTerminal() {
 				container.Container.ApplyingError = apierrors.NewNamedError(&ContainerVanishedError{})
-				engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+				err := engine.imageManager.RemoveContainerReferenceFromImageState(container.Container)
+				if err != nil {
+					seelog.Warnf("Task engine [%s]: could not remove container reference for image state %s: %v",
+						container.Container.Image, err)
+				}
 			}
 		} else {
 			// If this is a container state error
@@ -457,7 +466,11 @@ func (engine *DockerTaskEngine) synchronizeContainerStatus(container *apicontain
 	} else {
 		// update the container metadata in case the container status/metadata changed during agent restart
 		updateContainerMetadata(&metadata, container.Container, task)
-		engine.imageManager.RecordContainerReference(container.Container)
+		err := engine.imageManager.RecordContainerReference(container.Container)
+		if err != nil {
+			seelog.Warnf("Task engine [%s]: unable to add container reference to image state: %v",
+				task.Arn, err)
+		}
 		if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.Container.IsMetadataFileUpdated() {
 			go engine.updateMetadataFile(task, container)
 		}
@@ -527,7 +540,6 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 			seelog.Warnf("Task engine [%s]: clean task metadata failed: %v", task.Arn, err)
 		}
 	}
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
@@ -553,6 +565,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		if taskENI.IsStandardENI() {
 			seelog.Debugf("Task engine [%s]: removing eni %s from agent state",
 				task.Arn, taskENI.ID)
+			engine.removeENIAttachmentData(taskENI.MacAddress)
 			engine.state.RemoveENIAttachment(taskENI.MacAddress)
 		} else {
 			seelog.Debugf("Task engine [%s]: skipping removing logical eni %s from agent state",
@@ -560,10 +573,12 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
+	// Remove task and container data from database.
+	engine.removeTaskData(task)
+
 	seelog.Infof("Task engine [%s]: finished removing task data, removing task from managed tasks", task.Arn)
 	delete(engine.managedTasks, task.Arn)
 	engine.tasksLock.Unlock()
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) emitTaskEvent(task *apitask.Task, reason string) {
@@ -875,10 +890,17 @@ func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, con
 	}
 	imageState, ok := engine.imageManager.GetImageStateFromImageName(container.Image)
 	if ok && pullSucceeded {
-		imageState.SetPullSucceeded(true)
+		// Only need to update the pullSucceeded flag of the image state when its not yet set to true.
+		if !imageState.GetPullSucceeded() {
+			imageState.SetPullSucceeded(true)
+			err = engine.dataClient.SaveImageState(imageState)
+			if err != nil {
+				seelog.Warnf("Task engine [%s]: unable to save image state: %v",
+					taskArn, err)
+			}
+		}
 	}
 	engine.state.AddImageState(imageState)
-	engine.saver.Save()
 }
 
 func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *apicontainer.Container) dockerapi.DockerContainerMetadata {
@@ -1057,7 +1079,6 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}, task)
 		seelog.Infof("Task engine [%s]: created container name mapping for task:  %s -> %s",
 			task.Arn, container.Name, dockerContainerName)
-		engine.saver.ForceSave()
 	}
 
 	// Create metadata directory and file then populate it with common metadata of all containers of this task
@@ -1233,6 +1254,8 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	taskIP := result.IPs[0].Address.IP.String()
 	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
 	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	task.SetLocalIPAddress(taskIP)
+	engine.saveTaskData(task)
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1423,7 +1446,6 @@ func (engine *DockerTaskEngine) applyContainerState(task *apitask.Task, containe
 	} else {
 		seelog.Debugf("Task engine [%s]: transitioned container [%s (Runtime ID: %s)] to [%s]",
 			task.Arn, container.Name, container.GetRuntimeID(), nextState.String())
-		engine.saver.Save()
 	}
 	return metadata
 }

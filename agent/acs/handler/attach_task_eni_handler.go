@@ -18,8 +18,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -34,11 +34,11 @@ type attachTaskENIHandler struct {
 	messageBuffer     chan *ecsacs.AttachTaskNetworkInterfacesMessage
 	ctx               context.Context
 	cancel            context.CancelFunc
-	saver             statemanager.Saver
 	cluster           *string
 	containerInstance *string
 	acsClient         wsclient.ClientServer
 	state             dockerstate.TaskEngineState
+	dataClient        data.Client
 }
 
 // newAttachTaskENIHandler returns an instance of the attachENIHandler struct
@@ -47,7 +47,7 @@ func newAttachTaskENIHandler(ctx context.Context,
 	containerInstanceArn string,
 	acsClient wsclient.ClientServer,
 	taskEngineState dockerstate.TaskEngineState,
-	saver statemanager.Saver) attachTaskENIHandler {
+	dataClient data.Client) attachTaskENIHandler {
 
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
@@ -59,7 +59,7 @@ func newAttachTaskENIHandler(ctx context.Context,
 		containerInstance: aws.String(containerInstanceArn),
 		acsClient:         acsClient,
 		state:             taskEngineState,
-		saver:             saver,
+		dataClient:        dataClient,
 	}
 }
 
@@ -111,7 +111,7 @@ func (attachTaskENIHandler *attachTaskENIHandler) handleSingleMessage(message *e
 	taskARN := aws.StringValue(message.TaskArn)
 	mac := aws.StringValue(message.ElasticNetworkInterfaces[0].MacAddress)
 	expiresAt := receivedAt.Add(time.Duration(aws.Int64Value(message.WaitTimeoutMs)) * time.Millisecond)
-	return handleENIAttachment(apieni.ENIAttachmentTypeTaskENI, attachmentARN, taskARN, mac, expiresAt, attachTaskENIHandler.state, attachTaskENIHandler.saver)
+	return handleENIAttachment(apieni.ENIAttachmentTypeTaskENI, attachmentARN, taskARN, mac, expiresAt, attachTaskENIHandler.state, attachTaskENIHandler.dataClient)
 }
 
 // validateAttachTaskNetworkInterfacesMessage performs validation checks on the

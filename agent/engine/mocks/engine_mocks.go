@@ -24,9 +24,9 @@ import (
 
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
+	data "github.com/aws/amazon-ecs-agent/agent/data"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
-	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -121,6 +121,20 @@ func (mr *MockTaskEngineMockRecorder) ListTasks() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTasks", reflect.TypeOf((*MockTaskEngine)(nil).ListTasks))
 }
 
+// LoadState mocks base method
+func (m *MockTaskEngine) LoadState() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadState")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// LoadState indicates an expected call of LoadState
+func (mr *MockTaskEngineMockRecorder) LoadState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadState", reflect.TypeOf((*MockTaskEngine)(nil).LoadState))
+}
+
 // MarshalJSON mocks base method
 func (m *MockTaskEngine) MarshalJSON() ([]byte, error) {
 	m.ctrl.T.Helper()
@@ -148,16 +162,30 @@ func (mr *MockTaskEngineMockRecorder) MustInit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MustInit", reflect.TypeOf((*MockTaskEngine)(nil).MustInit), arg0)
 }
 
-// SetSaver mocks base method
-func (m *MockTaskEngine) SetSaver(arg0 statemanager.Saver) {
+// SaveState mocks base method
+func (m *MockTaskEngine) SaveState() error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetSaver", arg0)
+	ret := m.ctrl.Call(m, "SaveState")
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// SetSaver indicates an expected call of SetSaver
-func (mr *MockTaskEngineMockRecorder) SetSaver(arg0 interface{}) *gomock.Call {
+// SaveState indicates an expected call of SaveState
+func (mr *MockTaskEngineMockRecorder) SaveState() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSaver", reflect.TypeOf((*MockTaskEngine)(nil).SetSaver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveState", reflect.TypeOf((*MockTaskEngine)(nil).SaveState))
+}
+
+// SetDataClient mocks base method
+func (m *MockTaskEngine) SetDataClient(arg0 data.Client) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetDataClient", arg0)
+}
+
+// SetDataClient indicates an expected call of SetDataClient
+func (mr *MockTaskEngineMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockTaskEngine)(nil).SetDataClient), arg0)
 }
 
 // StateChangeEvents mocks base method
@@ -281,16 +309,16 @@ func (mr *MockImageManagerMockRecorder) RemoveContainerReferenceFromImageState(a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveContainerReferenceFromImageState", reflect.TypeOf((*MockImageManager)(nil).RemoveContainerReferenceFromImageState), arg0)
 }
 
-// SetSaver mocks base method
-func (m *MockImageManager) SetSaver(arg0 statemanager.Saver) {
+// SetDataClient mocks base method
+func (m *MockImageManager) SetDataClient(arg0 data.Client) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetSaver", arg0)
+	m.ctrl.Call(m, "SetDataClient", arg0)
 }
 
-// SetSaver indicates an expected call of SetSaver
-func (mr *MockImageManagerMockRecorder) SetSaver(arg0 interface{}) *gomock.Call {
+// SetDataClient indicates an expected call of SetDataClient
+func (mr *MockImageManagerMockRecorder) SetDataClient(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSaver", reflect.TypeOf((*MockImageManager)(nil).SetSaver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDataClient", reflect.TypeOf((*MockImageManager)(nil).SetDataClient), arg0)
 }
 
 // StartImageCleanupProcess mocks base method
