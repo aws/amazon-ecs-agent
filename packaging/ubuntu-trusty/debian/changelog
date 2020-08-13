@@ -1,3 +1,10 @@
+amazon-ecs-init (1.44.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.44.0
+  * Add support for configuring Agent container logs
+
+   -- Shubham Goyal <shugy@amazon.com>  Thu, 13 Aug 2020 20:39:32 +0000
+
 amazon-ecs-init (1.43.0-2) trusty; urgency=medium
 
   * Cache Agent version 1.43.0

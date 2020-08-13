@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Thu Aug 13, 20:39:32 UTC 2020 - shugy@amazon.com - 1.44.0-1
+
+- Cache Agent version 1.44.0
+- Add support for configuring Agent container logs
+-------------------------------------------------------------------
 Tue Aug 04, 17:22:32 UTC 2020 - fenxiong@amazon.com - 1.43.0-2
 
 - Cache Agent version 1.43.0
