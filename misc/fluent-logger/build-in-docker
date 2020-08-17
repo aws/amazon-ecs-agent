@@ -24,4 +24,4 @@ docker run \
 	-e CGO_ENABLED=0 \
 	-e GO111MODULE=on \
 	-e GOPATH=/go:/gopath \
-	golang:1.12 go build -a -x -ldflags '-s' -o /out/fluent-logger /in/fluent-logger.go
+	golang:1.15 go build -a -x -ldflags '-s' -o /out/fluent-logger /in/fluent-logger.go
