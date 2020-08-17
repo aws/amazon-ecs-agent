@@ -120,7 +120,7 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
+	${GOTEST} -gcflags=all=-d=checkptr=0 -tags unit -coverprofile cover.out -timeout=60s ./agent/...
 	go tool cover -func cover.out > coverprofile.out
 
 test-silent:
@@ -310,15 +310,6 @@ ifeq (${PLATFORM},Linux)
 	else ifeq (${PLATFORM},Darwin)
 		dep_arch=darwin-386
 	endif
-
-DEP_VERSION=v0.5.0
-.PHONY: get-dep
-get-dep: bin/dep
-
-bin/dep:
-	mkdir -p ./bin
-	curl -L https://github.com/golang/dep/releases/download/$(DEP_VERSION)/dep-${dep_arch} -o ./bin/dep
-	chmod +x ./bin/dep
 
 clean:
 	# ensure docker is running and we can talk to it, abort if not:

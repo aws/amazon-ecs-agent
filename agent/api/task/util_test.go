@@ -16,13 +16,14 @@
 package task
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
 
 func taskN(n int) *Task {
 	return &Task{
-		Arn: string(n),
+		Arn: fmt.Sprint(n),
 	}
 }
 

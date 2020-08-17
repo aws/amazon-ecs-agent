@@ -2,7 +2,7 @@ language: go
 go_import_path: github.com/aws/amazon-ecs-agent
 sudo: false
 go:
-  - 1.12
+  - 1.15
 
 matrix:
   include:
@@ -15,4 +15,4 @@ matrix:
         - make xplatform-build
     - os: windows
       script:
-        - go test -v -race -tags unit -timeout 40s ./agent/...
+        - go test -race -gcflags=all=-d=checkptr=0 -v -tags unit -timeout 40s ./agent/...
