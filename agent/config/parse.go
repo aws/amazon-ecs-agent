@@ -208,7 +208,7 @@ func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
 	boolDefaultFalseCofig := BooleanDefaultFalse{Value: NotSet}
 	configString := os.Getenv(envVarName)
 	if configString != "" {
-		err := json.Unmarshal([]byte(configString), &boolDefaultFalseCofig)
+		err := json.Unmarshal([]byte(strings.ToLower(configString)), &boolDefaultFalseCofig)
 		if err != nil {
 			seelog.Warnf("Invalid format for \"%s\", expected a boolean. err %v", envVarName, err)
 		}
@@ -220,7 +220,7 @@ func parseBooleanDefaultTrueConfig(envVarName string) BooleanDefaultTrue {
 	boolDefaultTrueCofig := BooleanDefaultTrue{Value: NotSet}
 	configString := os.Getenv(envVarName)
 	if configString != "" {
-		err := json.Unmarshal([]byte(configString), &boolDefaultTrueCofig)
+		err := json.Unmarshal([]byte(strings.ToLower(configString)), &boolDefaultTrueCofig)
 		if err != nil {
 			seelog.Warnf("Invalid format for \"%s\", expected a boolean. err %v", envVarName, err)
 		}
