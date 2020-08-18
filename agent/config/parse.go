@@ -206,8 +206,13 @@ func parseAdditionalLocalRoutes(errs []error) ([]cnitypes.IPNet, []error) {
 
 func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
 	boolDefaultFalseCofig := BooleanDefaultFalse{Value: NotSet}
-	configString := os.Getenv(envVarName)
-	res, err := strconv.ParseBool(strings.TrimSpace(configString))
+	configString := strings.TrimSpace(os.Getenv(envVarName))
+	if configString == "" {
+		// if intentionally not set, do not add warning log
+		return boolDefaultFalseCofig
+	}
+
+	res, err := strconv.ParseBool(configString)
 	if err == nil {
 		if res {
 			boolDefaultFalseCofig.Value = ExplicitlyEnabled
@@ -222,8 +227,13 @@ func parseBooleanDefaultFalseConfig(envVarName string) BooleanDefaultFalse {
 
 func parseBooleanDefaultTrueConfig(envVarName string) BooleanDefaultTrue {
 	boolDefaultTrueCofig := BooleanDefaultTrue{Value: NotSet}
-	configString := os.Getenv(envVarName)
-	res, err := strconv.ParseBool(strings.TrimSpace(configString))
+	configString := strings.TrimSpace(os.Getenv(envVarName))
+	if configString == "" {
+		// if intentionally not set, do not add warning log
+		return boolDefaultTrueCofig
+	}
+
+	res, err := strconv.ParseBool(configString)
 	if err == nil {
 		if res {
 			boolDefaultTrueCofig.Value = ExplicitlyEnabled
