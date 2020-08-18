@@ -108,13 +108,13 @@ func (envfile *EnvironmentFileResource) Initialize(resourceFields *taskresource.
 	taskKnownStatus status.TaskStatus,
 	taskDesiredStatus status.TaskStatus) {
 	envfile.lock.Lock()
-	defer envfile.lock.Unlock()
 
 	envfile.initStatusToTransition()
 	envfile.credentialsManager = resourceFields.CredentialsManager
 	envfile.s3ClientCreator = factory.NewS3ClientCreator()
 	envfile.ioutil = ioutilwrapper.NewIOUtil()
 	envfile.bufio = bufiowrapper.NewBufio()
+	envfile.lock.Unlock()
 
 	// if task isn't in 'created' status and desired status is 'running',
 	// reset the resource status to 'NONE' so we always retrieve the data
