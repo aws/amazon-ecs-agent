@@ -74,8 +74,8 @@ const (
 	getIPBridgeRetryJitterMultiplier   = 0.2
 	getIPBridgeRetryDelayMultiplier    = 2
 	ipamCleanupTmeout                  = 5 * time.Second
-	minEngineConnectRetryDelay         = 200 * time.Second
-	maxEngineConnectRetryDelay         = 2 * time.Second
+	minEngineConnectRetryDelay         = 2 * time.Second
+	maxEngineConnectRetryDelay         = 200 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
