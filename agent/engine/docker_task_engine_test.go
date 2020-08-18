@@ -54,7 +54,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	mock_ssmiface "github.com/aws/amazon-ecs-agent/agent/ssm/mocks"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
@@ -100,7 +99,7 @@ const (
 	networkBridgeIP             = "bridgeIP"
 	networkModeBridge           = "bridge"
 	networkModeAWSVPC           = "awsvpc"
-	taskArn                     = "task1"
+	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
 )
 
 var (
@@ -700,36 +699,6 @@ func TestStopWithPendingStops(t *testing.T) {
 	// gets the pull image lock
 }
 
-func TestCreateContainerForceSave(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	defer ctrl.Finish()
-	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	taskEngine.SetSaver(saver)
-
-	sleepTask := testdata.LoadTask("sleep5")
-	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
-	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
-	gomock.InOrder(
-		saver.EXPECT().ForceSave().Do(func() interface{} {
-			task, ok := taskEngine.state.TaskByArn(sleepTask.Arn)
-			assert.True(t, ok, "Expected task with ARN: ", sleepTask.Arn)
-			assert.NotNil(t, task, "Expected task with ARN: ", sleepTask.Arn)
-			_, ok = task.ContainerByName("sleep5")
-			assert.True(t, ok, "Expected container sleep5")
-			return nil
-		}),
-		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()),
-	)
-
-	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
-	if metadata.Error != nil {
-		t.Error("Unexpected error", metadata.Error)
-	}
-}
-
 func TestCreateContainerMetadata(t *testing.T) {
 	testcases := []struct {
 		name  string
@@ -1259,11 +1228,15 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	require.Len(t, cniConfig.NetworkConfigs, 3)
 }
 
-func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
+func TestProvisionContainerResources(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
 	defer ctrl.Finish()
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+	taskEngine.SetDataClient(dataClient)
 
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
@@ -1297,6 +1270,10 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 
 	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 	assert.Equal(t, strconv.Itoa(containerPid), volRes.GetPauseContainerPID())
+	assert.Equal(t, taskIP, testTask.GetLocalIPAddress())
+	savedTasks, err := dataClient.GetTasks()
+	require.NoError(t, err)
+	assert.Len(t, savedTasks, 1)
 }
 
 func TestProvisionContainerResourcesInspectError(t *testing.T) {
@@ -1494,11 +1471,9 @@ func TestCreateContainerOnAgentRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &config.Config{})
-	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	taskEngine.SetSaver(saver)
 	state := taskEngine.State()
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
@@ -1539,8 +1514,6 @@ func TestPullNormalImage(t *testing.T) {
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
 	container := &apicontainer.Container{
@@ -1557,7 +1530,6 @@ func TestPullNormalImage(t *testing.T) {
 	client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
-	saver.EXPECT().Save()
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 }
@@ -1584,8 +1556,6 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 			ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullOnceBehavior})
 			defer ctrl.Finish()
 			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-			saver := mock_statemanager.NewMockStateManager(ctrl)
-			taskEngine.SetSaver(saver)
 			taskEngine._time = nil
 			imageName := "image"
 			container := &apicontainer.Container{
@@ -1604,7 +1574,6 @@ func TestPullImageWithImagePullOnceBehavior(t *testing.T) {
 			}
 			imageManager.EXPECT().RecordContainerReference(container)
 			imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true).Times(2)
-			saver.EXPECT().Save()
 			metadata := taskEngine.pullContainer(task, container)
 			assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 		})
@@ -1617,8 +1586,6 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithCachedImage(t *testing.T)
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
 	container := &apicontainer.Container{
@@ -1634,7 +1601,6 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithCachedImage(t *testing.T)
 	client.EXPECT().InspectImage(imageName).Return(nil, nil)
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
-	saver.EXPECT().Save()
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 }
@@ -1645,8 +1611,6 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, &config.Config{ImagePullBehavior: config.ImagePullPreferCachedBehavior})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
 	container := &apicontainer.Container{
@@ -1663,7 +1627,6 @@ func TestPullImageWithImagePullPreferCachedBehaviorWithoutCachedImage(t *testing
 	client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
-	saver.EXPECT().Save()
 	metadata := taskEngine.pullContainer(task, container)
 	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
 }
@@ -1674,8 +1637,6 @@ func TestUpdateContainerReference(t *testing.T) {
 	ctrl, _, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, &config.Config{})
 	defer ctrl.Finish()
 	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
-	taskEngine.SetSaver(saver)
 	taskEngine._time = nil
 	imageName := "image"
 	container := &apicontainer.Container{
@@ -1691,7 +1652,6 @@ func TestUpdateContainerReference(t *testing.T) {
 
 	imageManager.EXPECT().RecordContainerReference(container)
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
-	saver.EXPECT().Save()
 	taskEngine.updateContainerReference(true, container, task.Arn)
 	assert.True(t, imageState.PullSucceeded, "PullSucceeded set to false")
 }
@@ -1707,7 +1667,6 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, metadataManager := mocks(t, ctx, conf)
-	saver := mock_statemanager.NewMockStateManager(ctrl)
 	defer ctrl.Finish()
 
 	var metadataUpdateWG sync.WaitGroup
@@ -1716,7 +1675,6 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	assert.True(t, taskEngine.cfg.ContainerMetadataEnabled.Enabled(), "ContainerMetadataEnabled set to false.")
 
 	taskEngine._time = nil
-	taskEngine.SetSaver(saver)
 	state := taskEngine.State()
 	task := testdata.LoadTask("sleep5")
 	container, _ := task.ContainerByName("sleep5")
@@ -1733,8 +1691,6 @@ func TestMetadataFileUpdatedAgentRestart(t *testing.T) {
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	client.EXPECT().DescribeContainer(gomock.Any(), gomock.Any())
 	imageManager.EXPECT().RecordContainerReference(gomock.Any())
-	saver.EXPECT().Save().AnyTimes()
-	saver.EXPECT().ForceSave().AnyTimes()
 
 	metadataManager.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(ctx interface{}, dockerID string, task *apitask.Task, containerName string) {
@@ -1953,7 +1909,6 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	defer cancel()
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, conf)
 	defer ctrl.Finish()
-	saver := mock_statemanager.NewMockStateManager(ctrl)
 
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
@@ -1962,7 +1917,6 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	assert.NoError(t, err)
 
 	taskEngine := privateTaskEngine.(*DockerTaskEngine)
-	taskEngine.saver = saver
 	taskEngine.State().AddTask(taskStoppedByACS)
 	taskEngine.State().AddTask(taskNotStarted)
 	taskEngine.State().AddTask(taskEssentialContainerStopped)
@@ -1989,7 +1943,6 @@ func TestTaskWaitForHostResourceOnRestart(t *testing.T) {
 	}).Times(3)
 	imageManager.EXPECT().RecordContainerReference(gomock.Any()).Times(3)
 
-	saver.EXPECT().Save()
 	// start the two tasks
 	taskEngine.synchronizeState()
 
@@ -2506,6 +2459,41 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 
 	// If the below call doesn't panic on NPE, it means the ENI attachment has been properly initialized in synchronizeState.
 	attachment.StopAckTimer()
+}
+
+func TestSynchronizeENIAttachmentRemoveData(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
+
+	err := taskEngine.Init(ctx)
+	assert.NoError(t, err)
+
+	taskEngine.(*DockerTaskEngine).dataClient = dataClient
+	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
+
+	attachment := &apieni.ENIAttachment{
+		TaskARN:          "TaskARN",
+		AttachmentARN:    testAttachmentArn,
+		MACAddress:       "MACAddress",
+		Status:           apieni.ENIAttachmentNone,
+		AttachStatusSent: false,
+	}
+
+	// eni attachment data is removed if AttachStatusSent is unset
+	dockerTaskEngine.state.AddENIAttachment(attachment)
+	assert.NoError(t, dockerTaskEngine.dataClient.SaveENIAttachment(attachment))
+
+	dockerTaskEngine.synchronizeState()
+	attachments, err := dockerTaskEngine.dataClient.GetENIAttachments()
+	assert.NoError(t, err)
+	assert.Len(t, attachments, 0)
 }
 
 func TestTaskSecretsEnvironmentVariables(t *testing.T) {

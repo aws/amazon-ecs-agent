@@ -25,11 +25,11 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/cihub/seelog"
 )
 
@@ -45,7 +45,7 @@ type ImageManager interface {
 	AddAllImageStates(imageStates []*image.ImageState)
 	GetImageStateFromImageName(containerImageName string) (*image.ImageState, bool)
 	StartImageCleanupProcess(ctx context.Context)
-	SetSaver(stateManager statemanager.Saver)
+	SetDataClient(dataClient data.Client)
 }
 
 // dockerImageManager accounts all the images and their states in the instance.
@@ -53,10 +53,10 @@ type ImageManager interface {
 type dockerImageManager struct {
 	imageStates                        []*image.ImageState
 	client                             dockerapi.DockerClient
+	dataClient                         data.Client
 	updateLock                         sync.RWMutex
 	imageCleanupTicker                 *time.Ticker
 	state                              dockerstate.TaskEngineState
-	saver                              statemanager.Saver
 	imageStatesConsideredForDeletion   map[string]*image.ImageState
 	minimumAgeBeforeDeletion           time.Duration
 	numImagesToDelete                  int
@@ -89,6 +89,11 @@ func NewImageManager(cfg *config.Config, client dockerapi.DockerClient, state do
 	}
 }
 
+// SetDataClient sets the saver that is used by the ImageManager.
+func (imageManager *dockerImageManager) SetDataClient(dataClient data.Client) {
+	imageManager.dataClient = dataClient
+}
+
 func buildImageCleanupExclusionList(cfg *config.Config) []string {
 	// append known cached internal images to imageCleanupExclusionList
 	excludedImages := append(cfg.ImageCleanupExclusionList,
@@ -100,10 +105,6 @@ func buildImageCleanupExclusionList(cfg *config.Config) []string {
 		seelog.Infof("Image excluded from cleanup: %s", image)
 	}
 	return excludedImages
-}
-
-func (imageManager *dockerImageManager) SetSaver(stateManager statemanager.Saver) {
-	imageManager.saver = stateManager
 }
 
 func (imageManager *dockerImageManager) AddAllImageStates(imageStates []*image.ImageState) {
@@ -122,8 +123,6 @@ func (imageManager *dockerImageManager) GetImageStatesCount() int {
 
 // RecordContainerReference adds container reference to the corresponding imageState object
 func (imageManager *dockerImageManager) RecordContainerReference(container *apicontainer.Container) error {
-	// the image state has been updated, save the new state
-	defer imageManager.saver.ForceSave()
 	// On agent restart, container ID was retrieved from agent state file
 	// TODO add setter and getter for modifying this
 	if container.ImageID != "" {
@@ -188,6 +187,7 @@ func (imageManager *dockerImageManager) addContainerReferenceToExistingImageStat
 	imageState, ok := imageManager.getImageState(container.ImageID)
 	if ok {
 		imageState.UpdateImageState(container)
+		imageManager.saveImageStateData(imageState)
 	}
 	return ok
 }
@@ -201,6 +201,7 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 	imageState, ok := imageManager.getImageState(container.ImageID)
 	if ok {
 		imageState.UpdateImageState(container)
+		imageManager.saveImageStateData(imageState)
 	} else {
 		sourceImage := &image.Image{
 			ImageID: container.ImageID,
@@ -218,8 +219,6 @@ func (imageManager *dockerImageManager) addContainerReferenceToNewImageState(con
 
 // RemoveContainerReferenceFromImageState removes container reference from the corresponding imageState object
 func (imageManager *dockerImageManager) RemoveContainerReferenceFromImageState(container *apicontainer.Container) error {
-	// the image state has been updated, save the new state
-	defer imageManager.saver.ForceSave()
 	// this lock is for reading image states and finding the one that the container belongs to
 	imageManager.updateLock.RLock()
 	defer imageManager.updateLock.RUnlock()
@@ -233,11 +232,18 @@ func (imageManager *dockerImageManager) RemoveContainerReferenceFromImageState(c
 		return fmt.Errorf("Cannot find image state for the container to be removed")
 	}
 	// Found matching ImageState
-	return imageState.RemoveContainerReference(container)
+	err := imageState.RemoveContainerReference(container)
+	if err != nil {
+		return err
+	}
+	imageManager.saveImageStateData(imageState)
+	return nil
 }
 
 func (imageManager *dockerImageManager) addImageState(imageState *image.ImageState) {
 	imageManager.imageStates = append(imageManager.imageStates, imageState)
+	imageManager.saveImageStateData(imageState)
+
 }
 
 // getAllImageStates returns the list of imageStates in the instance
@@ -262,6 +268,7 @@ func (imageManager *dockerImageManager) removeImageState(imageStateToBeRemoved *
 			// Image State found; hence remove it
 			seelog.Infof("Removing Image State: [%s] from Image Manager", imageState.String())
 			imageManager.imageStates = append(imageManager.imageStates[:i], imageManager.imageStates[i+1:]...)
+			imageManager.removeImageStateData(imageState.Image.ImageID)
 			return
 		}
 	}
@@ -322,7 +329,9 @@ func (imageManager *dockerImageManager) removeExistingImageNameOfDifferentID(con
 	for _, imageState := range imageManager.getAllImageStates() {
 		// image with same name pulled in the instance. Untag the already existing image name
 		if imageState.Image.ImageID != inspectedImageID {
-			imageState.RemoveImageName(containerImageName)
+			if imageNameRemoved := imageState.RemoveImageName(containerImageName); imageNameRemoved {
+				imageManager.saveImageStateData(imageState)
+			}
 		}
 	}
 }
@@ -654,7 +663,6 @@ func (imageManager *dockerImageManager) deleteImage(ctx context.Context, imageID
 		delete(imageManager.imageStatesConsideredForDeletion, imageState.Image.ImageID)
 		imageManager.removeImageState(imageState)
 		imageManager.state.RemoveImageState(imageState)
-		imageManager.saver.Save()
 	}
 }
 

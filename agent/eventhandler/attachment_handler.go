@@ -20,27 +20,20 @@ import (
 	"sync"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/cihub/seelog"
-)
-
-const (
-	// saveAttachmentStateRetryNum is the number of retries we have when we successfully submitted an attachment
-	// state change event but failed to save the state for the attachment
-	saveAttachmentStateRetryNum = 3
 )
 
 // AttachmentEventHandler is a handler that is responsible for submitting attachment state change events
 // to backend
 type AttachmentEventHandler struct {
-	// stateSaver is a statemanager which may be used to save any
-	// changes to an attachment's SentStatus
-	stateSaver statemanager.Saver
-
 	// backoff is the backoff object used in submitting attachment state change
 	backoff retry.Backoff
+
+	// dataClient is used to save any changes to an attachment's SentStatus
+	dataClient data.Client
 
 	// attachmentARNToHandler is a map from attachment ARN to the attachmentHandler that is
 	// responsible for handling the attachment
@@ -58,9 +51,8 @@ type attachmentHandler struct {
 	// attachmentARN is the arn of the attachment that the attachmentHandler is handling
 	attachmentARN string
 
-	// stateSaver is a statemanager which may be used to save any
-	// changes to an attachment's SentStatus
-	stateSaver statemanager.Saver
+	// dataClient is used to save any changes to an attachment's SentStatus
+	dataClient data.Client
 
 	// backoff is the backoff object used in submitting attachment state change
 	backoff retry.Backoff
@@ -74,12 +66,12 @@ type attachmentHandler struct {
 
 // NewAttachmentEventHandler returns a new AttachmentEventHandler object
 func NewAttachmentEventHandler(ctx context.Context,
-	stateSaver statemanager.Saver,
+	dataClient data.Client,
 	client api.ECSClient) *AttachmentEventHandler {
 	return &AttachmentEventHandler{
 		ctx:                    ctx,
-		stateSaver:             stateSaver,
 		client:                 client,
+		dataClient:             dataClient,
 		attachmentARNToHandler: make(map[string]*attachmentHandler),
 		backoff: retry.NewExponentialBackoff(submitStateBackoffMin, submitStateBackoffMax,
 			submitStateBackoffJitterMultiple, submitStateBackoffMultiple),
@@ -105,7 +97,7 @@ func (eventHandler *AttachmentEventHandler) AddStateChangeEvent(change statechan
 	if _, ok := eventHandler.attachmentARNToHandler[attachmentARN]; !ok {
 		eventHandler.attachmentARNToHandler[attachmentARN] = &attachmentHandler{
 			attachmentARN: attachmentARN,
-			stateSaver:    eventHandler.stateSaver,
+			dataClient:    eventHandler.dataClient,
 			client:        eventHandler.client,
 			ctx:           eventHandler.ctx,
 			backoff:       eventHandler.backoff,
@@ -151,22 +143,11 @@ func (handler *attachmentHandler) submitAttachmentEventOnce(attachmentChange *ap
 	attachmentChange.Attachment.SetSentStatus()
 	attachmentChange.Attachment.StopAckTimer()
 
-	err := handler.stateSaver.Save()
+	err := handler.dataClient.SaveENIAttachment(attachmentChange.Attachment)
 	if err != nil {
-		// saving state error more often than not is caused by running out of disk space and it's unlikely to succeed by
-		// retry, so just retry a few times and give up. and we don't need to hold the attachment lock here, so retry in
-		// a separate go routine and return nil for the outer retry loop
 		seelog.Errorf("AttachmentHandler: error saving state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-		go handler.retrySavingState(attachmentChange)
 	}
 	return nil
-}
-
-func (handler *attachmentHandler) retrySavingState(attachmentChange *api.AttachmentStateChange) {
-	err := retry.RetryNWithBackoffCtx(handler.ctx, handler.backoff, saveAttachmentStateRetryNum, handler.stateSaver.Save)
-	if err != nil {
-		seelog.Errorf("AttachmentHandler: failed to save state after submitted attachment state change [%s]: %v", attachmentChange.String(), err)
-	}
 }
 
 // attachmentChangeShouldBeSent checks whether an attachment state change should be sent to backend

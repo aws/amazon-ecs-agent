@@ -25,12 +25,12 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
-	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -40,7 +40,7 @@ const (
 	xSubmitStateBackoffJitterMultiple = 0.20
 	xSubmitStateBackoffMultiple       = 1.3
 
-	attachmentARN = "attachmentARN"
+	attachmentARN = "arn:aws:ecs:us-west-2:1234567890:attachment/abc"
 )
 
 func TestSendAttachmentEvent(t *testing.T) {
@@ -56,7 +56,7 @@ func TestSendAttachmentEvent(t *testing.T) {
 	assert.NoError(t, attachmentEvent.Attachment.StartTimer(timeoutFunc))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewAttachmentEventHandler(ctx, statemanager.NewNoopStateManager(), client)
+	handler := NewAttachmentEventHandler(ctx, data.NewNoopClient(), client)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -68,7 +68,7 @@ func TestSendAttachmentEvent(t *testing.T) {
 		wg.Done()
 	})
 
-	handler.AddStateChangeEvent(attachmentEvent)
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent))
 
 	wg.Wait()
 }
@@ -78,15 +78,17 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
-	attachmentEvent := attachmentEvent("attachmentARN")
+	attachmentEvent := attachmentEvent(attachmentARN)
 
 	timeoutFunc := func() {
 		t.Error("Timeout sending ENI attach status")
 	}
 	assert.NoError(t, attachmentEvent.Attachment.StartTimer(timeoutFunc))
 
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewAttachmentEventHandler(ctx, statemanager.NewNoopStateManager(), client)
+	handler := NewAttachmentEventHandler(ctx, dataClient, client)
 	// use smaller backoff value for unit test
 	handler.backoff = retry.NewExponentialBackoff(xSubmitStateBackoffMin, xSubmitStateBackoffMax,
 		xSubmitStateBackoffJitterMultiple, xSubmitStateBackoffMultiple)
@@ -106,46 +108,7 @@ func TestSendAttachmentEventRetries(t *testing.T) {
 		}),
 	)
 
-	handler.AddStateChangeEvent(attachmentEvent)
-
-	wg.Wait()
-}
-
-func TestSendAttachmentEventRetrySavingState(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	client := mock_api.NewMockECSClient(ctrl)
-	stateSaver := mock_statemanager.NewMockStateManager(ctrl)
-
-	attachmentEvent := attachmentEvent("attachmentARN")
-
-	timeoutFunc := func() {
-		t.Error("Timeout sending ENI attach status")
-	}
-	assert.NoError(t, attachmentEvent.Attachment.StartTimer(timeoutFunc))
-
-	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewAttachmentEventHandler(ctx, stateSaver, client)
-	// use smaller backoff value for unit test
-	handler.backoff = retry.NewExponentialBackoff(xSubmitStateBackoffMin, xSubmitStateBackoffMax,
-		xSubmitStateBackoffJitterMultiple, xSubmitStateBackoffMultiple)
-	defer cancel()
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	retriable := apierrors.NewRetriableError(apierrors.NewRetriable(true), errors.New("test"))
-
-	gomock.InOrder(
-		client.EXPECT().SubmitAttachmentStateChange(gomock.Any()).Return(nil).Do(func(change api.AttachmentStateChange) {
-			assert.NotNil(t, change.Attachment)
-			assert.Equal(t, attachmentARN, change.Attachment.AttachmentARN)
-		}),
-		stateSaver.EXPECT().Save().Return(retriable),
-		stateSaver.EXPECT().Save().Return(nil).Do(func() { wg.Done() }),
-	)
-
-	handler.AddStateChangeEvent(attachmentEvent)
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent))
 
 	wg.Wait()
 }
@@ -167,7 +130,7 @@ func TestSendMultipleAttachmentEventsDifferentAttachments(t *testing.T) {
 	assert.NoError(t, attachmentEvent3.Attachment.StartTimer(timeoutFunc))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := NewAttachmentEventHandler(ctx, statemanager.NewNoopStateManager(), client)
+	handler := NewAttachmentEventHandler(ctx, data.NewNoopClient(), client)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -183,9 +146,9 @@ func TestSendMultipleAttachmentEventsDifferentAttachments(t *testing.T) {
 		wg.Done()
 	})
 
-	handler.AddStateChangeEvent(attachmentEvent1)
-	handler.AddStateChangeEvent(attachmentEvent2)
-	handler.AddStateChangeEvent(attachmentEvent3)
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent1))
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent2))
+	require.NoError(t, handler.AddStateChangeEvent(attachmentEvent3))
 
 	wg.Wait()
 	assert.Equal(t, 3, len(submittedAttachments))
@@ -199,6 +162,9 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_api.NewMockECSClient(ctrl)
 
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
 	attachmentEvent := attachmentEvent(attachmentARN)
 
 	timeoutFunc := func() {
@@ -208,8 +174,8 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	handler := &attachmentHandler{
-		stateSaver: statemanager.NewNoopStateManager(),
 		client:     client,
+		dataClient: dataClient,
 		ctx:        ctx,
 	}
 	defer cancel()
@@ -222,6 +188,9 @@ func TestSubmitAttachmentEventSucceeds(t *testing.T) {
 	handler.submitAttachmentEvent(&attachmentEvent)
 
 	assert.True(t, attachmentEvent.Attachment.AttachStatusSent)
+	res, err := dataClient.GetENIAttachments()
+	assert.NoError(t, err)
+	assert.Len(t, res, 1)
 }
 
 func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
@@ -237,9 +206,8 @@ func TestSubmitAttachmentEventAttachmentExpired(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	handler := &attachmentHandler{
-		stateSaver: statemanager.NewNoopStateManager(),
-		client:     client,
-		ctx:        ctx,
+		client: client,
+		ctx:    ctx,
 	}
 	defer cancel()
 
@@ -264,9 +232,8 @@ func TestSubmitAttachmentEventAttachmentIsSent(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	handler := &attachmentHandler{
-		stateSaver: statemanager.NewNoopStateManager(),
-		client:     client,
-		ctx:        ctx,
+		client: client,
+		ctx:    ctx,
 	}
 	defer cancel()
 

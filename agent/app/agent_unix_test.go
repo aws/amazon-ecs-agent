@@ -24,22 +24,25 @@ import (
 
 	app_mocks "github.com/aws/amazon-ecs-agent/agent/app/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_ec2 "github.com/aws/amazon-ecs-agent/agent/ec2/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	mock_ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
+	mock_udev "github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_gpu "github.com/aws/amazon-ecs-agent/agent/gpu/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -57,98 +60,19 @@ func resetGetpid() {
 	getPid = os.Getpid
 }
 
-func TestDoStartHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client, dockerClient, _, _ := setup(t)
-	defer ctrl.Finish()
-
-	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
-	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
-	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	var discoverEndpointsInvoked sync.WaitGroup
-	discoverEndpointsInvoked.Add(2)
-	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-
-	// These calls are expected to happen, but cannot be ordered as they are
-	// invoked via go routines, which will lead to occasional test failues
-	dockerClient.EXPECT().Version(gomock.Any(), gomock.Any()).AnyTimes()
-	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
-	imageManager.EXPECT().StartImageCleanupProcess(gomock.Any()).MaxTimes(1)
-	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
-	dockerClient.EXPECT().ListContainers(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		dockerapi.ListContainersResponse{}).AnyTimes()
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until acs session has bee started
-		discoverEndpointsInvoked.Done()
-	}).Return("poll-endpoint", nil)
-	client.EXPECT().DiscoverPollEndpoint(gomock.Any()).Return("acs-endpoint", nil).AnyTimes()
-	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Do(func(x interface{}) {
-		// Ensures that the test waits until telemetry session has bee started
-		discoverEndpointsInvoked.Done()
-	}).Return("telemetry-endpoint", nil)
-	client.EXPECT().DiscoverTelemetryEndpoint(gomock.Any()).Return(
-		"tele-endpoint", nil).AnyTimes()
-	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
-	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
-	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
-
-	gomock.InOrder(
-		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
-		dockerClient.EXPECT().SupportedVersions().Return(nil),
-		dockerClient.EXPECT().KnownVersions().Return(nil),
-		mockMobyPlugins.EXPECT().Scan().Return([]string{}, nil),
-		dockerClient.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).Return([]string{}, nil),
-		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any(), gomock.Any()).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
-		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
-		state.EXPECT().AllImageStates().Return(nil),
-		state.EXPECT().AllENIAttachments().Return(nil),
-		state.EXPECT().AllTasks().Return(nil),
-	)
-
-	cfg := getTestConfig()
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	agent := &ecsAgent{
-		ctx:                ctx,
-		cfg:                &cfg,
-		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
-		dockerClient:       dockerClient,
-		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
-		ec2MetadataClient:  ec2MetadataClient,
-	}
-
-	var agentW sync.WaitGroup
-	agentW.Add(1)
-	go func() {
-		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, state, imageManager, client)
-		agentW.Done()
-	}()
-
-	// Wait for both DiscoverPollEndpointInput and DiscoverTelemetryEndpoint to be
-	// invoked. These are used as proxies to indicate that acs and tcs handlers'
-	// NewSession call has been invoked
-	discoverEndpointsInvoked.Wait()
-	cancel()
-	agentW.Wait()
-}
-
 func TestDoStartTaskENIHappyPath(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
+	ctrl, credentialsManager, _, imageManager, client,
 		dockerClient, _, _ := setup(t)
 	defer ctrl.Finish()
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
 	containerChangeEvents := make(chan dockerapi.DockerContainerChangeEvent)
+	monitoShutdownEvents := make(chan bool)
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockUdevMonitor := mock_udev.NewMockUdev(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 
@@ -177,6 +101,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockMetadata.EXPECT().OutpostARN().Return("", nil)
 	mockPauseLoader.EXPECT().LoadImage(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
+	mockUdevMonitor.EXPECT().Monitor(gomock.Any()).Return(monitoShutdownEvents).AnyTimes()
 
 	gomock.InOrder(
 		mockMetadata.EXPECT().PrimaryENIMAC().Return(mac, nil),
@@ -187,7 +112,6 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		cniClient.EXPECT().Capabilities(ecscni.ECSIPAMPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSAppMeshPluginName).Return(cniCapabilities, nil),
 		cniClient.EXPECT().Capabilities(ecscni.ECSBranchENIPluginName).Return(cniCapabilities, nil),
-		state.EXPECT().ENIByMac(gomock.Any()).Return(nil, false).AnyTimes(),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
 		dockerClient.EXPECT().KnownVersions().Return(nil),
@@ -215,11 +139,8 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 				assert.True(t, vpcFound)
 				assert.True(t, subnetFound)
 			}).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
-		state.EXPECT().AllImageStates().Return(nil),
-		state.EXPECT().AllENIAttachments().Return(nil),
-		state.EXPECT().AllTasks().Return(nil),
 	)
 
 	cfg := getTestConfig()
@@ -231,12 +152,15 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		ctx:                ctx,
 		cfg:                &cfg,
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
+		dataClient:         data.NewNoopClient(),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
+		udevMonitor:        mockUdevMonitor,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins: mockMobyPlugins,
 	}
 
 	getPid = func() int {
@@ -248,7 +172,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, state, imageManager, client)
+			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client)
 		agentW.Done()
 	}()
 
@@ -521,7 +445,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), gomock.Any()).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
@@ -550,9 +474,10 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		pauseLoader:        mockPauseLoader,
 		dockerClient:       dockerClient,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
-		ec2MetadataClient:  ec2MetadataClient,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins:       mockMobyPlugins,
+		ec2MetadataClient: ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -607,7 +532,8 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 		resourceFields: &taskresource.ResourceFields{
 			Control: mockControl,
 		},
@@ -667,7 +593,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
-		imageManager.EXPECT().SetSaver(gomock.Any()),
+		imageManager.EXPECT().SetDataClient(gomock.Any()),
 		dockerClient.EXPECT().ContainerEvents(gomock.Any()).Return(containerChangeEvents, nil),
 		state.EXPECT().AllImageStates().Return(nil),
 		state.EXPECT().AllENIAttachments().Return(nil),
@@ -697,9 +623,10 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
-		ec2MetadataClient:  ec2MetadataClient,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins:       mockMobyPlugins,
+		ec2MetadataClient: ec2MetadataClient,
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
@@ -752,7 +679,8 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 		credentialProvider: credentials.NewCredentials(mockCredentialsProvider),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
@@ -800,8 +728,9 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 		pauseLoader:        mockPauseLoader,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
-		terminationHandler: func(saver statemanager.Saver, taskEngine engine.TaskEngine, cancel context.CancelFunc) {},
-		mobyPlugins:        mockMobyPlugins,
+		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {
+		},
+		mobyPlugins: mockMobyPlugins,
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),

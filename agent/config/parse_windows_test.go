@@ -28,3 +28,15 @@ func TestParseGMSACapability(t *testing.T) {
 
 	assert.False(t, parseGMSACapability())
 }
+
+func TestParseBooleanEnvVar(t *testing.T) {
+	os.Setenv("EXAMPLE_SETTING", "True")
+	defer os.Unsetenv("EXAMPLE_SETTING")
+
+	assert.True(t, parseBooleanDefaultFalseConfig("EXAMPLE_SETTING").Enabled())
+	assert.True(t, parseBooleanDefaultTrueConfig("EXAMPLE_SETTING").Enabled())
+
+	os.Setenv("EXAMPLE_SETTING", "False")
+	assert.False(t, parseBooleanDefaultFalseConfig("EXAMPLE_SETTING").Enabled())
+	assert.False(t, parseBooleanDefaultTrueConfig("EXAMPLE_SETTING").Enabled())
+}

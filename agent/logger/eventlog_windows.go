@@ -64,7 +64,7 @@ func registerPlatformLogger() {
 // platformLogConfig exposes log configuration for the event log receiver
 func platformLogConfig() string {
 	return `
-		<custom name="wineventlog" formatid="windows" />`
+			<custom name="wineventlog" formatid="windows" />`
 }
 
 // ReceiveMessage receives a log line from seelog and emits it to the Windows event log

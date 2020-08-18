@@ -29,11 +29,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager"
 	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/amazon-ecs-agent/agent/version"
@@ -83,7 +83,7 @@ type session struct {
 	taskEngine                      engine.TaskEngine
 	ecsClient                       api.ECSClient
 	state                           dockerstate.TaskEngineState
-	stateManager                    statemanager.StateManager
+	dataClient                      data.Client
 	credentialsManager              rolecredentials.Manager
 	taskHandler                     *eventhandler.TaskHandler
 	ctx                             context.Context
@@ -141,7 +141,7 @@ func NewSession(ctx context.Context,
 	credentialsProvider *credentials.Credentials,
 	ecsClient api.ECSClient,
 	taskEngineState dockerstate.TaskEngineState,
-	stateManager statemanager.StateManager,
+	dataClient data.Client,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
 	taskHandler *eventhandler.TaskHandler, latestSeqNumTaskManifest *int64) Session {
@@ -157,7 +157,7 @@ func NewSession(ctx context.Context,
 		credentialsProvider:             credentialsProvider,
 		ecsClient:                       ecsClient,
 		state:                           taskEngineState,
-		stateManager:                    stateManager,
+		dataClient:                      dataClient,
 		taskEngine:                      taskEngine,
 		credentialsManager:              credentialsManager,
 		taskHandler:                     taskHandler,
@@ -281,7 +281,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.state,
-		acsSession.stateManager,
+		acsSession.dataClient,
 	)
 	eniAttachHandler.start()
 	defer eniAttachHandler.stop()
@@ -295,7 +295,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		acsSession.containerInstanceARN,
 		client,
 		acsSession.state,
-		acsSession.stateManager,
+		acsSession.dataClient,
 	)
 	instanceENIAttachHandler.start()
 	defer instanceENIAttachHandler.stop()
@@ -304,7 +304,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	// Add TaskManifestHandler
 	taskManifestHandler := newTaskManifestHandler(acsSession.ctx, cfg.Cluster, acsSession.containerInstanceARN,
-		client, acsSession.stateManager, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
+		client, acsSession.dataClient, acsSession.taskEngine, acsSession.latestSeqNumTaskManifest)
 
 	defer taskManifestHandler.clearAcks()
 	taskManifestHandler.start()
@@ -321,7 +321,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 		cfg.Cluster,
 		acsSession.containerInstanceARN,
 		client,
-		acsSession.stateManager,
+		acsSession.dataClient,
 		refreshCredsHandler,
 		acsSession.credentialsManager,
 		acsSession.taskHandler, acsSession.latestSeqNumTaskManifest)
@@ -335,7 +335,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 	// Ignore heartbeat messages; anyMessageHandler gets 'em
 	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
 
-	updater.AddAgentUpdateHandlers(client, cfg, acsSession.stateManager, acsSession.taskEngine)
+	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 
 	err := client.Connect()
 	if err != nil {

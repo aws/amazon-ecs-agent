@@ -42,6 +42,7 @@ const (
 	proxyEgressPort   = "15001"
 	appPort           = "9000"
 	egressIgnoredIP   = "169.254.169.254"
+	testTaskARN       = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 )
 
 var defaultDockerClientAPIVersion = dockerclient.Version_1_17
@@ -70,7 +71,7 @@ func getACSIAMRoleCredentials() *ecsacs.IAMRoleCredentials {
 
 func getACSEFSTask() *ecsacs.Task {
 	return &ecsacs.Task{
-		Arn:           strptr("myArn"),
+		Arn:           strptr(testTaskARN),
 		DesiredStatus: strptr("RUNNING"),
 		Family:        strptr("myFamily"),
 		Version:       strptr("1"),

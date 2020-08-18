@@ -51,7 +51,7 @@ const (
 	// when looking for ENI in agent's state. If for whatever reason, the message
 	// from ACS is received after the ENI has been attached to the instance, this
 	// timeout duration will be used to wait for ENI message to be sent from ACS
-	sendENIStateChangeRetryTimeout = 3 * time.Second
+	sendENIStateChangeRetryTimeout = 6 * time.Second
 
 	// sendENIStateChangeBackoffMin specifies minimum value for backoff when
 	// waiting for attachment message from ACS

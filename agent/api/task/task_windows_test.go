@@ -84,7 +84,8 @@ func TestPostUnmarshalWindowsCanonicalPaths(t *testing.T) {
 		Version:             "1",
 		Containers: []*apicontainer.Container{
 			{
-				Name: "myName",
+				Name:          "myName",
+				TaskARNUnsafe: "myArn",
 				MountPoints: []apicontainer.MountPoint{
 					{
 						ContainerPath: `c:\container\path`,

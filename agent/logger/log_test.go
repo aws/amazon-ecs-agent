@@ -16,6 +16,7 @@
 package logger
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -60,7 +61,8 @@ func TestJSONFormat_debug(t *testing.T) {
 func TestSeelogConfig_Default(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
@@ -68,11 +70,15 @@ func TestSeelogConfig_Default(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="asyncloop">
 	<outputs formatid="logfmt">
-		<console />
-		<rollingfile filename="foo.log" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -85,7 +91,8 @@ func TestSeelogConfig_Default(t *testing.T) {
 func TestSeelogConfig_DebugLevel(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         "debug",
+		driverLevel:   "debug",
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
@@ -93,11 +100,15 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="debug">
+<seelog type="asyncloop">
 	<outputs formatid="logfmt">
-		<console />
-		<rollingfile filename="foo.log" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		<filter levels="debug,info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -110,7 +121,8 @@ func TestSeelogConfig_DebugLevel(t *testing.T) {
 func TestSeelogConfig_SizeRollover(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  "size",
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
@@ -118,11 +130,15 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="asyncloop">
 	<outputs formatid="logfmt">
-		<console />
-		<rollingfile filename="foo.log" type="size"
-		 maxsize="10000000" archivetype="none" maxrolls="24" />
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="10000000" archivetype="none" maxrolls="24" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -135,7 +151,8 @@ func TestSeelogConfig_SizeRollover(t *testing.T) {
 func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  "size",
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: 15,
@@ -143,11 +160,15 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="asyncloop">
 	<outputs formatid="logfmt">
-		<console />
-		<rollingfile filename="foo.log" type="size"
-		 maxsize="15000000" archivetype="none" maxrolls="24" />
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="15000000" archivetype="none" maxrolls="24" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -160,7 +181,8 @@ func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  "size",
 		outputFormat:  DEFAULT_OUTPUT_FORMAT,
 		MaxFileSizeMB: 15,
@@ -168,11 +190,15 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="asyncloop">
 	<outputs formatid="logfmt">
-		<console />
-		<rollingfile filename="foo.log" type="size"
-		 maxsize="15000000" archivetype="none" maxrolls="10" />
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="size"
+			 maxsize="15000000" archivetype="none" maxrolls="10" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -185,7 +211,8 @@ func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 func TestSeelogConfig_JSONOutput(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
-		level:         DEFAULT_LOGLEVEL,
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
 		RolloverType:  DEFAULT_ROLLOVER_TYPE,
 		outputFormat:  "json",
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
@@ -193,11 +220,151 @@ func TestSeelogConfig_JSONOutput(t *testing.T) {
 	}
 	c := seelogConfig()
 	require.Equal(t, `
-<seelog type="asyncloop" minlevel="info">
+<seelog type="asyncloop">
 	<outputs formatid="json">
-		<console />
-		<rollingfile filename="foo.log" type="date"
-		 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="info,warn,error,critical">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="10" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSeelogConfig_NoOnInstanceLog(t *testing.T) {
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL_WHEN_DRIVER_SET,
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="off">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSeelogConfig_DifferentLevels(t *testing.T) {
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   "warn",
+		instanceLevel: "critical",
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="critical">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSeelogConfig_FileLevelDefault(t *testing.T) {
+	os.Setenv(LOG_DRIVER_ENV_VAR, "awslogs")
+	defer os.Unsetenv(LOG_DRIVER_ENV_VAR)
+
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: setInstanceLevelDefault(),
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="off">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
+	</formats>
+</seelog>`, c)
+}
+
+func TestSetLevel(t *testing.T) {
+	os.Setenv(LOGLEVEL_ON_INSTANCE_ENV_VAR, "crit")
+	os.Setenv(LOGLEVEL_ENV_VAR, "debug")
+
+	resetEnv := func() {
+		os.Unsetenv(LOGLEVEL_ENV_VAR)
+		os.Unsetenv(LOGLEVEL_ON_INSTANCE_ENV_VAR)
+	}
+	defer resetEnv()
+
+	Config = &logConfig{
+		logfile:       "foo.log",
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: setInstanceLevelDefault(),
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+	SetLevel(os.Getenv(LOGLEVEL_ENV_VAR), os.Getenv(LOGLEVEL_ON_INSTANCE_ENV_VAR))
+	require.Equal(t, "debug", Config.driverLevel)
+	require.Equal(t, "critical", Config.instanceLevel)
+
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="debug,info,warn,error,critical">
+			<console />
+		</filter>
+		<filter levels="critical">
+			<rollingfile filename="foo.log" type="date"
+			 datepattern="2006-01-02-15" archivetype="none" maxrolls="24" />
+		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
