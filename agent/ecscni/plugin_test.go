@@ -40,14 +40,16 @@ import (
 )
 
 const (
-	eniID                       = "eni-12345678"
-	eniIPV4Address              = "172.31.21.40"
-	eniMACAddress               = "02:7b:64:49:b1:40"
-	eniSubnetGatewayIPV4Address = "172.31.1.1/20"
-	trunkENIMACAddress          = "02:7b:64:49:b2:40"
-	branchENIVLANID             = "42"
-	branchIPV4Address           = "172.31.21.40/20"
-	branchSubnetGatewayAddress  = "172.31.1.1"
+	eniID                                       = "eni-12345678"
+	eniIPV4Address                              = "172.31.21.40"
+	eniIPV6Address                              = "abcd:dcba:1234:4321::"
+	eniIPV4AddressWithBlockSize                 = "172.31.21.40/20"
+	eniIPV6AddressWithBlockSize                 = "abcd:dcba:1234:4321::/64"
+	eniMACAddress                               = "02:7b:64:49:b1:40"
+	eniSubnetGatewayIPV4Address                 = "172.31.1.1/20"
+	eniSubnetGatewayIPV4AddressWithoutBlockSize = "172.31.1.1"
+	trunkENIMACAddress                          = "02:7b:64:49:b2:40"
+	branchENIVLANID                             = "42"
 )
 
 func TestSetupNS(t *testing.T) {
@@ -406,6 +408,11 @@ func TestConstructENINetworkConfig(t *testing.T) {
 			IPV4Addresses: []*eni.ENIIPV4Address{
 				{Address: eniIPV4Address, Primary: true},
 			},
+			IPV6Addresses: []*eni.ENIIPV6Address{
+				{
+					Address: eniIPV6Address,
+				},
+			},
 			MacAddress:               eniMACAddress,
 			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
 		},
@@ -416,12 +423,12 @@ func TestConstructENINetworkConfig(t *testing.T) {
 	err = json.Unmarshal(eniNetworkConfig.Bytes, eniConfig)
 	require.NoError(t, err, "unmarshal config from bytes failed")
 	assert.Equal(t, &ENIConfig{
-		Type:                     "ecs-eni",
-		ENIID:                    eniID,
-		IPV4Address:              eniIPV4Address,
-		MACAddress:               eniMACAddress,
-		BlockInstanceMetadata:    true,
-		SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
+		Type:                  "ecs-eni",
+		ENIID:                 eniID,
+		IPAddresses:           []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
+		MACAddress:            eniMACAddress,
+		BlockInstanceMetadata: true,
+		GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
 	}, eniConfig)
 }
 
@@ -440,6 +447,11 @@ func TestConstructBranchENINetworkConfig(t *testing.T) {
 			IPV4Addresses: []*eni.ENIIPV4Address{
 				{Address: eniIPV4Address, Primary: true},
 			},
+			IPV6Addresses: []*eni.ENIIPV6Address{
+				{
+					Address: eniIPV6Address,
+				},
+			},
 			MacAddress:               eniMACAddress,
 			SubnetGatewayIPV4Address: eniSubnetGatewayIPV4Address,
 			InterfaceVlanProperties: &eni.InterfaceVlanProperties{
@@ -454,14 +466,14 @@ func TestConstructBranchENINetworkConfig(t *testing.T) {
 	err = json.Unmarshal(eniNetworkConfig.Bytes, branchENIConfig)
 	require.NoError(t, err, "unmarshal config from bytes failed")
 	assert.Equal(t, &BranchENIConfig{
-		Type:                   "vpc-branch-eni",
-		BranchIPAddress:        branchIPV4Address,
-		BranchMACAddress:       eniMACAddress,
-		BlockInstanceMetadata:  true,
-		BranchGatewayIPAddress: branchSubnetGatewayAddress,
-		TrunkMACAddress:        trunkENIMACAddress,
-		BranchVlanID:           branchENIVLANID,
-		InterfaceType:          "vlan",
+		Type:                  "vpc-branch-eni",
+		IPAddresses:           []string{eniIPV4AddressWithBlockSize, eniIPV6AddressWithBlockSize},
+		BranchMACAddress:      eniMACAddress,
+		BlockInstanceMetadata: true,
+		GatewayIPAddresses:    []string{eniSubnetGatewayIPV4AddressWithoutBlockSize},
+		TrunkMACAddress:       trunkENIMACAddress,
+		BranchVlanID:          branchENIVLANID,
+		InterfaceType:         "vlan",
 	}, branchENIConfig)
 }
 

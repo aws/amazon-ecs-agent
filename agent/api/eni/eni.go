@@ -83,28 +83,49 @@ func (eni *ENI) GetPrimaryIPv4Address() string {
 		}
 	}
 
-	return primaryAddr
+	return eni.getIPAddressWithBlockSize(primaryAddr, true)
 }
 
-// GetIPV6Addresses returns a list of ipv6 addresses allocated to the ENI
+// GetIPV6Addresses returns the ipv6 addresses allocated to the ENI.
 func (eni *ENI) GetIPV6Addresses() []string {
 	var addresses []string
 	for _, addr := range eni.IPV6Addresses {
-		addresses = append(addresses, addr.Address)
+		addresses = append(addresses, eni.getIPAddressWithBlockSize(addr.Address, false))
 	}
 
 	return addresses
 }
 
-// GetHostname returns the hostname assigned to the ENI
+// GetIPAddresses returns all the ip addresses allocated to the ENI.
+func (eni *ENI) GetIPAddresses() []string {
+	ipv4Addr := eni.GetPrimaryIPv4Address()
+	ipv6Addresses := eni.GetIPV6Addresses()
+	return append([]string{ipv4Addr}, ipv6Addresses...)
+}
+
+// getIPAddressWithBlockSize appends a block size to the IP address of the ENI.
+// For IPv4, the block size is retrieved from the subnet gateway IPv4 address;
+// for IPv6, the block size is hardcoded to 64.
+func (eni *ENI) getIPAddressWithBlockSize(addr string, ipv4 bool) string {
+	var blockSize string
+	if ipv4 {
+		s := strings.Split(eni.SubnetGatewayIPV4Address, "/")
+		blockSize = s[1]
+	} else {
+		blockSize = "64"
+	}
+	return addr + "/" + blockSize
+}
+
+// GetHostname returns the hostname assigned to the ENI.
 func (eni *ENI) GetHostname() string {
 	return eni.PrivateDNSName
 }
 
-// GetSubnetGatewayIPV4Address returns the subnet IPv4 gateway address assigned
-// to the ENI
-func (eni *ENI) GetSubnetGatewayIPV4Address() string {
-	return eni.SubnetGatewayIPV4Address
+// GetSubnetGatewayAddresses returns the subnet gateway addresses for the ENI.
+func (eni *ENI) GetSubnetGatewayAddresses() []string {
+	s := strings.Split(eni.SubnetGatewayIPV4Address, "/")
+	return []string{s[0]}
 }
 
 // IsStandardENI returns true if the ENI is a standard/regular ENI. That is, if it
@@ -222,6 +243,16 @@ func ValidateTaskENI(acsENI *ecsacs.ElasticNetworkInterface) error {
 	// At least one IPv4 address should be associated with the ENI.
 	if len(acsENI.Ipv4Addresses) < 1 {
 		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
+	}
+
+	if acsENI.SubnetGatewayIpv4Address == nil {
+		return errors.Errorf("eni message validation: no subnet gateway ipv4 address in the message")
+	}
+	gwIPv4Addr := aws.StringValue(acsENI.SubnetGatewayIpv4Address)
+	s := strings.Split(gwIPv4Addr, "/")
+	if len(s) != 2 {
+		return errors.Errorf(
+			"eni message validation: invalid subnet gateway ipv4 address %s, expect format <address>/<block size>", gwIPv4Addr)
 	}
 
 	if acsENI.MacAddress == nil {
