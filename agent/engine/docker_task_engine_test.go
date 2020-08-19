@@ -77,6 +77,7 @@ import (
 const (
 	credentialsID               = "credsid"
 	ipv4                        = "10.0.0.1"
+	gatewayIPv4                 = "10.0.0.2/20"
 	mac                         = "1.2.3.4"
 	ipv6                        = "f0:234:23"
 	dockerContainerName         = "docker-container-name"
@@ -120,6 +121,7 @@ var (
 				Address: ipv6,
 			},
 		},
+		SubnetGatewayIPV4Address: gatewayIPv4,
 	}
 
 	// createdContainerName is used to save the name of the created
@@ -1319,21 +1321,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 		Type: apicontainer.ContainerCNIPause,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
-	testTask.AddTaskENI(&apieni.ENI{
-		ID: "TestStopPauseContainerCleanupCalled",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
-			{
-				Primary: true,
-				Address: ipv4,
-			},
-		},
-		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
-			{
-				Address: ipv6,
-			},
-		},
-	})
+	testTask.AddTaskENI(mockENI)
 	testTask.SetAppMesh(&appmesh.AppMesh{
 		IgnoredUID:       ignoredUID,
 		ProxyIngressPort: proxyIngressPort,
@@ -1393,21 +1381,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 		Type: apicontainer.ContainerCNIPause,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
-	testTask.AddTaskENI(&apieni.ENI{
-		ID: "TestStopPauseContainerCleanupCalled",
-		IPV4Addresses: []*apieni.ENIIPV4Address{
-			{
-				Primary: true,
-				Address: ipv4,
-			},
-		},
-		MacAddress: mac,
-		IPV6Addresses: []*apieni.ENIIPV6Address{
-			{
-				Address: ipv6,
-			},
-		},
-	})
+	testTask.AddTaskENI(mockENI)
 	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
 		DockerID:   containerID,

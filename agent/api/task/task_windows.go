@@ -213,3 +213,7 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 	res, ok := task.ResourcesMapUnsafe[credentialspec.ResourceName]
 	return res, ok
 }
+
+func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
+	return
+}
