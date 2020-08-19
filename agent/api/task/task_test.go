@@ -323,10 +323,17 @@ func TestDockerHostConfigPauseContainer(t *testing.T) {
 	testTask.ENIs[0].IPV4Addresses = []*apieni.ENIIPV4Address{ipaddr}
 	testTask.ENIs[0].PrivateDNSName = "eni.ip.region.compute.internal"
 
+	testTask.ENIs[0].IPV6Addresses = []*apieni.ENIIPV6Address{{Address: ipv6}}
 	cfg, err = testTask.DockerHostConfig(pauseContainer, dockerMap(testTask), defaultDockerClientAPIVersion,
 		&config.Config{})
 	assert.Nil(t, err)
 	assert.Equal(t, []string{"eni.ip.region.compute.internal:10.0.1.1"}, cfg.ExtraHosts)
+
+	// Verify ipv6 setting is enabled.
+	if runtime.GOOS == "linux" {
+		require.NotNil(t, cfg.Sysctls)
+		assert.Equal(t, sysctlValueOff, cfg.Sysctls[disableIPv6SysctlKey])
+	}
 
 	// Verify eni Hostname is added to DockerConfig for pause container
 	dockerconfig, dockerConfigErr := testTask.DockerConfig(pauseContainer, defaultDockerClientAPIVersion)
@@ -3278,21 +3285,7 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 	for _, blockIMDS := range []bool{true, false} {
 		t.Run(fmt.Sprintf("When BlockInstanceMetadata is %t", blockIMDS), func(t *testing.T) {
 			testTask := &Task{}
-			testTask.AddTaskENI(&apieni.ENI{
-				ID: "TestBuildCNIConfigRegularENI",
-				IPV4Addresses: []*apieni.ENIIPV4Address{
-					{
-						Primary: true,
-						Address: ipv4,
-					},
-				},
-				MacAddress: mac,
-				IPV6Addresses: []*apieni.ENIIPV6Address{
-					{
-						Address: ipv6,
-					},
-				},
-			})
+			testTask.AddTaskENI(getTestENI())
 			testTask.SetAppMesh(&appmesh.AppMesh{
 				IgnoredUID:       ignoredUID,
 				ProxyIngressPort: proxyIngressPort,
@@ -3316,7 +3309,8 @@ func TestBuildCNIConfigRegularENIWithAppMesh(t *testing.T) {
 			err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 			require.NoError(t, err)
 			assert.Equal(t, mac, eniConfig.MACAddress, eniConfig)
-			assert.Equal(t, ipv4, eniConfig.IPV4Address)
+			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.IPAddresses)
+			assert.Equal(t, []string{ipv4Gateway}, eniConfig.GatewayIPAddresses)
 			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
 			// The second one should be for the Bridge.
 			var bridgeConfig ecscni.BridgeConfig
@@ -3348,11 +3342,16 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 					VlanID:                   "1234",
 					TrunkInterfaceMacAddress: "macTrunk",
 				},
-				SubnetGatewayIPV4Address: "10.0.1.0/24",
+				SubnetGatewayIPV4Address: ipv4Gateway + ipv4Block,
 				IPV4Addresses: []*apieni.ENIIPV4Address{
 					{
 						Primary: true,
 						Address: ipv4,
+					},
+				},
+				IPV6Addresses: []*apieni.ENIIPV6Address{
+					{
+						Address: ipv6,
 					},
 				},
 			})
@@ -3371,7 +3370,8 @@ func TestBuildCNIConfigTrunkBranchENI(t *testing.T) {
 			assert.Equal(t, mac, eniConfig.BranchMACAddress, eniConfig)
 			assert.Equal(t, "macTrunk", eniConfig.TrunkMACAddress, eniConfig)
 			assert.Equal(t, "1234", eniConfig.BranchVlanID)
-			assert.Equal(t, ipv4+"/24", eniConfig.BranchIPAddress)
+			assert.Equal(t, []string{ipv4 + ipv4Block, ipv6 + ipv6Block}, eniConfig.IPAddresses)
+			assert.Equal(t, []string{ipv4Gateway}, eniConfig.GatewayIPAddresses)
 			assert.Equal(t, blockIMDS, eniConfig.BlockInstanceMetadata)
 			// The second one should be for the Bridge.
 			var bridgeConfig ecscni.BridgeConfig
@@ -3508,4 +3508,32 @@ func TestPopulateTaskARN(t *testing.T) {
 	}
 	task.populateTaskARN()
 	assert.Equal(t, task.Arn, task.Containers[0].GetTaskARN())
+}
+
+func TestShouldEnableIPv6(t *testing.T) {
+	task := &Task{
+		ENIs: []*apieni.ENI{getTestENI()},
+	}
+	assert.True(t, task.shouldEnableIPv6())
+	task.ENIs[0].IPV6Addresses = nil
+	assert.False(t, task.shouldEnableIPv6())
+}
+
+func getTestENI() *apieni.ENI {
+	return &apieni.ENI{
+		ID: "test",
+		IPV4Addresses: []*apieni.ENIIPV4Address{
+			{
+				Primary: true,
+				Address: ipv4,
+			},
+		},
+		MacAddress: mac,
+		IPV6Addresses: []*apieni.ENIIPV6Address{
+			{
+				Address: ipv6,
+			},
+		},
+		SubnetGatewayIPV4Address: ipv4Gateway + ipv4Block,
+	}
 }

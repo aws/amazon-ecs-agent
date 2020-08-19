@@ -89,6 +89,7 @@ const (
                 "ipv6Addresses": [{
                     "address": "ipv6"
                 }],
+                "subnetGatewayIpv4Address": "ipv4/20",
                 "macAddress": "mac"
         }],
         "roleCredentials": {

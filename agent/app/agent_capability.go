@@ -31,6 +31,7 @@ const (
 	capabilityTaskIAMRole                       = "task-iam-role"
 	capabilityTaskIAMRoleNetHost                = "task-iam-role-network-host"
 	taskENIAttributeSuffix                      = "task-eni"
+	taskENIIPv6AttributeSuffix                  = "task-eni.ipv6"
 	taskENIBlockInstanceMetadataAttributeSuffix = "task-eni-block-instance-metadata"
 	appMeshAttributeSuffix                      = "aws-appmesh"
 	cniPluginVersionSuffix                      = "cni-plugin-version"
@@ -295,6 +296,7 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 		capabilities = append(capabilities, &ecs.Attribute{
 			Name: aws.String(attributePrefix + taskENIAttributeSuffix),
 		})
+		capabilities = agent.appendIPv6Capability(capabilities)
 		taskENIVersionAttribute, err := agent.getTaskENIPluginVersionAttribute()
 		if err != nil {
 			return capabilities
