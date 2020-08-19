@@ -153,23 +153,90 @@ func TestReconcileENIs(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	ctx := context.Background()
-	parsedMAC, err := net.ParseMAC(randomMAC)
-	assert.NoError(t, err)
-
-	primaryMACAddr, err := net.ParseMAC("00:0a:95:9d:68:61")
-	assert.NoError(t, err)
 
 	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
 	taskEngineState := dockerstate.NewTaskEngineState()
 	eventChannel := make(chan statechange.Event)
 
-	taskEngineState.AddENIAttachment(&apieni.ENIAttachment{
+	taskEngineState.AddENIAttachment(getMockAttachment())
+
+	mockNetlink.EXPECT().LinkList().Return(getMockNetLinkResponse(t), nil)
+
+	var event statechange.Event
+	done := make(chan struct{})
+	go func() {
+		event = <-eventChannel
+		done <- struct{}{}
+	}()
+
+	// Create Watcher
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
+	require.NoError(t, watcher.reconcileOnce(false))
+
+	<-done
+	assert.NotNil(t, event.(api.TaskStateChange).Attachment)
+	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
+
+	select {
+	case <-eventChannel:
+		t.Errorf("Expect no more state change event")
+	default:
+	}
+}
+
+func TestReconcileENIsWithRetry(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+	ctx := context.Background()
+	mockNetlink := mock_netlinkwrapper.NewMockNetLink(mockCtrl)
+	mockState := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
+	eventChannel := make(chan statechange.Event)
+
+	gomock.InOrder(
+		mockNetlink.EXPECT().LinkList().Return(getMockNetLinkResponse(t), nil),
+		// Let the first one fail to check that we retry on failure.
+		mockState.EXPECT().ENIByMac(gomock.Any()).Return(nil, false),
+		mockState.EXPECT().ENIByMac(gomock.Any()).Return(getMockAttachment(), true),
+	)
+
+	var event statechange.Event
+	done := make(chan struct{})
+	go func() {
+		event = <-eventChannel
+		done <- struct{}{}
+	}()
+
+	// Create Watcher
+	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, mockState, eventChannel)
+	require.NoError(t, watcher.reconcileOnce(true))
+
+	<-done
+	require.NotNil(t, event.(api.TaskStateChange).Attachment)
+	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
+
+	select {
+	case <-eventChannel:
+		t.Errorf("Expect no more state change event")
+	default:
+	}
+}
+
+func getMockAttachment() *apieni.ENIAttachment {
+	return &apieni.ENIAttachment{
 		MACAddress:       randomMAC,
 		AttachStatusSent: false,
 		ExpiresAt:        time.Unix(time.Now().Unix()+10, 0),
-	})
+	}
+}
 
-	mockNetlink.EXPECT().LinkList().Return([]netlink.Link{
+func getMockNetLinkResponse(t *testing.T) []netlink.Link {
+	parsedMAC, err := net.ParseMAC(randomMAC)
+	require.NoError(t, err)
+
+	primaryMACAddr, err := net.ParseMAC("00:0a:95:9d:68:61")
+	require.NoError(t, err)
+
+	return []netlink.Link{
 		&netlink.Device{
 			LinkAttrs: netlink.LinkAttrs{
 				HardwareAddr: parsedMAC,
@@ -183,27 +250,6 @@ func TestReconcileENIs(t *testing.T) {
 				EncapType:    "loopback",
 			},
 		},
-	}, nil)
-
-	var event statechange.Event
-	done := make(chan struct{})
-	go func() {
-		event = <-eventChannel
-		done <- struct{}{}
-	}()
-
-	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
-	watcher.reconcileOnce()
-
-	<-done
-	assert.NotNil(t, event.(api.TaskStateChange).Attachment)
-	assert.Equal(t, randomMAC, event.(api.TaskStateChange).Attachment.MACAddress)
-
-	select {
-	case <-eventChannel:
-		t.Errorf("Expect no more state change event")
-	default:
 	}
 }
 
@@ -222,7 +268,7 @@ func TestReconcileENIsWithNetlinkErr(t *testing.T) {
 
 	// Create Watcher
 	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
-	watcher.reconcileOnce()
+	assert.Error(t, watcher.reconcileOnce(false))
 
 	select {
 	case <-eventChannel:
@@ -246,7 +292,7 @@ func TestReconcileENIsWithEmptyList(t *testing.T) {
 
 	// Create Watcher
 	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, taskEngineState, eventChannel)
-	watcher.reconcileOnce()
+	assert.NoError(t, watcher.reconcileOnce(false))
 	watcher.Stop()
 
 	select {

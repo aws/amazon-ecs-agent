@@ -135,7 +135,8 @@ func newWatcher(ctx context.Context,
 
 // Init initializes a new ENI Watcher
 func (udevWatcher *UdevWatcher) Init() error {
-	return udevWatcher.reconcileOnce()
+	// Retry in the first reconciliation, in case the ENI is attached before we connect to ACS.
+	return udevWatcher.reconcileOnce(true)
 }
 
 // Start periodically updates the state of ENIs connected to the system
@@ -157,7 +158,7 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(updateInterval tim
 	for {
 		select {
 		case <-udevWatcher.updateIntervalTicker.C:
-			if err := udevWatcher.reconcileOnce(); err != nil {
+			if err := udevWatcher.reconcileOnce(false); err != nil {
 				log.Warnf("Udev watcher reconciliation failed: %v", err)
 			}
 		case <-udevWatcher.ctx.Done():
@@ -168,7 +169,7 @@ func (udevWatcher *UdevWatcher) performPeriodicReconciliation(updateInterval tim
 }
 
 // reconcileOnce is used to reconcile the state of ENIs attached to the instance
-func (udevWatcher *UdevWatcher) reconcileOnce() error {
+func (udevWatcher *UdevWatcher) reconcileOnce(withRetry bool) error {
 	links, err := udevWatcher.netlinkClient.LinkList()
 	if err != nil {
 		return errors.Wrapf(err, "udev watcher: unable to retrieve network interfaces")
@@ -188,6 +189,14 @@ func (udevWatcher *UdevWatcher) reconcileOnce() error {
 
 	// Add new interfaces next
 	for mac := range currentState {
+		if withRetry {
+			go func(ctx context.Context, macAddress string, timeout time.Duration) {
+				if err := udevWatcher.sendENIStateChangeWithRetries(ctx, macAddress, timeout); err != nil {
+					log.Infof("Udev watcher event-handler: unable to send state change: %v", err)
+				}
+			}(udevWatcher.ctx, mac, sendENIStateChangeRetryTimeout)
+			continue
+		}
 		if err := udevWatcher.sendENIStateChange(mac); err != nil {
 			// skip logging status sent error as it's redundant and doesn't really indicate a problem
 			if strings.Contains(err.Error(), eniStatusSentMsg) {
@@ -337,7 +346,10 @@ func (udevWatcher *UdevWatcher) sendENIStateChangeWithRetries(parentCtx context.
 		sendErr := udevWatcher.sendENIStateChange(macAddress)
 		if sendErr != nil {
 			if _, ok := sendErr.(*unmanagedENIError); ok {
-				log.Debugf("Unable to send state change for unmanaged ENI: %v", sendErr)
+				// This can happen in two scenarios: (1) the ENI is indeed not managed by ECS (i.e. attached manually
+				// by customer); (2) this is an ENI attached by ECS but we have not yet received its information from
+				// ACS.
+				log.Debugf("Not sending state change because we don't know about the ENI: %v", sendErr)
 				return sendErr
 			}
 			// Not unmanagedENIError. Stop retrying when this happens
