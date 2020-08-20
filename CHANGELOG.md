@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.44.1-1
+* Cache Agent version 1.44.1
+
 ## 1.44.0-1
 * Cache Agent version 1.44.0
 * Add support for configuring Agent container logs
