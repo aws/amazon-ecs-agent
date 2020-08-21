@@ -23,8 +23,10 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
-	log "github.com/cihub/seelog"
 	"github.com/pkg/errors"
+
+	"github.com/cihub/seelog"
+
 )
 
 const (
@@ -262,7 +264,8 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		// We want to check whether the dependency container has timed out only if target has not been created yet.
 		// If the target is already created, then everything is normal and dependency can be and is resolved.
 		// However, if dependency container has already stopped, then it cannot time out.
-		if targetKnown < apicontainerstatus.ContainerCreated && dependencyContainer.GetKnownStatus() != apicontainerstatus.ContainerStopped {
+		if targetKnown < apicontainerstatus.ContainerCreated {
+			seelog.Info("Checking for timeout")
 			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
 				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
 			}
@@ -275,6 +278,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 		}
 
+		// Hi
 		if !resolves(target, dependencyContainer, dependency.Condition) {
 			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
 		}
@@ -371,8 +375,7 @@ func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 	}
 }
 
-func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
-	dependsOnContainer *apicontainer.Container,
+func containerOrderingDependenciesIsResolved(target *apicontainer.Container, dependsOnContainer *apicontainer.Container,
 	dependsOnStatus string) bool {
 
 	targetDesiredStatus := target.GetDesiredStatus()

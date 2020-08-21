@@ -101,7 +101,7 @@ type BridgeConfig struct {
 	// has already a different ip
 	ForceAddress bool `json:"forceAddress"`
 	// IPMasq indicates whether to setup the IP Masquerade for traffic originating
-	// from this network
+	// from this networ
 	IPMasq bool `json:"ipMasq"`
 	// MTU sets MTU of the bridge interface
 	MTU int `json:"mtu"`
