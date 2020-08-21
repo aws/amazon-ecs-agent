@@ -44,6 +44,7 @@ type TaskResponse struct {
 	AvailabilityZone      string              `json:"AvailabilityZone,omitempty"`
 	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
 	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
+	LaunchType            string              `json:"LaunchType,omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
@@ -67,6 +68,8 @@ type ContainerResponse struct {
 	Networks      []containermetadata.Network `json:"Networks,omitempty"`
 	Health        *apicontainer.HealthStatus  `json:"Health,omitempty"`
 	Volumes       []v1.VolumeResponse         `json:"Volumes,omitempty"`
+	LogDriver     string                      `json:"LogDriver,omitempty"`
+	LogOptions    map[string]string           `json:"LogOptions,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -77,13 +80,16 @@ type LimitsResponse struct {
 }
 
 // NewTaskResponse creates a new response object for the task
-func NewTaskResponse(taskARN string,
+func NewTaskResponse(
+	taskARN string,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
 	cluster string,
 	az string,
 	containerInstanceArn string,
-	propagateTags bool) (*TaskResponse, error) {
+	propagateTags bool,
+	includeV4Metadata bool,
+) (*TaskResponse, error) {
 	task, ok := state.TaskByArn(taskARN)
 	if !ok {
 		return nil, errors.Errorf("v2 task response: unable to find task '%s'", taskARN)
@@ -129,7 +135,7 @@ func NewTaskResponse(taskARN string,
 	}
 
 	for _, dockerContainer := range containerNameToDockerContainer {
-		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
+		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state, includeV4Metadata)
 		resp.Containers = append(resp.Containers, containerResponse)
 	}
 
@@ -163,8 +169,11 @@ func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.EC
 }
 
 // NewContainerResponse creates a new container response based on container id
-func NewContainerResponse(containerID string,
-	state dockerstate.TaskEngineState) (*ContainerResponse, error) {
+func NewContainerResponse(
+	containerID string,
+	state dockerstate.TaskEngineState,
+	includeV4Metadata bool,
+) (*ContainerResponse, error) {
 	dockerContainer, ok := state.ContainerByID(containerID)
 	if !ok {
 		return nil, errors.Errorf(
@@ -176,13 +185,16 @@ func NewContainerResponse(containerID string,
 			"v2 container response: unable to find task for container '%s'", containerID)
 	}
 
-	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state)
+	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state, includeV4Metadata)
 	return &resp, nil
 }
 
-func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
+func newContainerResponse(
+	dockerContainer *apicontainer.DockerContainer,
 	eni *apieni.ENI,
-	state dockerstate.TaskEngineState) ContainerResponse {
+	state dockerstate.TaskEngineState,
+	includeV4Metadata bool,
+) ContainerResponse {
 	container := dockerContainer.Container
 	resp := ContainerResponse{
 		ID:            dockerContainer.DockerID,
@@ -199,6 +211,12 @@ func newContainerResponse(dockerContainer *apicontainer.DockerContainer,
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),
 		Labels:   container.GetLabels(),
+	}
+	// V4 metadata endpoint calls this function for consistency across versions,
+	// but needs additional metadata only available at this scope.
+	if includeV4Metadata {
+		resp.LogDriver = container.GetLogDriver()
+		resp.LogOptions = container.GetLogOptions()
 	}
 
 	// Write the container health status inside the container
