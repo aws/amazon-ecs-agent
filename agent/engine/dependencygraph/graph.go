@@ -86,7 +86,7 @@ OuterLoop:
 				continue OuterLoop
 			}
 		}
-		log.Warnf("Could not resolve some containers: [%v] for task %v", unresolved, task)
+		//log.Warnf("Could not resolve some containers: [%v] for task %v", unresolved, task)
 		return false
 	}
 
