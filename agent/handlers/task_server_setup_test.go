@@ -313,8 +313,25 @@ var (
 		},
 	}
 	expectedV4TaskResponse = v4.TaskResponse{
-		TaskResponse: &expectedTaskResponse,
-		Containers:   []v4.ContainerResponse{expectedV4ContainerResponse},
+		TaskResponse: &v2.TaskResponse{
+			Cluster:       clusterName,
+			TaskARN:       taskARN,
+			Family:        family,
+			Revision:      version,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			Containers:    []v2.ContainerResponse{expectedContainerResponse},
+			Limits: &v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			PullStartedAt:      aws.Time(now.UTC()),
+			PullStoppedAt:      aws.Time(now.UTC()),
+			ExecutionStoppedAt: aws.Time(now.UTC()),
+			AvailabilityZone:   availabilityzone,
+			LaunchType:         "EC2",
+		},
+		Containers: []v4.ContainerResponse{expectedV4ContainerResponse},
 	}
 	expectedV4BridgeContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedBridgeContainerResponse,
@@ -333,8 +350,25 @@ var (
 		},
 	}
 	expectedV4BridgeTaskResponse = v4.TaskResponse{
-		TaskResponse: &expectedBridgeTaskResponse,
-		Containers:   []v4.ContainerResponse{expectedV4BridgeContainerResponse},
+		TaskResponse: &v2.TaskResponse{
+			Cluster:       clusterName,
+			TaskARN:       taskARN,
+			Family:        family,
+			Revision:      version,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			Containers:    []v2.ContainerResponse{expectedBridgeContainerResponse},
+			Limits: &v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			PullStartedAt:      aws.Time(now.UTC()),
+			PullStoppedAt:      aws.Time(now.UTC()),
+			ExecutionStoppedAt: aws.Time(now.UTC()),
+			AvailabilityZone:   availabilityzone,
+			LaunchType:         "EC2",
+		},
+		Containers: []v4.ContainerResponse{expectedV4BridgeContainerResponse},
 	}
 )
 
