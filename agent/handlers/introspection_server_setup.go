@@ -56,7 +56,7 @@ func introspectionServerSetup(containerInstanceArn *string, taskEngine handlersu
 	loggingServeMux.Handle("/", LoggingHandler{serverMux})
 
 	server := &http.Server{
-		Addr:         ":" + strconv.Itoa(config.AgentIntrospectionPort),
+		Addr:         "127.0.0.1:" + strconv.Itoa(config.AgentIntrospectionPort),
 		Handler:      loggingServeMux,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
