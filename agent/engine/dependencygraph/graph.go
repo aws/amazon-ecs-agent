@@ -141,6 +141,7 @@ func DependenciesAreResolved(target *apicontainer.Container, by []*apicontainer.
 	}
 
 	if blocked, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesIsResolved); err != nil {
+		seelog.Info("Returning err here")
 		return blocked, err
 	}
 
