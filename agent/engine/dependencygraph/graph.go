@@ -262,8 +262,8 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		// If the target is already created, then everything is normal and dependency can be and is resolved.
 		// However, if dependency container has already stopped, then it cannot time out.
 		if targetKnown < apicontainerstatus.ContainerCreated {
-			seelog.Info("Checking for timeout")
 			if hasDependencyTimedOut(dependencyContainer, dependency.Condition) {
+				seelog.Info("Got true")
 				return nil, fmt.Errorf("dependency graph: container ordering dependency [%v] for target [%v] has timed out.", dependencyContainer, target)
 			}
 		}
