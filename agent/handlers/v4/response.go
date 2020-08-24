@@ -57,10 +57,12 @@ type NetworkInterfaceProperties struct {
 	// AttachmentIndex reflects the `index` specified by the customer (if any)
 	// while creating the task with `awsvpc` mode.
 	AttachmentIndex *int `json:"AttachmentIndex,omitempty"`
-	// IPV4SubnetCIDRBlock is the subnet CIDR netmask associated with network interface.
-	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,omitempty"`
-	// MACAddress is the mac address of the network interface.
+	// MACAddress is the MAC address of the network interface.
 	MACAddress string `json:"MACAddress,omitempty"`
+	// IPv4SubnetCIDRBlock is the IPv4 CIDR address block associated with the interface's subnet.
+	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,omitempty"`
+	// IPv6SubnetCIDRBlock is the IPv6 CIDR address block associated with the interface's subnet.
+	IPv6SubnetCIDRBlock string `json:"IPv6SubnetCIDRBlock,omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the network interface.
 	DomainNameServers []string `json:"DomainNameServers,omitempty"`
 	// DomainNameSearchList specifies the search list for the domain name lookup for
@@ -68,7 +70,7 @@ type NetworkInterfaceProperties struct {
 	DomainNameSearchList []string `json:"DomainNameSearchList,omitempty"`
 	// PrivateDNSName is the dns name assigned to this network interface.
 	PrivateDNSName string `json:"PrivateDNSName,omitempty"`
-	// SubnetGatewayIPV4Address is the gateway address for the network interface.
+	// SubnetGatewayIPV4Address is the IPv4 gateway address for the network interface.
 	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,omitempty"`
 }
 

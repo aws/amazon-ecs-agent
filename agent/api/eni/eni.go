@@ -15,6 +15,7 @@ package eni
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -26,26 +27,28 @@ import (
 type ENI struct {
 	// ID is the id of eni
 	ID string `json:"ec2Id"`
-	// InterfaceAssociationProtocol is the type of ENI, valid value: "default", "vlan"
-	InterfaceAssociationProtocol string `json:",omitempty"`
+	// MacAddress is the mac address of the eni
+	MacAddress string
 	// IPV4Addresses is the ipv4 address associated with the eni
 	IPV4Addresses []*ENIIPV4Address
 	// IPV6Addresses is the ipv6 address associated with the eni
 	IPV6Addresses []*ENIIPV6Address
-	// MacAddress is the mac address of the eni
-	MacAddress string
+	// IPv4SubnetPrefixLength is the VPC IPv4 subnet prefix length of the ENI
+	IPv4SubnetPrefixLength string
+	// SubnetGatewayIPV4Address is the IPv4 address of the subnet gateway of the ENI
+	SubnetGatewayIPV4Address string `json:",omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the eni
 	DomainNameServers []string `json:",omitempty"`
 	// DomainNameSearchList specifies the search list for the domain
 	// name lookup, for the eni
 	DomainNameSearchList []string `json:",omitempty"`
+	// PrivateDNSName is the dns name assigned by the vpc to this eni
+	PrivateDNSName string `json:",omitempty"`
+	// InterfaceAssociationProtocol is the type of ENI, valid value: "default", "vlan"
+	InterfaceAssociationProtocol string `json:",omitempty"`
 	// InterfaceVlanProperties contains information for an interface
 	// that is supposed to be used as a VLAN device
 	InterfaceVlanProperties *InterfaceVlanProperties `json:",omitempty"`
-	// PrivateDNSName is the dns name assigned by the vpc to this eni
-	PrivateDNSName string `json:",omitempty"`
-	// SubnetGatewayIPV4Address is the address to the subnet gateway for the eni
-	SubnetGatewayIPV4Address string `json:",omitempty"`
 }
 
 // InterfaceVlanProperties contains information for an interface that
@@ -61,9 +64,17 @@ const (
 
 	// VLANInterfaceAssociationProtocol represents the ENI with trunking enabled.
 	VLANInterfaceAssociationProtocol = "vlan"
+
+	// IPv6SubnetPrefixLength is the IPv6 global unicast address prefix length, consisting of
+	// global routing prefix and subnet ID lengths as specified in IPv6 addressing architecture
+	// (RFC 4291 section 2.5.4) and IPv6 Global Unicast Address Format (RFC 3587).
+	//
+	// The ACS ENI payload structure does not contain an IPv6 subnet prefix length because "/64" is
+	// the only allowed length per RFCs above, and the only one that VPC supports.
+	IPv6SubnetPrefixLength = "64"
 )
 
-// GetIPV4Addresses returns a list of ipv4 addresses allocated to the ENI
+// GetIPV4Addresses returns the list of IPv4 addresses assigned to the ENI.
 func (eni *ENI) GetIPV4Addresses() []string {
 	var addresses []string
 	for _, addr := range eni.IPV4Addresses {
@@ -73,7 +84,8 @@ func (eni *ENI) GetIPV4Addresses() []string {
 	return addresses
 }
 
-// GetPrimaryIPv4Address returns the primary IPv4 address associated with the ENI.
+// GetPrimaryIPv4Address returns the primary IPv4 address assigned to the ENI.
+// TODO: We could delete this function if nobody is calling it.
 func (eni *ENI) GetPrimaryIPv4Address() string {
 	var primaryAddr string
 	for _, addr := range eni.IPV4Addresses {
@@ -86,7 +98,7 @@ func (eni *ENI) GetPrimaryIPv4Address() string {
 	return eni.getIPAddressWithBlockSize(primaryAddr, true)
 }
 
-// GetIPV6Addresses returns the ipv6 addresses allocated to the ENI.
+// GetIPV6Addresses returns the list of IPv6 addresses assigned to the ENI.
 func (eni *ENI) GetIPV6Addresses() []string {
 	var addresses []string
 	for _, addr := range eni.IPV6Addresses {
@@ -94,13 +106,6 @@ func (eni *ENI) GetIPV6Addresses() []string {
 	}
 
 	return addresses
-}
-
-// GetIPAddresses returns all the ip addresses allocated to the ENI.
-func (eni *ENI) GetIPAddresses() []string {
-	ipv4Addr := eni.GetPrimaryIPv4Address()
-	ipv6Addresses := eni.GetIPV6Addresses()
-	return append([]string{ipv4Addr}, ipv6Addresses...)
 }
 
 // getIPAddressWithBlockSize appends a block size to the IP address of the ENI.
@@ -117,15 +122,72 @@ func (eni *ENI) getIPAddressWithBlockSize(addr string, ipv4 bool) string {
 	return addr + "/" + blockSize
 }
 
-// GetHostname returns the hostname assigned to the ENI.
-func (eni *ENI) GetHostname() string {
-	return eni.PrivateDNSName
+// GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the ENI with
+// its subnet prefix length.
+func (eni *ENI) GetPrimaryIPv4AddressWithPrefixLength() string {
+	var primaryAddr string
+	for _, addr := range eni.IPV4Addresses {
+		if addr.Primary {
+			primaryAddr = addr.Address + "/" + eni.IPv4SubnetPrefixLength
+			break
+		}
+	}
+
+	return primaryAddr
 }
 
-// GetSubnetGatewayAddresses returns the subnet gateway addresses for the ENI.
+// GetIPAddressesWithPrefixLength returns the list of all IP addresses assigned to the ENI with
+// their subnet prefix length.
+func (eni *ENI) GetIPAddressesWithPrefixLength() []string {
+	var addresses []string
+	for _, addr := range eni.IPV4Addresses {
+		addresses = append(addresses, addr.Address+"/"+eni.IPv4SubnetPrefixLength)
+	}
+	for _, addr := range eni.IPV6Addresses {
+		addresses = append(addresses, addr.Address+"/"+IPv6SubnetPrefixLength)
+	}
+
+	return addresses
+}
+
+// GetIPv4SubnetCIDRBlock returns the IPv4 CIDR block, if any, of the ENI's subnet.
+func (eni *ENI) GetIPv4SubnetCIDRBlock() string {
+	var ipv4SubnetCIDRBlock string
+
+	if eni.SubnetGatewayIPV4Address != "" {
+		_, ipv4Net, err := net.ParseCIDR(eni.SubnetGatewayIPV4Address)
+		if err == nil {
+			ipv4SubnetCIDRBlock = ipv4Net.String()
+		}
+	}
+
+	return ipv4SubnetCIDRBlock
+}
+
+// GetIPv6SubnetCIDRBlock returns the IPv6 CIDR block, if any, of the ENI's subnet.
+func (eni *ENI) GetIPv6SubnetCIDRBlock() string {
+	var ipv6SubnetCIDRBlock string
+
+	if len(eni.IPV6Addresses) > 0 {
+		ipv6Addr := eni.IPV6Addresses[0].Address + "/" + IPv6SubnetPrefixLength
+		_, ipv6Net, err := net.ParseCIDR(ipv6Addr)
+		if err == nil {
+			ipv6SubnetCIDRBlock = ipv6Net.String()
+		}
+	}
+
+	return ipv6SubnetCIDRBlock
+}
+
+// GetSubnetGatewayAddresses returns the list of subnet gateway addresses for the ENI.
 func (eni *ENI) GetSubnetGatewayAddresses() []string {
 	s := strings.Split(eni.SubnetGatewayIPV4Address, "/")
 	return []string{s[0]}
+}
+
+// GetHostname returns the hostname assigned to the ENI.
+func (eni *ENI) GetHostname() string {
+	return eni.PrivateDNSName
 }
 
 // IsStandardENI returns true if the ENI is a standard/regular ENI. That is, if it
@@ -210,6 +272,13 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		})
 	}
 
+	// Due to historical reasons, the IPv4 subnet prefix length is sent with IPv4 subnet gateway
+	// address instead of the ENI's IP addresses. However, CNI plugins and many OS APIs expect it
+	// the other way around. Instead of doing this conversion all the time, compute and store the
+	// IPv4 subnet prefix length once here. See IPv6SubnetPrefixLength for IPv6 subnet prefix length.
+	ipv4SubnetPrefixLength := strings.Split(aws.StringValue(acsENI.SubnetGatewayIpv4Address), "/")[1]
+
+	// Read ENI association properties.
 	var interfaceVlanProperties InterfaceVlanProperties
 
 	if aws.StringValue(acsENI.InterfaceAssociationProtocol) == VLANInterfaceAssociationProtocol {
@@ -219,11 +288,12 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 
 	eni := &ENI{
 		ID:                           aws.StringValue(acsENI.Ec2Id),
+		MacAddress:                   aws.StringValue(acsENI.MacAddress),
 		IPV4Addresses:                ipv4Addrs,
 		IPV6Addresses:                ipv6Addrs,
-		MacAddress:                   aws.StringValue(acsENI.MacAddress),
-		PrivateDNSName:               aws.StringValue(acsENI.PrivateDnsName),
+		IPv4SubnetPrefixLength:       ipv4SubnetPrefixLength,
 		SubnetGatewayIPV4Address:     aws.StringValue(acsENI.SubnetGatewayIpv4Address),
+		PrivateDNSName:               aws.StringValue(acsENI.PrivateDnsName),
 		InterfaceAssociationProtocol: aws.StringValue(acsENI.InterfaceAssociationProtocol),
 		InterfaceVlanProperties:      &interfaceVlanProperties,
 	}
@@ -240,9 +310,9 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 
 // ValidateTaskENI validates the ENI information sent from ACS.
 func ValidateTaskENI(acsENI *ecsacs.ElasticNetworkInterface) error {
-	// At least one IPv4 address should be associated with the ENI.
-	if len(acsENI.Ipv4Addresses) < 1 {
-		return errors.Errorf("eni message validation: no ipv4 addresses in the message")
+	// At least one IP address should be assigned to the ENI.
+	if len(acsENI.Ipv4Addresses) == 0 && len(acsENI.Ipv6Addresses) == 0 {
+		return errors.Errorf("eni message validation: no ip addresses in the message")
 	}
 
 	if acsENI.SubnetGatewayIpv4Address == nil {
