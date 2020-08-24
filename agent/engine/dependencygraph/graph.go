@@ -429,8 +429,7 @@ func hasDependencyTimedOut(dependOnContainer *apicontainer.Container, dependency
 	}
 	switch dependencyCondition {
 	case successCondition, completeCondition, healthyCondition:
-		seelog.Info("Checking condition")
-		seelog.Info("Started at time %v and timeout %v", dependOnContainer.GetStartedAt(), dependOnContainer.GetStartTimeout())
+		seelog.Info("Started at time %v and timeout %v", time.Now().After(dependOnContainer.GetStartedAt().Add(dependOnContainer.GetStartTimeout())), dependOnContainer.GetStartTimeout())
 		return time.Now().After(dependOnContainer.GetStartedAt().Add(dependOnContainer.GetStartTimeout()))
 	default:
 		return false
