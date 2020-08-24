@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/cihub/seelog"
-
 )
 
 const (
@@ -120,11 +119,9 @@ func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontaine
 // Transitions are between known statuses (whether the container can move to
 // the next known status), not desired statuses; the desired status typically
 // is either RUNNING or STOPPED.
-func DependenciesAreResolved(target *apicontainer.Container,
-	by []*apicontainer.Container,
-	id string,
-	manager credentials.Manager,
-	resources []taskresource.TaskResource) (*apicontainer.DependsOn, error) {
+func DependenciesAreResolved(target *apicontainer.Container, by []*apicontainer.Container, id string,
+	manager credentials.Manager, resources []taskresource.TaskResource) (*apicontainer.DependsOn, error) {
+
 	if !executionCredentialsResolved(target, id, manager) {
 		return nil, CredentialsNotResolvedErr
 	}
@@ -425,11 +422,15 @@ func containerOrderingDependenciesIsResolved(target *apicontainer.Container, dep
 }
 
 func hasDependencyTimedOut(dependOnContainer *apicontainer.Container, dependencyCondition string) bool {
+	seelog.Infof("Dependency container is %s depends on condition %s", dependOnContainer.Name, dependencyCondition)
 	if dependOnContainer.GetStartedAt().IsZero() || dependOnContainer.GetStartTimeout() <= 0 {
+		seelog.Info("Returning false")
 		return false
 	}
 	switch dependencyCondition {
 	case successCondition, completeCondition, healthyCondition:
+		seelog.Info("Checking condition")
+		seelog.Info("Started at time %v and timeout %v", dependOnContainer.GetStartedAt(), dependOnContainer.GetStartTimeout())
 		return time.Now().After(dependOnContainer.GetStartedAt().Add(dependOnContainer.GetStartTimeout()))
 	default:
 		return false
