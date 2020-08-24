@@ -119,14 +119,14 @@ type ENIConfig struct {
 	CNIVersion string `json:"cniVersion,omitempty"`
 	// ENIID is the id of ec2 eni
 	ENIID string `json:"eni"`
-	// IPAddresses contains the ip addresses of the ENI.
-	IPAddresses []string `json:"ip-addresses"`
 	// MacAddress is the mac address of eni
 	MACAddress string `json:"mac"`
-	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
-	BlockInstanceMetadata bool `json:"block-instance-metadata"`
+	// IPAddresses contains the ip addresses of the ENI.
+	IPAddresses []string `json:"ip-addresses"`
 	// GatewayIPAddresses specifies the addresses of the subnet gateway for the ENI.
 	GatewayIPAddresses []string `json:"gateway-ip-addresses"`
+	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
+	BlockInstanceMetadata bool `json:"block-instance-metadata"`
 }
 
 // AppMeshConfig contains all the information needed to invoke the app mesh plugin
@@ -170,10 +170,10 @@ type BranchENIConfig struct {
 	IPAddresses []string `json:"ipAddresses"`
 	// GatewayIPAddresses contains the IP addresses of the default gateway in the subnet.
 	GatewayIPAddresses []string `json:"gatewayIPAddresses"`
-	// InterfaceType is the type of the interface to connect the branch ENI to
-	InterfaceType string `json:"interfaceType,omitempty"`
 	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked.
 	BlockInstanceMetadata bool `json:"blockInstanceMetadata"`
+	// InterfaceType is the type of the interface to connect the branch ENI to
+	InterfaceType string `json:"interfaceType,omitempty"`
 }
 
 // Config contains all the information to set up the container namespace using

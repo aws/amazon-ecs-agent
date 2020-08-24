@@ -132,10 +132,10 @@ func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConf
 	eniConf := ENIConfig{
 		Type:                  ECSENIPluginName,
 		ENIID:                 eni.ID,
-		IPAddresses:           eni.GetIPAddresses(),
 		MACAddress:            eni.MacAddress,
+		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
+		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
 		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
-		GatewayIPAddresses:    eni.GetSubnetGatewayAddresses(),
 	}
 
 	networkConfig, err := newNetworkConfig(eniConf, ECSENIPluginName, cfg.MinSupportedCNIVersion)
@@ -153,10 +153,10 @@ func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.Netwo
 		TrunkMACAddress:       eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
 		BranchVlanID:          eni.InterfaceVlanProperties.VlanID,
 		BranchMACAddress:      eni.MacAddress,
-		IPAddresses:           eni.GetIPAddresses(),
-		GatewayIPAddresses:    eni.GetSubnetGatewayAddresses(),
-		InterfaceType:         vpcCNIPluginInterfaceType,
+		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
+		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
 		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
+		InterfaceType:         vpcCNIPluginInterfaceType,
 	}
 
 	networkConfig, err := newNetworkConfig(eniConf, ECSBranchENIPluginName, cfg.MinSupportedCNIVersion)
