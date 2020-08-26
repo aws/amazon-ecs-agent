@@ -387,6 +387,21 @@ func (mr *MockDockerClientMockRecorder) SupportedVersions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedVersions", reflect.TypeOf((*MockDockerClient)(nil).SupportedVersions))
 }
 
+// TopContainer mocks base method
+func (m *MockDockerClient) TopContainer(arg0 context.Context, arg1 string, arg2 time.Duration) (*container0.ContainerTopOKBody, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TopContainer", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*container0.ContainerTopOKBody)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TopContainer indicates an expected call of TopContainer
+func (mr *MockDockerClientMockRecorder) TopContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TopContainer", reflect.TypeOf((*MockDockerClient)(nil).TopContainer), arg0, arg1, arg2)
+}
+
 // Version mocks base method
 func (m *MockDockerClient) Version(arg0 context.Context, arg1 time.Duration) (string, error) {
 	m.ctrl.T.Helper()
