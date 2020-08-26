@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// CreateCondition ensures that a container progresses to next state only when dependency container has started
+	// CreateCondition ensures that a container progresses to next state only when the dependency container has started
 	createCondition = "CREATE"
 	// StartCondition ensures that a container progresses to next state only when dependency container is running
 	startCondition = "START"
