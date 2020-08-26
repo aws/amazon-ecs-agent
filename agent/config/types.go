@@ -115,6 +115,9 @@ type Config struct {
 	// ImagePullInactivityTimeout is here to override the amount of time to wait when pulling and extracting a container
 	ImagePullInactivityTimeout time.Duration
 
+	//ImagePullTimeout is here to override the timeout for PullImage API
+	ImagePullTimeout time.Duration
+
 	// AvailableLoggingDrivers specifies the logging drivers available for use
 	// with Docker.  If not set, it defaults to ["json-file","none"].
 	AvailableLoggingDrivers []dockerclient.LoggingDriver

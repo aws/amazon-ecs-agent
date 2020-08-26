@@ -871,7 +871,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		defer container.SetASMDockerAuthConfig(types.AuthConfig{})
 	}
 
-	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, dockerclient.PullImageTimeout)
+	metadata := engine.client.PullImage(engine.ctx, container.Image, container.RegistryAuthentication, engine.cfg.ImagePullTimeout)
 
 	// Don't add internal images(created by ecs-agent) into imagemanger state
 	if container.IsInternal() {
