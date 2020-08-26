@@ -28,6 +28,8 @@ const (
 	CannotStartContainerErrorName = "CannotStartContainerError"
 	// CannotDescribeContainerErrorName is the name of describe container error.
 	CannotDescribeContainerErrorName = "CannotDescribeContainerError"
+	// CannotGetContainerTopErrorName is the name of the top container error.
+	CannotGetContainerTopErrorName = "CannotGetContainerTopError"
 )
 
 // DockerTimeoutError is an error type for describing timeouts
@@ -218,6 +220,20 @@ func (err CannotInspectContainerError) Error() string {
 // ErrorName returns name of the CannotInspectContainerError
 func (err CannotInspectContainerError) ErrorName() string {
 	return CannotInspectContainerErrorName
+}
+
+// CannotGetContainerTopError indicates any error when trying to get container top processes
+type CannotGetContainerTopError struct {
+	FromError error
+}
+
+func (err CannotGetContainerTopError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns name of the CannotGetContainerTopError
+func (err CannotGetContainerTopError) ErrorName() string {
+	return CannotGetContainerTopErrorName
 }
 
 // CannotRemoveContainerError indicates any error when trying to remove a container
