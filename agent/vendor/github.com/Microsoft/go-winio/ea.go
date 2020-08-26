@@ -26,6 +26,7 @@ type ExtendedAttribute struct {
 	Name  string
 	Value []byte
 	Flags uint8
+        NameDummy string
 }
 
 func parseEa(b []byte) (ea ExtendedAttribute, nb []byte, err error) {
