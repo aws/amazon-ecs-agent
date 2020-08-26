@@ -172,6 +172,21 @@ func (mr *MockClientMockRecorder) ContainerStop(arg0, arg1, arg2 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerStop", reflect.TypeOf((*MockClient)(nil).ContainerStop), arg0, arg1, arg2)
 }
 
+// ContainerTop mocks base method
+func (m *MockClient) ContainerTop(arg0 context.Context, arg1 string, arg2 []string) (container.ContainerTopOKBody, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerTop", arg0, arg1, arg2)
+	ret0, _ := ret[0].(container.ContainerTopOKBody)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContainerTop indicates an expected call of ContainerTop
+func (mr *MockClientMockRecorder) ContainerTop(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerTop", reflect.TypeOf((*MockClient)(nil).ContainerTop), arg0, arg1, arg2)
+}
+
 // Events mocks base method
 func (m *MockClient) Events(arg0 context.Context, arg1 types.EventsOptions) (<-chan events.Message, <-chan error) {
 	m.ctrl.T.Helper()
