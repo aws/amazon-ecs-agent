@@ -89,11 +89,6 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	if settings == nil {
 		return nil, errors.Errorf("unable to generate network response for container '%s'", containerID)
 	}
-	// This metadata is the information provided in older versions of the API
-	// We get the NetworkMode (Network interface name) from the HostConfig because this
-	// this is the network with which the container is created
-	ipv4AddressFromSettings := settings.IPAddress
-	networkModeFromHostConfig := dockerContainer.Container.GetNetworkMode()
 
 	// Extensive Network information is not available for Docker API versions 1.17-1.20
 	// Instead we only get the details of the first network
@@ -101,13 +96,42 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	if len(settings.Networks) > 0 {
 		for modeFromSettings, containerNetwork := range settings.Networks {
 			networkMode := modeFromSettings
-			ipv4Addresses := []string{containerNetwork.IPAddress}
-			network := Network{Network: containermetadata.Network{NetworkMode: networkMode, IPv4Addresses: ipv4Addresses}}
+			ipv4Addresses := []string{
+				containerNetwork.IPAddress,
+			}
+			ipv6Addresses := []string{
+				containerNetwork.GlobalIPv6Address,
+			}
+			network := Network{
+				Network: containermetadata.Network{
+					NetworkMode:   networkMode,
+					IPv4Addresses: ipv4Addresses,
+					IPv6Addresses: ipv6Addresses,
+				},
+			}
 			networks = append(networks, network)
 		}
 	} else {
-		ipv4Addresses := []string{ipv4AddressFromSettings}
-		network := Network{Network: containermetadata.Network{NetworkMode: networkModeFromHostConfig, IPv4Addresses: ipv4Addresses}}
+		// This metadata is the information provided in older versions of the API
+		// We get the NetworkMode (Network interface name) from the HostConfig because this
+		// this is the network with which the container is created
+		ipv4AddressFromSettings := settings.IPAddress
+		ipv6AddressFromSettings := settings.GlobalIPv6Address
+		networkModeFromHostConfig := dockerContainer.Container.GetNetworkMode()
+
+		ipv4Addresses := []string{
+			ipv4AddressFromSettings,
+		}
+		ipv6Addresses := []string{
+			ipv6AddressFromSettings,
+		}
+		network := Network{
+			Network: containermetadata.Network{
+				NetworkMode:   networkModeFromHostConfig,
+				IPv4Addresses: ipv4Addresses,
+				IPv6Addresses: ipv6Addresses,
+			},
+		}
 		networks = append(networks, network)
 	}
 	return networks, nil
