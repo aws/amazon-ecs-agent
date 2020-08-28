@@ -53,6 +53,32 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 </seelog>`, c)
 }
 
+func TestSeelogConfigWindows_WithoutLogFile(t *testing.T) {
+	Config = &logConfig{
+		driverLevel:   DEFAULT_LOGLEVEL,
+		instanceLevel: DEFAULT_LOGLEVEL,
+		RolloverType:  DEFAULT_ROLLOVER_TYPE,
+		outputFormat:  DEFAULT_OUTPUT_FORMAT,
+		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
+		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
+	}
+	c := seelogConfig()
+	require.Equal(t, `
+<seelog type="asyncloop">
+	<outputs formatid="logfmt">
+		<filter levels="info,warn,error,critical">
+			<console />
+			<custom name="wineventlog" formatid="windows" />
+		</filter>
+	</outputs>
+	<formats>
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
+	</formats>
+</seelog>`, c)
+}
+
 func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
