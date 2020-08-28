@@ -163,6 +163,9 @@ func setInstanceLevelDefault() string {
 	if logDriver := os.Getenv(LOG_DRIVER_ENV_VAR); logDriver != "" {
 		return DEFAULT_LOGLEVEL_WHEN_DRIVER_SET
 	}
+	if loglevel := os.Getenv(LOGLEVEL_ENV_VAR); loglevel != "" {
+		return loglevel
+	}
 	return DEFAULT_LOGLEVEL
 }
 
