@@ -14,8 +14,6 @@
 package v4
 
 import (
-	"net"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -168,12 +166,6 @@ func toV4NetworkResponse(
 // task.
 func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperties, error) {
 	eni := task.GetPrimaryENI()
-	_, ipv4Net, err := net.ParseCIDR(eni.SubnetGatewayIPV4Address)
-	if err != nil {
-		return NetworkInterfaceProperties{}, errors.Wrapf(err,
-			"v4 metadata response: unable to parse subnet ipv4 address '%s'",
-			eni.SubnetGatewayIPV4Address)
-	}
 
 	var attachmentIndexPtr *int
 	if task.IsNetworkModeAWSVPC() {
@@ -186,7 +178,8 @@ func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperti
 		// `Index` field for an ENI, we should set it as per that. Since we
 		// only support 1 ENI per task anyway, setting it to `0` is acceptable
 		AttachmentIndex:          attachmentIndexPtr,
-		IPV4SubnetCIDRBlock:      ipv4Net.String(),
+		IPV4SubnetCIDRBlock:      eni.GetIPv4SubnetCIDRBlock(),
+		IPv6SubnetCIDRBlock:      eni.GetIPv6SubnetCIDRBlock(),
 		MACAddress:               eni.MacAddress,
 		DomainNameServers:        eni.DomainNameServers,
 		DomainNameSearchList:     eni.DomainNameSearchList,
