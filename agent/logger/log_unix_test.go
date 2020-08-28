@@ -1,4 +1,4 @@
-// +build windows,unit
+// +build !windows,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSeelogConfigWindows_Default(t *testing.T) {
+func TestSeelogConfig_Default(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -38,7 +38,6 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="date"
@@ -53,7 +52,7 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
+func TestSeelogConfig_DebugLevel(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   "debug",
@@ -69,7 +68,6 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="debug,info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="date"
@@ -84,7 +82,7 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
+func TestSeelogConfig_SizeRollover(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -100,7 +98,6 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="size"
@@ -115,7 +112,7 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
+func TestSeelogConfig_SizeRolloverFileSizeChange(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -131,7 +128,6 @@ func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="size"
@@ -146,7 +142,7 @@ func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
+func TestSeelogConfig_SizeRolloverRollCountChange(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -162,7 +158,6 @@ func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="size"
@@ -177,7 +172,7 @@ func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
+func TestSeelogConfig_JSONOutput(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -193,7 +188,6 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 	<outputs formatid="json">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="info,warn,error,critical">
 			<rollingfile filename="foo.log" type="date"
@@ -208,7 +202,7 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
+func TestSeelogConfig_NoOnInstanceLog(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   DEFAULT_LOGLEVEL,
@@ -224,7 +218,6 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">
 			<rollingfile filename="foo.log" type="date"
@@ -239,7 +232,7 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
+func TestSeelogConfig_DifferentLevels(t *testing.T) {
 	Config = &logConfig{
 		logfile:       "foo.log",
 		driverLevel:   "warn",
@@ -255,7 +248,6 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="critical">
 			<rollingfile filename="foo.log" type="date"
@@ -270,7 +262,7 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 </seelog>`, c)
 }
 
-func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
+func TestSeelogConfig_FileLevelDefault(t *testing.T) {
 	os.Setenv(LOG_DRIVER_ENV_VAR, "awslogs")
 	defer os.Unsetenv(LOG_DRIVER_ENV_VAR)
 
@@ -289,7 +281,6 @@ func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
 	<outputs formatid="logfmt">
 		<filter levels="info,warn,error,critical">
 			<console />
-			<custom name="wineventlog" formatid="windows" />
 		</filter>
 		<filter levels="off">
 			<rollingfile filename="foo.log" type="date"
