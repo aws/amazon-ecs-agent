@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/utils/nswrapper/mocks"
+	mock_nswrapper "github.com/aws/amazon-ecs-agent/agent/utils/nswrapper/mocks"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -38,7 +38,7 @@ func TestTaskStatsCollection(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
-	mockNS := mocks.NewMockNS(ctrl)
+	mockNS := mock_nswrapper.NewMockNS(ctrl)
 	mockNetLink := mock_netlink.NewMockNetLink(ctrl)
 
 	containerPID := "23"
@@ -98,7 +98,7 @@ func TestTaskStatsCollectionError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	resolver := mock_resolver.NewMockContainerMetadataResolver(ctrl)
-	mockNS := mocks.NewMockNS(ctrl)
+	mockNS := mock_nswrapper.NewMockNS(ctrl)
 	mockNetLink := mock_netlink.NewMockNetLink(ctrl)
 
 	containerPID := "23"
