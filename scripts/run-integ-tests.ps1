@@ -16,18 +16,15 @@ Param (
 )
 
 if ($Platform -like "windows2016") {
-  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:42be24b8810c861cc1b3fe75c5e99f75061cb45fdbae1de46d151c18cc8e6a9a"
-  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:42be24b8810c861cc1b3fe75c5e99f75061cb45fdbae1de46d151c18cc8e6a9a"
+  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2016"
 } elseif ($Platform -like "windows2019")  {
-  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
-  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
+  $BaseImageName="mcr.microsoft.com/windows/servercore:ltsc2019"
 } else {
   echo "Invalid platform parameter"
   exit 1
 }
 
 $env:BASE_IMAGE_NAME=$BaseImageName
-$env:BASE_IMAGE_NAME_WITH_DIGEST=$BaseImageNameWithDigest
 
 # Prepare windows base image
 $dockerImages = Invoke-Expression "docker images"
