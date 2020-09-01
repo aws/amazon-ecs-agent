@@ -10,6 +10,7 @@ matrix:
       script:
         - make get-deps
         - make static-check
+        - make gogenerate-check
         - make test
         - make analyze-cover-profile
         - make xplatform-build
