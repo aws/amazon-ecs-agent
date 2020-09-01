@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.44.2
+* Bug - Fix Introspection API scope and bind to localhost [#2588](https://github.com/aws/amazon-ecs-agent/pull/2588)
+* Enhancement - Make image pull timeout configurable [#2565](https://github.com/aws/amazon-ecs-agent/pull/2565)
+
+
 ## 1.44.1
 * Bug - Fixes a bug where ENI is attached before Agent starts and there is a delay in acknowledgement of ENI attachment by Agent [#2581](https://github.com/aws/amazon-ecs-agent/pull/2581)
 * Bug - Fixes a deadlock scenario when the agent restores the state from its data file and the tasks are using environment files feature [#2580](https://github.com/aws/amazon-ecs-agent/pull/2580)
