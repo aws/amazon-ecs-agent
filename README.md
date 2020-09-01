@@ -53,7 +53,7 @@ $ docker run --name ecs-agent \
 ### On Other Linux AMIs when awsvpc networking mode is enabled
 
 For the AWS VPC networking mode, ECS agent requires CNI plugin and dhclient to be available. ECS also needs the ecs-init to run as part of its startup.
-The following is an example of docker run configuration for running ecs-agent with Task ENI enabled
+The following is an example of docker run configuration for running ecs-agent with Task ENI enabled. Note that ECS agent currently only supports cgroupfs for cgroup driver.
 ```
 $ # Run the agent
 $ /usr/bin/docker run --name ecs-agent \
