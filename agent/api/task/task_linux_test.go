@@ -17,20 +17,27 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
+	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
@@ -1195,4 +1202,164 @@ func getFirelensTask(t *testing.T) *Task {
 			},
 		},
 	}
+}
+
+func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
+	const containerNameOnlyHyphens = "--"
+	var tt = []struct {
+		taskName            string
+		execEnabled         bool
+		expectedVolumes     int
+		expectedMountPoints int
+		errorExpected       bool
+	}{
+		{
+			taskName:            "arn:aws:iam::123456789012:user/Test",
+			execEnabled:         true,
+			expectedVolumes:     8,
+			expectedMountPoints: 5,
+			errorExpected:       false,
+		},
+		{
+			taskName:            "arn:aws:iam::123456789012:user/Test",
+			execEnabled:         false,
+			expectedVolumes:     0,
+			expectedMountPoints: 0,
+			errorExpected:       false,
+		},
+		{
+			taskName:            "BAD TASK NAME",
+			execEnabled:         true,
+			expectedVolumes:     0,
+			expectedMountPoints: 0,
+			errorExpected:       true,
+		},
+	}
+	for _, test := range tt {
+		// Constants used here are defined in task_unix_test.go and task_windows_test.go
+		taskFromACS := ecsacs.Task{
+			Arn:           strptr(test.taskName),
+			DesiredStatus: strptr("RUNNING"),
+			Family:        strptr("myFamily"),
+			Version:       strptr("1"),
+			Containers: []*ecsacs.Container{
+				{
+					Name: strptr("myName1"),
+				},
+				{
+					Name: strptr("myName2"),
+				},
+				{
+					Name: strptr("--container-with-trailing-hyphens"),
+				},
+				{
+					Name: strptr(containerNameOnlyHyphens), // Container that will end up in an empty directory name (trailing hyphens are removed)
+				},
+			},
+		}
+		seqNum := int64(42)
+		task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+		require.Nil(t, err, "Should be able to handle acs task")
+
+		assert.Equal(t, 4, len(task.Containers)) // before PostUnmarshalTask
+		cfg := config.Config{}
+		task.ExecCommandAgentEnabled = test.execEnabled // TODO: [ecs-exec] remove this statement once ecsacs model is complete with ecs exec stuff
+		require.Equal(t, test.execEnabled, task.IsExecCommandAgentEnabled(), "task.IsExecCommandAgentEnabled() returned an unexpected value")
+
+		if !test.execEnabled {
+			return
+		}
+
+		err = task.PostUnmarshalTask(&cfg, nil, nil, nil, nil)
+		if test.errorExpected {
+			require.NotNil(t, err, "An error should be returned for a task with bad name")
+			return
+		} else {
+			require.Nil(t, err, "No error was expected for PostUnmarshalTask")
+		}
+
+		assert.Equal(t, 4, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+		taskVolumes := task.Volumes
+		// 3 for the exec agent binaries + 1 for tls certs + 2 log volumes (1 per container) = 6
+		assert.Equal(t, test.expectedVolumes, len(taskVolumes), "Should have created 6 task volumes")
+
+		// Check agent binary volumes
+		expectedBinaryNames := []string{execCommandAgentBinName, execCommandAgentSessionWorkerBinName, execCommandAgentSessionLoggerBinName}
+		for _, ebn := range expectedBinaryNames {
+			bvn := fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn)
+			assertExecCommandAgentTaskVolume(t, task, bvn, filepath.Join(execCommandAgentHostBinDir, ebn))
+		}
+
+		// check tls cert volume
+		assertExecCommandAgentTaskVolume(t, task, internalExecCommandAgentCertVolumeName, execCommandAgentHostCertFile)
+
+		// Check exec agent log volumes
+		for _, c := range task.Containers {
+			tID, _ := task.GetID()
+			lvn := fmt.Sprintf("%s-%s-%s", internalExecCommandAgentLogVolumeNamePrefix, tID, c.Name)
+
+			// Check special case where container name contains only hyphens
+			logDir := filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR))
+			if c.Name == containerNameOnlyHyphens {
+				assertExecCommandAgentLogVolumeWithPrefix(t, task, lvn, filepath.Join(logDir, tID, execCommandAgentNamelessContainerPrefix))
+			} else {
+				assertExecCommandAgentTaskVolume(t, task, lvn, filepath.Join(logDir, tID, strings.TrimLeft(c.Name, "-")))
+			}
+			// Check mount points were added for this container (1 for log, 1 for tls cert, 3 for binaries)
+			require.Equal(t, test.expectedMountPoints, len(c.MountPoints))
+			// Check exec agent log mount point
+			assertExecCommandAgentMountPoint(t, c, lvn, execCommandAgentContainerLogDir, false)
+			// Check exec agent tls cert mount point
+			assertExecCommandAgentMountPoint(t, c, internalExecCommandAgentCertVolumeName, execCommandAgentContainerCertFile, true)
+
+			// Check exec agent binary mount points
+			for _, ebn := range expectedBinaryNames {
+				assertExecCommandAgentMountPoint(t, c, fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn), filepath.Join(execCommandAgentContainerBinDir, ebn), true)
+			}
+		}
+	}
+}
+
+func findTaskVolumeByName(t *Task, name string) *TaskVolume {
+	for _, tv := range t.Volumes {
+		if tv.Name == name {
+			return &tv
+		}
+	}
+	return nil
+}
+
+func findMountPointBySourceVolume(c *apicontainer.Container, source string) *apicontainer.MountPoint {
+	for _, mp := range c.MountPoints {
+		if mp.SourceVolume == source {
+			return &mp
+		}
+	}
+	return nil
+}
+
+func assertExecCommandAgentLogVolumeWithPrefix(t *testing.T, task *Task, expectedVolName, expectedSourceDirPrefix string) {
+	vol := findTaskVolumeByName(task, expectedVolName)
+	require.NotNil(t, vol, "Exec agent volume (%s) was not added to task volumes", expectedVolName)
+	assert.Equal(t, HostVolumeType, vol.Type, "exec agent volume (%s) is of the wrong type", expectedVolName)
+	fshv, ok := vol.Volume.(*taskresourcevolume.FSHostVolume)
+	assert.True(t, ok, "Exec agent volume (%s) is not of the correct type (FSHostVolume)", expectedVolName)
+	assert.True(t, strings.HasPrefix(fshv.FSSourcePath, expectedSourceDirPrefix),
+		"Exec agent volume (%s) has the wrong path prefix (expected: %s, actual: %s)", expectedVolName, expectedSourceDirPrefix, fshv.FSSourcePath)
+}
+
+func assertExecCommandAgentTaskVolume(t *testing.T, task *Task, expectedVolName, expectedSourceDir string) {
+	vol := findTaskVolumeByName(task, expectedVolName)
+	require.NotNil(t, vol, "Exec agent volume (%s) was not added to task volumes", expectedVolName)
+	assert.Equal(t, HostVolumeType, vol.Type, "exec agent volume (%s) is of the wrong type", expectedVolName)
+	fshv, ok := vol.Volume.(*taskresourcevolume.FSHostVolume)
+	assert.True(t, ok, "Exec agent volume (%s) is not of the correct type (FSHostVolume)", expectedVolName)
+	assert.Equal(t, expectedSourceDir, fshv.FSSourcePath, "Exec agent volume (%s) points to the wrong source path", expectedVolName)
+}
+
+func assertExecCommandAgentMountPoint(t *testing.T, c *apicontainer.Container, source, containerPath string, readonly bool) {
+	found := findMountPointBySourceVolume(c, source)
+	require.NotNil(t, found, "Mount point for volume (%s) not found in container (%s)", source, c.Name)
+	assert.Equal(t, readonly, found.ReadOnly, "Mount point for volume (%s) for container (%s) has the wrong write permissions", source, c.Name)
+	assert.Equal(t, containerPath, found.ContainerPath, "Mount point for volume (%s) points to the wrong container (%s) path", source, c.Name)
 }
