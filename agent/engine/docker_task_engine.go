@@ -1102,9 +1102,11 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
 			task.Arn, container.Name, metadata.DockerID)
-		engine.state.AddContainer(&apicontainer.DockerContainer{DockerID: metadata.DockerID,
+		dockerContainer := &apicontainer.DockerContainer{DockerID: metadata.DockerID,
 			DockerName: dockerContainerName,
-			Container:  container}, task)
+			Container:  container}
+		engine.state.AddContainer(dockerContainer, task)
+		engine.saveDockerContainerData(dockerContainer)
 	}
 	container.SetLabels(config.Labels)
 	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
