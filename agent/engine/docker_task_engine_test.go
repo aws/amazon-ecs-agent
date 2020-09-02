@@ -699,6 +699,36 @@ func TestStopWithPendingStops(t *testing.T) {
 	// gets the pull image lock
 }
 
+func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine.SetDataClient(dataClient)
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.Arn = testTaskARN
+	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+	sleepContainer.TaskARNUnsafe = testTaskARN
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{
+		DockerID: testDockerID,
+	})
+	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+	require.NoError(t, metadata.Error)
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	require.Len(t, containers, 1)
+	assert.Equal(t, testDockerID, containers[0].DockerID)
+	assert.Contains(t, containers[0].DockerName, sleepContainer.Name)
+}
+
 func TestCreateContainerMetadata(t *testing.T) {
 	testcases := []struct {
 		name  string
