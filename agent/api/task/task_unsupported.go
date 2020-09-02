@@ -76,3 +76,10 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
 	return []taskresource.TaskResource{}, false
 }
+
+// initializeExecCommandAgentResources specifies the necessary volumes and mount points in all of the task containers in order for the
+// exec agent to run upon container start.
+// Note: exec feature is a linux-only feature, thus implemented here as a no-op.
+func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error {
+	return nil
+}

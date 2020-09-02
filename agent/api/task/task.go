@@ -259,6 +259,9 @@ type Task struct {
 	// have a value for this). This field should be accessed via GetLocalIPAddress and SetLocalIPAddress.
 	LocalIPAddressUnsafe string `json:"LocalIPAddress,omitempty"`
 
+	// TODO: [ecs-exec] Wire this to the actual model when control plane changes are ready
+	ExecCommandAgentEnabled bool `json:"ExecCommandAgentEnabled"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -338,9 +341,15 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.initSecretResources(credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
+
 	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
 	// need the credentials endpoint constructed by it.
 	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
+		return err
+	}
+
+	if err := task.initializeExecCommandAgentResources(cfg); err != nil {
+		seelog.Errorf("Task [%s]: could not initialize exec agent: %v", task.Arn, err)
 		return err
 	}
 
@@ -478,7 +487,6 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
 					apicontainerstatus.ContainerPulled)
 				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
-
 			}
 		}
 	}
@@ -2691,4 +2699,10 @@ func (task *Task) SetLocalIPAddress(addr string) {
 	defer task.lock.Unlock()
 
 	task.LocalIPAddressUnsafe = addr
+}
+
+func (task *Task) IsExecCommandAgentEnabled() bool {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+	return task.ExecCommandAgentEnabled
 }
