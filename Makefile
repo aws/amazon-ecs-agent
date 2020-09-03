@@ -282,8 +282,13 @@ importcheck:
 	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
 	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
 
+.PHONY: gogenerate-check
+gogenerate-check: gogenerate
+	# check that gogenerate does not generate a diff.
+	git diff --exit-code
+
 .PHONY: static-check
-static-check: gocyclo govet importcheck
+static-check: gocyclo govet importcheck gogenerate-check
 	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
@@ -293,9 +298,11 @@ static-check: gocyclo govet importcheck
 goimports:
 	goimports -w $(GOFMTFILES)
 
+GOPATH=$(shell go env GOPATH)
 .get-deps-stamp:
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/golang/mock/mockgen
+	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
 	go get github.com/fzipp/gocyclo
 	go get honnef.co/go/tools/cmd/staticcheck

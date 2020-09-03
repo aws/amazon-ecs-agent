@@ -1,0 +1,77 @@
+name: Build
+
+on: [pull_request]
+
+jobs:
+
+  static-check:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.12
+    - uses: actions/checkout@v2
+      with:
+        path: src/github.com/aws/amazon-ecs-agent
+    - name: run static checks
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        export PATH=$PATH:$(go env GOPATH)/bin
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+        make get-deps
+        make static-check
+
+  # unit-tests:
+  #   name: Linux unit tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/setup-go@v2
+  #     with:
+  #       go-version: 1.12
+  #   - uses: actions/checkout@v2
+  #     with:
+  #       submodules: true
+  #       path: src/github.com/aws/amazon-ecs-agent
+  #   - name: make test
+  #     run: |
+  #       export GOPATH=$GITHUB_WORKSPACE
+  #       cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+  #       make test-silent
+  #       make analyze-cover-profile
+
+  x-platform-build:
+    name: Cross platform build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.12
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: src/github.com/aws/amazon-ecs-agent
+    - name: make xplatform-build
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+        make xplatform-build
+
+  # windows-unit-tests:
+  #   name: Windows unit tests
+  #   runs-on: windows-latest
+  #   steps:
+  #   - uses: actions/setup-go@v2
+  #     with:
+  #       go-version: 1.12
+  #   - uses: actions/checkout@v2
+  #     with:
+  #       submodules: true
+  #       path: src/github.com/aws/amazon-ecs-agent
+  #   - name: run tests
+  #     working-directory:
+  #     run: |
+  #       $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
+  #       cd "$Env:GITHUB_WORKSPACE"
+  #       cd "src/github.com/aws/amazon-ecs-agent"
+  #       go test -v -race -tags unit -timeout 40s ./agent/...
