@@ -99,18 +99,23 @@ func (eni *ENI) GetIPV6Addresses() []string {
 	return addresses
 }
 
-// GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the ENI with
-// its subnet prefix length.
-func (eni *ENI) GetPrimaryIPv4AddressWithPrefixLength() string {
+// GetPrimaryIPv4Address returns the primary IPv4 address assigned to the ENI.
+func (eni *ENI) GetPrimaryIPv4Address() string {
 	var primaryAddr string
 	for _, addr := range eni.IPV4Addresses {
 		if addr.Primary {
-			primaryAddr = addr.Address + "/" + eni.GetIPv4SubnetPrefixLength()
+			primaryAddr = addr.Address
 			break
 		}
 	}
 
 	return primaryAddr
+}
+
+// GetPrimaryIPv4AddressWithPrefixLength returns the primary IPv4 address assigned to the ENI with
+// its subnet prefix length.
+func (eni *ENI) GetPrimaryIPv4AddressWithPrefixLength() string {
+	return eni.GetPrimaryIPv4Address() + "/" + eni.GetIPv4SubnetPrefixLength()
 }
 
 // GetIPAddressesWithPrefixLength returns the list of all IP addresses assigned to the ENI with
