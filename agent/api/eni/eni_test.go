@@ -101,6 +101,14 @@ func TestGetIPV6Addresses(t *testing.T) {
 	assert.Equal(t, []string{ipv6Addr}, testENI.GetIPV6Addresses())
 }
 
+func TestGetPrimaryIPv4Address(t *testing.T) {
+	assert.Equal(t, ipv4Addr, testENI.GetPrimaryIPv4Address())
+}
+
+func TestGetPrimaryIPv4AddressWithPrefixLength(t *testing.T) {
+	assert.Equal(t, ipv4AddrWithPrefixLength, testENI.GetPrimaryIPv4AddressWithPrefixLength())
+}
+
 func TestGetIPAddressesWithPrefixLength(t *testing.T) {
 	assert.Equal(t, []string{ipv4AddrWithPrefixLength, ipv6AddrWithPrefixLength}, testENI.GetIPAddressesWithPrefixLength())
 }
