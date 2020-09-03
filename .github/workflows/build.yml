@@ -1,0 +1,41 @@
+name: Build
+
+on: [pull_request]
+
+jobs:
+  Static-Check:
+    name: Static Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+    - name: Setup Go
+      uses: actions/setup-go@v1
+      with:
+       go-version: '1.12'
+    - name: get dependencies
+      run: |
+        make get-deps && make static-check
+  Unit-Tests:
+    name: Linux Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+    - name: Setup Go
+      uses: actions/setup-go@v1
+      with:
+       go-version: '1.12'
+    - name: tests
+      run: |
+        make test
+  Windows-Unit-Tests:
+    name: Windows Unit Tests
+    runs-on: windows-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+    - name: Setup Go
+      uses: actions/setup-go@v1
+      with:
+       go-version: '1.12'
