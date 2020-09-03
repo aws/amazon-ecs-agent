@@ -293,16 +293,9 @@ static-check: gocyclo govet importcheck
 goimports:
 	goimports -w $(GOFMTFILES)
 
-.get-deps-stamp:
-	go get golang.org/x/tools/cmd/cover
-	go get github.com/golang/mock/mockgen
-	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo
-	go get honnef.co/go/tools/cmd/staticcheck
-	touch .get-deps-stamp
-
-get-deps: .get-deps-stamp
-
+install-tools:
+	@cd agent && go mod download
+	@cd agent && cat tools.go | grep _ | awk -F'"' '{print $$2}' | xargs -tI % go install %
 
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)
@@ -325,7 +318,6 @@ clean:
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
-	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
 	-rm -rf $(PWD)/bin

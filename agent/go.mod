@@ -20,6 +20,7 @@ require (
 	github.com/docker/docker v17.12.0-ce-rc1.0.20181024032540-785fe99bdb7c+incompatible
 	github.com/docker/go-connections v0.3.0
 	github.com/docker/go-units v0.3.2
+	github.com/fzipp/gocyclo v0.0.0-20150627053110-6acd4345c835
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
@@ -50,8 +51,9 @@ require (
 	golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
-	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+	golang.org/x/tools v0.0.0-20191130070609-6e064ea0cf2d
 	google.golang.org/grpc v1.30.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
+	honnef.co/go/tools v0.0.1-2020.1.5
 )
