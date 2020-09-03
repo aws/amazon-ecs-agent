@@ -433,6 +433,73 @@ func TestShutdownOrder(t *testing.T) {
 	waitFinished(t, finished, shutdownOrderingTimeout)
 }
 
+func TestMultipleContainerDependency(t *testing.T) {
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testMultipleContainerDependency"
+	testTask := createTestTask(taskArn)
+
+	exit := createTestContainerWithImageAndName(baseImageForOS, "exit")
+	A := createTestContainerWithImageAndName(baseImageForOS, "A")
+	B := createTestContainerWithImageAndName(baseImageForOS, "B")
+
+	exit.EntryPoint = &entryPointForOS
+	exit.Command = []string{"exit 1"}
+	exit.Essential = false
+
+	A.EntryPoint = &entryPointForOS
+	A.Command = []string{"sleep 10"}
+	A.Essential = true
+	A.DependsOnUnsafe = []apicontainer.DependsOn{
+		{
+			ContainerName: "exit",
+			Condition:     "SUCCESS",
+		},
+	}
+
+	B.EntryPoint = &entryPointForOS
+	B.Command = []string{"sleep 10"}
+	B.Essential = true
+	B.DependsOnUnsafe = []apicontainer.DependsOn{
+		{
+			ContainerName: "A",
+			Condition:     "START",
+		},
+		{
+			ContainerName: "exit",
+			Condition:     "SUCCESS",
+		},
+	}
+
+	testTask.Containers = []*apicontainer.Container{
+		exit,
+		A,
+		B,
+	}
+
+	go taskEngine.AddTask(testTask)
+
+	finished := make(chan interface{})
+	go func() {
+		// Only exit should first progress to running
+		verifyContainerRunningStateChange(t, taskEngine)
+
+		// Exit container should stop with exit code 1
+		event := <-stateChangeEvents
+		assert.Equal(t, event.(api.ContainerStateChange).Status, status.ContainerStopped)
+		assert.Equal(t, event.(api.ContainerStateChange).ContainerName, "exit")
+
+		// The task should be now stopped as dependencies of A and B are not resolved
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, orderingTimeout)
+}
+
 func waitFinished(t *testing.T, finished <-chan interface{}, duration time.Duration) {
 	select {
 	case <-finished:
