@@ -70,6 +70,7 @@ type ContainerResponse struct {
 	Volumes       []v1.VolumeResponse         `json:"Volumes,omitempty"`
 	LogDriver     string                      `json:"LogDriver,omitempty"`
 	LogOptions    map[string]string           `json:"LogOptions,omitempty"`
+	ContainerArn  string                      `json:"ContainerArn,omitempty"`
 }
 
 // LimitsResponse defines the schema for task/cpu limits response
@@ -103,6 +104,9 @@ func NewTaskResponse(
 		DesiredStatus:    task.GetDesiredStatus().String(),
 		KnownStatus:      task.GetKnownStatus().String(),
 		AvailabilityZone: az,
+	}
+	if includeV4Metadata {
+		resp.LaunchType = task.LaunchType
 	}
 
 	taskCPU := task.CPU
@@ -217,6 +221,7 @@ func newContainerResponse(
 	if includeV4Metadata {
 		resp.LogDriver = container.GetLogDriver()
 		resp.LogOptions = container.GetLogOptions()
+		resp.ContainerArn = container.ContainerArn
 	}
 
 	// Write the container health status inside the container
