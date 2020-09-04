@@ -130,6 +130,7 @@ var (
 		PullStartedAtUnsafe:      now,
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
+		LaunchType:               "EC2",
 	}
 	container = &apicontainer.Container{
 		Name:                containerName,
@@ -140,6 +141,7 @@ var (
 		CPU:                 cpu,
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
+		ContainerArn:        "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
 		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: containerPort,
@@ -220,6 +222,7 @@ var (
 		PullStartedAtUnsafe:      now,
 		PullStoppedAtUnsafe:      now,
 		ExecutionStoppedAtUnsafe: now,
+		LaunchType:               "EC2",
 	}
 	container1 = &apicontainer.Container{
 		Name:                containerName,
@@ -297,7 +300,35 @@ var (
 	}
 	attachmentIndexVar          = attachmentIndex
 	expectedV4ContainerResponse = v4.ContainerResponse{
-		ContainerResponse: &expectedContainerResponse,
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerArn:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type:   containerType,
+			Labels: labels,
+			Ports: []v1.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+					HostPort:      containerPort,
+				},
+			},
+			Networks: []containermetadata.Network{
+				{
+					NetworkMode:   utils.NetworkModeAWSVPC,
+					IPv4Addresses: []string{eniIPv4Address},
+				},
+			},
+		},
 		Networks: []v4.Network{{
 			Network: containermetadata.Network{
 				NetworkMode:   utils.NetworkModeAWSVPC,

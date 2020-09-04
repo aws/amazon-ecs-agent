@@ -229,7 +229,8 @@
         "dependsOn":{"shape":"ContainerDependencies"},
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
-        "firelensConfiguration":{"shape":"FirelensConfiguration"}
+        "firelensConfiguration":{"shape":"FirelensConfiguration"},
+        "containerArn":{"shape":"String"}
       }
     },
     "ContainerCondition":{
@@ -682,7 +683,8 @@
         "associations":{"shape":"Associations"},
         "pidMode":{"shape":"String"},
         "ipcMode":{"shape":"String"},
-        "proxyConfiguration":{"shape":"ProxyConfiguration"}
+        "proxyConfiguration":{"shape":"ProxyConfiguration"},
+        "launchType":{"shape":"String"}
       }
     },
     "TaskList":{
