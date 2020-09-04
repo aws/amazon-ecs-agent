@@ -19,7 +19,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -104,8 +103,6 @@ func NewTaskResponse(
 			Networks:          networks,
 		})
 	}
-
-	v2Resp.LaunchType = ecs.LaunchTypeEc2
 
 	return &TaskResponse{
 		TaskResponse: v2Resp,

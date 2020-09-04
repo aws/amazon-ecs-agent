@@ -266,6 +266,9 @@ type Container struct {
 	// the JSON body while saving the state
 	SteadyStateStatusUnsafe *apicontainerstatus.ContainerStatus `json:"SteadyStateStatus,omitempty"`
 
+	// ContainerArn is the Arn of this container.
+	ContainerArn string `json:"ContainerArn,omitempty"`
+
 	createdAt  time.Time
 	startedAt  time.Time
 	finishedAt time.Time

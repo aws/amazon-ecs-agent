@@ -278,6 +278,8 @@ type Container struct {
 
 	Command []*string `locationName:"command" type:"list"`
 
+	ContainerArn *string `locationName:"containerArn" type:"string"`
+
 	Cpu *int64 `locationName:"cpu" type:"integer"`
 
 	DependsOn []*ContainerDependency `locationName:"dependsOn" type:"list"`
@@ -1297,6 +1299,8 @@ type Task struct {
 	Family *string `locationName:"family" type:"string"`
 
 	IpcMode *string `locationName:"ipcMode" type:"string"`
+
+	LaunchType *string `locationName:"launchType" type:"string"`
 
 	Memory *int64 `locationName:"memory" type:"integer"`
 
