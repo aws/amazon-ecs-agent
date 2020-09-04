@@ -259,6 +259,9 @@ type Task struct {
 	// have a value for this). This field should be accessed via GetLocalIPAddress and SetLocalIPAddress.
 	LocalIPAddressUnsafe string `json:"LocalIPAddress,omitempty"`
 
+	// LaunchType is the launch type of this task.
+	LaunchType string `json:"LaunchType,omitempty"`
+
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
