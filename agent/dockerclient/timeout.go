@@ -38,6 +38,9 @@ const (
 	ListContainersTimeout = 10 * time.Minute
 	// InspectContainerTimeout is the timeout for the InspectContainer API.
 	InspectContainerTimeout = 30 * time.Second
+	// TopContainerTimeout is the timeout for the TopContainer API.
+	TopContainerTimeout = 30 * time.Second
+
 	// StopContainerTimeout is the timeout for the StopContainer API.
 	StopContainerTimeout = 30 * time.Second
 	// RemoveContainerTimeout is the timeout for the RemoveContainer API.
