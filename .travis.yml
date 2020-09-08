@@ -1,15 +1,15 @@
 language: go
 go_import_path: github.com/aws/amazon-ecs-agent
 sudo: false
-go:
-  - 1.12
 
 matrix:
   include:
     - os: linux
+      go: 1.15
       script:
         - make test
         - make analyze-cover-profile
     - os: windows
+      go: 1.12
       script:
         - go test -v -race -tags unit -coverprofile cover.out -timeout 40s ./agent/...

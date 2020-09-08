@@ -15,7 +15,7 @@
 all: gremlin image
 
 gremlin: gremlin.go
-	docker run -v $(shell pwd):/out -v $(shell pwd)/gremlin.go:/in/gremlin.go -e CGO_ENABLED=0 golang:1.12 go build -a -x -ldflags '-s' -o /out/gremlin /in/gremlin.go
+	docker run -v $(shell pwd):/out -v $(shell pwd)/gremlin.go:/in/gremlin.go -e CGO_ENABLED=0 golang:1.15 go build -a -x -ldflags '-s' -o /out/gremlin /in/gremlin.go
 
 image: gremlin
 	@./docker-image
