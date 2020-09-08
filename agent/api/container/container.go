@@ -1072,31 +1072,11 @@ func (c *Container) GetLogDriver() string {
 	hostConfig := &dockercontainer.HostConfig{}
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get log driver for container %s: %v", c.RuntimeID, err)
+		seelog.Warnf("Encountered error when trying to get log driver for container %s: %v", err)
 		return ""
 	}
 
 	return hostConfig.LogConfig.Type
-}
-
-// GetLogOptions gets the log 'options' map passed into the task definition.
-// see https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_LogConfiguration.html
-func (c *Container) GetLogOptions() map[string]string {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	if c.DockerConfig.HostConfig == nil {
-		return map[string]string{}
-	}
-
-	hostConfig := &dockercontainer.HostConfig{}
-	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
-	if err != nil {
-		seelog.Warnf("Encountered error when trying to get log configuration for container %s: %v", c.RuntimeID, err)
-		return map[string]string{}
-	}
-
-	return hostConfig.LogConfig.Config
 }
 
 // GetNetworkModeFromHostConfig returns the network mode used by the container from the host config .
@@ -1112,7 +1092,7 @@ func (c *Container) GetNetworkModeFromHostConfig() string {
 	// TODO return error to differentiate between error and default mode .
 	err := json.Unmarshal([]byte(*c.DockerConfig.HostConfig), hostConfig)
 	if err != nil {
-		seelog.Warnf("Encountered error when trying to get network mode for container %s: %v", c.RuntimeID, err)
+		seelog.Warnf("Encountered error when trying to get network mode for container %s: %v", err)
 		return ""
 	}
 

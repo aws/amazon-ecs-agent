@@ -123,115 +123,11 @@ func TestTaskResponse(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false)
 	assert.NoError(t, err)
 	_, err = json.Marshal(taskResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, created.UTC().String(), taskResponse.Containers[0].CreatedAt.String())
-	// LaunchType should not be populated
-	assert.Equal(t, "", taskResponse.LaunchType)
-	// Log driver and Log options should not be populated
-	assert.Equal(t, "", taskResponse.Containers[0].LogDriver)
-	assert.Len(t, taskResponse.Containers[0].LogOptions, 0)
-
-	gomock.InOrder(
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-	)
-	// verify that 'v4' response without log driver or options returns blank fields as well
-	taskResponse, err = NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
-	assert.NoError(t, err)
-	_, err = json.Marshal(taskResponse)
-	assert.NoError(t, err)
-	// LaunchType should not be populated
-	assert.Equal(t, "", taskResponse.LaunchType)
-	// Log driver and Log options should not be populated
-	assert.Equal(t, "", taskResponse.Containers[0].LogDriver)
-	assert.Len(t, taskResponse.Containers[0].LogOptions, 0)
-}
-
-func TestTaskResponseWithV4Metadata(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
-	ecsClient := mock_api.NewMockECSClient(ctrl)
-	now := time.Now()
-	task := &apitask.Task{
-		Arn:                 taskARN,
-		Family:              family,
-		Version:             version,
-		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
-		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
-		ENIs: []*apieni.ENI{
-			{
-				IPV4Addresses: []*apieni.ENIIPV4Address{
-					{
-						Address: eniIPv4Address,
-					},
-				},
-			},
-		},
-		CPU:                      cpu,
-		Memory:                   memory,
-		PullStartedAtUnsafe:      now,
-		PullStoppedAtUnsafe:      now,
-		ExecutionStoppedAtUnsafe: now,
-	}
-	container := &apicontainer.Container{
-		Name:                containerName,
-		Image:               imageName,
-		ImageID:             imageID,
-		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
-		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
-		CPU:                 cpu,
-		Memory:              memory,
-		Type:                apicontainer.ContainerNormal,
-		Ports: []apicontainer.PortBinding{
-			{
-				ContainerPort: 80,
-				Protocol:      apicontainer.TransportProtocolTCP,
-			},
-		},
-		VolumesUnsafe: []types.MountPoint{
-			{
-				Name:        volName,
-				Source:      volSource,
-				Destination: volDestination,
-			},
-		},
-		DockerConfig: apicontainer.DockerConfig{
-			HostConfig: aws.String(`{"LogConfig":{"Type":"awslogs","Config":{"awslogs-group":"myLogGroup"}}}`),
-		},
-	}
-	created := time.Now()
-	container.SetCreatedAt(created)
-	labels := map[string]string{
-		"foo": "bar",
-	}
-	container.SetLabels(labels)
-	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
-		taskARN: {
-			DockerID:   containerID,
-			DockerName: containerName,
-			Container:  container,
-		},
-	}
-	gomock.InOrder(
-		state.EXPECT().TaskByArn(taskARN).Return(task, true),
-		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
-	)
-
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, false, true)
-	assert.NoError(t, err)
-	_, err = json.Marshal(taskResponse)
-	assert.NoError(t, err)
-	assert.Equal(t, created.UTC().String(), taskResponse.Containers[0].CreatedAt.String())
-	// LaunchType is populated by the v4 handler
-	assert.Equal(t, "", taskResponse.LaunchType)
-	// Log driver and config should be populated
-	assert.Equal(t, "awslogs", taskResponse.Containers[0].LogDriver)
-	assert.Equal(t, map[string]string{"awslogs-group": "myLogGroup"}, taskResponse.Containers[0].LogOptions)
 }
 
 func TestContainerResponse(t *testing.T) {
@@ -311,7 +207,7 @@ func TestContainerResponse(t *testing.T) {
 				state.EXPECT().TaskByID(containerID).Return(task, true),
 			)
 
-			containerResponse, err := NewContainerResponse(containerID, state, false)
+			containerResponse, err := NewContainerResponse(containerID, state)
 			assert.NoError(t, err)
 			assert.Equal(t, containerResponse.Health == nil, tc.result)
 			_, err = json.Marshal(containerResponse)
@@ -448,7 +344,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 		}, nil),
 	)
 
-	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, false)
+	taskResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true)
 	assert.NoError(t, err)
 
 	taskResponseJSON, err := json.Marshal(taskResponse)
@@ -552,7 +448,7 @@ func TestContainerResponseMarshal(t *testing.T) {
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
 
-	containerResponse, err := NewContainerResponse(containerID, state, false)
+	containerResponse, err := NewContainerResponse(containerID, state)
 	assert.NoError(t, err)
 
 	containerResponseJSON, err := json.Marshal(containerResponse)

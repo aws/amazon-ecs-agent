@@ -19,7 +19,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -86,7 +85,7 @@ func NewTaskResponse(
 ) (*TaskResponse, error) {
 	// Construct the v2 response first.
 	v2Resp, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az,
-		containerInstanceARN, propagateTags, true)
+		containerInstanceARN, propagateTags)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +104,6 @@ func NewTaskResponse(
 		})
 	}
 
-	v2Resp.LaunchType = ecs.LaunchTypeEc2
-
 	return &TaskResponse{
 		TaskResponse: v2Resp,
 		Containers:   containers,
@@ -120,7 +117,7 @@ func NewContainerResponse(
 	state dockerstate.TaskEngineState,
 ) (*ContainerResponse, error) {
 	// Construct the v2 response first.
-	container, err := v2.NewContainerResponse(containerID, state, true)
+	container, err := v2.NewContainerResponse(containerID, state)
 	if err != nil {
 		return nil, err
 	}

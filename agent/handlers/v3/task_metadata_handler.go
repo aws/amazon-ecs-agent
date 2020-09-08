@@ -51,7 +51,7 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		seelog.Infof("V3 task metadata handler: writing response for task '%s'", taskARN)
 
-		taskResponse, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags, false)
+		taskResponse, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
 		if err != nil {
 			errResponseJSON, err := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
