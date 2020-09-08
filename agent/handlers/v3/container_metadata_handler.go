@@ -63,7 +63,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 
 // GetContainerResponse gets container response for v3 metadata
 func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*v2.ContainerResponse, error) {
-	containerResponse, err := v2.NewContainerResponse(containerID, state, false)
+	containerResponse, err := v2.NewContainerResponse(containerID, state)
 	if err != nil {
 		return nil, errors.Errorf("Unable to generate metadata for container '%s'", containerID)
 	}
