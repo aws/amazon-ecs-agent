@@ -355,3 +355,17 @@ func (err NoSuchContainerError) Error() string {
 func (err NoSuchContainerError) ErrorName() string {
 	return "NoSuchContainerError"
 }
+
+// CannotCreateContainerExecError indicates any error when trying to create an exec object
+type CannotCreateContainerExecError struct {
+	FromError error
+}
+
+func (err CannotCreateContainerExecError) Error() string {
+	return err.FromError.Error()
+}
+
+// ErrorName returns name of the CannotCreateContainerExecError.
+func (err CannotCreateContainerExecError) ErrorName() string {
+	return "CannotCreateContainerExecError"
+}

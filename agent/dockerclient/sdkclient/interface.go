@@ -41,6 +41,7 @@ type Client interface {
 	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
 	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
 	ContainerStop(ctx context.Context, containerID string, timeout *time.Duration) error
+	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
 	Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error)
 	ImageImport(ctx context.Context, source types.ImageImportSource, ref string,
 		options types.ImageImportOptions) (io.ReadCloser, error)
