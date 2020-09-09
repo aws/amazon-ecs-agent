@@ -434,6 +434,43 @@ func TestCreateContainer(t *testing.T) {
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
 }
 
+func TestCreateContainerExec(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	name := "containerName"
+	execEnv := make([]string, 0)
+	execCmd := make([]string, 0)
+	execCmd = append(execCmd, "ls")
+	execConfig := types.ExecConfig{
+		Privileged:   false,
+		AttachStdin:  false,
+		AttachStderr: false,
+		AttachStdout: false,
+		Detach:       true,
+		DetachKeys:   "",
+		Env:          execEnv,
+		Cmd:          execCmd,
+	}
+
+	execCreateResponse := types.IDResponse{ID: "id"}
+
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerExecCreate(gomock.Any(), gomock.Any(), execConfig).
+			Do(func(v, w, x interface{}) {
+				assert.True(t, reflect.DeepEqual(x, execConfig),
+					"Mismatch in create container ExecConfig, %v != %v", x, execConfig)
+			}).Return(execCreateResponse, nil),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	response, err := client.CreateContainerExec(ctx, name, execConfig, dockerclient.CreateContainerTimeout)
+	assert.NoError(t, err)
+	assert.NotNil(t, response)
+	assert.Equal(t, execCreateResponse, *response)
+}
+
 func TestStartContainerTimeout(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
