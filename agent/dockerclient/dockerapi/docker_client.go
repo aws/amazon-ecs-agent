@@ -137,6 +137,10 @@ type DockerClient interface {
 	// should be provided for the request.
 	TopContainer(context.Context, string, time.Duration) (*dockercontainer.ContainerTopOKBody, error)
 
+	// CreateContainerExec creates a new exec configuration to run an exec process with the provided Config. A timeout value
+	// and a context should be provided for the request.
+	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
+
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
@@ -1510,4 +1514,44 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 		_, err = io.Copy(ioutil.Discard, resp.Body)
 	}
 	return err
+}
+
+func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error) {
+	type createContainerExecResponse struct {
+		execID *types.IDResponse
+		err    error
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER_EXEC")()
+	response := make(chan createContainerExecResponse, 1)
+	go func() {
+		execIDresponse, err := dg.createContainerExec(ctx, containerID, execConfig)
+		response <- createContainerExecResponse{execIDresponse, err}
+	}()
+
+	select {
+	case resp := <-response:
+		return resp.execID, resp.err
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "exec command"}
+		}
+		return nil, &CannotCreateContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config types.ExecConfig) (*types.IDResponse, error) {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	execIDResponse, err := client.ContainerExecCreate(ctx, containerID, config)
+	if err != nil {
+		return nil, &CannotCreateContainerExecError{err}
+	}
+	return &execIDResponse, nil
 }
