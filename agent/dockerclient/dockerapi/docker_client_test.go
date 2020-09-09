@@ -638,7 +638,7 @@ func TestTopContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	topResponse, err := client.TopContainer(ctx, "id", dockerclient.TopContainerTimeout)
+	topResponse, err := client.TopContainer(ctx, "id", dockerclient.TopContainerTimeout, "pid")
 	assert.NoError(t, err)
 	assert.Equal(t, &topOutput, topResponse)
 }
