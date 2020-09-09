@@ -142,8 +142,9 @@ type DockerClient interface {
 	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 
 	// TopContainer returns information about the top processes running in the specified container.  A timeout value and a context
-	// should be provided for the request.
-	TopContainer(context.Context, string, time.Duration) (*dockercontainer.ContainerTopOKBody, error)
+	// should be provided for the request. The last argument is an optional parameter for passing in 'ps' arguments
+	// as part of the top command.
+	TopContainer(context.Context, string, time.Duration, ...string) (*dockercontainer.ContainerTopOKBody, error)
 
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
@@ -666,7 +667,7 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 	return &containerData, err
 }
 
-func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, timeout time.Duration) (*dockercontainer.ContainerTopOKBody, error) {
+func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
 	type topResponse struct {
 		top *dockercontainer.ContainerTopOKBody
 		err error
@@ -678,7 +679,7 @@ func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, tim
 	// read, and can still be GC'd
 	response := make(chan topResponse, 1)
 	go func() {
-		top, err := dg.topContainer(ctx, dockerID)
+		top, err := dg.topContainer(ctx, dockerID, psArgs...)
 		response <- topResponse{top, err}
 	}()
 
@@ -696,12 +697,12 @@ func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, tim
 	}
 }
 
-func (dg *dockerGoClient) topContainer(ctx context.Context, dockerID string) (*dockercontainer.ContainerTopOKBody, error) {
+func (dg *dockerGoClient) topContainer(ctx context.Context, dockerID string, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
 	client, err := dg.sdkDockerClient()
 	if err != nil {
 		return nil, err
 	}
-	topResponse, err := client.ContainerTop(ctx, dockerID, []string{})
+	topResponse, err := client.ContainerTop(ctx, dockerID, psArgs)
 	return &topResponse, err
 }
 
