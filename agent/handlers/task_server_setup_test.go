@@ -308,7 +308,7 @@ var (
 			ImageID:       imageID,
 			DesiredStatus: statusRunning,
 			KnownStatus:   statusRunning,
-			ContainerArn:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
 			Limits: v2.LimitsResponse{
 				CPU:    aws.Float64(cpu),
 				Memory: aws.Int64(memory),
