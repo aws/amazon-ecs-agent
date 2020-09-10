@@ -3,126 +3,11 @@
 package api
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
 	"text/template"
 )
 
-// APIEventStreamTestGoCode generates Go code for EventStream operation tests.
-func (a *API) APIEventStreamTestGoCode() string {
-	var buf bytes.Buffer
-
-	a.resetImports()
-	a.AddImport("bytes")
-	a.AddImport("io/ioutil")
-	a.AddImport("net/http")
-	a.AddImport("reflect")
-	a.AddImport("testing")
-	a.AddImport("time")
-	a.AddSDKImport("aws")
-	a.AddSDKImport("aws/corehandlers")
-	a.AddSDKImport("aws/request")
-	a.AddSDKImport("aws/awserr")
-	a.AddSDKImport("awstesting/unit")
-	a.AddSDKImport("private/protocol")
-	a.AddSDKImport("private/protocol/", a.ProtocolPackage())
-	a.AddSDKImport("private/protocol/eventstream")
-	a.AddSDKImport("private/protocol/eventstream/eventstreamapi")
-	a.AddSDKImport("private/protocol/eventstream/eventstreamtest")
-
-	unused := `
-	var _ time.Time
-	var _ awserr.Error
-	`
-
-	if err := eventStreamTestTmpl.Execute(&buf, a); err != nil {
-		panic(err)
-	}
-
-	return a.importsGoCode() + unused + strings.TrimSpace(buf.String())
-}
-
-func templateMap(args ...interface{}) map[string]interface{} {
-	if len(args)%2 != 0 {
-		panic(fmt.Sprintf("invalid map call, non-even args %v", args))
-	}
-
-	m := map[string]interface{}{}
-	for i := 0; i < len(args); i += 2 {
-		k, ok := args[i].(string)
-		if !ok {
-			panic(fmt.Sprintf("invalid map call, arg is not string, %T, %v", args[i], args[i]))
-		}
-		m[k] = args[i+1]
-	}
-
-	return m
-}
-
-func valueForType(s *Shape, visited []string) string {
-	for _, v := range visited {
-		if v == s.ShapeName {
-			return "nil"
-		}
-	}
-
-	visited = append(visited, s.ShapeName)
-
-	switch s.Type {
-	case "blob":
-		return `[]byte("blob value goes here")`
-	case "string":
-		return `aws.String("string value goes here")`
-	case "boolean":
-		return `aws.Bool(true)`
-	case "byte":
-		return `aws.Int64(1)`
-	case "short":
-		return `aws.Int64(12)`
-	case "integer":
-		return `aws.Int64(123)`
-	case "long":
-		return `aws.Int64(1234)`
-	case "float":
-		return `aws.Float64(123.4)`
-	case "double":
-		return `aws.Float64(123.45)`
-	case "timestamp":
-		return `aws.Time(time.Unix(1396594860, 0).UTC())`
-	case "structure":
-		w := bytes.NewBuffer(nil)
-		fmt.Fprintf(w, "&%s{\n", s.ShapeName)
-		for _, refName := range s.MemberNames() {
-			fmt.Fprintf(w, "%s: %s,\n", refName, valueForType(s.MemberRefs[refName].Shape, visited))
-		}
-		fmt.Fprintf(w, "}")
-		return w.String()
-	case "list":
-		w := bytes.NewBuffer(nil)
-		fmt.Fprintf(w, "%s{\n", s.GoType())
-		for i := 0; i < 3; i++ {
-			fmt.Fprintf(w, "%s,\n", valueForType(s.MemberRef.Shape, visited))
-		}
-		fmt.Fprintf(w, "}")
-		return w.String()
-
-	case "map":
-		w := bytes.NewBuffer(nil)
-		fmt.Fprintf(w, "%s{\n", s.GoType())
-		for _, k := range []string{"a", "b", "c"} {
-			fmt.Fprintf(w, "%q: %s,\n", k, valueForType(s.ValueRef.Shape, visited))
-		}
-		fmt.Fprintf(w, "}")
-		return w.String()
-
-	default:
-		panic(fmt.Sprintf("valueForType does not support %s, %s", s.ShapeName, s.Type))
-	}
-}
-
-var eventStreamTestTmpl = template.Must(
-	template.New("eventStreamTestTmpl").Funcs(template.FuncMap{
+var eventStreamReaderTestTmpl = template.Must(
+	template.New("eventStreamReaderTestTmpl").Funcs(template.FuncMap{
 		"ValueForType":             valueForType,
 		"HasNonBlobPayloadMembers": eventHasNonBlobPayloadMembers,
 		"EventHeaderValueForType":  setEventHeaderValueForType,
@@ -249,6 +134,78 @@ func (c *loopReader) Read(p []byte) (int, error) {
 
 		resp.GetStream().Close()
 		<-resp.GetStream().Events()
+
+		if err := resp.GetStream().Err(); err != nil {
+			t.Errorf("expect no error, %v", err)
+		}
+	}
+
+	func Test{{ $.Operation.ExportedName }}_ReadUnknownEvent(t *testing.T) {
+		expectEvents, eventMsgs := mock{{ $.Operation.ExportedName }}ReadEvents()
+
+		{{- if eq $.Operation.API.Metadata.Protocol "json" }}
+			eventOffset := 1
+		{{- else }}
+			var eventOffset int
+		{{- end }}
+
+		unknownEvent := eventstream.Message{
+			Headers: eventstream.Headers{
+				eventstreamtest.EventMessageTypeHeader,
+				{
+					Name:  eventstreamapi.EventTypeHeader,
+					Value: eventstream.StringValue("UnknownEventName"),
+				},
+			},
+			Payload: []byte("some unknown event"),
+		}
+
+		eventMsgs = append(eventMsgs[:eventOffset],
+			append([]eventstream.Message{unknownEvent}, eventMsgs[eventOffset:]...)...)
+
+		expectEvents = append(expectEvents[:eventOffset],
+			append([]{{ $.OutputStream.Name }}Event{
+					&{{ $.OutputStream.StreamUnknownEventName }}{
+						Type: "UnknownEventName",
+						Message: unknownEvent,
+					},
+				},
+				expectEvents[eventOffset:]...)...)
+
+		sess, cleanupFn, err := eventstreamtest.SetupEventStreamSession(t,
+			eventstreamtest.ServeEventStream{
+				T:      t,
+				Events: eventMsgs,
+			},
+			true,
+		)
+		if err != nil {
+			t.Fatalf("expect no error, %v", err)
+		}
+		defer cleanupFn()
+
+		svc := New(sess)
+		resp, err := svc.{{ $.Operation.ExportedName }}(nil)
+		if err != nil {
+			t.Fatalf("expect no error got, %v", err)
+		}
+		defer resp.GetStream().Close()
+
+		{{- if eq $.Operation.API.Metadata.Protocol "json" }}
+			// Trim off response output type pseudo event so only event messages remain.
+			expectEvents = expectEvents[1:]
+		{{ end }}
+
+		var i int
+		for event := range resp.GetStream().Events() {
+			if event == nil {
+				t.Errorf("%d, expect event, got nil", i)
+			}
+			if e, a := expectEvents[i], event; !reflect.DeepEqual(e, a) {
+				t.Errorf("%d, expect %T %v, got %T %v", i, e, e, a, a)
+			}
+			i++
+		}
 
 		if err := resp.GetStream().Err(); err != nil {
 			t.Errorf("expect no error, %v", err)
@@ -402,7 +359,7 @@ func (c *loopReader) Read(p []byte) (int, error) {
 			}
 
 			if e, a := expectErr, aerr; !reflect.DeepEqual(e, a) {
-				t.Errorf("expect %#v, got %#v", e, a)
+				t.Errorf("expect error %+#v, got %+#v", e, a)
 			}
 		}
 
@@ -416,6 +373,11 @@ func (c *loopReader) Read(p []byte) (int, error) {
 {{/* Params: *Shape */}}
 {{ define "set event type" }}
 	&{{ $.ShapeName }}{
+		{{- if $.Exception }}
+			RespMetadata: protocol.ResponseMetadata{
+				StatusCode: 200,
+			},
+		{{- end }}
 		{{- range $memName, $memRef := $.MemberRefs }}
 			{{- if not $memRef.Shape.IsEventStream }}
 				{{ $memName }}: {{ ValueForType $memRef.Shape nil }},
