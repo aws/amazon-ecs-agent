@@ -75,3 +75,25 @@ jobs:
         cd "$Env:GITHUB_WORKSPACE"
         cd "src/github.com/aws/amazon-ecs-agent"
         go test -v -race -tags unit -timeout 40s ./agent/...
+
+  make-release:
+    name: Make 'release' docker image
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.12
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: src/github.com/aws/amazon-ecs-agent
+    - name: make release
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+        make release
+        docker save -o "$GITHUB_WORKSPACE/amazon-ecs-agent.tar" "amazon/amazon-ecs-agent:latest"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: amazon-ecs-agent.tar
+        path: amazon-ecs-agent.tar
