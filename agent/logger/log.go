@@ -86,9 +86,10 @@ func seelogConfig() string {
 			<console />`
 	c += platformLogConfig()
 	c += `
-		</filter>
-		<filter levels="` + getLevelList(Config.instanceLevel) + `">`
+		</filter>`
 	if Config.logfile != "" {
+		c += `
+		<filter levels="` + getLevelList(Config.instanceLevel) + `">`
 		if Config.RolloverType == "size" {
 			c += `
 			<rollingfile filename="` + Config.logfile + `" type="size"
@@ -98,9 +99,10 @@ func seelogConfig() string {
 			<rollingfile filename="` + Config.logfile + `" type="date"
 			 datepattern="2006-01-02-15" archivetype="none" maxrolls="` + strconv.Itoa(Config.MaxRollCount) + `" />`
 		}
+		c += `
+		</filter>`
 	}
 	c += `
-		</filter>
 	</outputs>
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
@@ -162,6 +164,9 @@ func GetLevel() string {
 func setInstanceLevelDefault() string {
 	if logDriver := os.Getenv(LOG_DRIVER_ENV_VAR); logDriver != "" {
 		return DEFAULT_LOGLEVEL_WHEN_DRIVER_SET
+	}
+	if loglevel := os.Getenv(LOGLEVEL_ENV_VAR); loglevel != "" {
+		return loglevel
 	}
 	return DEFAULT_LOGLEVEL
 }

@@ -289,7 +289,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			// Expect a bunch of steady state 'poll' describes when we trigger cleanup
 			client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx interface{}, removedContainerName string, timeout time.Duration) {
-					assert.Equal(t, getCreatedContainerName(), removedContainerName,
+					assert.Equal(t, containerID, removedContainerName,
 						"Container name mismatch")
 				}).Return(nil)
 
@@ -496,7 +496,7 @@ func TestRemoveEvents(t *testing.T) {
 
 	client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(ctx interface{}, removedContainerName string, timeout time.Duration) {
-			assert.Equal(t, getCreatedContainerName(), removedContainerName,
+			assert.Equal(t, containerID, removedContainerName,
 				"Container name mismatch")
 
 			// Emit a couple of events for the task before cleanup finishes. This forces
@@ -636,7 +636,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	cleanup := make(chan time.Time)
 	defer close(cleanup)
 	testTime.EXPECT().After(gomock.Any()).Return(cleanup).MinTimes(1)
-	client.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, dockerclient.RemoveContainerTimeout).Return(nil)
+	client.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerID, dockerclient.RemoveContainerTimeout).Return(nil)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
 	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
@@ -699,6 +699,36 @@ func TestStopWithPendingStops(t *testing.T) {
 	pullDone <- true
 	// this means the PullImage is only called once due to the task is stopped before it
 	// gets the pull image lock
+}
+
+func TestCreateContainerSaveDockerIDAndName(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, privateTaskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	dataClient, cleanup := newTestDataClient(t)
+	defer cleanup()
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine.SetDataClient(dataClient)
+
+	sleepTask := testdata.LoadTask("sleep5")
+	sleepTask.Arn = testTaskARN
+	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+	sleepContainer.TaskARNUnsafe = testTaskARN
+
+	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+	client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{
+		DockerID: testDockerID,
+	})
+	metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+	require.NoError(t, metadata.Error)
+
+	containers, err := dataClient.GetContainers()
+	require.NoError(t, err)
+	require.Len(t, containers, 1)
+	assert.Equal(t, testDockerID, containers[0].DockerID)
+	assert.Contains(t, containers[0].DockerName, sleepContainer.Name)
 }
 
 func TestCreateContainerMetadata(t *testing.T) {
@@ -1261,7 +1291,7 @@ func TestProvisionContainerResources(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
@@ -1300,7 +1330,7 @@ func TestProvisionContainerResourcesInspectError(t *testing.T) {
 		Container:  pauseContainer,
 	}, testTask)
 
-	dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(nil, errors.New("test error"))
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(nil, errors.New("test error"))
 
 	assert.NotNil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 }
@@ -1341,7 +1371,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
@@ -1390,7 +1420,7 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	}, testTask)
 
 	gomock.InOrder(
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).Return(&types.ContainerJSON{
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
 			ContainerJSONBase: &types.ContainerJSONBase{
 				ID:    containerID,
 				State: &types.ContainerState{Pid: containerPid},
@@ -1452,7 +1482,7 @@ func TestCreateContainerOnAgentRestart(t *testing.T) {
 	sleepTask := testdata.LoadTask("sleep5")
 	sleepContainer, _ := sleepTask.ContainerByName("sleep5")
 	// Store the generated container name to state
-	state.AddContainer(&apicontainer.DockerContainer{DockerName: "docker_container_name", Container: sleepContainer}, sleepTask)
+	state.AddContainer(&apicontainer.DockerContainer{DockerID: "dockerID", DockerName: "docker_container_name", Container: sleepContainer}, sleepTask)
 
 	gomock.InOrder(
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
@@ -2980,7 +3010,7 @@ func TestGetBridgeIP(t *testing.T) {
 
 func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 	dockerMetaDataWithoutNetworkSettings := dockerapi.DockerContainerMetadata{
-		DockerID: dockerContainerName,
+		DockerID: containerID,
 		Volumes: []types.MountPoint{
 			{
 				Name:        "volume",
@@ -3054,17 +3084,18 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).state.AddContainer(&apicontainer.DockerContainer{
 		Container:  testTask.Containers[1],
-		DockerName: "dockerContainerName",
+		DockerName: dockerContainerName,
+		DockerID:   containerID,
 	}, testTask)
 
 	client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
 	client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(dockerMetaDataWithoutNetworkSettings).AnyTimes()
 	gomock.InOrder(
-		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
 			Return(jsonBaseWithoutNetwork, nil),
-		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
 			Return(jsonBaseWithoutNetwork, nil),
-		client.EXPECT().InspectContainer(gomock.Any(), dockerContainerName, gomock.Any()).
+		client.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).
 			Return(jsonBaseWithNetwork, nil),
 	)
 	ret := taskEngine.(*DockerTaskEngine).startContainer(testTask, testTask.Containers[1])

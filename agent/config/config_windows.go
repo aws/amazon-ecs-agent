@@ -87,6 +87,7 @@ func DefaultConfig() Config {
 		DockerStopTimeout:                   defaultDockerStopTimeout,
 		ContainerStartTimeout:               defaultContainerStartTimeout,
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
+		ImagePullTimeout:                    DefaultImagePullTimeout,
 		CredentialsAuditLogFile:             filepath.Join(ecsRoot, defaultCredentialsAuditLogFile),
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
