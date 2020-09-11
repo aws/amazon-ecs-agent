@@ -8,11 +8,8 @@ matrix:
   include:
     - os: linux
       script:
-        - make get-deps
-        - make static-check
         - make test
         - make analyze-cover-profile
-        - make xplatform-build
     - os: windows
       script:
         - go test -v -race -tags unit -timeout 40s ./agent/...

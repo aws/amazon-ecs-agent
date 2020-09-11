@@ -402,7 +402,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			// Expect a bunch of steady state 'poll' describes when we trigger cleanup
 			client.EXPECT().RemoveContainer(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 				func(ctx interface{}, removedContainerName string, timeout time.Duration) {
-					assert.Equal(t, getCreatedContainerName(), removedContainerName,
+					assert.Equal(t, containerID, removedContainerName,
 						"Container name mismatch")
 				}).Return(nil)
 

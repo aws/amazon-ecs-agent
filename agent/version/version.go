@@ -6,7 +6,7 @@
 // not use this file except in compliance with the License. A copy of the
 // License is located at
 //
-//  http://aws.amazon.com/apache2.0/
+//	http://aws.amazon.com/apache2.0/
 //
 // or in the "license" file accompanying this file. This file is distributed
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
@@ -22,10 +22,10 @@ package version
 // repository. Only the 'Version' const should change in checked-in source code
 
 // Version is the version of the Agent
-const Version = "1.44.0"
+const Version = "1.44.3"
 
 // GitDirty indicates the cleanliness of the git repo when this agent was built
 const GitDirty = true
 
 // GitShortHash is the short hash of this agent build
-const GitShortHash = "4a2bcebf"
+const GitShortHash = "11509ec7"

@@ -449,7 +449,7 @@ func TestImageWithSameIDAndDifferentNames(t *testing.T) {
 
 	// Pull the images needed for the test
 	if _, err = dockerClient.InspectImage(test4Image1Name); client.IsErrNotFound(err) {
-		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, dockerclient.PullImageTimeout)
+		metadata := dockerClient.PullImage(ctx, test4Image1Name, nil, defaultTestConfigIntegTest().ImagePullTimeout)
 		assert.NoError(t, metadata.Error, "Failed to pull image %s", test4Image1Name)
 	}
 

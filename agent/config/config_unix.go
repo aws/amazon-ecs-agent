@@ -63,6 +63,7 @@ func DefaultConfig() Config {
 		NonECSMinimumImageDeletionAge:       DefaultNonECSImageDeletionAge,
 		ImageCleanupInterval:                DefaultImageCleanupTimeInterval,
 		ImagePullInactivityTimeout:          defaultImagePullInactivityTimeout,
+		ImagePullTimeout:                    DefaultImagePullTimeout,
 		NumImagesToDeletePerCycle:           DefaultNumImagesToDeletePerCycle,
 		NumNonECSContainersToDeletePerCycle: DefaultNumNonECSContainersToDeletePerCycle,
 		CNIPluginsPath:                      defaultCNIPluginsPath,

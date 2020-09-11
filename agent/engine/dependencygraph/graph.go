@@ -252,6 +252,8 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		return nil, nil
 	}
 
+	var blockedDependency *apicontainer.DependsOn
+
 	targetDependencies := target.GetDependsOn()
 	for _, dependency := range targetDependencies {
 		dependencyContainer, ok := existingContainers[dependency.ContainerName]
@@ -276,8 +278,11 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 		}
 
 		if !resolves(target, dependencyContainer, dependency.Condition) {
-			return &dependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", dependencyContainer, target)
+			blockedDependency = &dependency
 		}
+	}
+	if blockedDependency != nil {
+		return blockedDependency, fmt.Errorf("dependency graph: failed to resolve the container ordering dependency [%v] for target [%v]", blockedDependency, target)
 	}
 	return nil, nil
 }
