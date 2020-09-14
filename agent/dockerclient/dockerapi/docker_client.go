@@ -146,6 +146,10 @@ type DockerClient interface {
 	// and a context should be provided for the request.
 	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
 
+	// StartContainerExec starts an exec process already created in the docker host. A timeout value
+	// and a context should be provided for the request.
+	StartContainerExec(ctx context.Context, execID string, timeout time.Duration) error
+
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
@@ -1573,4 +1577,45 @@ func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID s
 		return nil, &CannotCreateContainerExecError{err}
 	}
 	return &execIDResponse, nil
+}
+
+func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, timeout time.Duration) error {
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER_EXEC")()
+	response := make(chan error, 1)
+	go func() {
+		err := dg.startContainerExec(ctx, execID)
+		response <- err
+	}()
+
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return &DockerTimeoutError{timeout, "start exec command"}
+		}
+		return &CannotStartContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string) error {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return err
+	}
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	err = client.ContainerExecStart(ctx, execID, execStartCheck)
+	if err != nil {
+		return &CannotStartContainerExecError{err}
+	}
+	return nil
 }
