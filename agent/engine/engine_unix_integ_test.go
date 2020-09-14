@@ -30,6 +30,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -37,6 +39,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -44,14 +47,16 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	sdkClient "github.com/docker/docker/client"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	testRegistryHost = "127.0.0.1:51670"
-	testBusyboxImage = testRegistryHost + "/busybox:latest"
-	testVolumeImage  = testRegistryHost + "/amazon/amazon-ecs-volumes-test:latest"
-	testFluentdImage = testRegistryHost + "/amazon/fluentd:latest"
+	testRegistryHost          = "127.0.0.1:51670"
+	testBusyboxImage          = testRegistryHost + "/busybox:latest"
+	testVolumeImage           = testRegistryHost + "/amazon/amazon-ecs-volumes-test:latest"
+	testFluentdImage          = testRegistryHost + "/amazon/fluentd:latest"
+	testExecCommandAgentImage = "127.0.0.1:51670/amazon/amazon-ecs-exec-command-agent-test:latest"
 )
 
 var (
@@ -944,8 +949,8 @@ func TestFluentdTag(t *testing.T) {
 		HostConfig: aws.String(`{"LogConfig": {
 		"Type": "fluentd",
 		"Config": {
-               "fluentd-address":"0.0.0.0:24224",
-               "tag":"ecs.{{.Name}}.{{.FullID}}"
+			"fluentd-address":"0.0.0.0:24224",
+			"tag":"ecs.{{.Name}}.{{.FullID}}"
 		}
 	}}`)}
 
@@ -976,4 +981,112 @@ func TestFluentdTag(t *testing.T) {
 
 	err = utils.SearchStrInDir(logdir, "ecsfts", logTag)
 	require.NoError(t, err, "failed to find the log tag specified in the task definition")
+}
+
+func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
+	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
+	testTask.ExecCommandAgentEnabled = true
+	testTask.Containers[0].Name = containerName
+	testTask.Containers[0].Image = testExecCommandAgentImage
+	testTask.Containers[0].Command = []string{"/sleep", "-time=" + sleepFor.String()}
+	return testTask
+}
+
+// TODO: [ecs-exec] Enable this test when exec command agent is in place on the host
+func TestExecCommandAgent(t *testing.T) {
+	t.Skip("Skipping until exec command agent is in place on the host")
+	const (
+		testTaskId        = "exec-command-agent-test-task"
+		testContainerName = "exec-command-agent-test-container"
+		sleepFor          = time.Second * 5
+	)
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	defer done()
+
+	os.Setenv(logger.LOGFILE_ENV_VAR, "/var/log/ecs/ecs-agent.log")
+	defer os.Unsetenv(logger.LOGFILE_ENV_VAR)
+
+	testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, sleepFor)
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+	inspectState, _ := client.ContainerInspect(ctx, cid)
+
+	expectedMounts := []struct {
+		source   string
+		dest     string
+		readOnly bool
+	}{
+		{
+			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentBinName),
+			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName),
+			readOnly: true,
+		},
+		{
+			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentSessionWorkerBinName),
+			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentSessionWorkerBinName),
+			readOnly: true,
+		},
+		{
+			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentSessionLoggerBinName),
+			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentSessionLoggerBinName),
+			readOnly: true,
+		},
+		{
+			source:   apitask.ExecCommandAgentHostCertFile,
+			dest:     apitask.ExecCommandAgentContainerCertFile,
+			readOnly: true,
+		},
+		{
+			source:   filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), testTaskId, testContainerName),
+			dest:     apitask.ExecCommandAgentContainerLogDir,
+			readOnly: false,
+		},
+	}
+
+	for _, em := range expectedMounts {
+		var found *types.MountPoint
+		for _, m := range inspectState.Mounts {
+			if m.Source == em.source {
+				found = &m
+				break
+			}
+		}
+		require.NotNil(t, found, "Expected mount point not found (%s)", em.source)
+		require.Equal(t, em.dest, found.Destination, "Destination for mount point (%s) is invalid expected: %s, actual: %s", em.source, em.dest, found.Destination)
+		if em.readOnly {
+			require.Equal(t, "ro", found.Mode, "Destination for mount point (%s) should be read only", em.source)
+		} else {
+			require.True(t, found.RW, "Destination for mount point (%s) should be writable", em.source)
+		}
+		require.Equal(t, "bind", string(found.Type), "Destination for mount point (%s) is not of type bind", em.source)
+	}
+
+	require.Equal(t, len(expectedMounts), len(inspectState.Mounts), "Wrong number of bind mounts detected in container (%s)", testContainerName)
+
+	taskUpdate := createTestExecCommandAgentTask(testTaskId, testContainerName, sleepFor)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*20)
+	go func() {
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		cancel()
+	}()
+
+	<-ctx.Done()
+	require.NotEqual(t, context.DeadlineExceeded, ctx.Err(), "Timed out waiting for task (%s) to stop", testTaskId)
+	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 }
