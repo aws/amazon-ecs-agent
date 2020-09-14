@@ -175,6 +175,21 @@ func (mr *MockDockerClientMockRecorder) InspectContainer(arg0, arg1, arg2 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectContainer", reflect.TypeOf((*MockDockerClient)(nil).InspectContainer), arg0, arg1, arg2)
 }
 
+// InspectContainerExec mocks base method
+func (m *MockDockerClient) InspectContainerExec(arg0 context.Context, arg1 string, arg2 time.Duration) (*types.ContainerExecInspect, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InspectContainerExec", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*types.ContainerExecInspect)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InspectContainerExec indicates an expected call of InspectContainerExec
+func (mr *MockDockerClientMockRecorder) InspectContainerExec(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InspectContainerExec", reflect.TypeOf((*MockDockerClient)(nil).InspectContainerExec), arg0, arg1, arg2)
+}
+
 // InspectImage mocks base method
 func (m *MockDockerClient) InspectImage(arg0 string) (*types.ImageInspect, error) {
 	m.ctrl.T.Helper()
