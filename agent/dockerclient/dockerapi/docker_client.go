@@ -154,6 +154,10 @@ type DockerClient interface {
 	// and a context should be provided for the request.
 	StartContainerExec(ctx context.Context, execID string, timeout time.Duration) error
 
+	// InspectContainerExec returns information about a specific exec process on the docker host. A timeout value
+	// and a context should be provided for the request.
+	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error)
+
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
@@ -1620,4 +1624,45 @@ func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string)
 		return &CannotStartContainerExecError{err}
 	}
 	return nil
+}
+
+func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error) {
+	type inspectContainerExecResponse struct {
+		execInspect *types.ContainerExecInspect
+		err         error
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_CONTAINER_EXEC")()
+	response := make(chan inspectContainerExecResponse, 1)
+	go func() {
+		execInspectResponse, err := dg.inspectContainerExec(ctx, execID)
+		response <- inspectContainerExecResponse{execInspectResponse, err}
+	}()
+
+	select {
+	case resp := <-response:
+		return resp.execInspect, resp.err
+
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "inspect exec command"}
+		}
+		return nil, &CannotInspectContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*types.ContainerExecInspect, error) {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	execInspectResponse, err := client.ContainerExecInspect(ctx, containerID)
+	if err != nil {
+		return nil, &CannotInspectContainerExecError{err}
+	}
+	return &execInspectResponse, nil
 }
