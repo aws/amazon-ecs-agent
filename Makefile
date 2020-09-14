@@ -156,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test image-cleanup-test-images fluentd
+build-image-for-ecr: netkitten volumes-test image-cleanup-test-images fluentd exec-command-agent-test
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -225,7 +225,11 @@ volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
 # Run our 'test' registry needed for integ tests
-test-registry: netkitten volumes-test pause-container image-cleanup-test-images fluentd
+test-registry: netkitten volumes-test pause-container image-cleanup-test-images fluentd exec-command-agent-test
+
+exec-command-agent-test:
+	$(MAKE) -C misc/exec-command-agent-test $(MFLAGS)
+
 	@./scripts/setup-test-registry
 
 .PHONY: fluentd gremlin image-cleanup-test-images
@@ -319,6 +323,7 @@ clean:
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
+	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
