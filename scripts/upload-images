@@ -61,7 +61,7 @@ UBUNTU_IMAGE="ubuntu:20.04"
 
 $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
 
-for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "image-cleanup-test-image1" "image-cleanup-test-image2" "image-cleanup-test-image3" "fluentd" "amazon-ecs-telemetry-test" "amazon-ecs-containerhealthcheck"; do
+for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "image-cleanup-test-image1" "image-cleanup-test-image2" "image-cleanup-test-image3" "fluentd" "amazon-ecs-telemetry-test" "amazon-ecs-containerhealthcheck" "amazon-ecs-exec-command-agent-test"; do
   # Create the repository if it does not exist
   if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
   then
