@@ -471,6 +471,48 @@ func TestCreateContainerExec(t *testing.T) {
 	assert.Equal(t, execCreateResponse, *response)
 }
 
+func TestStartContainerExecTimeout(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Do(func(x, y, z interface{}) {
+		wait.Wait() // wait until timeout happens
+	}).MaxTimes(1).Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.StartContainerExec(ctx, "id", xContainerShortTimeout)
+	assert.NotNil(t, err, "Expected error for start container exec")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
+	wait.Done()
+}
+
+func TestStartContainerExec(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Return(nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.StartContainerExec(ctx, "id", dockerclient.CreateContainerTimeout)
+	assert.NoError(t, err)
+}
+
 func TestStartContainerTimeout(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
