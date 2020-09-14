@@ -53,16 +53,16 @@ const (
 	internalExecCommandAgentCertVolumeName      = internalExecCommandAgentNamePrefix + "-tls-cert"
 
 	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	execCommandAgentHostBinDir           = "/home/ec2-user/ssm-agent/linux_amd64"
-	execCommandAgentBinName              = "amazon-ssm-agent"
-	execCommandAgentSessionWorkerBinName = "ssm-session-worker"
-	execCommandAgentSessionLoggerBinName = "ssm-session-logger"
+	ExecCommandAgentHostBinDir           = "/home/ec2-user/ssm-agent/linux_amd64"
+	ExecCommandAgentBinName              = "amazon-ssm-agent"
+	ExecCommandAgentSessionWorkerBinName = "ssm-session-worker"
+	ExecCommandAgentSessionLoggerBinName = "ssm-session-logger"
 
 	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	execCommandAgentContainerLogDir   = "/var/log/amazon/ssm"
-	execCommandAgentContainerBinDir   = "/usr/bin"
-	execCommandAgentHostCertFile      = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
-	execCommandAgentContainerCertFile = "/etc/ssl/certs/ca-certificates.crt"
+	ExecCommandAgentContainerLogDir   = "/var/log/amazon/ssm"
+	ExecCommandAgentContainerBinDir   = "/usr/bin"
+	ExecCommandAgentHostCertFile      = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+	ExecCommandAgentContainerCertFile = "/etc/ssl/certs/ca-certificates.crt"
 
 	execCommandAgentNamelessContainerPrefix = "nameless-container-"
 )
@@ -260,6 +260,7 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 
 // initializeExecCommandAgentResources specifies the necessary volumes and mount points in all of the task containers in order for the
 // exec agent to run upon container start.
+// TODO: [ecs-exec] Should we validate the ssm agent binaries & certs are valid and fail here if they're not? (bind mount will succeed even if files don't exist in host)
 func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error {
 	if !task.IsExecCommandAgentEnabled() {
 		return nil
@@ -270,7 +271,7 @@ func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error 
 		return err
 	}
 
-	execCommandAgentBinNames := []string{execCommandAgentBinName, execCommandAgentSessionWorkerBinName, execCommandAgentSessionLoggerBinName}
+	execCommandAgentBinNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName, ExecCommandAgentSessionLoggerBinName}
 
 	// Append an internal volume for each of the exec agent binary names
 	for _, bn := range execCommandAgentBinNames {
@@ -279,7 +280,7 @@ func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error 
 				Type: HostVolumeType,
 				Name: buildVolumeNameForExecCommandAgentBinary(bn),
 				Volume: &taskresourcevolume.FSHostVolume{
-					FSSourcePath: filepath.Join(execCommandAgentHostBinDir, bn),
+					FSSourcePath: filepath.Join(ExecCommandAgentHostBinDir, bn),
 				},
 			})
 	}
@@ -290,7 +291,7 @@ func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error 
 			Type: HostVolumeType,
 			Name: internalExecCommandAgentCertVolumeName,
 			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: execCommandAgentHostCertFile,
+				FSSourcePath: ExecCommandAgentHostCertFile,
 			},
 		})
 
@@ -309,12 +310,12 @@ func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error 
 		c.MountPoints = append(c.MountPoints,
 			apicontainer.MountPoint{
 				SourceVolume:  lvn,
-				ContainerPath: execCommandAgentContainerLogDir,
+				ContainerPath: ExecCommandAgentContainerLogDir,
 				ReadOnly:      false,
 			},
 			apicontainer.MountPoint{
 				SourceVolume:  internalExecCommandAgentCertVolumeName,
-				ContainerPath: execCommandAgentContainerCertFile,
+				ContainerPath: ExecCommandAgentContainerCertFile,
 				ReadOnly:      true,
 			},
 		)
@@ -323,7 +324,7 @@ func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error 
 			c.MountPoints = append(c.MountPoints,
 				apicontainer.MountPoint{
 					SourceVolume:  buildVolumeNameForExecCommandAgentBinary(bn),
-					ContainerPath: filepath.Join(execCommandAgentContainerBinDir, bn),
+					ContainerPath: filepath.Join(ExecCommandAgentContainerBinDir, bn),
 					ReadOnly:      true,
 				})
 		}

@@ -1284,14 +1284,14 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 		assert.Equal(t, test.expectedVolumes, len(taskVolumes), "Should have created 6 task volumes")
 
 		// Check agent binary volumes
-		expectedBinaryNames := []string{execCommandAgentBinName, execCommandAgentSessionWorkerBinName, execCommandAgentSessionLoggerBinName}
+		expectedBinaryNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName, ExecCommandAgentSessionLoggerBinName}
 		for _, ebn := range expectedBinaryNames {
 			bvn := fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn)
-			assertExecCommandAgentTaskVolume(t, task, bvn, filepath.Join(execCommandAgentHostBinDir, ebn))
+			assertExecCommandAgentTaskVolume(t, task, bvn, filepath.Join(ExecCommandAgentHostBinDir, ebn))
 		}
 
 		// check tls cert volume
-		assertExecCommandAgentTaskVolume(t, task, internalExecCommandAgentCertVolumeName, execCommandAgentHostCertFile)
+		assertExecCommandAgentTaskVolume(t, task, internalExecCommandAgentCertVolumeName, ExecCommandAgentHostCertFile)
 
 		// Check exec agent log volumes
 		for _, c := range task.Containers {
@@ -1299,7 +1299,7 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 			lvn := fmt.Sprintf("%s-%s-%s", internalExecCommandAgentLogVolumeNamePrefix, tID, c.Name)
 
 			// Check special case where container name contains only hyphens
-			logDir := filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR))
+			logDir := filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)))
 			if c.Name == containerNameOnlyHyphens {
 				assertExecCommandAgentLogVolumeWithPrefix(t, task, lvn, filepath.Join(logDir, tID, execCommandAgentNamelessContainerPrefix))
 			} else {
@@ -1308,13 +1308,13 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 			// Check mount points were added for this container (1 for log, 1 for tls cert, 3 for binaries)
 			require.Equal(t, test.expectedMountPoints, len(c.MountPoints))
 			// Check exec agent log mount point
-			assertExecCommandAgentMountPoint(t, c, lvn, execCommandAgentContainerLogDir, false)
+			assertExecCommandAgentMountPoint(t, c, lvn, ExecCommandAgentContainerLogDir, false)
 			// Check exec agent tls cert mount point
-			assertExecCommandAgentMountPoint(t, c, internalExecCommandAgentCertVolumeName, execCommandAgentContainerCertFile, true)
+			assertExecCommandAgentMountPoint(t, c, internalExecCommandAgentCertVolumeName, ExecCommandAgentContainerCertFile, true)
 
 			// Check exec agent binary mount points
 			for _, ebn := range expectedBinaryNames {
-				assertExecCommandAgentMountPoint(t, c, fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn), filepath.Join(execCommandAgentContainerBinDir, ebn), true)
+				assertExecCommandAgentMountPoint(t, c, fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn), filepath.Join(ExecCommandAgentContainerBinDir, ebn), true)
 			}
 		}
 	}

@@ -156,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
+build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator exec-command-agent-test
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -232,6 +232,9 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
+exec-command-agent-test:
+	$(MAKE) -C misc/exec-command-agent-test $(MFLAGS)
+
 namespace-tests:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
 	@docker run --net=none \
@@ -245,7 +248,7 @@ namespace-tests:
 
 # Run our 'test' registry needed for integ and functional tests
 test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
+				taskmetadata-validator exec-command-agent-test \
 
 	@./scripts/setup-test-registry
 
@@ -349,6 +352,7 @@ clean:
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
+	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
 	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
