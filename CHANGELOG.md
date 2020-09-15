@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.44.4
+* Bug - Fix a bug where the ECS Agent did not iterate through all the dependencies of a particular container [#2615](https://github.com/aws/amazon-ecs-agent/pull/2615)
+* Bug - Fix a bug where the ECS Agent can lose track of containers if it's stopped by SIGKILL instead of SIGTERM [#2609](https://github.com/aws/amazon-ecs-agent/pull/2609)
+* Bug - Fix a bug where the a Docker API call could be made with a blank string instead of a Docker ID [#2608](https://github.com/aws/amazon-ecs-agent/pull/2608)
+* Bug - Fix a bug where the ECS Agent was expecting ECS_LOGFILE to be present as an environment variable [#2598](https://github.com/aws/amazon-ecs-agent/pull/2598)
+
 ## 1.44.3
 * Bug - Revert Introspection API scope change [#2605](https://github.com/aws/amazon-ecs-agent/pull/2605)
 * Bug - Fix a bug where ECS_LOGLEVEL stopped controlling logging level on instance [#2597](https://github.com/aws/amazon-ecs-agent/pull/2597) 
