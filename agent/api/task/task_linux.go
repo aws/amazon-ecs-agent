@@ -263,7 +263,7 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 // initializeExecCommandAgentResources specifies the necessary volumes and mount points in all of the task containers in order for the
 // exec agent to run upon container start.
 // TODO: [ecs-exec] Should we validate the ssm agent binaries & certs are valid and fail here if they're not? (bind mount will succeed even if files don't exist in host)
-func (task *Task) initializeExecCommandAgentResources(cfg *config.Config) error {
+func (task *Task) initializeExecCommandAgentResources() error {
 	if !task.IsExecCommandAgentEnabled() {
 		return nil
 	}
