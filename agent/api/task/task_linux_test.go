@@ -1299,7 +1299,7 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 			lvn := fmt.Sprintf("%s-%s-%s", internalExecCommandAgentLogVolumeNamePrefix, tID, c.Name)
 
 			// Check special case where container name contains only hyphens
-			logDir := filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)))
+			logDir := filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec")
 			if c.Name == containerNameOnlyHyphens {
 				assertExecCommandAgentLogVolumeWithPrefix(t, task, lvn, filepath.Join(logDir, tID, execCommandAgentNamelessContainerPrefix))
 			} else {
