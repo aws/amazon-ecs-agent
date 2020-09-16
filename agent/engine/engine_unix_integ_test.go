@@ -1599,7 +1599,7 @@ func TestExecCommandAgent(t *testing.T) {
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), testTaskId, testContainerName),
+			source:   filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec", testTaskId, testContainerName),
 			dest:     apitask.ExecCommandAgentContainerLogDir,
 			readOnly: false,
 		},
