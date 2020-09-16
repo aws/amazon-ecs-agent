@@ -305,7 +305,7 @@ func (task *Task) initializeExecCommandAgentResources() error {
 			Type: HostVolumeType,
 			Name: lvn,
 			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), tId, cn),
+				FSSourcePath: filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec", tId, cn),
 			},
 		})
 
