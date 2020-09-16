@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -264,90 +263,6 @@ func TestStartStopUnpulledImageDigest(t *testing.T) {
 
 	event = <-stateChangeEvents
 	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
-}
-
-// TestPortForward runs a container serving data on the randomly chosen port
-// 24751 and verifies that when you do forward the port you can access it and if
-// you don't forward the port you can't
-func TestPortForward(t *testing.T) {
-	taskEngine, done, _ := setupWithDefaultConfig(t)
-	defer done()
-
-	stateChangeEvents := taskEngine.StateChangeEvents()
-	client, _ := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
-
-	testArn := "testPortForwardFail"
-	testTask := createTestTask(testArn)
-	testTask.Containers[0].Image = testRegistryImage
-	port := getUnassignedPort()
-	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent}
-
-	// Port not forwarded; verify we can't access it
-	go taskEngine.AddTask(testTask)
-
-	err := verifyTaskIsRunning(stateChangeEvents, testTask)
-	require.NoError(t, err)
-	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
-	cid := containerMap[testTask.Containers[0].Name].DockerID
-
-	cip, err := getContainerIP(client, cid)
-	require.NoError(t, err, "failed to acquire container ip from docker")
-
-	time.Sleep(waitForDockerDuration) // wait for Docker
-	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", cip, port), dialTimeout)
-	assert.Error(t, err, "Did not expect to be able to dial port %d but didn't get error", port)
-
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	// Kill the existing container now to make the test run more quickly.
-	err = client.ContainerKill(ctx, cid, "SIGKILL")
-	assert.NoError(t, err, "Could not kill container")
-
-	verifyTaskIsStopped(stateChangeEvents, testTask)
-
-	// Now forward it and make sure that works
-	testArn = "testPortForwardWorking"
-	testTask = createTestTask(testArn)
-	testTask.Containers[0].Image = testRegistryImage
-	port = getUnassignedPort()
-	testTask.Containers[0].Command = []string{fmt.Sprintf("-l=%d", port), "-serve", serverContent}
-	testTask.Containers[0].Ports = []apicontainer.PortBinding{{ContainerPort: port, HostPort: port}}
-
-	taskEngine.AddTask(testTask)
-
-	err = verifyTaskIsRunning(stateChangeEvents, testTask)
-	require.NoError(t, err)
-
-	containerMap, _ = taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
-	cid = containerMap[testTask.Containers[0].Name].DockerID
-	cip, err = getContainerIP(client, cid)
-	require.NoError(t, err, "failed to acquire container ip from docker")
-
-	time.Sleep(waitForDockerDuration) // wait for Docker
-	conn, err := dialWithRetries("tcp", fmt.Sprintf("%s:%d", cip, port), 10, dialTimeout)
-	require.NoError(t, err, "error dialing simple container ")
-
-	var response []byte
-	for i := 0; i < 10; i++ {
-		response, err = ioutil.ReadAll(conn)
-		assert.NoError(t, err, "error reading response")
-		if len(response) > 0 {
-			break
-		}
-		// Retry for a non-blank response. The container in docker 1.7+ sometimes
-		// isn't up quickly enough and we get a blank response. It's still unclear
-		// to me if this is a docker bug or netkitten bug
-		t.Log("Retrying getting response from container; got nothing")
-		time.Sleep(100 * time.Millisecond)
-	}
-	assert.Equal(t, string(response), serverContent, "got response: "+string(response)+" instead of ", serverContent)
-
-	// Stop the existing container now
-	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
-	verifyTaskIsStopped(stateChangeEvents, testTask)
 }
 
 // TestMultiplePortForwards tests that two ldockinks containers in the same task can

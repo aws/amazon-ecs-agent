@@ -660,6 +660,7 @@ func TestPortForward(t *testing.T) {
 
 	time.Sleep(waitForDockerDuration) // wait for Docker
 	_, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", localhost, port1), dialTimeout)
+
 	require.Error(t, err, "Did not expect to be able to dial %s:%d but didn't get error", localhost, port1)
 
 	// Kill the existing container now to make the test run more quickly.
