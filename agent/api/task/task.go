@@ -348,7 +348,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		return err
 	}
 
-	if err := task.initializeExecCommandAgentResources(cfg); err != nil {
+	if err := task.initializeExecCommandAgentResources(); err != nil {
 		seelog.Errorf("Task [%s]: could not initialize exec agent: %v", task.Arn, err)
 		return err
 	}
