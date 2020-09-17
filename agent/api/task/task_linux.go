@@ -56,7 +56,6 @@ const (
 	ExecCommandAgentHostBinDir           = "/home/ec2-user/ssm-agent/linux_amd64"
 	ExecCommandAgentBinName              = "amazon-ssm-agent"
 	ExecCommandAgentSessionWorkerBinName = "ssm-session-worker"
-	ExecCommandAgentSessionLoggerBinName = "ssm-session-logger"
 
 	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
 	ExecCommandAgentContainerLogDir   = "/var/log/amazon/ssm"
@@ -273,7 +272,7 @@ func (task *Task) initializeExecCommandAgentResources() error {
 		return err
 	}
 
-	execCommandAgentBinNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName, ExecCommandAgentSessionLoggerBinName}
+	execCommandAgentBinNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName}
 
 	// Append an internal volume for each of the exec agent binary names
 	for _, bn := range execCommandAgentBinNames {
