@@ -810,11 +810,13 @@ func TestExecCommandAgentMetadata(t *testing.T) {
 		testPid          = "pid"
 		testDockerExecId = "dockerId"
 	)
-	c := &Container{}
+	c := &Container{
+		ExecCommandAgentMetadata: &ExecCommandAgentMetadata{},
+	}
 	assert.Equal(t, "", c.ExecCommandAgentMetadata.PID)
 	assert.Equal(t, "", c.ExecCommandAgentMetadata.DockerExecID)
 
-	c.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
+	c.SetExecCommandAgentMetadata(&ExecCommandAgentMetadata{
 		PID:          testPid,
 		DockerExecID: testDockerExecId,
 	})
