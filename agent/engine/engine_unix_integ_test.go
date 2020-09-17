@@ -1040,11 +1040,6 @@ func TestExecCommandAgent(t *testing.T) {
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentSessionLoggerBinName),
-			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentSessionLoggerBinName),
-			readOnly: true,
-		},
-		{
 			source:   apitask.ExecCommandAgentHostCertFile,
 			dest:     apitask.ExecCommandAgentContainerCertFile,
 			readOnly: true,
