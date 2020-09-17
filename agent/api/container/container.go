@@ -274,7 +274,7 @@ type Container struct {
 	ContainerArn string `json:"ContainerArn,omitempty"`
 
 	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-	ExecCommandAgentMetadata ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
+	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
 
 	createdAt  time.Time
 	startedAt  time.Time
@@ -1184,13 +1184,13 @@ func (c *Container) GetTaskARN() string {
 	return c.TaskARNUnsafe
 }
 
-func (c *Container) SetExecCommandAgentMetadata(metadata ExecCommandAgentMetadata) {
+func (c *Container) SetExecCommandAgentMetadata(metadata *ExecCommandAgentMetadata) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.ExecCommandAgentMetadata = metadata
 }
 
-func (c *Container) GetExecCommandAgentMetadata() ExecCommandAgentMetadata {
+func (c *Container) GetExecCommandAgentMetadata() *ExecCommandAgentMetadata {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.ExecCommandAgentMetadata
