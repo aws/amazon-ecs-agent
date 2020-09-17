@@ -38,6 +38,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmdagent"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	log "github.com/cihub/seelog"
@@ -152,7 +153,8 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, nil)
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
+		nil, execcmdagent.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()

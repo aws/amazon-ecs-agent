@@ -39,6 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmdagent"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -164,6 +165,7 @@ type DockerTaskEngine struct {
 	// swappable for testing
 	handleDelay             func(duration time.Duration)
 	monitorExecAgentsTicker *time.Ticker
+	execCmdAgentMgr         execcmdagent.Manager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -177,7 +179,8 @@ func NewDockerTaskEngine(cfg *config.Config,
 	imageManager ImageManager,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
-	resourceFields *taskresource.ResourceFields) *DockerTaskEngine {
+	resourceFields *taskresource.ResourceFields,
+	execCmdAgentMgr execcmdagent.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -199,6 +202,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
 		handleDelay:                       time.Sleep,
+		execCmdAgentMgr:                   execCmdAgentMgr,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -274,48 +278,31 @@ func (engine *DockerTaskEngine) monitorExecAgentProcesses(ctx context.Context) {
 	defer engine.tasksLock.RUnlock()
 	for _, mTask := range engine.managedTasks {
 		task := mTask.Task
-		if !task.IsExecCommandAgentEnabled() {
+		if !task.IsExecCommandAgentEnabled() || task.GetKnownStatus() != apitaskstatus.TaskRunning {
 			continue
 		}
 		for _, c := range task.Containers {
-			go engine.monitorExecAgentRunning(ctx, task.Arn, c)
+			go engine.monitorExecAgentRunning(ctx, task, c)
 		}
 	}
 }
 
 func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
-	tArn string, c *apicontainer.Container) {
-	if c.GetExecCommandAgentMetadata() == nil {
+	task *apitask.Task, c *apicontainer.Container) {
+	if !c.IsRunning() {
 		return
 	}
-	pID := c.GetExecCommandAgentMetadata().PID
-	cName := c.Name
-	cID := c.RuntimeID
-	if cID == "" || pID == "" {
-		return
-	}
-	resp, err := engine.client.TopContainer(ctx, cID, dockerclient.TopContainerTimeout, pID)
+	dockerID, err := engine.getDockerID(task, c)
 	if err != nil {
-		if _, ok := err.(*dockerapi.DockerTimeoutError); ok {
-			seelog.Warnf("Task engine [%s]: Timed out monitoring ExecCommandAgent process for container %s", tArn, cName)
-			return
-		}
-		if strings.Contains(err.Error(), dockerapi.TopProcessNotFoundErrorName) {
-			seelog.Errorf("Task engine [%s]: ExecCommandAgent Process for container %s not running, restarting", tArn, cName)
-			c.SetExecCommandAgentMetadata(&apicontainer.ExecCommandAgentMetadata{})
-			// TODO: [ecs-exec]restart exec agent process for this container
-			return
-		}
-		// TODO: [ecs-exec] consider retry/adding an extra docker exec inspect API call to get more info
-		seelog.Errorf("Task engine [%s]: Error finding ExecCommandAgent process for container %s: %v", tArn, cName, err)
+		seelog.Errorf("Task engine [%s]: Could not retrieve docker id for container", task.Arn)
 		return
 	}
-	// no error, but SSM agent process not found in the container
-	if resp == nil || len(resp.Processes) == 0 {
-		seelog.Errorf("Task engine [%s]: ExecCommandAgent Process not found for container %s, no error, restarting", tArn, cName)
-		c.SetExecCommandAgentMetadata(&apicontainer.ExecCommandAgentMetadata{})
-		// TODO: [ecs-exec]restart exec agent process for this container
+	_, err = engine.execCmdAgentMgr.RestartIfStopped(ctx, engine.client, task, c, dockerID)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
+		// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
 	}
+	// TODO: [ecs-exec] call control plane to report ExecCommandAgent RESTARTED/UNKNOWN? if RestartIfStopped returns true
 }
 
 // MustInit blocks and retries until an engine can be initialized.
@@ -1217,14 +1204,18 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 
 	startContainerBegin := time.Now()
 	dockerContainerMD := client.StartContainer(engine.ctx, dockerID, engine.cfg.ContainerStartTimeout)
+	if dockerContainerMD.Error != nil {
+		return dockerContainerMD
+	}
+
+	seelog.Infof("Task engine [%s]: started docker container for task: %s -> %s, took %s",
+		task.Arn, container.Name, dockerContainerMD.DockerID, time.Since(startContainerBegin))
 
 	// Get metadata through container inspection and available task information then write this to the metadata file
 	// Performs this in the background to avoid delaying container start
 	// TODO: Add a state to the apicontainer.Container for the status of the metadata file (Whether it needs update) and
 	// add logic to engine state restoration to do a metadata update for containers that are running after the agent was restarted
-	if dockerContainerMD.Error == nil &&
-		engine.cfg.ContainerMetadataEnabled.Enabled() &&
-		!container.IsInternal() {
+	if engine.cfg.ContainerMetadataEnabled.Enabled() && !container.IsInternal() {
 		go func() {
 			err := engine.metadataManager.Update(engine.ctx, dockerID, task, container.Name)
 			if err != nil {
@@ -1237,13 +1228,11 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 				task.Arn, container.Name)
 		}()
 	}
-	seelog.Infof("Task engine [%s]: started docker container for task: %s -> %s, took %s",
-		task.Arn, container.Name, dockerContainerMD.DockerID, time.Since(startContainerBegin))
 
 	// If container is a firelens container, fluent host is needed to be added to the environment variable for the task.
 	// For the supported network mode - bridge and awsvpc, the awsvpc take the host 127.0.0.1 but in bridge mode,
 	// there is a need to wait for the IP to be present before the container using the firelens can be created.
-	if dockerContainerMD.Error == nil && container.GetFirelensConfig() != nil {
+	if container.GetFirelensConfig() != nil {
 		if !task.IsNetworkModeAWSVPC() && (container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode) {
 			_, gotContainerIP := getContainerHostIP(dockerContainerMD.NetworkSettings)
 			if !gotContainerIP {
@@ -1272,6 +1261,13 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 			}
 
 		}
+	}
+	if task.IsExecCommandAgentEnabled() {
+		if err := engine.execCmdAgentMgr.Start(engine.ctx, engine.client, task, container, dockerID); err != nil {
+			seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
+			// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
+		}
+		// TODO: [ecs-exec] call control plane to report ExecCommandAgent SUCCESS here
 	}
 	return dockerContainerMD
 }
