@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	mock_execcmdagent "github.com/aws/amazon-ecs-agent/agent/engine/execcmdagent/mocks"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
@@ -80,7 +81,8 @@ func setup(t *testing.T) (*gomock.Controller,
 	*mock_api.MockECSClient,
 	*mock_dockerapi.MockDockerClient,
 	*mock_factory.MockStateManager,
-	*mock_factory.MockSaveableOption) {
+	*mock_factory.MockSaveableOption,
+	*mock_execcmdagent.MockManager) {
 
 	ctrl := gomock.NewController(t)
 
@@ -91,12 +93,13 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_api.NewMockECSClient(ctrl),
 		mock_dockerapi.NewMockDockerClient(ctrl),
 		mock_factory.NewMockStateManager(ctrl),
-		mock_factory.NewMockSaveableOption(ctrl)
+		mock_factory.NewMockSaveableOption(ctrl),
+		mock_execcmdagent.NewMockManager(ctrl)
 }
 
 func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	oldAPIVersions := []dockerclient.DockerVersion{
@@ -120,13 +123,13 @@ func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
 		saveableOptionFactory: saveableOptionFactory,
 	}
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }
 
 func TestDoStartMinimumSupportedDockerVersionError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
@@ -147,13 +150,13 @@ func TestDoStartMinimumSupportedDockerVersionError(t *testing.T) {
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitError, exitCode)
 }
 
 func TestDoStartNewTaskEngineError(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -189,13 +192,13 @@ func TestDoStartNewTaskEngineError(t *testing.T) {
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }
 
 func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -235,13 +238,13 @@ func TestDoStartRegisterContainerInstanceErrorTerminal(t *testing.T) {
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }
 
 func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -279,13 +282,13 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitError, exitCode)
 }
 
 func TestDoStartHappyPath(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	saveableOptionFactory.EXPECT().AddSaveable(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -371,7 +374,7 @@ func TestDoStartHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client)
+			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client, execCmdAgentMgr)
 		agentW.Done()
 	}()
 
@@ -394,7 +397,7 @@ func assertMetadata(t *testing.T, key, expectedVal string, dataClient data.Clien
 
 func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -440,7 +443,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 	}
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdAgentMgr)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.Equal(t, "prev-container-inst", agent.containerInstanceARN)
@@ -448,7 +451,7 @@ func TestNewTaskEngineRestoreFromCheckpointNoEC2InstanceIDToLoadHappyPath(t *tes
 
 func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -504,7 +507,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 	}
 
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdAgentMgr)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedInstanceID, instanceID)
 	assert.NotEqual(t, "prev-container-inst", agent.containerInstanceARN)
@@ -513,7 +516,7 @@ func TestNewTaskEngineRestoreFromCheckpointPreviousEC2InstanceIDLoadedHappyPath(
 
 func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -566,14 +569,14 @@ func TestNewTaskEngineRestoreFromCheckpointClusterIDMismatch(t *testing.T) {
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdAgentMgr)
 	assert.Error(t, err)
 	assert.IsType(t, clusterMismatchError{}, err)
 }
 
 func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -612,14 +615,14 @@ func TestNewTaskEngineRestoreFromCheckpointNewStateManagerError(t *testing.T) {
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdAgentMgr)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	stateManager := mock_statemanager.NewMockStateManager(ctrl)
@@ -659,14 +662,14 @@ func TestNewTaskEngineRestoreFromCheckpointStateLoadError(t *testing.T) {
 	}
 
 	_, _, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdAgentMgr)
 	assert.Error(t, err)
 	assert.False(t, isTransient(err))
 }
 
 func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
@@ -698,7 +701,7 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	_, instanceID, err := agent.newTaskEngine(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager)
+		credentialsManager, state, imageManager, execCmdAgentMgr)
 	assert.NoError(t, err)
 	assert.Equal(t, testEC2InstanceID, instanceID)
 
@@ -1133,7 +1136,7 @@ func TestRegisterContainerInstanceWhenContainerInstanceARNIsNotSetAttributeError
 
 func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdAgentMgr := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -1171,7 +1174,7 @@ func TestRegisterContainerInstanceInvalidParameterTerminalError(t *testing.T) {
 	}
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdAgentMgr)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }
 func TestMergeTags(t *testing.T) {

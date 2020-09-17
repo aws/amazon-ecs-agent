@@ -21,6 +21,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmdagent"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 
 	"github.com/pkg/errors"
@@ -63,11 +64,12 @@ type savedData struct {
 func (agent *ecsAgent) loadData(containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
-	imageManager engine.ImageManager) (*savedData, error) {
+	imageManager engine.ImageManager,
+	execCmdAgentMgr execcmdagent.Manager) (*savedData, error) {
 	s := &savedData{
 		taskEngine: engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resourceFields),
+			agent.metadataManager, agent.resourceFields, execCmdAgentMgr),
 	}
 	s.taskEngine.SetDataClient(agent.dataClient)
 

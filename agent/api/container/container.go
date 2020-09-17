@@ -274,7 +274,7 @@ type Container struct {
 	ContainerArn string `json:"ContainerArn,omitempty"`
 
 	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
+	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"ExecCommandAgentMetadata"`
 
 	createdAt  time.Time
 	startedAt  time.Time
@@ -339,6 +339,11 @@ type Secret struct {
 type ExecCommandAgentMetadata struct {
 	PID          string `json:"pid"`
 	DockerExecID string `json:"dockerExecId"`
+	CMD          string `json:"cmd"`
+}
+
+func (md *ExecCommandAgentMetadata) String() string {
+	return fmt.Sprintf("[PID: %s, CMD: %s]", md.PID, md.CMD)
 }
 
 // GetSecretResourceCacheKey returns the key required to access the secret

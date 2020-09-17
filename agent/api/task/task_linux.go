@@ -17,7 +17,6 @@ package task
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -26,7 +25,6 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -58,11 +56,11 @@ const (
 	ExecCommandAgentSessionWorkerBinName = "ssm-session-worker"
 
 	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	ExecCommandAgentContainerLogDir   = "/var/log/amazon/ssm"
-	ExecCommandAgentContainerBinDir   = "/usr/bin"
-	ExecCommandAgentHostCertFile      = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
-	ExecCommandAgentContainerCertFile = "/etc/ssl/certs/ca-certificates.crt"
-
+	ExecCommandAgentHostLogDir              = "/var/log/ecs/exec"
+	ExecCommandAgentContainerLogDir         = "/var/log/amazon/ssm"
+	ExecCommandAgentContainerBinDir         = "/usr/bin"
+	ExecCommandAgentHostCertFile            = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+	ExecCommandAgentContainerCertFile       = "/etc/ssl/certs/ca-certificates.crt"
 	execCommandAgentNamelessContainerPrefix = "nameless-container-"
 )
 
@@ -302,7 +300,7 @@ func (task *Task) initializeExecCommandAgentResources() error {
 			Type: HostVolumeType,
 			Name: lvn,
 			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec", tId, cn),
+				FSSourcePath: filepath.Join(ExecCommandAgentHostLogDir, tId, cn),
 			},
 		})
 
