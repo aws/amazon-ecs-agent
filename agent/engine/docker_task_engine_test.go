@@ -3102,3 +3102,280 @@ func TestStartFirelensContainerRetryForContainerIP(t *testing.T) {
 	assert.NoError(t, ret.Error)
 	assert.Equal(t, jsonBaseWithNetwork.NetworkSettings, ret.NetworkSettings)
 }
+
+func TestMonitorExecAgentRunning(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	execAgentPID := "1234"
+	rID := "runtime-ID"
+	resp := &dockercontainer.ContainerTopOKBody{
+		Processes: [][]string{{"root", execAgentPID}},
+	}
+	testCases := []struct {
+		runtimeID                string
+		execCommandAgentMetadata *apicontainer.ExecCommandAgentMetadata
+		execAgentPID             string
+		expectedTopContainerCall bool
+	}{
+		{
+			runtimeID:                rID,
+			execAgentPID:             "",
+			execCommandAgentMetadata: nil,
+			expectedTopContainerCall: false,
+		},
+		{
+			runtimeID:    rID,
+			execAgentPID: execAgentPID,
+			execCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+				PID: execAgentPID,
+			},
+			expectedTopContainerCall: true,
+		},
+		{
+			runtimeID:    rID,
+			execAgentPID: "",
+			execCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+				PID: "",
+			},
+			expectedTopContainerCall: false,
+		},
+		{
+			runtimeID:    "",
+			execAgentPID: "",
+			execCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+				PID: "",
+			},
+			expectedTopContainerCall: false,
+		},
+	}
+	for _, tc := range testCases {
+		testTask := &apitask.Task{
+			Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+			Containers: []*apicontainer.Container{
+				{
+					Name:                     "test-container",
+					RuntimeID:                tc.runtimeID,
+					ExecCommandAgentMetadata: tc.execCommandAgentMetadata,
+				},
+			},
+			ExecCommandAgentEnabled: true,
+		}
+		taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+		if tc.expectedTopContainerCall {
+			client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, tc.execAgentPID).Return(resp, nil)
+		}
+		taskEngine.(*DockerTaskEngine).monitorExecAgentRunning(ctx, testTask.Arn, testTask.Containers[0])
+		if testTask.Containers[0].ExecCommandAgentMetadata != nil {
+			assert.Equal(t, tc.execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+		}
+	}
+}
+
+func TestMonitorExecAgentRunningErrors(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	execAgentPID := "1234"
+	testCases := []struct {
+		arn               string
+		topResponse       *dockercontainer.ContainerTopOKBody
+		topError          error
+		resetExecMetadata bool
+	}{
+		{
+			topResponse:       nil,
+			topError:          &dockerapi.DockerTimeoutError{},
+			resetExecMetadata: false,
+		},
+		{
+			topResponse:       nil,
+			topError:          errors.New(dockerapi.TopProcessNotFoundErrorName),
+			resetExecMetadata: true,
+		},
+		{
+			topResponse: &dockercontainer.ContainerTopOKBody{
+				Processes: [][]string{},
+			},
+			topError:          nil,
+			resetExecMetadata: true,
+		},
+		{
+			topResponse:       nil,
+			topError:          errors.New("no container error"),
+			resetExecMetadata: false,
+		},
+		{
+			topResponse:       nil,
+			topError:          nil,
+			resetExecMetadata: true,
+		},
+	}
+	for _, tc := range testCases {
+		testTask := &apitask.Task{
+			Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+			Containers: []*apicontainer.Container{
+				{
+					Name:      "test-container",
+					RuntimeID: "runtime-ID",
+					ExecCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+						PID: execAgentPID,
+					},
+				},
+			},
+			ExecCommandAgentEnabled: true,
+		}
+		taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+		client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, execAgentPID).Return(tc.topResponse, tc.topError)
+		taskEngine.(*DockerTaskEngine).monitorExecAgentRunning(ctx, testTask.Arn, testTask.Containers[0])
+		if tc.resetExecMetadata {
+			assert.Equal(t, "", testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+		} else {
+			assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+		}
+	}
+}
+
+func TestMonitorExecAgentProcesses(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	execAgentPID := "1234"
+	resp := &dockercontainer.ContainerTopOKBody{
+		Processes: [][]string{{"root", execAgentPID}},
+	}
+	testTask := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name:      "test-container",
+				RuntimeID: "runtime-ID",
+				ExecCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+					PID: execAgentPID,
+				},
+			},
+		},
+		ExecCommandAgentEnabled: true,
+	}
+	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
+	topCtx, topCancel := context.WithTimeout(context.Background(), time.Second)
+	defer topCancel()
+	client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, execAgentPID).DoAndReturn(
+		func(ctx context.Context, containerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
+			defer topCancel()
+			return resp, nil
+		})
+	taskEngine.(*DockerTaskEngine).monitorExecAgentProcesses(ctx)
+	<-topCtx.Done()
+	time.Sleep(5 * time.Millisecond)
+	assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+}
+
+func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, _, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	testTask := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name:      "test-container",
+				RuntimeID: "runtime-ID",
+			},
+		},
+		ExecCommandAgentEnabled: false,
+	}
+	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
+	taskEngine.(*DockerTaskEngine).monitorExecAgentProcesses(ctx)
+	// absence of top container expect call indicates it shouldn't have been called
+	time.Sleep(10 * time.Millisecond)
+}
+func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	execAgentPID1 := "1234"
+	execAgentPID2 := "2345"
+	resp := &dockercontainer.ContainerTopOKBody{
+		Processes: [][]string{{"root", execAgentPID1}},
+	}
+	testTask := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name:      "test-container1",
+				RuntimeID: "runtime-ID1",
+				ExecCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+					PID: execAgentPID1,
+				},
+			},
+			{
+				Name:      "test-container2",
+				RuntimeID: "runtime-ID2",
+				ExecCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+					PID: execAgentPID2,
+				},
+			},
+		},
+		ExecCommandAgentEnabled: true,
+	}
+	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
+	topCtx, topCancel := context.WithTimeout(context.Background(), time.Second)
+	defer topCancel()
+	client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, execAgentPID1).Return(resp, nil)
+	client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[1].RuntimeID, 30*time.Second, execAgentPID2).DoAndReturn(
+		func(ctx context.Context, containerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
+			defer topCancel()
+			return nil, errors.New(dockerapi.TopProcessNotFoundErrorName)
+		})
+	taskEngine.(*DockerTaskEngine).monitorExecAgentProcesses(ctx)
+	<-topCtx.Done()
+	time.Sleep(5 * time.Millisecond)
+	assert.Equal(t, execAgentPID1, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+	assert.Equal(t, "", testTask.Containers[1].GetExecCommandAgentMetadata().PID)
+}
+
+func TestPeriodicExecAgentsMonitoring(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+	execAgentPID := "1234"
+	resp := &dockercontainer.ContainerTopOKBody{
+		Processes: [][]string{{"root", execAgentPID}},
+	}
+	testTask := &apitask.Task{
+		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
+		Containers: []*apicontainer.Container{
+			{
+				Name:      "test-container",
+				RuntimeID: "runtime-ID",
+				ExecCommandAgentMetadata: &apicontainer.ExecCommandAgentMetadata{
+					PID: execAgentPID,
+				},
+			},
+		},
+		ExecCommandAgentEnabled: true,
+	}
+	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
+	topCtx, topCancel := context.WithTimeout(context.Background(), time.Second)
+	defer topCancel()
+	client.EXPECT().TopContainer(gomock.Any(), testTask.Containers[0].RuntimeID, 30*time.Second, execAgentPID).DoAndReturn(
+		func(ctx context.Context, containerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
+			defer topCancel()
+			return resp, nil
+		}).AnyTimes()
+	go taskEngine.(*DockerTaskEngine).startPeriodicExecAgentsMonitoring(ctx, 2*time.Millisecond)
+	<-topCtx.Done()
+	time.Sleep(5 * time.Millisecond)
+	assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+}
