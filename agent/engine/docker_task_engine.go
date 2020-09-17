@@ -97,6 +97,8 @@ const (
 	fluentNetworkPort      = "FLUENT_PORT"
 	FluentNetworkPortValue = "24224"
 	FluentAWSVPCHostValue  = "127.0.0.1"
+
+	monitorExecAgentsInterval = 15 * time.Minute
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -160,7 +162,8 @@ type DockerTaskEngine struct {
 
 	// handleDelay is a function used to delay cleanup. Implementation is
 	// swappable for testing
-	handleDelay func(duration time.Duration)
+	handleDelay             func(duration time.Duration)
+	monitorExecAgentsTicker *time.Ticker
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -248,7 +251,71 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
+	go engine.startPeriodicExecAgentsMonitoring(derivedCtx, monitorExecAgentsInterval)
 	return nil
+}
+
+func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context, monitorInterval time.Duration) {
+	engine.monitorExecAgentsTicker = time.NewTicker(monitorInterval)
+	for {
+		select {
+		case <-engine.monitorExecAgentsTicker.C:
+			go engine.monitorExecAgentProcesses(ctx)
+		case <-ctx.Done():
+			engine.monitorExecAgentsTicker.Stop()
+			return
+		}
+	}
+}
+
+func (engine *DockerTaskEngine) monitorExecAgentProcesses(ctx context.Context) {
+	// TODO: [ecs-exec]add jitter between containers to not overload docker with top calls
+	engine.tasksLock.RLock()
+	defer engine.tasksLock.RUnlock()
+	for _, mTask := range engine.managedTasks {
+		task := mTask.Task
+		if !task.IsExecCommandAgentEnabled() {
+			continue
+		}
+		for _, c := range task.Containers {
+			go engine.monitorExecAgentRunning(ctx, task.Arn, c)
+		}
+	}
+}
+
+func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
+	tArn string, c *apicontainer.Container) {
+	if c.GetExecCommandAgentMetadata() == nil {
+		return
+	}
+	pID := c.GetExecCommandAgentMetadata().PID
+	cName := c.Name
+	cID := c.RuntimeID
+	if cID == "" || pID == "" {
+		return
+	}
+	resp, err := engine.client.TopContainer(ctx, cID, dockerclient.TopContainerTimeout, pID)
+	if err != nil {
+		if _, ok := err.(*dockerapi.DockerTimeoutError); ok {
+			seelog.Warnf("Task engine [%s]: Timed out monitoring ExecCommandAgent process for container %s", tArn, cName)
+			return
+		}
+		if strings.Contains(err.Error(), dockerapi.TopProcessNotFoundErrorName) {
+			seelog.Errorf("Task engine [%s]: ExecCommandAgent Process for container %s not running, restarting", tArn, cName)
+			c.SetExecCommandAgentMetadata(&apicontainer.ExecCommandAgentMetadata{})
+			// TODO: [ecs-exec]restart exec agent process for this container
+			return
+		}
+		// TODO: [ecs-exec] consider retry/adding an extra docker exec inspect API call to get more info
+		seelog.Errorf("Task engine [%s]: Error finding ExecCommandAgent process for container %s: %v", tArn, cName, err)
+		return
+	}
+	// no error, but SSM agent process not found in the container
+	if resp == nil || len(resp.Processes) == 0 {
+		seelog.Errorf("Task engine [%s]: ExecCommandAgent Process not found for container %s, no error, restarting", tArn, cName)
+		c.SetExecCommandAgentMetadata(&apicontainer.ExecCommandAgentMetadata{})
+		// TODO: [ecs-exec]restart exec agent process for this container
+	}
 }
 
 // MustInit blocks and retries until an engine can be initialized.
