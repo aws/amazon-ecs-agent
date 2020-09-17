@@ -30,6 +30,9 @@ const (
 	CannotDescribeContainerErrorName = "CannotDescribeContainerError"
 	// CannotGetContainerTopErrorName is the name of the top container error.
 	CannotGetContainerTopErrorName = "CannotGetContainerTopError"
+	// TopProcessNotFoundErrorName is the error thrown when the specified pid does
+	// not exist in the container
+	TopProcessNotFoundErrorName = "ps: exit status 1"
 )
 
 // DockerTimeoutError is an error type for describing timeouts
