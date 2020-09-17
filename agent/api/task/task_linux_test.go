@@ -1216,8 +1216,8 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 		{
 			taskName:            "arn:aws:iam::123456789012:user/Test",
 			execEnabled:         true,
-			expectedVolumes:     8,
-			expectedMountPoints: 5,
+			expectedVolumes:     7,
+			expectedMountPoints: 4,
 			errorExpected:       false,
 		},
 		{
@@ -1284,7 +1284,7 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 		assert.Equal(t, test.expectedVolumes, len(taskVolumes), "Should have created 6 task volumes")
 
 		// Check agent binary volumes
-		expectedBinaryNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName, ExecCommandAgentSessionLoggerBinName}
+		expectedBinaryNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName}
 		for _, ebn := range expectedBinaryNames {
 			bvn := fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, ebn)
 			assertExecCommandAgentTaskVolume(t, task, bvn, filepath.Join(ExecCommandAgentHostBinDir, ebn))
