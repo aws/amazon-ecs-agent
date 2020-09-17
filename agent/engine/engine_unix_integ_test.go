@@ -39,7 +39,6 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -1004,9 +1003,6 @@ func TestExecCommandAgent(t *testing.T) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	defer done()
 
-	os.Setenv(logger.LOGFILE_ENV_VAR, "/var/log/ecs/ecs-agent.log")
-	defer os.Unsetenv(logger.LOGFILE_ENV_VAR)
-
 	testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, sleepFor)
 
 	go taskEngine.AddTask(testTask)
@@ -1045,7 +1041,7 @@ func TestExecCommandAgent(t *testing.T) {
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec", testTaskId, testContainerName),
+			source:   filepath.Join(apitask.ExecCommandAgentHostLogDir, testTaskId, testContainerName),
 			dest:     apitask.ExecCommandAgentContainerLogDir,
 			readOnly: false,
 		},

@@ -18,7 +18,6 @@ package task
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,7 +30,6 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmsecret"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
@@ -1299,11 +1297,10 @@ func TestPostUnmarshalTaskWithExecCommandAgentEnabled(t *testing.T) {
 			lvn := fmt.Sprintf("%s-%s-%s", internalExecCommandAgentLogVolumeNamePrefix, tID, c.Name)
 
 			// Check special case where container name contains only hyphens
-			logDir := filepath.Join(filepath.Dir(os.Getenv(logger.LOGFILE_ENV_VAR)), "exec")
 			if c.Name == containerNameOnlyHyphens {
-				assertExecCommandAgentLogVolumeWithPrefix(t, task, lvn, filepath.Join(logDir, tID, execCommandAgentNamelessContainerPrefix))
+				assertExecCommandAgentLogVolumeWithPrefix(t, task, lvn, filepath.Join(ExecCommandAgentHostLogDir, tID, execCommandAgentNamelessContainerPrefix))
 			} else {
-				assertExecCommandAgentTaskVolume(t, task, lvn, filepath.Join(logDir, tID, strings.TrimLeft(c.Name, "-")))
+				assertExecCommandAgentTaskVolume(t, task, lvn, filepath.Join(ExecCommandAgentHostLogDir, tID, strings.TrimLeft(c.Name, "-")))
 			}
 			// Check mount points were added for this container (1 for log, 1 for tls cert, 3 for binaries)
 			require.Equal(t, test.expectedMountPoints, len(c.MountPoints))
