@@ -116,8 +116,9 @@ const (
 	//	 b) Add 'pauseContainerPID' field to 'taskresource.volume.VolumeResource'
 	// 28) Add 'envfile' field to 'resources'
 	// 29) Add 'fsxwindowsfileserver' field to 'resources'
+	// 30) Add 'ExecCommandAgentMetadata' field to 'apicontainer.Container'
 
-	ECSDataVersion = 29
+	ECSDataVersion = 30
 
 	// ecsDataFile specifies the filename in the ECS_DATADIR
 	ecsDataFile = "ecs_agent_data.json"
