@@ -1,3 +1,5 @@
+// +build unit integration
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,22 +13,11 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package main
-
-import (
-	"math/rand"
-	"os"
-	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/app"
-	"github.com/aws/amazon-ecs-agent/agent/logger"
-)
+package logger
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-func main() {
-	logger.InitSeelog()
-	os.Exit(app.Run(os.Args[1:]))
+	// We don't want to call InitSeelog automatically (e.g. calling it from init())
+	// because some internal clients use ECS Agent as a library.
+	// However we want to call InitSeelog automatically from all tests.
+	InitSeelog()
 }

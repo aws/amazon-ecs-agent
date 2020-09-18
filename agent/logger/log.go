@@ -181,7 +181,9 @@ func init() {
 		MaxFileSizeMB: DEFAULT_MAX_FILE_SIZE,
 		MaxRollCount:  DEFAULT_MAX_ROLL_COUNT,
 	}
+}
 
+func InitSeelog() {
 	if err := seelog.RegisterCustomFormatter("EcsAgentLogfmt", logfmtFormatter); err != nil {
 		seelog.Error(err)
 	}
