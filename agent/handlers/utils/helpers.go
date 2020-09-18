@@ -80,6 +80,10 @@ func WriteJSONToResponse(w http.ResponseWriter, httpStatusCode int, responseJSON
 			"Unable to write %s json response message to ResponseWriter",
 			requestType)
 	}
+
+	if httpStatusCode >= 400 && httpStatusCode <= 599 {
+		seelog.Errorf("HTTP response status code is '%d', request type is: %s, and response in JSON is %s", httpStatusCode, requestType, string(responseJSON))
+	}
 }
 
 // WriteResponseIfMarshalError checks the 'err' response of the json.Marshal function.
