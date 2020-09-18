@@ -68,8 +68,12 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			for _, containerResponse := range taskResponse.Containers {
 				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
 				if err != nil {
-					errResponseJSON, err := json.Marshal(err.Error())
-					if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+					errResponseJSON, jsonErr := json.Marshal(err.Error())
+					if e := utils.WriteResponseIfMarshalError(w, jsonErr); e != nil {
+						return
+					}
+					if utils.IsTransient(err) {
+						utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
 						return
 					}
 					utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)

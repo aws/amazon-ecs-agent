@@ -44,8 +44,12 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 		}
 		containerResponse, err := GetContainerResponse(containerID, state)
 		if err != nil {
-			errResponseJSON, err := json.Marshal(err.Error())
-			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
+			errResponseJSON, jsonErr := json.Marshal(err.Error())
+			if e := utils.WriteResponseIfMarshalError(w, jsonErr); e != nil {
+				return
+			}
+			if utils.IsTransient(err) {
+				utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
 				return
 			}
 			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
@@ -65,6 +69,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*ContainerResponse, error) {
 	containerResponse, err := NewContainerResponse(containerID, state)
 	if err != nil {
+		seelog.Errorf("unable to get container metadata for container '%s'", containerID)
 		return nil, errors.Errorf("unable to generate metadata for container '%s'", containerID)
 	}
 
@@ -87,7 +92,8 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	// https://github.com/aws/amazon-ecs-agent/blob/0c8913ba33965cf6ffdd6253fad422458d9346bd/agent/containermetadata/parse_metadata.go#L123
 	settings := dockerContainer.Container.GetNetworkSettings()
 	if settings == nil {
-		return nil, errors.Errorf("unable to generate network response for container '%s'", containerID)
+		seelog.Errorf("unable to get container network metadata for container '%s'", containerID)
+		return nil, &utils.TransientError{Msg: fmt.Sprintf("unable to generate network response for container '%s'", containerID)}
 	}
 	// This metadata is the information provided in older versions of the API
 	// We get the NetworkMode (Network interface name) from the HostConfig because this
