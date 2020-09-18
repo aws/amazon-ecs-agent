@@ -39,7 +39,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, responseJSON, utils.RequestTypeContainerMetadata)
+			utils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		containerResponse, err := GetContainerResponse(containerID, state)
@@ -48,7 +48,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusBadRequest, errResponseJSON, utils.RequestTypeContainerMetadata)
+			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
 			return
 		}
 		seelog.Infof("V3 container metadata handler: writing response for container '%s'", containerID)
@@ -65,6 +65,7 @@ func ContainerMetadataHandler(state dockerstate.TaskEngineState) func(http.Respo
 func GetContainerResponse(containerID string, state dockerstate.TaskEngineState) (*v2.ContainerResponse, error) {
 	containerResponse, err := v2.NewContainerResponse(containerID, state)
 	if err != nil {
+		seelog.Errorf("Unable to get container metadata for container '%s'", containerID)
 		return nil, errors.Errorf("Unable to generate metadata for container '%s'", containerID)
 	}
 	// fill in network details if not set
@@ -86,6 +87,7 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	// https://github.com/aws/amazon-ecs-agent/blob/0c8913ba33965cf6ffdd6253fad422458d9346bd/agent/containermetadata/parse_metadata.go#L123
 	settings := dockerContainer.Container.GetNetworkSettings()
 	if settings == nil {
+		seelog.Errorf("unable to get container network response for container '%s'", containerID)
 		return nil, errors.Errorf("Unable to generate network response for container '%s'", containerID)
 	}
 	// This metadata is the information provided in older versions of the API

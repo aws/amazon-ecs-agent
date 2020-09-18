@@ -1518,22 +1518,11 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 		"/v2/stats/",
 		"/v2/stats/wrong-container-id",
 		"/v2/stats/container-id/other-path",
-		"/v3/wrong-v3-endpoint-id",
-		"/v3/",
 		"/v3/wrong-v3-endpoint-id/stats",
-		"/v3/stats",
-		"/v3/wrong-v3-endpoint-id/task",
-		"/v3/task",
 		"/v3/wrong-v3-endpoint-id/task/stats",
 		"/v3/task/stats",
-		"/v4/wrong-v3-endpoint-id",
-		"/v4/",
 		"/v4/wrong-v3-endpoint-id/stats",
-		"/v4/stats",
-		"/v4/wrong-v3-endpoint-id/task",
-		"/v4/task",
 		"/v4/wrong-v3-endpoint-id/task/stats",
-		"/v4/task/stats",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference",
 		"/v3/wrong-v3-endpoint-id/associations/elastic-inference/dev1",
 	}
@@ -1562,6 +1551,48 @@ func TestTaskHTTPEndpointErrorCode400(t *testing.T) {
 			req.RemoteAddr = remoteIP + ":" + remotePort
 			server.Handler.ServeHTTP(recorder, req)
 			assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		})
+	}
+}
+
+func TestTaskHTTPEndpointErrorCode500(t *testing.T) {
+	testPaths := []string{
+		"/v3/wrong-v3-endpoint-id",
+		"/v3/",
+		"/v3/stats",
+		"/v3/wrong-v3-endpoint-id/task",
+		"/v3/task",
+		"/v4/wrong-v3-endpoint-id",
+		"/v4/",
+		"/v4/stats",
+		"/v4/wrong-v3-endpoint-id/task",
+		"/v4/task",
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "", containerInstanceArn)
+
+	for _, testPath := range testPaths {
+		t.Run(fmt.Sprintf("Test path: %s", testPath), func(t *testing.T) {
+			// Make every possible call to state fail
+			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
+			state.EXPECT().DockerIDByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
+			state.EXPECT().TaskARNByV3EndpointID(gomock.Any()).Return("", false).AnyTimes()
+			state.EXPECT().GetTaskByIPAddress(gomock.Any()).Return("", false).AnyTimes()
+
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", testPath, nil)
+			req.RemoteAddr = remoteIP + ":" + remotePort
+			server.Handler.ServeHTTP(recorder, req)
+			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 		})
 	}
 }
