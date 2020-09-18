@@ -33,11 +33,17 @@ var (
 		"-j", "DNAT",
 		"--to-destination", localhostIpAddress + ":" + localhostCredentialsProxyPort,
 	}
-	inputRouteArgs = []string{
+	localhostTrafficFilterInputRouteArgs = []string{
 		"--dst", localhostNetwork,
 		"!", "--src", localhostNetwork,
 		"-m", "conntrack",
 		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
+		"-j", "DROP",
+	}
+	blockIntrospectionOffhostAccessInputRouteArgs = []string{
+		"-p", "tcp",
+		"-i", "eth0",
+		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
 	outputRouteArgs = []string{
@@ -74,7 +80,10 @@ func TestCreate(t *testing.T) {
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -101,6 +110,38 @@ func TestCreateSkipLocalTrafficFilter(t *testing.T) {
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	require.NoError(t, err, "Error creating netfilter route object")
+
+	err = route.Create()
+	assert.NoError(t, err, "Error creating route")
+}
+
+func TestCreateAllowOffhostIntrospectionAccess(t *testing.T) {
+	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
+	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -147,7 +188,7 @@ func TestCreateErrorOnInputChainCommandError(t *testing.T) {
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
 	)
 
@@ -170,7 +211,10 @@ func TestCreateErrorOnOutputChainCommandError(t *testing.T) {
 			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-I", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -199,14 +243,13 @@ func TestRemove(t *testing.T) {
 		// route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
-		// Mock a successful execution of the iptables command to delete the
-		// route
+			expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
-		// Mock a successful execution of the iptables command to delete the
-		// route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 	)
 
@@ -230,6 +273,38 @@ func TestRemoveSkipLocalTrafficFilter(t *testing.T) {
 		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+	)
+
+	route, err := NewNetfilterRoute(mockExec)
+	require.NoError(t, err, "Error creating netfilter route object")
+
+	err = route.Remove()
+	assert.NoError(t, err, "Error removing route")
+}
+
+func TestRemoveAllowIntrospectionOffhostAccess(t *testing.T) {
+	os.Setenv(offhostIntrospectionAccessConfigEnv, "true")
+	defer os.Unsetenv(offhostIntrospectionAccessConfigEnv)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCmd := NewMockCmd(ctrl)
+	mockExec := NewMockExec(ctrl)
+	gomock.InOrder(
+		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -256,7 +331,10 @@ func TestRemoveErrorOnPreroutingChainCommandError(t *testing.T) {
 		// Mock a failed execution of the iptables command to delete the route
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, fmt.Errorf("no cpu cycles to spare, sorry")),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -282,7 +360,10 @@ func TestRemoveErrorOnOutputChainCommandError(t *testing.T) {
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
@@ -309,8 +390,11 @@ func TestRemoveErrorOnInputChainCommandsErrors(t *testing.T) {
 			expectedArgs("nat", "-D", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-D", "INPUT", inputRouteArgs)).Return(mockCmd),
+			expectedArgs("filter", "-D", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, testErr),
+		mockExec.EXPECT().Command(iptablesExecutable,
+			expectedArgs("filter", "-D", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
+		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
 		mockExec.EXPECT().Command(iptablesExecutable,
 			expectedArgs("nat", "-D", "OUTPUT", outputRouteArgs)).Return(mockCmd),
 		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
@@ -348,7 +432,7 @@ func TestGetPreroutingChainArgs(t *testing.T) {
 		"Incorrect arguments for modifying prerouting chain")
 }
 
-func TestGetInputChainArgs(t *testing.T) {
+func TestGetLocalhostTrafficFilterInputChainArgs(t *testing.T) {
 	assert.Equal(t, []string{
 		"INPUT",
 		"--dst", "127.0.0.0/8",
@@ -356,7 +440,17 @@ func TestGetInputChainArgs(t *testing.T) {
 		"-m", "conntrack",
 		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
 		"-j", "DROP",
-	}, getInputChainArgs())
+	}, getLocalhostTrafficFilterInputChainArgs())
+}
+
+func TestGetBlockIntrospectionOffhostAccessInputChainArgs(t *testing.T) {
+	assert.Equal(t, []string{
+		"INPUT",
+		"-p", "tcp",
+		"-i", "eth0",
+		"--dport", "51678",
+		"-j", "DROP",
+	}, getBlockIntrospectionOffhostAccessInputChainArgs())
 }
 
 func TestGetOutputChainArgs(t *testing.T) {

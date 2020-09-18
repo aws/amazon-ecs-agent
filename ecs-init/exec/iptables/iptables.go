@@ -43,6 +43,9 @@ const (
 
 	iptablesTableFilter = "filter"
 	iptablesTableNat    = "nat"
+
+	offhostIntrospectionAccessConfigEnv = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
+	agentIntrospectionServerPort        = "51678"
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
@@ -77,9 +80,16 @@ func (route *NetfilterRoute) Create() error {
 	}
 
 	if !skipLocalhostTrafficFilter() {
-		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getInputChainArgs)
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getLocalhostTrafficFilterInputChainArgs)
 		if err != nil {
 			return err
+		}
+	}
+
+	if !allowOffhostIntrospection() {
+		err = route.modifyNetfilterEntry(iptablesTableFilter, iptablesInsert, getBlockIntrospectionOffhostAccessInputChainArgs)
+		if err != nil {
+			log.Errorf("Error adding input chain entry to block offhost introspection access: %v", err)
 		}
 	}
 
@@ -95,11 +105,18 @@ func (route *NetfilterRoute) Remove() error {
 		preroutingErr = fmt.Errorf("error removing prerouting chain entry: %v", preroutingErr)
 	}
 
-	var inputErr error
+	var localhostInputError, introspectionInputError error
 	if !skipLocalhostTrafficFilter() {
-		inputErr = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getInputChainArgs)
-		if inputErr != nil {
-			inputErr = fmt.Errorf("error removing input chain entry: %v", inputErr)
+		localhostInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getLocalhostTrafficFilterInputChainArgs)
+		if localhostInputError != nil {
+			localhostInputError = fmt.Errorf("error removing input chain entry: %v", localhostInputError)
+		}
+	}
+
+	if !allowOffhostIntrospection() {
+		introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs)
+		if introspectionInputError != nil {
+			introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
 		}
 	}
 
@@ -109,7 +126,7 @@ func (route *NetfilterRoute) Remove() error {
 		outputErr = fmt.Errorf("error removing output chain entry: %v", outputErr)
 	}
 
-	return combinedError(preroutingErr, inputErr, outputErr)
+	return combinedError(preroutingErr, localhostInputError, introspectionInputError, outputErr)
 }
 
 func combinedError(errs ...error) error {
@@ -136,7 +153,7 @@ func (route *NetfilterRoute) modifyNetfilterEntry(table string, action iptablesA
 	cmd := route.cmdExec.Command(iptablesExecutable, args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("Error performing action '%s' for credentials proxy endpoint route: %v; raw output: %s", getActionName(action), err, out)
+		log.Errorf("Error performing action '%s' for iptables route: %v; raw output: %s", getActionName(action), err, out)
 	}
 
 	return err
@@ -157,13 +174,23 @@ func getPreroutingChainArgs() []string {
 	}
 }
 
-func getInputChainArgs() []string {
+func getLocalhostTrafficFilterInputChainArgs() []string {
 	return []string{
 		"INPUT",
 		"--dst", localhostNetwork,
 		"!", "--src", localhostNetwork,
 		"-m", "conntrack",
 		"!", "--ctstate", "RELATED,ESTABLISHED,DNAT",
+		"-j", "DROP",
+	}
+}
+
+func getBlockIntrospectionOffhostAccessInputChainArgs() []string {
+	return []string{
+		"INPUT",
+		"-p", "tcp",
+		"-i", "eth0",
+		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
 }
@@ -198,6 +225,20 @@ func skipLocalhostTrafficFilter() bool {
 	b, err := strconv.ParseBool(s)
 	if err != nil {
 		log.Errorf("Failed to parse value for ECS_SKIP_LOCALHOST_TRAFFIC_FILTER [%s]: %v. Default it to false.", s, err)
+		return false
+	}
+	return b
+}
+
+func allowOffhostIntrospection() bool {
+	s := os.Getenv(offhostIntrospectionAccessConfigEnv)
+	if s == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(s)
+	if err != nil {
+		log.Errorf("Failed to parse value for %s [%s]: %v. Default it to false.",
+			offhostIntrospectionAccessConfigEnv, s, err)
 		return false
 	}
 	return b
