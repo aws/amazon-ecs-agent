@@ -40,6 +40,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -1629,4 +1630,66 @@ func TestExecCommandAgent(t *testing.T) {
 	<-ctx.Done()
 	require.NotEqual(t, context.DeadlineExceeded, ctx.Err(), "Timed out waiting for task (%s) to stop", testTaskId)
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
+
+}
+
+func TestDockerExecAPI(t *testing.T) {
+	testTimeout := 1 * time.Minute
+	taskEngine, done, _ := setupWithDefaultConfig(t)
+	defer done()
+
+	stateChangeEvents := taskEngine.StateChangeEvents()
+
+	taskArn := "testDockerExec"
+	testTask := createTestTask(taskArn)
+
+	A := createTestContainerWithImageAndName(baseImageForOS, "A")
+
+	A.EntryPoint = &entryPointForOS
+	A.Command = []string{"sleep 30"}
+	A.Essential = true
+
+	testTask.Containers = []*apicontainer.Container{
+		A,
+	}
+	execConfig := types.ExecConfig{
+		Detach: true,
+		Cmd:    []string{"ls"},
+	}
+	go taskEngine.AddTask(testTask)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	finished := make(chan interface{})
+	go func() {
+		// Both containers should start
+		verifyContainerRunningStateChange(t, taskEngine)
+		verifyTaskIsRunning(stateChangeEvents, testTask)
+
+		containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+		dockerID := containerMap[testTask.Containers[0].Name].DockerID
+
+		//Create Exec object on the host
+		execContainerOut, err := taskEngine.(*DockerTaskEngine).client.CreateContainerExec(ctx, dockerID, execConfig, dockerclient.ContainerExecCreateTimeout)
+		require.NoError(t, err)
+		require.NotNil(t, execContainerOut)
+
+		//Start the above Exec process on the host
+		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, dockerclient.ContainerExecStartTimeout)
+		require.NoError(t, err1)
+
+		//Inspect the above Exec process on the host to check if the exit code is 0 which indicates successful run of the command
+		execContInspectOut, err := taskEngine.(*DockerTaskEngine).client.InspectContainerExec(ctx, execContainerOut.ID, dockerclient.ContainerExecInspectTimeout)
+		require.NoError(t, err)
+		require.Equal(t, dockerID, execContInspectOut.ContainerID)
+		require.Equal(t, 0, execContInspectOut.ExitCode)
+
+		// Task should stop
+		verifyContainerStoppedStateChange(t, taskEngine)
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		close(finished)
+	}()
+
+	waitFinished(t, finished, testTimeout)
 }
