@@ -45,6 +45,9 @@ const (
 	cpu                      = 1024
 	memory                   = 512
 	eniIPv4Address           = "192.168.0.5"
+	ipv4SubnetCIDRBlock      = "192.168.0.0/24"
+	eniIPv6Address           = "2600:1f18:619e:f900:8467:78b2:81c4:207d"
+	ipv6SubnetCIDRBlock      = "2600:1f18:619e:f900::/64"
 	subnetGatewayIPV4Address = "192.168.0.1/24"
 	volName                  = "volume1"
 	volSource                = "/var/lib/volume1"
@@ -71,6 +74,11 @@ func TestNewTaskContainerResponses(t *testing.T) {
 				IPV4Addresses: []*apieni.ENIIPV4Address{
 					{
 						Address: eniIPv4Address,
+					},
+				},
+				IPV6Addresses: []*apieni.ENIIPV6Address{
+					{
+						Address: eniIPv6Address,
 					},
 				},
 				SubnetGatewayIPV4Address: subnetGatewayIPV4Address,
@@ -130,7 +138,9 @@ func TestNewTaskContainerResponses(t *testing.T) {
 	_, err = json.Marshal(taskResponse)
 	require.NoError(t, err)
 	assert.Equal(t, created.UTC().String(), taskResponse.Containers[0].CreatedAt.String())
-	assert.Equal(t, "192.168.0.0/24", taskResponse.Containers[0].Networks[0].IPV4SubnetCIDRBlock)
+	assert.Equal(t, ipv4SubnetCIDRBlock, taskResponse.Containers[0].Networks[0].IPV4SubnetCIDRBlock)
+	assert.Equal(t, eniIPv6Address, taskResponse.Containers[0].Networks[0].IPv6Addresses[0])
+	assert.Equal(t, ipv6SubnetCIDRBlock, taskResponse.Containers[0].Networks[0].IPv6SubnetCIDRBlock)
 	assert.Equal(t, subnetGatewayIPV4Address, taskResponse.Containers[0].Networks[0].SubnetGatewayIPV4Address)
 
 	gomock.InOrder(

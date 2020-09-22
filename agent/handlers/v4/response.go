@@ -14,8 +14,6 @@
 package v4
 
 import (
-	"net"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
@@ -57,10 +55,12 @@ type NetworkInterfaceProperties struct {
 	// AttachmentIndex reflects the `index` specified by the customer (if any)
 	// while creating the task with `awsvpc` mode.
 	AttachmentIndex *int `json:"AttachmentIndex,omitempty"`
-	// IPV4SubnetCIDRBlock is the subnet CIDR netmask associated with network interface.
-	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,omitempty"`
-	// MACAddress is the mac address of the network interface.
+	// MACAddress is the MAC address of the network interface.
 	MACAddress string `json:"MACAddress,omitempty"`
+	// IPv4SubnetCIDRBlock is the IPv4 CIDR address block associated with the interface's subnet.
+	IPV4SubnetCIDRBlock string `json:"IPv4SubnetCIDRBlock,omitempty"`
+	// IPv6SubnetCIDRBlock is the IPv6 CIDR address block associated with the interface's subnet.
+	IPv6SubnetCIDRBlock string `json:"IPv6SubnetCIDRBlock,omitempty"`
 	// DomainNameServers specifies the nameserver IP addresses for the network interface.
 	DomainNameServers []string `json:"DomainNameServers,omitempty"`
 	// DomainNameSearchList specifies the search list for the domain name lookup for
@@ -68,7 +68,7 @@ type NetworkInterfaceProperties struct {
 	DomainNameSearchList []string `json:"DomainNameSearchList,omitempty"`
 	// PrivateDNSName is the dns name assigned to this network interface.
 	PrivateDNSName string `json:"PrivateDNSName,omitempty"`
-	// SubnetGatewayIPV4Address is the gateway address for the network interface.
+	// SubnetGatewayIPV4Address is the IPv4 gateway address for the network interface.
 	SubnetGatewayIPV4Address string `json:"SubnetGatewayIpv4Address,omitempty"`
 }
 
@@ -166,12 +166,6 @@ func toV4NetworkResponse(
 // task.
 func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperties, error) {
 	eni := task.GetPrimaryENI()
-	_, ipv4Net, err := net.ParseCIDR(eni.SubnetGatewayIPV4Address)
-	if err != nil {
-		return NetworkInterfaceProperties{}, errors.Wrapf(err,
-			"v4 metadata response: unable to parse subnet ipv4 address '%s'",
-			eni.SubnetGatewayIPV4Address)
-	}
 
 	var attachmentIndexPtr *int
 	if task.IsNetworkModeAWSVPC() {
@@ -184,7 +178,8 @@ func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperti
 		// `Index` field for an ENI, we should set it as per that. Since we
 		// only support 1 ENI per task anyway, setting it to `0` is acceptable
 		AttachmentIndex:          attachmentIndexPtr,
-		IPV4SubnetCIDRBlock:      ipv4Net.String(),
+		IPV4SubnetCIDRBlock:      eni.GetIPv4SubnetCIDRBlock(),
+		IPv6SubnetCIDRBlock:      eni.GetIPv6SubnetCIDRBlock(),
 		MACAddress:               eni.MacAddress,
 		DomainNameServers:        eni.DomainNameServers,
 		DomainNameSearchList:     eni.DomainNameSearchList,

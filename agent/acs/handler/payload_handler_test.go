@@ -724,7 +724,8 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 								Address: aws.String("ipv6"),
 							},
 						},
-						MacAddress: aws.String("mac"),
+						SubnetGatewayIpv4Address: aws.String("ipv4/20"),
+						MacAddress:               aws.String("mac"),
 					},
 				},
 			},
@@ -733,7 +734,7 @@ func TestPayloadHandlerAddedENIToTask(t *testing.T) {
 	}
 
 	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Validate the added task has the eni information as expected
 	expectedENI := payloadMessage.Tasks[0].ElasticNetworkInterfaces[0]
@@ -849,7 +850,8 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 								Address: aws.String("ipv6"),
 							},
 						},
-						MacAddress: aws.String("mac"),
+						SubnetGatewayIpv4Address: aws.String("ipv4/20"),
+						MacAddress:               aws.String("mac"),
 						InterfaceVlanProperties: &ecsacs.NetworkInterfaceVlanProperties{
 							VlanId:                   aws.String("12345"),
 							TrunkInterfaceMacAddress: aws.String("mac"),
@@ -862,7 +864,7 @@ func TestPayloadHandlerAddedENITrunkToTask(t *testing.T) {
 	}
 
 	err := tester.payloadHandler.handleSingleMessage(payloadMessage)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	taskeni := addedTask.GetPrimaryENI()
 

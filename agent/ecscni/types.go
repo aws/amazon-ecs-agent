@@ -119,16 +119,14 @@ type ENIConfig struct {
 	CNIVersion string `json:"cniVersion,omitempty"`
 	// ENIID is the id of ec2 eni
 	ENIID string `json:"eni"`
-	// IPV4Address is the ipv4 of eni
-	IPV4Address string `json:"ipv4-address"`
-	// IPV6Address is the ipv6 of eni
-	IPV6Address string `json:"ipv6-address,omitempty"`
 	// MacAddress is the mac address of eni
 	MACAddress string `json:"mac"`
+	// IPAddresses contains the ip addresses of the ENI.
+	IPAddresses []string `json:"ip-addresses"`
+	// GatewayIPAddresses specifies the addresses of the subnet gateway for the ENI.
+	GatewayIPAddresses []string `json:"gateway-ip-addresses"`
 	// BlockInstanceMetadata specifies if InstanceMetadata endpoint should be blocked
 	BlockInstanceMetadata bool `json:"block-instance-metadata"`
-	// SubnetGatewayIPV4Address specifies the IPv4 address of the subnet gateway for the ENI
-	SubnetGatewayIPV4Address string `json:"subnetgateway-ipv4-address"`
 }
 
 // AppMeshConfig contains all the information needed to invoke the app mesh plugin
@@ -168,14 +166,14 @@ type BranchENIConfig struct {
 	BranchVlanID string `json:"branchVlanID,omitempty"`
 	// BranchMacAddress is the MAC address of the branch ENI
 	BranchMACAddress string `json:"branchMACAddress"`
-	// BranchIPAddress is the IP address of the branch ENI
-	BranchIPAddress string `json:"branchIPAddress"`
-	// BranchGatewayIPAddress is the IP address of the branch ENI's default gateway.
-	BranchGatewayIPAddress string `json:"branchGatewayIPAddress"`
-	// InterfaceType is the type of the interface to connect the branch ENI to
-	InterfaceType string `json:"interfaceType,omitempty"`
+	// IPAddresses contains the IP addresses of the branch ENI.
+	IPAddresses []string `json:"ipAddresses"`
+	// GatewayIPAddresses contains the IP addresses of the default gateway in the subnet.
+	GatewayIPAddresses []string `json:"gatewayIPAddresses"`
 	// BlockInstanceMetdata specifies if InstanceMetadata endpoint should be blocked.
 	BlockInstanceMetadata bool `json:"blockInstanceMetadata"`
+	// InterfaceType is the type of the interface to connect the branch ENI to
+	InterfaceType string `json:"interfaceType,omitempty"`
 }
 
 // Config contains all the information to set up the container namespace using

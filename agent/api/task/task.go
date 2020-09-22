@@ -140,6 +140,11 @@ const (
 
 	// specifies awsvpc type mode for a task
 	AWSVPCNetworkMode = "awsvpc"
+
+	// disableIPv6SysctlKey specifies the setting that controls whether ipv6 is disabled.
+	disableIPv6SysctlKey = "net.ipv6.conf.all.disable_ipv6"
+	// sysctlValueOff specifies the value to use to turn off a sysctl setting.
+	sysctlValueOff = "0"
 )
 
 // TaskOverrides are the overrides applied to a task
@@ -1535,6 +1540,11 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 				hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, hosts...)
 			}
 
+			if task.shouldEnableIPv6() {
+				// By default, the disable ipv6 setting is turned on, so need to turn it off to enable it.
+				enableIPv6SysctlSetting(hostConfig)
+			}
+
 			// Override the DNS settings for the pause container if ENI has custom
 			// DNS settings
 			return task.overrideDNS(hostConfig), nil
@@ -1690,6 +1700,14 @@ func (task *Task) generateENIExtraHosts() []string {
 		extraHosts = append(extraHosts, host)
 	}
 	return extraHosts
+}
+
+func (task *Task) shouldEnableIPv6() bool {
+	eni := task.GetPrimaryENI()
+	if eni == nil {
+		return false
+	}
+	return len(eni.GetIPV6Addresses()) > 0
 }
 
 // shouldOverridePIDMode returns true if the PIDMode of the container needs
