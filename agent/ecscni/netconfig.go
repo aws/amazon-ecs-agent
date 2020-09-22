@@ -16,7 +16,6 @@ package ecscni
 import (
 	"encoding/json"
 	"net"
-	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -130,16 +129,13 @@ func newIPAMConfig(cfg *Config) (IPAMConfig, error) {
 
 // NewENINetworkConfig creates a new ENI CNI network configuration.
 func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConfig, error) {
-	ipv4Addr := eni.GetPrimaryIPv4Address()
-
 	eniConf := ENIConfig{
-		Type:                     ECSENIPluginName,
-		ENIID:                    eni.ID,
-		IPV4Address:              ipv4Addr,
-		IPV6Address:              "",
-		MACAddress:               eni.MacAddress,
-		BlockInstanceMetadata:    cfg.BlockInstanceMetadata,
-		SubnetGatewayIPV4Address: eni.SubnetGatewayIPV4Address,
+		Type:                  ECSENIPluginName,
+		ENIID:                 eni.ID,
+		MACAddress:            eni.MacAddress,
+		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
+		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
+		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
 	}
 
 	networkConfig, err := newNetworkConfig(eniConf, ECSENIPluginName, cfg.MinSupportedCNIVersion)
@@ -152,21 +148,15 @@ func NewENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConf
 
 // NewBranchENINetworkConfig creates a new branch ENI CNI network configuration.
 func NewBranchENINetworkConfig(eni *eni.ENI, cfg *Config) (string, *libcni.NetworkConfig, error) {
-	// ENIIPAddress does not have a prefix length while BranchIPAddress expects a prefix length.
-	// SubnetGatewayIPV4Address has a prefix length while BranchGatewayIPAddress does not expect a prefix length.
-	s := strings.Split(eni.SubnetGatewayIPV4Address, "/")
-	branchIPv4Address := eni.GetPrimaryIPv4Address() + "/" + s[1]
-	branchGatewayIPAddress := s[0]
-
 	eniConf := BranchENIConfig{
-		Type:                   ECSBranchENIPluginName,
-		TrunkMACAddress:        eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
-		BranchVlanID:           eni.InterfaceVlanProperties.VlanID,
-		BranchMACAddress:       eni.MacAddress,
-		BranchIPAddress:        branchIPv4Address,
-		BranchGatewayIPAddress: branchGatewayIPAddress,
-		InterfaceType:          vpcCNIPluginInterfaceType,
-		BlockInstanceMetadata:  cfg.BlockInstanceMetadata,
+		Type:                  ECSBranchENIPluginName,
+		TrunkMACAddress:       eni.InterfaceVlanProperties.TrunkInterfaceMacAddress,
+		BranchVlanID:          eni.InterfaceVlanProperties.VlanID,
+		BranchMACAddress:      eni.MacAddress,
+		IPAddresses:           eni.GetIPAddressesWithPrefixLength(),
+		GatewayIPAddresses:    []string{eni.GetSubnetGatewayIPv4Address()},
+		BlockInstanceMetadata: cfg.BlockInstanceMetadata,
+		InterfaceType:         vpcCNIPluginInterfaceType,
 	}
 
 	networkConfig, err := newNetworkConfig(eniConf, ECSBranchENIPluginName, cfg.MinSupportedCNIVersion)

@@ -33,9 +33,9 @@ import (
 const (
 	currentCNISpec = "0.3.1"
 	// ECSCNIVersion, ECSCNIGitHash, VPCCNIGitHash needs to be updated every time CNI plugin is updated
-	currentECSCNIVersion      = "2019.10.0"
-	currentECSCNIGitHash      = "9066095fbab8ca7b659ab2b95a1590e7aee55545"
-	currentVPCCNIGitHash      = "42629fd69ede0bfa00c4698faa5ba9f4defbbbdb"
+	currentECSCNIVersion      = "2020.09.0"
+	currentECSCNIGitHash      = "55b2ae77ee0bf22321b14f2d4ebbcc04f77322e1"
+	currentVPCCNIGitHash      = "a21d3a41f922e14c19387713df66be3e4ee1e1f6"
 	vpcCNIPluginPath          = "/log/vpc-branch-eni.log"
 	vpcCNIPluginInterfaceType = "vlan"
 )

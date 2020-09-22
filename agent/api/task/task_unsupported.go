@@ -76,3 +76,7 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
 	return []taskresource.TaskResource{}, false
 }
+
+func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
+	return
+}

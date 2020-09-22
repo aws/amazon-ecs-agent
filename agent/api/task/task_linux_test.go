@@ -1196,3 +1196,10 @@ func getFirelensTask(t *testing.T) *Task {
 		},
 	}
 }
+
+func TestEnableIPv6SysctlSetting(t *testing.T) {
+	hostConfig := &dockercontainer.HostConfig{}
+	enableIPv6SysctlSetting(hostConfig)
+	require.NotNil(t, hostConfig.Sysctls)
+	assert.Equal(t, sysctlValueOff, hostConfig.Sysctls[disableIPv6SysctlKey])
+}
