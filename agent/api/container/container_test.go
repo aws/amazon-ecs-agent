@@ -757,3 +757,25 @@ func TestRequireNeuronRuntime(t *testing.T) {
 	}
 	assert.True(t, c.RequireNeuronRuntime())
 }
+
+func TestExecCommandAgentMetadata(t *testing.T) {
+	const (
+		testPid          = "pid"
+		testDockerExecId = "dockerId"
+	)
+	c := &Container{}
+	assert.Equal(t, "", c.ExecCommandAgentMetadata.PID)
+	assert.Equal(t, "", c.ExecCommandAgentMetadata.DockerExecID)
+
+	c.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
+		PID:          testPid,
+		DockerExecID: testDockerExecId,
+	})
+
+	assert.Equal(t, testPid, c.ExecCommandAgentMetadata.PID)
+	assert.Equal(t, testDockerExecId, c.ExecCommandAgentMetadata.DockerExecID)
+
+	md := c.GetExecCommandAgentMetadata()
+	assert.Equal(t, testPid, md.PID)
+	assert.Equal(t, testDockerExecId, md.DockerExecID)
+}
