@@ -85,14 +85,6 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
-  digest = "1:0f98f59e9a2f4070d66f0c9c39561f68fcd1dc837b22a852d28d0003aebd1b1e"
-  name = "github.com/boltdb/bolt"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "2f1ce7a837dcb8da3ec595b1dac9d0632f0f99e8"
-  version = "v1.3.1"
-
-[[projects]]
   digest = "1:de747471fda94a360884bd972aa5633e65a77666283ec9c0d9c0755b871f3a9b"
   name = "github.com/cihub/seelog"
   packages = [
@@ -242,6 +234,14 @@
   pruneopts = "UT"
   revision = "0dadbb0345b35ec7ef35e228dabb8de89a65bf52"
   version = "v0.3.2"
+
+[[projects]]
+  digest = "1:42b837a2202ea13bc306fadc76967c9fd670b878b2ee27d0eb36ceaf45f79a64"
+  name = "github.com/etcd-io/bbolt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "232d8fc87f50244f9c808f4745759e08a304c029"
+  version = "v1.3.5"
 
 [[projects]]
   digest = "1:57fa4c058c21ce25d0b7272518dd746065117abf6cc706158b0d361202024520"
@@ -545,7 +545,6 @@
     "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface",
     "github.com/aws/aws-sdk-go/service/ssm",
     "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit",
-    "github.com/boltdb/bolt",
     "github.com/cihub/seelog",
     "github.com/containerd/cgroups",
     "github.com/containernetworking/cni/libcni",
@@ -565,6 +564,7 @@
     "github.com/docker/docker/pkg/system",
     "github.com/docker/go-connections/nat",
     "github.com/docker/go-units",
+    "github.com/etcd-io/bbolt",
     "github.com/golang/mock/gomock",
     "github.com/golang/mock/mockgen/model",
     "github.com/gorilla/mux",
