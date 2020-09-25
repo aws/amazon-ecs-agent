@@ -14,7 +14,7 @@
 package data
 
 import (
-	"github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 )
 
 const (

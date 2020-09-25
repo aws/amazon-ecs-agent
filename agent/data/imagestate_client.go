@@ -18,7 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/image"
 
-	"github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 	"github.com/pkg/errors"
 )
 

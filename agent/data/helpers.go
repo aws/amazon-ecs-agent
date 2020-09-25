@@ -16,7 +16,7 @@ package data
 import (
 	"encoding/json"
 
-	"github.com/boltdb/bolt"
+	bolt "github.com/etcd-io/bbolt"
 	"github.com/pkg/errors"
 )
 
