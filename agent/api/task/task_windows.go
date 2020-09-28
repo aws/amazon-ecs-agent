@@ -180,13 +180,6 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 	return res, ok
 }
 
-// initializeExecCommandAgentResources specifies the necessary volumes and mount points in all of the task containers in order for the
-// exec agent to run upon container start.
-// Note: exec feature is a linux-only feature, thus implemented here as a no-op.
-func (task *Task) initializeExecCommandAgentResources() error {
-	return nil
-}
-
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	return
 }
