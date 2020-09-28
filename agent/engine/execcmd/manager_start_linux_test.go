@@ -12,7 +12,7 @@
 // on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
-package execcmdagent
+package execcmd
 
 import (
 	"context"
@@ -34,7 +34,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStart(t *testing.T) {
+func TestStartAgent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -132,7 +132,7 @@ func TestStart(t *testing.T) {
 		if test.expectCreateContainerExec {
 			execCfg := types.ExecConfig{
 				Detach: true,
-				Cmd:    []string{filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName)},
+				Cmd:    []string{filepath.Join(ContainerBinDir, BinName)},
 			}
 			client.EXPECT().CreateContainerExec(gomock.Any(), testTask.Containers[0].RuntimeID, execCfg, dockerclient.ContainerExecCreateTimeout).
 				Return(test.createContainerExecRes, test.createContainerExecErr).
@@ -152,7 +152,7 @@ func TestStart(t *testing.T) {
 		}
 
 		mgr := newTestManager()
-		err := mgr.Start(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
+		err := mgr.StartAgent(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 		if test.expectedError != nil {
 			assert.Equal(t, test.expectedError, err, "Wrong error returned")
 			// When there's an error, ExecCommandAgentMetadata should not be modified
@@ -165,14 +165,14 @@ func TestStart(t *testing.T) {
 				assert.Equal(t, &apicontainer.ExecCommandAgentMetadata{
 					PID:          strconv.Itoa(testPid1),
 					DockerExecID: testDockerExecId,
-					CMD:          filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName),
+					CMD:          filepath.Join(ContainerBinDir, BinName),
 				}, testTask.Containers[0].GetExecCommandAgentMetadata())
 			}
 		}
 	}
 }
 
-func TestIdempotentStart(t *testing.T) {
+func TestIdempotentStartAgent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -182,7 +182,7 @@ func TestIdempotentStart(t *testing.T) {
 	)
 	var (
 		testPidStr     = strconv.Itoa(testPid)
-		testCmd        = filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName)
+		testCmd        = filepath.Join(ContainerBinDir, BinName)
 		expectedExecMD = &apicontainer.ExecCommandAgentMetadata{
 			PID:          testPidStr,
 			DockerExecID: testDockerExecId,
@@ -200,7 +200,7 @@ func TestIdempotentStart(t *testing.T) {
 
 	execCfg := types.ExecConfig{
 		Detach: true,
-		Cmd:    []string{filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName)},
+		Cmd:    []string{filepath.Join(ContainerBinDir, BinName)},
 	}
 	client.EXPECT().CreateContainerExec(gomock.Any(), testTask.Containers[0].RuntimeID, execCfg, dockerclient.ContainerExecCreateTimeout).
 		Return(&types.IDResponse{ID: testDockerExecId}, nil).
@@ -219,18 +219,18 @@ func TestIdempotentStart(t *testing.T) {
 		Times(2)
 
 	mgr := newTestManager()
-	err := mgr.Start(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
+	err := mgr.StartAgent(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedExecMD, testTask.Containers[0].GetExecCommandAgentMetadata())
 
 	// Second call to start. The mock's expected call times is 1 (except for inspect); the absence of "too many calls"
 	// along with unchanged metadata guarantee idempotency
-	err = mgr.Start(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
+	err = mgr.StartAgent(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedExecMD, testTask.Containers[0].GetExecCommandAgentMetadata())
 }
 
-func TestRestartIfStopped(t *testing.T) {
+func TestRestartAgentIfStopped(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -337,7 +337,7 @@ func TestRestartIfStopped(t *testing.T) {
 		}
 
 		mgr := newTestManager()
-		restarted, err := mgr.RestartIfStopped(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
+		restarted, err := mgr.RestartAgentIfStopped(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 		assert.Equal(t, test.expectedRestartErr, err)
 		assert.Equal(t, test.expectedRestartStatus, restarted, "expected: %s, actual: %s", test.expectedRestartStatus, restarted)
 
@@ -347,7 +347,7 @@ func TestRestartIfStopped(t *testing.T) {
 			assert.Equal(t, &apicontainer.ExecCommandAgentMetadata{
 				PID:          strconv.Itoa(testNewPID),
 				DockerExecID: testNewDockerExecID,
-				CMD:          filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName),
+				CMD:          filepath.Join(ContainerBinDir, BinName),
 			}, testTask.Containers[0].GetExecCommandAgentMetadata(), "ExecCommandAgentMetadata is not the newest after restart")
 		}
 	}
