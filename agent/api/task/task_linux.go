@@ -16,12 +16,9 @@
 package task
 
 import (
-	"fmt"
 	"path/filepath"
-	"strings"
 	"time"
 
-	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
@@ -29,11 +26,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
-	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -45,23 +40,6 @@ const (
 
 	minimumCPUPercent = 0
 	bytesPerMegabyte  = 1024 * 1024
-
-	internalExecCommandAgentNamePrefix          = "internal-execute-command-agent"
-	internalExecCommandAgentLogVolumeNamePrefix = internalExecCommandAgentNamePrefix + "-log"
-	internalExecCommandAgentCertVolumeName      = internalExecCommandAgentNamePrefix + "-tls-cert"
-
-	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	ExecCommandAgentHostBinDir           = "/home/ec2-user/ssm-agent/linux_amd64"
-	ExecCommandAgentBinName              = "amazon-ssm-agent"
-	ExecCommandAgentSessionWorkerBinName = "ssm-session-worker"
-
-	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	ExecCommandAgentHostLogDir              = "/var/log/ecs/exec"
-	ExecCommandAgentContainerLogDir         = "/var/log/amazon/ssm"
-	ExecCommandAgentContainerBinDir         = "/usr/bin"
-	ExecCommandAgentHostCertFile            = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
-	ExecCommandAgentContainerCertFile       = "/etc/ssl/certs/ca-certificates.crt"
-	execCommandAgentNamelessContainerPrefix = "nameless-container-"
 )
 
 // PlatformFields consists of fields specific to Linux for a task
@@ -253,94 +231,6 @@ func (task *Task) initializeCredentialSpecResource(config *config.Config, creden
 // GetCredentialSpecResource retrieves credentialspec resource from resource map
 func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool) {
 	return []taskresource.TaskResource{}, false
-}
-
-// initializeExecCommandAgentResources specifies the necessary volumes and mount points in all of the task containers in order for the
-// exec agent to run upon container start.
-// TODO: [ecs-exec] Should we validate the ssm agent binaries & certs are valid and fail here if they're not? (bind mount will succeed even if files don't exist in host)
-func (task *Task) initializeExecCommandAgentResources() error {
-	if !task.IsExecCommandAgentEnabled() {
-		return nil
-	}
-
-	tId, err := task.GetID()
-	if err != nil {
-		return err
-	}
-
-	execCommandAgentBinNames := []string{ExecCommandAgentBinName, ExecCommandAgentSessionWorkerBinName}
-
-	// Append an internal volume for each of the exec agent binary names
-	for _, bn := range execCommandAgentBinNames {
-		task.Volumes = append(task.Volumes,
-			TaskVolume{
-				Type: HostVolumeType,
-				Name: buildVolumeNameForExecCommandAgentBinary(bn),
-				Volume: &taskresourcevolume.FSHostVolume{
-					FSSourcePath: filepath.Join(ExecCommandAgentHostBinDir, bn),
-				},
-			})
-	}
-
-	// Append certificates volume
-	task.Volumes = append(task.Volumes,
-		TaskVolume{
-			Type: HostVolumeType,
-			Name: internalExecCommandAgentCertVolumeName,
-			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: ExecCommandAgentHostCertFile,
-			},
-		})
-
-	// Add log volumes and mount points to all containers in this task
-	for _, c := range task.Containers {
-		lvn := fmt.Sprintf("%s-%s-%s", internalExecCommandAgentLogVolumeNamePrefix, tId, c.Name)
-		cn := buildContainerNameForExecCommandAgentBinary(c)
-		task.Volumes = append(task.Volumes, TaskVolume{
-			Type: HostVolumeType,
-			Name: lvn,
-			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(ExecCommandAgentHostLogDir, tId, cn),
-			},
-		})
-
-		c.MountPoints = append(c.MountPoints,
-			apicontainer.MountPoint{
-				SourceVolume:  lvn,
-				ContainerPath: ExecCommandAgentContainerLogDir,
-				ReadOnly:      false,
-			},
-			apicontainer.MountPoint{
-				SourceVolume:  internalExecCommandAgentCertVolumeName,
-				ContainerPath: ExecCommandAgentContainerCertFile,
-				ReadOnly:      true,
-			},
-		)
-
-		for _, bn := range execCommandAgentBinNames {
-			c.MountPoints = append(c.MountPoints,
-				apicontainer.MountPoint{
-					SourceVolume:  buildVolumeNameForExecCommandAgentBinary(bn),
-					ContainerPath: filepath.Join(ExecCommandAgentContainerBinDir, bn),
-					ReadOnly:      true,
-				})
-		}
-	}
-	return nil
-}
-
-func buildVolumeNameForExecCommandAgentBinary(binaryName string) string {
-	return fmt.Sprintf("%s-%s", internalExecCommandAgentNamePrefix, binaryName)
-}
-
-func buildContainerNameForExecCommandAgentBinary(c *apicontainer.Container) string {
-	// Trim leading hyphens since they're not valid directory names
-	cn := strings.TrimLeft(c.Name, "-")
-	if cn == "" {
-		// Fallback name in the extreme case that we end up with an empty string after trimming all leading hyphens.
-		return execCommandAgentNamelessContainerPrefix + uuid.New()
-	}
-	return cn
 }
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
