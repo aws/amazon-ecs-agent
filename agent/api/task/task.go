@@ -325,7 +325,7 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
-	dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	dockerClient dockerapi.DockerClient, ctx context.Context, options ...Option) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -353,11 +353,6 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
 	// need the credentials endpoint constructed by it.
 	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
-		return err
-	}
-
-	if err := task.initializeExecCommandAgentResources(); err != nil {
-		seelog.Errorf("Task [%s]: could not initialize exec agent: %v", task.Arn, err)
 		return err
 	}
 
@@ -400,6 +395,12 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
+	for _, opt := range options {
+		if err := opt(task); err != nil {
+			seelog.Errorf("Task [%s]: could not apply task option: %v", task.Arn, err)
+			return err
+		}
+	}
 	return nil
 }
 

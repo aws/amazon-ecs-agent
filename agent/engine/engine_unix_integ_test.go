@@ -40,6 +40,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
@@ -1027,23 +1028,28 @@ func TestExecCommandAgent(t *testing.T) {
 		readOnly bool
 	}{
 		{
-			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentBinName),
-			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentBinName),
+			source:   filepath.Join(execcmd.HostBinDir, execcmd.BinName),
+			dest:     filepath.Join(execcmd.ContainerBinDir, execcmd.BinName),
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(apitask.ExecCommandAgentHostBinDir, apitask.ExecCommandAgentSessionWorkerBinName),
-			dest:     filepath.Join(apitask.ExecCommandAgentContainerBinDir, apitask.ExecCommandAgentSessionWorkerBinName),
+			source:   filepath.Join(execcmd.HostBinDir, execcmd.SessionWorkerBinName),
+			dest:     filepath.Join(execcmd.ContainerBinDir, execcmd.SessionWorkerBinName),
 			readOnly: true,
 		},
 		{
-			source:   apitask.ExecCommandAgentHostCertFile,
-			dest:     apitask.ExecCommandAgentContainerCertFile,
+			source:   execcmd.HostCertFile,
+			dest:     execcmd.ContainerCertFile,
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(apitask.ExecCommandAgentHostLogDir, testTaskId, testContainerName),
-			dest:     apitask.ExecCommandAgentContainerLogDir,
+			source:   filepath.Join(execcmd.HostBinDir, execcmd.ConfigFileName),
+			dest:     execcmd.ContainerConfigFile,
+			readOnly: true,
+		},
+		{
+			source:   filepath.Join(execcmd.HostLogDir, testTaskId, testContainerName),
+			dest:     execcmd.ContainerLogDir,
 			readOnly: false,
 		},
 	}
