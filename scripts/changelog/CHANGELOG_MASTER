@@ -1,3 +1,9 @@
+1.45.0-1
+Cam Sparr <cssparr@amazon.com>
+2020-09-30T11:00:00-08:00
+Cache Agent version 1.45.0
+Block offhost access to agent's introspection port by default. Configurable via env ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS
+
 1.44.4-1
 Ray Allan <fierlion@amazon.com>
 2020-09-15T11:34:32-08:00
