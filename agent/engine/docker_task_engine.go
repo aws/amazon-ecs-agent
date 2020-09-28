@@ -39,7 +39,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmdagent"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -165,7 +165,7 @@ type DockerTaskEngine struct {
 	// swappable for testing
 	handleDelay             func(duration time.Duration)
 	monitorExecAgentsTicker *time.Ticker
-	execCmdAgentMgr         execcmdagent.Manager
+	execCmdMgr              execcmd.Manager
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -180,7 +180,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 	state dockerstate.TaskEngineState,
 	metadataManager containermetadata.Manager,
 	resourceFields *taskresource.ResourceFields,
-	execCmdAgentMgr execcmdagent.Manager) *DockerTaskEngine {
+	execCmdMgr execcmd.Manager) *DockerTaskEngine {
 	dockerTaskEngine := &DockerTaskEngine{
 		cfg:        cfg,
 		client:     client,
@@ -202,7 +202,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		taskSteadyStatePollIntervalJitter: defaultTaskSteadyStatePollIntervalJitter,
 		resourceFields:                    resourceFields,
 		handleDelay:                       time.Sleep,
-		execCmdAgentMgr:                   execCmdAgentMgr,
+		execCmdMgr:                        execCmdMgr,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -297,7 +297,7 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 		seelog.Errorf("Task engine [%s]: Could not retrieve docker id for container", task.Arn)
 		return
 	}
-	_, err = engine.execCmdAgentMgr.RestartIfStopped(ctx, engine.client, task, c, dockerID)
+	_, err = engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
 		// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
@@ -746,7 +746,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 	defer metrics.MetricsEngineGlobal.RecordTaskEngineMetric("ADD_TASK")()
 	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager,
-		engine.resourceFields, engine.client, engine.ctx)
+		engine.resourceFields, engine.client, engine.ctx, engine.initializeExecCmdAgentForTask)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to add task to the engine: %v", task.Arn, err)
 		task.SetKnownStatus(apitaskstatus.TaskStopped)
@@ -1257,7 +1257,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 		}
 	}
 	if task.IsExecCommandAgentEnabled() {
-		if err := engine.execCmdAgentMgr.Start(engine.ctx, engine.client, task, container, dockerID); err != nil {
+		if err := engine.execCmdMgr.StartAgent(engine.ctx, engine.client, task, container, dockerID); err != nil {
 			seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
 			// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
 		}
@@ -1548,4 +1548,15 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 		return dockerContainer.DockerName, nil
 	}
 	return dockerContainer.DockerID, nil
+}
+
+func (engine *DockerTaskEngine) initializeExecCmdAgentForTask(task *apitask.Task) error {
+	if !task.IsExecCommandAgentEnabled() {
+		return nil
+	}
+	if err := engine.execCmdMgr.InitializeTask(task); err != nil {
+		seelog.Errorf("Task [%s]: could not initialize ExecCommandAgent: %v", task.Arn, err)
+		return err
+	}
+	return nil
 }

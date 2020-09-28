@@ -3537,3 +3537,23 @@ func getTestENI() *apieni.ENI {
 		SubnetGatewayIPV4Address: ipv4Gateway + ipv4Block,
 	}
 }
+
+func TestPostUnmarshalTaskWithOptions(t *testing.T) {
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	numCalls := 0
+	opt := func(optTask *Task) error {
+		assert.Equal(t, task, optTask)
+		numCalls++
+		return nil
+	}
+	task.PostUnmarshalTask(&config.Config{}, nil, nil, nil, nil, opt, opt)
+	assert.Equal(t, 2, numCalls)
+}
