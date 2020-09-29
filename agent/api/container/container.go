@@ -80,6 +80,9 @@ const (
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
 	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
+
+	// executeCommandAgent is the only available ManagedAgent type
+	executeCommandAgentName = "EXECUTE_COMMAND_AGENT"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
@@ -106,6 +109,17 @@ type HealthStatus struct {
 	Output string `json:"output,omitempty"`
 }
 
+type ManagedAgent struct {
+	// Status is the managed agent health status
+	Status apicontainerstatus.ManagedAgentStatus `json:"status:omitempty"`
+	// Name is always executeCommandAgent (until a new agent type is introduced)
+	Name string `json:"name,omitempty"`
+	// Reason is a placeholder for failure messaging
+	Reason string `json:"reason,omitempty"`
+	// LastStartedAt is the timestamp when the status last went from PENDING->RUNNING
+	LastStartedAt *time.Time `json:"lastStartedAt,omitempty"`
+}
+
 // Container is the internal representation of a container in the ECS agent
 type Container struct {
 	// Name is the name of the container specified in the task definition
@@ -117,6 +131,8 @@ type Container struct {
 	TaskARNUnsafe string `json:"taskARN"`
 	// DependsOnUnsafe is the field which specifies the ordering for container startup and shutdown.
 	DependsOnUnsafe []DependsOn `json:"dependsOn,omitempty"`
+	// ManagedAgentsUnsafe presently contains only the executeCommandAgent
+	ManagedAgentsUnsafe []ManagedAgent `json:"managedAgents,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -269,14 +285,21 @@ type Container struct {
 	// ContainerArn is the Arn of this container.
 	ContainerArn string `json:"ContainerArn,omitempty"`
 
-	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"ExecCommandAgentMetadata"`
-
 	createdAt  time.Time
 	startedAt  time.Time
 	finishedAt time.Time
 
 	labels map[string]string
+
+	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
+	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
+
+	// ExecCommandAgentStatusUnsafe is the ExecCommandAgent status
+	ExecCommandAgentStatusUnsafe apicontainerstatus.ManagedAgentStatus `json:"execCommandAgentStatus,omitempty"`
+
+	// execCommandAgentStartedAt is the latest time the execCommandAgent process was started
+	// this will be Zero value if the execCommandAgent process has never been started (ex: created/provisioned but not started)
+	execCommandAgentStartedAt time.Time
 }
 
 type DependsOn struct {
@@ -680,6 +703,68 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 	defer c.lock.RUnlock()
 
 	return c.KnownPortBindingsUnsafe
+}
+
+// SetKnownExecCommandAgentStatus sets the desired status of the execCommandAgent
+func (c *Container) SetKnownExecCommandAgentStatus(status apicontainerstatus.ManagedAgentStatus) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.ExecCommandAgentStatusUnsafe = status
+}
+
+// GetExecCommandAgentStatus gets the desired status of the execCommandAgent
+func (c *Container) GetKnownExecCommandAgentStatus() apicontainerstatus.ManagedAgentStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.ExecCommandAgentStatusUnsafe
+}
+
+// SetExecCommandAgentStartedAt sets the timestamp for execCommandeAgent started time
+func (c *Container) SetExecCommandAgentStartedAt(startedAt time.Time) {
+	if startedAt.IsZero() {
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.execCommandAgentStartedAt = startedAt
+}
+
+// GetExecCommandAgentStartedAt gets the timestamp for execCommandAgent started time
+func (c *Container) GetExecCommandAgentStartedAt() time.Time {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.execCommandAgentStartedAt
+}
+
+// GetKnownManagedAgents is a convenience method to format the
+// ExecuteCommandAgent to meet the expectations of ContainerStateChange
+// This returns an initialized array of ManagedAgents if none are reporting
+// Else an array of knownManagedAgents
+func (c *Container) GetKnownManagedAgents() []ManagedAgent {
+	knownManagedAgentStatus := c.GetKnownExecCommandAgentStatus()
+	knownManagedAgentStart := aws.Time(c.GetExecCommandAgentStartedAt())
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// for now we will reset the managed agents every time.
+	c.ManagedAgentsUnsafe = []ManagedAgent{}
+	if knownManagedAgentStatus.ShouldReportToBackend() {
+		// LastStartedAt will only exist for ManagedAgents
+		// that have been started at least once
+		knownManagedAgent := ManagedAgent{
+			Status:        knownManagedAgentStatus,
+			Name:          executeCommandAgentName,
+			LastStartedAt: knownManagedAgentStart,
+		}
+		c.ManagedAgentsUnsafe = append(c.ManagedAgentsUnsafe, knownManagedAgent)
+	}
+
+	return c.ManagedAgentsUnsafe
 }
 
 // SetVolumes sets the volumes mounted in a container

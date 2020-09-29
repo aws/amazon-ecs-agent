@@ -538,11 +538,93 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
 }
 
-func TestSetImageDigestInContainer(t *testing.T) {
+func TestSetKnownExecCommandAgentStatus(t *testing.T) {
 	container := Container{}
-	container.SetImageDigest("sha256:123456789")
-	assert.Equal(t, "sha256:123456789", container.ImageDigest)
-	assert.Equal(t, "sha256:123456789", container.GetImageDigest())
+	container.SetKnownExecCommandAgentStatus(apicontainerstatus.ManagedAgentRunning)
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, container.ExecCommandAgentStatusUnsafe)
+}
+
+func TestSetExecCommandAgentStartedAt(t *testing.T) {
+	container := Container{}
+	nowTime := time.Now()
+	container.SetExecCommandAgentStartedAt(nowTime)
+	assert.Equal(t, nowTime, container.execCommandAgentStartedAt)
+}
+
+func TestGetKnownExecCommandAgentStatus(t *testing.T) {
+	container := Container{}
+	container.SetKnownExecCommandAgentStatus(apicontainerstatus.ManagedAgentRunning)
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, container.GetKnownExecCommandAgentStatus())
+}
+
+func TestGetExecCommandAgentStartedAt(t *testing.T) {
+	container := Container{}
+	nowTime := time.Now()
+	container.SetExecCommandAgentStartedAt(nowTime)
+	assert.Equal(t, nowTime, container.GetExecCommandAgentStartedAt())
+}
+
+func TestGetKnownManagedAgents(t *testing.T) {
+	nowTime := time.Now()
+	testCases := []struct {
+		name              string
+		container         *Container
+		status            apicontainerstatus.ManagedAgentStatus
+		expectedStartTime time.Time
+	}{
+		{
+			name: "test GetKnownManagedAgents none case",
+			container: &Container{
+				Name: "containerManagedAgentNone",
+			},
+			status:            apicontainerstatus.ManagedAgentStatusNone,
+			expectedStartTime: time.Time{},
+		},
+		{
+			name: "test GetKnownManagedAgents created case",
+			container: &Container{
+				Name: "containerManagedAgentCreated",
+			},
+			status:            apicontainerstatus.ManagedAgentCreated,
+			expectedStartTime: time.Time{},
+		},
+		{
+			name: "test GetKnownManagedAgents running case",
+			container: &Container{
+				Name:                      "containerManagedAgentRunning",
+				execCommandAgentStartedAt: nowTime,
+			},
+			status:            apicontainerstatus.ManagedAgentRunning,
+			expectedStartTime: nowTime,
+		},
+		{
+			name: "test GetKnownManagedAgents stopped case",
+			container: &Container{
+				Name:                      "containerManagedAgentStopped",
+				execCommandAgentStartedAt: nowTime,
+			},
+			status:            apicontainerstatus.ManagedAgentStopped,
+			expectedStartTime: nowTime,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.container.SetKnownExecCommandAgentStatus(tc.status)
+
+			expectedManagedAgentArray := []ManagedAgent{}
+			// only create expected managed agent if ShouldReportToBackend is true
+			if tc.status.ShouldReportToBackend() {
+				expectedManagedAgent := ManagedAgent{
+					Status:        tc.status,
+					Name:          executeCommandAgentName,
+					LastStartedAt: &tc.expectedStartTime,
+				}
+				expectedManagedAgentArray = append(expectedManagedAgentArray, expectedManagedAgent)
+			}
+
+			assert.Equal(t, expectedManagedAgentArray, tc.container.GetKnownManagedAgents())
+		})
+	}
 }
 
 func TestDependsOnContainer(t *testing.T) {
