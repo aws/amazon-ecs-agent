@@ -42,7 +42,6 @@ type ContainerStateChange struct {
 	Status apicontainerstatus.ContainerStatus
 	// ImageDigest is the sha-256 digest of the container image as pulled from the repository
 	ImageDigest string
-
 	// Reason may contain details of why the container stopped
 	Reason string
 	// ExitCode is the exit code of the container, if available
@@ -50,7 +49,8 @@ type ContainerStateChange struct {
 	// PortBindings are the details of the host ports picked for the specified
 	// container ports
 	PortBindings []apicontainer.PortBinding
-
+	// ManagedAgents contain the name and status of Agents running inside the container
+	ManagedAgents []apicontainer.ManagedAgent
 	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
 	// storing what status was sent.  This is used to ensure the same event is handled only once.
 	Container *apicontainer.Container
@@ -138,6 +138,10 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 			contKnownStatus.String(), cont.Name, task.Arn)
 	}
 
+	// for now this will only ever be an array of ManagedAgent type
+	// with either 0 (empty but initialized) or 1 executeCommandAgent ManagedAgents
+	managedAgents := cont.GetKnownManagedAgents()
+
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
@@ -148,6 +152,7 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  cont.GetKnownPortBindings(),
+		ManagedAgents: managedAgents,
 		ImageDigest:   cont.GetImageDigest(),
 		Reason:        reason,
 		Container:     cont,
