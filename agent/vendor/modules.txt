@@ -1,3 +1,5 @@
+# github.com/BurntSushi/toml v0.3.1
+github.com/BurntSushi/toml
 # github.com/Microsoft/go-winio v0.4.11
 github.com/Microsoft/go-winio
 # github.com/aws/aws-sdk-go v1.27.0
@@ -121,11 +123,15 @@ github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.3.2
 github.com/docker/go-units
+# github.com/fzipp/gocyclo v0.0.0-20150627053110-6acd4345c835
+github.com/fzipp/gocyclo
 # github.com/godbus/dbus v4.1.0+incompatible
 github.com/godbus/dbus
 # github.com/gogo/protobuf v1.1.1
 github.com/gogo/protobuf/proto
 # github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
+github.com/golang/mock/mockgen
+github.com/golang/mock/mockgen/model
 github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.3.3
 github.com/golang/protobuf/proto
@@ -199,14 +205,46 @@ golang.org/x/sys/unix
 # golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+golang.org/x/tools/cmd/cover
+golang.org/x/tools/cmd/goimports
 golang.org/x/tools/imports
-golang.org/x/tools/internal/imports
-golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/packages
-golang.org/x/tools/internal/gopathwalk
-golang.org/x/tools/internal/module
+golang.org/x/tools/cover
+golang.org/x/tools/internal/imports
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/semver
-golang.org/x/tools/internal/fastwalk
+golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/internal/module
+golang.org/x/tools/go/ast/inspector
+golang.org/x/tools/go/types/typeutil
 golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/internal/fastwalk
+golang.org/x/tools/go/loader
+golang.org/x/tools/go/buildutil
+golang.org/x/tools/go/internal/cgo
+# honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc
+honnef.co/go/tools/cmd/staticcheck
+honnef.co/go/tools/lint
+honnef.co/go/tools/lint/lintutil
+honnef.co/go/tools/simple
+honnef.co/go/tools/staticcheck
+honnef.co/go/tools/stylecheck
+honnef.co/go/tools/unused
+honnef.co/go/tools/config
+honnef.co/go/tools/ssa
+honnef.co/go/tools/ssa/ssautil
+honnef.co/go/tools/lint/lintutil/format
+honnef.co/go/tools/version
+honnef.co/go/tools/arg
+honnef.co/go/tools/internal/sharedcheck
+honnef.co/go/tools/lint/lintdsl
+honnef.co/go/tools/deprecated
+honnef.co/go/tools/functions
+honnef.co/go/tools/printf
+honnef.co/go/tools/ssautil
+honnef.co/go/tools/staticcheck/vrp
+honnef.co/go/tools/go/types/typeutil
+honnef.co/go/tools/callgraph
+honnef.co/go/tools/callgraph/static

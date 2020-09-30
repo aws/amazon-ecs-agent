@@ -29,7 +29,6 @@ all: docker
 gobuild:
 	./scripts/build false
 
-
 # create output directories
 .out-stamp:
 	mkdir -p ./out/test-artifacts ./out/cni-plugins ./out/amazon-ecs-cni-plugins ./out/amazon-vpc-cni-plugins
@@ -99,8 +98,7 @@ misc/certs/ca-certificates.crt:
 	docker run "amazon/amazon-ecs-agent-cert-source:make" cat /etc/ssl/certs/ca-certificates.crt > misc/certs/ca-certificates.crt
 
 gogenerate:
-	go generate -x ./agent/...
-	$(MAKE) goimports
+	@cd agent && $(MAKE) gogenerate
 
 # 'go' may not be on the $PATH for sudo tests
 GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
@@ -260,56 +258,38 @@ taskmetadata-validator:
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
 
-
-# all .go files in the agent, excluding vendor/, model/ and testutils/ directories, and all *_test.go and *_mocks.go files
-GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{$$f}} {{end}}' ./agent/... \
-		| grep -v /testutils/ | grep -v _test\.go$ | grep -v _mocks\.go$ | grep -v /model)
-
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 15 ${GOFILES}
+	@cd agent && $(MAKE) gocyclo
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet
 govet:
-	go vet $(shell go list ./agent/... | grep -v /testutils/ | grep -v _test\.go$ | grep -v /mocks | grep -v /model)
-
-GOFMTFILES:=$(shell find ./agent -not -path './agent/vendor/*' -type f -iregex '.*\.go')
+	@cd agent && $(MAKE) govet
 
 .PHONY: importcheck
 importcheck:
-	$(eval DIFFS:=$(shell goimports -l $(GOFMTFILES)))
-	@if [ -n "$(DIFFS)" ]; then echo "Files incorrectly formatted. Fix formatting by running goimports:"; echo "$(DIFFS)"; exit 1; fi
+	@cd agent && $(MAKE) importcheck
 
 .PHONY: gogenerate-check
-gogenerate-check: gogenerate
-	# check that gogenerate does not generate a diff.
-	git diff --exit-code
+gogenerate-check:
+	@cd agent && $(MAKE) gogenerate-check
 
 .PHONY: static-check
-static-check: gocyclo govet importcheck gogenerate-check
-	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
-	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
-	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "inherit,-ST*,-SA1019" ./agent/...
+static-check:
+	@cd agent && $(MAKE) static-check
 
 .PHONY: goimports
 goimports:
-	goimports -w $(GOFMTFILES)
+	@cd agent && $(MAKE) goimports
 
 GOPATH=$(shell go env GOPATH)
 .get-deps-stamp:
-	go get golang.org/x/tools/cmd/cover
-	go get github.com/golang/mock/mockgen
-	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
-	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo
-	go get honnef.co/go/tools/cmd/staticcheck
+	@cd agent && go list -f '{{ join .Imports "\n" }}' tools.go | xargs -tI % go install %
 	touch .get-deps-stamp
 
 get-deps: .get-deps-stamp
-
 
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)

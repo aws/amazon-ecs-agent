@@ -143,6 +143,7 @@ const (
 
 	// disableIPv6SysctlKey specifies the setting that controls whether ipv6 is disabled.
 	disableIPv6SysctlKey = "net.ipv6.conf.all.disable_ipv6"
+
 	// sysctlValueOff specifies the value to use to turn off a sysctl setting.
 	sysctlValueOff = "0"
 )
