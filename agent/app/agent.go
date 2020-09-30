@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
-
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -44,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"

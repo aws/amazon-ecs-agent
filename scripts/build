@@ -42,17 +42,20 @@ fi
 
 if [ "${TARGET_OS}" == "windows" ]; then
     unset static
-    build_exe="out/amazon-ecs-agent.exe"
+    build_exe="../out/amazon-ecs-agent.exe"
     export GOOS=windows
 else
-    build_exe="out/amazon-ecs-agent"
+    build_exe="../out/amazon-ecs-agent"
 fi
 
-cd "${ROOT}"
+export GO111MODULE=on
+export GOFLAGS=-mod=vendor
+
+cd "${ROOT}/agent"
 if [[ "${static}" == "true" ]]; then
-	CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+	CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./
 else
-	go build -o $build_exe ./agent/
+	go build -o $build_exe ./
 fi
 
 if [[ -n "${output_directory}" ]]; then

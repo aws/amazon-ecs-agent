@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
+	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
@@ -20,6 +21,7 @@ require (
 	github.com/docker/docker v17.12.0-ce-rc1.0.20181024032540-785fe99bdb7c+incompatible
 	github.com/docker/go-connections v0.3.0
 	github.com/docker/go-units v0.3.2
+	github.com/fzipp/gocyclo v0.0.0-20150627053110-6acd4345c835
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
@@ -50,5 +52,5 @@ require (
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/grpc v1.32.0 // indirect
 	gotest.tools v1.4.0 // indirect
-	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc // indirect
+	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc
 )
