@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.45.0-1
+* Cache Agent version 1.45.0
+* Block offhost access to agent's introspection port by default. Configurable via env ECS\_ALLOW\_OFFHOST\_INTROSPECTION\_ACCESS
+
 ## 1.44.4-1
 * Cache Agent version 1.44.4
 
