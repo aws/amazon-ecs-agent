@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.45.0
+* Feature - ECS metadata for AWS service lens and x-ray. We have added new fields to the TMDEv4 endpoint. Specfically, ContainerARN, LogDriver, LogOptions, and LaunchType [#2623](https://github.com/aws/amazon-ecs-agent/pull/2623)
+* Feature - add IPv6 support for task networking [#2646](https://github.com/aws/amazon-ecs-agent/pull/2646)
+* Enhancement - Propagate responses to the Amazon ECS Container Agent Log when an error occurs [#2641](https://github.com/aws/amazon-ecs-agent/pull/2641)
+* Bug - Fix HTTP response code to TMDE requests when they fail for internal reasons. Previously we returned 400 Bad Request, and will now return 500 Internal Server Error [#2643](https://github.com/aws/amazon-ecs-agent/pull/2643)
+
 ## 1.44.4
 * Bug - Fix a bug where the ECS Agent did not iterate through all the dependencies of a particular container [#2615](https://github.com/aws/amazon-ecs-agent/pull/2615)
 * Bug - Fix a bug where the ECS Agent can lose track of containers if it's stopped by SIGKILL instead of SIGTERM [#2609](https://github.com/aws/amazon-ecs-agent/pull/2609)
