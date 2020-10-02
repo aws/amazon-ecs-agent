@@ -261,7 +261,7 @@ func (e *Engine) PostStop() error {
 	err := e.loopbackRouting.RestoreDefault()
 
 	// Ignore error from Remove() as the netfilter might never have been
-	// addred in the first place
+	// added in the first place
 	e.credentialsProxyRoute.Remove()
 	return err
 }
