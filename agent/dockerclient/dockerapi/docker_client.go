@@ -84,6 +84,10 @@ const (
 	maximumPullRetryDelay     = 5 * time.Second
 	pullRetryDelayMultiplier  = 2
 	pullRetryJitterMultiplier = 0.2
+
+	// pollStatsTimeout is the timeout for polling Docker Stats API;
+	// keeping it same as streaming stats inactivity timeout
+	pollStatsTimeout = 18 * time.Second
 )
 
 var ctxTimeoutStopContainer = dockerclient.StopContainerTimeout
@@ -1366,7 +1370,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			defer close(statsC)
 			// we need to start by getting container stats so that the task stats
 			// endpoint will be populated immediately.
-			stats, err := getContainerStatsNotStreamed(client, subCtx, id)
+			stats, err := getContainerStatsNotStreamed(client, subCtx, id, pollStatsTimeout)
 			if err != nil {
 				errC <- err
 				return
@@ -1381,7 +1385,7 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 			statPollTicker := time.NewTicker(dg.config.PollingMetricsWaitDuration)
 			defer statPollTicker.Stop()
 			for range statPollTicker.C {
-				stats, err := getContainerStatsNotStreamed(client, subCtx, id)
+				stats, err := getContainerStatsNotStreamed(client, subCtx, id, pollStatsTimeout)
 				if err != nil {
 					errC <- err
 					return
@@ -1394,21 +1398,35 @@ func (dg *dockerGoClient) Stats(ctx context.Context, id string, inactivityTimeou
 	return statsC, errC
 }
 
-func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string) (*types.StatsJSON, error) {
-	resp, err := client.ContainerStats(ctx, id, false)
-	if err != nil {
+func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, id string, timeout time.Duration) (*types.StatsJSON, error) {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	type statsResponse struct {
+		stats types.ContainerStats
+		err   error
+	}
+	response := make(chan statsResponse, 1)
+	go func() {
+		stats, err := client.ContainerStats(ctxWithTimeout, id, false)
+		response <- statsResponse{stats, err}
+	}()
+	select {
+	case resp := <-response:
+		decoder := json.NewDecoder(resp.stats.Body)
+		stats := &types.StatsJSON{}
+		err := decoder.Decode(stats)
+		if err != nil {
+			return nil, fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
+		}
+		defer resp.stats.Body.Close()
+		return stats, nil
+	case <-ctxWithTimeout.Done():
+		err := ctxWithTimeout.Err()
+		if err == context.DeadlineExceeded {
+			return nil, fmt.Errorf("DockerGoClient: timed out retrieving stats for container %s", id)
+		}
 		return nil, fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, err)
 	}
-	defer resp.Body.Close()
-
-	decoder := json.NewDecoder(resp.Body)
-	stats := &types.StatsJSON{}
-	err = decoder.Decode(stats)
-	if err != nil {
-		return nil, fmt.Errorf("DockerGoClient: Unable to decode stats for container %s: %v", id, err)
-	}
-
-	return stats, nil
 }
 
 func (dg *dockerGoClient) RemoveImage(ctx context.Context, imageName string, timeout time.Duration) error {
