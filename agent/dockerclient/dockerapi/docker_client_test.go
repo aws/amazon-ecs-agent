@@ -1163,6 +1163,22 @@ func TestStatsInactivityTimeout(t *testing.T) {
 	assert.Error(t, <-errC)
 }
 
+func TestPollStatsTimeout(t *testing.T) {
+	shortTimeout := 1 * time.Millisecond
+	mockDockerSDK, _, _, _, _, done := dockerClientSetup(t)
+	defer done()
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), false).Do(func(x, y, z interface{}) {
+		wait.Wait()
+	}).MaxTimes(1).Return(types.ContainerStats{Body: mockStream{}}, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	_, err := getContainerStatsNotStreamed(mockDockerSDK, ctx, "", shortTimeout)
+	assert.Error(t, err)
+	wait.Done()
+}
+
 func TestStatsInactivityTimeoutNoHit(t *testing.T) {
 	longInactivityTimeout := 500 * time.Millisecond
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
