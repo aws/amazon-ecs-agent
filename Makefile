@@ -118,26 +118,23 @@ ifneq (${BUILD_PLATFORM},aarch64)
 endif
 
 test:
-	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
-	go tool cover -func cover.out > coverprofile.out
+	@cd agent && $(MAKE) test
 
 test-silent:
-	$(eval VERBOSE=)
-	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./agent/...
-	go tool cover -func cover.out > coverprofile.out
+	@cd agent && $(MAKE) test-silent
 
 .PHONY: analyze-cover-profile
-analyze-cover-profile: coverprofile.out
+analyze-cover-profile: ./agent/coverprofile.out
 	./scripts/analyze-cover-profile
 
 run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tests
-	ECS_LOGLEVEL=debug ${GOTEST} -tags integration -timeout=30m ./agent/...
+	@cd agent && ECS_LOGLEVEL=debug GO111MODULE=on ${GOTEST} -tags integration -timeout=30m ./...
 
 run-sudo-tests:
-	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
+	@cd agent && sudo -E GO111MODULE=on ${GOTEST} -tags sudo -timeout=10m ./...
 
 benchmark-test:
-	go test -run=XX -bench=. ./agent/...
+	@cd agent && $(MAKE) benchmark-test
 
 
 .PHONY: build-image-for-ecr upload-images replicate-images
@@ -316,6 +313,6 @@ clean:
 	-rm -f .builder-image-stamp
 	-rm -f .out-stamp
 	-rm -rf $(PWD)/bin
-	-rm -rf cover.out
-	-rm -rf coverprofile.out
+	-rm -rf ./agent/cover.out
+	-rm -rf ./agent/coverprofile.out
 

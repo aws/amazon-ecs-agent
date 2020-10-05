@@ -15,7 +15,7 @@ MINIMUM_TEST_COVERAGE = 73.8
 # github.com/aws/amazon-ecs-agent/agent/wsclient/types.go:57:						GetRecognizedTypes				100.0%
 # total:													(statements)					73.8%
 
-with open("coverprofile.out") as f:
+with open("./agent/coverprofile.out") as f:
     for line in f:
         if line.startswith("total:"):
             splitline = line.split()
