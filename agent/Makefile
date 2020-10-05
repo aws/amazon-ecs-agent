@@ -1,3 +1,11 @@
+BUILD_PLATFORM:=$(shell uname -m)
+
+ifeq (${BUILD_PLATFORM},aarch64)
+	GOARCH=arm64
+else
+	GOARCH=amd64
+endif
+
 .PHONY: gomodule-on
 gomodule-on:
 	GO111MODULE=on
@@ -50,3 +58,35 @@ static-check: gomodule-on gocyclo govet importcheck gogenerate-check
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
 	staticcheck -tests=false -checks "inherit,-ST*,-SA1019" ./...
+
+# 'go' may not be on the $PATH for sudo tests
+GO_EXECUTABLE=$(shell command -v go 2> /dev/null)
+
+# VERBOSE includes the options that make the test opt loud
+VERBOSE=-v -cover
+
+# -count=1 runs the test without using the build cache.  The build cache can
+# provide false positives when running integ tests, so we err on the side of
+# caution. See `go help test`
+# unit tests include the coverage profile
+GOTEST=${GO_EXECUTABLE} test -count=1 ${VERBOSE}
+
+# -race sometimes causes compile issues on Arm
+ifneq (${BUILD_PLATFORM},aarch64)
+	GOTEST += -race
+endif
+
+.PHONY: test
+test: gomodule-on
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./...
+	go tool cover -func cover.out > coverprofile.out
+
+.PHONY: test-silent
+test-silent: gomodule-on
+	$(eval VERBOSE=)
+	${GOTEST} -tags unit -coverprofile cover.out -timeout=60s ./...
+	go tool cover -func cover.out > coverprofile.out
+
+.PHONY: benchmark-test
+benchmark-test: gomodule-on
+	go test -run=XX -bench=. ./...
