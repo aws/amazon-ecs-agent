@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -11,18 +12,5 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.12 as build-env
-MAINTAINER Amazon Web Services, Inc.
-
-WORKDIR /go/src/sleep
-ADD ./sleep /go/src/sleep
-RUN CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o /go/bin/sleep .
-
-WORKDIR /go/src/kill
-ADD ./kill /go/src/kill
-RUN CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o /go/bin/kill .
-
-FROM scratch
-MAINTAINER Amazon Web Services, Inc.
-COPY --from=build-env /go/bin/sleep /
-COPY --from=build-env /go/bin/kill /
+rm -rf ./amazon-ssm-agent
+CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o amazon-ssm-agent ./sleep/

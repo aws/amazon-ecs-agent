@@ -13,5 +13,5 @@
 # permissions and limitations under the License.
 
 if ! docker images | awk '{print $1":"$2}' | grep "amazon/amazon-ecs-exec-command-agent-test:make" > /dev/null ; then
-	docker build -q -t "amazon/amazon-ecs-exec-command-agent-test:make" -f "linux.dockerfile" .
+	docker build -t "amazon/amazon-ecs-exec-command-agent-test:make" -f "linux.dockerfile" .
 fi
