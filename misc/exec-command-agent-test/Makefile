@@ -10,12 +10,16 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-.PHONY: all clean docker image
 
-all: image
+.PHONY: all clean docker image build-mock-ssm-agent
+
+all: image build-mock-ssm-agent
 
 image:
 	@./docker-image
+
+build-mock-ssm-agent:
+	@./build-mock-ssm-agent
 
 clean:
 	-docker rmi "amazon/amazon-ecs-exec-command-agent-test:make"
