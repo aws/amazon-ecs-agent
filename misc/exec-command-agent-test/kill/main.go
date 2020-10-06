@@ -17,11 +17,16 @@ package main
 
 import (
 	"flag"
-	"time"
+	"os"
+	"syscall"
 )
 
 func main() {
-	var timeFlag = flag.Duration("time", time.Minute, "sleep duration")
+	var pidFlag = flag.Int("pid", -1, "PID of the process to kill")
 	flag.Parse()
-	time.Sleep(*timeFlag)
+	if *pidFlag == -1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+	syscall.Kill(*pidFlag, 9)
 }
