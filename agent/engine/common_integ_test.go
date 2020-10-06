@@ -129,12 +129,7 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
+	skipIntegTestIfApplicable(t)
 
 	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
@@ -156,6 +151,15 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
+}
+
+func skipIntegTestIfApplicable(t *testing.T) {
+	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
+		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
+	}
+	if !isDockerRunning() {
+		t.Skip("Docker not running")
+	}
 }
 
 func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
