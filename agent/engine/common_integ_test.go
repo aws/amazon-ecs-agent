@@ -134,12 +134,12 @@ func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	skipIntegTestIfApplicable(t)
+
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
@@ -159,6 +159,15 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
+}
+
+func skipIntegTestIfApplicable(t *testing.T) {
+	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
+		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
+	}
+	if !isDockerRunning() {
+		t.Skip("Docker not running")
+	}
 }
 
 func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {
