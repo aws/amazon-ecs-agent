@@ -3337,6 +3337,7 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 		},
 		ExecCommandAgentEnabled: true,
 	}
+	taskEngine.(*DockerTaskEngine).monitorExecAgentsInterval = 2 * time.Millisecond
 	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
 	topCtx, topCancel := context.WithTimeout(context.Background(), time.Second)
@@ -3346,7 +3347,7 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 			defer topCancel()
 			return resp, nil
 		}).AnyTimes()
-	go taskEngine.(*DockerTaskEngine).startPeriodicExecAgentsMonitoring(ctx, 2*time.Millisecond)
+	go taskEngine.(*DockerTaskEngine).startPeriodicExecAgentsMonitoring(ctx)
 	<-topCtx.Done()
 	time.Sleep(5 * time.Millisecond)
 	assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)

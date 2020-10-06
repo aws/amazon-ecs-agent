@@ -99,7 +99,7 @@ const (
 	FluentNetworkPortValue = "24224"
 	FluentAWSVPCHostValue  = "127.0.0.1"
 
-	monitorExecAgentsInterval = 15 * time.Minute
+	defaultMonitorExecAgentsInterval = 15 * time.Minute
 )
 
 // DockerTaskEngine is a state machine for managing a task and its containers
@@ -163,9 +163,10 @@ type DockerTaskEngine struct {
 
 	// handleDelay is a function used to delay cleanup. Implementation is
 	// swappable for testing
-	handleDelay             func(duration time.Duration)
-	monitorExecAgentsTicker *time.Ticker
-	execCmdMgr              execcmd.Manager
+	handleDelay               func(duration time.Duration)
+	monitorExecAgentsTicker   *time.Ticker
+	execCmdMgr                execcmd.Manager
+	monitorExecAgentsInterval time.Duration
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -203,6 +204,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		resourceFields:                    resourceFields,
 		handleDelay:                       time.Sleep,
 		execCmdMgr:                        execCmdMgr,
+		monitorExecAgentsInterval:         defaultMonitorExecAgentsInterval,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -255,12 +257,12 @@ func (engine *DockerTaskEngine) Init(ctx context.Context) error {
 	// Now catch up and start processing new events per normal
 	go engine.handleDockerEvents(derivedCtx)
 	engine.initialized = true
-	go engine.startPeriodicExecAgentsMonitoring(derivedCtx, monitorExecAgentsInterval)
+	go engine.startPeriodicExecAgentsMonitoring(derivedCtx)
 	return nil
 }
 
-func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context, monitorInterval time.Duration) {
-	engine.monitorExecAgentsTicker = time.NewTicker(monitorInterval)
+func (engine *DockerTaskEngine) startPeriodicExecAgentsMonitoring(ctx context.Context) {
+	engine.monitorExecAgentsTicker = time.NewTicker(engine.monitorExecAgentsInterval)
 	for {
 		select {
 		case <-engine.monitorExecAgentsTicker.C:
