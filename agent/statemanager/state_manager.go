@@ -31,6 +31,19 @@ import (
 	"github.com/cihub/seelog"
 )
 
+/*
+
+DEPRECATED: state manager is no longer used to store agent state and it remains here
+ only for backward compatibility purpose (loading state from an old agent that uses
+ the state manager - see agent/app/data.go, so do not remove it although it's deprecated).
+ You no longer need to update ECSDataVersion when changing data structure
+ in agent.
+
+Agent now uses boltDB to store its state. See github.com/aws/amazon-ecs-agent/agent/data
+ package for the new data persistent interface and use that if you need to deal with data persistence.
+
+*/
+
 const (
 	// ECSDataVersion is the current version of saved data. Any backwards or
 	// forwards incompatible changes to the data-format should increment this number
