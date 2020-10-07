@@ -73,6 +73,7 @@ const (
 	capabilityExecBinRelativePath               = "bin"
 	capabilityExecConfigRelativePath            = "config"
 	capabilityExecCertsRelativePath             = "certs"
+	capabilityOnPrem                            = "on-prem"
 )
 
 var (
@@ -110,6 +111,23 @@ var (
 
 	pathExists        = defaultPathExists
 	getSubDirectories = defaultGetSubDirectories
+
+	// List of capabilities that are not supported on-premises.
+	onPremUnsupportedCapabilities = []string{
+		attributePrefix + taskENIAttributeSuffix,
+		attributePrefix + cniPluginVersionSuffix,
+		attributePrefix + taskENIIPv6AttributeSuffix,
+		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + taskENITrunkingAttributeSuffix,
+		attributePrefix + appMeshAttributeSuffix,
+		attributePrefix + taskEIAAttributeSuffix,
+		attributePrefix + taskEIAWithOptimizedCPU,
+	}
+	// List of capabilities that are only supported on-premises. Currently only one but keep as a list
+	// for future proof and also align with onPremUnsupportedCapabilities.
+	onPremSpecificCapabilities = []string{
+		attributePrefix + capabilityOnPrem,
+	}
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -160,6 +178,7 @@ var (
 //    ecs.capability.env-files.s3
 //    ecs.capability.fsxWindowsFileServer
 //    ecs.capability.execute-command
+//    ecs.capability.on-prem
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -250,6 +269,14 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities, err = agent.appendExecCapabilities(capabilities)
 	if err != nil {
 		return nil, err
+	}
+
+	if agent.cfg.OnPrem.Enabled() {
+		// Add on-prem specific capability; remove on-prem unsupported capabilities.
+		for _, cap := range onPremSpecificCapabilities {
+			capabilities = appendNameOnlyAttribute(capabilities, cap)
+		}
+		capabilities = removeAttributesByNames(capabilities, onPremUnsupportedCapabilities)
 	}
 
 	return capabilities, nil
@@ -498,4 +525,19 @@ func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.At
 	return append(attributes, &ecs.Attribute{
 		Name: aws.String(name),
 	})
+}
+
+func removeAttributesByNames(attributes []*ecs.Attribute, names []string) []*ecs.Attribute {
+	nameMap := make(map[string]struct{})
+	for _, name := range names {
+		nameMap[name] = struct{}{}
+	}
+
+	var ret []*ecs.Attribute
+	for _, attr := range attributes {
+		if _, ok := nameMap[aws.StringValue(attr.Name)]; !ok {
+			ret = append(ret, attr)
+		}
+	}
+	return ret
 }
