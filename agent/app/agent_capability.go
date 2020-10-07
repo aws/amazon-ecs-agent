@@ -61,29 +61,49 @@ const (
 	capabilityEFS                               = "efs"
 	capabilityEFSAuth                           = "efsAuth"
 	capabilityEnvFilesS3                        = "env-files.s3"
+	capabilityOnPrem                            = "on-prem"
 )
 
-var nameOnlyAttributes = []string{
-	// ecs agent version 1.19.0 supports private registry authentication using
-	// aws secrets manager
-	capabilityPrivateRegistryAuthASM,
-	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
-	capabilitySecretEnvSSM,
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilitySecretLogDriverSSM,
-	// support ecr endpoint override
-	capabilityECREndpoint,
-	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
-	capabilitySecretEnvASM,
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilitySecretLogDriverASM,
-	// support container ordering in agent
-	capabilityContainerOrdering,
-	// support full task sync
-	capabilityFullTaskSync,
-	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
-	capabilityEnvFilesS3,
-}
+var (
+	nameOnlyAttributes = []string{
+		// ecs agent version 1.19.0 supports private registry authentication using
+		// aws secrets manager
+		capabilityPrivateRegistryAuthASM,
+		// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
+		capabilitySecretEnvSSM,
+		// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+		capabilitySecretLogDriverSSM,
+		// support ecr endpoint override
+		capabilityECREndpoint,
+		// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
+		capabilitySecretEnvASM,
+		// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+		capabilitySecretLogDriverASM,
+		// support container ordering in agent
+		capabilityContainerOrdering,
+		// support full task sync
+		capabilityFullTaskSync,
+		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
+		capabilityEnvFilesS3,
+	}
+
+	// List of capabilities that are not supported on-premises.
+	onPremUnsupportedCapabilities = []string{
+		attributePrefix + taskENIAttributeSuffix,
+		attributePrefix + cniPluginVersionSuffix,
+		attributePrefix + taskENIIPv6AttributeSuffix,
+		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + taskENITrunkingAttributeSuffix,
+		attributePrefix + appMeshAttributeSuffix,
+		attributePrefix + taskEIAAttributeSuffix,
+		attributePrefix + taskEIAWithOptimizedCPU,
+	}
+	// List of capabilities that are only supported on-premises. Currently only one but keep as a list
+	// for future proof and also align with onPremUnsupportedCapabilities.
+	onPremSpecificCapabilities = []string{
+		attributePrefix + capabilityOnPrem,
+	}
+)
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
@@ -131,6 +151,7 @@ var nameOnlyAttributes = []string{
 //    ecs.capability.gmsa
 //    ecs.capability.efsAuth
 //    ecs.capability.env-files.s3
+//    ecs.capability.on-prem
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -213,6 +234,14 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	// support efs auth on ecs capabilities
 	for _, cap := range agent.cfg.VolumePluginCapabilities {
 		capabilities = agent.appendEFSVolumePluginCapabilities(capabilities, cap)
+	}
+
+	if agent.cfg.OnPrem.Enabled() {
+		// Add on-prem specific capability; remove on-prem unsupported capabilities.
+		for _, cap := range onPremSpecificCapabilities {
+			capabilities = appendNameOnlyAttribute(capabilities, cap)
+		}
+		capabilities = removeAttributesByNames(capabilities, onPremUnsupportedCapabilities)
 	}
 
 	return capabilities, nil
@@ -339,4 +368,19 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 
 func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
 	return append(attributes, &ecs.Attribute{Name: aws.String(name)})
+}
+
+func removeAttributesByNames(attributes []*ecs.Attribute, names []string) []*ecs.Attribute {
+	nameMap := make(map[string]struct{})
+	for _, name := range names {
+		nameMap[name] = struct{}{}
+	}
+
+	var ret []*ecs.Attribute
+	for _, attr := range attributes {
+		if _, ok := nameMap[aws.StringValue(attr.Name)]; !ok {
+			ret = append(ret, attr)
+		}
+	}
+	return ret
 }

@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -322,6 +323,138 @@ func buildAttributeList(capabilities []string, attributes map[string]string) []*
 	return rv
 }
 
+func TestRegisterContainerInstance(t *testing.T) {
+	testCases := []struct {
+		name string
+		cfg  *config.Config
+	}{
+		{
+			name: "basic case",
+			cfg: &config.Config{
+				Cluster:   configuredCluster,
+				AWSRegion: "us-west-2",
+			},
+		},
+		{
+			name: "no instance identity doc",
+			cfg: &config.Config{
+				Cluster:   configuredCluster,
+				AWSRegion: "us-west-2",
+				NoIID:     true,
+			},
+		},
+		{
+			name: "on prem",
+			cfg: &config.Config{
+				Cluster:   configuredCluster,
+				AWSRegion: "us-west-2",
+				NoIID:     true,
+				OnPrem:    config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+			mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
+			additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
+				"my_other_custom_attribute": "Custom_Value2",
+			}
+			tc.cfg.InstanceAttributes = additionalAttributes
+			client, mc, _ := NewMockClientWithConfig(mockCtrl, mockEC2Metadata, additionalAttributes, tc.cfg)
+
+			fakeCapabilities := []string{"capability1", "capability2"}
+			expectedAttributes := map[string]string{
+				"ecs.os-type":               config.OSType,
+				"my_custom_attribute":       "Custom_Value1",
+				"my_other_custom_attribute": "Custom_Value2",
+				"ecs.availability-zone":     "us-west-2b",
+				"ecs.outpost-arn":           "test:arn:outpost",
+				cpuArchAttrName:             getCPUArch(),
+			}
+			capabilities := buildAttributeList(fakeCapabilities, nil)
+			platformDevices := []*ecs.PlatformDevice{
+				{
+					Id:   aws.String("id1"),
+					Type: aws.String(ecs.PlatformDeviceTypeGpu),
+				},
+				{
+					Id:   aws.String("id2"),
+					Type: aws.String(ecs.PlatformDeviceTypeGpu),
+				},
+				{
+					Id:   aws.String("id3"),
+					Type: aws.String(ecs.PlatformDeviceTypeGpu),
+				},
+			}
+
+			expectedIID := iid
+			expectedIIDSig := iidSignature
+			if tc.cfg.NoIID {
+				expectedIID = ""
+				expectedIIDSig = ""
+			} else {
+				gomock.InOrder(
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return(expectedIID, nil),
+					mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return(expectedIIDSig, nil),
+				)
+			}
+
+			var expectedNumOfAttributes int
+			if !tc.cfg.OnPrem.Enabled() {
+				// 2 capability attributes: capability1, capability2
+				// and 4 other attributes: ecs.os-type, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
+				expectedNumOfAttributes = 6
+			} else {
+				// One more attribute for on-prem case: ecs.cpu-architecture
+				expectedNumOfAttributes = 7
+			}
+
+			gomock.InOrder(
+				mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
+					assert.Nil(t, req.ContainerInstanceArn)
+					assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
+					assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
+					assert.Equal(t, expectedIID, *req.InstanceIdentityDocument, "Wrong IID")
+					assert.Equal(t, expectedIIDSig, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
+					assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
+					resource, ok := findResource(req.TotalResources, "PORTS_UDP")
+					require.True(t, ok, `Could not find resource "PORTS_UDP"`)
+					assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
+					assert.Equal(t, expectedNumOfAttributes, len(req.Attributes), "Wrong number of Attributes")
+					attrs := attributesToMap(req.Attributes)
+					for name, value := range attrs {
+						if strings.Contains(name, "capability") {
+							assert.Contains(t, fakeCapabilities, name)
+						} else {
+							assert.Equal(t, expectedAttributes[name], value)
+						}
+					}
+					assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
+					assert.Equal(t, len(platformDevices), len(req.PlatformDevices), "Wrong number of devices")
+					reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
+					for k, v := range reqTags {
+						assert.Contains(t, containerInstanceTagsMap, k)
+						assert.Equal(t, containerInstanceTagsMap[k], v)
+					}
+				}).Return(&ecs.RegisterContainerInstanceOutput{
+					ContainerInstance: &ecs.ContainerInstance{
+						ContainerInstanceArn: aws.String("registerArn"),
+						Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
+					nil),
+			)
+
+			arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
+				containerInstanceTags, registrationToken, platformDevices, "test:arn:outpost")
+			require.NoError(t, err)
+			assert.Equal(t, "registerArn", arn)
+			assert.Equal(t, "us-west-2b", availabilityzone)
+		})
+	}
+}
+
 func TestReRegisterContainerInstance(t *testing.T) {
 	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
 		"my_other_custom_attribute":    "Custom_Value2",
@@ -390,147 +523,6 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "registerArn", arn)
 	assert.Equal(t, "us-west-2b", availabilityzone, "availabilityZone is incorrect")
-}
-
-func TestRegisterContainerInstance(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
-		"my_other_custom_attribute": "Custom_Value2",
-	}
-	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, additionalAttributes)
-
-	fakeCapabilities := []string{"capability1", "capability2"}
-	expectedAttributes := map[string]string{
-		"ecs.os-type":               config.OSType,
-		"my_custom_attribute":       "Custom_Value1",
-		"my_other_custom_attribute": "Custom_Value2",
-		"ecs.availability-zone":     "us-west-2b",
-		"ecs.outpost-arn":           "test:arn:outpost",
-	}
-	capabilities := buildAttributeList(fakeCapabilities, nil)
-	platformDevices := []*ecs.PlatformDevice{
-		{
-			Id:   aws.String("id1"),
-			Type: aws.String(ecs.PlatformDeviceTypeGpu),
-		},
-		{
-			Id:   aws.String("id2"),
-			Type: aws.String(ecs.PlatformDeviceTypeGpu),
-		},
-		{
-			Id:   aws.String("id3"),
-			Type: aws.String(ecs.PlatformDeviceTypeGpu),
-		},
-	}
-
-	gomock.InOrder(
-		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
-		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
-		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-			assert.Nil(t, req.ContainerInstanceArn)
-			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
-			assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
-			assert.Equal(t, iid, *req.InstanceIdentityDocument, "Wrong IID")
-			assert.Equal(t, iidSignature, *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
-			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
-			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
-			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 3 from additionalAttributes
-			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
-			for i := range req.Attributes {
-				if strings.Contains(*req.Attributes[i].Name, "capability") {
-					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
-				} else {
-					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
-				}
-			}
-			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
-			assert.Equal(t, len(platformDevices), len(req.PlatformDevices), "Wrong number of devices")
-			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
-			for k, v := range reqTags {
-				assert.Contains(t, containerInstanceTagsMap, k)
-				assert.Equal(t, containerInstanceTagsMap[k], v)
-			}
-		}).Return(&ecs.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecs.ContainerInstance{
-				ContainerInstanceArn: aws.String("registerArn"),
-				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
-			nil),
-	)
-
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
-		containerInstanceTags, registrationToken, platformDevices, "test:arn:outpost")
-	assert.NoError(t, err)
-	assert.Equal(t, "registerArn", arn)
-	assert.Equal(t, "us-west-2b", availabilityzone)
-}
-
-func TestRegisterContainerInstanceNoIID(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(mockCtrl)
-	additionalAttributes := map[string]string{"my_custom_attribute": "Custom_Value1",
-		"my_other_custom_attribute": "Custom_Value2",
-	}
-	client, mc, _ := NewMockClientWithConfig(mockCtrl, mockEC2Metadata, additionalAttributes,
-		&config.Config{
-			Cluster:            configuredCluster,
-			AWSRegion:          "us-east-1",
-			InstanceAttributes: additionalAttributes,
-			NoIID:              true,
-		})
-
-	fakeCapabilities := []string{"capability1", "capability2"}
-	expectedAttributes := map[string]string{
-		"ecs.os-type":               config.OSType,
-		"my_custom_attribute":       "Custom_Value1",
-		"my_other_custom_attribute": "Custom_Value2",
-		"ecs.availability-zone":     "us-west-2b",
-		"ecs.outpost-arn":           "test:arn:outpost",
-	}
-	capabilities := buildAttributeList(fakeCapabilities, nil)
-
-	gomock.InOrder(
-		mc.EXPECT().RegisterContainerInstance(gomock.Any()).Do(func(req *ecs.RegisterContainerInstanceInput) {
-			assert.Nil(t, req.ContainerInstanceArn)
-			assert.Equal(t, configuredCluster, *req.Cluster, "Wrong cluster")
-			assert.Equal(t, registrationToken, *req.ClientToken, "Wrong client token")
-			assert.Equal(t, "", *req.InstanceIdentityDocument, "Wrong IID")
-			assert.Equal(t, "", *req.InstanceIdentityDocumentSignature, "Wrong IID sig")
-			assert.Equal(t, 4, len(req.TotalResources), "Wrong length of TotalResources")
-			resource, ok := findResource(req.TotalResources, "PORTS_UDP")
-			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
-			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
-			// 3 from expectedAttributes and 3 from additionalAttributes
-			assert.Equal(t, 6, len(req.Attributes), "Wrong number of Attributes")
-			for i := range req.Attributes {
-				if strings.Contains(*req.Attributes[i].Name, "capability") {
-					assert.Contains(t, fakeCapabilities, *req.Attributes[i].Name)
-				} else {
-					assert.Equal(t, expectedAttributes[*req.Attributes[i].Name], *req.Attributes[i].Value)
-				}
-			}
-			assert.Equal(t, len(containerInstanceTags), len(req.Tags), "Wrong number of tags")
-			reqTags := extractTagsMapFromRegisterContainerInstanceInput(req)
-			for k, v := range reqTags {
-				assert.Contains(t, containerInstanceTagsMap, k)
-				assert.Equal(t, containerInstanceTagsMap[k], v)
-			}
-		}).Return(&ecs.RegisterContainerInstanceOutput{
-			ContainerInstance: &ecs.ContainerInstance{
-				ContainerInstanceArn: aws.String("registerArn"),
-				Attributes:           buildAttributeList(fakeCapabilities, expectedAttributes)}},
-			nil),
-	)
-
-	arn, availabilityzone, err := client.RegisterContainerInstance("", capabilities,
-		containerInstanceTags, registrationToken, nil, "test:arn:outpost")
-	assert.NoError(t, err)
-	assert.Equal(t, "registerArn", arn)
-	assert.Equal(t, "us-west-2b", availabilityzone)
 }
 
 // TestRegisterContainerInstanceWithNegativeResource tests the registeration should fail with negative resource
