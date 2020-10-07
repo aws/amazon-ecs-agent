@@ -329,4 +329,7 @@ type Config struct {
 	// FSxWindowsFileServerCapable is the config option to indicate if fsxWindowsFileServer is supported.
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.
 	FSxWindowsFileServerCapable bool
+
+	// OnPrem specifies whether agent is running in on-premises mode.
+	OnPrem BooleanDefaultFalse
 }
