@@ -226,6 +226,14 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	}
 	config := &envConfig
 
+	if config.OnPrem.Enabled() {
+		if config.AWSRegion == "" {
+			return nil, errors.New("AWS_DEFAULT_REGION has to be set when running on-premises")
+		}
+		// Use fake ec2 metadata client if on prem config is set.
+		ec2client = ec2.NewBlackholeEC2MetadataClient()
+	}
+
 	if config.complete() {
 		// No need to do file / network IO
 		return config, nil
@@ -577,6 +585,7 @@ func environmentConfig() (Config, error) {
 		GMSACapable:                         parseGMSACapability(),
 		VolumePluginCapabilities:            parseVolumePluginCapabilities(),
 		FSxWindowsFileServerCapable:         parseFSxWindowsFileServerCapability(),
+		OnPrem:                              parseBooleanDefaultFalseConfig("ECS_ON_PREM"),
 	}, err
 }
 
