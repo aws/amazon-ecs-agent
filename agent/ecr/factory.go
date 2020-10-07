@@ -21,6 +21,7 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	ecrapi "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	"github.com/aws/amazon-ecs-agent/agent/httpclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -73,6 +74,8 @@ func getClientConfig(httpClient *http.Client, authData *apicontainer.ECRAuthData
 			authData.GetPullCredentials().SecretAccessKey,
 			authData.GetPullCredentials().SessionToken)
 		cfg = cfg.WithCredentials(creds)
+	} else {
+		cfg = cfg.WithCredentials(instancecreds.GetCredentials())
 	}
 
 	return cfg, nil
