@@ -143,6 +143,12 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
+	if cfg.OnPrem.Enabled() {
+		seelog.Info("Running in on-prem mode.")
+		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
+		cfg.NoIID = true
+	}
+
 	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 
