@@ -124,7 +124,6 @@ func (agent *ecsAgent) appendAppMeshCapabilities(capabilities []*ecs.Attribute) 
 }
 
 func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
-
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+taskEIAAttributeSuffix)
 
 	eiaRequiredFlags := []string{AVX, AVX2, SSE41, SSE42}
