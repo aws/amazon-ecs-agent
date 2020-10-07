@@ -16,6 +16,7 @@ package instancecreds
 import (
 	"sync"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials/providers"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
@@ -23,15 +24,24 @@ import (
 
 var (
 	credentialChain *credentials.Credentials
-	mu              sync.RWMutex
+	mu              sync.Mutex
 )
 
+// GetCredentials returns the instance credentials chain. This is the default chain
+// credentials plus the "rotating shared credentials provider", so credentials will
+// be checked in this order:
+//    1. Env vars (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).
+//    2. Shared credentials file (https://docs.aws.amazon.com/ses/latest/DeveloperGuide/create-shared-credentials-file.html) (file at ~/.aws/credentials containing access key id and secret access key).
+//    3. EC2 role credentials. This is an IAM role that the user specifies when they launch their EC2 container instance (ie ecsInstanceRole (https://docs.aws.amazon.com/AmazonECS/latest/developerguide/instance_IAM_role.html)).
+//    4. Rotating shared credentials file located at /rotatingcreds/credentials
 func GetCredentials() *credentials.Credentials {
 	mu.Lock()
 	if credentialChain == nil {
+		credProviders := defaults.CredProviders(defaults.Config(), defaults.Handlers())
+		credProviders = append(credProviders, providers.NewRotatingSharedCredentialsProvider())
 		credentialChain = credentials.NewCredentials(&credentials.ChainProvider{
 			VerboseErrors: false,
-			Providers:     defaults.CredProviders(defaults.Config(), defaults.Handlers()),
+			Providers:     credProviders,
 		})
 	}
 	mu.Unlock()
