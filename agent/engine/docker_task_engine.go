@@ -284,16 +284,17 @@ func (engine *DockerTaskEngine) monitorExecAgentProcesses(ctx context.Context) {
 			continue
 		}
 		for _, c := range task.Containers {
-			go engine.monitorExecAgentRunning(ctx, task, c)
+			go engine.monitorExecAgentRunning(ctx, mTask, c)
 		}
 	}
 }
 
 func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
-	task *apitask.Task, c *apicontainer.Container) {
+	mTask *managedTask, c *apicontainer.Container) {
 	if !c.IsRunning() {
 		return
 	}
+	task := mTask.Task
 	dockerID, err := engine.getDockerID(task, c)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Could not retrieve docker id for container", task.Arn)
@@ -308,9 +309,10 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 	_, err = engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
-		// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
 	}
-	// TODO: [ecs-exec] call control plane to report ExecCommandAgent RESTARTED/UNKNOWN? if RestartIfStopped returns true
+	// whether we restarted or failed to restart, we'll want to emit a state change event
+	// redundant state change events like RUNNING->RUNNING are allowed
+	mTask.emitContainerEvent(mTask.Task, c, "")
 }
 
 // MustInit blocks and retries until an engine can be initialized.
@@ -1266,10 +1268,16 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	}
 	if task.IsExecCommandAgentEnabled() {
 		if err := engine.execCmdMgr.StartAgent(engine.ctx, engine.client, task, container, dockerID); err != nil {
-			seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
-			// TODO: [ecs-exec] call control plane to report ExecCommandAgent FAIL here
+			seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, container.Name, err)
 		}
-		// TODO: [ecs-exec] call control plane to report ExecCommandAgent SUCCESS here
+		// whether we started or failed to start, we'll want to emit a state change event
+		// redundant state change events like RUNNING->RUNNING are allowed
+		mTask, ok := engine.managedTasks[task.Arn]
+		if ok {
+			mTask.emitContainerEvent(mTask.Task, container, "")
+		} else {
+			seelog.Errorf("Task engine [%s]: Failed to update status of ExecCommandAgent Process for container [%s]: managed task not found", task.Arn, container.Name)
+		}
 	}
 	return dockerContainerMD
 }
