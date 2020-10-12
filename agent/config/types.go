@@ -330,6 +330,6 @@ type Config struct {
 	// It should be enabled by default only if the container instance is part of a valid active directory domain.
 	FSxWindowsFileServerCapable bool
 
-	// OnPrem specifies whether agent is running in on-premises mode.
-	OnPrem BooleanDefaultFalse
+	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
+	External BooleanDefaultFalse
 }

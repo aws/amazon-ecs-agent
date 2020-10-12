@@ -73,7 +73,7 @@ const (
 	capabilityExecBinRelativePath               = "bin"
 	capabilityExecConfigRelativePath            = "config"
 	capabilityExecCertsRelativePath             = "certs"
-	capabilityOnPrem                            = "on-prem"
+	capabilityExternal                          = "external"
 )
 
 var (
@@ -112,8 +112,8 @@ var (
 	pathExists        = defaultPathExists
 	getSubDirectories = defaultGetSubDirectories
 
-	// List of capabilities that are not supported on-premises.
-	onPremUnsupportedCapabilities = []string{
+	// List of capabilities that are not supported on external capacity.
+	externalUnsupportedCapabilities = []string{
 		attributePrefix + taskENIAttributeSuffix,
 		attributePrefix + cniPluginVersionSuffix,
 		attributePrefix + taskENIIPv6AttributeSuffix,
@@ -123,10 +123,10 @@ var (
 		attributePrefix + taskEIAAttributeSuffix,
 		attributePrefix + taskEIAWithOptimizedCPU,
 	}
-	// List of capabilities that are only supported on-premises. Currently only one but keep as a list
-	// for future proof and also align with onPremUnsupportedCapabilities.
-	onPremSpecificCapabilities = []string{
-		attributePrefix + capabilityOnPrem,
+	// List of capabilities that are only supported on external capaciity. Currently only one but keep as a list
+	// for future proof and also align with externalUnsupportedCapabilities.
+	externalSpecificCapabilities = []string{
+		attributePrefix + capabilityExternal,
 	}
 )
 
@@ -178,7 +178,7 @@ var (
 //    ecs.capability.env-files.s3
 //    ecs.capability.fsxWindowsFileServer
 //    ecs.capability.execute-command
-//    ecs.capability.on-prem
+//    ecs.capability.external
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -271,12 +271,12 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		return nil, err
 	}
 
-	if agent.cfg.OnPrem.Enabled() {
-		// Add on-prem specific capability; remove on-prem unsupported capabilities.
-		for _, cap := range onPremSpecificCapabilities {
+	if agent.cfg.External.Enabled() {
+		// Add external specific capability; remove external unsupported capabilities.
+		for _, cap := range externalSpecificCapabilities {
 			capabilities = appendNameOnlyAttribute(capabilities, cap)
 		}
-		capabilities = removeAttributesByNames(capabilities, onPremUnsupportedCapabilities)
+		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
 
 	return capabilities, nil
