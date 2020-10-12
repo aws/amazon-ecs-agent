@@ -156,27 +156,27 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
-// Test on-prem capability by checking that when on-prem config is set, on-prem unsupported capabilities aren't
-// added, on-prem specific capabilities are added, and capabilities common for both on-prem and not-on-prem are added.
-func TestCapabilitiesOnPrem(t *testing.T) {
+// Test exteernal capability by checking that when external config is set, capabilities not supported on external capacity
+// aren't added, external specific capabilities are added, and capabilities common for both external and non-external are added.
+func TestCapabilitiesExternal(t *testing.T) {
 	cfg := getCapabilitiesTestConfig()
-	capsNotOnPrem := getCapabilitiesWithConfig(cfg, t)
-	cfg.OnPrem = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
-	capsOnPrem := getCapabilitiesWithConfig(cfg, t)
+	capsNonExternal := getCapabilitiesWithConfig(cfg, t)
+	cfg.External = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	capsExternal := getCapabilitiesWithConfig(cfg, t)
 
-	for _, cap := range onPremUnsupportedCapabilities {
-		assert.NotContains(t, capsOnPrem, &ecs.Attribute{
+	for _, cap := range externalUnsupportedCapabilities {
+		assert.NotContains(t, capsExternal, &ecs.Attribute{
 			Name: aws.String(cap),
 		})
 	}
-	for _, cap := range onPremSpecificCapabilities {
-		assert.Contains(t, capsOnPrem, &ecs.Attribute{
+	for _, cap := range externalSpecificCapabilities {
+		assert.Contains(t, capsExternal, &ecs.Attribute{
 			Name: aws.String(cap),
 		})
 	}
-	commonCaps := removeAttributesByNames(capsNotOnPrem, onPremUnsupportedCapabilities)
+	commonCaps := removeAttributesByNames(capsNonExternal, externalUnsupportedCapabilities)
 	for _, cap := range commonCaps {
-		assert.Contains(t, capsOnPrem, cap)
+		assert.Contains(t, capsExternal, cap)
 	}
 }
 
