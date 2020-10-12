@@ -144,8 +144,8 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
-	if cfg.OnPrem.Enabled() {
-		seelog.Info("Running in on-prem mode.")
+	if cfg.External.Enabled() {
+		seelog.Info("Running in external mode.")
 		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
 		cfg.NoIID = true
 	}

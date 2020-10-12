@@ -844,16 +844,16 @@ func TestTaskMetadataAZDisabled(t *testing.T) {
 	assert.True(t, cfg.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
 }
 
-func TestOnPremConfig(t *testing.T) {
+func TestExternalConfig(t *testing.T) {
 	defer setTestRegion()()
-	defer setTestEnv("ECS_ON_PREM", "true")()
+	defer setTestEnv("ECS_EXTERNAL", "true")()
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	require.NoError(t, err)
-	assert.True(t, cfg.OnPrem.Enabled())
+	assert.True(t, cfg.External.Enabled())
 }
 
-func TestOnPremConfigMissingRegion(t *testing.T) {
-	defer setTestEnv("ECS_ON_PREM", "true")()
+func TestExternalConfigMissingRegion(t *testing.T) {
+	defer setTestEnv("ECS_EXTERNAL", "true")()
 	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.Error(t, err)
 }
