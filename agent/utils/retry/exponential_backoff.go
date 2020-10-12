@@ -28,7 +28,7 @@ type ExponentialBackoff struct {
 	mu             sync.Mutex
 }
 
-// NewSimpleBackoff creates a Backoff which ranges from min to max increasing by
+// NewExponentialBackoff creates a Backoff which ranges from min to max increasing by
 // multiple each time. (t = start * multiple * n for the nth iteration)
 // It also adds (and yes, the jitter is always added, never
 // subtracted) a random amount of jitter up to jitterMultiple percent (that is,
