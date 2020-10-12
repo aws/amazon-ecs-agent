@@ -349,7 +349,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 				Cluster:   configuredCluster,
 				AWSRegion: "us-west-2",
 				NoIID:     true,
-				OnPrem:    config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+				External:  config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 			},
 		},
 	}
@@ -403,12 +403,12 @@ func TestRegisterContainerInstance(t *testing.T) {
 			}
 
 			var expectedNumOfAttributes int
-			if !tc.cfg.OnPrem.Enabled() {
+			if !tc.cfg.External.Enabled() {
 				// 2 capability attributes: capability1, capability2
 				// and 4 other attributes: ecs.os-type, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
 				expectedNumOfAttributes = 6
 			} else {
-				// One more attribute for on-prem case: ecs.cpu-architecture
+				// One more attribute for external case: ecs.cpu-architecture
 				expectedNumOfAttributes = 7
 			}
 

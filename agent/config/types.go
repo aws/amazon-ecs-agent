@@ -319,6 +319,6 @@ type Config struct {
 	// VolumePluginCapabilities specifies the capabilities of the ecs volume plugin.
 	VolumePluginCapabilities []string
 
-	// OnPrem specifies whether agent is running in on-premises mode.
-	OnPrem BooleanDefaultFalse
+	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
+	External BooleanDefaultFalse
 }
