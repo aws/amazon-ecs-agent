@@ -44,6 +44,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	sdkClientFactory sdkclientfactory.Factory
+)
+
+func init() {
+	sdkClientFactory = sdkclientfactory.NewFactory(context.TODO(), dockerEndpoint)
+}
+
 func defaultTestConfigIntegTest() *config.Config {
 	cfg, _ := config.NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	cfg.TaskCPUMemLimit.Value = config.ExplicitlyDisabled
@@ -125,17 +133,12 @@ func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
 	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
 		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
 	}
 	if !isDockerRunning() {
 		t.Skip("Docker not running")
 	}
-
-	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
