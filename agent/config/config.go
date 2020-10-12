@@ -62,7 +62,7 @@ const (
 
 	// DefaultPollingMetricsWaitDuration specifies the default value for polling metrics wait duration
 	// This is only used when PollMetrics is set to true
-	DefaultPollingMetricsWaitDuration = DefaultContainerMetricsPublishInterval / 2
+	DefaultPollingMetricsWaitDuration = DefaultContainerMetricsPublishInterval / 3
 
 	// defaultDockerStopTimeout specifies the value for container stop timeout duration
 	defaultDockerStopTimeout = 30 * time.Second
