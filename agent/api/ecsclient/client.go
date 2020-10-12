@@ -333,9 +333,9 @@ func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
 			Value: aws.String(config.OSType),
 		},
 	}
-	// Send cpu arch attribute directly when running on-prem. When running on EC2, this is not needed
+	// Send cpu arch attribute directly when running on external capacity. When running on EC2, this is not needed
 	// since the cpu arch is reported via instance identity doc in that case.
-	if client.config.OnPrem.Enabled() {
+	if client.config.External.Enabled() {
 		attrs = append(attrs, &ecs.Attribute{
 			Name:  aws.String(cpuArchAttrName),
 			Value: aws.String(getCPUArch()),

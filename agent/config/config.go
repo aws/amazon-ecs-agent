@@ -226,9 +226,9 @@ func NewConfig(ec2client ec2.EC2MetadataClient) (*Config, error) {
 	}
 	config := &envConfig
 
-	if config.OnPrem.Enabled() {
+	if config.External.Enabled() {
 		if config.AWSRegion == "" {
-			return nil, errors.New("AWS_DEFAULT_REGION has to be set when running on-premises")
+			return nil, errors.New("AWS_DEFAULT_REGION has to be set when running on external capacity")
 		}
 		// Use fake ec2 metadata client if on prem config is set.
 		ec2client = ec2.NewBlackholeEC2MetadataClient()
@@ -578,7 +578,7 @@ func environmentConfig() (Config, error) {
 		SpotInstanceDrainingEnabled:         parseBooleanDefaultFalseConfig("ECS_ENABLE_SPOT_INSTANCE_DRAINING"),
 		GMSACapable:                         parseGMSACapability(),
 		VolumePluginCapabilities:            parseVolumePluginCapabilities(),
-		OnPrem:                              parseBooleanDefaultFalseConfig("ECS_ON_PREM"),
+		External:                            parseBooleanDefaultFalseConfig("ECS_EXTERNAL"),
 	}, err
 }
 
