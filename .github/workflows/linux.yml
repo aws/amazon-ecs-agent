@@ -1,0 +1,22 @@
+name: Linux
+
+on: [pull_request]
+
+jobs:
+  unit-tests:
+    name: Linux unit tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.15
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: src/github.com/aws/amazon-ecs-agent
+    - name: make test
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+        make test-silent
+        make analyze-cover-profile
