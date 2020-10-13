@@ -28,15 +28,20 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/golang/mock/gomock"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	mock_asm_factory "github.com/aws/amazon-ecs-agent/agent/asm/factory/mocks"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
+	mock_fsx_factory "github.com/aws/amazon-ecs-agent/agent/fsx/factory/mocks"
 	mock_s3_factory "github.com/aws/amazon-ecs-agent/agent/s3/factory/mocks"
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 )
@@ -340,7 +345,7 @@ func TestGetCanonicalPath(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := getCanonicalPath(tc.path)
+			result := utils.GetCanonicalPath(tc.path)
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
@@ -510,4 +515,211 @@ func TestGetCredentialSpecResource(t *testing.T) {
 	credentialspecTaskResource, ok := task.GetCredentialSpecResource()
 	assert.True(t, ok)
 	assert.NotEmpty(t, credentialspecTaskResource)
+}
+
+func TestRequiresFSxWindowsFileServerResource(t *testing.T) {
+	task1 := &Task{
+		Arn: "test1",
+		Volumes: []TaskVolume{
+			{
+				Name: "fsxWindowsFileServerVolume",
+				Type: "fsxWindowsFileServer",
+				Volume: &fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig{
+					FileSystemID:  "fs-12345678",
+					RootDirectory: "root",
+					AuthConfig: fsxwindowsfileserver.FSxWindowsFileServerAuthConfig{
+						CredentialsParameter: "arn",
+						Domain:               "test",
+					},
+				},
+			},
+		},
+	}
+
+	task2 := &Task{
+		Arn:     "test2",
+		Volumes: []TaskVolume{},
+	}
+
+	testCases := []struct {
+		name           string
+		task           *Task
+		expectedOutput bool
+	}{
+		{
+			name:           "valid_fsxwindowsfileserver",
+			task:           task1,
+			expectedOutput: true,
+		},
+		{
+			name:           "missing_fsxwindowsfileserver",
+			task:           task2,
+			expectedOutput: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.task.requiresFSxWindowsFileServerResource())
+		})
+	}
+}
+
+func TestInitializeAndAddFSxWindowsFileServerResource(t *testing.T) {
+	task := &Task{
+		Arn:                "test1",
+		ResourcesMapUnsafe: make(map[string][]taskresource.TaskResource),
+		Volumes: []TaskVolume{
+			{
+				Name: "fsxWindowsFileServerVolume",
+				Type: "fsxWindowsFileServer",
+				Volume: &fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig{
+					FileSystemID:  "fs-12345678",
+					RootDirectory: "root",
+					AuthConfig: fsxwindowsfileserver.FSxWindowsFileServerAuthConfig{
+						CredentialsParameter: "arn",
+						Domain:               "test",
+					},
+				},
+			},
+		},
+		Containers: []*apicontainer.Container{
+			{
+				Name: "myName",
+				MountPoints: []apicontainer.MountPoint{
+					{
+						SourceVolume:  "fsxWindowsFileServerVolume",
+						ContainerPath: "/test",
+						ReadOnly:      false,
+					},
+				},
+				TransitionDependenciesMap: make(map[apicontainerstatus.ContainerStatus]apicontainer.TransitionDependencySet),
+			},
+		},
+	}
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := &config.Config{
+		AWSRegion: "test-aws-region",
+	}
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
+	fsxClientCreator := mock_fsx_factory.NewMockFSxClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			ASMClientCreator:   asmClientCreator,
+			SSMClientCreator:   ssmClientCreator,
+			FSxClientCreator:   fsxClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	task.initializeFSxWindowsFileServerResource(cfg, credentialsManager, resFields)
+
+	assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
+	assert.Equal(t, 1, len(task.Containers[0].TransitionDependenciesMap), "Should have 1 container volume dependency")
+	taskVol := task.Volumes[0]
+	assert.Equal(t, "fsxWindowsFileServerVolume", taskVol.Name)
+	assert.Equal(t, FSxWindowsFileServerVolumeType, taskVol.Type)
+
+	resources := task.GetResources()
+	assert.Len(t, resources, 1)
+	_, ok := resources[0].(*fsxwindowsfileserver.FSxWindowsFileServerResource)
+	require.True(t, ok)
+}
+
+func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
+	taskFromACS := ecsacs.Task{
+		Arn:           strptr("myArn"),
+		DesiredStatus: strptr("RUNNING"),
+		Family:        strptr("myFamily"),
+		Version:       strptr("1"),
+		Containers: []*ecsacs.Container{
+			{
+				Name: strptr("myName1"),
+				MountPoints: []*ecsacs.MountPoint{
+					{
+						ContainerPath: strptr("\\some\\path"),
+						SourceVolume:  strptr("fsxWindowsFileServerVolume"),
+					},
+				},
+			},
+		},
+		Volumes: []*ecsacs.Volume{
+			{
+				Name: strptr("fsxWindowsFileServerVolume"),
+				Type: strptr("fsxWindowsFileServer"),
+				FsxWindowsFileServerVolumeConfiguration: &ecsacs.FSxWindowsFileServerVolumeConfiguration{
+					AuthorizationConfig: &ecsacs.FSxWindowsFileServerAuthorizationConfig{
+						CredentialsParameter: strptr("arn"),
+						Domain:               strptr("test"),
+					},
+					FileSystemId:  strptr("fs-12345678"),
+					RootDirectory: strptr("test"),
+				},
+			},
+		},
+	}
+	seqNum := int64(42)
+	task, err := TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
+	assert.Nil(t, err, "Should be able to handle acs task")
+	assert.Equal(t, 1, len(task.Containers)) // before PostUnmarshalTask
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	cfg := config.Config{
+		AWSRegion: "test-aws-region",
+	}
+
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	ssmClientCreator := mock_ssm_factory.NewMockSSMClientCreator(ctrl)
+	asmClientCreator := mock_asm_factory.NewMockClientCreator(ctrl)
+	fsxClientCreator := mock_fsx_factory.NewMockFSxClientCreator(ctrl)
+
+	resFields := &taskresource.ResourceFields{
+		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
+			SSMClientCreator:   ssmClientCreator,
+			ASMClientCreator:   asmClientCreator,
+			FSxClientCreator:   fsxClientCreator,
+			CredentialsManager: credentialsManager,
+		},
+	}
+
+	task.PostUnmarshalTask(&cfg, credentialsManager, resFields, nil, nil)
+	assert.Equal(t, 1, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
+	assert.Equal(t, 1, len(task.Volumes), "Should have 1 volume")
+	taskVol := task.Volumes[0]
+	assert.Equal(t, "fsxWindowsFileServerVolume", taskVol.Name)
+	assert.Equal(t, FSxWindowsFileServerVolumeType, taskVol.Type)
+
+	resources := task.GetResources()
+	assert.Len(t, resources, 1)
+	_, ok := resources[0].(*fsxwindowsfileserver.FSxWindowsFileServerResource)
+	require.True(t, ok)
+	b, err := json.Marshal(resources[0])
+	require.NoError(t, err)
+	assert.JSONEq(t, fmt.Sprintf(`{
+		"name": "fsxWindowsFileServerVolume",
+		"taskARN": "myArn",
+		"executionCredentialsID": "",
+		"fsxWindowsFileServerVolumeConfiguration": {
+		  	"fileSystemId": "fs-12345678",
+		  	"rootDirectory": "test",
+		  	"authorizationConfig": {
+				"credentialsParameter": "arn",
+				"domain": "test"
+		  	},
+		  "fsxWindowsFileServerHostPath": "Z:\\"
+		},
+		"createdAt": "0001-01-01T00:00:00Z",
+		"desiredStatus": "NONE",
+		"knownStatus": "NONE"
+	  }`), string(b))
 }

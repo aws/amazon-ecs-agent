@@ -105,6 +105,7 @@ func DefaultConfig() Config {
 		PollMetrics:                         BooleanDefaultTrue{Value: ExplicitlyDisabled},
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
+		FSxWindowsFileServerCapable:         true,
 	}
 }
 

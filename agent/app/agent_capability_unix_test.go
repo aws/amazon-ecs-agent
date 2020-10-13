@@ -856,3 +856,13 @@ func TestAppendGMSACapabilities(t *testing.T) {
 	assert.Equal(t, len(inputCapabilities), len(capabilities))
 	assert.EqualValues(t, capabilities, inputCapabilities)
 }
+
+func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
+	var inputCapabilities []*ecs.Attribute
+
+	agent := &ecsAgent{}
+
+	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
+	assert.Equal(t, len(inputCapabilities), len(capabilities))
+	assert.EqualValues(t, capabilities, inputCapabilities)
+}

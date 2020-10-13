@@ -71,8 +71,6 @@ func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPerio
 	return nil
 }
 
-func getCanonicalPath(path string) string { return path }
-
 // BuildCgroupRoot helps build the task cgroup prefix
 // Example: /ecs/task-id
 func (task *Task) BuildCgroupRoot() (string, error) {
@@ -240,4 +238,16 @@ func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 		hostConfig.Sysctls = make(map[string]string)
 	}
 	hostConfig.Sysctls[disableIPv6SysctlKey] = sysctlValueOff
+}
+
+// requiresFSxWindowsFileServerResource returns true if at least one volume in the task
+// is of type 'fsxWindowsFileServer'
+func (task *Task) requiresFSxWindowsFileServerResource() bool {
+	return false
+}
+
+// initializeFSxWindowsFileServerResource builds the resource dependency map for the fsxwindowsfileserver resource
+func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) error {
+	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }

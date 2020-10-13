@@ -39,8 +39,6 @@ func (task *Task) adjustForPlatform(cfg *config.Config) {
 	task.MemoryCPULimitsEnabled = cfg.TaskCPUMemLimit.Enabled()
 }
 
-func getCanonicalPath(path string) string { return path }
-
 func (task *Task) initializeCgroupResourceSpec(cgroupPath string, cGroupCPUPeriod time.Duration, resourceFields *taskresource.ResourceFields) error {
 	return nil
 }
@@ -79,4 +77,16 @@ func (task *Task) GetCredentialSpecResource() ([]taskresource.TaskResource, bool
 
 func enableIPv6SysctlSetting(hostConfig *dockercontainer.HostConfig) {
 	return
+}
+
+// requiresFSxWindowsFileServerResource returns true if at least one volume in the task
+// is of type 'fsxWindowsFileServer'
+func (task *Task) requiresFSxWindowsFileServerResource() bool {
+	return false
+}
+
+// initializeFSxWindowsFileServerResource builds the resource dependency map for the fsxwindowsfileserver resource
+func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, credentialsManager credentials.Manager,
+	resourceFields *taskresource.ResourceFields) error {
+	return errors.New("task with FSx for Windows File Server volumes is only supported on Windows container instance")
 }
