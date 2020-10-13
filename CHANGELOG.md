@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.46.0
+* Enhancement -  Use Go 1.15 for Linux platforms and Go 1.12 for Windows platforms [#2653](https://github.com/aws/amazon-ecs-agent/pull/2653)
+* Bug - Currently, while polling docker stats, there is no timeout for the API call. So the call could be stuck until the container is stopped. Adding poll stats timeout [#2656](https://github.com/aws/amazon-ecs-agent/pull/2656)
+
 ## 1.45.0
 * Feature - ECS metadata for AWS service lens and x-ray. We have added new fields to the TMDEv4 endpoint. Specfically, ContainerARN, LogDriver, LogOptions, and LaunchType [#2623](https://github.com/aws/amazon-ecs-agent/pull/2623)
 * Feature - add IPv6 support for task networking [#2646](https://github.com/aws/amazon-ecs-agent/pull/2646)
