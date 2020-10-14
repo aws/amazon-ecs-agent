@@ -3171,6 +3171,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
+	dockerTaskEngine.monitorExecAgentsInterval = 2 * time.Millisecond
 	defer ctrl.Finish()
 	const (
 		testContainerId = "123"
@@ -3225,6 +3226,7 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
+	dockerTaskEngine.monitorExecAgentsInterval = 2 * time.Millisecond
 	defer ctrl.Finish()
 	testTask := &apitask.Task{
 		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
@@ -3302,6 +3304,7 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 	dockerTaskEngine := taskEngine.(*DockerTaskEngine)
 	execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 	dockerTaskEngine.execCmdMgr = execCmdMgr
+	dockerTaskEngine.monitorExecAgentsInterval = 2 * time.Millisecond
 	defer ctrl.Finish()
 	testTask := &apitask.Task{
 		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
