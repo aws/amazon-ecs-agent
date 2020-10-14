@@ -299,6 +299,12 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 		seelog.Errorf("Task engine [%s]: Could not retrieve docker id for container", task.Arn)
 		return
 	}
+	// Sleeping here so that all the containers do not call inspect/start exec agent process
+	// at the same time.
+	// The max sleep is 50% of the monitor interval to allow enough buffer time
+	// to finish monitoring.
+	// This is inspired from containers streaming stats from Docker.
+	time.Sleep(retry.AddJitter(time.Nanosecond, engine.monitorExecAgentsInterval/2))
 	_, err = engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
