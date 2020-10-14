@@ -46,7 +46,7 @@ func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.Do
 		return NotRestarted, nil
 	}
 	res, err := m.inspectExecAgentProcess(ctx, client, execMD)
-	if err != nil {
+	if err != nil || res == nil {
 		// We don't want to report InspectContainerExec errors, just that we don't know what the status of the agent is
 		return Unknown, nil
 	}
