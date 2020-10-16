@@ -268,7 +268,7 @@ type Task struct {
 	LaunchType string `json:"LaunchType,omitempty"`
 
 	// TODO: [ecs-exec] Wire this to the actual model when control plane changes are ready
-	ExecCommandAgentEnabled bool `json:"ExecCommandAgentEnabled"`
+	ExecCommandAgentEnabledUnsafe bool `json:"ExecCommandAgentEnabled"`
 
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
@@ -2726,5 +2726,5 @@ func (task *Task) SetLocalIPAddress(addr string) {
 func (task *Task) IsExecCommandAgentEnabled() bool {
 	task.lock.Lock()
 	defer task.lock.Unlock()
-	return task.ExecCommandAgentEnabled
+	return task.ExecCommandAgentEnabledUnsafe
 }

@@ -420,7 +420,7 @@ func TestCleanupExecEnabledTask(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 	}
-	mTask.Task.ExecCommandAgentEnabled = true
+	mTask.Task.ExecCommandAgentEnabledUnsafe = true
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
 	mTask.SetSentStatus(apitaskstatus.TaskStopped)
 	container := mTask.Containers[0]
