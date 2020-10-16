@@ -614,7 +614,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
-	if task.ExecCommandAgentEnabled {
+	if task.IsExecCommandAgentEnabled() {
 		// cleanup host exec agent log dirs
 		if tID, err := task.GetID(); err != nil {
 			seelog.Warnf("Task Engine[%s]: error getting task ID for ExecAgent logs cleanup: %v", task.Arn, err)
