@@ -17,6 +17,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -599,6 +600,8 @@ func (engine *DockerTaskEngine) sweepTask(task *apitask.Task) {
 	}
 }
 
+var removeAll = os.RemoveAll
+
 func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 	for _, resource := range task.GetResources() {
 		err := resource.Cleanup()
@@ -608,6 +611,17 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		} else {
 			seelog.Infof("Task engine [%s]: resource %s cleanup complete", task.Arn,
 				resource.GetName())
+		}
+	}
+
+	if task.ExecCommandAgentEnabled {
+		// cleanup host exec agent log dirs
+		if tID, err := task.GetID(); err != nil {
+			seelog.Warnf("Task Engine[%s]: error getting task ID for ExecAgent logs cleanup: %v", task.Arn, err)
+		} else {
+			if err := removeAll(filepath.Join(execcmd.HostLogDir, tID)); err != nil {
+				seelog.Warnf("Task Engine[%s]: unable to remove ExecAgent host logs for task: %v", task.Arn, err)
+			}
 		}
 	}
 
