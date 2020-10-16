@@ -1674,7 +1674,7 @@ func TestExecCommandAgent(t *testing.T) {
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
 	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
-	testTask.ExecCommandAgentEnabled = true
+	testTask.ExecCommandAgentEnabledUnsafe = true
 	testTask.PIDMode = ecs.PidModeHost
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage

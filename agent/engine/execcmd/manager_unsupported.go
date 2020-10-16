@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	// HostLogDir in unsupported platforms for exec is empty
+	// HostLogDir here is used used while cleaning up exec logs when task exits.
+	// When this path is empty, nothing is cleaned up for unsupported platforms.
 	HostLogDir = ""
 )
 
