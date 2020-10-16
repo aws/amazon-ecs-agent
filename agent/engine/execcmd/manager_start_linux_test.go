@@ -131,9 +131,9 @@ func TestStartAgent(t *testing.T) {
 	}
 	for _, test := range tt {
 		testTask := &apitask.Task{
-			Arn:                     "taskArn:aws:ecs:region:account-id:task/test-task-taskArn",
-			Containers:              test.containers,
-			ExecCommandAgentEnabled: test.execEnabled,
+			Arn:                           "taskArn:aws:ecs:region:account-id:task/test-task-taskArn",
+			Containers:                    test.containers,
+			ExecCommandAgentEnabledUnsafe: test.execEnabled,
 		}
 
 		times := maxRetries
@@ -204,7 +204,7 @@ func TestIdempotentStartAgent(t *testing.T) {
 		Containers: []*apicontainer.Container{{
 			RuntimeID: "123",
 		}},
-		ExecCommandAgentEnabled: true,
+		ExecCommandAgentEnabledUnsafe: true,
 	}
 
 	execCfg := types.ExecConfig{
@@ -333,7 +333,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 				RuntimeID:                testContainerId,
 				ExecCommandAgentMetadata: test.execCmdMD,
 			}},
-			ExecCommandAgentEnabled: test.execEnabled,
+			ExecCommandAgentEnabledUnsafe: test.execEnabled,
 		}
 
 		if test.execEnabled {
