@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.45.0
+Version:        1.46.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -278,6 +278,9 @@ fi
 %endif
 
 %changelog
+* Fri Oct 16 2020 Meghna Srivastav <mssrivas@amazon.com> - 1.46.0-1
+- Cache Agent version 1.46.0
+
 * Wed Sep 30 2020 Cam Sparr <cssparr@amazon.com> - 1.45.0-1
 - Cache Agent version 1.45.0
 - Block offhost access to agent's introspection port by default. Configurable via env ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS
