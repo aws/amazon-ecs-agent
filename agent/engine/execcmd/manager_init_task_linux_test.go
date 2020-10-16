@@ -88,8 +88,8 @@ func TestInitializeTask(t *testing.T) {
 		task, err := apitask.TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
 		require.Nil(t, err, "Should be able to handle acs task")
 
-		assert.Equal(t, 4, len(task.Containers))        // before PostUnmarshalTask
-		task.ExecCommandAgentEnabled = test.execEnabled // TODO: [ecs-exec] remove this statement once ecsacs model is complete with ecs exec stuff
+		assert.Equal(t, 4, len(task.Containers))              // before PostUnmarshalTask
+		task.ExecCommandAgentEnabledUnsafe = test.execEnabled // TODO: [ecs-exec] remove this statement once ecsacs model is complete with ecs exec stuff
 		require.Equal(t, test.execEnabled, task.IsExecCommandAgentEnabled(), "task.IsExecCommandAgentEnabled() returned an unexpected value")
 
 		if !test.execEnabled {

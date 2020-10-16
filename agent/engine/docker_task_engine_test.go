@@ -242,7 +242,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 			sleepTask := testdata.LoadTask("sleep5")
-			sleepTask.ExecCommandAgentEnabled = tc.execCommandAgentEnabled
+			sleepTask.ExecCommandAgentEnabledUnsafe = tc.execCommandAgentEnabled
 			sleepTask.SetCredentialsID(credentialsID)
 			eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 			// containerEventsWG is used to force the test to wait until the container created and started
@@ -3363,8 +3363,8 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
-		KnownStatusUnsafe:       apitaskstatus.TaskRunning,
-		ExecCommandAgentEnabled: true,
+		KnownStatusUnsafe:             apitaskstatus.TaskRunning,
+		ExecCommandAgentEnabledUnsafe: true,
 	}
 	mTestTask := &managedTask{
 		Task:              testTask,
@@ -3439,8 +3439,8 @@ func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
 					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				},
 			},
-			ExecCommandAgentEnabled: test.execCommandAgentEnabled,
-			KnownStatusUnsafe:       test.taskStatus,
+			ExecCommandAgentEnabledUnsafe: test.execCommandAgentEnabled,
+			KnownStatusUnsafe:             test.taskStatus,
 		}
 		dockerTaskEngine.state.AddTask(testTask)
 		dockerTaskEngine.managedTasks[testTask.Arn] = &managedTask{Task: testTask}
@@ -3474,8 +3474,8 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
-		ExecCommandAgentEnabled: true,
-		KnownStatusUnsafe:       apitaskstatus.TaskRunning,
+		ExecCommandAgentEnabledUnsafe: true,
+		KnownStatusUnsafe:             apitaskstatus.TaskRunning,
 	}
 
 	mTestTask := &managedTask{
@@ -3540,7 +3540,7 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 				},
 			},
 		},
-		ExecCommandAgentEnabled: true,
+		ExecCommandAgentEnabledUnsafe: true,
 	}
 	taskEngine.(*DockerTaskEngine).monitorExecAgentsInterval = 2 * time.Millisecond
 	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
