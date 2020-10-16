@@ -22,6 +22,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 )
 
+const (
+	// HostLogDir in unsupported platforms for exec is empty
+	HostLogDir = ""
+)
+
 // Note: exec cmd agent is a linux-only feature, thus implemented here as a no-op.
 func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (RestartStatus, error) {
 	return NotRestarted, nil
