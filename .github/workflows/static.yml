@@ -21,6 +21,7 @@ jobs:
         make get-deps
         echo $PATH
         echo ${GOPATH}
+        sleep 30
         ls ${GOPATH}/bin
         make static-check
       env:
