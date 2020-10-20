@@ -16,18 +16,10 @@ jobs:
         export PATH=$PATH:$(go env GOPATH)/bin
         export GOBIN=${GOPATH}/bin
       shell: bash
-    - uses: actions/checkout@v2
-      with:
-        path: src/github.com/aws/amazon-ecs-agent
     - name: echo env
         run: |
           echo $(go env GOPATH)
-          dhco $(go env GOBIN)
-    - name: run static checks
-      run: |
-        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
-        make get-deps
-        make static-check
+          echo $(go env GOBIN)
 
   x-platform-build:
     name: Cross platform build
