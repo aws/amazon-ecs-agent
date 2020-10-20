@@ -21,6 +21,7 @@ jobs:
         make get-deps
         echo $PATH
         echo ${GOPATH}
+        ls ${GOPATH}/bin
         make static-check
       env:
         GOPATH: ${GITHUB_WORKSPACE}
