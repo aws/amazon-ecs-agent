@@ -15,19 +15,13 @@ jobs:
         path: src/github.com/aws/amazon-ecs-agent
     - name: run static checks
       run: |
+        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
+        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
         export GOPATH=$GITHUB_WORKSPACE
         export PATH=$PATH:$(go env GOPATH)/bin
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make get-deps
-        echo $PATH
-        echo ${GOPATH}
-        sleep 30
-        ls ${GOPATH}/bin
-        ls ${GOBIN}
         make static-check
-      env:
-        GOPATH: ${GITHUB_WORKSPACE}
-        GOBIN: ${GITHUB_WORKSPACE}/bin
 
   x-platform-build:
     name: Cross platform build
