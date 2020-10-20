@@ -26,6 +26,7 @@ jobs:
         make static-check
       env:
         GOPATH: ${GITHUB_WORKSPACE}
+        GOBIN: ${GITHUB_WORKSPACE}/bin
 
   x-platform-build:
     name: Cross platform build
