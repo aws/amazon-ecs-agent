@@ -20,7 +20,10 @@ jobs:
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make get-deps
         echo $PATH
+        echo ${GOPATH}
         make static-check
+      env:
+        GOPATH: ${GITHUB_WORKSPACE}
 
   x-platform-build:
     name: Cross platform build
