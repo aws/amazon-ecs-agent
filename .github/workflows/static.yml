@@ -19,6 +19,7 @@ jobs:
         export PATH=$PATH:$(go env GOPATH)/bin
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make get-deps
+        echo $PATH
         make static-check
 
   x-platform-build:
