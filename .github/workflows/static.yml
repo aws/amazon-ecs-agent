@@ -23,6 +23,7 @@ jobs:
         echo ${GOPATH}
         sleep 30
         ls ${GOPATH}/bin
+        ls ${GOBIN}
         make static-check
       env:
         GOPATH: ${GITHUB_WORKSPACE}
