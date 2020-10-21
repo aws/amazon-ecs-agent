@@ -117,7 +117,7 @@ type ManagedAgent struct {
 	// Reason is a placeholder for failure messaging
 	Reason string `json:"reason,omitempty"`
 	// LastStartedAt is the timestamp when the status last went from PENDING->RUNNING
-	LastStartedAt *time.Time `json:"lastStartedAt,omitempty"`
+	LastStartedAt time.Time `json:"lastStartedAt,omitempty"`
 }
 
 // Container is the internal representation of a container in the ECS agent
@@ -292,14 +292,7 @@ type Container struct {
 	labels map[string]string
 
 	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-	ExecCommandAgentMetadata *ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
-
-	// ExecCommandAgentStatusUnsafe is the ExecCommandAgent status
-	ExecCommandAgentStatusUnsafe apicontainerstatus.ManagedAgentStatus `json:"execCommandAgentStatus,omitempty"`
-
-	// execCommandAgentStartedAt is the latest time the execCommandAgent process was started
-	// this will be Zero value if the execCommandAgent process has never been started (ex: created/provisioned but not started)
-	execCommandAgentStartedAt time.Time
+	ExecCommandAgentMetadata ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
 }
 
 type DependsOn struct {
@@ -356,13 +349,17 @@ type Secret struct {
 
 // ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
 type ExecCommandAgentMetadata struct {
-	PID          string `json:"pid"`
-	DockerExecID string `json:"dockerExecId"`
-	CMD          string `json:"cmd"`
+	PID           string                                `json:"pid"`
+	DockerExecID  string                                `json:"dockerExecId"`
+	CMD           string                                `json:"cmd"`
+	StartedAt     time.Time                             `json:"startedAt"`
+	StoppedReason string                                `json:"stoppedReason"`
+	Status        apicontainerstatus.ManagedAgentStatus `json:"execCommandAgentStatus"`
 }
 
 func (md *ExecCommandAgentMetadata) String() string {
-	return fmt.Sprintf("[PID: %s, CMD: %s]", md.PID, md.CMD)
+	return fmt.Sprintf("[PID: %s, CMD: %s, StartedAt: %s, StoppedReason: %s]",
+		md.PID, md.CMD, md.StartedAt, md.StoppedReason)
 }
 
 // GetSecretResourceCacheKey returns the key required to access the secret
@@ -705,65 +702,28 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 	return c.KnownPortBindingsUnsafe
 }
 
-// SetKnownExecCommandAgentStatus sets the desired status of the execCommandAgent
-func (c *Container) SetKnownExecCommandAgentStatus(status apicontainerstatus.ManagedAgentStatus) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.ExecCommandAgentStatusUnsafe = status
-}
-
-// GetExecCommandAgentStatus gets the desired status of the execCommandAgent
-func (c *Container) GetKnownExecCommandAgentStatus() apicontainerstatus.ManagedAgentStatus {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return c.ExecCommandAgentStatusUnsafe
-}
-
-// SetExecCommandAgentStartedAt sets the timestamp for execCommandeAgent started time
-func (c *Container) SetExecCommandAgentStartedAt(startedAt time.Time) {
-	if startedAt.IsZero() {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	c.execCommandAgentStartedAt = startedAt
-}
-
-// GetExecCommandAgentStartedAt gets the timestamp for execCommandAgent started time
-func (c *Container) GetExecCommandAgentStartedAt() time.Time {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	return c.execCommandAgentStartedAt
-}
-
 // GetKnownManagedAgents is a convenience method to format the
 // ExecuteCommandAgent to meet the expectations of ContainerStateChange
 // This returns an initialized array of ManagedAgents if none are reporting
 // Else an array of knownManagedAgents
 func (c *Container) GetKnownManagedAgents() []ManagedAgent {
-	knownManagedAgentStatus := c.GetKnownExecCommandAgentStatus()
-	knownManagedAgentStart := aws.Time(c.GetExecCommandAgentStartedAt())
+	execCommandAgentMetadata := c.GetExecCommandAgentMetadata()
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	// for now we will reset the managed agents every time.
 	c.ManagedAgentsUnsafe = []ManagedAgent{}
-	if knownManagedAgentStatus.ShouldReportToBackend() {
+	if execCommandAgentMetadata.Status.ShouldReportToBackend() {
 		// LastStartedAt will only exist for ManagedAgents
 		// that have been started at least once
 		knownManagedAgent := ManagedAgent{
-			Status:        knownManagedAgentStatus,
+			Status:        execCommandAgentMetadata.Status,
 			Name:          executeCommandAgentName,
-			LastStartedAt: knownManagedAgentStart,
+			LastStartedAt: execCommandAgentMetadata.StartedAt,
+			Reason:        execCommandAgentMetadata.StoppedReason,
 		}
 		c.ManagedAgentsUnsafe = append(c.ManagedAgentsUnsafe, knownManagedAgent)
 	}
-
 	return c.ManagedAgentsUnsafe
 }
 
@@ -1270,13 +1230,13 @@ func (c *Container) GetTaskARN() string {
 	return c.TaskARNUnsafe
 }
 
-func (c *Container) SetExecCommandAgentMetadata(metadata *ExecCommandAgentMetadata) {
+func (c *Container) SetExecCommandAgentMetadata(metadata ExecCommandAgentMetadata) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.ExecCommandAgentMetadata = metadata
 }
 
-func (c *Container) GetExecCommandAgentMetadata() *ExecCommandAgentMetadata {
+func (c *Container) GetExecCommandAgentMetadata() ExecCommandAgentMetadata {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 	return c.ExecCommandAgentMetadata
