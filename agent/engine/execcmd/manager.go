@@ -93,3 +93,7 @@ func NewManagerWithBinDir(hostBinDir string) *manager {
 	m.hostBinDir = hostBinDir
 	return m
 }
+
+func (m *manager) isAgentStarted(execMD apicontainer.ExecCommandAgentMetadata) bool {
+	return !execMD.StartedAt.IsZero()
+}

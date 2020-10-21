@@ -538,34 +538,13 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
 }
 
-func TestSetKnownExecCommandAgentStatus(t *testing.T) {
-	container := Container{}
-	container.SetKnownExecCommandAgentStatus(apicontainerstatus.ManagedAgentRunning)
-	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, container.ExecCommandAgentStatusUnsafe)
-}
-
-func TestSetExecCommandAgentStartedAt(t *testing.T) {
-	container := Container{}
-	nowTime := time.Now()
-	container.SetExecCommandAgentStartedAt(nowTime)
-	assert.Equal(t, nowTime, container.execCommandAgentStartedAt)
-}
-
-func TestGetKnownExecCommandAgentStatus(t *testing.T) {
-	container := Container{}
-	container.SetKnownExecCommandAgentStatus(apicontainerstatus.ManagedAgentRunning)
-	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, container.GetKnownExecCommandAgentStatus())
-}
-
-func TestGetExecCommandAgentStartedAt(t *testing.T) {
-	container := Container{}
-	nowTime := time.Now()
-	container.SetExecCommandAgentStartedAt(nowTime)
-	assert.Equal(t, nowTime, container.GetExecCommandAgentStartedAt())
-}
-
 func TestGetKnownManagedAgents(t *testing.T) {
+	const (
+		testPid          = "pid"
+		testDockerExecId = "dockerId"
+	)
 	nowTime := time.Now()
+	zeroTime := time.Time{}
 	testCases := []struct {
 		name              string
 		container         *Container
@@ -578,7 +557,7 @@ func TestGetKnownManagedAgents(t *testing.T) {
 				Name: "containerManagedAgentNone",
 			},
 			status:            apicontainerstatus.ManagedAgentStatusNone,
-			expectedStartTime: time.Time{},
+			expectedStartTime: zeroTime,
 		},
 		{
 			name: "test GetKnownManagedAgents created case",
@@ -586,13 +565,12 @@ func TestGetKnownManagedAgents(t *testing.T) {
 				Name: "containerManagedAgentCreated",
 			},
 			status:            apicontainerstatus.ManagedAgentCreated,
-			expectedStartTime: time.Time{},
+			expectedStartTime: zeroTime,
 		},
 		{
 			name: "test GetKnownManagedAgents running case",
 			container: &Container{
-				Name:                      "containerManagedAgentRunning",
-				execCommandAgentStartedAt: nowTime,
+				Name: "containerManagedAgentRunning",
 			},
 			status:            apicontainerstatus.ManagedAgentRunning,
 			expectedStartTime: nowTime,
@@ -600,8 +578,7 @@ func TestGetKnownManagedAgents(t *testing.T) {
 		{
 			name: "test GetKnownManagedAgents stopped case",
 			container: &Container{
-				Name:                      "containerManagedAgentStopped",
-				execCommandAgentStartedAt: nowTime,
+				Name: "containerManagedAgentStopped",
 			},
 			status:            apicontainerstatus.ManagedAgentStopped,
 			expectedStartTime: nowTime,
@@ -609,15 +586,21 @@ func TestGetKnownManagedAgents(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.container.SetKnownExecCommandAgentStatus(tc.status)
-
 			expectedManagedAgentArray := []ManagedAgent{}
+
+			tc.container.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
+				PID:          testPid,
+				DockerExecID: testDockerExecId,
+				StartedAt:    tc.expectedStartTime,
+				Status:       tc.status,
+			})
+
 			// only create expected managed agent if ShouldReportToBackend is true
 			if tc.status.ShouldReportToBackend() {
 				expectedManagedAgent := ManagedAgent{
 					Status:        tc.status,
 					Name:          executeCommandAgentName,
-					LastStartedAt: &tc.expectedStartTime,
+					LastStartedAt: tc.expectedStartTime,
 				}
 				expectedManagedAgentArray = append(expectedManagedAgentArray, expectedManagedAgent)
 			}
@@ -840,18 +823,27 @@ func TestRequireNeuronRuntime(t *testing.T) {
 	assert.True(t, c.RequireNeuronRuntime())
 }
 
+func TestExecCommandAgentEmptyMetadata(t *testing.T) {
+	const (
+		emptyPid          = "pid"
+		emptyDockerExecId = "dockerId"
+	)
+	c := &Container{}
+	md := c.GetExecCommandAgentMetadata()
+	assert.Equal(t, "", md.PID)
+	assert.Equal(t, "", md.DockerExecID)
+}
+
 func TestExecCommandAgentMetadata(t *testing.T) {
 	const (
 		testPid          = "pid"
 		testDockerExecId = "dockerId"
 	)
-	c := &Container{
-		ExecCommandAgentMetadata: &ExecCommandAgentMetadata{},
-	}
+	c := &Container{}
 	assert.Equal(t, "", c.ExecCommandAgentMetadata.PID)
 	assert.Equal(t, "", c.ExecCommandAgentMetadata.DockerExecID)
 
-	c.SetExecCommandAgentMetadata(&ExecCommandAgentMetadata{
+	c.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
 		PID:          testPid,
 		DockerExecID: testDockerExecId,
 	})
