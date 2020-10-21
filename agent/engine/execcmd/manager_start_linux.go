@@ -19,11 +19,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -42,7 +44,7 @@ func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.Do
 		return NotRestarted, nil
 	}
 	execMD := container.GetExecCommandAgentMetadata()
-	if execMD == nil { // This means m.Start has never been invoked
+	if !m.isAgentStarted(execMD) {
 		return NotRestarted, nil
 	}
 	res, err := m.inspectExecAgentProcess(ctx, client, execMD)
@@ -56,7 +58,7 @@ func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.Do
 	// Restart if not running
 	//TODO: [ecs-exec] retry only for certain exit codes?
 	seelog.Warnf("Task engine [%s]: ExecCommandAgent Process stopped (exitCode=%d) for container %s, restarting...", task.Arn, res.ExitCode, containerId)
-	container.SetExecCommandAgentMetadata(nil)
+	container.SetExecCommandAgentMetadata(apicontainer.ExecCommandAgentMetadata{})
 	err = m.StartAgent(ctx, client, task, container, containerId)
 	if err != nil {
 		return NotRestarted, err
@@ -64,7 +66,7 @@ func (m *manager) RestartAgentIfStopped(ctx context.Context, client dockerapi.Do
 	return Restarted, nil
 }
 
-func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.DockerClient, execMD *apicontainer.ExecCommandAgentMetadata) (*types.ContainerExecInspect, error) {
+func (m *manager) inspectExecAgentProcess(ctx context.Context, client dockerapi.DockerClient, execMD apicontainer.ExecCommandAgentMetadata) (*types.ContainerExecInspect, error) {
 	backoff := retry.NewExponentialBackoff(m.retryMinDelay, m.retryMaxDelay, retryJitterMultiplier, retryDelayMultiplier)
 	ctx, cancel := context.WithTimeout(ctx, m.inspectRetryTimeout)
 	defer cancel()
@@ -104,29 +106,33 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 	ctx, cancel := context.WithTimeout(ctx, m.startRetryTimeout)
 	defer cancel()
 	var startErr error
+	var execMD apicontainer.ExecCommandAgentMetadata
 	retry.RetryNWithBackoffCtx(ctx, backoff, maxRetries, func() error {
-		startErr = m.doStartAgent(ctx, client, task, container, containerId)
+		execMD, startErr = m.doStartAgent(ctx, client, task, container, containerId)
 		if startErr != nil {
 			seelog.Warnf("Task engine [%s]: exec command agent failed to start for container %s: %v. Retrying...", task.Arn, containerId, startErr)
 		}
 		return startErr
 	})
-
+	container.SetExecCommandAgentMetadata(execMD)
 	return startErr
 }
 
-func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) error {
+func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (apicontainer.ExecCommandAgentMetadata, error) {
 	execMD := container.GetExecCommandAgentMetadata()
-	// Guarantee idempotency if the container already has metadata
-	if execMD != nil {
+	// Guarantee idempotency if the container already has been started
+	if m.isAgentStarted(execMD) {
 		res, err := m.inspectExecAgentProcess(ctx, client, execMD)
 		if err != nil {
 			seelog.Warnf("Task engine [%s]: could not verify if the ExecCommandAgent was already running for container %s: %v", task.Arn, containerId, err)
 		}
 		if res.Running { // agent is already running, nothing to do
 			seelog.Warnf("Task engine [%s]: an attempt was made to start the ExecCommandAgent but it was already running (%s)", task.Arn, containerId)
-			return nil
+			return execMD, nil
 		}
+	} else {
+		// create new execCommandAgentMetadata object and we'll populate it as we go
+		execMD = apicontainer.ExecCommandAgentMetadata{}
 	}
 	execAgentCmd := filepath.Join(ContainerBinDir, BinName)
 	execCfg := types.ExecConfig{
@@ -135,35 +141,43 @@ func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClien
 	}
 	execRes, err := client.CreateContainerExec(ctx, containerId, execCfg, dockerclient.ContainerExecCreateTimeout)
 	if err != nil {
-		return StartError{error: err, retryable: true}
+		execMD.StoppedReason = fmt.Sprintf("Unable to start Execute Command Agent [create]: %v", err)
+		execMD.Status = apicontainerstatus.ManagedAgentStopped
+		return execMD, StartError{error: err, retryable: true}
 	}
 
 	seelog.Debugf("Task engine [%s]: created ExecCommandAgent for container: %s -> docker exec id: %s", task.Arn, containerId, execRes.ID)
 
 	err = client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
 	if err != nil {
-		return StartError{error: err, retryable: true}
+		execMD.StoppedReason = fmt.Sprintf("Unable to start Execute Command Agent [pre-start]: %v", err)
+		execMD.Status = apicontainerstatus.ManagedAgentStopped
+		return execMD, StartError{error: err, retryable: true}
 	}
 	seelog.Debugf("Task engine [%s]: sent ExecCommandAgent start signal for container: %s ->  docker exec id: %s", task.Arn, containerId, execRes.ID)
 
 	inspect, err := client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
 	if err != nil {
-		return StartError{error: err, retryable: true}
+		execMD.StoppedReason = fmt.Sprintf("Unable to start Execute Command Agent [inspect]: %v", err)
+		execMD.Status = apicontainerstatus.ManagedAgentStopped
+		return execMD, StartError{error: err, retryable: true}
 	}
 	seelog.Debugf("Task engine [%s]: inspect ExecCommandAgent for container: %s -> pid: %d, exitCode: %d, running:%v, err:%v",
 		task.Arn, containerId, inspect.Pid, inspect.ExitCode, inspect.Running, err)
 
 	if !inspect.Running { //TODO: [ecs-exec] retry only for certain exit codes?
-		return StartError{
+		execMD.StoppedReason = fmt.Sprintf("Execute Command Agent process exited with exit code: %d", inspect.ExitCode)
+		execMD.Status = apicontainerstatus.ManagedAgentStopped
+		return execMD, StartError{
 			error:     fmt.Errorf("ExecCommandAgent could not start for container (exitCode=%d)", inspect.ExitCode),
 			retryable: true,
 		}
 	}
 	seelog.Infof("Task engine [%s]: started ExecCommandAgent for container: %s ->  docker exec id: %s", task.Arn, containerId, execRes.ID)
-	container.SetExecCommandAgentMetadata(&apicontainer.ExecCommandAgentMetadata{
-		PID:          strconv.Itoa(inspect.Pid),
-		DockerExecID: execRes.ID,
-		CMD:          execAgentCmd,
-	})
-	return nil
+	execMD.PID = strconv.Itoa(inspect.Pid)
+	execMD.DockerExecID = execRes.ID
+	execMD.CMD = execAgentCmd
+	execMD.StartedAt = time.Now()
+	execMD.Status = apicontainerstatus.ManagedAgentRunning
+	return execMD, nil
 }
