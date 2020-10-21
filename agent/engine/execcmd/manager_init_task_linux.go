@@ -36,6 +36,7 @@ const (
 	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
 	HostLogDir          = "/var/log/ecs/exec"
 	ContainerLogDir     = "/var/log/amazon/ssm"
+	ECSAgentExecLogDir  = "/log/exec"
 	HostCertFile        = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
 	ContainerCertFile   = "/etc/ssl/certs/ca-certificates.crt"
 	ContainerConfigFile = "/etc/amazon/ssm/amazon-ssm-agent.json"
