@@ -23,6 +23,7 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	errors2 "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -43,7 +44,8 @@ func TestStartAgent(t *testing.T) {
 		testContainerRuntimeId = "123abc"
 		testDockerExecId       = "mockDockerExecID"
 	)
-
+	nowTime := time.Now()
+	zeroTime := time.Time{}
 	var (
 		mockError      = errors.New("mock error")
 		mockStartError = StartError{error: mockError, retryable: true}
@@ -64,6 +66,8 @@ func TestStartAgent(t *testing.T) {
 		inspectContainerExecRes    *types.ContainerExecInspect
 		inspectContainerExecErr    error
 		expectedError              error
+		expectedStatus             apicontainerstatus.ManagedAgentStatus
+		expectedStartTime          time.Time
 	}{
 		{
 			execEnabled: false,
@@ -73,8 +77,10 @@ func TestStartAgent(t *testing.T) {
 			execEnabled:               true,
 			containers:                testContainers,
 			expectCreateContainerExec: true,
+			expectedStatus:            apicontainerstatus.ManagedAgentStopped,
 			createContainerExecErr:    mockError,
 			expectedError:             mockStartError,
+			expectedStartTime:         zeroTime,
 		},
 		{
 			execEnabled:               true,
@@ -84,8 +90,10 @@ func TestStartAgent(t *testing.T) {
 				ID: testDockerExecId,
 			},
 			expectStartContainerExec: true,
+			expectedStatus:           apicontainerstatus.ManagedAgentStopped,
 			startContainerExecErr:    mockError,
 			expectedError:            mockStartError,
+			expectedStartTime:        zeroTime,
 		},
 		{
 			execEnabled:               true,
@@ -97,8 +105,10 @@ func TestStartAgent(t *testing.T) {
 			expectStartContainerExec:   true,
 			startContainerExecErr:      nil, // Simulate StartContainerExec succeeds
 			expectInspectContainerExec: true,
+			expectedStatus:             apicontainerstatus.ManagedAgentStopped,
 			inspectContainerExecErr:    mockError,
 			expectedError:              mockStartError,
+			expectedStartTime:          zeroTime,
 		},
 		{
 			execEnabled:               true,
@@ -110,6 +120,8 @@ func TestStartAgent(t *testing.T) {
 			expectStartContainerExec:   true,
 			startContainerExecErr:      nil, // Simulate StartContainerExec succeeds
 			expectInspectContainerExec: true,
+			expectedStatus:             apicontainerstatus.ManagedAgentRunning,
+			expectedStartTime:          nowTime,
 			inspectContainerExecRes: &types.ContainerExecInspect{
 				ExecID:  testDockerExecId,
 				Pid:     testPid1,
@@ -160,13 +172,15 @@ func TestStartAgent(t *testing.T) {
 		} else { // No error case
 			assert.NoError(t, err, "No error was expected")
 			if !test.execEnabled {
-				assert.Nil(t, testTask.Containers[0].GetExecCommandAgentMetadata())
+				testExecCmdMD := apicontainer.ExecCommandAgentMetadata{}
+				assert.Equal(t, testExecCmdMD, testTask.Containers[0].GetExecCommandAgentMetadata())
 			} else {
-				assert.Equal(t, &apicontainer.ExecCommandAgentMetadata{
-					PID:          strconv.Itoa(testPid1),
-					DockerExecID: testDockerExecId,
-					CMD:          filepath.Join(ContainerBinDir, BinName),
-				}, testTask.Containers[0].GetExecCommandAgentMetadata())
+				execMD := testTask.Containers[0].GetExecCommandAgentMetadata()
+				assert.Equal(t, strconv.Itoa(testPid1), execMD.PID, "PID not equal")
+				assert.Equal(t, testDockerExecId, execMD.DockerExecID, "DockerExecId not equal")
+				assert.Equal(t, filepath.Join(ContainerBinDir, BinName), execMD.CMD)
+				assert.Equal(t, test.expectedStatus, execMD.Status, "Exec status not equal")
+				assert.WithinDuration(t, test.expectedStartTime, execMD.StartedAt, 5*time.Second, "StartedAt not equal")
 			}
 		}
 	}
@@ -181,13 +195,8 @@ func TestIdempotentStartAgent(t *testing.T) {
 		testPid          = 111
 	)
 	var (
-		testPidStr     = strconv.Itoa(testPid)
-		testCmd        = filepath.Join(ContainerBinDir, BinName)
-		expectedExecMD = &apicontainer.ExecCommandAgentMetadata{
-			PID:          testPidStr,
-			DockerExecID: testDockerExecId,
-			CMD:          testCmd,
-		}
+		testPidStr = strconv.Itoa(testPid)
+		testCmd    = filepath.Join(ContainerBinDir, BinName)
 	)
 
 	testTask := &apitask.Task{
@@ -221,19 +230,36 @@ func TestIdempotentStartAgent(t *testing.T) {
 	mgr := newTestManager()
 	err := mgr.StartAgent(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedExecMD, testTask.Containers[0].GetExecCommandAgentMetadata())
+
+	execMD := testTask.Containers[0].GetExecCommandAgentMetadata()
+	firstStart := execMD.StartedAt
+	assert.NotNil(t, execMD.StartedAt)
+	assert.Equal(t, testPidStr, execMD.PID)
+	assert.Equal(t, testDockerExecId, execMD.DockerExecID)
+	assert.Equal(t, testCmd, execMD.CMD)
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, execMD.Status)
 
 	// Second call to start. The mock's expected call times is 1 (except for inspect); the absence of "too many calls"
 	// along with unchanged metadata guarantee idempotency
 	err = mgr.StartAgent(context.TODO(), client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedExecMD, testTask.Containers[0].GetExecCommandAgentMetadata())
+
+	execMD = testTask.Containers[0].GetExecCommandAgentMetadata()
+	// check StartedAt is not Zero and hasn't been updated
+	assert.NotNil(t, execMD.StartedAt)
+	assert.False(t, execMD.StartedAt.IsZero())
+	assert.Equal(t, execMD.StartedAt, firstStart)
+	assert.Equal(t, testPidStr, execMD.PID)
+	assert.Equal(t, testDockerExecId, execMD.DockerExecID)
+	assert.Equal(t, testCmd, execMD.CMD)
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, execMD.Status)
 }
 
 func TestRestartAgentIfStopped(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	nowTime := time.Now()
 
 	const (
 		testContainerId     = "123"
@@ -243,42 +269,42 @@ func TestRestartAgentIfStopped(t *testing.T) {
 	var (
 		mockError        = errors.New("mock error")
 		dockerTimeoutErr = &dockerapi.DockerTimeoutError{}
-		testExecCmdMD    = &apicontainer.ExecCommandAgentMetadata{
+		testExecCmdMD    = apicontainer.ExecCommandAgentMetadata{
 			PID:          "456",
 			DockerExecID: "789",
 			CMD:          "amazon-ssm-agent",
+			StartedAt:    nowTime,
 		}
 	)
 
 	tt := []struct {
 		execEnabled             bool
 		expectedRestartStatus   RestartStatus
-		execCmdMD               *apicontainer.ExecCommandAgentMetadata
+		execCmdMD               apicontainer.ExecCommandAgentMetadata
 		containerExecInspectRes *types.ContainerExecInspect
 		expectedInspectErr      error
 		expectedRestartErr      error
+		expectedExecAgentStatus apicontainerstatus.ManagedAgentStatus
 	}{
 		{
 			execEnabled:           false,
 			expectedRestartStatus: NotRestarted,
 		},
 		{
-			execEnabled:           true, // exec enabled but no exec cmd metadata
-			expectedRestartStatus: NotRestarted,
+			execEnabled:             true,
+			execCmdMD:               testExecCmdMD,
+			expectedInspectErr:      dockerTimeoutErr,
+			expectedRestartErr:      nil,
+			expectedRestartStatus:   Unknown,
+			expectedExecAgentStatus: apicontainerstatus.ManagedAgentStopped,
 		},
 		{
-			execEnabled:           true,
-			execCmdMD:             testExecCmdMD,
-			expectedInspectErr:    dockerTimeoutErr,
-			expectedRestartErr:    nil,
-			expectedRestartStatus: Unknown,
-		},
-		{
-			execEnabled:           true,
-			execCmdMD:             testExecCmdMD,
-			expectedInspectErr:    mockError,
-			expectedRestartErr:    nil,
-			expectedRestartStatus: Unknown,
+			execEnabled:             true,
+			execCmdMD:               testExecCmdMD,
+			expectedInspectErr:      mockError,
+			expectedRestartErr:      nil,
+			expectedRestartStatus:   Unknown,
+			expectedExecAgentStatus: apicontainerstatus.ManagedAgentStopped,
 		},
 		{
 			execEnabled: true,
@@ -286,7 +312,8 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			containerExecInspectRes: &types.ContainerExecInspect{
 				Running: true,
 			},
-			expectedRestartStatus: NotRestarted,
+			expectedRestartStatus:   NotRestarted,
+			expectedExecAgentStatus: apicontainerstatus.ManagedAgentRunning,
 		},
 		{
 			execEnabled: true,
@@ -294,7 +321,8 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			containerExecInspectRes: &types.ContainerExecInspect{
 				Running: false,
 			},
-			expectedRestartStatus: Restarted,
+			expectedRestartStatus:   Restarted,
+			expectedExecAgentStatus: apicontainerstatus.ManagedAgentRunning,
 		},
 	}
 
@@ -308,7 +336,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 			ExecCommandAgentEnabled: test.execEnabled,
 		}
 
-		if test.execEnabled && test.execCmdMD != nil {
+		if test.execEnabled {
 			times := 1
 			if test.expectedInspectErr == mockError {
 				times = maxRetries
@@ -344,11 +372,16 @@ func TestRestartAgentIfStopped(t *testing.T) {
 		if test.expectedRestartStatus != Restarted {
 			assert.Equal(t, test.execCmdMD, testTask.Containers[0].GetExecCommandAgentMetadata(), "ExecCommandAgentMetadata was incorrectly modified")
 		} else {
-			assert.Equal(t, &apicontainer.ExecCommandAgentMetadata{
-				PID:          strconv.Itoa(testNewPID),
-				DockerExecID: testNewDockerExecID,
-				CMD:          filepath.Join(ContainerBinDir, BinName),
-			}, testTask.Containers[0].GetExecCommandAgentMetadata(), "ExecCommandAgentMetadata is not the newest after restart")
+
+			execMD := testTask.Containers[0].GetExecCommandAgentMetadata()
+			assert.Equal(t, strconv.Itoa(testNewPID), execMD.PID,
+				"ExecCommandAgentMetadata.PID is not the newest after restart")
+			assert.Equal(t, testNewDockerExecID, execMD.DockerExecID,
+				"ExecCommandAgentMetadata.ExecID is not the newest after restart")
+			assert.Equal(t, filepath.Join(ContainerBinDir, BinName), execMD.CMD,
+				"ExecCommandAgentMetadata.CMD is not the newest after restart")
+			assert.Equal(t, test.expectedExecAgentStatus, execMD.Status,
+				"ExecCommandAgentStatus is not correct after restart")
 		}
 	}
 }
