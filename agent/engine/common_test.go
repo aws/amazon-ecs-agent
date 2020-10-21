@@ -36,6 +36,7 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
@@ -320,5 +321,28 @@ func waitForContainerHealthStatus(t *testing.T, testTask *apitask.Task) {
 			}
 			return
 		}
+	}
+}
+
+// sorts through stateChangeEvents to locate and assert that the container event matches the expectedContainer event.
+// expectContainerEvent field is a boolean to allow us to ignore an expected empty channel
+func checkManagedAgentEvents(t *testing.T, expectContainerEvent bool, stateChangeEvents <-chan statechange.Event,
+	expectedManagedAgent apicontainer.ManagedAgent, waitDone chan<- struct{}) {
+	if expectContainerEvent {
+		for event := range stateChangeEvents {
+			if containerEvent, ok := event.(api.ContainerStateChange); ok {
+				if containerEvent.ManagedAgents != nil {
+					// there is currently only ever a single managed agent
+					assert.Equal(t, expectedManagedAgent.Status, containerEvent.ManagedAgents[0].Status,
+						"expected managedAgent container state change event did not match actual event")
+					close(waitDone)
+					return
+				}
+			}
+			seelog.Debugf("processed errant event: %v", event)
+		}
+	} else {
+		assert.Empty(t, stateChangeEvents, "expected empty stateChangeEvents channel, but found an event")
+		close(waitDone)
 	}
 }
