@@ -33,8 +33,8 @@ import (
 const (
 	testTempDirPrefix = "init-docker-test-"
 
-	expectedAgentBindsUnspecifiedPlatform = 19
-	expectedAgentBindsSuseUbuntuPlatform  = 17
+	expectedAgentBindsUnspecifiedPlatform = 20
+	expectedAgentBindsSuseUbuntuPlatform  = 18
 )
 
 var expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
@@ -279,6 +279,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)
 	expectKey(iptablesAltDir+":"+iptablesAltDir+":ro", binds, t)
 	expectKey(iptablesLegacyDir+":"+iptablesLegacyDir+":ro", binds, t)
+	expectKey(config.LogDirectory()+"/exec:/log/exec", binds, t)
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}

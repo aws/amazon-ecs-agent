@@ -117,6 +117,8 @@ const (
 	capabilityExecHostCertsDir               = "/etc/pki/ca-trust/extracted/pem"
 	capabilityExecContainerCertsRelativePath = "certs"
 	capabilityExecRequiredCert               = "tls-ca-bundle.pem"
+
+	execAgentLogRelativePath = "/exec"
 )
 
 var pluginDirs = []string{
@@ -388,6 +390,7 @@ func (c *Client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 		config.CgroupMountpoint() + ":" + DefaultCgroupMountpoint,
 		// bind mount instance config dir
 		config.InstanceConfigDirectory() + ":" + config.InstanceConfigDirectory(),
+		filepath.Join(config.LogDirectory(), execAgentLogRelativePath) + ":" + filepath.Join(logDir, execAgentLogRelativePath),
 	}
 
 	// for al, al2 add host ssl cert directory mounts
