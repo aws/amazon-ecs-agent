@@ -117,3 +117,7 @@ func (agent *ecsAgent) appendEFSVolumePluginCapabilities(capabilities []*ecs.Att
 func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
