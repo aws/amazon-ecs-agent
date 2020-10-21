@@ -10,7 +10,7 @@
   version = "v0.4.7"
 
 [[projects]]
-  digest = "1:4dfad161aee05f73bbd9740d329bb068a18028c0a9d6c0572f931ad320f71873"
+  digest = "1:1ef319395779da83b56190d70b43d3a8b87ab27acf8161da816f818e0c211c23"
   name = "github.com/aws/aws-sdk-go"
   packages = [
     "aws",
@@ -54,6 +54,7 @@
     "private/util",
     "service/cloudwatchlogs",
     "service/ec2",
+    "service/fsx",
     "service/s3",
     "service/s3/internal/arn",
     "service/s3/s3iface",
@@ -539,6 +540,7 @@
     "github.com/aws/aws-sdk-go/private/util",
     "github.com/aws/aws-sdk-go/service/cloudwatchlogs",
     "github.com/aws/aws-sdk-go/service/ec2",
+    "github.com/aws/aws-sdk-go/service/fsx",
     "github.com/aws/aws-sdk-go/service/s3",
     "github.com/aws/aws-sdk-go/service/s3/s3manager",
     "github.com/aws/aws-sdk-go/service/secretsmanager",

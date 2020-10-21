@@ -579,6 +579,44 @@ func (s ErrorOutput) GoString() string {
 	return s.String()
 }
 
+type FSxWindowsFileServerAuthorizationConfig struct {
+	_ struct{} `type:"structure"`
+
+	CredentialsParameter *string `locationName:"credentialsParameter" type:"string"`
+
+	Domain *string `locationName:"domain" type:"string"`
+}
+
+// String returns the string representation
+func (s FSxWindowsFileServerAuthorizationConfig) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FSxWindowsFileServerAuthorizationConfig) GoString() string {
+	return s.String()
+}
+
+type FSxWindowsFileServerVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	AuthorizationConfig *FSxWindowsFileServerAuthorizationConfig `locationName:"authorizationConfig" type:"structure"`
+
+	FileSystemId *string `locationName:"fileSystemId" type:"string"`
+
+	RootDirectory *string `locationName:"rootDirectory" type:"string"`
+}
+
+// String returns the string representation
+func (s FSxWindowsFileServerVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FSxWindowsFileServerVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
 type FirelensConfiguration struct {
 	_ struct{} `type:"structure"`
 
@@ -1493,6 +1531,8 @@ type Volume struct {
 	DockerVolumeConfiguration *DockerVolumeConfiguration `locationName:"dockerVolumeConfiguration" type:"structure"`
 
 	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
+
+	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `locationName:"fsxWindowsFileServerVolumeConfiguration" type:"structure"`
 
 	Host *HostVolumeProperties `locationName:"host" type:"structure"`
 

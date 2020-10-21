@@ -84,6 +84,7 @@ func DefaultConfig() Config {
 		NvidiaRuntime:                       DefaultNvidiaRuntime,
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 		GMSACapable:                         false,
+		FSxWindowsFileServerCapable:         false,
 	}
 }
 

@@ -318,4 +318,8 @@ type Config struct {
 
 	// VolumePluginCapabilities specifies the capabilities of the ecs volume plugin.
 	VolumePluginCapabilities []string
+
+	// FSxWindowsFileServerCapable is the config option to indicate if fsxWindowsFileServer is supported.
+	// It should be enabled by default only if the container instance is part of a valid active directory domain.
+	FSxWindowsFileServerCapable bool
 }

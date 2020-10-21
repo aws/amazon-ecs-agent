@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
+
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -259,6 +261,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
 			ASMClientCreator:   asmfactory.NewClientCreator(),
 			SSMClientCreator:   ssmfactory.NewSSMClientCreator(),
+			FSxClientCreator:   fsxfactory.NewFSxClientCreator(),
 			CredentialsManager: credentialsManager,
 		},
 		Ctx:             agent.ctx,

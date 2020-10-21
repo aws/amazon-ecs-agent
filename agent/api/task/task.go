@@ -383,6 +383,14 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	}
 	task.populateTaskARN()
 
+	// fsxWindowsFileserver is the product type -- it is technically "agnostic" ie it should apply to both Windows and Linux tasks
+	if task.requiresFSxWindowsFileServerResource() {
+		if err := task.initializeFSxWindowsFileServerResource(cfg, credentialsManager, resourceFields); err != nil {
+			seelog.Errorf("Task [%s]: could not initialize FSx for Windows File Server resource: %v", task.Arn, err)
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1316,7 +1324,7 @@ func (task *Task) HostVolumeByName(name string) (taskresourcevolume.Volume, bool
 // volume feature.
 func (task *Task) UpdateMountPoints(cont *apicontainer.Container, vols []types.MountPoint) {
 	for _, mountPoint := range cont.MountPoints {
-		containerPath := getCanonicalPath(mountPoint.ContainerPath)
+		containerPath := utils.GetCanonicalPath(mountPoint.ContainerPath)
 		for _, vol := range vols {
 			if strings.Compare(vol.Destination, containerPath) == 0 ||
 				// /path/ -> /path or \path\ -> \path
