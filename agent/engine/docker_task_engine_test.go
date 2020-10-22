@@ -3168,7 +3168,7 @@ func TestStartExecAgent(t *testing.T) {
 					},
 				},
 			},
-			ExecCommandAgentEnabled: tc.execCommandAgentEnabled,
+			ExecCommandAgentEnabledUnsafe: tc.execCommandAgentEnabled,
 		}
 
 		mTestTask := &managedTask{
