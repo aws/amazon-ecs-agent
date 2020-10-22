@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -106,6 +107,16 @@ const (
 	iptablesUsrLibDir   = "/usr/lib"
 	iptablesLib64Dir    = "/lib64"
 	iptablesUsrLib64Dir = "/usr/lib64"
+
+	hostCapabilitiesResourcesRootDir      = "/var/lib/ecs"
+	containerCapabilitiesResourcesRootDir = "/capabilities"
+
+	capabilityExecName                       = "exec"
+	capabilityExecHostBinRelativePath        = "ssm-agent/linux_amd64"
+	capabilityExecContainerBinRelativePath   = "bin"
+	capabilityExecHostCertsDir               = "/etc/pki/ca-trust/extracted/pem"
+	capabilityExecContainerCertsRelativePath = "certs"
+	capabilityExecRequiredCert               = "tls-ca-bundle.pem"
 )
 
 var pluginDirs = []string{
@@ -113,6 +124,8 @@ var pluginDirs = []string{
 	pluginSpecFilesEtcDir,
 	pluginSpecFilesUsrDir,
 }
+
+var isPathValid = defaultIsPathValid
 
 // Client enables business logic for running the Agent inside Docker
 type Client struct {
@@ -393,6 +406,10 @@ func (c *Client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	}
 
 	binds = append(binds, getDockerPluginDirBinds()...)
+
+	// only add bind mounts when the src file/directory exists on host; otherwise docker API create an empty directory on host
+	binds = append(binds, getCapabilityExecBinds()...)
+
 	return createHostConfig(binds)
 }
 
@@ -425,6 +442,38 @@ func getDockerPluginDirBinds() []string {
 		pluginBinds = append(pluginBinds, pluginDir+":"+pluginDir+readOnly)
 	}
 	return pluginBinds
+}
+
+func getCapabilityExecBinds() []string {
+	hostResourcesDir := filepath.Join(hostCapabilitiesResourcesRootDir, capabilityExecName)
+	containerResourcesDir := filepath.Join(containerCapabilitiesResourcesRootDir, capabilityExecName)
+
+	var binds []string
+
+	// bind mount the entire /host/dependency/path/exec/bin folder for higher flexibility
+	// minimal change required to add other ssm binaries as dependency in the future (just need to be placed inside the bin directory)
+	hostBinDir := filepath.Join(hostResourcesDir, capabilityExecHostBinRelativePath)
+	if isPathValid(hostBinDir, true) {
+		binds = append(binds, hostBinDir+":"+filepath.Join(containerResourcesDir, capabilityExecContainerBinRelativePath)+readOnly)
+	}
+
+	// bind mount this specific cert file for now, CertsDir and CertsFile might be changed to be configurable in the future
+	hostCert := filepath.Join(capabilityExecHostCertsDir, capabilityExecRequiredCert)
+	if isPathValid(hostCert, false) {
+		binds = append(binds, hostCert+":"+filepath.Join(containerResourcesDir, capabilityExecContainerCertsRelativePath, capabilityExecRequiredCert)+readOnly)
+	}
+
+	return binds
+}
+
+func defaultIsPathValid(path string, shouldBeDirectory bool) bool {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	isDirectory := fileInfo.IsDir()
+	return (isDirectory && shouldBeDirectory) || (!isDirectory && !shouldBeDirectory)
 }
 
 // nvidiaGPUDevicesPresent checks if nvidia GPU devices are present in the instance

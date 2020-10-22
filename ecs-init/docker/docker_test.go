@@ -15,7 +15,9 @@ package docker
 
 import (
 	"errors"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/config"
@@ -29,6 +31,8 @@ import (
 // Note: Change this value every time when a new bind mount is added to
 // agent for the tests to pass
 const (
+	testTempDirPrefix = "init-docker-test-"
+
 	expectedAgentBindsUnspecifiedPlatform = 19
 	expectedAgentBindsSuseUbuntuPlatform  = 17
 )
@@ -182,6 +186,12 @@ func TestRemoveExistingAgentContainer(t *testing.T) {
 func TestStartAgentNoEnvFile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
 
 	containerID := "container id"
 
@@ -312,6 +322,12 @@ func expectKey(key string, input map[string]struct{}, t *testing.T) {
 func TestStartAgentEnvFile(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
 
 	envFile := "\nAGENT_TEST_VAR=val\nAGENT_TEST_VAR2=val2\n"
 	containerID := "container id"
@@ -350,6 +366,12 @@ func TestStartAgentEnvFile(t *testing.T) {
 func TestStartAgentWithGPUConfig(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
 
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
 	containerID := "container id"
@@ -403,6 +425,12 @@ func TestStartAgentWithGPUConfig(t *testing.T) {
 func TestStartAgentWithGPUConfigNoDevices(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
+	isPathValid = func(path string, isDir bool) bool {
+		return false
+	}
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
 
 	envFile := "\nECS_ENABLE_GPU_SUPPORT=true\n"
 	containerID := "container id"
@@ -748,6 +776,191 @@ func TestGetDockerSocketBind(t *testing.T) {
 
 			bind := getDockerSocketBind(map[string]string{"DOCKER_HOST": tc.dockerHostFromConfigFile})
 			assert.Equal(t, tc.expectedBind, bind)
+		})
+	}
+}
+
+func TestStartAgentWithExecBinds(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	containerID := "container id"
+	isPathValid = func(path string, isDir bool) bool {
+		return true
+	}
+	expectedAgentBinds += 2
+	defer func() {
+		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
+		isPathValid = defaultIsPathValid
+	}()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockDocker := NewMockdockerclient(mockCtrl)
+
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockDocker.EXPECT().CreateContainer(gomock.Any()).Do(func(opts godocker.CreateContainerOptions) {
+		validateCommonCreateContainerOptions(opts, t)
+
+		// verify that exec binds are added
+		hostCapabilityExecResourcesDir := filepath.Join(hostCapabilitiesResourcesRootDir, capabilityExecName)
+		containerCapabilityExecResourcesDir := filepath.Join(containerCapabilitiesResourcesRootDir, capabilityExecName)
+
+		// binaries
+		hostBinDir := filepath.Join(hostCapabilityExecResourcesDir, capabilityExecHostBinRelativePath)
+		containerBinDir := filepath.Join(containerCapabilityExecResourcesDir, capabilityExecContainerBinRelativePath)
+
+		// certs
+		hostCertsFile := filepath.Join(capabilityExecHostCertsDir, capabilityExecRequiredCert)
+		containerCertsFile := filepath.Join(containerCapabilityExecResourcesDir, capabilityExecContainerCertsRelativePath, capabilityExecRequiredCert)
+
+		expectedBinds := []string{
+			hostBinDir + ":" + containerBinDir + readOnly,
+			hostCertsFile + ":" + containerCertsFile + readOnly,
+		}
+
+		for _, expectedBind := range expectedBinds {
+			added := false
+			agentBinds := opts.HostConfig.Binds
+			for _, bind := range agentBinds {
+				if bind == expectedBind {
+					added = true
+					break
+				}
+			}
+
+			assert.True(t, added, "%v should be added to HostConfig.Binds", expectedBind)
+		}
+	}).Return(&godocker.Container{
+		ID: containerID,
+	}, nil)
+	mockDocker.EXPECT().StartContainer(containerID, nil)
+	mockDocker.EXPECT().WaitContainer(containerID)
+
+	client := &Client{
+		docker: mockDocker,
+		fs:     mockFS,
+	}
+
+	_, err := client.StartAgent()
+	assert.NoError(t, err)
+}
+
+func TestGetCapabilityExecBinds(t *testing.T) {
+	defer func() {
+		isPathValid = defaultIsPathValid
+	}()
+	hostCapabilityExecResourcesDir := filepath.Join(hostCapabilitiesResourcesRootDir, capabilityExecName)
+	containerCapabilityExecResourcesDir := filepath.Join(containerCapabilitiesResourcesRootDir, capabilityExecName)
+
+	// binaries
+	hostBinDir := filepath.Join(hostCapabilityExecResourcesDir, capabilityExecHostBinRelativePath)
+	containerBinDir := filepath.Join(containerCapabilityExecResourcesDir, capabilityExecContainerBinRelativePath)
+
+	// certs
+	hostCertsFile := filepath.Join(capabilityExecHostCertsDir, capabilityExecRequiredCert)
+	containerCertsFile := filepath.Join(containerCapabilityExecResourcesDir, capabilityExecContainerCertsRelativePath, capabilityExecRequiredCert)
+
+	testCases := []struct {
+		name            string
+		testIsPathValid func(string, bool) bool
+		expectedBinds   []string
+	}{
+		{
+			name: "all paths valid",
+			testIsPathValid: func(path string, isDir bool) bool {
+				return true
+			},
+			expectedBinds: []string{
+				hostBinDir + ":" + containerBinDir + readOnly,
+				hostCertsFile + ":" + containerCertsFile + readOnly,
+			},
+		},
+		{
+			name: "only ssm-agent bin path valid",
+			testIsPathValid: func(path string, isDir bool) bool {
+				return path == hostBinDir
+			},
+			expectedBinds: []string{
+				hostBinDir + ":" + containerBinDir + readOnly,
+			},
+		},
+		{
+			name: "no path valid",
+			testIsPathValid: func(path string, isDir bool) bool {
+				return false
+			},
+			expectedBinds: nil,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			isPathValid = tc.testIsPathValid
+			binds := getCapabilityExecBinds()
+			assert.Equal(t, tc.expectedBinds, binds)
+		})
+	}
+}
+
+func TestDefaultIsPathValid(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	file, err := ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+	testCases := []struct {
+		name              string
+		path              string
+		shouldBeDirectory bool
+		expected          bool
+	}{
+		{
+			name:              "return false if directory does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+		{
+			name:              "return false if false does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: true,
+			expected:          true,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: false,
+			expected:          true,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := defaultIsPathValid(tc.path, tc.shouldBeDirectory)
+			assert.Equal(t, result, tc.expected)
 		})
 	}
 }
