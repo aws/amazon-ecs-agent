@@ -18,6 +18,9 @@ package app
 import (
 	"context"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,9 +42,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testTempDirPrefix = "agent-capability-test-"
+)
+
 func TestCapabilities(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return true, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -83,7 +96,7 @@ func TestCapabilities(t *testing.T) {
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 
-	expectedCapabilityNames := []string{
+	expectedNameOnlyCapabilities := []string{
 		capabilityPrefix + "privileged-container",
 		capabilityPrefix + "docker-remote-api.1.17",
 		capabilityPrefix + "docker-remote-api.1.18",
@@ -104,10 +117,11 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + capabilityExecuteCommand,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
-	for _, name := range expectedCapabilityNames {
+	for _, name := range expectedNameOnlyCapabilities {
 		expectedCapabilities = append(expectedCapabilities,
 			&ecs.Attribute{Name: aws.String(name)})
 	}
@@ -749,5 +763,153 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 		if strings.HasPrefix(aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver") {
 			assert.Equal(t, aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver.local")
 		}
+	}
+}
+
+func TestCapabilitesExecuteCommandShouldBeAddedWhenDependenciesExist(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return true, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          &config.Config{},
+		dockerClient: client,
+		pauseLoader:  mockPauseLoader,
+		mobyPlugins:  mockMobyPlugins,
+	}
+
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+
+	assert.Contains(t, capabilities, &ecs.Attribute{
+		Name: aws.String(attributePrefix + capabilityExecuteCommand),
+	})
+}
+
+func TestCapabilitesExecuteCommandShouldNotBeAddedWhenDependenciesDoNotExist(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return(versionList),
+		client.EXPECT().KnownVersions().Return(versionList),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:          ctx,
+		cfg:          &config.Config{},
+		dockerClient: client,
+		pauseLoader:  mockPauseLoader,
+		mobyPlugins:  mockMobyPlugins,
+	}
+
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+
+	assert.NotContains(t, capabilities, &ecs.Attribute{
+		Name: aws.String(attributePrefix + capabilityExecuteCommand),
+	})
+}
+
+func TestDefaultPathExistsd(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	file, err := ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+	testCases := []struct {
+		name              string
+		path              string
+		shouldBeDirectory bool
+		expected          bool
+	}{
+		{
+			name:              "return false if directory does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+		{
+			name:              "return false if false does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: true,
+			expected:          true,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: false,
+			expected:          true,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := defaultPathExists(tc.path, tc.shouldBeDirectory)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, result, tc.expected)
+		})
 	}
 }
