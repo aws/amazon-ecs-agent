@@ -17,6 +17,7 @@
 # Because the Agent's tests include starting docker containers, it is necessary
 # to have both go and docker available in the testing environment.
 # It's easier to get go, so start with docker-in-docker and add go on top
+
 FROM jpetazzo/dind
 MAINTAINER Amazon Web Services, Inc.
 
@@ -32,7 +33,9 @@ RUN apt-get update && apt-get install -y \
 		--no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/*
 
-ENV GOLANG_VERSION 1.15
+ARG GO_VERSION=1.15
+
+ENV GOLANG_VERSION ${GO_VERSION}
 ENV GOLANG_DOWNLOAD_URL https://golang.org/dl/go$GOLANG_VERSION.linux-amd64.tar.gz
 ENV GOLANG_DOWNLOAD_SHA256 d7d1f1f88ddfe55840712dc1747f37a790cbcaa448f6c9cf51bbe10aa65442f5
 
