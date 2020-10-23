@@ -78,9 +78,6 @@ const (
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
 	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
-
-	// executeCommandAgent is the only available ManagedAgent type
-	executeCommandAgentName = "EXECUTE_COMMAND_AGENT"
 )
 
 var (
@@ -113,15 +110,25 @@ type HealthStatus struct {
 	Output string `json:"output,omitempty"`
 }
 
-type ManagedAgent struct {
+type ManagedAgentState struct {
+	// ID of this managed agent state
+	ID string `json:"id:omitempty"`
 	// Status is the managed agent health status
 	Status apicontainerstatus.ManagedAgentStatus `json:"status:omitempty"`
-	// Name is always executeCommandAgent (until a new agent type is introduced)
-	Name string `json:"name,omitempty"`
 	// Reason is a placeholder for failure messaging
 	Reason string `json:"reason,omitempty"`
 	// LastStartedAt is the timestamp when the status last went from PENDING->RUNNING
 	LastStartedAt time.Time `json:"lastStartedAt,omitempty"`
+	// Metadata holds metadata about the managed agent
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type ManagedAgent struct {
+	ManagedAgentState
+	// Name is the name of this managed agent. This name is streamed down from ACS.
+	Name string `json:"name,omitempty"`
+	// Properties of this managed agent. Properties are streamed down from ACS.
+	Properties map[string]string `json:"properties,omitempty"`
 }
 
 // Container is the internal representation of a container in the ECS agent
@@ -294,9 +301,6 @@ type Container struct {
 	finishedAt time.Time
 
 	labels map[string]string
-
-	// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-	ExecCommandAgentMetadata ExecCommandAgentMetadata `json:"execCommandAgentMetadata"`
 }
 
 type DependsOn struct {
@@ -349,22 +353,6 @@ type Secret struct {
 	Type          string `json:"type"`
 	Provider      string `json:"provider"`
 	Target        string `json:"target"`
-}
-
-// ExecCommandAgentMetadata holds metadata about the exec agent running inside the container (i.e. SSM Agent).
-type ExecCommandAgentMetadata struct {
-	PID           string                                `json:"pid"`
-	DockerExecID  string                                `json:"dockerExecId"`
-	CMD           string                                `json:"cmd"`
-	StartedAt     time.Time                             `json:"startedAt"`
-	StoppedReason string                                `json:"stoppedReason"`
-	Status        apicontainerstatus.ManagedAgentStatus `json:"execCommandAgentStatus"`
-	SessionLimit  int                                   `json:"sessionLimit"`
-}
-
-func (md *ExecCommandAgentMetadata) String() string {
-	return fmt.Sprintf("[PID: %s, CMD: %s, StartedAt: %s, StoppedReason: %s]",
-		md.PID, md.CMD, md.StartedAt, md.StoppedReason)
 }
 
 // GetSecretResourceCacheKey returns the key required to access the secret
@@ -707,28 +695,10 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 	return c.KnownPortBindingsUnsafe
 }
 
-// GetKnownManagedAgents is a convenience method to format the
-// ExecuteCommandAgent to meet the expectations of ContainerStateChange
-// This returns an initialized array of ManagedAgents if none are reporting
-// Else an array of knownManagedAgents
-func (c *Container) GetKnownManagedAgents() []ManagedAgent {
-	execCommandAgentMetadata := c.GetExecCommandAgentMetadata()
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	// for now we will reset the managed agents every time.
-	c.ManagedAgentsUnsafe = []ManagedAgent{}
-	if execCommandAgentMetadata.Status.ShouldReportToBackend() {
-		// LastStartedAt will only exist for ManagedAgents
-		// that have been started at least once
-		knownManagedAgent := ManagedAgent{
-			Status:        execCommandAgentMetadata.Status,
-			Name:          executeCommandAgentName,
-			LastStartedAt: execCommandAgentMetadata.StartedAt,
-			Reason:        execCommandAgentMetadata.StoppedReason,
-		}
-		c.ManagedAgentsUnsafe = append(c.ManagedAgentsUnsafe, knownManagedAgent)
-	}
+// GetManagedAgents returns the managed agents configured for this container
+func (c *Container) GetManagedAgents() []ManagedAgent {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	return c.ManagedAgentsUnsafe
 }
 
@@ -1235,14 +1205,35 @@ func (c *Container) GetTaskARN() string {
 	return c.TaskARNUnsafe
 }
 
-func (c *Container) SetExecCommandAgentMetadata(metadata ExecCommandAgentMetadata) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.ExecCommandAgentMetadata = metadata
-}
-
-func (c *Container) GetExecCommandAgentMetadata() ExecCommandAgentMetadata {
+// GetManagedAgentByName retrieves the managed agent with the name specified and a boolean indicating whether an agent
+// was found or not.
+// note: a zero value for ManagedAgent if the name is not known to this container.
+func (c *Container) GetManagedAgentByName(agentName string) (ManagedAgent, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return c.ExecCommandAgentMetadata
+	for _, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return ma, true
+		}
+	}
+	return ManagedAgent{}, false
+}
+
+// UpdateManagedAgentByName updates the state of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgentState) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			// It's necessary to clone the whole ManagedAgent struct
+			c.ManagedAgentsUnsafe[i] = ManagedAgent{
+				Name:              ma.Name,
+				Properties:        ma.Properties,
+				ManagedAgentState: state,
+			}
+			return true
+		}
+	}
+	return false
 }

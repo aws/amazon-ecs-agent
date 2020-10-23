@@ -538,76 +538,20 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
 }
 
-func TestGetKnownManagedAgents(t *testing.T) {
-	const (
-		testPid          = "pid"
-		testDockerExecId = "dockerId"
-	)
-	nowTime := time.Now()
-	zeroTime := time.Time{}
-	testCases := []struct {
-		name              string
-		container         *Container
-		status            apicontainerstatus.ManagedAgentStatus
-		expectedStartTime time.Time
-	}{
-		{
-			name: "test GetKnownManagedAgents none case",
-			container: &Container{
-				Name: "containerManagedAgentNone",
-			},
-			status:            apicontainerstatus.ManagedAgentStatusNone,
-			expectedStartTime: zeroTime,
-		},
-		{
-			name: "test GetKnownManagedAgents created case",
-			container: &Container{
-				Name: "containerManagedAgentCreated",
-			},
-			status:            apicontainerstatus.ManagedAgentCreated,
-			expectedStartTime: zeroTime,
-		},
-		{
-			name: "test GetKnownManagedAgents running case",
-			container: &Container{
-				Name: "containerManagedAgentRunning",
-			},
-			status:            apicontainerstatus.ManagedAgentRunning,
-			expectedStartTime: nowTime,
-		},
-		{
-			name: "test GetKnownManagedAgents stopped case",
-			container: &Container{
-				Name: "containerManagedAgentStopped",
-			},
-			status:            apicontainerstatus.ManagedAgentStopped,
-			expectedStartTime: nowTime,
+func TestGetManagedAgents(t *testing.T) {
+	container := Container{}
+	assert.Nil(t, container.GetManagedAgents())
+
+	expectedManagedAgent := ManagedAgent{
+		Name:       "dummyAgent",
+		Properties: map[string]string{"test": "prop"},
+		ManagedAgentState: ManagedAgentState{
+			LastStartedAt: time.Now(),
+			Status:        apicontainerstatus.ManagedAgentCreated,
 		},
 	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			expectedManagedAgentArray := []ManagedAgent{}
-
-			tc.container.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
-				PID:          testPid,
-				DockerExecID: testDockerExecId,
-				StartedAt:    tc.expectedStartTime,
-				Status:       tc.status,
-			})
-
-			// only create expected managed agent if ShouldReportToBackend is true
-			if tc.status.ShouldReportToBackend() {
-				expectedManagedAgent := ManagedAgent{
-					Status:        tc.status,
-					Name:          executeCommandAgentName,
-					LastStartedAt: tc.expectedStartTime,
-				}
-				expectedManagedAgentArray = append(expectedManagedAgentArray, expectedManagedAgent)
-			}
-
-			assert.Equal(t, expectedManagedAgentArray, tc.container.GetKnownManagedAgents())
-		})
-	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, expectedManagedAgent, container.GetManagedAgents()[0])
 }
 
 func TestDependsOnContainer(t *testing.T) {
@@ -823,35 +767,84 @@ func TestRequireNeuronRuntime(t *testing.T) {
 	assert.True(t, c.RequireNeuronRuntime())
 }
 
-func TestExecCommandAgentEmptyMetadata(t *testing.T) {
+func TestUpdateManagedAgentByName(t *testing.T) {
 	const (
-		emptyPid          = "pid"
-		emptyDockerExecId = "dockerId"
+		dummyAgent = "dummyAgent"
+		testStatus = apicontainerstatus.ManagedAgentStopped
+		testReason = "reason"
 	)
-	c := &Container{}
-	md := c.GetExecCommandAgentMetadata()
-	assert.Equal(t, "", md.PID)
-	assert.Equal(t, "", md.DockerExecID)
-}
+	cases := []struct {
+		name      string
+		agentName string
+		state     ManagedAgentState
+	}{
+		{
+			name:      "test nonexistent managed agent",
+			agentName: "nonexistentAgent",
+		},
+		{
+			name:      "test managed agent with default (zero) state",
+			agentName: dummyAgent,
+		},
+		{
+			name:      "test managed agent with nil metadata",
+			agentName: dummyAgent,
+			state: ManagedAgentState{
+				Status:        testStatus,
+				Reason:        testReason,
+				LastStartedAt: time.Time{},
+				Metadata:      nil,
+			},
+		},
+		{
+			name:      "test managed agent with full state",
+			agentName: dummyAgent,
+			state: ManagedAgentState{
+				Status:        testStatus,
+				Reason:        testReason,
+				LastStartedAt: time.Time{},
+			},
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			c := &Container{}
 
-func TestExecCommandAgentMetadata(t *testing.T) {
-	const (
-		testPid          = "pid"
-		testDockerExecId = "dockerId"
-	)
-	c := &Container{}
-	assert.Equal(t, "", c.ExecCommandAgentMetadata.PID)
-	assert.Equal(t, "", c.ExecCommandAgentMetadata.DockerExecID)
+			// Verify we don't have extraneous data on a blank Container
+			assert.Nil(t, c.GetManagedAgents())
+			agent, ok := c.GetManagedAgentByName(test.agentName)
+			assert.False(t, ok)
+			assert.Equal(t, ManagedAgentState{}, agent.ManagedAgentState)
+			var expectAgentFound bool
+			// simulate we only have data for "dummyAgent"
+			if test.agentName == dummyAgent {
+				expectAgentFound = true
+				c.ManagedAgentsUnsafe = []ManagedAgent{
+					{
+						Name:              test.agentName,
+						ManagedAgentState: test.state,
+					},
+				}
+			}
 
-	c.SetExecCommandAgentMetadata(ExecCommandAgentMetadata{
-		PID:          testPid,
-		DockerExecID: testDockerExecId,
-	})
+			// Verify that we can retrieve the correct data stored in container.ManagedAgentsUnsafe
+			agent, ok = c.GetManagedAgentByName(test.agentName)
+			assert.Equal(t, expectAgentFound, ok)
+			assert.Equal(t, test.state, agent.ManagedAgentState)
 
-	assert.Equal(t, testPid, c.ExecCommandAgentMetadata.PID)
-	assert.Equal(t, testDockerExecId, c.ExecCommandAgentMetadata.DockerExecID)
-
-	md := c.GetExecCommandAgentMetadata()
-	assert.Equal(t, testPid, md.PID)
-	assert.Equal(t, testDockerExecId, md.DockerExecID)
+			var newState ManagedAgentState
+			// simulate we only replace data data for "dummyAgent"
+			if test.agentName == dummyAgent {
+				newState = ManagedAgentState{
+					Status:        apicontainerstatus.ManagedAgentRunning,
+					Reason:        "new reason",
+					LastStartedAt: time.Now(),
+				}
+				c.UpdateManagedAgentByName(test.agentName, newState)
+			}
+			agent, ok = c.GetManagedAgentByName(test.agentName)
+			assert.Equal(t, expectAgentFound, ok)
+			assert.Equal(t, newState, agent.ManagedAgentState)
+		})
+	}
 }

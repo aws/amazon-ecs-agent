@@ -281,11 +281,14 @@ func (engine *DockerTaskEngine) monitorExecAgentProcesses(ctx context.Context) {
 	defer engine.tasksLock.RUnlock()
 	for _, mTask := range engine.managedTasks {
 		task := mTask.Task
-		if !task.IsExecCommandAgentEnabled() || task.GetKnownStatus() != apitaskstatus.TaskRunning {
+
+		if task.GetKnownStatus() != apitaskstatus.TaskRunning {
 			continue
 		}
 		for _, c := range task.Containers {
-			go engine.monitorExecAgentRunning(ctx, mTask, c)
+			if execcmd.IsExecEnabledContainer(c) {
+				go engine.monitorExecAgentRunning(ctx, mTask, c)
+			}
 		}
 	}
 }
@@ -616,7 +619,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		}
 	}
 
-	if task.IsExecCommandAgentEnabled() {
+	if execcmd.IsExecEnabledTask(task) {
 		// cleanup host exec agent log dirs
 		if tID, err := task.GetID(); err != nil {
 			seelog.Warnf("Task Engine[%s]: error getting task ID for ExecAgent logs cleanup: %v", task.Arn, err)
@@ -770,7 +773,7 @@ func (engine *DockerTaskEngine) StateChangeEvents() chan statechange.Event {
 func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 	defer metrics.MetricsEngineGlobal.RecordTaskEngineMetric("ADD_TASK")()
 	err := task.PostUnmarshalTask(engine.cfg, engine.credentialsManager,
-		engine.resourceFields, engine.client, engine.ctx, engine.initializeExecCmdAgentForTask)
+		engine.resourceFields, engine.client, engine.ctx)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to add task to the engine: %v", task.Arn, err)
 		task.SetKnownStatus(apitaskstatus.TaskStopped)
@@ -1121,8 +1124,13 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
-	if task.IsExecCommandAgentEnabled() {
-		err := engine.execCmdMgr.AddAgentConfigMount(hostConfig, container.GetExecCommandAgentMetadata())
+	if execcmd.IsExecEnabledContainer(container) {
+		tId, err := task.GetID()
+		if err != nil {
+			herr := &apierrors.HostConfigError{Msg: err.Error()}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(herr)}
+		}
+		err = engine.execCmdMgr.InitializeContainer(tId, container, hostConfig)
 		if err != nil {
 			herr := &apierrors.HostConfigError{Msg: err.Error()}
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(herr)}
@@ -1288,7 +1296,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 
 		}
 	}
-	if task.IsExecCommandAgentEnabled() {
+	if execcmd.IsExecEnabledContainer(container) {
 		if err := engine.execCmdMgr.StartAgent(engine.ctx, engine.client, task, container, dockerID); err != nil {
 			seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, container.Name, err)
 		}
@@ -1586,15 +1594,4 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 		return dockerContainer.DockerName, nil
 	}
 	return dockerContainer.DockerID, nil
-}
-
-func (engine *DockerTaskEngine) initializeExecCmdAgentForTask(task *apitask.Task) error {
-	if !task.IsExecCommandAgentEnabled() {
-		return nil
-	}
-	if err := engine.execCmdMgr.InitializeTask(task); err != nil {
-		seelog.Errorf("Task [%s]: could not initialize ExecCommandAgent: %v", task.Arn, err)
-		return err
-	}
-	return nil
 }
