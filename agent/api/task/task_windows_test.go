@@ -716,7 +716,7 @@ func TestPostUnmarshalTaskWithFSxWindowsFileServerVolumes(t *testing.T) {
 				"credentialsParameter": "arn",
 				"domain": "test"
 		  	},
-		  "fsxWindowsFileServerHostPath": "Z:\\"
+		  "fsxWindowsFileServerHostPath": ""
 		},
 		"createdAt": "0001-01-01T00:00:00Z",
 		"desiredStatus": "NONE",
