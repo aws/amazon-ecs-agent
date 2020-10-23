@@ -15,6 +15,7 @@
 package execcmd
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -193,4 +194,61 @@ func assertMountPoint(t *testing.T, c *apicontainer.Container, source, container
 	require.NotNil(t, found, "Mount point for volume (%s) not found in container (%s)", source, c.Name)
 	assert.Equal(t, readonly, found.ReadOnly, "Mount point for volume (%s) for container (%s) has the wrong write permissions", source, c.Name)
 	assert.Equal(t, containerPath, found.ContainerPath, "Mount point for volume (%s) points to the wrong container (%s) path", source, c.Name)
+}
+
+func TestGetExecAgentConfigFileName(t *testing.T) {
+	execAgentConfig := `
+	"Agent": {
+	  "Region": "",
+	  "OrchestrationRootDir": "",
+	  "ContainerMode": true,
+	  "Mgs": {
+		"Region": "",
+		"Endpoint": "",
+		"StopTimeoutMillis": 20000,
+		"SessionWorkersLimit": 2
+	  }
+	}`
+	sha := getExecAgentConfigHash(execAgentConfig)
+	configFileName := fmt.Sprintf("/execute-command/config/amazon-ssm-agent-%s.json", sha)
+	var tests = []struct {
+		fileExists             bool
+		createConfigFileErr    error
+		expectedConfigFileName string
+		expectedError          error
+	}{
+		{
+			fileExists:             true,
+			createConfigFileErr:    nil,
+			expectedConfigFileName: configFileName,
+			expectedError:          nil,
+		},
+		{
+			fileExists:             false,
+			createConfigFileErr:    nil,
+			expectedConfigFileName: configFileName,
+			expectedError:          nil,
+		},
+		{
+			fileExists:             false,
+			createConfigFileErr:    errors.New("cannot create config"),
+			expectedConfigFileName: "",
+			expectedError:          errors.New("cannot create config"),
+		},
+	}
+	defer func() {
+		execAgentConfigFileExists = configFileExists
+		createNewExecAgentConfigFile = createNewConfigFile
+	}()
+	for _, tc := range tests {
+		execAgentConfigFileExists = func(file string) bool {
+			return tc.fileExists
+		}
+		createNewExecAgentConfigFile = func(c, f string) error {
+			return tc.createConfigFileErr
+		}
+		fileName, err := getExecAgentConfigFileName(2)
+		assert.Equal(t, tc.expectedConfigFileName, fileName, "incorrect config file name")
+		assert.Equal(t, tc.expectedError, err)
+	}
 }
