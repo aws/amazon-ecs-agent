@@ -22,10 +22,24 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/cihub/seelog"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/docker/docker/api/types"
+	dockercontainer "github.com/docker/docker/api/types/container"
+	sdkClient "github.com/docker/docker/client"
+	"github.com/pborman/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -48,19 +62,6 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
-	"github.com/cihub/seelog"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/docker/docker/api/types"
-	dockercontainer "github.com/docker/docker/api/types/container"
-	sdkClient "github.com/docker/docker/client"
-	"github.com/pborman/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -416,6 +417,7 @@ func TestExecCommandAgent(t *testing.T) {
 	<-ctx.Done()
 	require.NotEqual(t, context.DeadlineExceeded, ctx.Err(), "Timed out waiting for task (%s) to stop", testTaskId)
 	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
+	// TODO: [ecs-exec] We should be able to wait for cleanup instead of calling deleteTask directly
 	taskEngine.(*DockerTaskEngine).deleteTask(testTask)
 	_, err = os.Stat(execAgentLogPath)
 	assert.True(t, os.IsNotExist(err), "execAgent log cleanup failed")
@@ -424,11 +426,11 @@ func TestExecCommandAgent(t *testing.T) {
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
 	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
-	testTask.ExecCommandAgentEnabledUnsafe = true
 	testTask.PIDMode = ecs.PidModeHost
 	testTask.Containers[0].Name = containerName
 	testTask.Containers[0].Image = testExecCommandAgentImage
 	testTask.Containers[0].Command = []string{testExecCommandAgentSleepBin, "-time=" + sleepFor.String()}
+	enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{})
 	return testTask
 }
 
@@ -464,40 +466,51 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	}, credentialsManager
 }
 
+const (
+	uuidRegex                = "[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}" // matches a UUID
+	containerDepsPrefixRegex = execcmd.ContainerDepsDirPrefix + uuidRegex
+)
+
 func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
 	testTaskId, containerId, containerName, testExecCmdHostBinDir, testConfigFileName string) {
 	inspectState, _ := client.ContainerInspect(ctx, containerId)
+
 	expectedMounts := []struct {
-		source   string
-		dest     string
-		readOnly bool
+		source    string
+		destRegex string
+		readOnly  bool
 	}{
 		{
-			source:   filepath.Join(testExecCmdHostBinDir, execcmd.BinName),
-			dest:     filepath.Join(execcmd.ContainerBinDir, execcmd.BinName),
-			readOnly: true,
+			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SSMAgentBinName),
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentBinName),
+			readOnly:  true,
 		},
 		{
-			source:   filepath.Join(testExecCmdHostBinDir, execcmd.SessionWorkerBinName),
-			dest:     filepath.Join(execcmd.ContainerBinDir, execcmd.SessionWorkerBinName),
-			readOnly: true,
+			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SSMAgentWorkerBinName),
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentWorkerBinName),
+			readOnly:  true,
 		},
 		{
-			source:   execcmd.HostCertFile,
-			dest:     execcmd.ContainerCertFile,
-			readOnly: true,
+			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SessionWorkerBinName),
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SessionWorkerBinName),
+			readOnly:  true,
 		},
 		{
-			source:   filepath.Join(execcmd.HostExecConfigDir, testConfigFileName),
-			dest:     execcmd.ContainerConfigFile,
-			readOnly: true,
+			source:    execcmd.HostCertFile,
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.ContainerCertFileSuffix),
+			readOnly:  true,
 		},
 		{
-			source:   filepath.Join(execcmd.HostLogDir, testTaskId, containerName),
-			dest:     execcmd.ContainerLogDir,
-			readOnly: false,
+			source:    filepath.Join(execcmd.HostExecConfigDir, testConfigFileName),
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.ContainerConfigFileSuffix),
+			readOnly:  true,
+		},
+		{
+			source:    filepath.Join(execcmd.HostLogDir, testTaskId, containerName),
+			destRegex: execcmd.ContainerLogDir,
+			readOnly:  false,
 		},
 	}
 
@@ -510,7 +523,7 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 			}
 		}
 		require.NotNil(t, found, "Expected mount point not found (%s)", em.source)
-		require.Equal(t, em.dest, found.Destination, "Destination for mount point (%s) is invalid expected: %s, actual: %s", em.source, em.dest, found.Destination)
+		require.Regexp(t, em.destRegex, found.Destination, "Destination for mount point (%s) is invalid expected: %s, actual: %s", em.source, em.destRegex, found.Destination)
 		if em.readOnly {
 			require.Equal(t, "ro", found.Mode, "Destination for mount point (%s) should be read only", em.source)
 		} else {
@@ -531,9 +544,10 @@ func verifyMockExecCommandAgentIsStopped(t *testing.T, client *sdkClient.Client,
 }
 
 func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, containerId, expectedPid string, checkIsRunning bool) string {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 	res := make(chan string, 1)
+	execCmdAgentProcessRegex := filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentBinName)
 	go func() {
 		for {
 			top, err := client.ContainerTop(ctx, containerId, nil)
@@ -554,16 +568,17 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 			require.NotEqual(t, -1, cmdPos, "CMD title not found in the container top response")
 			require.NotEqual(t, -1, pidPos, "PID title not found in the container top response")
 			for _, proc := range top.Processes {
-				if proc[cmdPos] == filepath.Join(execcmd.ContainerBinDir, execcmd.BinName) {
+				matched, _ := regexp.MatchString(execCmdAgentProcessRegex, proc[cmdPos])
+				if matched {
 					res <- proc[pidPos]
 					return
 				}
 			}
-
+			seelog.Infof("Processes running in container: %s", top.Processes)
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(retry.AddJitter(time.Second, time.Second*5)):
+			case <-time.After(time.Second * 4):
 			}
 		}
 	}()
@@ -584,7 +599,7 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 		}
 
 	}
-	require.Equal(t, checkIsRunning, isRunning, "ExecCmdAgent was not in the desired running-status")
+	require.Equal(t, checkIsRunning, isRunning, "SSM agent was not found in container's process list")
 	return pid
 }
 
