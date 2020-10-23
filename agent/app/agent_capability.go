@@ -64,11 +64,11 @@ const (
 	capabilityEFS                               = "efs"
 	capabilityEFSAuth                           = "efsAuth"
 	capabilityEnvFilesS3                        = "env-files.s3"
-	capabilityExecuteCommand                    = "execute-command"
-	capabilityDepsRootDir                       = "/capabilities"
-	capabilityExecuteCommandBinRelativePath     = "bin"
-	capabilityExecuteCommandConfigRelativePath  = "config"
-	capabilityExecuteCommandCertsRelativePath   = "certs"
+	capabilityExec                              = "execute-command"
+	capabilityDepsRootDir                       = "/managed-agents"
+	capabilityExecBinRelativePath               = "bin"
+	capabilityExecConfigRelativePath            = "config"
+	capabilityExecCertsRelativePath             = "certs"
 )
 
 var (
@@ -346,10 +346,10 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	// for an instance to be exec-enabled, it needs resources needed by SSM (binaries, configuration files and certs)
 	// the following bind mounts are defined in ecs-init and added to the ecs-agent container
 
-	capabilityExecuteCommandRootDir := filepath.Join(capabilityDepsRootDir, capabilityExecuteCommand)
-	binDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecuteCommandBinRelativePath)
-	configDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecuteCommandConfigRelativePath)
-	certsDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecuteCommandCertsRelativePath)
+	capabilityExecuteCommandRootDir := filepath.Join(capabilityDepsRootDir, capabilityExec)
+	binDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecBinRelativePath)
+	configDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecConfigRelativePath)
+	certsDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecCertsRelativePath)
 
 	dependencies := map[string][]string{
 		binDir:    capabilityExecuteCommandRequiredBinaries,
@@ -370,7 +370,7 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 		}
 	}
 
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExecuteCommand), nil
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
 }
 
 func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {

@@ -117,7 +117,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
-		attributePrefix + capabilityExecuteCommand,
+		attributePrefix + capabilityExec,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -766,86 +766,71 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	}
 }
 
-func TestCapabilitesExecuteCommandShouldBeAddedWhenDependenciesExist(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return true, nil
+func TestCapabilitesExecuteCommand(t *testing.T) {
+	execCapability := ecs.Attribute{
+		Name: aws.String(attributePrefix + capabilityExec),
 	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
-
-	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	client := mock_dockerapi.NewMockDockerClient(ctrl)
-	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
-	gomock.InOrder(
-		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
-		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).AnyTimes().Return([]string{}, nil),
-	)
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
+	testCases := []struct {
+		name                     string
+		pathExists               func(string, bool) (bool, error)
+		shouldHaveExecCapability bool
+	}{
+		{
+			name:                     "execute-command capability should not be added if requirements are not met",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return false, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should be added if requirements are met",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			shouldHaveExecCapability: true,
+		},
 	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pathExists = tc.pathExists
+			defer func() {
+				pathExists = defaultPathExists
+			}()
 
-	capabilities, err := agent.capabilities()
-	require.NoError(t, err)
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	assert.Contains(t, capabilities, &ecs.Attribute{
-		Name: aws.String(attributePrefix + capabilityExecuteCommand),
-	})
-}
+			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+			versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			gomock.InOrder(
+				client.EXPECT().SupportedVersions().Return(versionList),
+				client.EXPECT().KnownVersions().Return(versionList),
+				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
+				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).AnyTimes().Return([]string{}, nil),
+			)
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:          ctx,
+				cfg:          &config.Config{},
+				dockerClient: client,
+				pauseLoader:  mockPauseLoader,
+				mobyPlugins:  mockMobyPlugins,
+			}
 
-func TestCapabilitesExecuteCommandShouldNotBeAddedWhenDependenciesDoNotExist(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
+			capabilities, err := agent.capabilities()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.shouldHaveExecCapability {
+				assert.Contains(t, capabilities, &execCapability)
+			} else {
+				assert.NotContains(t, capabilities, &execCapability)
+			}
+		})
 	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
-
-	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
-	client := mock_dockerapi.NewMockDockerClient(ctrl)
-	versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
-	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
-	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
-	gomock.InOrder(
-		client.EXPECT().SupportedVersions().Return(versionList),
-		client.EXPECT().KnownVersions().Return(versionList),
-		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
-		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
-			gomock.Any()).AnyTimes().Return([]string{}, nil),
-	)
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:          ctx,
-		cfg:          &config.Config{},
-		dockerClient: client,
-		pauseLoader:  mockPauseLoader,
-		mobyPlugins:  mockMobyPlugins,
-	}
-
-	capabilities, err := agent.capabilities()
-	require.NoError(t, err)
-
-	assert.NotContains(t, capabilities, &ecs.Attribute{
-		Name: aws.String(attributePrefix + capabilityExecuteCommand),
-	})
 }
 
 func TestDefaultPathExistsd(t *testing.T) {
