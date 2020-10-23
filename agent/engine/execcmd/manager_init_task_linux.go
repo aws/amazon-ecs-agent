@@ -54,7 +54,8 @@ const (
 	execCommandDepsDir = "/execute-command"
 	execAgentConfigDir = execCommandDepsDir + "/config"
 	// filePerm is the permission for the exec agent config file.
-	filePerm = 0644
+	filePerm            = 0644
+	defaultSessionLimit = 2
 )
 
 var (
@@ -110,14 +111,18 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 			},
 		})
 
+	// TODO: placeholder, change default to use session limit for individual container
+	execAgentConfigFile, err := getExecAgentConfigFileName(defaultSessionLimit)
+	if err != nil {
+		return fmt.Errorf("could not generate ExecAgent Configuration file: %v", err)
+	}
 	// Append config file volume
 	task.Volumes = append(task.Volumes,
 		apitask.TaskVolume{
 			Type: apitask.HostVolumeType,
 			Name: configVolumeName,
 			Volume: &taskresourcevolume.FSHostVolume{
-				// TODO: Change this path after getting the config file name
-				FSSourcePath: filepath.Join(m.hostBinDir, ConfigFileName),
+				FSSourcePath: filepath.Join(m.hostBinDir, execAgentConfigFile),
 			},
 		})
 
@@ -177,7 +182,9 @@ func buildContainerNameForBinary(c *apicontainer.Container) string {
 	return cn
 }
 
-func getExecAgentConfigFileName(sessionLimit int) (string, error) {
+var getExecAgentConfigFileName = getAgentConfigFileName
+
+func getAgentConfigFileName(sessionLimit int) (string, error) {
 	config := fmt.Sprintf(execAgentConfigTemplate, sessionLimit)
 	hash := getExecAgentConfigHash(config)
 	// check if config file exists already
