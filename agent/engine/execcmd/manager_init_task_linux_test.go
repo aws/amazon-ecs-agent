@@ -17,185 +17,118 @@ package execcmd
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
+	"strconv"
 	"testing"
 
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
-func strptr(s string) *string { return &s }
-
-func TestInitializeTask(t *testing.T) {
+func TestInitializeContainer(t *testing.T) {
 	const containerNameOnlyHyphens = "--"
 	var tt = []struct {
-		taskName            string
-		execEnabled         bool
-		expectedVolumes     int
-		expectedMountPoints int
-		errorExpected       bool
+		managedAgentName                string
+		getExecAgentConfigFileNameError error
 	}{
 		{
-			taskName:            "arn:aws:iam::123456789012:user/Test",
-			execEnabled:         true,
-			expectedVolumes:     7,
-			expectedMountPoints: 4,
-			errorExpected:       false,
+			managedAgentName: "randomAgent",
 		},
 		{
-			taskName:            "arn:aws:iam::123456789012:user/Test",
-			execEnabled:         false,
-			expectedVolumes:     0,
-			expectedMountPoints: 0,
-			errorExpected:       false,
+			managedAgentName:                ExecuteCommandAgentName,
+			getExecAgentConfigFileNameError: errors.New("mockError"),
 		},
 		{
-			taskName:            "BAD TASK NAME",
-			execEnabled:         true,
-			expectedVolumes:     0,
-			expectedMountPoints: 0,
-			errorExpected:       true,
+			managedAgentName: ExecuteCommandAgentName,
 		},
 	}
 	defer func() {
 		GetExecAgentConfigFileName = getAgentConfigFileName
+		newUUID = uuid.New
 	}()
 	for _, test := range tt {
-		// Constants used here are defined in task_unix_test.go and task_windows_test.go
-		taskFromACS := ecsacs.Task{
-			Arn:           strptr(test.taskName),
-			DesiredStatus: strptr("RUNNING"),
-			Family:        strptr("myFamily"),
-			Version:       strptr("1"),
-			Containers: []*ecsacs.Container{
+		task := &apitask.Task{
+			Arn: "arn:aws:iam::123456789012:user/Test",
+			Containers: []*apicontainer.Container{
 				{
-					Name: strptr("myName1"),
+					Name: "container-name",
 				},
 				{
-					Name: strptr("myName2"),
+					Name: "--container-name",
 				},
 				{
-					Name: strptr("--container-with-trailing-hyphens"),
-				},
-				{
-					Name: strptr(containerNameOnlyHyphens), // Container that will end up in an empty directory name (trailing hyphens are removed)
+					Name: containerNameOnlyHyphens, // Container that will end up in an empty directory name (trailing hyphens are removed)
 				},
 			},
 		}
-		seqNum := int64(42)
-		task, err := apitask.TaskFromACS(&taskFromACS, &ecsacs.PayloadMessage{SeqNum: &seqNum})
-		require.Nil(t, err, "Should be able to handle acs task")
 
-		assert.Equal(t, 4, len(task.Containers))              // before PostUnmarshalTask
-		task.ExecCommandAgentEnabledUnsafe = test.execEnabled // TODO: [ecs-exec] remove this statement once ecsacs model is complete with ecs exec stuff
-		require.Equal(t, test.execEnabled, task.IsExecCommandAgentEnabled(), "task.IsExecCommandAgentEnabled() returned an unexpected value")
-
-		if !test.execEnabled {
-			return
+		// This makes task exec-enabled
+		for _, c := range task.Containers {
+			c.ManagedAgentsUnsafe = []apicontainer.ManagedAgent{
+				{
+					Name: test.managedAgentName,
+				},
+			}
 		}
-
 		execCmdMgr := newTestManager()
 		GetExecAgentConfigFileName = func(s int) (string, error) {
-			return ConfigFileName, nil
+			return "amazon-ssm-agent.json", test.getExecAgentConfigFileNameError
 		}
-		err = execCmdMgr.InitializeTask(task)
-		if test.errorExpected {
-			require.NotNil(t, err, "An error should be returned for a task with bad name")
-			return
-		} else {
-			require.Nil(t, err, "No error was expected for PostUnmarshalTask")
+		newUUID = func() string {
+			return "test-UUID"
 		}
-
-		assert.Equal(t, 4, len(task.Containers), "Should match the number of containers as before PostUnmarshalTask")
-		taskVolumes := task.Volumes
-		// 3 for the exec agent binaries + 1 for tls certs + 2 log volumes (1 per container) = 6
-		assert.Equal(t, test.expectedVolumes, len(taskVolumes), "Should have created 6 task volumes")
-
-		// Check agent binary volumes
-		expectedBinaryNames := []string{BinName, SessionWorkerBinName}
-		for _, ebn := range expectedBinaryNames {
-			bvn := fmt.Sprintf("%s-%s", internalNamePrefix, ebn)
-			assertTaskVolume(t, task, bvn, filepath.Join(HostBinDir, ebn))
-		}
-
-		// check tls cert volume
-		assertTaskVolume(t, task, certVolumeName, HostCertFile)
-
-		// Check exec agent log volumes
-		for _, c := range task.Containers {
-			tID, _ := task.GetID()
-			lvn := fmt.Sprintf("%s-%s-%s", logVolumeNamePrefix, tID, c.Name)
-
-			// Check special case where container name contains only hyphens
-			if c.Name == containerNameOnlyHyphens {
-				assertLogVolumeWithPrefix(t, task, lvn, filepath.Join(HostLogDir, tID, namelessContainerPrefix))
-			} else {
-				assertTaskVolume(t, task, lvn, filepath.Join(HostLogDir, tID, strings.TrimLeft(c.Name, "-")))
+		for _, container := range task.Containers {
+			hc := &dockercontainer.HostConfig{}
+			err := execCmdMgr.InitializeContainer("task-id", container, hc)
+			var expectedError error
+			if test.managedAgentName != ExecuteCommandAgentName {
+				expectedError = errExecCommandManagedAgentNotFound
 			}
-			// Check mount points were added for this container (1 for log, 1 for tls cert, 3 for binaries)
-			require.Equal(t, test.expectedMountPoints, len(c.MountPoints))
-			// Check exec agent log mount point
-			assertMountPoint(t, c, lvn, ContainerLogDir, false)
-			// Check exec agent tls cert mount point
-			assertMountPoint(t, c, certVolumeName, ContainerCertFile, true)
-
-			// Check exec agent binary mount points
-			for _, ebn := range expectedBinaryNames {
-				assertMountPoint(t, c, fmt.Sprintf("%s-%s", internalNamePrefix, ebn), filepath.Join(ContainerBinDir, ebn), true)
+			if test.getExecAgentConfigFileNameError != nil {
+				expectedError = fmt.Errorf("could not generate ExecAgent Config File: %v", test.getExecAgentConfigFileNameError)
 			}
+
+			assert.Equal(t, expectedError, err)
+
+			if expectedError != nil {
+				assert.Empty(t, hc.Binds)
+				continue
+			}
+
+			assert.Len(t, hc.Binds, 6)
+
+			assert.Subset(t, hc.Binds, []string{
+				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/amazon-ssm-agent:" +
+					"/ecs-execute-command-test-UUID/amazon-ssm-agent:ro"})
+
+			assert.Subset(t, hc.Binds, []string{
+				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/ssm-agent-worker:" +
+					"/ecs-execute-command-test-UUID/ssm-agent-worker:ro"})
+
+			assert.Subset(t, hc.Binds, []string{
+				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/ssm-session-worker:" +
+					"/ecs-execute-command-test-UUID/ssm-session-worker:ro"})
+
+			assert.Subset(t, hc.Binds, []string{
+				"/var/lib/ecs/deps/execute-command/config/amazon-ssm-agent.json:" +
+					"/ecs-execute-command-test-UUID/configuration/amazon-ssm-agent.json:ro"})
+
+			assert.Subset(t, hc.Binds, []string{
+				"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:" +
+					"/ecs-execute-command-test-UUID/certs/amazon-ssm-agent.crt:ro"})
+
+			expectedHostLogDir := "/var/log/ecs/exec/task-id/container-name:"
+			if container.Name == containerNameOnlyHyphens {
+				expectedHostLogDir = "/var/log/ecs/exec/task-id/nameless-container-test-UUID:"
+			}
+			assert.Subset(t, hc.Binds, []string{
+				expectedHostLogDir +
+					"/var/log/amazon/ssm"})
 		}
 	}
-}
-
-func findTaskVolumeByName(t *apitask.Task, name string) *apitask.TaskVolume {
-	for _, tv := range t.Volumes {
-		if tv.Name == name {
-			return &tv
-		}
-	}
-	return nil
-}
-
-func findMountPointBySourceVolume(c *apicontainer.Container, source string) *apicontainer.MountPoint {
-	for _, mp := range c.MountPoints {
-		if mp.SourceVolume == source {
-			return &mp
-		}
-	}
-	return nil
-}
-
-func assertLogVolumeWithPrefix(t *testing.T, task *apitask.Task, expectedVolName, expectedSourceDirPrefix string) {
-	vol := findTaskVolumeByName(task, expectedVolName)
-	require.NotNil(t, vol, "Exec agent volume (%s) was not added to task volumes", expectedVolName)
-	assert.Equal(t, apitask.HostVolumeType, vol.Type, "exec agent volume (%s) is of the wrong type", expectedVolName)
-	fshv, ok := vol.Volume.(*taskresourcevolume.FSHostVolume)
-	assert.True(t, ok, "Exec agent volume (%s) is not of the correct type (FSHostVolume)", expectedVolName)
-	assert.True(t, strings.HasPrefix(fshv.FSSourcePath, expectedSourceDirPrefix),
-		"Exec agent volume (%s) has the wrong path prefix (expected: %s, actual: %s)", expectedVolName, expectedSourceDirPrefix, fshv.FSSourcePath)
-}
-
-func assertTaskVolume(t *testing.T, task *apitask.Task, expectedVolName, expectedSourceDir string) {
-	vol := findTaskVolumeByName(task, expectedVolName)
-	require.NotNil(t, vol, "Exec agent volume (%s) was not added to task volumes", expectedVolName)
-	assert.Equal(t, apitask.HostVolumeType, vol.Type, "exec agent volume (%s) is of the wrong type", expectedVolName)
-	fshv, ok := vol.Volume.(*taskresourcevolume.FSHostVolume)
-	assert.True(t, ok, "Exec agent volume (%s) is not of the correct type (FSHostVolume)", expectedVolName)
-	assert.Equal(t, expectedSourceDir, fshv.FSSourcePath, "Exec agent volume (%s) points to the wrong source path", expectedVolName)
-}
-
-func assertMountPoint(t *testing.T, c *apicontainer.Container, source, containerPath string, readonly bool) {
-	found := findMountPointBySourceVolume(c, source)
-	require.NotNil(t, found, "Mount point for volume (%s) not found in container (%s)", source, c.Name)
-	assert.Equal(t, readonly, found.ReadOnly, "Mount point for volume (%s) for container (%s) has the wrong write permissions", source, c.Name)
-	assert.Equal(t, containerPath, found.ContainerPath, "Mount point for volume (%s) points to the wrong container (%s) path", source, c.Name)
 }
 
 func TestGetExecAgentConfigFileName(t *testing.T) {
@@ -255,55 +188,35 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 	}
 }
 
-func TestAddAgentConfigMount(t *testing.T) {
+func TestGetSessionWorkersLimit(t *testing.T) {
 	var tests = []struct {
 		sessionLimit  int
-		expectedBinds int
-		expectedError bool
+		expectedLimit int
 	}{
 		{
 			sessionLimit:  -2,
-			expectedBinds: 1,
-			expectedError: false,
+			expectedLimit: 2,
 		},
 		{
 			sessionLimit:  0,
-			expectedBinds: 1,
-			expectedError: false,
+			expectedLimit: 2,
 		},
 		{
 			sessionLimit:  1,
-			expectedBinds: 1,
-			expectedError: false,
+			expectedLimit: 1,
 		},
 		{
 			sessionLimit:  2,
-			expectedBinds: 0,
-			expectedError: true,
+			expectedLimit: 2,
 		},
 	}
-	defer func() {
-		GetExecAgentConfigFileName = getAgentConfigFileName
-	}()
 	for _, tc := range tests {
-		expectedBind := "/var/lib/ecs/deps/execute-command/config/amazon-ssm-agent.json:/etc/amazon/ssm/amazon-ssm-agent.json:ro"
-		execCmdMgr := newTestManager()
-		execMD := apicontainer.ExecCommandAgentMetadata{
-			SessionLimit: tc.sessionLimit,
+		ma := apicontainer.ManagedAgent{
+			Properties: map[string]string{
+				"SessionWorkersLimit": strconv.Itoa(tc.sessionLimit),
+			},
 		}
-		hc := &dockercontainer.HostConfig{}
-		GetExecAgentConfigFileName = func(s int) (string, error) {
-			if tc.expectedError {
-				return "", errors.New("config create error")
-			} else {
-				return ConfigFileName, nil
-			}
-		}
-		err := execCmdMgr.AddAgentConfigMount(hc, execMD)
-		assert.Equal(t, tc.expectedBinds, len(hc.Binds))
-		assert.Equal(t, tc.expectedError, err != nil)
-		if !tc.expectedError {
-			assert.Equal(t, expectedBind, hc.Binds[0])
-		}
+		limit := getSessionWorkersLimit(ma)
+		assert.Equal(t, tc.expectedLimit, limit)
 	}
 }

@@ -115,7 +115,7 @@ const (
 	//	 a) Add 'authorizationConfig', 'transitEncryption' and 'transitEncryptionPort' to 'taskresource.volume.EFSVolumeConfig'
 	//	 b) Add 'pauseContainerPID' field to 'taskresource.volume.VolumeResource'
 	// 28) Add 'envfile' field to 'resources'
-	// 29) Add 'ExecCommandAgentMetadata' field to 'apicontainer.Container'
+	// 29) Add 'ManagedAgentsUnsafe' field to 'apicontainer.Container'
 
 	ECSDataVersion = 29
 

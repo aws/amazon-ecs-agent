@@ -267,9 +267,6 @@ type Task struct {
 	// LaunchType is the launch type of this task.
 	LaunchType string `json:"LaunchType,omitempty"`
 
-	// TODO: [ecs-exec] Wire this to the actual model when control plane changes are ready
-	ExecCommandAgentEnabledUnsafe bool `json:"ExecCommandAgentEnabled"`
-
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
 }
@@ -2721,10 +2718,4 @@ func (task *Task) SetLocalIPAddress(addr string) {
 	defer task.lock.Unlock()
 
 	task.LocalIPAddressUnsafe = addr
-}
-
-func (task *Task) IsExecCommandAgentEnabled() bool {
-	task.lock.Lock()
-	defer task.lock.Unlock()
-	return task.ExecCommandAgentEnabledUnsafe
 }
