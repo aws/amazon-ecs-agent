@@ -33,6 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
@@ -344,5 +345,15 @@ func checkManagedAgentEvents(t *testing.T, expectContainerEvent bool, stateChang
 	} else {
 		assert.Empty(t, stateChangeEvents, "expected empty stateChangeEvents channel, but found an event")
 		close(waitDone)
+	}
+}
+
+func enableExecCommandAgentForContainer(container *apicontainer.Container, state apicontainer.ManagedAgentState) {
+	container.ManagedAgentsUnsafe = []apicontainer.ManagedAgent{
+		{
+			Name:              execcmd.ExecuteCommandAgentName,
+			Properties:        make(map[string]string),
+			ManagedAgentState: state,
+		},
 	}
 }
