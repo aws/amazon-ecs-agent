@@ -21,47 +21,45 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pborman/uuid"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 )
 
 const (
-	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	ContainerBinDir      = "/usr/bin"
-	BinName              = "amazon-ssm-agent"
-	SessionWorkerBinName = "ssm-session-worker"
-	ConfigFileName       = "amazon-ssm-agent.json"
-
-	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	HostLogDir          = "/var/log/ecs/exec"
-	ContainerLogDir     = "/var/log/amazon/ssm"
-	ECSAgentExecLogDir  = "/log/exec"
-	HostCertFile        = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
-	ContainerCertFile   = "/etc/ssl/certs/ca-certificates.crt"
-	ContainerConfigFile = "/etc/amazon/ssm/amazon-ssm-agent.json"
-
 	namelessContainerPrefix = "nameless-container-"
-	internalNamePrefix      = "internal-execute-command-agent"
-	logVolumeNamePrefix     = internalNamePrefix + "-log"
-	certVolumeName          = internalNamePrefix + "-tls-cert"
-	configVolumeName        = internalNamePrefix + "-config"
 
 	ecsAgentExecDepsDir = "/managed-agents/execute-command"
-	// ECSAgentExecConfigDir is the directory where ECS Agent will write the
-	// ExecAgent config files to
-	ECSAgentExecConfigDir = ecsAgentExecDepsDir + "/config"
-	hostExecDepsDir       = "/var/lib/ecs/deps/execute-command"
-	// HostExecConfigDir is the dir where ExecAgents Config files will live
-	HostExecConfigDir = hostExecDepsDir + "/config"
+
+	ContainerDepsDirPrefix = "/ecs-execute-command-"
+
 	// filePerm is the permission for the exec agent config file.
 	filePerm            = 0644
 	defaultSessionLimit = 2
+
+	SSMAgentBinName       = "amazon-ssm-agent"
+	SSMAgentWorkerBinName = "ssm-agent-worker"
+	SessionWorkerBinName  = "ssm-session-worker"
+
+	HostLogDir         = "/var/log/ecs/exec"
+	ContainerLogDir    = "/var/log/amazon/ssm"
+	ECSAgentExecLogDir = "/log/exec"
+
+	HostCertFile            = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+	ContainerCertFileSuffix = "certs/amazon-ssm-agent.crt"
+
+	containerConfigFileName   = "amazon-ssm-agent.json"
+	ContainerConfigDirName    = "config"
+	ContainerConfigFileSuffix = "configuration/" + containerConfigFileName
+
+	// ECSAgentExecConfigDir is the directory where ECS Agent will write the ExecAgent config files to
+	ECSAgentExecConfigDir = ecsAgentExecDepsDir + "/" + ContainerConfigDirName
+	// HostExecConfigDir is the dir where ExecAgents Config files will live
+	HostExecConfigDir = hostExecDepsDir + "/" + ContainerConfigDirName
 )
 
 var (
@@ -77,111 +75,101 @@ var (
 		"SessionWorkersLimit": %d
 	  }
 	}`
-	execAgentConfigFileNameTemplate = `amazon-ssm-agent-%s.json`
+	// TODO: [ecs-exec] seelog config needs to be implemented following a similar approach to ss, config
+	execAgentConfigFileNameTemplate    = `amazon-ssm-agent-%s.json`
+	errExecCommandManagedAgentNotFound = fmt.Errorf("managed agent not found (%s)", ExecuteCommandAgentName)
 )
 
-// InitializeTask adds the necessary volumes and mount points in all of the task containers in order for the
-// exec cmd agent to run upon container start up.
+// InitializeContainer adds the necessary bind mounts in order for the ExecCommandAgent to run properly in the container
 // TODO: [ecs-exec] Should we validate the ssm agent binaries & certs are valid and fail here if they're not? (bind mount will succeed even if files don't exist in host)
-func (m *manager) InitializeTask(task *apitask.Task) error {
-	if !task.IsExecCommandAgentEnabled() {
-		return nil
+func (m *manager) InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+	ma, ok := container.GetManagedAgentByName(ExecuteCommandAgentName)
+	if !ok {
+		return errExecCommandManagedAgentNotFound
 	}
-
-	tId, err := task.GetID()
+	configFile, err := GetExecAgentConfigFileName(getSessionWorkersLimit(ma))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not generate ExecAgent Config File: %v", err)
 	}
 
-	execCommandAgentBinNames := []string{BinName, SessionWorkerBinName}
+	uuid := newUUID()
+	containerDepsFolder := ContainerDepsDirPrefix + uuid
 
-	// Append an internal volume for each of the exec agent binary names
-	for _, bn := range execCommandAgentBinNames {
-		task.Volumes = append(task.Volumes,
-			apitask.TaskVolume{
-				Type: apitask.HostVolumeType,
-				Name: buildVolumeNameForBinary(bn),
-				Volume: &taskresourcevolume.FSHostVolume{
-					FSSourcePath: filepath.Join(m.hostBinDir, bn),
-				},
-			})
-	}
+	// Add ssm binary mounts
+	// TODO: [ecs-exec]: m.hostBinDir should determine the latest version of ssm agent available in the deps folder
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		filepath.Join(m.hostBinDir, SSMAgentBinName),
+		filepath.Join(containerDepsFolder, SSMAgentBinName)))
 
-	// Append certificates volume
-	task.Volumes = append(task.Volumes,
-		apitask.TaskVolume{
-			Type: apitask.HostVolumeType,
-			Name: certVolumeName,
-			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: HostCertFile,
-			},
-		})
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		filepath.Join(m.hostBinDir, SSMAgentWorkerBinName),
+		filepath.Join(containerDepsFolder, SSMAgentWorkerBinName)))
 
-	// Add log volumes and mount points to all containers in this task
-	for _, c := range task.Containers {
-		lvn := fmt.Sprintf("%s-%s-%s", logVolumeNamePrefix, tId, c.Name)
-		cn := buildContainerNameForBinary(c)
-		task.Volumes = append(task.Volumes, apitask.TaskVolume{
-			Type: apitask.HostVolumeType,
-			Name: lvn,
-			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(HostLogDir, tId, cn),
-			},
-		})
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		filepath.Join(m.hostBinDir, SessionWorkerBinName),
+		filepath.Join(containerDepsFolder, SessionWorkerBinName)))
 
-		c.MountPoints = append(c.MountPoints,
-			apicontainer.MountPoint{
-				SourceVolume:  lvn,
-				ContainerPath: ContainerLogDir,
-				ReadOnly:      false,
-			},
-			apicontainer.MountPoint{
-				SourceVolume:  certVolumeName,
-				ContainerPath: ContainerCertFile,
-				ReadOnly:      true,
-			},
-		)
+	// Add ssm agent config file mount
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		filepath.Join(HostExecConfigDir, configFile),
+		filepath.Join(containerDepsFolder, ContainerConfigFileSuffix)))
 
-		for _, bn := range execCommandAgentBinNames {
-			c.MountPoints = append(c.MountPoints,
-				apicontainer.MountPoint{
-					SourceVolume:  buildVolumeNameForBinary(bn),
-					ContainerPath: filepath.Join(ContainerBinDir, bn),
-					ReadOnly:      true,
-				})
-		}
-	}
+	// Append TLS cert mount
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		HostCertFile, // TODO: [ecs-exec] decision pending - review the location of the certs in the host
+		filepath.Join(containerDepsFolder, ContainerCertFileSuffix)))
+
+	// Add ssm log bind mount
+	cn := fileSystemSafeContainerName(container)
+	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(
+		filepath.Join(HostLogDir, taskId, cn),
+		ContainerLogDir))
+
+	container.UpdateManagedAgentByName(ExecuteCommandAgentName, apicontainer.ManagedAgentState{
+		ID: uuid,
+	})
+
 	return nil
 }
 
-func buildVolumeNameForBinary(binaryName string) string {
-	return fmt.Sprintf("%s-%s", internalNamePrefix, binaryName)
+func getReadOnlyBindMountMapping(hostDir, containerDir string) string {
+	return getBindMountMapping(hostDir, containerDir) + ":ro"
 }
 
-func buildContainerNameForBinary(c *apicontainer.Container) string {
+func getBindMountMapping(hostDir, containerDir string) string {
+	return hostDir + ":" + containerDir
+}
+
+var newUUID = uuid.New
+
+func fileSystemSafeContainerName(c *apicontainer.Container) string {
 	// Trim leading hyphens since they're not valid directory names
 	cn := strings.TrimLeft(c.Name, "-")
 	if cn == "" {
 		// Fallback name in the extreme case that we end up with an empty string after trimming all leading hyphens.
-		return namelessContainerPrefix + uuid.New()
+		return namelessContainerPrefix + newUUID()
 	}
 	return cn
 }
 
-// AddAgentConfigMount adds the ExecAgentConfigFile to the hostConfig binds
-func (m *manager) AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error {
-	sessionLimit := execMD.SessionLimit
-	// TODO: change this to < 0 if 0 session is valid
-	if sessionLimit <= 0 {
-		sessionLimit = defaultSessionLimit
+func getSessionWorkersLimit(ma apicontainer.ManagedAgent) int {
+	// TODO [ecs-exec] : verify that returning the default session limit (2) is ok in case of any errors, misconfiguration
+	limit := defaultSessionLimit
+	if ma.Properties == nil { // This means ACS didn't send the limit
+		return limit
 	}
-	configFile, err := GetExecAgentConfigFileName(sessionLimit)
-	if err != nil {
-		return fmt.Errorf("could not generate ExecAgent Config File: %v", err)
+	limitStr, ok := ma.Properties["SessionWorkersLimit"]
+	if !ok { // This also means ACS didn't send the limit
+		return limit
 	}
-	configBindMount := filepath.Join(HostExecConfigDir, configFile) + ":" + ContainerConfigFile + ":ro"
-	hostConfig.Binds = append(hostConfig.Binds, configBindMount)
-	return nil
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil { // This means ACS send a limit that can't be converted to an int
+		return limit
+	}
+	if limit <= 0 {
+		limit = defaultSessionLimit
+	}
+	return limit
 }
 
 var GetExecAgentConfigFileName = getAgentConfigFileName

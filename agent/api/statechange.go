@@ -138,10 +138,6 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 			contKnownStatus.String(), cont.Name, task.Arn)
 	}
 
-	// for now this will only ever be an array of ManagedAgent type
-	// with either 0 (empty but initialized) or 1 executeCommandAgent ManagedAgents
-	managedAgents := cont.GetKnownManagedAgents()
-
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
 	}
@@ -152,7 +148,7 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  cont.GetKnownPortBindings(),
-		ManagedAgents: managedAgents,
+		ManagedAgents: cont.GetManagedAgents(),
 		ImageDigest:   cont.GetImageDigest(),
 		Reason:        reason,
 		Container:     cont,

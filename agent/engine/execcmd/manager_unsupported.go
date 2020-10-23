@@ -39,14 +39,8 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 	return nil
 }
 
-// InitializeTask adds the necessary volumes and mount points in all of the task containers in order for the
-// exec cmd agent to run upon container start up.
+// InitializeContainer adds the necessary bind mounts in order for the ExecCommandAgent to run properly in the container
 // Note: exec cmd agent is a linux-only feature, thus implemented here as a no-op.
-func (m *manager) InitializeTask(task *apitask.Task) error {
-	return nil
-}
-
-// AddAgentConfigMount adds the ExecAgentConfigFile to the hostConfig binds
-func (m *manager) AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error {
+func (m *manager) InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
 	return nil
 }

@@ -122,8 +122,7 @@ func TestMarshalTaskVolumesEFS(t *testing.T) {
 		"executionCredentialsID": "",
 		"ENI": null,
 		"AppMesh": null,
-		"PlatformFields": %s,
-		"ExecCommandAgentEnabled": false
+		"PlatformFields": %s
 	  }`
 	if runtime.GOOS == "windows" {
 		// windows task defs have a special 'cpu/memory unbounded' field added.
