@@ -51,7 +51,7 @@ const (
 	certVolumeName          = internalNamePrefix + "-tls-cert"
 	configVolumeName        = internalNamePrefix + "-config"
 
-	execCommandDepsDir = "/execute-command"
+	execCommandDepsDir = "/managed-agents/execute-command"
 	execAgentConfigDir = execCommandDepsDir + "/config"
 	// filePerm is the permission for the exec agent config file.
 	filePerm            = 0644
@@ -190,6 +190,7 @@ func getAgentConfigFileName(sessionLimit int) (string, error) {
 	// check if config file exists already
 	configFilePath := filepath.Join(execAgentConfigDir, fmt.Sprintf(execAgentConfigFileNameTemplate, hash))
 	if execAgentConfigFileExists(configFilePath) {
+		// TODO: verify the hash of the existing file contents
 		return configFilePath, nil
 	}
 	// config doesn't exist; create a new one
@@ -202,8 +203,7 @@ func getAgentConfigFileName(sessionLimit int) (string, error) {
 func getExecAgentConfigHash(config string) string {
 	hash := sha256.New()
 	hash.Write([]byte(config))
-	sha := base64.URLEncoding.EncodeToString(hash.Sum(nil))
-	return sha
+	return base64.URLEncoding.EncodeToString(hash.Sum(nil))
 }
 
 var execAgentConfigFileExists = configFileExists
