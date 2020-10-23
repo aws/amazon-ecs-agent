@@ -63,6 +63,9 @@ func TestInitializeTask(t *testing.T) {
 			errorExpected:       true,
 		},
 	}
+	defer func() {
+		getExecAgentConfigFileName = getAgentConfigFileName
+	}()
 	for _, test := range tt {
 		// Constants used here are defined in task_unix_test.go and task_windows_test.go
 		taskFromACS := ecsacs.Task{
@@ -98,6 +101,9 @@ func TestInitializeTask(t *testing.T) {
 		}
 
 		execCmdMgr := newTestManager()
+		getExecAgentConfigFileName = func(s int) (string, error) {
+			return ConfigFileName, nil
+		}
 		err = execCmdMgr.InitializeTask(task)
 		if test.errorExpected {
 			require.NotNil(t, err, "An error should be returned for a task with bad name")
