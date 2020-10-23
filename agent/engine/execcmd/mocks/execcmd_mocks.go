@@ -53,32 +53,18 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
-// AddAgentConfigMount mocks base method
-func (m *MockManager) AddAgentConfigMount(arg0 *container0.HostConfig, arg1 container.ExecCommandAgentMetadata) error {
+// InitializeContainer mocks base method
+func (m *MockManager) InitializeContainer(arg0 string, arg1 *container.Container, arg2 *container0.HostConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddAgentConfigMount", arg0, arg1)
+	ret := m.ctrl.Call(m, "InitializeContainer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddAgentConfigMount indicates an expected call of AddAgentConfigMount
-func (mr *MockManagerMockRecorder) AddAgentConfigMount(arg0, arg1 interface{}) *gomock.Call {
+// InitializeContainer indicates an expected call of InitializeContainer
+func (mr *MockManagerMockRecorder) InitializeContainer(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAgentConfigMount", reflect.TypeOf((*MockManager)(nil).AddAgentConfigMount), arg0, arg1)
-}
-
-// InitializeTask mocks base method
-func (m *MockManager) InitializeTask(arg0 *task.Task) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitializeTask", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// InitializeTask indicates an expected call of InitializeTask
-func (mr *MockManagerMockRecorder) InitializeTask(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeTask", reflect.TypeOf((*MockManager)(nil).InitializeTask), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeContainer", reflect.TypeOf((*MockManager)(nil).InitializeContainer), arg0, arg1, arg2)
 }
 
 // RestartAgentIfStopped mocks base method

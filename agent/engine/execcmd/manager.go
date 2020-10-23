@@ -25,9 +25,12 @@ import (
 )
 
 const (
-	// TODO: [ecs-exec] decide if this needs to be configurable or put in a specific place in our optimized AMIs
-	HostBinDir = "/home/ec2-user/ssm-agent/linux_amd64"
+	hostExecDepsDir = "/var/lib/ecs/deps/execute-command"
+	// TODO: [ecs-exec]: This version should be dynamic, need to confirm with ssm team what's the exact format so we can always pick the latest
+	ssmBinVersion = "3.0.236.0"
+	HostBinDir    = hostExecDepsDir + "/bin/" + ssmBinVersion
 
+	ExecuteCommandAgentName    = "ExecuteCommandAgent"
 	defaultStartRetryTimeout   = time.Minute * 10
 	defaultRetryMinDelay       = time.Second * 1
 	defaultRetryMaxDelay       = time.Second * 30
@@ -66,10 +69,9 @@ func (e StartError) Retry() bool {
 }
 
 type Manager interface {
-	InitializeTask(task *apitask.Task) error
+	InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error
 	StartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) error
 	RestartAgentIfStopped(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (RestartStatus, error)
-	AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error
 }
 
 type manager struct {
@@ -96,6 +98,20 @@ func NewManagerWithBinDir(hostBinDir string) *manager {
 	return m
 }
 
-func (m *manager) isAgentStarted(execMD apicontainer.ExecCommandAgentMetadata) bool {
-	return !execMD.StartedAt.IsZero()
+func (m *manager) isAgentStarted(ma apicontainer.ManagedAgent) bool {
+	return !ma.LastStartedAt.IsZero()
+}
+
+func IsExecEnabledTask(task *apitask.Task) bool {
+	for _, c := range task.Containers {
+		if IsExecEnabledContainer(c) {
+			return true
+		}
+	}
+	return false
+}
+
+func IsExecEnabledContainer(container *apicontainer.Container) bool {
+	_, ok := container.GetManagedAgentByName(ExecuteCommandAgentName)
+	return ok
 }

@@ -17,6 +17,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
 func TestNewManager(t *testing.T) {
@@ -36,4 +39,67 @@ func TestNewManagerWithBinDir(t *testing.T) {
 	assert.Equal(t, defaultRetryMinDelay, m.retryMinDelay)
 	assert.Equal(t, defaultRetryMaxDelay, m.retryMaxDelay)
 	assert.Equal(t, defaultStartRetryTimeout, m.startRetryTimeout)
+}
+
+func TestIsExecEnabledTask(t *testing.T) {
+	var tests = []struct {
+		name                string
+		agentName           string
+		expectedExecEnabled bool
+	}{
+		{
+			name:      "test task not exec enabled when no exec command managed agent is present",
+			agentName: "randomAgent",
+		},
+		{
+			name:                "test task not exec enabled when no exec command managed agent is present",
+			agentName:           "ExecuteCommandAgent",
+			expectedExecEnabled: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			task := &apitask.Task{
+				Containers: []*apicontainer.Container{{
+					ManagedAgentsUnsafe: []apicontainer.ManagedAgent{
+						{
+							Name: tc.agentName,
+						}}},
+				},
+			}
+			enabled := IsExecEnabledTask(task)
+			assert.Equal(t, tc.expectedExecEnabled, enabled)
+		})
+	}
+}
+
+func TestExecEnabledContainer(t *testing.T) {
+
+	var tests = []struct {
+		name                string
+		agentName           string
+		expectedExecEnabled bool
+	}{
+		{
+			name:      "test container not exec enabled when no exec command managed agent is present",
+			agentName: "randomAgent",
+		},
+		{
+			name:                "test container not exec enabled when no exec command managed agent is present",
+			agentName:           "ExecuteCommandAgent",
+			expectedExecEnabled: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			container := &apicontainer.Container{
+				ManagedAgentsUnsafe: []apicontainer.ManagedAgent{
+					{
+						Name: tc.agentName,
+					}},
+			}
+			enabled := IsExecEnabledContainer(container)
+			assert.Equal(t, tc.expectedExecEnabled, enabled)
+		})
+	}
 }
