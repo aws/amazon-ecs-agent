@@ -93,11 +93,11 @@ var (
 		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
 		capabilityEnvFilesS3,
 	}
-	capabilityExecuteCommandRequiredBinaries = []string{
+	capabilityExecRequiredBinaries = []string{
 		"amazon-ssm-agent",
 		"ssm-session-worker",
 	}
-	capabilityExecuteCommandRequiredCerts = []string{
+	capabilityExecRequiredCerts = []string{
 		"tls-ca-bundle.pem",
 	}
 
@@ -346,15 +346,15 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	// for an instance to be exec-enabled, it needs resources needed by SSM (binaries, configuration files and certs)
 	// the following bind mounts are defined in ecs-init and added to the ecs-agent container
 
-	capabilityExecuteCommandRootDir := filepath.Join(capabilityDepsRootDir, capabilityExec)
-	binDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecBinRelativePath)
-	configDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecConfigRelativePath)
-	certsDir := filepath.Join(capabilityExecuteCommandRootDir, capabilityExecCertsRelativePath)
+	capabilityExecRootDir := filepath.Join(capabilityDepsRootDir, capabilityExec)
+	binDir := filepath.Join(capabilityExecRootDir, capabilityExecBinRelativePath)
+	configDir := filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
+	certsDir := filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
 
 	dependencies := map[string][]string{
-		binDir:    capabilityExecuteCommandRequiredBinaries,
+		binDir:    capabilityExecRequiredBinaries,
 		configDir: []string{},
-		certsDir:  capabilityExecuteCommandRequiredCerts,
+		certsDir:  capabilityExecRequiredCerts,
 	}
 
 	for directory, files := range dependencies {
