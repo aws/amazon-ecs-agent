@@ -243,7 +243,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 			sleepTask := testdata.LoadTask("sleep5")
-			sleepTask.ExecCommandAgentEnabledUnsafe = tc.execCommandAgentEnabled
+			if tc.execCommandAgentEnabled && len(sleepTask.Containers) > 0 {
+				enableExecCommandAgentForContainer(sleepTask.Containers[0], apicontainer.ManagedAgentState{})
+			}
 			sleepTask.SetCredentialsID(credentialsID)
 			eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 			// containerEventsWG is used to force the test to wait until the container created and started
@@ -267,10 +269,9 @@ func TestBatchContainerHappyPath(t *testing.T) {
 							gomock.Any()).Return(tc.metadataUpdateError)
 
 						if tc.execCommandAgentEnabled {
-							execCmdMgr.EXPECT().InitializeTask(sleepTask).Times(1)
+							execCmdMgr.EXPECT().InitializeContainer(gomock.Any(), container, gomock.Any()).Times(1)
 							// TODO: [ecs-exec] validate call control plane to report ExecCommandAgent SUCCESS/FAIL here
 							execCmdMgr.EXPECT().StartAgent(gomock.Any(), client, sleepTask, sleepTask.Containers[0], containerID)
-							execCmdMgr.EXPECT().AddAgentConfigMount(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 						}
 					})
 			}
@@ -3203,15 +3204,16 @@ func TestStartExecAgent(t *testing.T) {
 					Name:              "test-container",
 					RuntimeID:         testContainerId,
 					KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
-					ExecCommandAgentMetadata: apicontainer.ExecCommandAgentMetadata{
-						StartedAt: nowTime,
-						Status:    tc.execAgentStatus,
-					},
 				},
 			},
-			ExecCommandAgentEnabledUnsafe: tc.execCommandAgentEnabled,
 		}
 
+		if tc.execCommandAgentEnabled {
+			enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{
+				LastStartedAt: nowTime,
+				Status:        tc.execAgentStatus,
+			})
+		}
 		mTestTask := &managedTask{
 			Task:              testTask,
 			engine:            dockerTaskEngine,
@@ -3225,14 +3227,16 @@ func TestStartExecAgent(t *testing.T) {
 		// check for expected containerEvent in stateChangeEvents
 		waitDone := make(chan struct{})
 		expectedManagedAgent := apicontainer.ManagedAgent{
-			Status: apicontainerstatus.ManagedAgentRunning,
+			ManagedAgentState: apicontainer.ManagedAgentState{
+				Status: apicontainerstatus.ManagedAgentRunning,
+			},
 		}
 		go checkManagedAgentEvents(t, tc.expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
 
 		client.EXPECT().StartContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
 		if tc.execCommandAgentEnabled {
-			execCmdMgr.EXPECT().InitializeTask(testTask).AnyTimes()
+			execCmdMgr.EXPECT().InitializeContainer(gomock.Any(), testTask.Containers[0], gomock.Any()).AnyTimes()
 			execCmdMgr.EXPECT().StartAgent(gomock.Any(), client, testTask, testTask.Containers[0], testContainerId).AnyTimes()
 		}
 		ret := taskEngine.(*DockerTaskEngine).startContainer(testTask, testTask.Containers[0])
@@ -3262,7 +3266,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 	)
 	testCases := []struct {
 		containerStatus                apicontainerstatus.ContainerStatus
-		execCommandAgentMetadata       apicontainer.ExecCommandAgentMetadata
+		execCommandAgentState          apicontainer.ManagedAgentState
 		execAgentStatus                apicontainerstatus.ManagedAgentStatus
 		simulateBadContainerId         bool
 		expectedRestartInUnhealthyCall bool
@@ -3292,17 +3296,17 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 			Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
 			Containers: []*apicontainer.Container{
 				{
-					Name:      "test-container",
-					RuntimeID: testContainerId,
-					ExecCommandAgentMetadata: apicontainer.ExecCommandAgentMetadata{
-						StartedAt: nowTime,
-						Status:    tc.execAgentStatus,
-					},
-
+					Name:              "test-container",
+					RuntimeID:         testContainerId,
 					KnownStatusUnsafe: tc.containerStatus,
 				},
 			},
 		}
+
+		enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{
+			LastStartedAt: nowTime,
+			Status:        tc.execAgentStatus,
+		})
 
 		mTestTask := &managedTask{
 			Task:              testTask,
@@ -3324,7 +3328,9 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		// check for expected containerEvent in stateChangeEvents
 		waitDone := make(chan struct{})
 		expectedManagedAgent := apicontainer.ManagedAgent{
-			Status: apicontainerstatus.ManagedAgentRunning,
+			ManagedAgentState: apicontainer.ManagedAgentState{
+				Status: apicontainerstatus.ManagedAgentRunning,
+			},
 		}
 		go checkManagedAgentEvents(t, tc.expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
 
@@ -3356,18 +3362,17 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 		Arn: "arn:aws:ecs:region:account-id:task/test-task-arn",
 		Containers: []*apicontainer.Container{
 			{
-				Name:      "test-container",
-				RuntimeID: "runtime-ID",
-				ExecCommandAgentMetadata: apicontainer.ExecCommandAgentMetadata{
-					StartedAt: nowTime,
-					Status:    apicontainerstatus.ManagedAgentRunning,
-				},
+				Name:              "test-container",
+				RuntimeID:         "runtime-ID",
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
-		KnownStatusUnsafe:             apitaskstatus.TaskRunning,
-		ExecCommandAgentEnabledUnsafe: true,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
 	}
+	enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{
+		LastStartedAt: nowTime,
+		Status:        apicontainerstatus.ManagedAgentRunning,
+	})
 	mTestTask := &managedTask{
 		Task:              testTask,
 		engine:            dockerTaskEngine,
@@ -3389,9 +3394,11 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 	expectContainerEvent := true
 	waitDone := make(chan struct{})
 	expectedManagedAgent := apicontainer.ManagedAgent{
-		Status:        apicontainerstatus.ManagedAgentRunning,
-		Name:          "EXECUTE_COMMAND_AGENT",
-		LastStartedAt: nowTime,
+		Name: execcmd.ExecuteCommandAgentName,
+		ManagedAgentState: apicontainer.ManagedAgentState{
+			Status:        apicontainerstatus.ManagedAgentRunning,
+			LastStartedAt: nowTime,
+		},
 	}
 
 	go checkManagedAgentEvents(t, expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
@@ -3441,8 +3448,10 @@ func TestMonitorExecAgentProcessExecDisabled(t *testing.T) {
 					KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 				},
 			},
-			ExecCommandAgentEnabledUnsafe: test.execCommandAgentEnabled,
-			KnownStatusUnsafe:             test.taskStatus,
+			KnownStatusUnsafe: test.taskStatus,
+		}
+		if test.execCommandAgentEnabled {
+			enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{})
 		}
 		dockerTaskEngine.state.AddTask(testTask)
 		dockerTaskEngine.managedTasks[testTask.Arn] = &managedTask{Task: testTask}
@@ -3476,8 +3485,11 @@ func TestMonitorExecAgentsMultipleContainers(t *testing.T) {
 				KnownStatusUnsafe: apicontainerstatus.ContainerRunning,
 			},
 		},
-		ExecCommandAgentEnabledUnsafe: true,
-		KnownStatusUnsafe:             apitaskstatus.TaskRunning,
+		KnownStatusUnsafe: apitaskstatus.TaskRunning,
+	}
+
+	for _, c := range testTask.Containers {
+		enableExecCommandAgentForContainer(c, apicontainer.ManagedAgentState{})
 	}
 
 	mTestTask := &managedTask{
@@ -3537,13 +3549,13 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 			{
 				Name:      "test-container",
 				RuntimeID: "runtime-ID",
-				ExecCommandAgentMetadata: apicontainer.ExecCommandAgentMetadata{
-					PID: execAgentPID,
-				},
 			},
 		},
-		ExecCommandAgentEnabledUnsafe: true,
 	}
+	enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{
+		Metadata: map[string]interface{}{
+			"PID": execAgentPID,
+		}})
 	taskEngine.(*DockerTaskEngine).monitorExecAgentsInterval = 2 * time.Millisecond
 	taskEngine.(*DockerTaskEngine).state.AddTask(testTask)
 	taskEngine.(*DockerTaskEngine).managedTasks[testTask.Arn] = &managedTask{Task: testTask}
@@ -3557,7 +3569,10 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 	go taskEngine.(*DockerTaskEngine).startPeriodicExecAgentsMonitoring(ctx)
 	<-topCtx.Done()
 	time.Sleep(5 * time.Millisecond)
-	assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+	execCmdAgent, ok := testTask.Containers[0].GetManagedAgentByName(execcmd.ExecuteCommandAgentName)
+	assert.True(t, ok)
+	execMD := execcmd.MapToAgentMetadata(execCmdAgent.Metadata)
+	assert.Equal(t, execAgentPID, execMD.PID)
 }
 
 func TestCreateContainerWithExecAgent(t *testing.T) {
@@ -3585,9 +3600,9 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 			execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 			taskEngine.execCmdMgr = execCmdMgr
 			sleepTask := testdata.LoadTask("sleep5")
-			sleepTask.ExecCommandAgentEnabledUnsafe = true
 			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
-			execCmdMgr.EXPECT().AddAgentConfigMount(gomock.Any(), gomock.Any()).Return(tc.error)
+			enableExecCommandAgentForContainer(sleepContainer, apicontainer.ManagedAgentState{})
+			execCmdMgr.EXPECT().InitializeContainer(gomock.Any(), sleepContainer, gomock.Any()).Return(tc.error)
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 			if tc.error == nil {
 				client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())

@@ -420,10 +420,11 @@ func TestCleanupExecEnabledTask(t *testing.T) {
 		resourceStateChangeEvent: make(chan resourceStateChange),
 		cfg:                      taskEngine.cfg,
 	}
-	mTask.Task.ExecCommandAgentEnabledUnsafe = true
+	container := mTask.Containers[0]
+	enableExecCommandAgentForContainer(container, apicontainer.ManagedAgentState{})
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
 	mTask.SetSentStatus(apitaskstatus.TaskStopped)
-	container := mTask.Containers[0]
+
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
 	}
