@@ -216,7 +216,7 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 	  }
 	}`
 	sha := getExecAgentConfigHash(execAgentConfig)
-	configFileName := fmt.Sprintf("/execute-command/config/amazon-ssm-agent-%s.json", sha)
+	configFileName := fmt.Sprintf("/managed-agents/execute-command/config/amazon-ssm-agent-%s.json", sha)
 	var tests = []struct {
 		fileExists             bool
 		createConfigFileErr    error
