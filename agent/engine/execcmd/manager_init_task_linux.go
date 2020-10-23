@@ -15,7 +15,11 @@
 package execcmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -46,6 +50,27 @@ const (
 	logVolumeNamePrefix     = internalNamePrefix + "-log"
 	certVolumeName          = internalNamePrefix + "-tls-cert"
 	configVolumeName        = internalNamePrefix + "-config"
+
+	execCommandDepsDir = "/execute-command"
+	execAgentConfigDir = execCommandDepsDir + "/config"
+	// filePerm is the permission for the exec agent config file.
+	filePerm = 0644
+)
+
+var (
+	execAgentConfigTemplate = `
+	"Agent": {
+	  "Region": "",
+	  "OrchestrationRootDir": "",
+	  "ContainerMode": true,
+	  "Mgs": {
+		"Region": "",
+		"Endpoint": "",
+		"StopTimeoutMillis": 20000,
+		"SessionWorkersLimit": %d
+	  }
+	}`
+	execAgentConfigFileNameTemplate = `amazon-ssm-agent-%s.json`
 )
 
 // InitializeTask adds the necessary volumes and mount points in all of the task containers in order for the
@@ -91,6 +116,7 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 			Type: apitask.HostVolumeType,
 			Name: configVolumeName,
 			Volume: &taskresourcevolume.FSHostVolume{
+				// TODO: Change this path after getting the config file name
 				FSSourcePath: filepath.Join(m.hostBinDir, ConfigFileName),
 			},
 		})
@@ -149,4 +175,41 @@ func buildContainerNameForBinary(c *apicontainer.Container) string {
 		return namelessContainerPrefix + uuid.New()
 	}
 	return cn
+}
+
+func getExecAgentConfigFileName(sessionLimit int) (string, error) {
+	config := fmt.Sprintf(execAgentConfigTemplate, sessionLimit)
+	hash := getExecAgentConfigHash(config)
+	// check if config file exists already
+	configFilePath := filepath.Join(execAgentConfigDir, fmt.Sprintf(execAgentConfigFileNameTemplate, hash))
+	if execAgentConfigFileExists(configFilePath) {
+		return configFilePath, nil
+	}
+	// config doesn't exist; create a new one
+	if err := createNewExecAgentConfigFile(config, configFilePath); err != nil {
+		return "", err
+	}
+	return configFilePath, nil
+}
+
+func getExecAgentConfigHash(config string) string {
+	hash := sha256.New()
+	hash.Write([]byte(config))
+	sha := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	return sha
+}
+
+var execAgentConfigFileExists = configFileExists
+
+func configFileExists(configFilePath string) bool {
+	if _, err := os.Stat(configFilePath); err == nil {
+		return true
+	}
+	return false
+}
+
+var createNewExecAgentConfigFile = createNewConfigFile
+
+func createNewConfigFile(config, configFilePath string) error {
+	return ioutil.WriteFile(configFilePath, []byte(config), filePerm)
 }
