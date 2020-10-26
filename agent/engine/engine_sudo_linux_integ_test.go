@@ -376,6 +376,9 @@ func TestExecCommandAgent(t *testing.T) {
 	require.NoError(t, err, "error creating execAgent log file")
 	_, err = os.Stat(execAgentLogPath)
 	require.NoError(t, err, "execAgent log dir doesn't exist")
+	err = os.MkdirAll(execcmd.ECSAgentExecConfigDir, 0644)
+	require.NoError(t, err, "error creating execAgent config dir")
+
 	go taskEngine.AddTask(testTask)
 
 	verifyContainerRunningStateChange(t, taskEngine)
@@ -387,7 +390,9 @@ func TestExecCommandAgent(t *testing.T) {
 	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
 	cid := containerMap[testTask.Containers[0].Name].DockerID
 
-	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir)
+	// session limit is 2
+	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2)
+	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir, testConfigFileName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
 	killMockExecCommandAgent(t, client, cid, pidA)
@@ -414,6 +419,7 @@ func TestExecCommandAgent(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).deleteTask(testTask)
 	_, err = os.Stat(execAgentLogPath)
 	assert.True(t, os.IsNotExist(err), "execAgent log cleanup failed")
+	os.RemoveAll(execcmd.ECSAgentExecConfigDir)
 }
 
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
@@ -458,7 +464,10 @@ func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine
 	}, credentialsManager
 }
 
-func verifyExecCmdAgentExpectedMounts(t *testing.T, ctx context.Context, client *sdkClient.Client, testTaskId, containerId, containerName, testExecCmdHostBinDir string) {
+func verifyExecCmdAgentExpectedMounts(t *testing.T,
+	ctx context.Context,
+	client *sdkClient.Client,
+	testTaskId, containerId, containerName, testExecCmdHostBinDir, testConfigFileName string) {
 	inspectState, _ := client.ContainerInspect(ctx, containerId)
 	expectedMounts := []struct {
 		source   string
@@ -481,7 +490,7 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T, ctx context.Context, client 
 			readOnly: true,
 		},
 		{
-			source:   filepath.Join(testExecCmdHostBinDir, execcmd.ConfigFileName),
+			source:   filepath.Join(execcmd.HostExecConfigDir, testConfigFileName),
 			dest:     execcmd.ContainerConfigFile,
 			readOnly: true,
 		},
