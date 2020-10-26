@@ -51,8 +51,13 @@ const (
 	certVolumeName          = internalNamePrefix + "-tls-cert"
 	configVolumeName        = internalNamePrefix + "-config"
 
-	execCommandDepsDir = "/managed-agents/execute-command"
-	execAgentConfigDir = execCommandDepsDir + "/config"
+	ecsAgentExecDepsDir = "/managed-agents/execute-command"
+	// ECSAgentExecConfigDir is the directory where ECS Agent will write the
+	// ExecAgent config files to
+	ECSAgentExecConfigDir = ecsAgentExecDepsDir + "/config"
+	hostExecDepsDir       = "/var/lib/ecs/deps/execute-command"
+	// HostExecConfigDir is the dir where ExecAgents Config files will live
+	HostExecConfigDir = hostExecDepsDir + "/config"
 	// filePerm is the permission for the exec agent config file.
 	filePerm            = 0644
 	defaultSessionLimit = 2
@@ -112,7 +117,7 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 		})
 
 	// TODO: placeholder, change default to use session limit for individual container
-	execAgentConfigFile, err := getExecAgentConfigFileName(defaultSessionLimit)
+	execAgentConfigFile, err := GetExecAgentConfigFileName(defaultSessionLimit)
 	if err != nil {
 		return fmt.Errorf("could not generate ExecAgent Configuration file: %v", err)
 	}
@@ -122,7 +127,7 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 			Type: apitask.HostVolumeType,
 			Name: configVolumeName,
 			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(m.hostBinDir, execAgentConfigFile),
+				FSSourcePath: filepath.Join(HostExecConfigDir, execAgentConfigFile),
 			},
 		})
 
@@ -182,22 +187,23 @@ func buildContainerNameForBinary(c *apicontainer.Container) string {
 	return cn
 }
 
-var getExecAgentConfigFileName = getAgentConfigFileName
+var GetExecAgentConfigFileName = getAgentConfigFileName
 
 func getAgentConfigFileName(sessionLimit int) (string, error) {
 	config := fmt.Sprintf(execAgentConfigTemplate, sessionLimit)
 	hash := getExecAgentConfigHash(config)
+	configFileName := fmt.Sprintf(execAgentConfigFileNameTemplate, hash)
 	// check if config file exists already
-	configFilePath := filepath.Join(execAgentConfigDir, fmt.Sprintf(execAgentConfigFileNameTemplate, hash))
+	configFilePath := filepath.Join(ECSAgentExecConfigDir, configFileName)
 	if execAgentConfigFileExists(configFilePath) {
 		// TODO: verify the hash of the existing file contents
-		return configFilePath, nil
+		return configFileName, nil
 	}
 	// config doesn't exist; create a new one
 	if err := createNewExecAgentConfigFile(config, configFilePath); err != nil {
 		return "", err
 	}
-	return configFilePath, nil
+	return configFileName, nil
 }
 
 func getExecAgentConfigHash(config string) string {
