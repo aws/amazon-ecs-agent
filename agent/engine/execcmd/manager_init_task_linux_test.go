@@ -64,7 +64,7 @@ func TestInitializeTask(t *testing.T) {
 		},
 	}
 	defer func() {
-		getExecAgentConfigFileName = getAgentConfigFileName
+		GetExecAgentConfigFileName = getAgentConfigFileName
 	}()
 	for _, test := range tt {
 		// Constants used here are defined in task_unix_test.go and task_windows_test.go
@@ -101,7 +101,7 @@ func TestInitializeTask(t *testing.T) {
 		}
 
 		execCmdMgr := newTestManager()
-		getExecAgentConfigFileName = func(s int) (string, error) {
+		GetExecAgentConfigFileName = func(s int) (string, error) {
 			return ConfigFileName, nil
 		}
 		err = execCmdMgr.InitializeTask(task)
@@ -128,7 +128,7 @@ func TestInitializeTask(t *testing.T) {
 		assertTaskVolume(t, task, certVolumeName, HostCertFile)
 
 		// check config file volume
-		assertTaskVolume(t, task, configVolumeName, filepath.Join(HostBinDir, ConfigFileName))
+		assertTaskVolume(t, task, configVolumeName, filepath.Join(HostExecConfigDir, ConfigFileName))
 
 		// Check exec agent log volumes
 		for _, c := range task.Containers {
@@ -216,7 +216,7 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 	  }
 	}`
 	sha := getExecAgentConfigHash(execAgentConfig)
-	configFileName := fmt.Sprintf("/managed-agents/execute-command/config/amazon-ssm-agent-%s.json", sha)
+	configFileName := fmt.Sprintf("amazon-ssm-agent-%s.json", sha)
 	var tests = []struct {
 		fileExists             bool
 		createConfigFileErr    error
@@ -253,7 +253,7 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		createNewExecAgentConfigFile = func(c, f string) error {
 			return tc.createConfigFileErr
 		}
-		fileName, err := getExecAgentConfigFileName(2)
+		fileName, err := GetExecAgentConfigFileName(2)
 		assert.Equal(t, tc.expectedConfigFileName, fileName, "incorrect config file name")
 		assert.Equal(t, tc.expectedError, err)
 	}
