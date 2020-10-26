@@ -117,6 +117,17 @@ func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 		"Expected container runtimeID should not empty")
 }
 
+func verifyExecAgentRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	event := <-stateChangeEvents
+	containerEvent := event.(api.ContainerStateChange)
+	assert.NotEmpty(t, containerEvent.ManagedAgents, "Expected exec-agent event has no managed agents")
+	if containerEvent.ManagedAgents != nil {
+		assert.Equal(t, apicontainerstatus.ManagedAgentRunning, containerEvent.ManagedAgents[0].Status,
+			"expected managedAgent container state change event did not match actual event")
+	}
+}
+
 func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
