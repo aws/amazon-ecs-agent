@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,8 +45,8 @@ func TestInitializeTask(t *testing.T) {
 		{
 			taskName:            "arn:aws:iam::123456789012:user/Test",
 			execEnabled:         true,
-			expectedVolumes:     8,
-			expectedMountPoints: 5,
+			expectedVolumes:     7,
+			expectedMountPoints: 4,
 			errorExpected:       false,
 		},
 		{
@@ -127,9 +128,6 @@ func TestInitializeTask(t *testing.T) {
 		// check tls cert volume
 		assertTaskVolume(t, task, certVolumeName, HostCertFile)
 
-		// check config file volume
-		assertTaskVolume(t, task, configVolumeName, filepath.Join(HostExecConfigDir, ConfigFileName))
-
 		// Check exec agent log volumes
 		for _, c := range task.Containers {
 			tID, _ := task.GetID()
@@ -147,8 +145,6 @@ func TestInitializeTask(t *testing.T) {
 			assertMountPoint(t, c, lvn, ContainerLogDir, false)
 			// Check exec agent tls cert mount point
 			assertMountPoint(t, c, certVolumeName, ContainerCertFile, true)
-			// Check exec agent config file mount point
-			assertMountPoint(t, c, configVolumeName, ContainerConfigFile, true)
 
 			// Check exec agent binary mount points
 			for _, ebn := range expectedBinaryNames {
@@ -256,5 +252,58 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		fileName, err := GetExecAgentConfigFileName(2)
 		assert.Equal(t, tc.expectedConfigFileName, fileName, "incorrect config file name")
 		assert.Equal(t, tc.expectedError, err)
+	}
+}
+
+func TestAddAgentConfigMount(t *testing.T) {
+	var tests = []struct {
+		sessionLimit  int
+		expectedBinds int
+		expectedError bool
+	}{
+		{
+			sessionLimit:  -2,
+			expectedBinds: 1,
+			expectedError: false,
+		},
+		{
+			sessionLimit:  0,
+			expectedBinds: 1,
+			expectedError: false,
+		},
+		{
+			sessionLimit:  1,
+			expectedBinds: 1,
+			expectedError: false,
+		},
+		{
+			sessionLimit:  2,
+			expectedBinds: 0,
+			expectedError: true,
+		},
+	}
+	defer func() {
+		GetExecAgentConfigFileName = getAgentConfigFileName
+	}()
+	for _, tc := range tests {
+		expectedBind := "/var/lib/ecs/deps/execute-command/config/amazon-ssm-agent.json:/etc/amazon/ssm/amazon-ssm-agent.json:ro"
+		execCmdMgr := newTestManager()
+		execMD := apicontainer.ExecCommandAgentMetadata{
+			SessionLimit: tc.sessionLimit,
+		}
+		hc := &dockercontainer.HostConfig{}
+		GetExecAgentConfigFileName = func(s int) (string, error) {
+			if tc.expectedError {
+				return "", errors.New("config create error")
+			} else {
+				return ConfigFileName, nil
+			}
+		}
+		err := execCmdMgr.AddAgentConfigMount(hc, execMD)
+		assert.Equal(t, tc.expectedBinds, len(hc.Binds))
+		assert.Equal(t, tc.expectedError, err != nil)
+		if !tc.expectedError {
+			assert.Equal(t, expectedBind, hc.Binds[0])
+		}
 	}
 }

@@ -21,6 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -68,6 +69,7 @@ type Manager interface {
 	InitializeTask(task *apitask.Task) error
 	StartAgent(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) error
 	RestartAgentIfStopped(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (RestartStatus, error)
+	AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error
 }
 
 type manager struct {
