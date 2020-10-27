@@ -107,7 +107,6 @@ func NewFSxWindowsFileServerResource(
 	name string,
 	volumeType string,
 	volumeConfig *FSxWindowsFileServerVolumeConfig,
-	hostPath string,
 	executionCredentialsID string,
 	credentialsManager credentials.Manager,
 	ssmClientCreator ssmfactory.SSMClientCreator,
@@ -121,7 +120,6 @@ func NewFSxWindowsFileServerResource(
 			FileSystemID:  volumeConfig.FileSystemID,
 			RootDirectory: volumeConfig.RootDirectory,
 			AuthConfig:    volumeConfig.AuthConfig,
-			HostPath:      hostPath,
 		},
 		taskARN:                taskARN,
 		region:                 region,
@@ -357,28 +355,26 @@ func (fv *FSxWindowsFileServerResource) SetRootDirectory(rootDirectory string) {
 	fv.VolumeConfig.RootDirectory = rootDirectory
 }
 
-var DriveLetterAvailable = utils.IsAvailableDriveLetter
+// GetHostPath safely returns the volume config's host path
+func (fv *FSxWindowsFileServerResource) GetHostPath() string {
+	fv.lock.RLock()
+	defer fv.lock.RUnlock()
+
+	return fv.VolumeConfig.HostPath
+}
+
+// SetHostPath safely updates volume config's host path
+func (fv *FSxWindowsFileServerResource) SetHostPath(hostPath string) {
+	fv.lock.Lock()
+	defer fv.lock.Unlock()
+
+	fv.VolumeConfig.HostPath = hostPath
+}
 
 // Create is used to create all the fsxwindowsfileserver resources for a given task
 func (fv *FSxWindowsFileServerResource) Create() error {
 	var err error
-
 	volumeConfig := fv.GetVolumeConfig()
-	localPath := volumeConfig.HostPath
-
-	// formatting to keep powershell happy
-	localPathArg := fmt.Sprintf("-LocalPath \"%s\"", strings.Trim(localPath, `\`))
-
-	// remove mount if localPath is not available
-	// handling case where agent crashes after mount and before resource status is updated
-	if !(DriveLetterAvailable(localPath)) {
-		err = fv.removeHostMount(localPathArg)
-		if err != nil {
-			seelog.Errorf("Failed to remove existing fsxwindowsfileserver resource mount on the container instance: %v", err)
-			fv.setTerminalReason(err.Error())
-			return err
-		}
-	}
 
 	var iamCredentials credentials.IAMRoleCredentials
 	executionCredentials, ok := fv.credentialsManager.GetTaskCredentials(fv.GetExecutionCredentialsID())
@@ -418,7 +414,7 @@ func (fv *FSxWindowsFileServerResource) Create() error {
 
 	password := creds.Password
 
-	err = fv.performHostMount(remotePath, localPathArg, username, password)
+	err = fv.performHostMount(remotePath, username, password)
 	if err != nil {
 		fv.setTerminalReason(err.Error())
 		return err
@@ -519,9 +515,37 @@ func (fv *FSxWindowsFileServerResource) retrieveFileSystemDNSName(fileSystemId s
 	return nil
 }
 
+var mountLock sync.Mutex
+var DriveLetterAvailable = utils.IsAvailableDriveLetter
 var execCommand = exec.Command
 
-func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, localPathArg string, username string, password string) error {
+func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, username string, password string) error {
+	// mountLock is a package-level mutex lock.
+	// It is used to avoid a scenario where concurrent tasks get the same drive letter and perform host mount at the same time.
+	// A drive letter is free until host mount is performed, a lock prevents multiple tasks getting the same drive letter.
+	mountLock.Lock()
+	defer mountLock.Unlock()
+
+	hostPath, err := utils.FindUnusedDriveLetter()
+	if err != nil {
+		return err
+	}
+	fv.SetHostPath(hostPath)
+
+	// formatting to keep powershell happy
+	localPathArg := fmt.Sprintf("-LocalPath \"%s\"", strings.Trim(hostPath, `\`))
+
+	// remove mount if localPath is not available
+	// handling case where agent crashes after mount and before resource status is updated
+	if !(DriveLetterAvailable(hostPath)) {
+		err = fv.removeHostMount(localPathArg)
+		if err != nil {
+			seelog.Errorf("Failed to remove existing fsxwindowsfileserver resource mount on the container instance: %v", err)
+			fv.setTerminalReason(err.Error())
+			return err
+		}
+	}
+
 	// formatting to keep powershell happy
 	creds := fmt.Sprintf("-Credential $(New-Object System.Management.Automation.PSCredential(\"%s\", $(ConvertTo-SecureString \"%s\" -AsPlainText -Force)))", username, password)
 	remotePathArg := fmt.Sprintf("-RemotePath \"%s\"", remotePath)
@@ -537,7 +561,7 @@ func (fv *FSxWindowsFileServerResource) performHostMount(remotePath string, loca
 		"-RequirePrivacy $true",
 		"-ErrorAction Stop")
 
-	_, err := cmd.CombinedOutput()
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		seelog.Errorf("Failed to map fsxwindowsfileserver resource on the container instance: %v", err)
 		fv.setTerminalReason(err.Error())
@@ -576,7 +600,7 @@ func (fv *FSxWindowsFileServerResource) removeHostMount(localPathArg string) err
 }
 
 func (fv *FSxWindowsFileServerResource) Cleanup() error {
-	localPath := fv.VolumeConfig.HostPath
+	localPath := fv.GetHostPath()
 	// formatting to keep powershell happy
 	localPathArg := fmt.Sprintf("-LocalPath \"%s\"", strings.Trim(localPath, `\`))
 	err := fv.removeHostMount(localPathArg)

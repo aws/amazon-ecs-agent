@@ -225,18 +225,12 @@ func (task *Task) addFSxWindowsFileServerResource(
 	vol *TaskVolume,
 	fsxWindowsFileServerVol *fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig,
 ) error {
-	hostPath, err := utils.FindUnusedDriveLetter()
-	if err != nil {
-		return err
-	}
-
 	fsxwindowsfileserverResource, err := fsxwindowsfileserver.NewFSxWindowsFileServerResource(
 		task.Arn,
 		cfg.AWSRegion,
 		vol.Name,
 		FSxWindowsFileServerVolumeType,
 		fsxWindowsFileServerVol,
-		hostPath,
 		task.ExecutionCredentialsID,
 		credentialsManager,
 		resourceFields.SSMClientCreator,

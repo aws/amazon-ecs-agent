@@ -411,7 +411,7 @@ func TestPerformHostMount(t *testing.T) {
 	execCommand = fakeExecCommand
 	defer func() { execCommand = exec.Command }()
 
-	err := fv.performHostMount(`\\amznfsxfp8sdlcw.test.corp.com\share`, hostPath, `test\user`, `pass`)
+	err := fv.performHostMount(`\\amznfsxfp8sdlcw.test.corp.com\share`, `test\user`, `pass`)
 	assert.NoError(t, err)
 }
 
