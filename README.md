@@ -189,6 +189,7 @@ additional details on each available environment variable.
 | `ECS_LOG_DRIVER` | `awslogs` &#124; `fluentd` &#124; `gelf` &#124; `json-file` &#124; `journald` &#124; `logentries` &#124; `syslog` &#124; `splunk` | The logging driver to be used by the Agent container. | `json-file` | Not applicable |
 | `ECS_LOG_OPTS` | `{"option":"value"}` | The options for configuring the logging driver set in `ECS_LOG_DRIVER`. | `{}` | Not applicable |
 | `ECS_ENABLE_AWSLOGS_EXECUTIONROLE_OVERRIDE` | `true` | Whether to enable awslogs log driver to authenticate via credentials of task execution IAM role. Needs to be true if you want to use awslogs log driver in a task that has task execution IAM role specified. When using the ecs-init RPM with version equal or later than V1.16.0-1, this env is set to true by default. | `false` | `false` |
+| `ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED` | `true` | Whether FSx for Windows File Server volume type is supported on the container instance. This variable is only supported on agent versions 1.47.0 and later. | `false` | `true` |
 
 ### Persistence
 
