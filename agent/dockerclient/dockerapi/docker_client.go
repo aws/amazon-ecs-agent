@@ -67,7 +67,6 @@ const (
 )
 
 // Timelimits for docker operations enforced above docker
-// TODO: Make these limits configurable.
 const (
 	// Parameters for caching the docker auth for ECR
 	tokenCacheSize = 100
@@ -90,7 +89,12 @@ const (
 	pollStatsTimeout = 18 * time.Second
 )
 
-var ctxTimeoutStopContainer = dockerclient.StopContainerTimeout
+// stopContainerTimeoutBuffer is a buffer added to the timeout passed into the docker
+// StopContainer api call. The reason for this buffer is that when the regular "stop"
+// command fails, the docker api falls back to other kill methods, such as a containerd
+// kill and SIGKILL. This buffer adds time onto the context timeout to allow time
+// for these backup kill methods to finish.
+var stopContainerTimeoutBuffer = 2 * time.Minute
 
 type inactivityTimeoutHandlerFunc func(reader io.ReadCloser, timeout time.Duration, cancelRequest func(), canceled *uint32) (io.ReadCloser, chan<- struct{})
 
@@ -659,9 +663,7 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
-	// ctxTimeout is sum of timeout(applied to the StopContainer api call) and a fixed constant dockerclient.StopContainerTimeout
-	// the context's timeout should be greater than the sigkill timout for the StopContainer call
-	ctxTimeout := timeout + ctxTimeoutStopContainer
+	ctxTimeout := timeout + stopContainerTimeoutBuffer
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("STOP_CONTAINER")()

@@ -618,7 +618,7 @@ func TestSteadyStatePoll(t *testing.T) {
 		dockerapi.DockerContainerMetadata{
 			DockerID: containerID,
 		}).AnyTimes()
-	client.EXPECT().StopContainer(gomock.Any(), containerID, dockerclient.StopContainerTimeout).AnyTimes()
+	client.EXPECT().StopContainer(gomock.Any(), containerID, 30*time.Second).AnyTimes()
 
 	err := taskEngine.Init(ctx) // start the task engine
 	assert.NoError(t, err)
@@ -869,7 +869,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 	containerStopTimeoutError := dockerapi.DockerContainerMetadata{
 		Error: &dockerapi.DockerTimeoutError{
 			Transition: "stop",
-			Duration:   dockerclient.StopContainerTimeout,
+			Duration:   30 * time.Second,
 		},
 	}
 	dockerEventSent := make(chan int)
