@@ -394,7 +394,6 @@ func TestExecCommandAgent(t *testing.T) {
 	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2)
 	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir, testConfigFileName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
-	verifyExecAgentRunningStateChange(t, taskEngine)
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
 	killMockExecCommandAgent(t, client, cid, pidA)
 	seelog.Infof("kill signal sent to ExecCommandAgent (pidA=%s)", pidA)

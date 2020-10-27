@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/pborman/uuid"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -116,21 +117,6 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 			},
 		})
 
-	// TODO: placeholder, change default to use session limit for individual container
-	execAgentConfigFile, err := GetExecAgentConfigFileName(defaultSessionLimit)
-	if err != nil {
-		return fmt.Errorf("could not generate ExecAgent Configuration file: %v", err)
-	}
-	// Append config file volume
-	task.Volumes = append(task.Volumes,
-		apitask.TaskVolume{
-			Type: apitask.HostVolumeType,
-			Name: configVolumeName,
-			Volume: &taskresourcevolume.FSHostVolume{
-				FSSourcePath: filepath.Join(HostExecConfigDir, execAgentConfigFile),
-			},
-		})
-
 	// Add log volumes and mount points to all containers in this task
 	for _, c := range task.Containers {
 		lvn := fmt.Sprintf("%s-%s-%s", logVolumeNamePrefix, tId, c.Name)
@@ -152,11 +138,6 @@ func (m *manager) InitializeTask(task *apitask.Task) error {
 			apicontainer.MountPoint{
 				SourceVolume:  certVolumeName,
 				ContainerPath: ContainerCertFile,
-				ReadOnly:      true,
-			},
-			apicontainer.MountPoint{
-				SourceVolume:  configVolumeName,
-				ContainerPath: ContainerConfigFile,
 				ReadOnly:      true,
 			},
 		)
@@ -185,6 +166,22 @@ func buildContainerNameForBinary(c *apicontainer.Container) string {
 		return namelessContainerPrefix + uuid.New()
 	}
 	return cn
+}
+
+// AddAgentConfigMount adds the ExecAgentConfigFile to the hostConfig binds
+func (m *manager) AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error {
+	sessionLimit := execMD.SessionLimit
+	// TODO: change this to < 0 if 0 session is valid
+	if sessionLimit <= 0 {
+		sessionLimit = defaultSessionLimit
+	}
+	configFile, err := GetExecAgentConfigFileName(sessionLimit)
+	if err != nil {
+		return fmt.Errorf("could not generate ExecAgent Config File: %v", err)
+	}
+	configBindMount := filepath.Join(HostExecConfigDir, configFile) + ":" + ContainerConfigFile + ":ro"
+	hostConfig.Binds = append(hostConfig.Binds, configBindMount)
+	return nil
 }
 
 var GetExecAgentConfigFileName = getAgentConfigFileName

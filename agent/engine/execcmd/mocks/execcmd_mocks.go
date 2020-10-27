@@ -26,6 +26,7 @@ import (
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+	container0 "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -50,6 +51,20 @@ func NewMockManager(ctrl *gomock.Controller) *MockManager {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
+}
+
+// AddAgentConfigMount mocks base method
+func (m *MockManager) AddAgentConfigMount(arg0 *container0.HostConfig, arg1 container.ExecCommandAgentMetadata) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddAgentConfigMount", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddAgentConfigMount indicates an expected call of AddAgentConfigMount
+func (mr *MockManagerMockRecorder) AddAgentConfigMount(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddAgentConfigMount", reflect.TypeOf((*MockManager)(nil).AddAgentConfigMount), arg0, arg1)
 }
 
 // InitializeTask mocks base method

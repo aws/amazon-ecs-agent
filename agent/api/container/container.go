@@ -355,6 +355,7 @@ type ExecCommandAgentMetadata struct {
 	StartedAt     time.Time                             `json:"startedAt"`
 	StoppedReason string                                `json:"stoppedReason"`
 	Status        apicontainerstatus.ManagedAgentStatus `json:"execCommandAgentStatus"`
+	SessionLimit  int                                   `json:"sessionLimit"`
 }
 
 func (md *ExecCommandAgentMetadata) String() string {

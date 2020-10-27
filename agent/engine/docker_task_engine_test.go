@@ -33,6 +33,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
@@ -269,6 +270,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 							execCmdMgr.EXPECT().InitializeTask(sleepTask).Times(1)
 							// TODO: [ecs-exec] validate call control plane to report ExecCommandAgent SUCCESS/FAIL here
 							execCmdMgr.EXPECT().StartAgent(gomock.Any(), client, sleepTask, sleepTask.Containers[0], containerID)
+							execCmdMgr.EXPECT().AddAgentConfigMount(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 						}
 					})
 			}
@@ -3517,4 +3519,46 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 	<-topCtx.Done()
 	time.Sleep(5 * time.Millisecond)
 	assert.Equal(t, execAgentPID, testTask.Containers[0].GetExecCommandAgentMetadata().PID)
+}
+
+func TestCreateContainerWithExecAgent(t *testing.T) {
+	testcases := []struct {
+		name  string
+		error error
+	}{
+		{
+			name:  "ExecAgent config mount success",
+			error: nil,
+		},
+		{
+			name:  "ExecAgent config mount Error",
+			error: errors.New("mount error"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, engine, _, _, _ := mocks(t, ctx, &config.Config{})
+			defer ctrl.Finish()
+			taskEngine, _ := engine.(*DockerTaskEngine)
+			execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
+			taskEngine.execCmdMgr = execCmdMgr
+			sleepTask := testdata.LoadTask("sleep5")
+			sleepTask.ExecCommandAgentEnabledUnsafe = true
+			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
+			execCmdMgr.EXPECT().AddAgentConfigMount(gomock.Any(), gomock.Any()).Return(tc.error)
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
+			if tc.error == nil {
+				client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+			}
+			metadata := taskEngine.createContainer(sleepTask, sleepContainer)
+			if tc.error != nil {
+				assert.Equal(t, &apierrors.HostConfigError{Msg: tc.error.Error()}, metadata.Error)
+			} else {
+				assert.NoError(t, metadata.Error)
+			}
+		})
+	}
 }
