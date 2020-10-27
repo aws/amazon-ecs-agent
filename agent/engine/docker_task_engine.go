@@ -1127,6 +1127,14 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 	}
 
+	if task.IsExecCommandAgentEnabled() {
+		err := engine.execCmdMgr.AddAgentConfigMount(hostConfig, container.GetExecCommandAgentMetadata())
+		if err != nil {
+			herr := &apierrors.HostConfigError{Msg: err.Error()}
+			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(herr)}
+		}
+	}
+
 	config, err := task.DockerConfig(container, dockerClientVersion)
 	if err != nil {
 		return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
