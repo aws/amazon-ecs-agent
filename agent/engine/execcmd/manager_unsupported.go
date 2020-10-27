@@ -20,6 +20,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -42,5 +43,10 @@ func (m *manager) StartAgent(ctx context.Context, client dockerapi.DockerClient,
 // exec cmd agent to run upon container start up.
 // Note: exec cmd agent is a linux-only feature, thus implemented here as a no-op.
 func (m *manager) InitializeTask(task *apitask.Task) error {
+	return nil
+}
+
+// AddAgentConfigMount adds the ExecAgentConfigFile to the hostConfig binds
+func (m *manager) AddAgentConfigMount(hostConfig *dockercontainer.HostConfig, execMD apicontainer.ExecCommandAgentMetadata) error {
 	return nil
 }
