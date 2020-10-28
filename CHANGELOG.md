@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.47.0
+* Feature - Add support for FSxWindowsFileServerVolumeConfiguration in task definition [#2690](https://github.com/aws/amazon-ecs-agent/pull/2690)
+* Bug - Fixed Makefile to use Go1.12 for Agent windows build
+[#2688](https://github.com/aws/amazon-ecs-agent/pull/2688)
+* Bug - Initialize the logger from the agent’s main() [#2644](https://github.com/aws/amazon-ecs-agent/pull/2644)
+
 ## 1.46.0
 * Enhancement -  Use Go 1.15 for Linux platforms and Go 1.12 for Windows platforms [#2653](https://github.com/aws/amazon-ecs-agent/pull/2653)
 * Bug - Currently, while polling docker stats, there is no timeout for the API call. So the call could be stuck until the container is stopped. Adding poll stats timeout [#2656](https://github.com/aws/amazon-ecs-agent/pull/2656)
