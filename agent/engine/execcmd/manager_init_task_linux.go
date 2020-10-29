@@ -63,18 +63,19 @@ const (
 )
 
 var (
-	execAgentConfigTemplate = `
+	execAgentConfigTemplate = `{
 	"Agent": {
-	  "Region": "",
-	  "OrchestrationRootDir": "",
-	  "ContainerMode": true,
-	  "Mgs": {
 		"Region": "",
-		"Endpoint": "",
-		"StopTimeoutMillis": 20000,
-		"SessionWorkersLimit": %d
-	  }
-	}`
+		"OrchestrationRootDir": "",
+		"ContainerMode": true,
+		"Mgs": {
+			"Region": "",
+			"Endpoint": "",
+			"StopTimeoutMillis": 20000,
+			"SessionWorkersLimit": %d
+		}
+	}
+}`
 	// TODO: [ecs-exec] seelog config needs to be implemented following a similar approach to ss, config
 	execAgentConfigFileNameTemplate    = `amazon-ssm-agent-%s.json`
 	errExecCommandManagedAgentNotFound = fmt.Errorf("managed agent not found (%s)", ExecuteCommandAgentName)
