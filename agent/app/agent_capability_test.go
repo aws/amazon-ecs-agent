@@ -52,8 +52,13 @@ func TestCapabilities(t *testing.T) {
 	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
 		return true, nil
 	}
+	getSubDirectories = func(path string) ([]string, error) {
+		// appendExecCapabilities() requires at least 1 version to exist
+		return []string{"3.0.236.0"}, nil
+	}
 	defer func() {
 		pathExists = defaultPathExists
+		getSubDirectories = defaultGetSubDirectories
 	}()
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
@@ -766,7 +771,7 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 	}
 }
 
-func TestCapabilitesExecuteCommand(t *testing.T) {
+func TestCapabilitiesExecuteCommand(t *testing.T) {
 	execCapability := ecs.Attribute{
 		Name: aws.String(attributePrefix + capabilityExec),
 	}
@@ -789,8 +794,13 @@ func TestCapabilitesExecuteCommand(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pathExists = tc.pathExists
+			getSubDirectories = func(path string) ([]string, error) {
+				// appendExecCapabilities() requires at least 1 version to exist
+				return []string{"3.0.236.0"}, nil
+			}
 			defer func() {
 				pathExists = defaultPathExists
+				getSubDirectories = defaultGetSubDirectories
 			}()
 
 			ctrl := gomock.NewController(t)
@@ -828,6 +838,58 @@ func TestCapabilitesExecuteCommand(t *testing.T) {
 				assert.Contains(t, capabilities, &execCapability)
 			} else {
 				assert.NotContains(t, capabilities, &execCapability)
+			}
+		})
+	}
+}
+
+func TestDefaultGetSubDirectories(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	subDir, err := ioutil.TempDir(rootDir, "dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+
+	testCases := []struct {
+		name           string
+		path           string
+		expectedResult []string
+		shouldFail     bool
+	}{
+		{
+			name:           "return names of child folders if path exists",
+			path:           rootDir,
+			expectedResult: []string{filepath.Base(subDir)},
+			shouldFail:     false,
+		},
+		{
+			name:           "return error if path does not exist",
+			path:           notExistingPath,
+			expectedResult: nil,
+			shouldFail:     true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			subDirectories, err := defaultGetSubDirectories(tc.path)
+			if tc.shouldFail {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// actual result should have the same elements, don't need to be in same order
+				assert.Subset(t, tc.expectedResult, subDirectories)
+				assert.Subset(t, subDirectories, tc.expectedResult)
 			}
 		})
 	}

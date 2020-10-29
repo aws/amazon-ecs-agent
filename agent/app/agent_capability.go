@@ -14,6 +14,7 @@
 package app
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -95,13 +96,15 @@ var (
 	}
 	capabilityExecRequiredBinaries = []string{
 		"amazon-ssm-agent",
+		"ssm-agent-worker",
 		"ssm-session-worker",
 	}
 	capabilityExecRequiredCerts = []string{
 		"tls-ca-bundle.pem",
 	}
 
-	pathExists = defaultPathExists
+	pathExists        = defaultPathExists
+	getSubDirectories = defaultGetSubDirectories
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -351,26 +354,68 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	configDir := filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
 	certsDir := filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
 
+	// top-level folders, /bin, /config, /certs
 	dependencies := map[string][]string{
-		binDir:    capabilityExecRequiredBinaries,
+		binDir:    []string{},
 		configDir: []string{},
 		certsDir:  capabilityExecRequiredCerts,
 	}
+	if exists, err := dependenciesExist(dependencies); err != nil || !exists {
+		return capabilities, err
+	}
 
+	// ssm binaries are stored in /bin/<version>/, 1 version is downloaded by ami builder for ECS instances
+	binDependencies := map[string][]string{}
+	// child folders named by version inside binDir, e.g. 3.0.236.0
+	binFolders, err := getSubDirectories(binDir)
+	if err != nil {
+		return capabilities, err
+	}
+	for _, binFolder := range binFolders {
+		// check for the same set of binaries for all versions for now
+		// change this if future versions of ssm agent require different binaries
+		versionSubDirectory := filepath.Join(binDir, binFolder)
+		binDependencies[versionSubDirectory] = capabilityExecRequiredBinaries
+	}
+	if len(binDependencies) < 1 {
+		return capabilities, nil
+	}
+	if exists, err := dependenciesExist(binDependencies); err != nil || !exists {
+		return capabilities, err
+	}
+
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
+}
+
+func defaultGetSubDirectories(path string) ([]string, error) {
+	var subDirectories []string
+
+	fileInfos, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	for _, fileInfo := range fileInfos {
+		if fileInfo.IsDir() {
+			subDirectories = append(subDirectories, fileInfo.Name())
+		}
+	}
+	return subDirectories, nil
+}
+
+func dependenciesExist(dependencies map[string][]string) (bool, error) {
 	for directory, files := range dependencies {
 		if exists, err := pathExists(directory, true); err != nil || !exists {
-			return capabilities, err
+			return false, err
 		}
 
 		for _, filename := range files {
 			path := filepath.Join(directory, filename)
 			if exists, err := pathExists(path, false); err != nil || !exists {
-				return capabilities, err
+				return false, err
 			}
 		}
 	}
-
-	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
+	return true, nil
 }
 
 func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {
