@@ -1216,8 +1216,8 @@ func (c *Container) GetManagedAgentByName(agentName string) (ManagedAgent, bool)
 }
 
 // UpdateManagedAgentByName updates the state of the managed agent with the name specified. If the agent is not found,
-// no action is taken.
-func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgentState) {
+// this method returns false.
+func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgentState) bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	for i, ma := range c.ManagedAgentsUnsafe {
@@ -1228,7 +1228,8 @@ func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgen
 				Properties:        ma.Properties,
 				ManagedAgentState: state,
 			}
-			break
+			return true
 		}
 	}
+	return false
 }
