@@ -132,18 +132,19 @@ func TestInitializeContainer(t *testing.T) {
 }
 
 func TestGetExecAgentConfigFileName(t *testing.T) {
-	execAgentConfig := `
+	execAgentConfig := `{
 	"Agent": {
-	  "Region": "",
-	  "OrchestrationRootDir": "",
-	  "ContainerMode": true,
-	  "Mgs": {
 		"Region": "",
-		"Endpoint": "",
-		"StopTimeoutMillis": 20000,
-		"SessionWorkersLimit": 2
-	  }
-	}`
+		"OrchestrationRootDir": "",
+		"ContainerMode": true,
+		"Mgs": {
+			"Region": "",
+			"Endpoint": "",
+			"StopTimeoutMillis": 20000,
+			"SessionWorkersLimit": 2
+		}
+	}
+}`
 	sha := getExecAgentConfigHash(execAgentConfig)
 	configFileName := fmt.Sprintf("amazon-ssm-agent-%s.json", sha)
 	var tests = []struct {
