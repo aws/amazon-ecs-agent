@@ -414,8 +414,7 @@ func TestExecCommandAgent(t *testing.T) {
 	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 	require.NoError(t, err, "Creating go docker client failed")
 
-	testExecCmdHostBinDir, err := filepath.Abs("../../misc/exec-command-agent-test")
-	require.NoError(t, err)
+	testExecCmdHostBinDir := "/managed-agents/execute-command/bin"
 
 	taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
 	stateChangeEvents := taskEngine.StateChangeEvents()
@@ -443,7 +442,7 @@ func TestExecCommandAgent(t *testing.T) {
 
 	// session limit is 2
 	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2)
-	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir, testConfigFileName)
+	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"/1.0.0.0", testConfigFileName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
 	killMockExecCommandAgent(t, client, cid, pidA)
@@ -506,8 +505,7 @@ func TestManagedAgentEvent(t *testing.T) {
 			client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
 			require.NoError(t, err, "Creating go docker client failed")
 
-			testExecCmdHostBinDir, err := filepath.Abs("../../misc/exec-command-agent-test")
-			require.NoError(t, err)
+			testExecCmdHostBinDir := "/managed-agents/execute-command/bin"
 
 			taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
 			defer done()
@@ -601,7 +599,7 @@ const (
 func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
-	testTaskId, containerId, containerName, testExecCmdHostBinDir, testConfigFileName string) {
+	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testConfigFileName string) {
 	inspectState, _ := client.ContainerInspect(ctx, containerId)
 
 	expectedMounts := []struct {
@@ -610,17 +608,17 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 		readOnly  bool
 	}{
 		{
-			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SSMAgentBinName),
+			source:    filepath.Join(testExecCmdHostVersionedBinDir, execcmd.SSMAgentBinName),
 			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentBinName),
 			readOnly:  true,
 		},
 		{
-			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SSMAgentWorkerBinName),
+			source:    filepath.Join(testExecCmdHostVersionedBinDir, execcmd.SSMAgentWorkerBinName),
 			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SSMAgentWorkerBinName),
 			readOnly:  true,
 		},
 		{
-			source:    filepath.Join(testExecCmdHostBinDir, execcmd.SessionWorkerBinName),
+			source:    filepath.Join(testExecCmdHostVersionedBinDir, execcmd.SessionWorkerBinName),
 			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.SessionWorkerBinName),
 			readOnly:  true,
 		},
