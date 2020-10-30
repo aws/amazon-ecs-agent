@@ -17,6 +17,8 @@ package execcmd
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 
@@ -25,109 +27,172 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
 func TestInitializeContainer(t *testing.T) {
-	const containerNameOnlyHyphens = "--"
-	var tt = []struct {
-		managedAgentName                string
-		getExecAgentConfigFileNameError error
-	}{
-		{
-			managedAgentName: "randomAgent",
-		},
-		{
-			managedAgentName:                ExecuteCommandAgentName,
-			getExecAgentConfigFileNameError: errors.New("mockError"),
-		},
-		{
-			managedAgentName: ExecuteCommandAgentName,
-		},
-	}
 	defer func() {
 		GetExecAgentConfigFileName = getAgentConfigFileName
 		newUUID = uuid.New
+		ioUtilReadDir = ioutil.ReadDir
+		osStat = os.Stat
 	}()
+
+	newUUID = func() string {
+		return "test-UUID"
+	}
+
+	const (
+		containerNameOnlyHyphens = "--"
+		latestVersion            = "3.0.236.0"
+		previousVersion          = "2.0.0.0"
+	)
+	var tt = []struct {
+		name                              string
+		managedAgentName                  string
+		getExecAgentConfigFileNameError   error
+		retrieveBinVersionsError          error
+		simulateNoValidVersion            bool
+		simulateEmptyVersionDir           bool
+		simulateFallbackToPreviousVersion bool
+		expectedVersionUsed               string
+		expectedError                     error
+	}{
+		{
+			name:             "no ExecuteCommandAgent in container",
+			managedAgentName: "randomAgent",
+			expectedError:    errExecCommandManagedAgentNotFound,
+		},
+		{
+			name:                            "simulate config file name generation error",
+			managedAgentName:                ExecuteCommandAgentName,
+			getExecAgentConfigFileNameError: errors.New("mockError"),
+			expectedError:                   fmt.Errorf("could not generate ExecAgent Config File: %v", errors.New("mockError")),
+		},
+		{
+			name:                     "simulate error when reading versions in bin dir",
+			managedAgentName:         ExecuteCommandAgentName,
+			retrieveBinVersionsError: errors.New("mockError"),
+			expectedError:            errors.New("mockError"),
+		},
+		{
+			name:                   "simulate no valid versions exist in bin dir",
+			managedAgentName:       ExecuteCommandAgentName,
+			simulateNoValidVersion: true,
+			expectedError:          fmt.Errorf("no valid versions were found in %s", HostBinDir),
+		},
+		{
+			name:                    "simulate valid version exists but dir is empty",
+			managedAgentName:        ExecuteCommandAgentName,
+			simulateEmptyVersionDir: true,
+			expectedError:           fmt.Errorf("no valid versions were found in %s", HostBinDir),
+		},
+		{
+			name:                              "can fallback to previous version if latest is empty",
+			managedAgentName:                  ExecuteCommandAgentName,
+			simulateFallbackToPreviousVersion: true,
+			expectedVersionUsed:               previousVersion,
+		},
+		{
+			name:                "happy path",
+			managedAgentName:    ExecuteCommandAgentName,
+			expectedVersionUsed: latestVersion,
+		},
+	}
 	for _, test := range tt {
-		task := &apitask.Task{
-			Arn: "arn:aws:iam::123456789012:user/Test",
-			Containers: []*apicontainer.Container{
+		t.Run(test.name, func(t *testing.T) {
+			containers := []*apicontainer.Container{
 				{
-					Name: "container-name",
+					Name:                "container-name",
+					ManagedAgentsUnsafe: []apicontainer.ManagedAgent{{Name: test.managedAgentName}},
 				},
 				{
-					Name: "--container-name",
+					Name:                "--container-name",
+					ManagedAgentsUnsafe: []apicontainer.ManagedAgent{{Name: test.managedAgentName}},
 				},
 				{
-					Name: containerNameOnlyHyphens, // Container that will end up in an empty directory name (trailing hyphens are removed)
-				},
-			},
-		}
-
-		// This makes task exec-enabled
-		for _, c := range task.Containers {
-			c.ManagedAgentsUnsafe = []apicontainer.ManagedAgent{
-				{
-					Name: test.managedAgentName,
+					Name:                containerNameOnlyHyphens, // Container that will end up in an empty directory name (trailing hyphens are removed)
+					ManagedAgentsUnsafe: []apicontainer.ManagedAgent{{Name: test.managedAgentName}},
 				},
 			}
-		}
-		execCmdMgr := newTestManager()
-		GetExecAgentConfigFileName = func(s int) (string, error) {
-			return "amazon-ssm-agent.json", test.getExecAgentConfigFileNameError
-		}
-		newUUID = func() string {
-			return "test-UUID"
-		}
-		for _, container := range task.Containers {
-			hc := &dockercontainer.HostConfig{}
-			err := execCmdMgr.InitializeContainer("task-id", container, hc)
-			var expectedError error
-			if test.managedAgentName != ExecuteCommandAgentName {
-				expectedError = errExecCommandManagedAgentNotFound
-			}
-			if test.getExecAgentConfigFileNameError != nil {
-				expectedError = fmt.Errorf("could not generate ExecAgent Config File: %v", test.getExecAgentConfigFileNameError)
+
+			execCmdMgr := newTestManager()
+
+			GetExecAgentConfigFileName = func(s int) (string, error) {
+				return "amazon-ssm-agent.json", test.getExecAgentConfigFileNameError
 			}
 
-			assert.Equal(t, expectedError, err)
+			ioUtilReadDir = func(dirname string) ([]os.FileInfo, error) { // Needed to simulate retrieving agent versions
+				latestVersionIsDir := true
+				previousVersionIsDir := true
+				if test.simulateNoValidVersion {
+					// A valid version is only considered if it's a dir, so to simulate invalid version we just say it's
+					// NOT a dir.
+					latestVersionIsDir = false
+					previousVersionIsDir = false
+				}
 
-			if expectedError != nil {
-				assert.Empty(t, hc.Binds)
-				continue
+				if test.simulateFallbackToPreviousVersion {
+					// making latest version invalid and previous one valid
+					latestVersionIsDir = false
+					previousVersionIsDir = true
+				}
+
+				return []os.FileInfo{
+					&mockFileInfo{name: latestVersion, isDir: latestVersionIsDir},
+					&mockFileInfo{name: previousVersion, isDir: previousVersionIsDir},
+				}, test.retrieveBinVersionsError
 			}
 
-			assert.Len(t, hc.Binds, 6)
-
-			assert.Subset(t, hc.Binds, []string{
-				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/amazon-ssm-agent:" +
-					"/ecs-execute-command-test-UUID/amazon-ssm-agent:ro"})
-
-			assert.Subset(t, hc.Binds, []string{
-				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/ssm-agent-worker:" +
-					"/ecs-execute-command-test-UUID/ssm-agent-worker:ro"})
-
-			assert.Subset(t, hc.Binds, []string{
-				"/var/lib/ecs/deps/execute-command/bin/3.0.236.0/ssm-session-worker:" +
-					"/ecs-execute-command-test-UUID/ssm-session-worker:ro"})
-
-			assert.Subset(t, hc.Binds, []string{
-				"/var/lib/ecs/deps/execute-command/config/amazon-ssm-agent.json:" +
-					"/ecs-execute-command-test-UUID/configuration/amazon-ssm-agent.json:ro"})
-
-			assert.Subset(t, hc.Binds, []string{
-				"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:" +
-					"/ecs-execute-command-test-UUID/certs/amazon-ssm-agent.crt:ro"})
-
-			expectedHostLogDir := "/var/log/ecs/exec/task-id/container-name:"
-			if container.Name == containerNameOnlyHyphens {
-				expectedHostLogDir = "/var/log/ecs/exec/task-id/nameless-container-test-UUID:"
+			osStat = func(name string) (os.FileInfo, error) {
+				var err error
+				if test.simulateEmptyVersionDir {
+					err = errors.New("mock error to simulate file doesn't exist")
+				}
+				return &mockFileInfo{name: "", isDir: false}, err
 			}
-			assert.Subset(t, hc.Binds, []string{
-				expectedHostLogDir +
-					"/var/log/amazon/ssm"})
-		}
+
+			for _, container := range containers {
+				hc := &dockercontainer.HostConfig{}
+				err := execCmdMgr.InitializeContainer("task-id", container, hc)
+
+				assert.Equal(t, test.expectedError, err)
+
+				if test.expectedError != nil {
+					assert.Empty(t, hc.Binds)
+					continue
+				}
+
+				assert.Len(t, hc.Binds, 6)
+
+				assert.Subset(t, hc.Binds, []string{
+					"/var/lib/ecs/deps/execute-command/bin/" + test.expectedVersionUsed + "/amazon-ssm-agent:" +
+						"/ecs-execute-command-test-UUID/amazon-ssm-agent:ro"})
+
+				assert.Subset(t, hc.Binds, []string{
+					"/var/lib/ecs/deps/execute-command/bin/" + test.expectedVersionUsed + "/ssm-agent-worker:" +
+						"/ecs-execute-command-test-UUID/ssm-agent-worker:ro"})
+
+				assert.Subset(t, hc.Binds, []string{
+					"/var/lib/ecs/deps/execute-command/bin/" + test.expectedVersionUsed + "/ssm-session-worker:" +
+						"/ecs-execute-command-test-UUID/ssm-session-worker:ro"})
+
+				assert.Subset(t, hc.Binds, []string{
+					"/var/lib/ecs/deps/execute-command/config/amazon-ssm-agent.json:" +
+						"/ecs-execute-command-test-UUID/configuration/amazon-ssm-agent.json:ro"})
+
+				assert.Subset(t, hc.Binds, []string{
+					"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:" +
+						"/ecs-execute-command-test-UUID/certs/amazon-ssm-agent.crt:ro"})
+
+				expectedHostLogDir := "/var/log/ecs/exec/task-id/container-name:"
+				if container.Name == containerNameOnlyHyphens {
+					expectedHostLogDir = "/var/log/ecs/exec/task-id/nameless-container-test-UUID:"
+				}
+				assert.Subset(t, hc.Binds, []string{
+					expectedHostLogDir +
+						"/var/log/amazon/ssm"})
+			}
+		})
 	}
 }
 
@@ -173,13 +238,17 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		},
 	}
 	defer func() {
-		execAgentConfigFileExists = configFileExists
+		osStat = os.Stat
 		createNewExecAgentConfigFile = createNewConfigFile
 	}()
 	for _, tc := range tests {
-		execAgentConfigFileExists = func(file string) bool {
-			return tc.fileExists
+		osStat = func(name string) (os.FileInfo, error) {
+			return &mockFileInfo{
+				name:  "whatever",
+				isDir: !tc.fileExists,
+			}, nil
 		}
+
 		createNewExecAgentConfigFile = func(c, f string) error {
 			return tc.createConfigFileErr
 		}

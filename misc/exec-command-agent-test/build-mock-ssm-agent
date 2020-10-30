@@ -12,5 +12,10 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-rm -rf ./amazon-ssm-agent
-CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o amazon-ssm-agent ./sleep/
+SIMULATED_ECS_AGENT_DEPS_BIN_DIR="/managed-agents/execute-command/bin/1.0.0.0"
+rm -rf ./$SIMULATED_ECS_AGENT_DEPS_BIN_DIR
+mkdir $SIMULATED_ECS_AGENT_DEPS_BIN_DIR # mock version folder for our mock ssm agent binaries
+CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/amazon-ssm-agent ./sleep/
+touch $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/ssm-agent-worker
+touch $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/ssm-session-worker
+
