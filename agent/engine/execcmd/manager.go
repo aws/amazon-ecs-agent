@@ -26,9 +26,7 @@ import (
 
 const (
 	hostExecDepsDir = "/var/lib/ecs/deps/execute-command"
-	// TODO: [ecs-exec]: This version should be dynamic, need to confirm with ssm team what's the exact format so we can always pick the latest
-	ssmBinVersion = "3.0.236.0"
-	HostBinDir    = hostExecDepsDir + "/bin/" + ssmBinVersion
+	HostBinDir      = hostExecDepsDir + "/bin"
 
 	ExecuteCommandAgentName    = "ExecuteCommandAgent"
 	defaultStartRetryTimeout   = time.Minute * 10
