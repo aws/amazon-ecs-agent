@@ -15,108 +15,208 @@ package execcmd
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
+	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCompareAgentVersion(t *testing.T) {
+func TestAgentVersionCompare(t *testing.T) {
 	tt := []struct {
-		name        string
-		v1, v2      string
-		res         int
-		errExpected bool
+		name     string
+		lhs, rhs agentVersion
+		res      int
 	}{
 		{
-			"v1 < v2", "3.0.236.0", "3.0.237.0", -1, false,
+			"lhs < rhs", []uint{3, 0, 236, 0}, []uint{3, 0, 237, 0}, -1,
 		},
 		{
-			"v1 == v2", "3.0.236.0", "3.0.236.0", 0, false,
+			"lhs == rhs, where both are empty", []uint{}, []uint{}, 0,
 		},
 		{
-			"v1 > v2", "3.0.237.0", "3.0.236.0", 1, false,
+			"lhs == rhs", []uint{3, 0, 236, 0}, []uint{3, 0, 236, 0}, 0,
 		},
 		{
-			"negative v1", "-1.0.0.0", "3.0.236.0", badInputReturn, true,
+			"lhs > rhs", []uint{3, 0, 237, 0}, []uint{3, 0, 236, 0}, 1,
 		},
 		{
-			"negative v2", "3.0.236.0", "-1.0.0.0", badInputReturn, true,
+			"fewer elements lhs", []uint{3, 0, 236}, []uint{1, 1, 1, 1}, 1,
 		},
 		{
-			"invalid v1", "a.b.c.d", "3.0.236.0", badInputReturn, true,
+			"fewer elements rhs", []uint{1, 1, 1, 1}, []uint{3, 0, 236}, -1,
 		},
 		{
-			"invalid v2", "3.0.236.0", "a.b.c.d", badInputReturn, true,
+			"blank lhs", []uint{}, []uint{1, 1, 1, 1}, -1,
 		},
 		{
-			"missing elements v1", "3.0.236", "1.1.1.1", badInputReturn, true,
-		},
-		{
-			"missing elements v2", "1.1.1.1", "3.0.236", badInputReturn, true,
-		},
-		{
-			"blank v1", "", "1.1.1.1", badInputReturn, true,
-		},
-		{
-			"blank v2", "1.1.1.1", "", badInputReturn, true,
+			"blank rhs", []uint{1, 1, 1, 1}, []uint{}, 1,
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := compareAgentVersion(tc.v1, tc.v2)
-			if tc.errExpected {
-				assert.Error(t, err, "Error was expected")
-			} else {
-				assert.NoError(t, err, "Error was NOT expected")
-			}
+			res := tc.lhs.compare(tc.rhs)
 			assert.Equal(t, tc.res, res)
 		})
 	}
 }
 
-func TestDetermineLatestVersion(t *testing.T) {
+func TestAgentVersionString(t *testing.T) {
 	tt := []struct {
-		name            string
-		versions        []string
-		expectedVersion string
-		expectedError   error
+		name           string
+		av             agentVersion
+		expectedString string
 	}{
 		{
-			name:          "no versions",
-			versions:      nil,
-			expectedError: errors.New("no versions to compare were provided"),
+			"nil returns empty string",
+			nil,
+			""},
+		{
+			"single element",
+			agentVersion{1},
+			"1",
 		},
 		{
-			name:          "empty versions",
-			versions:      []string{},
-			expectedError: errors.New("no versions to compare were provided"),
+			"multi element",
+			agentVersion{1, 2},
+			"1.2",
 		},
 		{
-			name:          "bad version",
-			versions:      []string{"1"},
-			expectedError: errors.New("invalid version format"),
-		},
-		{
-			name:            "single version",
-			versions:        []string{"3.0.236.0"},
-			expectedVersion: "3.0.236.0",
-		},
-		{
-			name:            "multiple version same value",
-			versions:        []string{"3.0.236.0", "3.0.236.0"},
-			expectedVersion: "3.0.236.0",
-		},
-		{
-			name:            "multiple version diff values",
-			versions:        []string{"2.0.1.0", "3.0.236.0", "1.1.1.1", "0.0.0.0"},
-			expectedVersion: "3.0.236.0",
+			"real world case",
+			agentVersion{3, 0, 236, 0},
+			"3.0.236.0",
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			v, err := determineLatestVersion(tc.versions)
+			assert.Equal(t, tc.expectedString, tc.av.String())
+		})
+	}
+}
+
+func TestByAgentVersion(t *testing.T) {
+	bav := byAgentVersion(
+		[]agentVersion{
+			{3, 0, 236, 0},
+			{1, 1, 1, 1},
+			{1, 1, 1, 1},
+			{2, 0, 0, 0},
+		})
+
+	assert.Equal(t, bav.Len(), 4)
+	assert.True(t, bav.Less(3, 0))  // {2, 0, 0, 0} < {3, 0, 236, 0}
+	assert.False(t, bav.Less(0, 3)) // {3, 0, 236, 0} > {2, 0, 0, 0}
+	assert.False(t, bav.Less(1, 2)) // {1, 1, 1, 1} == {1, 1, 1, 1}
+
+	swappedBav := byAgentVersion(
+		[]agentVersion{
+			{2, 0, 0, 0},
+			{1, 1, 1, 1},
+			{1, 1, 1, 1},
+			{3, 0, 236, 0},
+		})
+	bav.Swap(0, 3)
+	assert.Equal(t, swappedBav, bav)
+
+	sortedBav := byAgentVersion(
+		[]agentVersion{
+			{1, 1, 1, 1},
+			{1, 1, 1, 1},
+			{2, 0, 0, 0},
+			{3, 0, 236, 0},
+		})
+	sort.Sort(bav)
+	assert.Equal(t, sortedBav, bav)
+}
+
+type mockFileInfo struct {
+	name  string
+	isDir bool
+}
+
+func (fi *mockFileInfo) Name() string       { return fi.name }
+func (fi *mockFileInfo) IsDir() bool        { return fi.isDir }
+func (fi *mockFileInfo) Size() int64        { return 0 }
+func (fi *mockFileInfo) Mode() os.FileMode  { return 0 }
+func (fi *mockFileInfo) ModTime() time.Time { return time.Time{} }
+func (fi *mockFileInfo) Sys() interface{}   { return nil }
+
+func TestRetrieveAgentVersions(t *testing.T) {
+	defer func() {
+		ioUtilReadDir = ioutil.ReadDir
+	}()
+	tt := []struct {
+		name             string
+		files            []os.FileInfo
+		expectedVersions []agentVersion
+		expectedError    error
+	}{
+		{
+			name:          "ioutil.ReadDir error",
+			expectedError: errors.New("mock error"),
+		},
+		{
+			name:  "no files",
+			files: nil,
+		},
+		{
+			name: "non-version directories/files",
+			files: []os.FileInfo{
+				&mockFileInfo{
+					name:  "0.0.0.0",
+					isDir: true,
+				},
+				&mockFileInfo{
+					name:  "randomDir",
+					isDir: true,
+				},
+				&mockFileInfo{
+					name:  "randomFile",
+					isDir: false,
+				},
+				&mockFileInfo{
+					name:  "1.0.0.0",
+					isDir: true,
+				},
+			},
+			expectedVersions: []agentVersion{
+				{0, 0, 0, 0},
+				{1, 0, 0, 0},
+			},
+		},
+		{
+			name: "happy path",
+			files: []os.FileInfo{
+				&mockFileInfo{
+					name:  "3.0.236.0",
+					isDir: true,
+				},
+				&mockFileInfo{
+					name:  "0.0.0.0",
+					isDir: true,
+				},
+				&mockFileInfo{
+					name:  "1.0.0.0",
+					isDir: true,
+				},
+			},
+			expectedVersions: []agentVersion{
+				{3, 0, 236, 0},
+				{0, 0, 0, 0},
+				{1, 0, 0, 0},
+			},
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ioUtilReadDir = func(dirname string) ([]os.FileInfo, error) {
+				return tc.files, tc.expectedError
+			}
+			versions, err := retrieveAgentVersions("/var/lib/ecs/deps/execute-command/bin")
 			assert.Equal(t, tc.expectedError, err)
-			assert.Equal(t, tc.expectedVersion, v)
+			assert.Equal(t, tc.expectedVersions, versions)
 		})
 	}
 }
