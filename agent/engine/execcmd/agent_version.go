@@ -15,68 +15,108 @@ package execcmd
 
 import (
 	"errors"
+	"io/ioutil"
 	"strconv"
 	"strings"
 )
 
-// TODO: Remove this later, just doing it do make static checks happy about these utils not being invoked anywhere
-func init() {
-	determineLatestVersion([]string{"1.1.1.1"})
-}
-
 const (
 	versionDelimiter  = "."
-	badInputReturn    = -999
 	badFormatErrorStr = "invalid version format"
 )
 
-// compareAgentVersion compares two versions, returning -1 if v1 < v2, 0 if v1 == v2, and 1 if v1 > v2.
-// The version must have only integers representing major, minor, patch, and reserved; delimited by dots (e.g. "1.2.3.4").
-// An error is returned if any of the versions passed as parameter is malformed.
+type agentVersion []uint
+
+// compare compares this agentVersion against another one passed as parameter.
+// returns -1 if lhs < rhs, 0 lhs == rhs, and 1 if lhs > rhs.
 // example:
-// compareAgentVersion("3.0.236.0", "3.0.237.0") returns -1, nil
-// compareAgentVersion("3.0.236.0", "3.0.236.0") returns 0, nil
-// compareAgentVersion("3.0.237.0", "3.0.236.0") returns 1, nil
-// compareAgentVersion("a.b.c.d", "3.0.236.0") returns -999, error
-func compareAgentVersion(v1Str, v2Str string) (int, error) {
-	v1Arr := strings.Split(v1Str, versionDelimiter)
-	v2Arr := strings.Split(v2Str, versionDelimiter)
-
-	if len(v1Arr) != len(v2Arr) {
-		return badInputReturn, errors.New(badFormatErrorStr)
+// [3, 0, 236, 0].compare([3, 0, 237, 0]) returns -1
+// [3, 0, 236, 0].compare([3, 0, 236, 0]) returns 0
+// [3, 0, 237, 0].compare([3, 0, 236, 0]) returns 1
+// [3].compare([2, 0, 236])               returns 1
+func (lhs agentVersion) compare(rhs agentVersion) int {
+	lhsLen := len(lhs)
+	rhsLen := len(rhs)
+	maxLen := lhsLen
+	if rhsLen > maxLen {
+		maxLen = rhsLen
 	}
-	for i := 0; i < len(v1Arr); i++ {
-		v1Int, err := strconv.ParseUint(v1Arr[i], 10, 32)
-		if err != nil {
-			return badInputReturn, errors.New(badFormatErrorStr)
+	for i := 0; i < maxLen; i++ {
+		v1 := uint(0)
+		v2 := uint(0)
+		if i < lhsLen {
+			v1 = lhs[i]
 		}
-		v2Int, err := strconv.ParseUint(v2Arr[i], 10, 32)
-		if err != nil {
-			return badInputReturn, errors.New(badFormatErrorStr)
+		if i < rhsLen {
+			v2 = rhs[i]
 		}
-
-		if v1Int < v2Int {
-			return -1, nil
-		} else if v1Int > v2Int {
-			return 1, nil
+		if v1 < v2 {
+			return -1
+		} else if v1 > v2 {
+			return 1
 		}
 	}
-	return 0, nil
+	return 0
 }
 
-func determineLatestVersion(versions []string) (string, error) {
-	if len(versions) == 0 {
-		return "", errors.New("no versions to compare were provided")
+// String the string representation of an agentVersion
+// e.g. [3, 0, 236, 0] -> "3.0.236.0"
+func (lhs agentVersion) String() string {
+	var avStr []string
+	for _, e := range lhs {
+		avStr = append(avStr, strconv.Itoa(int(e)))
 	}
-	latest := "0.0.0.0"
-	for _, v := range versions {
-		comp, err := compareAgentVersion(v, latest)
+	return strings.Join(avStr, versionDelimiter)
+}
+
+func parseAgentVersion(version string) (agentVersion, error) {
+	var parsedVersion []uint
+	vArr := strings.Split(version, versionDelimiter)
+	for _, part := range vArr {
+		pInt, err := strconv.ParseUint(part, 10, 32)
 		if err != nil {
-			return "", err
+			return nil, errors.New(badFormatErrorStr)
 		}
-		if comp > 0 {
-			latest = v
-		}
+		parsedVersion = append(parsedVersion, uint(pInt))
 	}
-	return latest, nil
+	return parsedVersion, nil
+}
+
+// This is a helper type to make []agentVersion sortable
+type byAgentVersion []agentVersion
+
+// Len fulfills sort.Interface
+func (bav byAgentVersion) Len() int {
+	return len(bav)
+}
+
+// Less fulfills sort.Interface
+func (bav byAgentVersion) Less(i, j int) bool {
+	return bav[i].compare(bav[j]) < 0
+}
+
+// Swap fulfills sort.Interface
+func (bav byAgentVersion) Swap(i, j int) {
+	bav[i], bav[j] = bav[j], bav[i]
+}
+
+var ioUtilReadDir = ioutil.ReadDir
+
+func retrieveAgentVersions(agentBinPath string) ([]agentVersion, error) {
+	files, err := ioUtilReadDir(agentBinPath)
+	if err != nil {
+		return nil, err
+	}
+	var versions []agentVersion
+	for _, f := range files {
+		if !f.IsDir() {
+			continue
+		}
+		v, err := parseAgentVersion(f.Name())
+		if err != nil { // The bin directory could have random folders, so we omit anything that cannot be parsed to a version
+			continue
+		}
+		versions = append(versions, v)
+	}
+	return versions, nil
 }
