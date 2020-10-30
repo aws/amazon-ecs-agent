@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,9 @@ const (
 	namelessContainerPrefix = "nameless-container-"
 
 	ecsAgentExecDepsDir = "/managed-agents/execute-command"
+
+	// ecsAgentDepsBinDir is the directory where ECS Agent will read versions of SSM agent
+	ecsAgentDepsBinDir = ecsAgentExecDepsDir + "/bin"
 
 	ContainerDepsDirPrefix = "/ecs-execute-command-"
 
@@ -96,18 +100,22 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 	uuid := newUUID()
 	containerDepsFolder := ContainerDepsDirPrefix + uuid
 
+	latestBinVersionDir, err := m.getLatestVersionedHostBinDir()
+	if err != nil {
+		return err
+	}
+
 	// Add ssm binary mounts
-	// TODO: [ecs-exec]: m.hostBinDir should determine the latest version of ssm agent available in the deps folder
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
-		filepath.Join(m.hostBinDir, SSMAgentBinName),
+		filepath.Join(latestBinVersionDir, SSMAgentBinName),
 		filepath.Join(containerDepsFolder, SSMAgentBinName)))
 
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
-		filepath.Join(m.hostBinDir, SSMAgentWorkerBinName),
+		filepath.Join(latestBinVersionDir, SSMAgentWorkerBinName),
 		filepath.Join(containerDepsFolder, SSMAgentWorkerBinName)))
 
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
-		filepath.Join(m.hostBinDir, SessionWorkerBinName),
+		filepath.Join(latestBinVersionDir, SessionWorkerBinName),
 		filepath.Join(containerDepsFolder, SessionWorkerBinName)))
 
 	// Add ssm agent config file mount
@@ -131,6 +139,36 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 	})
 
 	return nil
+}
+
+func (m *manager) getLatestVersionedHostBinDir() (string, error) {
+	versions, err := retrieveAgentVersions(ecsAgentDepsBinDir)
+	if err != nil {
+		return "", err
+	}
+	sort.Sort(sort.Reverse(byAgentVersion(versions)))
+
+	var latest string
+	for _, v := range versions {
+		vStr := v.String()
+		ecsAgentDepsVersionedBinDir := filepath.Join(ecsAgentDepsBinDir, vStr)
+		if !fileExists(filepath.Join(ecsAgentDepsVersionedBinDir, SSMAgentBinName)) {
+			continue // try falling back to the previous version
+		}
+		// TODO: [ecs-exec] This requirement will be removed for SSM agent V2
+		if !fileExists(filepath.Join(ecsAgentDepsVersionedBinDir, SSMAgentWorkerBinName)) {
+			continue // try falling back to the previous version
+		}
+		if !fileExists(filepath.Join(ecsAgentDepsVersionedBinDir, SessionWorkerBinName)) {
+			continue // try falling back to the previous version
+		}
+		latest = filepath.Join(m.hostBinDir, vStr)
+		break
+	}
+	if latest == "" {
+		return "", fmt.Errorf("no valid versions were found in %s", m.hostBinDir)
+	}
+	return latest, nil
 }
 
 func getReadOnlyBindMountMapping(hostDir, containerDir string) string {
@@ -181,7 +219,7 @@ func getAgentConfigFileName(sessionLimit int) (string, error) {
 	configFileName := fmt.Sprintf(execAgentConfigFileNameTemplate, hash)
 	// check if config file exists already
 	configFilePath := filepath.Join(ECSAgentExecConfigDir, configFileName)
-	if execAgentConfigFileExists(configFilePath) {
+	if fileExists(configFilePath) {
 		// TODO: verify the hash of the existing file contents
 		return configFileName, nil
 	}
@@ -198,11 +236,11 @@ func getExecAgentConfigHash(config string) string {
 	return base64.URLEncoding.EncodeToString(hash.Sum(nil))
 }
 
-var execAgentConfigFileExists = configFileExists
+var osStat = os.Stat
 
-func configFileExists(configFilePath string) bool {
-	if _, err := os.Stat(configFilePath); err == nil {
-		return true
+func fileExists(path string) bool {
+	if fi, err := osStat(path); err == nil {
+		return !fi.IsDir()
 	}
 	return false
 }
