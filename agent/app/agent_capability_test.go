@@ -778,26 +778,38 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 	testCases := []struct {
 		name                     string
 		pathExists               func(string, bool) (bool, error)
+		getSubDirectories        func(path string) ([]string, error)
 		shouldHaveExecCapability bool
 	}{
 		{
-			name:                     "execute-command capability should not be added if requirements are not met",
+			name:                     "execute-command capability should not be added if any required file is not found",
 			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return false, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return nil, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no valid ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"some_folder"}, nil },
 			shouldHaveExecCapability: false,
 		},
 		{
 			name:                     "execute-command capability should be added if requirements are met",
 			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
 			shouldHaveExecCapability: true,
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			pathExists = tc.pathExists
-			getSubDirectories = func(path string) ([]string, error) {
-				// appendExecCapabilities() requires at least 1 version to exist
-				return []string{"3.0.236.0"}, nil
-			}
+			getSubDirectories = tc.getSubDirectories
 			defer func() {
 				pathExists = defaultPathExists
 				getSubDirectories = defaultGetSubDirectories

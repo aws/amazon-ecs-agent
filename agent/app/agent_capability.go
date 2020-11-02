@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -371,7 +372,15 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	if err != nil {
 		return capabilities, err
 	}
+	// use raw string for regular expression
+	var validSsmVersion = regexp.MustCompile(`^\d+(\.\d+)*$`)
 	for _, binFolder := range binFolders {
+		// exclude directories that don't conform to valid ssm versions
+		matched := validSsmVersion.Match([]byte(binFolder))
+		if !matched {
+			continue
+		}
+
 		// check for the same set of binaries for all versions for now
 		// change this if future versions of ssm agent require different binaries
 		versionSubDirectory := filepath.Join(binDir, binFolder)
