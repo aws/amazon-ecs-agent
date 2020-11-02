@@ -374,15 +374,12 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	if err != nil {
 		return capabilities, err
 	}
-	// use raw string for regular expression
+	// use raw string for regular expression to avoid escaping backslash (\)
 	var validSsmVersion = regexp.MustCompile(`^\d+(\.\d+)*$`)
 	for _, binFolder := range binFolders {
-		// exclude directories that don't conform to valid ssm versions
-		matched := validSsmVersion.Match([]byte(binFolder))
-		if !matched {
+		if matched := validSsmVersion.Match([]byte(binFolder)); !matched {
 			continue
 		}
-		// exclude ssm version in deny-list
 		if _, found := capabilityExecInvalidSsmVersions[binFolder]; found {
 			continue
 		}
