@@ -117,14 +117,18 @@ func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 		"Expected container runtimeID should not empty")
 }
 
-func verifyExecAgentRunningStateChange(t *testing.T, taskEngine TaskEngine) {
+func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
+	expectedStatus apicontainerstatus.ManagedAgentStatus, waitDone chan<- struct{}) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
-	event := <-stateChangeEvents
-	containerEvent := event.(api.ContainerStateChange)
-	assert.NotEmpty(t, containerEvent.ManagedAgents, "Expected exec-agent event has no managed agents")
-	if containerEvent.ManagedAgents != nil {
-		assert.Equal(t, apicontainerstatus.ManagedAgentRunning, containerEvent.ManagedAgents[0].Status,
-			"expected managedAgent container state change event did not match actual event")
+	for event := range stateChangeEvents {
+		if containerEvent, ok := event.(api.ContainerStateChange); ok {
+			if containerEvent.ManagedAgents != nil {
+				if containerEvent.ManagedAgents[0].Status == expectedStatus {
+					close(waitDone)
+					return
+				}
+			}
+		}
 	}
 }
 
