@@ -103,6 +103,8 @@ var (
 	capabilityExecRequiredCerts = []string{
 		"tls-ca-bundle.pem",
 	}
+	// use empty struct as value type to simulate set
+	capabilityExecInvalidSsmVersions = map[string]struct{}{}
 
 	pathExists        = defaultPathExists
 	getSubDirectories = defaultGetSubDirectories
@@ -378,6 +380,10 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 		// exclude directories that don't conform to valid ssm versions
 		matched := validSsmVersion.Match([]byte(binFolder))
 		if !matched {
+			continue
+		}
+		// exclude ssm version in deny-list
+		if _, found := capabilityExecInvalidSsmVersions[binFolder]; found {
 			continue
 		}
 

@@ -779,6 +779,7 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 		name                     string
 		pathExists               func(string, bool) (bool, error)
 		getSubDirectories        func(path string) ([]string, error)
+		invalidSsmVersions       map[string]struct{}
 		shouldHaveExecCapability bool
 	}{
 		{
@@ -796,7 +797,8 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 		{
 			name:                     "execute-command capability should not be added if no valid ssm versions are found",
 			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
-			getSubDirectories:        func(path string) ([]string, error) { return []string{"some_folder"}, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"2.0.0.0", "some_folder"}, nil },
+			invalidSsmVersions:       map[string]struct{}{"2.0.0.0": struct{}{}},
 			shouldHaveExecCapability: false,
 		},
 		{
@@ -810,9 +812,12 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pathExists = tc.pathExists
 			getSubDirectories = tc.getSubDirectories
+			oCapabilityExecInvalidSsmVersions := capabilityExecInvalidSsmVersions
+			capabilityExecInvalidSsmVersions = tc.invalidSsmVersions
 			defer func() {
 				pathExists = defaultPathExists
 				getSubDirectories = defaultGetSubDirectories
+				capabilityExecInvalidSsmVersions = oCapabilityExecInvalidSsmVersions
 			}()
 
 			ctrl := gomock.NewController(t)
