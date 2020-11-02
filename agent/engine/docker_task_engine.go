@@ -310,13 +310,15 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 	// to finish monitoring.
 	// This is inspired from containers streaming stats from Docker.
 	time.Sleep(retry.AddJitter(time.Nanosecond, engine.monitorExecAgentsInterval/2))
-	_, err = engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
+	status, err := engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
+		mTask.emitContainerEvent(mTask.Task, c, "")
 	}
-	// whether we restarted or failed to restart, we'll want to emit a state change event
-	// redundant state change events like RUNNING->RUNNING are allowed
-	mTask.emitContainerEvent(mTask.Task, c, "")
+	if status == execcmd.Restarted {
+		mTask.emitContainerEvent(mTask.Task, c, "")
+	}
+
 }
 
 // MustInit blocks and retries until an engine can be initialized.
