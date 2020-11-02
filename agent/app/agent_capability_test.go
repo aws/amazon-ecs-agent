@@ -18,6 +18,9 @@ package app
 import (
 	"context"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,9 +42,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testTempDirPrefix = "agent-capability-test-"
+)
+
 func TestCapabilities(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return true, nil
+	}
+	getSubDirectories = func(path string) ([]string, error) {
+		// appendExecCapabilities() requires at least 1 version to exist
+		return []string{"3.0.236.0"}, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+		getSubDirectories = defaultGetSubDirectories
+	}()
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -83,7 +101,7 @@ func TestCapabilities(t *testing.T) {
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
 
-	expectedCapabilityNames := []string{
+	expectedNameOnlyCapabilities := []string{
 		capabilityPrefix + "privileged-container",
 		capabilityPrefix + "docker-remote-api.1.17",
 		capabilityPrefix + "docker-remote-api.1.18",
@@ -104,10 +122,11 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + capabilityExec,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
-	for _, name := range expectedCapabilityNames {
+	for _, name := range expectedNameOnlyCapabilities {
 		expectedCapabilities = append(expectedCapabilities,
 			&ecs.Attribute{Name: aws.String(name)})
 	}
@@ -749,5 +768,212 @@ func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
 		if strings.HasPrefix(aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver") {
 			assert.Equal(t, aws.StringValue(capability.Name), "ecs.capability.docker-volume-driver.local")
 		}
+	}
+}
+
+func TestCapabilitiesExecuteCommand(t *testing.T) {
+	execCapability := ecs.Attribute{
+		Name: aws.String(attributePrefix + capabilityExec),
+	}
+	testCases := []struct {
+		name                     string
+		pathExists               func(string, bool) (bool, error)
+		getSubDirectories        func(path string) ([]string, error)
+		invalidSsmVersions       map[string]struct{}
+		shouldHaveExecCapability bool
+	}{
+		{
+			name:                     "execute-command capability should not be added if any required file is not found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return false, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return nil, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no valid ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"2.0.0.0", "some_folder"}, nil },
+			invalidSsmVersions:       map[string]struct{}{"2.0.0.0": struct{}{}},
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should be added if requirements are met",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pathExists = tc.pathExists
+			getSubDirectories = tc.getSubDirectories
+			oCapabilityExecInvalidSsmVersions := capabilityExecInvalidSsmVersions
+			capabilityExecInvalidSsmVersions = tc.invalidSsmVersions
+			defer func() {
+				pathExists = defaultPathExists
+				getSubDirectories = defaultGetSubDirectories
+				capabilityExecInvalidSsmVersions = oCapabilityExecInvalidSsmVersions
+			}()
+
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+			versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			gomock.InOrder(
+				client.EXPECT().SupportedVersions().Return(versionList),
+				client.EXPECT().KnownVersions().Return(versionList),
+				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
+				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).AnyTimes().Return([]string{}, nil),
+			)
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:          ctx,
+				cfg:          &config.Config{},
+				dockerClient: client,
+				pauseLoader:  mockPauseLoader,
+				mobyPlugins:  mockMobyPlugins,
+			}
+
+			capabilities, err := agent.capabilities()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.shouldHaveExecCapability {
+				assert.Contains(t, capabilities, &execCapability)
+			} else {
+				assert.NotContains(t, capabilities, &execCapability)
+			}
+		})
+	}
+}
+
+func TestDefaultGetSubDirectories(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	subDir, err := ioutil.TempDir(rootDir, "dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+
+	testCases := []struct {
+		name           string
+		path           string
+		expectedResult []string
+		shouldFail     bool
+	}{
+		{
+			name:           "return names of child folders if path exists",
+			path:           rootDir,
+			expectedResult: []string{filepath.Base(subDir)},
+			shouldFail:     false,
+		},
+		{
+			name:           "return error if path does not exist",
+			path:           notExistingPath,
+			expectedResult: nil,
+			shouldFail:     true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			subDirectories, err := defaultGetSubDirectories(tc.path)
+			if tc.shouldFail {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// actual result should have the same elements, don't need to be in same order
+				assert.Subset(t, tc.expectedResult, subDirectories)
+				assert.Subset(t, subDirectories, tc.expectedResult)
+			}
+		})
+	}
+}
+
+func TestDefaultPathExistsd(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	file, err := ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+	testCases := []struct {
+		name              string
+		path              string
+		shouldBeDirectory bool
+		expected          bool
+	}{
+		{
+			name:              "return false if directory does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+		{
+			name:              "return false if false does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: true,
+			expected:          true,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: false,
+			expected:          true,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := defaultPathExists(tc.path, tc.shouldBeDirectory)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, result, tc.expected)
+		})
 	}
 }
