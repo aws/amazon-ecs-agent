@@ -424,6 +424,83 @@ func TestExecCommandAgent(t *testing.T) {
 	os.RemoveAll(execcmd.ECSAgentExecConfigDir)
 }
 
+// TestManagedAgentEvent validates the emitted container events for a started and a stopped managed agent.
+func TestManagedAgentEvent(t *testing.T) {
+	testcases := []struct {
+		Name                 string
+		ExpectedStatus       apicontainerstatus.ManagedAgentStatus
+		ManagedAgentLifetime time.Duration
+		ShouldBeRunning      bool
+	}{
+		{
+			Name:                 "Confirmed emit RUNNING event",
+			ExpectedStatus:       apicontainerstatus.ManagedAgentRunning,
+			ManagedAgentLifetime: 1,
+			ShouldBeRunning:      true,
+		},
+		{
+			Name:                 "Confirmed emit STOPPED event",
+			ExpectedStatus:       apicontainerstatus.ManagedAgentStopped,
+			ManagedAgentLifetime: 0,
+			ShouldBeRunning:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+
+			const (
+				testTaskId        = "exec-command-agent-test-task"
+				testContainerName = "exec-command-agent-test-container"
+			)
+
+			client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+			require.NoError(t, err, "Creating go docker client failed")
+
+			testExecCmdHostBinDir, err := filepath.Abs("../../misc/exec-command-agent-test")
+			require.NoError(t, err)
+
+			taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
+			defer done()
+
+			testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, time.Minute*tc.ManagedAgentLifetime)
+			execAgentLogPath := filepath.Join("/log/exec", testTaskId)
+			err = os.MkdirAll(execAgentLogPath, 0644)
+			require.NoError(t, err, "error creating execAgent log file")
+			_, err = os.Stat(execAgentLogPath)
+			require.NoError(t, err, "execAgent log dir doesn't exist")
+			err = os.MkdirAll(execcmd.ECSAgentExecConfigDir, 0644)
+			require.NoError(t, err, "error creating execAgent config dir")
+
+			go taskEngine.AddTask(testTask)
+
+			verifyContainerRunningStateChange(t, taskEngine)
+			verifyTaskRunningStateChange(t, taskEngine)
+
+			if tc.ShouldBeRunning {
+				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+				cid := containerMap[testTask.Containers[0].Name].DockerID
+				verifyMockExecCommandAgentIsRunning(t, client, cid)
+			}
+			waitDone := make(chan struct{})
+
+			go verifyExecAgentStateChange(t, taskEngine, tc.ExpectedStatus, waitDone)
+
+			timeout := false
+			select {
+			case <-waitDone:
+			case <-time.After(20 * time.Second):
+				timeout = true
+			}
+			assert.False(t, timeout)
+
+			taskEngine.(*DockerTaskEngine).deleteTask(testTask)
+			_, err = os.Stat(execAgentLogPath)
+			assert.True(t, os.IsNotExist(err), "execAgent log cleanup failed")
+			os.RemoveAll(execcmd.ECSAgentExecConfigDir)
+		})
+	}
+}
+
 func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
 	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
 	testTask.PIDMode = ecs.PidModeHost
