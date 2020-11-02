@@ -3230,24 +3230,34 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		containerStatus                apicontainerstatus.ContainerStatus
 		execCommandAgentState          apicontainer.ManagedAgentState
 		execAgentStatus                apicontainerstatus.ManagedAgentStatus
+		restartStatus                  execcmd.RestartStatus
 		simulateBadContainerId         bool
 		expectedRestartInUnhealthyCall bool
 		expectContainerEvent           bool
 	}{
 		{
 			containerStatus:      apicontainerstatus.ContainerStopped,
-			expectContainerEvent: false,
 			execAgentStatus:      apicontainerstatus.ManagedAgentStopped,
+			restartStatus:        execcmd.NotRestarted,
+			expectContainerEvent: false,
 		},
 		{
 			containerStatus:        apicontainerstatus.ContainerRunning,
 			simulateBadContainerId: true,
-			expectContainerEvent:   false,
 			execAgentStatus:        apicontainerstatus.ManagedAgentStopped,
+			restartStatus:          execcmd.NotRestarted,
+			expectContainerEvent:   false,
 		},
 		{
 			containerStatus:      apicontainerstatus.ContainerRunning,
 			execAgentStatus:      apicontainerstatus.ManagedAgentRunning,
+			restartStatus:        execcmd.NotRestarted,
+			expectContainerEvent: false,
+		},
+		{
+			containerStatus:      apicontainerstatus.ContainerRunning,
+			execAgentStatus:      apicontainerstatus.ManagedAgentRunning,
+			restartStatus:        execcmd.Restarted,
 			expectContainerEvent: true,
 		},
 	}
@@ -3283,10 +3293,12 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 			testTask.Containers[0].RuntimeID = ""
 		}
 		if tc.containerStatus == apicontainerstatus.ContainerRunning && !tc.simulateBadContainerId {
-			execCmdMgr.EXPECT().RestartAgentIfStopped(dockerTaskEngine.ctx, dockerTaskEngine.client, testTask, testTask.Containers[0], testContainerId).
-				Return(execcmd.NotRestarted, nil).
+			execCmdMgr.EXPECT().RestartAgentIfStopped(dockerTaskEngine.ctx, dockerTaskEngine.client, testTask,
+				testTask.Containers[0], testContainerId).
+				Return(tc.restartStatus, nil).
 				Times(1)
 		}
+
 		// check for expected containerEvent in stateChangeEvents
 		waitDone := make(chan struct{})
 		expectedManagedAgent := apicontainer.ManagedAgent{
@@ -3294,6 +3306,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 				Status: apicontainerstatus.ManagedAgentRunning,
 			},
 		}
+		// only if we expect restart will we also expect a managed agent container event
 		go checkManagedAgentEvents(t, tc.expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
 
 		taskEngine.(*DockerTaskEngine).monitorExecAgentRunning(ctx, mTestTask, testTask.Containers[0])
@@ -3305,7 +3318,6 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 			timeout = true
 		}
 		assert.False(t, timeout)
-
 	}
 }
 
@@ -3345,11 +3357,12 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 	dockerTaskEngine.managedTasks[testTask.Arn] = mTestTask
 	restartCtx, restartCancel := context.WithTimeout(context.Background(), time.Second)
 	defer restartCancel()
+	// return execcmd.Restarted to ensure container event emission
 	execCmdMgr.EXPECT().RestartAgentIfStopped(dockerTaskEngine.ctx, dockerTaskEngine.client, testTask, testTask.Containers[0], testTask.Containers[0].RuntimeID).
 		DoAndReturn(
 			func(ctx context.Context, client dockerapi.DockerClient, task *apitask.Task, container *apicontainer.Container, containerId string) (execcmd.RestartStatus, error) {
 				defer restartCancel()
-				return execcmd.NotRestarted, nil
+				return execcmd.Restarted, nil
 			}).
 		Times(1)
 
