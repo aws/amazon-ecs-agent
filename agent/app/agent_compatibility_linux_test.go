@@ -32,6 +32,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	mockPathExists(false)
+}
+
 func TestCompatibilityEnabledSuccess(t *testing.T) {
 	ctrl, creds, _, images, _, _, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
 	defer ctrl.Finish()
