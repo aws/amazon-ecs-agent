@@ -63,7 +63,9 @@ const (
 	// ECSAgentExecConfigDir is the directory where ECS Agent will write the ExecAgent config files to
 	ECSAgentExecConfigDir = ecsAgentExecDepsDir + "/" + ContainerConfigDirName
 	// HostExecConfigDir is the dir where ExecAgents Config files will live
-	HostExecConfigDir = hostExecDepsDir + "/" + ContainerConfigDirName
+	HostExecConfigDir          = hostExecDepsDir + "/" + ContainerConfigDirName
+	ExecAgentLogConfigFileName = "seelog.xml"
+	ContainerLogConfigFile     = "configuration/" + ExecAgentLogConfigFileName
 )
 
 var (
@@ -80,8 +82,31 @@ var (
 		"ContainerMode": true
 	}
 }`
+	execAgentLogConfigTemplate = `<seelog type="adaptive" mininterval="2000000"
+	maxinterval="100000000" critmsgcount="500" minlevel="info">
+<exceptions>
+<exception filepattern="test*" minlevel="error"/>
+</exceptions>
+<outputs formatid="fmtinfo">
+<console formatid="fmtinfo"/>
+<rollingfile type="size"
+	filename="/var/log/amazon/ssm/amazon-ssm-agent.log"
+	maxsize="40000000" maxrolls="1"/>
+<filter levels="error,critical" formatid="fmterror">
+   <rollingfile type="size"
+		filename="/var/log/amazon/ssm/errors.log"
+		maxsize="10000000" maxrolls="1"/>
+</filter>
+</outputs>
+<formats>
+<format id="fmterror" format="%Date %Time %LEVEL [%FuncShort @ %File.%Line] %Msg%n"/>
+<format id="fmtdebug" format="%Date %Time %LEVEL [%FuncShort @ %File.%Line] %Msg%n"/>
+<format id="fmtinfo" format="%Date %Time %LEVEL %Msg%n"/>
+</formats>
+</seelog>`
 	// TODO: [ecs-exec] seelog config needs to be implemented following a similar approach to ss, config
 	execAgentConfigFileNameTemplate    = `amazon-ssm-agent-%s.json`
+	logConfigFileNameTemplate          = `seelog-%s.xml`
 	errExecCommandManagedAgentNotFound = fmt.Errorf("managed agent not found (%s)", ExecuteCommandAgentName)
 )
 
@@ -96,7 +121,10 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 	if err != nil {
 		return fmt.Errorf("could not generate ExecAgent Config File: %v", err)
 	}
-
+	logConfigFile, err := GetExecAgentLogConfigFile()
+	if err != nil {
+		return fmt.Errorf("could not generate ExecAgent LogConfig file: %v", err)
+	}
 	uuid := newUUID()
 	containerDepsFolder := ContainerDepsDirPrefix + uuid
 
@@ -118,10 +146,15 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 		filepath.Join(latestBinVersionDir, SessionWorkerBinName),
 		filepath.Join(containerDepsFolder, SessionWorkerBinName)))
 
-	// Add ssm agent config file mount
+	// Add exec agent config file mount
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
 		filepath.Join(HostExecConfigDir, configFile),
 		filepath.Join(containerDepsFolder, ContainerConfigFileSuffix)))
+
+	// Add exec agent log config file mount
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
+		filepath.Join(HostExecConfigDir, logConfigFile),
+		filepath.Join(containerDepsFolder, ContainerLogConfigFile)))
 
 	// Append TLS cert mount
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
@@ -209,6 +242,38 @@ func getSessionWorkersLimit(ma apicontainer.ManagedAgent) int {
 		limit = defaultSessionLimit
 	}
 	return limit
+}
+
+var GetExecAgentLogConfigFile = getAgentLogConfigFile
+
+func getAgentLogConfigFile() (string, error) {
+	hash := getExecAgentConfigHash(execAgentLogConfigTemplate)
+	logConfigFileName := fmt.Sprintf(logConfigFileNameTemplate, hash)
+	// check if config file exists already
+	logConfigFilePath := filepath.Join(ECSAgentExecConfigDir, logConfigFileName)
+	if fileExists(logConfigFilePath) && validLogConfigExists(logConfigFilePath, hash) {
+		return logConfigFileName, nil
+	}
+	// create new seelog config file
+	if err := createNewExecAgentConfigFile(execAgentLogConfigTemplate, logConfigFilePath); err != nil {
+		return "", err
+	}
+	return logConfigFileName, nil
+}
+
+func validLogConfigExists(configFilePath, expectedHash string) bool {
+	config, err := getFileContent(configFilePath)
+	if err != nil {
+		return false
+	}
+	hash := getExecAgentConfigHash(string(config))
+	return strings.Compare(expectedHash, hash) == 0
+}
+
+var getFileContent = readFileContent
+
+func readFileContent(filePath string) ([]byte, error) {
+	return ioutil.ReadFile(filePath)
 }
 
 var GetExecAgentConfigFileName = getAgentConfigFileName
