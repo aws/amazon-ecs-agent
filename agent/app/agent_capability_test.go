@@ -47,8 +47,6 @@ const (
 )
 
 func TestCapabilities(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
 	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
 		return true, nil
 	}
@@ -60,6 +58,9 @@ func TestCapabilities(t *testing.T) {
 		pathExists = defaultPathExists
 		getSubDirectories = defaultGetSubDirectories
 	}()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -162,6 +163,13 @@ func TestCapabilities(t *testing.T) {
 }
 
 func TestCapabilitiesECR(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	conf := &config.Config{}
@@ -205,6 +213,13 @@ func TestCapabilitiesECR(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -248,6 +263,13 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -292,6 +314,13 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -336,6 +365,13 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 }
 
 func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -380,6 +416,13 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 }
 
 func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -455,6 +498,13 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 }
 
 func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -503,6 +553,13 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 }
 
 func TestCapabilitiesTaskResourceLimit(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
@@ -546,6 +603,13 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 }
 
 func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.NotSet}}
@@ -589,6 +653,13 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 }
 
 func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	conf := &config.Config{TaskCPUMemLimit: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}}
@@ -617,6 +688,13 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 }
 
 func TestCapabilitiesContainerHealth(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -658,6 +736,13 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 }
 
 func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -698,6 +783,13 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 }
 
 func TestCapabilitesListPluginsErrorCase(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
@@ -735,6 +827,13 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 }
 
 func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return false, nil
+	}
+	defer func() {
+		pathExists = defaultPathExists
+	}()
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
