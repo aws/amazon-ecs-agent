@@ -1872,6 +1872,7 @@ func TestNewTaskTransitionOnRestart(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
+	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
 
