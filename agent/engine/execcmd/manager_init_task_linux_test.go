@@ -35,6 +35,7 @@ func TestInitializeContainer(t *testing.T) {
 		newUUID = uuid.New
 		ioUtilReadDir = ioutil.ReadDir
 		osStat = os.Stat
+		GetExecAgentLogConfigFile = getAgentLogConfigFile
 	}()
 
 	newUUID = func() string {
@@ -50,6 +51,7 @@ func TestInitializeContainer(t *testing.T) {
 		name                              string
 		managedAgentName                  string
 		getExecAgentConfigFileNameError   error
+		getExecAgentLogConfigError        error
 		retrieveBinVersionsError          error
 		simulateNoValidVersion            bool
 		simulateEmptyVersionDir           bool
@@ -97,6 +99,12 @@ func TestInitializeContainer(t *testing.T) {
 			managedAgentName:    ExecuteCommandAgentName,
 			expectedVersionUsed: latestVersion,
 		},
+		{
+			name:                       "simulate log config file generation error",
+			managedAgentName:           ExecuteCommandAgentName,
+			getExecAgentLogConfigError: errors.New("mockError"),
+			expectedError:              fmt.Errorf("could not generate ExecAgent LogConfig file: %v", errors.New("mockError")),
+		},
 	}
 	for _, test := range tt {
 		t.Run(test.name, func(t *testing.T) {
@@ -119,6 +127,10 @@ func TestInitializeContainer(t *testing.T) {
 
 			GetExecAgentConfigFileName = func(s int) (string, error) {
 				return "amazon-ssm-agent.json", test.getExecAgentConfigFileNameError
+			}
+
+			GetExecAgentLogConfigFile = func() (string, error) {
+				return "seelog.xml", test.getExecAgentLogConfigError
 			}
 
 			ioUtilReadDir = func(dirname string) ([]os.FileInfo, error) { // Needed to simulate retrieving agent versions
@@ -162,7 +174,7 @@ func TestInitializeContainer(t *testing.T) {
 					continue
 				}
 
-				assert.Len(t, hc.Binds, 6)
+				assert.Len(t, hc.Binds, 7)
 
 				assert.Subset(t, hc.Binds, []string{
 					"/var/lib/ecs/deps/execute-command/bin/" + test.expectedVersionUsed + "/amazon-ssm-agent:" +
@@ -183,6 +195,10 @@ func TestInitializeContainer(t *testing.T) {
 				assert.Subset(t, hc.Binds, []string{
 					"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:" +
 						"/ecs-execute-command-test-UUID/certs/amazon-ssm-agent.crt:ro"})
+
+				assert.Subset(t, hc.Binds, []string{
+					"/var/lib/ecs/deps/execute-command/config/seelog.xml:" +
+						"/ecs-execute-command-test-UUID/configuration/seelog.xml:ro"})
 
 				expectedHostLogDir := "/var/log/ecs/exec/task-id/container-name:"
 				if container.Name == containerNameOnlyHyphens {
@@ -288,5 +304,113 @@ func TestGetSessionWorkersLimit(t *testing.T) {
 		}
 		limit := getSessionWorkersLimit(ma)
 		assert.Equal(t, tc.expectedLimit, limit)
+	}
+}
+
+func TestGetExecAgentLogConfigFile(t *testing.T) {
+	hash := getExecAgentConfigHash(execAgentLogConfigTemplate)
+	var tests = []struct {
+		expectedFile             string
+		expectedError            error
+		execAgentConfigFileExist bool
+		existingLogConfigReadErr error
+		existingLogConfig        string
+		createNewConfigError     error
+	}{
+		{
+			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
+			expectedError:            nil,
+			execAgentConfigFileExist: true,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        execAgentLogConfigTemplate,
+			createNewConfigError:     nil,
+		},
+		{
+			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
+			expectedError:            nil,
+			execAgentConfigFileExist: false,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        execAgentLogConfigTemplate,
+			createNewConfigError:     nil,
+		},
+		{
+			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
+			expectedError:            nil,
+			execAgentConfigFileExist: true,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        "junk",
+			createNewConfigError:     nil,
+		},
+		{
+			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
+			expectedError:            nil,
+			execAgentConfigFileExist: true,
+			existingLogConfigReadErr: errors.New("read file error"),
+			existingLogConfig:        "",
+			createNewConfigError:     nil,
+		},
+		{
+			expectedFile:             "",
+			expectedError:            errors.New("create file error"),
+			execAgentConfigFileExist: false,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        "",
+			createNewConfigError:     errors.New("create file error"),
+		},
+	}
+	defer func() {
+		osStat = os.Stat
+		getFileContent = readFileContent
+		createNewExecAgentConfigFile = createNewConfigFile
+	}()
+	for _, tc := range tests {
+		osStat = func(name string) (os.FileInfo, error) {
+			if tc.execAgentConfigFileExist {
+				return &mockFileInfo{name: "", isDir: false}, nil
+			}
+			return &mockFileInfo{}, errors.New("no such file")
+		}
+		getFileContent = func(path string) ([]byte, error) {
+			return []byte(tc.existingLogConfig), tc.existingLogConfigReadErr
+		}
+		createNewExecAgentConfigFile = func(c, f string) error {
+			return tc.createNewConfigError
+		}
+		configFile, err := GetExecAgentLogConfigFile()
+		assert.Equal(t, tc.expectedFile, configFile)
+		assert.Equal(t, tc.expectedError, err)
+	}
+}
+
+func TestGetValidLogConfigExists(t *testing.T) {
+	var tests = []struct {
+		isValid                  bool
+		existingLogConfigReadErr error
+		existingLogConfig        string
+	}{
+		{
+			isValid:                  true,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        execAgentLogConfigTemplate,
+		},
+		{
+			isValid:                  false,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        "junk",
+		},
+		{
+			isValid:                  false,
+			existingLogConfigReadErr: errors.New("read file error"),
+			existingLogConfig:        "",
+		},
+	}
+	defer func() {
+		getFileContent = readFileContent
+	}()
+	for _, tc := range tests {
+		getFileContent = func(path string) ([]byte, error) {
+			return []byte(tc.existingLogConfig), tc.existingLogConfigReadErr
+		}
+		assert.Equal(t, tc.isValid, validLogConfigExists("configpath", getExecAgentConfigHash(execAgentLogConfigTemplate)))
 	}
 }
