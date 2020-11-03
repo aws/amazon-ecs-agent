@@ -442,7 +442,8 @@ func TestExecCommandAgent(t *testing.T) {
 
 	// session limit is 2
 	testConfigFileName, _ := execcmd.GetExecAgentConfigFileName(2)
-	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"/1.0.0.0", testConfigFileName)
+	testLogConfigFileName, _ := execcmd.GetExecAgentLogConfigFile()
+	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"/1.0.0.0", testConfigFileName, testLogConfigFileName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
 	killMockExecCommandAgent(t, client, cid, pidA)
@@ -599,7 +600,7 @@ const (
 func verifyExecCmdAgentExpectedMounts(t *testing.T,
 	ctx context.Context,
 	client *sdkClient.Client,
-	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testConfigFileName string) {
+	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testConfigFileName, testLogConfigFileName string) {
 	inspectState, _ := client.ContainerInspect(ctx, containerId)
 
 	expectedMounts := []struct {
@@ -630,6 +631,11 @@ func verifyExecCmdAgentExpectedMounts(t *testing.T,
 		{
 			source:    filepath.Join(execcmd.HostExecConfigDir, testConfigFileName),
 			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.ContainerConfigFileSuffix),
+			readOnly:  true,
+		},
+		{
+			source:    filepath.Join(execcmd.HostExecConfigDir, testLogConfigFileName),
+			destRegex: filepath.Join(containerDepsPrefixRegex, execcmd.ContainerLogConfigFile),
 			readOnly:  true,
 		},
 		{
