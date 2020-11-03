@@ -321,7 +321,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				return
 			}
 			if !eniAttachment.IsSent() {
-				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", eniAttachment.MACAddress)
+				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record %s", eniAttachment.String())
 				engine.removeENIAttachmentData(eniAttachment.MACAddress)
 				engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 			}
@@ -330,7 +330,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		if err != nil {
 			// The only case where we get an error from Initialize is that the attachment has expired. In that case, remove the expired
 			// attachment from state.
-			seelog.Warnf("ENI attachment with mac address %s has expired. Removing it from state.", eniAttachment.MACAddress)
+			seelog.Warnf("ENI attachment has expired. Removing it from state. %s", eniAttachment.String())
 			engine.removeENIAttachmentData(eniAttachment.MACAddress)
 			engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 		}

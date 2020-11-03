@@ -39,11 +39,11 @@ type ackTimeoutHandler struct {
 func (handler *ackTimeoutHandler) handle() {
 	eniAttachment, ok := handler.state.ENIByMac(handler.mac)
 	if !ok {
-		seelog.Warnf("Ignoring unmanaged ENI attachment with MAC address: %s", handler.mac)
+		seelog.Warnf("Ignoring unmanaged ENI attachment mac=%s", handler.mac)
 		return
 	}
 	if !eniAttachment.IsSent() {
-		seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", handler.mac)
+		seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record %s", eniAttachment.String())
 		handler.removeENIAttachmentData(handler.mac)
 		handler.state.RemoveENIAttachment(handler.mac)
 	}
@@ -89,12 +89,14 @@ func handleENIAttachment(attachmentType, attachmentARN, taskARN, mac string,
 	seelog.Infof("Handling ENI attachment: %s", attachmentARN)
 
 	if eniAttachment, ok := state.ENIByMac(mac); ok {
-		seelog.Infof("Duplicate %s attachment message for ENI with MAC address: %s", attachmentType, mac)
+		seelog.Infof("Duplicate %s attachment message for ENI mac=%s taskARN=%s attachmentARN=%s",
+			attachmentType, mac, taskARN, attachmentARN)
 		eniAckTimeoutHandler := ackTimeoutHandler{mac: mac, state: state, dataClient: dataClient}
 		return eniAttachment.StartTimer(eniAckTimeoutHandler.handle)
 	}
 	if err := addENIAttachmentToState(attachmentType, attachmentARN, taskARN, mac, expiresAt, state, dataClient); err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add eni attachment to engine state", attachmentType))
+		return errors.Wrapf(err, fmt.Sprintf("attach %s message handler: unable to add eni attachment to engine state mac=%s taskARN=%s attachmentARN=%s",
+			attachmentType, mac, taskARN, attachmentARN))
 	}
 	return nil
 }
