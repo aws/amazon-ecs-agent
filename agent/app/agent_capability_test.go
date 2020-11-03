@@ -46,20 +46,28 @@ const (
 	testTempDirPrefix = "agent-capability-test-"
 )
 
-func TestCapabilities(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func init() {
+	mockPathExists(false)
+}
+
+func mockPathExists(shouldExist bool) {
 	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return true, nil
+		return shouldExist, nil
 	}
+}
+
+func TestCapabilities(t *testing.T) {
+	mockPathExists(true)
+	defer mockPathExists(false)
 	getSubDirectories = func(path string) ([]string, error) {
 		// appendExecCapabilities() requires at least 1 version to exist
 		return []string{"3.0.236.0"}, nil
 	}
 	defer func() {
-		pathExists = defaultPathExists
 		getSubDirectories = defaultGetSubDirectories
 	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	client := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -815,11 +823,10 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			oCapabilityExecInvalidSsmVersions := capabilityExecInvalidSsmVersions
 			capabilityExecInvalidSsmVersions = tc.invalidSsmVersions
 			defer func() {
-				pathExists = defaultPathExists
+				mockPathExists(false)
 				getSubDirectories = defaultGetSubDirectories
 				capabilityExecInvalidSsmVersions = oCapabilityExecInvalidSsmVersions
 			}()
-
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
