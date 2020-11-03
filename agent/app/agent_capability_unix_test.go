@@ -41,6 +41,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	mockPathExists(false)
+}
+
 func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
