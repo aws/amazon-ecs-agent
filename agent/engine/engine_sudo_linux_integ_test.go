@@ -48,7 +48,7 @@ import (
 
 const (
 	testLogSenderImage = "amazonlinux:2"
-	testFluentbitImage = "amazon/aws-for-fluent-bit:latest"
+	testFluentbitImage = "amazon/aws-for-fluent-bit:2.7.0"
 	testVolumeImage    = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 	testCluster        = "testCluster"
 	validTaskArnPrefix = "arn:aws:ecs:region:account-id:task/"
