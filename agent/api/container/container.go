@@ -55,8 +55,6 @@ const (
 	// variable in containers' config, which can be used by the containers to access the
 	// v3 metadata endpoint
 	MetadataURIEnvironmentVariableName = "ECS_CONTAINER_METADATA_URI"
-	// MetadataURIFormat defines the URI format for v3 metadata endpoint
-	MetadataURIFormat = "http://169.254.170.2/v3/%s"
 
 	// MetadataURIEnvVarNameV4 defines the name of the environment
 	// variable in containers' config, which can be used by the containers to access the
@@ -80,6 +78,12 @@ const (
 
 	// neuronVisibleDevicesEnvVar is the env which indicates that the container wants to use inferentia devices.
 	neuronVisibleDevicesEnvVar = "AWS_NEURON_VISIBLE_DEVICES"
+)
+
+var (
+	// MetadataURIFormat defines the URI format for v3 metadata endpoint. Made as a var to be able to
+	// overwrite it in test.
+	MetadataURIFormat = "http://169.254.170.2/v3/%s"
 )
 
 // DockerConfig represents additional metadata about a container to run. It's
