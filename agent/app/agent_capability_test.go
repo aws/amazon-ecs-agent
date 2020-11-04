@@ -46,16 +46,23 @@ const (
 	testTempDirPrefix = "agent-capability-test-"
 )
 
-func TestCapabilities(t *testing.T) {
+func mockPathExists(shouldExist bool) func() {
 	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return true, nil
+		return shouldExist, nil
 	}
+
+	return func() {
+		pathExists = defaultPathExists
+	}
+}
+
+func TestCapabilities(t *testing.T) {
+	defer mockPathExists(true)()
 	getSubDirectories = func(path string) ([]string, error) {
 		// appendExecCapabilities() requires at least 1 version to exist
 		return []string{"3.0.236.0"}, nil
 	}
 	defer func() {
-		pathExists = defaultPathExists
 		getSubDirectories = defaultGetSubDirectories
 	}()
 
@@ -163,12 +170,7 @@ func TestCapabilities(t *testing.T) {
 }
 
 func TestCapabilitiesECR(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -213,12 +215,7 @@ func TestCapabilitiesECR(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -263,12 +260,7 @@ func TestCapabilitiesTaskIAMRoleForSupportedDockerVersion(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -314,12 +306,7 @@ func TestCapabilitiesTaskIAMRoleForUnSupportedDockerVersion(t *testing.T) {
 }
 
 func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -365,12 +352,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForSupportedDockerVersion(t *testing.
 }
 
 func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -416,12 +398,7 @@ func TestCapabilitiesTaskIAMRoleNetworkHostForUnSupportedDockerVersion(t *testin
 }
 
 func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -498,12 +475,7 @@ func TestAWSVPCBlockInstanceMetadataWhenTaskENIIsDisabled(t *testing.T) {
 }
 
 func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -553,12 +525,7 @@ func TestCapabilitiesExecutionRoleAWSLogs(t *testing.T) {
 }
 
 func TestCapabilitiesTaskResourceLimit(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -603,12 +570,7 @@ func TestCapabilitiesTaskResourceLimit(t *testing.T) {
 }
 
 func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -653,12 +615,7 @@ func TestCapabilitesTaskResourceLimitDisabledByMissingDockerVersion(t *testing.T
 }
 
 func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -688,12 +645,7 @@ func TestCapabilitesTaskResourceLimitErrorCase(t *testing.T) {
 }
 
 func TestCapabilitiesContainerHealth(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -736,12 +688,7 @@ func TestCapabilitiesContainerHealth(t *testing.T) {
 }
 
 func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -783,12 +730,7 @@ func TestCapabilitiesContainerHealthDisabled(t *testing.T) {
 }
 
 func TestCapabilitesListPluginsErrorCase(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -827,12 +769,7 @@ func TestCapabilitesListPluginsErrorCase(t *testing.T) {
 }
 
 func TestCapabilitesScanPluginsErrorCase(t *testing.T) {
-	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
-		return false, nil
-	}
-	defer func() {
-		pathExists = defaultPathExists
-	}()
+	defer mockPathExists(false)()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
