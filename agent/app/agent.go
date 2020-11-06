@@ -117,6 +117,7 @@ type ecsAgent struct {
 	resourceFields              *taskresource.ResourceFields
 	availabilityZone            string
 	latestSeqNumberTaskManifest *int64
+	registrationToken           string
 }
 
 // newAgent returns a new ecsAgent object, but does not start anything
@@ -402,7 +403,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 	agent.containerInstanceARN = savedData.containerInstanceARN
 	agent.availabilityZone = savedData.availabilityZone
 	agent.latestSeqNumberTaskManifest = &savedData.latestTaskManifestSeqNum
-
+	agent.registrationToken = savedData.registrationToken
 	return savedData.taskEngine, currentEC2InstanceID, nil
 }
 
@@ -473,7 +474,8 @@ func (agent *ecsAgent) newStateManager(
 	cluster *string,
 	containerInstanceArn *string,
 	savedInstanceID *string,
-	availabilityZone *string, latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
+	availabilityZone *string,
+	latestSeqNumberTaskManifest *int64) (statemanager.StateManager, error) {
 	if !agent.cfg.Checkpoint.Enabled() {
 		return statemanager.NewNoopStateManager(), nil
 	}
@@ -537,15 +539,20 @@ func (agent *ecsAgent) registerContainerInstance(
 	platformDevices := agent.getPlatformDevices()
 
 	outpostARN := agent.getoutpostARN()
-
+	if agent.registrationToken == "" {
+		agent.registrationToken = uuid.New()
+		if agent.cfg.Checkpoint.Enabled() {
+			agent.saveMetadata(data.RegistrationTokenKey, agent.registrationToken)
+		}
+	}
 	if agent.containerInstanceARN != "" {
 		seelog.Infof("Restored from checkpoint file. I am running as '%s' in cluster '%s'", agent.containerInstanceARN, agent.cfg.Cluster)
-		return agent.reregisterContainerInstance(client, capabilities, tags, uuid.New(), platformDevices, outpostARN)
+		return agent.reregisterContainerInstance(client, capabilities, tags, agent.registrationToken, platformDevices, outpostARN)
 	}
 
 	seelog.Info("Registering Instance with ECS")
 	containerInstanceArn, availabilityZone, err := client.RegisterContainerInstance("",
-		capabilities, tags, uuid.New(), platformDevices, outpostARN)
+		capabilities, tags, agent.registrationToken, platformDevices, outpostARN)
 	if err != nil {
 		seelog.Errorf("Error registering: %v", err)
 		if retriable, ok := err.(apierrors.Retriable); ok && !retriable.Retry() {

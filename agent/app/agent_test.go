@@ -709,8 +709,9 @@ func TestNewTaskEngineRestoreFromCheckpoint(t *testing.T) {
 		containerInstanceARN:     agent.containerInstanceARN,
 		ec2InstanceID:            instanceID,
 		latestTaskManifestSeqNum: *agent.latestSeqNumberTaskManifest,
+		registrationToken:        agent.registrationToken,
 	}
-	checkLoadedData(state, s, t)
+	checkLoadedData(state, s, true, t)
 }
 
 func TestSetClusterInConfigMismatch(t *testing.T) {
