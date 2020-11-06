@@ -52,6 +52,7 @@ const (
 	testAvailabilityZone            = "test-az"
 	testAgentVersion                = "1.40.0"
 	testLatestSeqNumberTaskManifest = int64(1)
+	testRegistrationToken           = "test-reg-token"
 )
 
 var (
@@ -145,7 +146,7 @@ func TestLoadDataLoadFromBoltDB(t *testing.T) {
 	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.NoError(t, err)
-	checkLoadedData(state, s, t)
+	checkLoadedData(state, s, true, t)
 }
 
 func TestLoadDataLoadFromStateFile(t *testing.T) {
@@ -183,7 +184,7 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager)
 	assert.NoError(t, err)
-	checkLoadedData(state, s, t)
+	checkLoadedData(state, s, false, t)
 
 	// Also verify that the data in the state file has been migrated to boltdb.
 	tasks, err := dataClient.GetTasks()
@@ -200,7 +201,7 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 	assert.Len(t, eniAttachments, 1)
 }
 
-func checkLoadedData(state dockerstate.TaskEngineState, s *savedData, t *testing.T) {
+func checkLoadedData(state dockerstate.TaskEngineState, s *savedData, boltdbOnly bool, t *testing.T) {
 	_, ok := state.TaskByArn(testTaskARN)
 	assert.True(t, ok)
 	_, ok = state.ContainerByID(testDockerID)
@@ -212,6 +213,9 @@ func checkLoadedData(state dockerstate.TaskEngineState, s *savedData, t *testing
 	assert.Equal(t, testContainerInstanceARN, s.containerInstanceARN)
 	assert.Equal(t, testEC2InstanceID, s.ec2InstanceID)
 	assert.Equal(t, testLatestSeqNumberTaskManifest, s.latestTaskManifestSeqNum)
+	if boltdbOnly {
+		assert.Equal(t, testRegistrationToken, s.registrationToken)
+	}
 }
 
 func newTestClient(t *testing.T) (statemanager.StateManager, data.Client, func()) {
@@ -257,6 +261,7 @@ func populateBoltDB(dataClient data.Client, t *testing.T) {
 	require.NoError(t, dataClient.SaveMetadata(data.ContainerInstanceARNKey, testContainerInstanceARN))
 	require.NoError(t, dataClient.SaveMetadata(data.EC2InstanceIDKey, testEC2InstanceID))
 	require.NoError(t, dataClient.SaveMetadata(data.TaskManifestSeqNumKey, strconv.FormatInt(testLatestSeqNumberTaskManifest, 10)))
+	require.NoError(t, dataClient.SaveMetadata(data.RegistrationTokenKey, testRegistrationToken))
 }
 
 func getTestEngineState() dockerstate.TaskEngineState {

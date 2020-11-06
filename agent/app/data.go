@@ -39,6 +39,7 @@ type savedData struct {
 	containerInstanceARN     string
 	ec2InstanceID            string
 	latestTaskManifestSeqNum int64
+	registrationToken        string
 }
 
 // loadData loads data from previous checkpoint file, if any, with backward compatibility preserved. It first tries to
@@ -132,6 +133,10 @@ func (agent *ecsAgent) loadDataFromBoltDB(s *savedData) error {
 			return errors.Wrapf(err, "failed to convert saved task manifest sequence number to int64: %s", seqNumStr)
 		}
 	}
+	s.registrationToken, err = agent.loadMetadata(data.RegistrationTokenKey)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -176,6 +181,11 @@ func (agent *ecsAgent) saveDataToBoltDB(s *savedData) error {
 	if err := agent.dataClient.SaveMetadata(data.TaskManifestSeqNumKey,
 		strconv.FormatInt(s.latestTaskManifestSeqNum, 10)); err != nil {
 		return err
+	}
+	if s.registrationToken != "" {
+		if err := agent.dataClient.SaveMetadata(data.RegistrationTokenKey, s.registrationToken); err != nil {
+			return err
+		}
 	}
 
 	return nil
