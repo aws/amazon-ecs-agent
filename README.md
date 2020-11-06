@@ -142,6 +142,7 @@ additional details on each available environment variable.
 | `ECS_DISABLE_METRICS`     | &lt;true &#124; false&gt;  | Whether to disable metrics gathering for tasks. | false | true |
 | `ECS_POLL_METRICS`     | &lt;true &#124; false&gt;  | Whether to poll or stream when gathering metrics for tasks. This defaulted to `false` previous to agent version 1.40.0. WARNING: setting this to false on an instance with many containers can result in very high CPU utilization by the agent, dockerd, and containerd. | `true` | `true` |
 | `ECS_POLLING_METRICS_WAIT_DURATION` | 10s | Time to wait between polling for metrics for a task. Not used when ECS_POLL_METRICS is false. Maximum value is 20s and minimum value is 5s. If user sets above maximum it will be set to max, and if below minimum it will be set to min. | 10s | 10s |
+| `ECS_PULL_DEPENDENT_CONTAINER_PARALLEL` | &lt;true &#124; false&gt; | Whether to pull images of dependent containers, even though dependsOn condition has not been satisfied yet. | false | false |
 | `ECS_RESERVED_MEMORY` | 32 | Memory, in MiB, to reserve for use by things other than containers managed by Amazon ECS. | 0 | 0 |
 | `ECS_AVAILABLE_LOGGING_DRIVERS` | `["awslogs","fluentd","gelf","json-file","journald","logentries","splunk","syslog"]` | Which logging drivers are available on the container instance. | `["json-file","none"]` | `["json-file","none"]` |
 | `ECS_DISABLE_PRIVILEGED` | `true` | Whether launching privileged containers is disabled on the container instance. | `false` | `false` |

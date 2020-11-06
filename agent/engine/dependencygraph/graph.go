@@ -21,6 +21,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	log "github.com/cihub/seelog"
@@ -67,7 +68,7 @@ var (
 // ValidDependencies takes a task and verifies that it is possible to allow all
 // containers within it to reach the desired status by proceeding in some
 // order.
-func ValidDependencies(task *apitask.Task) bool {
+func ValidDependencies(task *apitask.Task, cfg *config.Config) bool {
 	unresolved := make([]*apicontainer.Container, len(task.Containers))
 	resolved := make([]*apicontainer.Container, 0, len(task.Containers))
 
@@ -76,7 +77,7 @@ func ValidDependencies(task *apitask.Task) bool {
 OuterLoop:
 	for len(unresolved) > 0 {
 		for i, tryResolve := range unresolved {
-			if dependenciesCanBeResolved(tryResolve, resolved) {
+			if dependenciesCanBeResolved(tryResolve, resolved, cfg) {
 				resolved = append(resolved, tryResolve)
 				unresolved = append(unresolved[:i], unresolved[i+1:]...)
 				// Break out of the inner loop now that we modified the slice
@@ -99,13 +100,13 @@ OuterLoop:
 // This function is used for verifying that a state should be resolvable, not
 // for actually deciding what to do. `DependenciesAreResolved` should be used for
 // that purpose instead.
-func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontainer.Container) bool {
+func dependenciesCanBeResolved(target *apicontainer.Container, by []*apicontainer.Container, cfg *config.Config) bool {
 	nameMap := make(map[string]*apicontainer.Container)
 	for _, cont := range by {
 		nameMap[cont.Name] = cont
 	}
 
-	if _, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesCanResolve); err != nil {
+	if _, err := verifyContainerOrderingStatusResolvable(target, nameMap, cfg, containerOrderingDependenciesCanResolve); err != nil {
 		return false
 	}
 	return verifyStatusResolvable(target, nameMap, target.SteadyStateDependencies, onSteadyStateCanResolve)
@@ -122,7 +123,8 @@ func DependenciesAreResolved(target *apicontainer.Container,
 	by []*apicontainer.Container,
 	id string,
 	manager credentials.Manager,
-	resources []taskresource.TaskResource) (*apicontainer.DependsOn, error) {
+	resources []taskresource.TaskResource,
+	cfg *config.Config) (*apicontainer.DependsOn, error) {
 	if !executionCredentialsResolved(target, id, manager) {
 		return nil, CredentialsNotResolvedErr
 	}
@@ -141,7 +143,7 @@ func DependenciesAreResolved(target *apicontainer.Container,
 		resourcesMap[resource.GetName()] = resource
 	}
 
-	if blocked, err := verifyContainerOrderingStatusResolvable(target, nameMap, containerOrderingDependenciesIsResolved); err != nil {
+	if blocked, err := verifyContainerOrderingStatusResolvable(target, nameMap, cfg, containerOrderingDependenciesIsResolved); err != nil {
 		return blocked, err
 	}
 
@@ -242,7 +244,7 @@ func verifyStatusResolvable(target *apicontainer.Container, existingContainers m
 // (map from name to container). The `resolves` function passed should return true if the named container is resolved.
 
 func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, existingContainers map[string]*apicontainer.Container,
-	resolves func(*apicontainer.Container, *apicontainer.Container, string) bool) (*apicontainer.DependsOn, error) {
+	cfg *config.Config, resolves func(*apicontainer.Container, *apicontainer.Container, string, *config.Config) bool) (*apicontainer.DependsOn, error) {
 
 	targetGoal := target.GetDesiredStatus()
 	targetKnown := target.GetKnownStatus()
@@ -277,7 +279,7 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 		}
 
-		if !resolves(target, dependencyContainer, dependency.Condition) {
+		if !resolves(target, dependencyContainer, dependency.Condition, cfg) {
 			blockedDependency = &dependency
 		}
 	}
@@ -332,7 +334,8 @@ func verifyResourceDependenciesResolved(target *apicontainer.Container, existing
 
 func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 	dependsOnContainer *apicontainer.Container,
-	dependsOnStatus string) bool {
+	dependsOnStatus string,
+	cfg *config.Config) bool {
 
 	targetDesiredStatus := target.GetDesiredStatus()
 	dependsOnContainerDesiredStatus := dependsOnContainer.GetDesiredStatus()
@@ -378,10 +381,19 @@ func containerOrderingDependenciesCanResolve(target *apicontainer.Container,
 
 func containerOrderingDependenciesIsResolved(target *apicontainer.Container,
 	dependsOnContainer *apicontainer.Container,
-	dependsOnStatus string) bool {
+	dependsOnStatus string,
+	cfg *config.Config) bool {
 
 	targetDesiredStatus := target.GetDesiredStatus()
+	targetContainerKnownStatus := target.GetKnownStatus()
 	dependsOnContainerKnownStatus := dependsOnContainer.GetKnownStatus()
+
+	// The 'target' container desires to be moved to 'Created' or the 'steady' state.
+	// Allow this only if the environment variable 'ECS_PULL_DEPENDENT_CONTAINER_PARALLEL' is set to true and the
+	// known status of the `target` container state has not reached to 'Pulled' state;
+	if cfg.ContainerPullInParallel.Enabled() && targetContainerKnownStatus < apicontainerstatus.ContainerPulled {
+		return true
+	}
 
 	switch dependsOnStatus {
 	case createCondition:

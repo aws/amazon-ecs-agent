@@ -81,8 +81,9 @@ func GetContainerResponse(containerID string, state dockerstate.TaskEngineState)
 // GetContainerNetworkMetadata returns the network metadata for the container
 func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngineState) ([]Network, error) {
 	dockerContainer, ok := state.ContainerByID(containerID)
+	// For the container in the 'Pulled' state, no error will be returned as network metadata may not be presented yet
 	if !ok {
-		return nil, errors.Errorf("unable to find container '%s'", containerID)
+		return []Network{}, nil
 	}
 	// the logic here has been reused from
 	// https://github.com/aws/amazon-ecs-agent/blob/0c8913ba33965cf6ffdd6253fad422458d9346bd/agent/containermetadata/parse_metadata.go#L123
