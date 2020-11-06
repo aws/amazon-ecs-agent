@@ -24,6 +24,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEcsMsgFormat(t *testing.T) {
+	logfmt := ecsMsgFormatter("")
+	out := logfmt("This is my log message", seelog.InfoLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.Equal(t, "This is my log message", s)
+}
+
+func TestEcsMsgFormat_Structured(t *testing.T) {
+	logfmt := ecsMsgFormatter("")
+	fm := defaultStructuredTextFormatter.Format("This is my log message")
+	out := logfmt(fm, seelog.InfoLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.Equal(t, `msg="This is my log message"`, s)
+
+	fm = defaultStructuredJsonFormatter.Format("This is my log message")
+	out = logfmt(fm, seelog.InfoLvl, &LogContextMock{})
+	s, ok = out.(string)
+	require.True(t, ok)
+	require.JSONEq(t, `{"msg":"This is my log message"}`, s)
+}
+
 func TestLogfmtFormat(t *testing.T) {
 	logfmt := logfmtFormatter("")
 	out := logfmt("This is my log message", seelog.InfoLvl, &LogContextMock{})
@@ -33,12 +56,30 @@ func TestLogfmtFormat(t *testing.T) {
 `, s)
 }
 
+func TestLogfmtFormat_Structured(t *testing.T) {
+	logfmt := logfmtFormatter("")
+	fm := defaultStructuredTextFormatter.Format("This is my log message")
+	out := logfmt(fm, seelog.InfoLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.Equal(t, "level=info time=2018-10-01T01:02:03Z msg=\"This is my log message\"\n", s)
+}
+
 func TestJSONFormat(t *testing.T) {
 	jsonF := jsonFormatter("")
 	out := jsonF("This is my log message", seelog.InfoLvl, &LogContextMock{})
 	s, ok := out.(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"level": "info", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message", "module": "mytestmodule.go"}`, s)
+}
+
+func TestJSONFormat_Structured(t *testing.T) {
+	jsonF := jsonFormatter("")
+	fm := defaultStructuredJsonFormatter.Format(`This is my log message "escaped"`)
+	out := jsonF(fm, seelog.InfoLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.JSONEq(t, `{"level": "info", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message \"escaped\""}`, s)
 }
 
 func TestLogfmtFormat_debug(t *testing.T) {
@@ -50,12 +91,31 @@ func TestLogfmtFormat_debug(t *testing.T) {
 `, s)
 }
 
+func TestLogfmtFormat_Structured_debug(t *testing.T) {
+	logfmt := logfmtFormatter("")
+	fm := defaultStructuredTextFormatter.Format("This is my log message")
+	out := logfmt(fm, seelog.DebugLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.Equal(t, `level=debug time=2018-10-01T01:02:03Z msg="This is my log message"
+`, s)
+}
+
 func TestJSONFormat_debug(t *testing.T) {
 	jsonF := jsonFormatter("")
 	out := jsonF("This is my log message", seelog.DebugLvl, &LogContextMock{})
 	s, ok := out.(string)
 	require.True(t, ok)
 	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message", "module": "mytestmodule.go"}`, s)
+}
+
+func TestJSONFormat_Structured_debug(t *testing.T) {
+	jsonF := jsonFormatter("")
+	fm := defaultStructuredJsonFormatter.Format("This is my log message")
+	out := jsonF(fm, seelog.DebugLvl, &LogContextMock{})
+	s, ok := out.(string)
+	require.True(t, ok)
+	require.JSONEq(t, `{"level": "debug", "time": "2018-10-01T01:02:03Z", "msg": "This is my log message"}`, s)
 }
 
 func TestSetLevel(t *testing.T) {
