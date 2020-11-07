@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry gogenerate run-integ-tests pause-container cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -34,7 +34,6 @@ all: docker
 # everything every time
 gobuild:
 	./scripts/build false
-
 
 # create output directories
 .out-stamp:
@@ -58,7 +57,6 @@ BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
 # directory
-# TODO: make this idempotent
 build-in-docker: .builder-image-stamp .out-stamp
 	@docker run --net=none \
 		--env TARGET_OS="${TARGET_OS}" \
@@ -85,7 +83,6 @@ endif
 
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
-# TODO: make this idempotent
 docker-release: pause-container-release cni-plugins .out-stamp
 	@docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-${BUILD}:make" .
 	@docker run --net=none \
@@ -150,16 +147,9 @@ run-integ-tests: test-registry gremlin container-health-check-image run-sudo-tes
 run-sudo-tests:
 	sudo -E ${GOTEST} -tags sudo -timeout=10m ./agent/...
 
-benchmark-test:
-	go test -run=XX -bench=. ./agent/...
-
-
-.PHONY: build-image-for-ecr upload-images replicate-images
+.PHONY: build-image-for-ecr replicate-images
 
 build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
-
-upload-images: build-image-for-ecr
-	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
 
 replicate-images: build-image-for-ecr
 	@./scripts/upload-images $(REPLICATE_REGION) $(REPLICATE_REPOSITORY)
@@ -168,18 +158,20 @@ PAUSE_CONTAINER_IMAGE = "amazon/amazon-ecs-pause"
 PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
-pause-container: .out-stamp
+pause-container: .out-stamp .pause-stamp
+.pause-stamp:
 	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
 	@docker run --net=none \
 		-u "$(USERID)" \
 		-v "$(PWD)/misc/pause-container:/out" \
 		-v "$(PWD)/misc/pause-container/buildPause:/usr/src/buildPause" \
 		"amazon/amazon-ecs-build-pause-bin:make"
-
 	$(MAKE) -C misc/pause-container $(MFLAGS)
 	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
+	touch .pause-stamp
 
-pause-container-release: pause-container
+pause-container-release: out/amazon-ecs-pause.tar
+out/amazon-ecs-pause.tar: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
 
 # Variable to determine branch/tag of amazon-ecs-cni-plugins
@@ -189,10 +181,9 @@ ECS_CNI_REPOSITORY_REVISION=master
 ECS_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-ecs-cni-plugins
 VPC_CNI_REPOSITORY_SRC_DIR=$(PWD)/amazon-vpc-cni-plugins
 
-get-cni-sources:
+cni-plugins: out/cni-plugins/.stamp
+out/cni-plugins/.stamp:
 	git submodule update --init --recursive
-
-build-ecs-cni-plugins:
 	@docker build --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
@@ -202,8 +193,6 @@ build-ecs-cni-plugins:
 		-v "$(ECS_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-ecs-cni-plugins" \
 		"amazon/amazon-ecs-build-ecs-cni-plugins:make"
 	@echo "Built amazon-ecs-cni-plugins successfully."
-
-build-vpc-cni-plugins:
 	@docker build --build-arg GOARCH=$(GOARCH) --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
@@ -212,12 +201,10 @@ build-vpc-cni-plugins:
 		-v "$(VPC_CNI_REPOSITORY_SRC_DIR):/go/src/github.com/aws/amazon-vpc-cni-plugins" \
 		"amazon/amazon-ecs-build-vpc-cni-plugins:make"
 	@echo "Built amazon-vpc-cni-plugins successfully."
-
-cni-plugins: get-cni-sources .out-stamp build-ecs-cni-plugins build-vpc-cni-plugins
-	mv $(PWD)/out/amazon-ecs-cni-plugins/* $(PWD)/out/cni-plugins
 	mv $(PWD)/out/amazon-vpc-cni-plugins/* $(PWD)/out/cni-plugins
+	mv $(PWD)/out/amazon-ecs-cni-plugins/* $(PWD)/out/cni-plugins
 	@echo "Built all cni plugins successfully."
-
+	touch out/cni-plugins/.stamp
 
 .PHONY: codebuild
 codebuild: .out-stamp
@@ -232,26 +219,10 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
-namespace-tests:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/namespace-tests:/out" \
-		-v "$(PWD)/misc/namespace-tests/buildContainer:/usr/src/buildContainer" \
-		"amazon/amazon-ecs-namespace-tests:make"
-
-	$(MAKE) -C misc/namespace-tests $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
-
-# Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
-
+# Run our 'test' registry needed for integ tests
+test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd taskmetadata-validator
 	@./scripts/setup-test-registry
 
-
-# TODO, replace this with a build on dockerhub or a mechanism for the
-# functional tests themselves to build this
 .PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
 
 gremlin:
@@ -322,7 +293,6 @@ GOPATH=$(shell go env GOPATH)
 
 get-deps: .get-deps-stamp
 
-
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)
 		dep_arch=linux-386
@@ -333,7 +303,6 @@ ifeq (${PLATFORM},Linux)
 DEP_VERSION=v0.5.0
 .PHONY: get-dep
 get-dep: bin/dep
-
 bin/dep:
 	mkdir -p ./bin
 	curl -L https://github.com/golang/dep/releases/download/$(DEP_VERSION)/dep-${dep_arch} -o ./bin/dep
@@ -349,7 +318,6 @@ clean:
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
-	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
