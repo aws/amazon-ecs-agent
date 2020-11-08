@@ -22,6 +22,12 @@ else
 	GOARCH=amd64
 endif
 
+ifeq (${TARGET_OS},windows)
+    GO_VERSION=1.12
+else
+    GO_VERSION=1.15
+endif
+
 all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
@@ -47,7 +53,7 @@ xplatform-build:
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
-	@docker build -f scripts/dockerfiles/Dockerfile.build -t $(BUILDER_IMAGE) .
+	@docker build --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.build -t $(BUILDER_IMAGE) .
 	touch .builder-image-stamp
 
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
@@ -71,11 +77,17 @@ docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
 
+ifeq (${TARGET_OS},windows)
+    BUILD="cleanbuild-${TARGET_OS}"
+else
+    BUILD=cleanbuild
+endif
+
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
 # TODO: make this idempotent
 docker-release: pause-container-release cni-plugins .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
+	@docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-${BUILD}:make" .
 	@docker run --net=none \
 		--env TARGET_OS="${TARGET_OS}" \
 		--env LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
@@ -84,7 +96,7 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--volume "$(PWD)/out:/out" \
 		--volume "$(PWD):/src/amazon-ecs-agent" \
 		--rm \
-		"amazon/amazon-ecs-agent-cleanbuild:make"
+		"amazon/amazon-ecs-agent-${BUILD}:make"
 
 # Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release
@@ -181,7 +193,7 @@ get-cni-sources:
 	git submodule update --init --recursive
 
 build-ecs-cni-plugins:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
+	@docker build --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-e GIT_PORCELAIN=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l | sed 's/^ *//') \
@@ -192,7 +204,7 @@ build-ecs-cni-plugins:
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 build-vpc-cni-plugins:
-	@docker build --build-arg GOARCH=$(GOARCH) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
+	@docker build --build-arg GOARCH=$(GOARCH) --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-u "$(USERID)" \
@@ -268,7 +280,7 @@ GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 15 ${GOFILES}
+	gocyclo -over 17 ${GOFILES}
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet
@@ -304,7 +316,7 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo
+	go get github.com/fzipp/gocyclo/cmd/gocyclo
 	go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
@@ -331,6 +343,7 @@ clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
+	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean

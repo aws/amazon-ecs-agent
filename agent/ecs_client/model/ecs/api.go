@@ -7083,6 +7083,119 @@ func (s *EFSVolumeConfiguration) SetTransitEncryption(v string) *EFSVolumeConfig
 	return s
 }
 
+type FSxWindowsFileServerAuthorizationConfig struct {
+	_ struct{} `type:"structure"`
+
+	// CredentialsParameter is a required field
+	CredentialsParameter *string `locationName:"credentialsParameter" type:"string" required:"true"`
+
+	// Domain is a required field
+	Domain *string `locationName:"domain" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s FSxWindowsFileServerAuthorizationConfig) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FSxWindowsFileServerAuthorizationConfig) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *FSxWindowsFileServerAuthorizationConfig) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "FSxWindowsFileServerAuthorizationConfig"}
+	if s.CredentialsParameter == nil {
+		invalidParams.Add(request.NewErrParamRequired("CredentialsParameter"))
+	}
+	if s.Domain == nil {
+		invalidParams.Add(request.NewErrParamRequired("Domain"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetCredentialsParameter sets the CredentialsParameter field's value.
+func (s *FSxWindowsFileServerAuthorizationConfig) SetCredentialsParameter(v string) *FSxWindowsFileServerAuthorizationConfig {
+	s.CredentialsParameter = &v
+	return s
+}
+
+// SetDomain sets the Domain field's value.
+func (s *FSxWindowsFileServerAuthorizationConfig) SetDomain(v string) *FSxWindowsFileServerAuthorizationConfig {
+	s.Domain = &v
+	return s
+}
+
+type FSxWindowsFileServerVolumeConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// AuthorizationConfig is a required field
+	AuthorizationConfig *FSxWindowsFileServerAuthorizationConfig `locationName:"authorizationConfig" type:"structure" required:"true"`
+
+	// FileSystemId is a required field
+	FileSystemId *string `locationName:"fileSystemId" type:"string" required:"true"`
+
+	// RootDirectory is a required field
+	RootDirectory *string `locationName:"rootDirectory" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s FSxWindowsFileServerVolumeConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s FSxWindowsFileServerVolumeConfiguration) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *FSxWindowsFileServerVolumeConfiguration) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "FSxWindowsFileServerVolumeConfiguration"}
+	if s.AuthorizationConfig == nil {
+		invalidParams.Add(request.NewErrParamRequired("AuthorizationConfig"))
+	}
+	if s.FileSystemId == nil {
+		invalidParams.Add(request.NewErrParamRequired("FileSystemId"))
+	}
+	if s.RootDirectory == nil {
+		invalidParams.Add(request.NewErrParamRequired("RootDirectory"))
+	}
+	if s.AuthorizationConfig != nil {
+		if err := s.AuthorizationConfig.Validate(); err != nil {
+			invalidParams.AddNested("AuthorizationConfig", err.(request.ErrInvalidParams))
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAuthorizationConfig sets the AuthorizationConfig field's value.
+func (s *FSxWindowsFileServerVolumeConfiguration) SetAuthorizationConfig(v *FSxWindowsFileServerAuthorizationConfig) *FSxWindowsFileServerVolumeConfiguration {
+	s.AuthorizationConfig = v
+	return s
+}
+
+// SetFileSystemId sets the FileSystemId field's value.
+func (s *FSxWindowsFileServerVolumeConfiguration) SetFileSystemId(v string) *FSxWindowsFileServerVolumeConfiguration {
+	s.FileSystemId = &v
+	return s
+}
+
+// SetRootDirectory sets the RootDirectory field's value.
+func (s *FSxWindowsFileServerVolumeConfiguration) SetRootDirectory(v string) *FSxWindowsFileServerVolumeConfiguration {
+	s.RootDirectory = &v
+	return s
+}
+
 // A failed resource.
 type Failure struct {
 	_ struct{} `type:"structure"`
@@ -12395,6 +12508,8 @@ type Volume struct {
 
 	EfsVolumeConfiguration *EFSVolumeConfiguration `locationName:"efsVolumeConfiguration" type:"structure"`
 
+	FsxWindowsFileServerVolumeConfiguration *FSxWindowsFileServerVolumeConfiguration `locationName:"fsxWindowsFileServerVolumeConfiguration" type:"structure"`
+
 	// The contents of the host parameter determine whether your data volume persists
 	// on the host container instance and where it is stored. If the host parameter
 	// is empty, then the Docker daemon assigns a host path for your data volume,
@@ -12431,6 +12546,11 @@ func (s *Volume) Validate() error {
 			invalidParams.AddNested("EfsVolumeConfiguration", err.(request.ErrInvalidParams))
 		}
 	}
+	if s.FsxWindowsFileServerVolumeConfiguration != nil {
+		if err := s.FsxWindowsFileServerVolumeConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("FsxWindowsFileServerVolumeConfiguration", err.(request.ErrInvalidParams))
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12447,6 +12567,12 @@ func (s *Volume) SetDockerVolumeConfiguration(v *DockerVolumeConfiguration) *Vol
 // SetEfsVolumeConfiguration sets the EfsVolumeConfiguration field's value.
 func (s *Volume) SetEfsVolumeConfiguration(v *EFSVolumeConfiguration) *Volume {
 	s.EfsVolumeConfiguration = v
+	return s
+}
+
+// SetFsxWindowsFileServerVolumeConfiguration sets the FsxWindowsFileServerVolumeConfiguration field's value.
+func (s *Volume) SetFsxWindowsFileServerVolumeConfiguration(v *FSxWindowsFileServerVolumeConfiguration) *Volume {
+	s.FsxWindowsFileServerVolumeConfiguration = v
 	return s
 }
 

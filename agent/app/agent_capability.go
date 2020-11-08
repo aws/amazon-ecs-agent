@@ -61,6 +61,7 @@ const (
 	capabilityEFS                               = "efs"
 	capabilityEFSAuth                           = "efsAuth"
 	capabilityEnvFilesS3                        = "env-files.s3"
+	capabilityFSxWindowsFileServer              = "fsxWindowsFileServer"
 )
 
 var nameOnlyAttributes = []string{
@@ -131,6 +132,7 @@ var nameOnlyAttributes = []string{
 //    ecs.capability.gmsa
 //    ecs.capability.efsAuth
 //    ecs.capability.env-files.s3
+//    ecs.capability.fsxWindowsFileServer
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -214,6 +216,9 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	for _, cap := range agent.cfg.VolumePluginCapabilities {
 		capabilities = agent.appendEFSVolumePluginCapabilities(capabilities, cap)
 	}
+
+	// support fsxWindowsFileServer on ecs capabilities
+	capabilities = agent.appendFSxWindowsFileServerCapabilities(capabilities)
 
 	return capabilities, nil
 }

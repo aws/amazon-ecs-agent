@@ -17,8 +17,11 @@ package config
 
 import (
 	"os"
+	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows/registry"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
@@ -34,6 +37,22 @@ const (
 // parseGMSACapability is used to determine if gMSA support can be enabled
 func parseGMSACapability() bool {
 	envStatus := utils.ParseBool(os.Getenv("ECS_GMSA_SUPPORTED"), true)
+	return checkDomainJoinWithEnvOverride(envStatus)
+}
+
+// parseFSxWindowsFileServerCapability is used to determine if fsxWindowsFileServer support can be enabled
+func parseFSxWindowsFileServerCapability() bool {
+	// fsxwindowsfileserver is not supported on Windows 2016 and non-domain-joined container instances
+	status, err := isWindows2016()
+	if err != nil || status == true {
+		return false
+	}
+
+	envStatus := utils.ParseBool(os.Getenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED"), true)
+	return checkDomainJoinWithEnvOverride(envStatus)
+}
+
+func checkDomainJoinWithEnvOverride(envStatus bool) bool {
 	if envStatus {
 		// Check if domain join check override is present
 		skipDomainJoinCheck := utils.ParseBool(os.Getenv(envSkipDomainJoinCheck), false)
@@ -41,7 +60,7 @@ func parseGMSACapability() bool {
 			seelog.Debug("Skipping domain join validation based on environment override")
 			return true
 		}
-		// If gMSA feature is explicitly enabled, check if container instance is domain joined.
+		// check if container instance is domain joined.
 		// If container instance is not domain joined, explicitly disable feature configuration.
 		status, err := isDomainJoined()
 		if err == nil && status == true {
@@ -70,4 +89,27 @@ func isDomainJoined() (bool, error) {
 	}
 
 	return status == syscall.NetSetupDomainName, nil
+}
+
+// isWindows2016 is used to check if container instance is versioned Windows 2016
+// Reference: https://godoc.org/golang.org/x/sys/windows/registry
+var isWindows2016 = func() (bool, error) {
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
+	if err != nil {
+		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
+		return false, err
+	}
+	defer key.Close()
+
+	version, _, err := key.GetStringValue("ProductName")
+	if err != nil {
+		seelog.Errorf("Unable to read current version from Windows registry: %v", err)
+		return false, err
+	}
+
+	if strings.HasPrefix(version, "Windows Server 2016") {
+		return true, nil
+	}
+
+	return false, nil
 }
