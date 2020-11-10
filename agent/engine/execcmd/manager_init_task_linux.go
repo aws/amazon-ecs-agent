@@ -68,16 +68,16 @@ const (
 
 var (
 	execAgentConfigTemplate = `{
+	"Mgs": {
+		"Region": "",
+		"Endpoint": "",
+		"StopTimeoutMillis": 20000,
+		"SessionWorkersLimit": %d
+	},
 	"Agent": {
 		"Region": "",
 		"OrchestrationRootDir": "",
-		"ContainerMode": true,
-		"Mgs": {
-			"Region": "",
-			"Endpoint": "",
-			"StopTimeoutMillis": 20000,
-			"SessionWorkersLimit": %d
-		}
+		"ContainerMode": true
 	}
 }`
 	// TODO: [ecs-exec] seelog config needs to be implemented following a similar approach to ss, config
