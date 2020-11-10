@@ -56,9 +56,8 @@ setup_parallel_pull_image() {
   mirror_local_image "$image_name" "$image_name"
 }
 
-for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" \
-				"amazon/amazon-ecs-ipc-namespace-test" "amazon/awscli" \
-				"amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" \
+				"amazon/awscli" "amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
 				"amazon/image-cleanup-test-image3" "amazon/fluentd" \
 				"amazon/amazon-ecs-taskmetadata-validator"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"

@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -232,23 +232,9 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
-namespace-tests:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/namespace-tests:/out" \
-		-v "$(PWD)/misc/namespace-tests/buildContainer:/usr/src/buildContainer" \
-		"amazon/amazon-ecs-namespace-tests:make"
-
-	$(MAKE) -C misc/namespace-tests $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
-
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
-
+test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd taskmetadata-validator
 	@./scripts/setup-test-registry
-
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
@@ -349,7 +335,6 @@ clean:
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
-	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
 	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
