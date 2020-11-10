@@ -311,7 +311,7 @@ func TestContainerResponse(t *testing.T) {
 				state.EXPECT().TaskByID(containerID).Return(task, true),
 			)
 
-			containerResponse, err := NewContainerResponse(containerID, state, false)
+			containerResponse, err := NewContainerResponseFromState(containerID, state, false)
 			assert.NoError(t, err)
 			assert.Equal(t, containerResponse.Health == nil, tc.result)
 			_, err = json.Marshal(containerResponse)
@@ -552,7 +552,7 @@ func TestContainerResponseMarshal(t *testing.T) {
 		state.EXPECT().TaskByID(containerID).Return(task, true),
 	)
 
-	containerResponse, err := NewContainerResponse(containerID, state, false)
+	containerResponse, err := NewContainerResponseFromState(containerID, state, false)
 	assert.NoError(t, err)
 
 	containerResponseJSON, err := json.Marshal(containerResponse)

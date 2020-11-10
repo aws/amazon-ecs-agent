@@ -145,6 +145,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_POLL_METRICS", "true")()
 	defer setTestEnv("ECS_POLLING_METRICS_WAIT_DURATION", "10s")()
 	defer setTestEnv("ECS_CGROUP_CPU_PERIOD", "")
+	defer setTestEnv("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT", "true")
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -197,6 +198,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, 10*time.Millisecond, conf.CgroupCPUPeriod)
 	assert.False(t, conf.SpotInstanceDrainingEnabled.Enabled())
 	assert.Equal(t, []string{"efsAuth"}, conf.VolumePluginCapabilities)
+	assert.True(t, conf.DependentContainersPullUpfront.Enabled(), "Wrong value for ContainersPullUpfront")
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {

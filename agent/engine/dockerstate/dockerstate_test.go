@@ -34,7 +34,11 @@ func TestCreateDockerTaskEngineState(t *testing.T) {
 	}
 
 	if _, ok := state.ContainerMapByArn("test"); ok {
-		t.Error("Empty state should not have a test task")
+		t.Error("Empty state should not have a test container map")
+	}
+
+	if _, ok := state.PulledContainerMapByArn("test"); ok {
+		t.Error("Empty state should not have a test pulled container map")
 	}
 
 	if _, ok := state.TaskByShortID("test"); ok {
@@ -191,6 +195,12 @@ func TestRemoveTask(t *testing.T) {
 		DockerName: "docker-name-2",
 		Container:  testContainer2,
 	}
+	testPulledContainer := &apicontainer.Container{
+		Name: "pulled",
+	}
+	testPulledDockerContainer := &apicontainer.DockerContainer{
+		Container: testPulledContainer,
+	}
 	testTask := &apitask.Task{
 		Arn:        "t1",
 		Containers: []*apicontainer.Container{testContainer1, testContainer2},
@@ -199,6 +209,7 @@ func TestRemoveTask(t *testing.T) {
 	state.AddTask(testTask)
 	state.AddContainer(testDockerContainer1, testTask)
 	state.AddContainer(testDockerContainer2, testTask)
+	state.AddPulledContainer(testPulledDockerContainer, testTask)
 	addr := "169.254.170.3"
 	state.AddTaskIPAddress(addr, testTask.Arn)
 	engineState := state.(*DockerTaskEngineState)
@@ -206,6 +217,7 @@ func TestRemoveTask(t *testing.T) {
 	assert.Len(t, state.AllTasks(), 1, "Expected one task")
 	assert.Len(t, engineState.idToTask, 2, "idToTask map should have two entries")
 	assert.Len(t, engineState.idToContainer, 2, "idToContainer map should have two entries")
+	assert.Len(t, engineState.taskToPulledContainer, 1, "taskToPulledContainer map should have one entry")
 	taskARNFromIP, ok := state.GetTaskByIPAddress(addr)
 	assert.True(t, ok)
 	assert.Equal(t, testTask.Arn, taskARNFromIP)
@@ -215,6 +227,7 @@ func TestRemoveTask(t *testing.T) {
 	assert.Len(t, state.AllTasks(), 0, "Expected task to be removed")
 	assert.Len(t, engineState.idToTask, 0, "idToTask map should be empty")
 	assert.Len(t, engineState.idToContainer, 0, "idToContainer map should be empty")
+	assert.Len(t, engineState.taskToPulledContainer, 0, "taskToPulledContainer map should be empty")
 	_, ok = state.GetTaskByIPAddress(addr)
 	assert.False(t, ok)
 }
@@ -347,6 +360,61 @@ func TestAddContainerNameAndID(t *testing.T) {
 	assert.True(t, ok, "container with DockerName should be added to the state")
 	_, ok = state.ContainerByID(container.DockerName)
 	assert.False(t, ok, "container with DockerName should be added to the state")
+}
+
+// TestAddPulledContainer tests add a pulled container.
+// A pulled container should exist in the pulled container map,
+// but should not exist in the container map
+func TestAddPulledContainer(t *testing.T) {
+	state := NewTaskEngineState()
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+	}
+	pulledContainer := &apicontainer.DockerContainer{
+		Container: &apicontainer.Container{
+			Name: "test",
+		},
+	}
+	state.AddTask(task)
+	state.AddPulledContainer(pulledContainer, task)
+	pulledContainerMap, ok := state.PulledContainerMapByArn(task.Arn)
+	assert.True(t, ok)
+	assert.Len(t, pulledContainerMap, 1)
+	_, exist := state.ContainerMapByArn(task.Arn)
+	assert.False(t, exist)
+	assert.Len(t, state.GetAllContainerIDs(), 0)
+}
+
+// TestPulledContainerToAddContainer tests a pulled container
+// is removed from the pulled container map when it transits
+// from PULLED state to CREATED state
+func TestPulledContainerToAddContainer(t *testing.T) {
+	state := NewTaskEngineState()
+
+	task := &apitask.Task{
+		Arn: "taskArn",
+	}
+	pulledContainer := &apicontainer.DockerContainer{
+		Container: &apicontainer.Container{
+			Name: "test",
+		},
+	}
+	state.AddTask(task)
+	state.AddPulledContainer(pulledContainer, task)
+	pulledContainerMap, ok := state.PulledContainerMapByArn(task.Arn)
+	assert.True(t, ok)
+	assert.Len(t, pulledContainerMap, 1)
+	assert.Len(t, state.GetAllContainerIDs(), 0)
+	pulledContainer.DockerID = "dockerid"
+	state.AddContainer(pulledContainer, task)
+	containerMap, exist := state.ContainerMapByArn(task.Arn)
+	assert.True(t, exist)
+	assert.Len(t, containerMap, 1)
+	_, ok = state.ContainerByID(pulledContainer.DockerID)
+	assert.True(t, ok, "container with DockerID should be added to the state")
+	postPulledContainerMap, _ := state.PulledContainerMapByArn(task.Arn)
+	assert.Len(t, postPulledContainerMap, 0)
 }
 
 func TestTaskIPAddress(t *testing.T) {
