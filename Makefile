@@ -232,7 +232,7 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
-# Run our 'test' registry needed for integ and functional tests
+# Run our 'test' registry needed for integ tests
 test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd
 	@./scripts/setup-test-registry
 
