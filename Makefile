@@ -156,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
+build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -233,12 +233,12 @@ volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
 # Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd taskmetadata-validator
+test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd
 	@./scripts/setup-test-registry
 
 # TODO, replace this with a build on dockerhub or a mechanism for the
 # functional tests themselves to build this
-.PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
+.PHONY: awscli fluentd gremlin image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
@@ -251,9 +251,6 @@ fluentd:
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
-
-taskmetadata-validator:
-	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
@@ -337,7 +334,6 @@ clean:
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
