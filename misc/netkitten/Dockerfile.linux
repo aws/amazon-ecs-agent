@@ -10,8 +10,13 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM amazon/amazon-ecs-netkitten:premake
+FROM golang:1.15 as build
 
-MAINTAINER Amazon Web Services, Inc.
+WORKDIR /go/src/
+ADD . /go/src/
 
-ENTRYPOINT ["/netkitten"]
+RUN CGO_ENABLED=0 go build -o /go/bin/app
+
+FROM scratch
+COPY --from=build /go/bin/app /
+ENTRYPOINT ["/app"]

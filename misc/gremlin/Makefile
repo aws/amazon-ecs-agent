@@ -10,17 +10,12 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-.PHONY: all clean docker image
+.PHONY: all clean image
 
-all: gremlin image
+all: image
 
-gremlin: gremlin.go
-	docker run -v $(shell pwd):/out -v $(shell pwd)/gremlin.go:/in/gremlin.go -e CGO_ENABLED=0 golang:1.15 go build -a -x -ldflags '-s' -o /out/gremlin /in/gremlin.go
-
-image: gremlin
-	@./docker-image
-
+image:
+	docker build -t "amazon/amazon-ecs-gremlin:make" .
 
 clean:
-	rm -f gremlin
 	-docker rmi -f "amazon/amazon-ecs-gremlin:make"

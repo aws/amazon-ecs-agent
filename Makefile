@@ -169,15 +169,7 @@ PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
 pause-container: .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/pause-container:/out" \
-		-v "$(PWD)/misc/pause-container/buildPause:/usr/src/buildPause" \
-		"amazon/amazon-ecs-build-pause-bin:make"
-
 	$(MAKE) -C misc/pause-container $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"

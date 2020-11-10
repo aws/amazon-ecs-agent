@@ -1,5 +1,4 @@
 misc/certs/ca-certificates.crt
-misc/netkitten/netkitten
 out/
 coverage/
 _bin/
@@ -9,7 +8,6 @@ _bin/
 *.swp
 *.orig
 /agent/version/_version.go
-/misc/gremlin/gremlin
 .agignore
 *.sublime-*
 .DS_Store
