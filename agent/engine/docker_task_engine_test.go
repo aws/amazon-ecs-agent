@@ -1660,6 +1660,44 @@ func TestUpdateContainerReference(t *testing.T) {
 	assert.True(t, imageState.PullSucceeded, "PullSucceeded set to false")
 }
 
+// TestPullAndUpdateContainerReference checks whether a container is added to task engine state when
+// PullSucceeded of the image is fulfilled and ContainerPullInParallel is enabled.
+func TestPullAndUpdateContainerReference(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	cfg := &config.Config{
+		ContainerPullInParallel: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+	}
+	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, cfg)
+	defer ctrl.Finish()
+
+	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+	taskEngine._time = nil
+	imageName := "image"
+	taskArn := "taskArn"
+	container := &apicontainer.Container{
+		Type:  apicontainer.ContainerNormal,
+		Image: imageName,
+	}
+	task := &apitask.Task{
+		Arn:        taskArn,
+		Containers: []*apicontainer.Container{container},
+	}
+	imageState := &image.ImageState{
+		Image: &image.Image{ImageID: "id"},
+	}
+
+	client.EXPECT().PullImage(gomock.Any(), imageName, gomock.Any(), gomock.Any())
+	imageManager.EXPECT().RecordContainerReference(container)
+	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
+	metadata := taskEngine.pullAndUpdateContainerReference(task, container)
+	containersMap, ok := taskEngine.State().PulledContainerMapByArn(taskArn)
+	require.True(t, ok, "no container found in the agent state")
+	require.Len(t, containersMap, 1)
+	assert.True(t, imageState.PullSucceeded, "PullSucceeded set to false")
+	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
+}
+
 // TestMetadataFileUpdatedAgentRestart checks whether metadataManager.Update(...) is
 // invoked in the path DockerTaskEngine.Init() -> .synchronizeState() -> .updateMetadataFile(...)
 // for the following case:

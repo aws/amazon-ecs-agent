@@ -710,7 +710,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		task.UpdateDesiredStatus()
 
 		engine.state.AddTask(task)
-		if dependencygraph.ValidDependencies(task) {
+		if dependencygraph.ValidDependencies(task, engine.cfg) {
 			engine.startTask(task)
 		} else {
 			seelog.Errorf("Task engine [%s]: unable to progress task with circular dependencies", task.Arn)
@@ -873,6 +873,12 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		return metadata
 	}
 	pullSucceeded := metadata.Error == nil
+	if pullSucceeded && engine.cfg.ContainerPullInParallel.Enabled() {
+		dockerContainer := &apicontainer.DockerContainer{
+			Container: container,
+		}
+		engine.state.AddPulledContainer(dockerContainer, task)
+	}
 	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
 }

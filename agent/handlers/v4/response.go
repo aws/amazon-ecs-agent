@@ -15,6 +15,8 @@ package v4
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -117,7 +119,7 @@ func NewContainerResponse(
 	state dockerstate.TaskEngineState,
 ) (*ContainerResponse, error) {
 	// Construct the v2 response first.
-	container, err := v2.NewContainerResponse(containerID, state, true)
+	container, err := v2.NewContainerResponseFromState(containerID, state, true)
 	if err != nil {
 		return nil, err
 	}
@@ -186,4 +188,17 @@ func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperti
 		PrivateDNSName:           eni.PrivateDNSName,
 		SubnetGatewayIPV4Address: eni.SubnetGatewayIPV4Address,
 	}, nil
+}
+
+// NewPulledContainerResponse creates a new v4 container response for a pulled container.
+// It augments v4 container response with an additional empty network interface field.
+func NewPulledContainerResponse(
+	dockerContainer *apicontainer.DockerContainer,
+	eni *apieni.ENI,
+) ContainerResponse {
+	resp := v2.NewContainerResponse(dockerContainer, eni, true)
+	return ContainerResponse{
+		ContainerResponse: &resp,
+		Networks:          []Network{},
+	}
 }

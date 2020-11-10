@@ -1064,6 +1064,7 @@ func TestCleanupTask(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
@@ -1133,6 +1134,8 @@ func TestCleanupTaskWaitsForStoppedSent(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(
+		map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(
 		map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
@@ -1260,6 +1263,7 @@ func TestCleanupTaskENIs(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
@@ -1375,6 +1379,7 @@ func TestCleanupTaskWithInvalidInterval(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
@@ -1434,6 +1439,7 @@ func TestCleanupTaskWithResourceHappyPath(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)
@@ -1495,6 +1501,7 @@ func TestCleanupTaskWithResourceErrorPath(t *testing.T) {
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockState.EXPECT().PulledContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
 	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
 	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
 	mockState.EXPECT().RemoveTask(mTask.Task)

@@ -23,6 +23,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	mock_taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource/mocks"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
@@ -58,7 +59,8 @@ func createdContainer(name string, dependsOn []apicontainer.DependsOn, steadySta
 func TestValidDependencies(t *testing.T) {
 	// Empty task
 	task := &apitask.Task{}
-	resolveable := ValidDependencies(task)
+	cfg := config.Config{}
+	resolveable := ValidDependencies(task, &cfg)
 	assert.True(t, resolveable, "The zero dependency graph should resolve")
 
 	task = &apitask.Task{
@@ -69,7 +71,7 @@ func TestValidDependencies(t *testing.T) {
 			},
 		},
 	}
-	resolveable = ValidDependencies(task)
+	resolveable = ValidDependencies(task, &cfg)
 	assert.True(t, resolveable, "One container should resolve trivially")
 
 	// Webserver stack
@@ -86,7 +88,7 @@ func TestValidDependencies(t *testing.T) {
 		},
 	}
 
-	resolveable = ValidDependencies(task)
+	resolveable = ValidDependencies(task, &cfg)
 	assert.True(t, resolveable, "The webserver group should resolve just fine")
 }
 
@@ -98,7 +100,8 @@ func TestValidDependenciesWithCycles(t *testing.T) {
 			steadyStateContainer("b", []apicontainer.DependsOn{{ContainerName: "a", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
-	resolveable := ValidDependencies(task)
+	cfg := config.Config{}
+	resolveable := ValidDependencies(task, &cfg)
 	assert.False(t, resolveable, "Cycle should not be resolveable")
 }
 
@@ -109,7 +112,8 @@ func TestValidDependenciesWithUnresolvedReference(t *testing.T) {
 			steadyStateContainer("php", []apicontainer.DependsOn{{ContainerName: "db", Condition: createCondition}}, apicontainerstatus.ContainerRunning, apicontainerstatus.ContainerRunning),
 		},
 	}
-	resolveable := ValidDependencies(task)
+	cfg := config.Config{}
+	resolveable := ValidDependencies(task, &cfg)
 	assert.False(t, resolveable, "Nonexistent reference shouldn't resolve")
 }
 
@@ -122,7 +126,8 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 			},
 		},
 	}
-	_, err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil)
+	cfg := config.Config{}
+	_, err := DependenciesAreResolved(task.Containers[0], task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "One container should resolve trivially")
 
 	// Webserver stack
@@ -139,28 +144,28 @@ func TestDependenciesAreResolvedWhenSteadyStateIsRunning(t *testing.T) {
 		},
 	}
 
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Shouldn't be resolved; db isn't running")
 
-	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Shouldn't be resolved; dbdatavolume isn't created")
 
-	_, err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(dbdata, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "data volume with no deps should resolve")
 
 	dbdata.SetKnownStatus(apicontainerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Php shouldn't run, db is not created")
 
 	db.SetKnownStatus(apicontainerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Php shouldn't run, db is not running")
 
-	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(db, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "db should be resolved, dbdata volume is Created")
 	db.SetKnownStatus(apicontainerstatus.ContainerRunning)
 
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -176,19 +181,20 @@ func TestRunDependencies(t *testing.T) {
 		SteadyStateDependencies: []string{"a"},
 	}
 	task := &apitask.Task{Containers: []*apicontainer.Container{c1, c2}}
-	_, err := DependenciesAreResolved(c2, task.Containers, "", nil, nil)
+	cfg := config.Config{}
+	_, err := DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Dependencies should not be resolved")
 
 	task.Containers[1].SetDesiredStatus(apicontainerstatus.ContainerRunning)
-	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
 	assert.Error(t, err, "Dependencies should not be resolved")
 
 	task.Containers[0].SetKnownStatus(apicontainerstatus.ContainerRunning)
-	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(c2, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Dependencies should be resolved")
 
 	task.Containers[1].SetDesiredStatus(apicontainerstatus.ContainerCreated)
-	_, err = DependenciesAreResolved(c1, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(c1, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Dependencies should be resolved")
 }
 
@@ -209,17 +215,19 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 		},
 	}
 
+	cfg := config.Config{}
+
 	// Add a dependency on the pause container for all containers in the webserver stack
 	for _, container := range task.Containers {
 		if container.Name == "pause" {
 			continue
 		}
 		container.SteadyStateDependencies = []string{"pause"}
-		_, err := DependenciesAreResolved(container, task.Containers, "", nil, nil)
+		_, err := DependenciesAreResolved(container, task.Containers, "", nil, nil, &cfg)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 
-	_, err := DependenciesAreResolved(pause, task.Containers, "", nil, nil)
+	_, err := DependenciesAreResolved(pause, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Pause container's dependencies should be resolved")
 
 	// Transition pause container to RUNNING
@@ -233,13 +241,13 @@ func TestRunDependenciesWhenSteadyStateIsResourcesProvisionedForOneContainer(t *
 		}
 		// Assert that dependencies remain unresolved until the pause container reaches
 		// RESOURCES_PROVISIONED
-		_, err = DependenciesAreResolved(container, task.Containers, "", nil, nil)
+		_, err = DependenciesAreResolved(container, task.Containers, "", nil, nil, &cfg)
 		assert.Error(t, err, "Shouldn't be resolved; pause isn't running")
 	}
 	pause.KnownStatusUnsafe = apicontainerstatus.ContainerResourcesProvisioned
 	// Dependecies should be resolved now that the 'pause' container has
 	// transitioned into RESOURCES_PROVISIONED
-	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil)
+	_, err = DependenciesAreResolved(php, task.Containers, "", nil, nil, &cfg)
 	assert.NoError(t, err, "Php should resolve")
 }
 
@@ -841,9 +849,10 @@ func TestContainerOrderingCanResolve(t *testing.T) {
 			Resolvable:          true,
 		},
 	}
+	cfg := config.Config{}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyDesired.String()),
-			assertContainerOrderingCanResolve(containerOrderingDependenciesCanResolve, tc.TargetDesired, tc.DependencyDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolvable))
+			assertContainerOrderingCanResolve(containerOrderingDependenciesCanResolve, tc.TargetDesired, tc.DependencyDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolvable, &cfg))
 	}
 }
 
@@ -956,13 +965,151 @@ func TestContainerOrderingIsResolved(t *testing.T) {
 			Resolved:            false,
 		},
 	}
+	cfg := config.Config{}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyKnown.String()),
-			assertContainerOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolved))
+			assertContainerOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolved, &cfg))
 	}
 }
 
-func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolvable bool) func(t *testing.T) {
+func TestContainerOrderingIsResolvedWithContainerPullInParallel(t *testing.T) {
+	testcases := []struct {
+		TargetKnown         apicontainerstatus.ContainerStatus
+		DependencyKnown     apicontainerstatus.ContainerStatus
+		DependencyCondition string
+		Resolved            bool
+		ExitCode            int
+	}{
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerPulled,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: startCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerCreated,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: startCondition,
+			Resolved:            false,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: successCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerPulled,
+			DependencyCondition: successCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: successCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyCondition: successCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			ExitCode:            1,
+			DependencyCondition: successCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerPulled,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: successCondition,
+			Resolved:            false,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerPulled,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			ExitCode:            1,
+			DependencyCondition: successCondition,
+			Resolved:            false,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: completeCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerPulled,
+			DependencyCondition: completeCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerCreated,
+			DependencyCondition: completeCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerRunning,
+			DependencyCondition: completeCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerStatusNone,
+			DependencyKnown:     apicontainerstatus.ContainerStopped,
+			DependencyCondition: completeCondition,
+			Resolved:            true,
+		},
+		{
+			TargetKnown:         apicontainerstatus.ContainerPulled,
+			DependencyKnown:     apicontainerstatus.ContainerStatusNone,
+			DependencyCondition: completeCondition,
+			Resolved:            false,
+		},
+	}
+	cfg := config.Config{
+		ContainerPullInParallel: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("DependencyCondition:%s+T:%s+V:%s", tc.DependencyCondition, tc.TargetKnown.String(), tc.DependencyKnown.String()),
+			assertContainerTargetOrderingResolved(containerOrderingDependenciesIsResolved, tc.TargetKnown, tc.DependencyKnown, tc.DependencyCondition, tc.ExitCode, tc.Resolved, &cfg))
+	}
+}
+
+func assertContainerTargetOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetKnown, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolvable bool, cfg *config.Config) func(t *testing.T) {
+	return func(t *testing.T) {
+		target := &apicontainer.Container{
+			KnownStatusUnsafe: targetKnown,
+		}
+		dep := &apicontainer.Container{
+			KnownStatusUnsafe:   depKnown,
+			KnownExitCodeUnsafe: aws.Int(exitcode),
+		}
+
+		resolvable := f(target, dep, depCond, cfg)
+		assert.Equal(t, expectedResolvable, resolvable)
+	}
+}
+
+func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetDesired, depDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolvable bool, cfg *config.Config) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
 			DesiredStatusUnsafe: targetDesired,
@@ -972,12 +1119,12 @@ func assertContainerOrderingCanResolve(f func(target *apicontainer.Container, de
 			KnownStatusUnsafe:   depKnown,
 			KnownExitCodeUnsafe: aws.Int(exitcode),
 		}
-		resolvable := f(target, dep, depCond)
+		resolvable := f(target, dep, depCond, cfg)
 		assert.Equal(t, expectedResolvable, resolvable)
 	}
 }
 
-func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolved bool) func(t *testing.T) {
+func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetDesired, depKnown apicontainerstatus.ContainerStatus, depCond string, exitcode int, expectedResolved bool, cfg *config.Config) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
 			DesiredStatusUnsafe: targetDesired,
@@ -986,7 +1133,7 @@ func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep 
 			KnownStatusUnsafe:   depKnown,
 			KnownExitCodeUnsafe: aws.Int(exitcode),
 		}
-		resolved := f(target, dep, depCond)
+		resolved := f(target, dep, depCond, cfg)
 		assert.Equal(t, expectedResolved, resolved)
 	}
 }
@@ -994,6 +1141,7 @@ func assertContainerOrderingResolved(f func(target *apicontainer.Container, dep 
 func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
 	testcases := []struct {
 		TargetDesired                 apicontainerstatus.ContainerStatus
+		TargetKnown                   apicontainerstatus.ContainerStatus
 		DependencyKnownHealthStatus   apicontainerstatus.ContainerHealthStatus
 		HealthCheckType               string
 		DependencyKnownHealthExitCode int
@@ -1020,16 +1168,61 @@ func TestContainerOrderingHealthyConditionIsResolved(t *testing.T) {
 			Resolved:      false,
 		},
 	}
+	cfg := config.Config{}
 	for _, tc := range testcases {
-		t.Run(fmt.Sprintf("T:%s+V:%s", tc.TargetDesired.String(), tc.DependencyKnownHealthStatus.String()),
-			assertContainerOrderingHealthyConditionResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.DependencyKnownHealthStatus, tc.HealthCheckType, tc.DependencyKnownHealthExitCode, tc.DependencyCondition, tc.Resolved))
+		t.Run(fmt.Sprintf("DependencyKnownHealthStatus:%s+T:%s+V:%s", tc.DependencyKnownHealthStatus, tc.TargetDesired.String(), tc.DependencyKnownHealthStatus.String()),
+			assertContainerOrderingHealthyConditionResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.TargetKnown, tc.DependencyKnownHealthStatus, tc.HealthCheckType, tc.DependencyKnownHealthExitCode, tc.DependencyCondition, tc.Resolved, &cfg))
 	}
 }
 
-func assertContainerOrderingHealthyConditionResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string) bool, targetDesired apicontainerstatus.ContainerStatus, depHealthKnown apicontainerstatus.ContainerHealthStatus, healthCheckEnabled string, depHealthKnownExitCode int, depCond string, expectedResolved bool) func(t *testing.T) {
+func TestContainerOrderingHealthyConditionIsResolvedWithContainerPullInParallel(t *testing.T) {
+	testcases := []struct {
+		TargetDesired                 apicontainerstatus.ContainerStatus
+		TargetKnown                   apicontainerstatus.ContainerStatus
+		DependencyKnownHealthStatus   apicontainerstatus.ContainerHealthStatus
+		HealthCheckType               string
+		DependencyKnownHealthExitCode int
+		DependencyCondition           string
+		Resolved                      bool
+	}{
+		{
+			TargetKnown:                 apicontainerstatus.ContainerStatusNone,
+			DependencyKnownHealthStatus: apicontainerstatus.ContainerHealthy,
+			HealthCheckType:             "docker",
+			DependencyCondition:         healthyCondition,
+			Resolved:                    true,
+		},
+		{
+			TargetKnown:                   apicontainerstatus.ContainerStatusNone,
+			DependencyKnownHealthStatus:   apicontainerstatus.ContainerUnhealthy,
+			HealthCheckType:               "docker",
+			DependencyKnownHealthExitCode: 1,
+			DependencyCondition:           healthyCondition,
+			Resolved:                      true,
+		},
+		{
+			TargetKnown:                   apicontainerstatus.ContainerPulled,
+			DependencyKnownHealthStatus:   apicontainerstatus.ContainerUnhealthy,
+			HealthCheckType:               "docker",
+			DependencyKnownHealthExitCode: 1,
+			DependencyCondition:           healthyCondition,
+			Resolved:                      false,
+		},
+	}
+	cfg := config.Config{
+		ContainerPullInParallel: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+	}
+	for _, tc := range testcases {
+		t.Run(fmt.Sprintf("DependencyKnownHealthStatus:%s+T:%s+V:%s", tc.DependencyKnownHealthStatus, tc.TargetKnown.String(), tc.DependencyKnownHealthStatus.String()),
+			assertContainerOrderingHealthyConditionResolved(containerOrderingDependenciesIsResolved, tc.TargetDesired, tc.TargetKnown, tc.DependencyKnownHealthStatus, tc.HealthCheckType, tc.DependencyKnownHealthExitCode, tc.DependencyCondition, tc.Resolved, &cfg))
+	}
+}
+
+func assertContainerOrderingHealthyConditionResolved(f func(target *apicontainer.Container, dep *apicontainer.Container, depCond string, cfg *config.Config) bool, targetDesired apicontainerstatus.ContainerStatus, targetKnown apicontainerstatus.ContainerStatus, depHealthKnown apicontainerstatus.ContainerHealthStatus, healthCheckEnabled string, depHealthKnownExitCode int, depCond string, expectedResolved bool, cfg *config.Config) func(t *testing.T) {
 	return func(t *testing.T) {
 		target := &apicontainer.Container{
 			DesiredStatusUnsafe: targetDesired,
+			KnownStatusUnsafe:   targetKnown,
 		}
 		dep := &apicontainer.Container{
 			Health: apicontainer.HealthStatus{
@@ -1038,7 +1231,7 @@ func assertContainerOrderingHealthyConditionResolved(f func(target *apicontainer
 			},
 			HealthCheckType: healthCheckEnabled,
 		}
-		resolved := f(target, dep, depCond)
+		resolved := f(target, dep, depCond, cfg)
 		assert.Equal(t, expectedResolved, resolved)
 	}
 }

@@ -139,7 +139,7 @@ func NewTaskResponse(
 	}
 
 	for _, dockerContainer := range containerNameToDockerContainer {
-		containerResponse := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state, includeV4Metadata)
+		containerResponse := NewContainerResponse(dockerContainer, task.GetPrimaryENI(), includeV4Metadata)
 		resp.Containers = append(resp.Containers, containerResponse)
 	}
 
@@ -172,8 +172,9 @@ func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.EC
 	}
 }
 
-// NewContainerResponse creates a new container response based on container id
-func NewContainerResponse(
+// NewContainerResponseFromState creates a new container response based on container id
+// TODO: remove includeV4Metadata from NewContainerResponseFromState/NewContainerResponse
+func NewContainerResponseFromState(
 	containerID string,
 	state dockerstate.TaskEngineState,
 	includeV4Metadata bool,
@@ -189,14 +190,15 @@ func NewContainerResponse(
 			"v2 container response: unable to find task for container '%s'", containerID)
 	}
 
-	resp := newContainerResponse(dockerContainer, task.GetPrimaryENI(), state, includeV4Metadata)
+	resp := NewContainerResponse(dockerContainer, task.GetPrimaryENI(), includeV4Metadata)
 	return &resp, nil
 }
 
-func newContainerResponse(
+// NewContainerResponse creates a new container response
+// TODO: remove includeV4Metadata from NewContainerResponse
+func NewContainerResponse(
 	dockerContainer *apicontainer.DockerContainer,
 	eni *apieni.ENI,
-	state dockerstate.TaskEngineState,
 	includeV4Metadata bool,
 ) ContainerResponse {
 	container := dockerContainer.Container
