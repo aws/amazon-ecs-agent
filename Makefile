@@ -156,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd
+build-image-for-ecr: netkitten volumes-test image-cleanup-test-images fluentd
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -233,18 +233,13 @@ volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
 # Run our 'test' registry needed for integ tests
-test-registry: netkitten volumes-test pause-container awscli image-cleanup-test-images fluentd
+test-registry: netkitten volumes-test pause-container image-cleanup-test-images fluentd
 	@./scripts/setup-test-registry
 
-# TODO, replace this with a build on dockerhub or a mechanism for the
-# functional tests themselves to build this
-.PHONY: awscli fluentd gremlin image-cleanup-test-images
+.PHONY: fluentd gremlin image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
-
-awscli:
-	$(MAKE) -C misc/awscli $(MFLAGS)
 
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
