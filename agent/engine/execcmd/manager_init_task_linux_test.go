@@ -198,16 +198,16 @@ func TestInitializeContainer(t *testing.T) {
 
 func TestGetExecAgentConfigFileName(t *testing.T) {
 	execAgentConfig := `{
+	"Mgs": {
+		"Region": "",
+		"Endpoint": "",
+		"StopTimeoutMillis": 20000,
+		"SessionWorkersLimit": 2
+	},
 	"Agent": {
 		"Region": "",
 		"OrchestrationRootDir": "",
-		"ContainerMode": true,
-		"Mgs": {
-			"Region": "",
-			"Endpoint": "",
-			"StopTimeoutMillis": 20000,
-			"SessionWorkersLimit": 2
-		}
+		"ContainerMode": true
 	}
 }`
 	sha := getExecAgentConfigHash(execAgentConfig)
