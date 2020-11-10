@@ -10,13 +10,6 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-# FROM amazon/amazon-ecs-gremlin:premake
-
-# MAINTAINER Amazon Web Services, Inc.
-
-# ENTRYPOINT ["/gremlin"]
-
-# Start by building the application.
 FROM golang:1.15 as build
 
 WORKDIR /go/src/
