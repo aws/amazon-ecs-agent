@@ -17,7 +17,6 @@ package engine
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -31,14 +30,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cihub/seelog"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
@@ -52,15 +48,10 @@ import (
 )
 
 const (
-	testRegistryHost      = "127.0.0.1:51670"
-	testBusyboxImage      = testRegistryHost + "/busybox:latest"
-	testAuthRegistryHost  = "127.0.0.1:51671"
-	testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
-	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
-	testBusyboxImage      = "127.0.0.1:51670/busybox:latest"
-	testFluentdImage      = "127.0.0.1:51670/amazon/fluentd:latest"
-	testAuthUser          = "user"
-	testAuthPass          = "swordfish"
+	testRegistryHost = "127.0.0.1:51670"
+	testBusyboxImage = testRegistryHost + "/busybox:latest"
+	testVolumeImage  = testRegistryHost + "/amazon/amazon-ecs-volumes-test:latest"
+	testFluentdImage = testRegistryHost + "/amazon/fluentd:latest"
 )
 
 var (
@@ -538,77 +529,6 @@ func TestLinking(t *testing.T) {
 	go taskEngine.AddTask(taskUpdate)
 
 	verifyTaskIsStopped(stateChangeEvents, testTask)
-}
-
-func TestDockerCfgAuth(t *testing.T) {
-	logdir := setupIntegTestLogs(t)
-	defer os.RemoveAll(logdir)
-
-	authString := base64.StdEncoding.EncodeToString([]byte(testAuthUser + ":" + testAuthPass))
-	cfg := defaultTestConfigIntegTest()
-	cfg.EngineAuthData = config.NewSensitiveRawMessage([]byte(`{"http://` +
-		testAuthRegistryHost + `/v1/":{"auth":"` + authString + `"}}`))
-	cfg.EngineAuthType = "dockercfg"
-
-	removeImage(t, testAuthRegistryImage)
-	taskEngine, done, _ := setup(cfg, nil, t)
-	defer done()
-	defer func() {
-		cfg.EngineAuthData = config.NewSensitiveRawMessage(nil)
-		cfg.EngineAuthType = ""
-	}()
-
-	testArn := "testDockerCfgAuth"
-	testTask := createTestTask(testArn)
-	testTask.Containers[0].Image = testAuthRegistryImage
-
-	go taskEngine.AddTask(testTask)
-
-	verifyContainerRunningStateChange(t, taskEngine)
-	verifyTaskRunningStateChange(t, taskEngine)
-
-	// Create instead of copying the testTask, to avoid race condition.
-	// AddTask idempotently handles update, filtering by Task ARN.
-	taskUpdate := createTestTask(testArn)
-	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
-	go taskEngine.AddTask(taskUpdate)
-
-	verifyContainerStoppedStateChange(t, taskEngine)
-	verifyTaskStoppedStateChange(t, taskEngine)
-
-	// Flushes all currently buffered logs
-	seelog.Flush()
-
-	// verify there's no sign of auth details in the config; action item taken as
-	// a result of accidentally logging them once
-	badStrings := []string{"user:swordfish", "swordfish", authString}
-	err := filepath.Walk(logdir, func(path string, info os.FileInfo, err error) error {
-		if info.IsDir() {
-			return nil
-		}
-		data, err := ioutil.ReadFile(path)
-		t.Logf("Reading file:%s", path)
-		if err != nil {
-			return err
-		}
-		for _, badstring := range badStrings {
-			if strings.Contains(string(data), badstring) {
-				t.Fatalf("log data contained bad string: %v, %v", string(data), badstring)
-			}
-			if strings.Contains(string(data), fmt.Sprintf("%v", []byte(badstring))) {
-				t.Fatalf("log data contained byte-slice representation of bad string: %v, %v", string(data), badstring)
-			}
-			gobytes := fmt.Sprintf("%#v", []byte(badstring))
-			// format is []byte{0x12, 0x34}
-			// if it were json.RawMessage or another alias, it would print as json.RawMessage ... in the log
-			// Because of this, strip down to just the comma-separated hex and look for that
-			if strings.Contains(string(data), gobytes[len(`[]byte{`):len(gobytes)-1]) {
-				t.Fatalf("log data contained byte-hex representation of bad string: %v, %v", string(data), badstring)
-			}
-		}
-		return nil
-	})
-	require.NoError(t, err)
 }
 
 func TestVolumesFromRO(t *testing.T) {

@@ -17,7 +17,6 @@
 set -e
 
 REGISTRY_IMAGE="registry:2.7.0"
-NGINX_IMAGE="nginx:stable"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -54,8 +53,6 @@ done
 docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
 
 mirror_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
-#mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
-#mirror_image ubuntu:20.04 "127.0.0.1:51670/ubuntu:latest"
 
 # create a context folder used by docker build. It will only have a file
 # full of random bits so that the parallel pull images are different.
@@ -67,15 +64,3 @@ EOF
 
 # cleanup the context
 rm -rf docker-context
-
-# Now setup a v2 registry with auth... aka nginx with basic auth in front of it
-REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
-status=$(docker inspect -f "{{ .State.Running }}" "${REGISTRY_AUTH_CONTAINER_NAME}") || true
-if [[ "$status" == "false" ]]; then
-  docker rm -f "${REGISTRY_AUTH_CONTAINER_NAME}"
-fi
-
-if [[ "$status" != "true" ]]; then
-  docker run -d -p "127.0.0.1:51671:80" --link "${REGISTRY_CONTAINER_NAME}:registry" --name="${REGISTRY_AUTH_CONTAINER_NAME}" -v "${ROOT}/scripts/registry/nginx-auth:/etc/nginx" "${NGINX_IMAGE}"
-fi
-
