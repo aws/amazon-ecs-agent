@@ -12,13 +12,15 @@
 # permissions and limitations under the License.
 .PHONY: all clean fluent-logger image
 
+GO_VERSION=$(shell cat ../../GO_VERSION)
+
 all: fluent-logger image
 
 fluent-logger: fluent-logger.go
 	@./build-in-docker
 
 image: fluent-logger
-	docker build -t amazon/fluent-logger:make .
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t amazon/fluent-logger:make .
 
 clean:
 	rm -f fluent-logger

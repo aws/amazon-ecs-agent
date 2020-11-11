@@ -12,10 +12,12 @@
 # permissions and limitations under the License.
 .PHONY: all clean image
 
+GO_VERSION=$(shell cat ../../GO_VERSION)
+
 all: image
 
 image:
-	docker build -t "amazon/amazon-ecs-gremlin:make" .
+	docker build --build-arg GO_VERSION=$(GO_VERSION) -t "amazon/amazon-ecs-gremlin:make" .
 
 clean:
 	-docker rmi -f "amazon/amazon-ecs-gremlin:make"
