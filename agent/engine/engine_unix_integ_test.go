@@ -57,7 +57,7 @@ const (
 	testAuthRegistryHost  = "127.0.0.1:51671"
 	testAuthRegistryImage = "127.0.0.1:51671/amazon/amazon-ecs-netkitten:latest"
 	testVolumeImage       = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
-	testUbuntuImage       = "127.0.0.1:51670/ubuntu:latest"
+	testBusyboxImage      = "127.0.0.1:51670/busybox:latest"
 	testFluentdImage      = "127.0.0.1:51670/amazon/fluentd:latest"
 	testAuthUser          = "user"
 	testAuthPass          = "swordfish"
@@ -1018,8 +1018,8 @@ func TestFluentdTag(t *testing.T) {
 
 	// start fluentd log task
 	testTaskFluentdLogTag := createTestTask("testFleuntdTag")
-	testTaskFluentdLogTag.Containers[0].Command = []string{"sh", "-c", `echo hello, this is fluentd integration test`}
-	testTaskFluentdLogTag.Containers[0].Image = testUbuntuImage
+	testTaskFluentdLogTag.Containers[0].Command = []string{"/bin/echo", "hello, this is fluentd integration test"}
+	testTaskFluentdLogTag.Containers[0].Image = testBusyboxImage
 	testTaskFluentdLogTag.Containers[0].DockerConfig = apicontainer.DockerConfig{
 		HostConfig: aws.String(`{"LogConfig": {
 		"Type": "fluentd",
