@@ -32,6 +32,10 @@ func (c *noopClient) SaveContainer(*container.Container) error {
 	return nil
 }
 
+func (c *noopClient) SavePulledContainer(*container.Container) error {
+	return nil
+}
+
 func (c *noopClient) SaveDockerContainer(*container.DockerContainer) error {
 	return nil
 }
@@ -40,7 +44,15 @@ func (c *noopClient) DeleteContainer(string) error {
 	return nil
 }
 
+func (c *noopClient) DeletePulledContainer(string) error {
+	return nil
+}
+
 func (c *noopClient) GetContainers() ([]*container.DockerContainer, error) {
+	return nil, nil
+}
+
+func (c *noopClient) GetPulledContainers() ([]*container.DockerContainer, error) {
 	return nil, nil
 }
 

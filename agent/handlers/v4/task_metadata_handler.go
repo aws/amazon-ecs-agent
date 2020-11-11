@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
@@ -63,6 +64,9 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			// fill in non-awsvpc network details for container responses here
 			responses := make([]ContainerResponse, 0)
 			for _, containerResponse := range taskResponse.Containers {
+				if containerResponse.KnownStatus == apicontainerstatus.ContainerPulled.String() && containerResponse.ID == "" {
+					continue
+				}
 				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
 				if err != nil {
 					errResponseJSON, err := json.Marshal(err.Error())

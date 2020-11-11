@@ -29,11 +29,12 @@ const (
 	dbName = "agent.db"
 	dbMode = 0600
 
-	containersBucketName     = "containers"
-	tasksBucketName          = "tasks"
-	imagesBucketName         = "images"
-	eniAttachmentsBucketName = "eniattachments"
-	metadataBucketName       = "metadata"
+	containersBucketName       = "containers"
+	pulledContainersBucketName = "pulledcontainers"
+	tasksBucketName            = "tasks"
+	imagesBucketName           = "images"
+	eniAttachmentsBucketName   = "eniattachments"
+	metadataBucketName         = "metadata"
 )
 
 var (
@@ -43,6 +44,7 @@ var (
 	buckets = []string{
 		imagesBucketName,
 		containersBucketName,
+		pulledContainersBucketName,
 		tasksBucketName,
 		eniAttachmentsBucketName,
 		metadataBucketName,
@@ -53,6 +55,8 @@ var (
 type Client interface {
 	// SaveContainer saves the data of a container.
 	SaveContainer(*container.Container) error
+	// SavePulledContainer saves the data of a pulled container.
+	SavePulledContainer(*container.Container) error
 	// SaveDockerContainer saves the data of a docker container.
 	// We have both SaveContainer and SaveDockerContainer so that a caller who doesn't have docker information
 	// of the container can save container with SaveContainer, while a caller who wants to save the docker
@@ -60,8 +64,12 @@ type Client interface {
 	SaveDockerContainer(*container.DockerContainer) error
 	// DeleteContainer deletes the data of a container.
 	DeleteContainer(string) error
+	// DeleteContainer deletes the data of a pulled container.
+	DeletePulledContainer(string) error
 	// GetContainers gets the data of all the containers.
 	GetContainers() ([]*container.DockerContainer, error)
+	// GetPulledContainers gets the data of all the pulled containers.
+	GetPulledContainers() ([]*container.DockerContainer, error)
 
 	// SaveTask saves the data of a task.
 	SaveTask(*task.Task) error

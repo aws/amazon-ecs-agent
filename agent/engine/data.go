@@ -76,6 +76,22 @@ func (engine *DockerTaskEngine) loadContainers() error {
 		engine.state.AddContainer(container, task)
 	}
 
+	containers, err = engine.dataClient.GetPulledContainers()
+	if err != nil {
+		return err
+	}
+
+	for _, container := range containers {
+		task, ok := engine.state.TaskByArn(container.Container.GetTaskARN())
+		if !ok {
+			// A task is saved to task table before its containers saved to container table. It is not expected
+			// that we have a container from container table whose task is not in the task table.
+			return errors.Errorf("did not find the task of container %s: %s", container.Container.Name,
+				container.Container.GetTaskARN())
+		}
+		engine.state.AddPulledContainer(container, task)
+	}
+
 	// Update containers in task from data in container table. It stores more updated data of container
 	// than the task table.
 	tasks := engine.state.AllTasks()
@@ -191,6 +207,13 @@ func (engine *DockerTaskEngine) saveContainerData(container *apicontainer.Contai
 	}
 }
 
+func (engine *DockerTaskEngine) savePulledContainerData(container *apicontainer.Container) {
+	err := engine.dataClient.SavePulledContainer(container)
+	if err != nil {
+		seelog.Errorf("Failed to save data for pulled container %s: %v", container.Name, err)
+	}
+}
+
 func (engine *DockerTaskEngine) saveDockerContainerData(container *apicontainer.DockerContainer) {
 	err := engine.dataClient.SaveDockerContainer(container)
 	if err != nil {
@@ -218,6 +241,21 @@ func (engine *DockerTaskEngine) removeTaskData(task *apitask.Task) {
 		err = engine.dataClient.DeleteContainer(id)
 		if err != nil {
 			seelog.Errorf("Failed to remove data for container %s: %v", c.Name, err)
+		}
+	}
+	containers, ok := engine.state.PulledContainerMapByArn(task.Arn)
+	if ok {
+		for _, c := range containers {
+			cont := c.Container
+			id, err := data.GetContainerID(cont)
+			if err != nil {
+				seelog.Errorf("Failed to get container id from container %s: %v", cont.Name, err)
+				continue
+			}
+			err = engine.dataClient.DeletePulledContainer(id)
+			if err != nil {
+				seelog.Errorf("Failed to remove data for pulled container %s: %v", cont.Name, err)
+			}
 		}
 	}
 }

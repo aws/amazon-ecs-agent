@@ -419,7 +419,12 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	}
 
 	// Container has progressed its status if we reach here. Make sure to save it to database.
-	defer mtask.engine.saveContainerData(container)
+	defer func() {
+		mtask.engine.saveContainerData(container)
+		if container.GetKnownStatus() == apicontainerstatus.ContainerPulled {
+			mtask.engine.savePulledContainerData(container)
+		}
+	}()
 
 	// Update the container to be known
 	currentKnownStatus := containerKnownStatus

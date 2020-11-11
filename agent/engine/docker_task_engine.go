@@ -878,6 +878,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 			Container: container,
 		}
 		engine.state.AddPulledContainer(dockerContainer, task)
+		engine.savePulledContainerData(container)
 	}
 	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
@@ -1108,6 +1109,12 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			Container:  container}
 		engine.state.AddContainer(dockerContainer, task)
 		engine.saveDockerContainerData(dockerContainer)
+		id, err := data.GetContainerID(container)
+		if err != nil {
+			seelog.Errorf("Failed to get container id from container %s: %v", container.Name, err)
+		} else {
+			engine.dataClient.DeletePulledContainer(id)
+		}
 	}
 	container.SetLabels(config.Labels)
 	seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s, took %s",
