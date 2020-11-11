@@ -13,7 +13,7 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
@@ -156,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
+build-image-for-ecr: netkitten volumes-test image-cleanup-test-images fluentd
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -169,15 +169,7 @@ PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
 pause-container: .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/pause-container:/out" \
-		-v "$(PWD)/misc/pause-container/buildPause:/usr/src/buildPause" \
-		"amazon/amazon-ecs-build-pause-bin:make"
-
 	$(MAKE) -C misc/pause-container $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
@@ -232,42 +224,20 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
-namespace-tests:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/namespace-tests:/out" \
-		-v "$(PWD)/misc/namespace-tests/buildContainer:/usr/src/buildContainer" \
-		"amazon/amazon-ecs-namespace-tests:make"
-
-	$(MAKE) -C misc/namespace-tests $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
-
-# Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
-
+# Run our 'test' registry needed for integ tests
+test-registry: netkitten volumes-test pause-container image-cleanup-test-images fluentd
 	@./scripts/setup-test-registry
 
-
-# TODO, replace this with a build on dockerhub or a mechanism for the
-# functional tests themselves to build this
-.PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
+.PHONY: fluentd gremlin image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
-
-awscli:
-	$(MAKE) -C misc/awscli $(MFLAGS)
 
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
-
-taskmetadata-validator:
-	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
@@ -349,10 +319,8 @@ clean:
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
-	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp
