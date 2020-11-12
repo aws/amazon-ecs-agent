@@ -88,6 +88,7 @@ func GetContainerNetworkMetadata(containerID string, state dockerstate.TaskEngin
 	// https://github.com/aws/amazon-ecs-agent/blob/0c8913ba33965cf6ffdd6253fad422458d9346bd/agent/containermetadata/parse_metadata.go#L123
 	settings := dockerContainer.Container.GetNetworkSettings()
 	if settings == nil {
+		seelog.Errorf("Unable to get container network response for container '%s'", containerID)
 		return nil, errors.Errorf("unable to generate network response for container '%s'", containerID)
 	}
 	// This metadata is the information provided in older versions of the API
