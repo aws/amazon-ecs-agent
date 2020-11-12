@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.48.0
+* Enhancement - Docker stop timeout buffer increased from 30s to 2m [2697](https://github.com/aws/amazon-ecs-agent/pull/2697)
+* Enhancement - More informative ENI attachment logs [2703](https://github.com/aws/amazon-ecs-agent/pull/2703)
+* Bug - Fix a bug where agent persists RCI client token to avoid being registered as different container instance ARNs [2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
+* Bug - Fix jumbled min & max for engine connection retry delays [2721](https://github.com/aws/amazon-ecs-agent/pull/2721)
+
 ## 1.47.0
 * Feature - Add support for FSxWindowsFileServerVolumeConfiguration in task definition [#2690](https://github.com/aws/amazon-ecs-agent/pull/2690)
 * Bug - Fixed Makefile to use Go1.12 for Agent windows build
