@@ -533,7 +533,7 @@ func environmentConfig() (Config, error) {
 		TaskCPUMemLimit:                     parseBooleanDefaultTrueConfig("ECS_ENABLE_TASK_CPU_MEM_LIMIT"),
 		DockerStopTimeout:                   parseDockerStopTimeout(),
 		ContainerStartTimeout:               parseContainerStartTimeout(),
-		DependentContainersPullUpfront:      parseBooleanDefaultTrueConfig("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT"),
+		DependentContainersPullUpfront:      parseBooleanDefaultFalseConfig("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT"),
 		ImagePullInactivityTimeout:          parseImagePullInactivityTimeout(),
 		ImagePullTimeout:                    parseEnvVariableDuration("ECS_IMAGE_PULL_TIMEOUT"),
 		CredentialsAuditLogFile:             os.Getenv("ECS_AUDIT_LOGFILE"),
