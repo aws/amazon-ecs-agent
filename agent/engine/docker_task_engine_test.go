@@ -1666,7 +1666,7 @@ func TestPullAndUpdateContainerReference(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	cfg := &config.Config{
-		DependentContainersPullUpfront: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
+		DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, cfg)
 	defer ctrl.Finish()

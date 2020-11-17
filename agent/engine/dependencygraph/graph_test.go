@@ -1087,7 +1087,7 @@ func TestContainerOrderingIsResolvedWithDependentContainersPullUpfront(t *testin
 	}
 
 	cfg := config.Config{
-		DependentContainersPullUpfront: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
+		DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("DependencyCondition:%s+T:%s+V:%s", tc.DependencyCondition, tc.TargetKnown.String(), tc.DependencyKnown.String()),
@@ -1211,7 +1211,7 @@ func TestContainerOrderingHealthyConditionIsResolvedWithDependentContainersPullU
 		},
 	}
 	cfg := config.Config{
-		DependentContainersPullUpfront: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
+		DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
 	}
 	for _, tc := range testcases {
 		t.Run(fmt.Sprintf("DependencyKnownHealthStatus:%s+T:%s+V:%s", tc.DependencyKnownHealthStatus, tc.TargetKnown.String(), tc.DependencyKnownHealthStatus.String()),

@@ -68,7 +68,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 	assert.Equal(t, defaultCgroupCPUPeriod, cfg.CgroupCPUPeriod, "CFS cpu period set incorrectly")
 	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout, "Default ImagePullTimeout set incorrectly")
-	assert.True(t, cfg.DependentContainersPullUpfront.Enabled(), "Default ContainersPullUpfront set incorrectly")
+	assert.False(t, cfg.DependentContainersPullUpfront.Enabled(), "Default DependentContainersPullUpfront set incorrectly")
 }
 
 // TestConfigFromFile tests the configuration can be read from file
