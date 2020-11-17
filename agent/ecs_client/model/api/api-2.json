@@ -1546,7 +1546,7 @@
     },
     "ManagedAgentName":{
       "type":"string",
-      "enum":["EXECUTE_COMMAND_AGENT"]
+      "enum":["ExecuteCommandAgent"]
     },
     "ManagedAgentStateChange":{
       "type":"structure",
@@ -1556,7 +1556,8 @@
       ],
       "members":{
         "name":{"shape":"ManagedAgentName"},
-        "status":{"shape":"String"}
+        "status":{"shape":"String"},
+        "reason":{"shape":"String"}
       }
     },
     "ManagedAgentStateChanges":{
@@ -1567,8 +1568,6 @@
       "type":"list",
       "member":{"shape":"ManagedAgent"}
     },
-
-
     "MissingVersionException":{
       "type":"structure",
       "members":{
