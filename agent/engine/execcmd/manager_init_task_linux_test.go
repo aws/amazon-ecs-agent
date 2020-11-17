@@ -299,7 +299,7 @@ func TestGetSessionWorkersLimit(t *testing.T) {
 	for _, tc := range tests {
 		ma := apicontainer.ManagedAgent{
 			Properties: map[string]string{
-				"SessionWorkersLimit": strconv.Itoa(tc.sessionLimit),
+				"sessionLimit": strconv.Itoa(tc.sessionLimit),
 			},
 		}
 		limit := getSessionWorkersLimit(ma)

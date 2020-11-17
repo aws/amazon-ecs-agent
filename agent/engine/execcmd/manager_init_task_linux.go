@@ -230,7 +230,7 @@ func getSessionWorkersLimit(ma apicontainer.ManagedAgent) int {
 	if ma.Properties == nil { // This means ACS didn't send the limit
 		return limit
 	}
-	limitStr, ok := ma.Properties["SessionWorkersLimit"]
+	limitStr, ok := ma.Properties["sessionLimit"]
 	if !ok { // This also means ACS didn't send the limit
 		return limit
 	}

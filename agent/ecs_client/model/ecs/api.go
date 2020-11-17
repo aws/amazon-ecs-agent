@@ -8850,6 +8850,8 @@ type ManagedAgentStateChange struct {
 	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true" enum:"ManagedAgentName"`
 
+	Reason *string `locationName:"reason" type:"string"`
+
 	// Status is a required field
 	Status *string `locationName:"status" type:"string" required:"true"`
 }
@@ -8883,6 +8885,12 @@ func (s *ManagedAgentStateChange) Validate() error {
 // SetName sets the Name field's value.
 func (s *ManagedAgentStateChange) SetName(v string) *ManagedAgentStateChange {
 	s.Name = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ManagedAgentStateChange) SetReason(v string) *ManagedAgentStateChange {
+	s.Reason = &v
 	return s
 }
 
@@ -12967,7 +12975,7 @@ const (
 
 const (
 	// ManagedAgentNameExecuteCommandAgent is a ManagedAgentName enum value
-	ManagedAgentNameExecuteCommandAgent = "EXECUTE_COMMAND_AGENT"
+	ManagedAgentNameExecuteCommandAgent = "ExecuteCommandAgent"
 )
 
 const (
