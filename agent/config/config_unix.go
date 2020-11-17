@@ -56,6 +56,7 @@ func DefaultConfig() Config {
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:                   defaultDockerStopTimeout,
 		ContainerStartTimeout:               defaultContainerStartTimeout,
+		DependentContainersPullUpfront:      BooleanDefaultTrue{Value: ExplicitlyEnabled},
 		CredentialsAuditLogFile:             defaultCredentialsAuditLogFile,
 		CredentialsAuditLogDisabled:         false,
 		ImageCleanupDisabled:                BooleanDefaultFalse{Value: ExplicitlyDisabled},
