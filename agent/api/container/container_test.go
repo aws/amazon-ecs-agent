@@ -895,3 +895,49 @@ func TestUpdateManagedAgentByName(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateManagedAgentSentStatus(t *testing.T) {
+	const dummyAgent = "dummyAgent"
+	cases := []struct {
+		name               string
+		agentName          string
+		updateSentStatus   bool
+		sentStatus         apicontainerstatus.ManagedAgentStatus
+		expectedSentStatus apicontainerstatus.ManagedAgentStatus
+	}{
+		{
+			name:               "test nonexistent managed agent",
+			agentName:          "nonexistentAgent",
+			expectedSentStatus: apicontainerstatus.ManagedAgentStatusNone,
+		},
+		{
+			name:               "test managed agent with default (zero) status",
+			agentName:          dummyAgent,
+			expectedSentStatus: apicontainerstatus.ManagedAgentStatusNone,
+		},
+		{
+			name:               "test managed agent with custom status",
+			agentName:          dummyAgent,
+			updateSentStatus:   true,
+			sentStatus:         apicontainerstatus.ManagedAgentRunning,
+			expectedSentStatus: apicontainerstatus.ManagedAgentRunning,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Container{
+				ManagedAgentsUnsafe: []ManagedAgent{{
+					Name: tc.agentName,
+				}},
+			}
+			before, _ := c.GetManagedAgentByName(tc.agentName)
+			assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, before.SentStatus)
+			if tc.updateSentStatus {
+				c.UpdateManagedAgentSentStatus(tc.agentName, tc.sentStatus)
+			}
+			after, _ := c.GetManagedAgentByName(tc.agentName)
+			assert.Equal(t, tc.expectedSentStatus, after.SentStatus)
+
+		})
+	}
+}
