@@ -50,10 +50,21 @@ type ContainerStateChange struct {
 	// container ports
 	PortBindings []apicontainer.PortBinding
 	// ManagedAgents contain the name and status of Agents running inside the container
-	ManagedAgents []apicontainer.ManagedAgent
+	ManagedAgents []ManagedAgentStateChange
 	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
 	// storing what status was sent.  This is used to ensure the same event is handled only once.
 	Container *apicontainer.Container
+	// Type is the type of container state change, which can be either ContainerEvent or ManagedAgentEvent.
+	Type statechange.EventType
+}
+
+type ManagedAgentStateChange struct {
+	// Name is the name of the managed agent
+	Name string
+	// Status is the status of the managed agent
+	Status apicontainerstatus.ManagedAgentStatus
+	// Reason indicates an error in a managed agent state chage
+	Reason string
 }
 
 // TaskStateChange represents a state change that needs to be sent to the
@@ -120,27 +131,36 @@ func NewTaskStateChangeEvent(task *apitask.Task, reason string) (TaskStateChange
 // NewContainerStateChangeEvent creates a new container state change event
 // returns error if the state change doesn't need to be sent to the ECS backend.
 func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Container, reason string) (ContainerStateChange, error) {
-	var event ContainerStateChange
+	event, err := newUncheckedContainerStateChangeEvent(task, cont, reason, statechange.ContainerEvent)
+	if err != nil {
+		return event, err
+	}
 	contKnownStatus := cont.GetKnownStatus()
 	if !contKnownStatus.ShouldReportToBackend(cont.GetSteadyStateStatus()) {
 		return event, errors.Errorf(
 			"create container state change event api: status not recognized by ECS: %v",
 			contKnownStatus)
 	}
-	if cont.IsInternal() {
-		return event, errors.Errorf(
-			"create container state change event api: internal container: %s",
-			cont.Name)
-	}
 	if cont.GetSentStatus() >= contKnownStatus {
 		return event, errors.Errorf(
 			"create container state change event api: status [%s] already sent for container %s, task %s",
 			contKnownStatus.String(), cont.Name, task.Arn)
 	}
-
 	if reason == "" && cont.ApplyingError != nil {
 		reason = cont.ApplyingError.Error()
+		event.Reason = reason
 	}
+	return event, nil
+}
+
+func newUncheckedContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Container, reason string, eventType statechange.EventType) (ContainerStateChange, error) {
+	var event ContainerStateChange
+	if cont.IsInternal() {
+		return event, errors.Errorf(
+			"create container state change event api: internal container: %s",
+			cont.Name)
+	}
+	contKnownStatus := cont.GetKnownStatus()
 	event = ContainerStateChange{
 		TaskArn:       task.Arn,
 		ContainerName: cont.Name,
@@ -148,11 +168,39 @@ func NewContainerStateChangeEvent(task *apitask.Task, cont *apicontainer.Contain
 		Status:        contKnownStatus.BackendStatus(cont.GetSteadyStateStatus()),
 		ExitCode:      cont.GetKnownExitCode(),
 		PortBindings:  cont.GetKnownPortBindings(),
-		ManagedAgents: cont.GetManagedAgents(),
 		ImageDigest:   cont.GetImageDigest(),
 		Reason:        reason,
 		Container:     cont,
+		Type:          eventType,
 	}
+	return event, nil
+}
+
+// NewManagedAgentChangeEvent creates a new special container state change event to convey managed agent state changes
+// returns error if the state change doesn't need to be sent to the ECS backend.
+func NewManagedAgentChangeEvent(task *apitask.Task, cont *apicontainer.Container) (ContainerStateChange, error) {
+	var changedManagedAgents []ManagedAgentStateChange
+	for _, ma := range cont.GetManagedAgents() {
+		if ma.Status.ShouldReportToBackend() {
+			changedManagedAgents = append(changedManagedAgents, ManagedAgentStateChange{
+				Name:   ma.Name,
+				Status: ma.Status,
+				Reason: ma.Reason,
+			})
+		}
+	}
+
+	var event ContainerStateChange
+	if len(changedManagedAgents) == 0 {
+		return event, errors.Errorf("there are no managed agent changes to report for : %s",
+			cont.Name)
+	}
+
+	event, err := newUncheckedContainerStateChangeEvent(task, cont, "", statechange.ManagedAgentEvent)
+	if err != nil {
+		return event, err
+	}
+	event.ManagedAgents = changedManagedAgents
 	return event, nil
 }
 
@@ -177,6 +225,9 @@ func (c *ContainerStateChange) String() string {
 	}
 	if c.Container != nil {
 		res += ", Known Sent: " + c.Container.GetSentStatus().String()
+	}
+	for _, ma := range c.ManagedAgents {
+		res += ", ManagedAgent: " + ma.Name + ", ManagedAgentStatus: " + ma.Status.String()
 	}
 	return res
 }
@@ -249,8 +300,8 @@ func (change *AttachmentStateChange) String() string {
 }
 
 // GetEventType returns an enum identifying the event type
-func (ContainerStateChange) GetEventType() statechange.EventType {
-	return statechange.ContainerEvent
+func (cs ContainerStateChange) GetEventType() statechange.EventType {
+	return cs.Type
 }
 
 // GetEventType returns an enum identifying the event type

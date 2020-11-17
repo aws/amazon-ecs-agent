@@ -121,6 +121,7 @@ func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 		equal(lhs.ContainerName, rhs.ContainerName) &&
 		equal(lhs.ExitCode, rhs.ExitCode) &&
 		equal(lhs.NetworkBindings, rhs.NetworkBindings) &&
+		equal(lhs.ManagedAgents, rhs.ManagedAgents) &&
 		equal(lhs.Reason, rhs.Reason) &&
 		equal(lhs.Status, rhs.Status) &&
 		equal(lhs.Task, rhs.Task))
@@ -148,6 +149,10 @@ func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
 				return false
 			}
 		}
+	}
+
+	if len(lhs.Containers) != 0 && !equal(lhs.Containers, rhs.Containers) {
+		return false
 	}
 
 	return true
@@ -232,6 +237,13 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 					Protocol:      strptr("tcp"),
 				},
 			},
+			ManagedAgents: []*ecs.ManagedAgentStateChange{
+				{
+					Name:   strptr("ExecuteCommandAgent"),
+					Status: strptr("RUNNING"),
+					Reason: strptr(reason),
+				},
+			},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
@@ -244,6 +256,11 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		PortBindings: []apicontainer.PortBinding{
 			{},
 		},
+		ManagedAgents: []api.ManagedAgentStateChange{{
+			Name:   "ExecuteCommandAgent",
+			Status: apicontainerstatus.ManagedAgentRunning,
+			Reason: reason,
+		}},
 	})
 	if err != nil {
 		t.Errorf("Unable to submit container state change: %v", err)
@@ -1009,6 +1026,11 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 				ContainerName: "container",
 				RuntimeID:     "runtimeid",
 				Status:        apicontainerstatus.ContainerRunning,
+				ManagedAgents: []api.ManagedAgentStateChange{{
+					Name:   "DummyAgent",
+					Status: apicontainerstatus.ManagedAgentRunning,
+					Reason: "DummyReason",
+				}},
 			},
 		},
 	}
@@ -1029,6 +1051,13 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 							RuntimeId:       strptr("runtimeid"),
 							Status:          strptr("RUNNING"),
 							NetworkBindings: []*ecs.NetworkBinding{},
+							ManagedAgents: []*ecs.ManagedAgentStateChange{
+								{
+									Name:   strptr("DummyAgent"),
+									Status: strptr("RUNNING"),
+									Reason: strptr("DummyReason"),
+								},
+							},
 						},
 					},
 				},

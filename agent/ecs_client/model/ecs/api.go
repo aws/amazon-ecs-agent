@@ -9314,6 +9314,17 @@ func (s *LogConfiguration) SetSecretOptions(v []*Secret) *LogConfiguration {
 	return s
 }
 
+// Amazon ECS is unable to determine the current version of the Amazon ECS container
+// agent on the container instance and does not have enough information to proceed
+// with an update. This could be because the agent running on the container
+// instance is an older or custom version that does not use our version information.
+type MissingVersionException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"message" type:"string"`
+}
+
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
@@ -9366,6 +9377,8 @@ type ManagedAgentStateChange struct {
 	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true" enum:"ManagedAgentName"`
 
+	Reason *string `locationName:"reason" type:"string"`
+
 	// Status is a required field
 	Status *string `locationName:"status" type:"string" required:"true"`
 }
@@ -9399,6 +9412,12 @@ func (s *ManagedAgentStateChange) Validate() error {
 // SetName sets the Name field's value.
 func (s *ManagedAgentStateChange) SetName(v string) *ManagedAgentStateChange {
 	s.Name = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ManagedAgentStateChange) SetReason(v string) *ManagedAgentStateChange {
+	s.Reason = &v
 	return s
 }
 
@@ -14196,7 +14215,7 @@ func LogDriver_Values() []string {
 
 const (
 	// ManagedAgentNameExecuteCommandAgent is a ManagedAgentName enum value
-	ManagedAgentNameExecuteCommandAgent = "EXECUTE_COMMAND_AGENT"
+	ManagedAgentNameExecuteCommandAgent = "ExecuteCommandAgent"
 )
 
 const (
