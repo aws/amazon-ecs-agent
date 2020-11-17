@@ -387,6 +387,8 @@ type Container struct {
 
 	LogsAuthStrategy *string `locationName:"logsAuthStrategy" type:"string" enum:"AuthStrategy"`
 
+	ManagedAgents []*ManagedAgent `locationName:"managedAgents" type:"list"`
+
 	Memory *int64 `locationName:"memory" type:"integer"`
 
 	MountPoints []*MountPoint `locationName:"mountPoints" type:"list"`
@@ -1045,6 +1047,24 @@ func (s *InvalidInstanceException) StatusCode() int {
 // RequestID returns the service's response RequestID for request.
 func (s *InvalidInstanceException) RequestID() string {
 	return s.RespMetadata.RequestID
+}
+
+type ManagedAgent struct {
+	_ struct{} `type:"structure"`
+
+	Name *string `locationName:"name" type:"string" enum:"ManagedAgentName"`
+
+	Properties map[string]*string `locationName:"properties" type:"map"`
+}
+
+// String returns the string representation
+func (s ManagedAgent) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ManagedAgent) GoString() string {
+	return s.String()
 }
 
 type MountPoint struct {

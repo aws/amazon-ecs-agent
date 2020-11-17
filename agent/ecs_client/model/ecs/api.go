@@ -9366,6 +9366,8 @@ type ManagedAgentStateChange struct {
 	// Name is a required field
 	Name *string `locationName:"name" type:"string" required:"true" enum:"ManagedAgentName"`
 
+	Reason *string `locationName:"reason" type:"string"`
+
 	// Status is a required field
 	Status *string `locationName:"status" type:"string" required:"true"`
 }
@@ -9399,6 +9401,12 @@ func (s *ManagedAgentStateChange) Validate() error {
 // SetName sets the Name field's value.
 func (s *ManagedAgentStateChange) SetName(v string) *ManagedAgentStateChange {
 	s.Name = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ManagedAgentStateChange) SetReason(v string) *ManagedAgentStateChange {
+	s.Reason = &v
 	return s
 }
 
@@ -14200,8 +14208,15 @@ func LogDriver_Values() []string {
 
 const (
 	// ManagedAgentNameExecuteCommandAgent is a ManagedAgentName enum value
-	ManagedAgentNameExecuteCommandAgent = "EXECUTE_COMMAND_AGENT"
+	ManagedAgentNameExecuteCommandAgent = "ExecuteCommandAgent"
 )
+
+// ManagedAgentName_Values returns all elements of the ManagedAgentName enum
+func ManagedAgentName_Values() []string {
+	return []string{
+		ManagedAgentNameExecuteCommandAgent,
+	}
+}
 
 const (
 	// NetworkModeBridge is a NetworkMode enum value

@@ -219,6 +219,7 @@
         "name":{"shape":"String"},
         "overrides":{"shape":"String"},
         "portMappings":{"shape":"PortMappingList"},
+        "managedAgents":{"shape":"ManagedAgentList"},
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
@@ -495,6 +496,21 @@
         "message":{"shape":"String"}
       },
       "exception":true
+    },
+    "ManagedAgent":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"ManagedAgentName"},
+        "properties":{"shape":"StringMap"}
+      }
+    },
+    "ManagedAgentList":{
+      "type":"list",
+      "member":{"shape":"ManagedAgent"}
+    },
+    "ManagedAgentName":{
+      "type":"string",
+      "enum":["ExecuteCommandAgent"]
     },
     "FirelensConfiguration":{
       "type":"structure",
