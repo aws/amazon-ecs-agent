@@ -61,6 +61,7 @@ func TestConfigDefault(t *testing.T) {
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout, "Default ImagePullTimeout set incorrectly")
+	assert.True(t, cfg.DependentContainersPullUpfront.Enabled(), "Default ContainersPullUpfront set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {

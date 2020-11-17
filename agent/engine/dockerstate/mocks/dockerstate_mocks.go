@@ -87,6 +87,18 @@ func (mr *MockTaskEngineStateMockRecorder) AddImageState(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddImageState", reflect.TypeOf((*MockTaskEngineState)(nil).AddImageState), arg0)
 }
 
+// AddPulledContainer mocks base method
+func (m *MockTaskEngineState) AddPulledContainer(arg0 *container.DockerContainer, arg1 *task.Task) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddPulledContainer", arg0, arg1)
+}
+
+// AddPulledContainer indicates an expected call of AddPulledContainer
+func (mr *MockTaskEngineStateMockRecorder) AddPulledContainer(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPulledContainer", reflect.TypeOf((*MockTaskEngineState)(nil).AddPulledContainer), arg0, arg1)
+}
+
 // AddTask mocks base method
 func (m *MockTaskEngineState) AddTask(arg0 *task.Task) {
 	m.ctrl.T.Helper()
@@ -270,6 +282,21 @@ func (m *MockTaskEngineState) MarshalJSON() ([]byte, error) {
 func (mr *MockTaskEngineStateMockRecorder) MarshalJSON() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarshalJSON", reflect.TypeOf((*MockTaskEngineState)(nil).MarshalJSON))
+}
+
+// PulledContainerMapByArn mocks base method
+func (m *MockTaskEngineState) PulledContainerMapByArn(arg0 string) (map[string]*container.DockerContainer, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PulledContainerMapByArn", arg0)
+	ret0, _ := ret[0].(map[string]*container.DockerContainer)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// PulledContainerMapByArn indicates an expected call of PulledContainerMapByArn
+func (mr *MockTaskEngineStateMockRecorder) PulledContainerMapByArn(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PulledContainerMapByArn", reflect.TypeOf((*MockTaskEngineState)(nil).PulledContainerMapByArn), arg0)
 }
 
 // RemoveENIAttachment mocks base method

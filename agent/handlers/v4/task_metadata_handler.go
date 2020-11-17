@@ -78,6 +78,14 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			taskResponse.Containers = responses
 		}
 
+		pulledContainers, _ := state.PulledContainerMapByArn(task.Arn)
+		// Convert each pulled container into v4 container response
+		// and append pulled containers to taskResponse.Containers
+		for _, dockerContainer := range pulledContainers {
+			taskResponse.Containers = append(taskResponse.Containers,
+				NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
+		}
+
 		responseJSON, err := json.Marshal(taskResponse)
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 			return

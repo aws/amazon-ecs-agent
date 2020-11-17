@@ -112,6 +112,10 @@ type Config struct {
 	// ContainerStartTimeout specifies the amount of time to wait to start a container
 	ContainerStartTimeout time.Duration
 
+	// DependentContainersPullUpfront specifies whether pulling containers upfront should be applied to this agent.
+	// Default true
+	DependentContainersPullUpfront BooleanDefaultTrue
+
 	// ImagePullInactivityTimeout is here to override the amount of time to wait when pulling and extracting a container
 	ImagePullInactivityTimeout time.Duration
 

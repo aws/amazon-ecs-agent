@@ -46,16 +46,29 @@ var (
 		Name:          testContainerName,
 		TaskARNUnsafe: testTaskARN,
 	}
+	testPulledContainer = &apicontainer.Container{
+		Name:              testContainerName + "-pulled",
+		TaskARNUnsafe:     testTaskARN,
+		KnownStatusUnsafe: apicontainerstatus.ContainerPulled,
+	}
 	testDockerContainer = &apicontainer.DockerContainer{
 		DockerID:  testDockerID,
 		Container: testContainer,
+	}
+	testPulledDockerContainer = &apicontainer.DockerContainer{
+		DockerID:  testDockerID,
+		Container: testPulledContainer,
 	}
 	testTask = &apitask.Task{
 		Arn:                  testTaskARN,
 		Containers:           []*apicontainer.Container{testContainer},
 		LocalIPAddressUnsafe: testTaskIP,
 	}
-
+	testTaskWithPulledContainer = &apitask.Task{
+		Arn:                  testTaskARN,
+		Containers:           []*apicontainer.Container{testContainer, testPulledContainer},
+		LocalIPAddressUnsafe: testTaskIP,
+	}
 	testImageState = &image.ImageState{
 		Image:         testImage,
 		PullSucceeded: false,
@@ -92,17 +105,22 @@ func TestLoadState(t *testing.T) {
 		state:      dockerstate.NewTaskEngineState(),
 		dataClient: dataClient,
 	}
-	require.NoError(t, dataClient.SaveTask(testTask))
+	require.NoError(t, dataClient.SaveTask(testTaskWithPulledContainer))
 	testDockerContainer.Container.SetKnownStatus(apicontainerstatus.ContainerRunning)
 	require.NoError(t, dataClient.SaveDockerContainer(testDockerContainer))
+	require.NoError(t, dataClient.SaveDockerContainer(testPulledDockerContainer))
 	require.NoError(t, dataClient.SaveENIAttachment(testENIAttachment))
 	require.NoError(t, dataClient.SaveImageState(testImageState))
 
 	require.NoError(t, engine.LoadState())
 	task, ok := engine.state.TaskByArn(testTaskARN)
 	assert.True(t, ok)
+	pulledContainers, ok := engine.state.PulledContainerMapByArn(testTaskARN)
+	assert.True(t, ok)
+	assert.Len(t, pulledContainers, 1)
 	// Also check that the container in the task has the updated status from container table.
 	assert.Equal(t, apicontainerstatus.ContainerRunning, task.Containers[0].GetKnownStatus())
+	assert.Equal(t, apicontainerstatus.ContainerPulled, task.Containers[1].GetKnownStatus())
 	_, ok = engine.state.ContainerByID(testDockerID)
 	assert.True(t, ok)
 	assert.Len(t, engine.state.AllImageStates(), 1)
