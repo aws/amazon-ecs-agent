@@ -251,7 +251,7 @@ func getAgentLogConfigFile() (string, error) {
 	logConfigFileName := fmt.Sprintf(logConfigFileNameTemplate, hash)
 	// check if config file exists already
 	logConfigFilePath := filepath.Join(ECSAgentExecConfigDir, logConfigFileName)
-	if fileExists(logConfigFilePath) && validLogConfigExists(logConfigFilePath, hash) {
+	if fileExists(logConfigFilePath) && validConfigExists(logConfigFilePath, hash) {
 		return logConfigFileName, nil
 	}
 	// create new seelog config file
@@ -261,7 +261,7 @@ func getAgentLogConfigFile() (string, error) {
 	return logConfigFileName, nil
 }
 
-func validLogConfigExists(configFilePath, expectedHash string) bool {
+func validConfigExists(configFilePath, expectedHash string) bool {
 	config, err := getFileContent(configFilePath)
 	if err != nil {
 		return false
@@ -284,8 +284,7 @@ func getAgentConfigFileName(sessionLimit int) (string, error) {
 	configFileName := fmt.Sprintf(execAgentConfigFileNameTemplate, hash)
 	// check if config file exists already
 	configFilePath := filepath.Join(ECSAgentExecConfigDir, configFileName)
-	if fileExists(configFilePath) {
-		// TODO: verify the hash of the existing file contents
+	if fileExists(configFilePath) && validConfigExists(configFilePath, hash) {
 		return configFileName, nil
 	}
 	// config doesn't exist; create a new one

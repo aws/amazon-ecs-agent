@@ -382,7 +382,7 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 	}
 }
 
-func TestGetValidLogConfigExists(t *testing.T) {
+func TestGetValidConfigExists(t *testing.T) {
 	var tests = []struct {
 		isValid                  bool
 		existingLogConfigReadErr error
@@ -411,6 +411,6 @@ func TestGetValidLogConfigExists(t *testing.T) {
 		getFileContent = func(path string) ([]byte, error) {
 			return []byte(tc.existingLogConfig), tc.existingLogConfigReadErr
 		}
-		assert.Equal(t, tc.isValid, validLogConfigExists("configpath", getExecAgentConfigHash(execAgentLogConfigTemplate)))
+		assert.Equal(t, tc.isValid, validConfigExists("configpath", getExecAgentConfigHash(execAgentLogConfigTemplate)))
 	}
 }
