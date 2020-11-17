@@ -90,8 +90,12 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 			// change to be sent to ECS.
 			return true
 		}
+		for _, ma := range container.GetManagedAgents() {
+			if ma.SentStatus < ma.Status {
+				return true
+			}
+		}
 	}
-
 	return false
 }
 
@@ -183,7 +187,7 @@ func setContainerChangeSent(event *sendableEvent, dataClient data.Client) {
 	containerChangeStatus := event.containerChange.Status
 	container := event.containerChange.Container
 	if container != nil && container.GetSentStatus() < containerChangeStatus {
-		updateContainerSentStatus(container, containerChangeStatus, dataClient)
+		updateContainerSentStatus(container, containerChangeStatus, event.containerChange.ManagedAgents, dataClient)
 	}
 }
 
@@ -196,10 +200,7 @@ func setTaskChangeSent(event *sendableEvent, dataClient data.Client) {
 	}
 	for _, containerStateChange := range event.taskChange.Containers {
 		container := containerStateChange.Container
-		containerChangeStatus := containerStateChange.Status
-		if container.GetSentStatus() < containerChangeStatus {
-			updateContainerSentStatus(container, containerStateChange.Status, dataClient)
-		}
+		updateContainerSentStatus(container, containerStateChange.Status, containerStateChange.ManagedAgents, dataClient)
 	}
 }
 
@@ -235,10 +236,23 @@ func updataTaskSentStatus(task *apitask.Task, status apitaskstatus.TaskStatus, d
 	}
 }
 
-func updateContainerSentStatus(container *apicontainer.Container, status apicontainerstatus.ContainerStatus, dataClient data.Client) {
-	container.SetSentStatus(status)
-	err := dataClient.SaveContainer(container)
-	if err != nil {
-		seelog.Errorf("Failed to update container sent status in databse for container %s: %v", container.Name, err)
+func updateContainerSentStatus(container *apicontainer.Container, status apicontainerstatus.ContainerStatus, managedAgentChanges []api.ManagedAgentStateChange, dataClient data.Client) {
+	saveContainer := false
+	if container.GetSentStatus() < status {
+		saveContainer = true
+		container.SetSentStatus(status)
+	}
+	for _, mac := range managedAgentChanges {
+		ma, ok := container.GetManagedAgentByName(mac.Name)
+		if ok && ma.SentStatus < mac.Status {
+			saveContainer = true
+			container.UpdateManagedAgentSentStatus(ma.Name, mac.Status)
+		}
+	}
+	if saveContainer {
+		err := dataClient.SaveContainer(container)
+		if err != nil {
+			seelog.Errorf("Failed to update container sent status in database for container %s: %v", container.Name, err)
+		}
 	}
 }

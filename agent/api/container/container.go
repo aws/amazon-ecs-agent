@@ -112,9 +112,12 @@ type HealthStatus struct {
 
 type ManagedAgentState struct {
 	// ID of this managed agent state
-	ID string `json:"id:omitempty"`
+	ID string `json:"id,omitempty"`
+	// TODO: [ecs-exec] Change variable name from Status to KnownStatus in future PR to avoid noise
 	// Status is the managed agent health status
-	Status apicontainerstatus.ManagedAgentStatus `json:"status:omitempty"`
+	Status apicontainerstatus.ManagedAgentStatus `json:"status,omitempty"`
+	// SentStatus is the managed agent sent status
+	SentStatus apicontainerstatus.ManagedAgentStatus `json:"sentStatus,omitempty"`
 	// Reason is a placeholder for failure messaging
 	Reason string `json:"reason,omitempty"`
 	// LastStartedAt is the timestamp when the status last went from PENDING->RUNNING
@@ -1246,6 +1249,20 @@ func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgen
 				Properties:        ma.Properties,
 				ManagedAgentState: state,
 			}
+			return true
+		}
+	}
+	return false
+}
+
+// UpdateManagedAgentSentStatus updates the sent status of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicontainerstatus.ManagedAgentStatus) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			c.ManagedAgentsUnsafe[i].SentStatus = status
 			return true
 		}
 	}

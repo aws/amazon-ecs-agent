@@ -533,17 +533,35 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 			task.Arn, cont.Name, err)
 		return
 	}
+	mtask.doEmitContainerEvent(event)
+}
+
+// emitManagedAgentEvent passes a special container event up through the containerEvents channel if there are managed
+// agent changes in the container passed as parameter.
+// It will omit events the backend would not process and will perform best-effort deduplication of events.
+func (mtask *managedTask) emitManagedAgentEvent(task *apitask.Task, cont *apicontainer.Container) {
+	event, err := api.NewManagedAgentChangeEvent(task, cont)
+	if err != nil {
+		seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
+			task.Arn, cont.Name, err)
+		return
+	}
+	mtask.doEmitContainerEvent(event)
+}
+
+func (mtask *managedTask) doEmitContainerEvent(event api.ContainerStateChange) {
 
 	seelog.Infof("Managed task [%s]: Container [%s]: sending container change event: %s",
-		mtask.Arn, cont.Name, event.String())
+		mtask.Arn, event.Container.Name, event.String())
 	select {
 	case <-mtask.ctx.Done():
 		seelog.Infof("Managed task [%s]: Container [%s]: unable to send container change event [%s] due to exit",
-			mtask.Arn, cont.Name, event.String())
+			mtask.Arn, event.Container.Name, event.String())
 	case mtask.stateChangeEvents <- event:
 	}
 	seelog.Infof("Managed task [%s]: Container [%s]: sent container change event: %s",
-		mtask.Arn, cont.Name, event.String())
+		mtask.Arn, event.Container.Name, event.String())
+
 }
 
 func (mtask *managedTask) emitDockerContainerChange(change dockerContainerChange) {

@@ -22,10 +22,12 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -142,7 +144,7 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 		handler.flushBatchUnsafe(&event, client)
 		return nil
 
-	case statechange.ContainerEvent:
+	case statechange.ContainerEvent, statechange.ManagedAgentEvent:
 		event, ok := change.(api.ContainerStateChange)
 		if !ok {
 			return errors.New("eventhandler: unable to get container event from state change event")
@@ -221,6 +223,31 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 
 // batchContainerEventUnsafe collects container state change events for a given task arn
 func (handler *TaskHandler) batchContainerEventUnsafe(event api.ContainerStateChange) {
+	// if this is a managed agent state change, let's try to bundle it in an existing container event
+	if event.GetEventType() == statechange.ManagedAgentEvent {
+		containerChanges, ok := handler.tasksToContainerStates[event.TaskArn]
+		if ok {
+			for i, cs := range containerChanges {
+				if cs.ContainerName == event.ContainerName && cs.Status == event.Status {
+					cs.ManagedAgents = append(cs.ManagedAgents, event.ManagedAgents...)
+					containerChanges[i] = cs
+					return
+				}
+			}
+		}
+	}
+
+	// For now, evey time a container stops, we also send stop for exec command agent
+	if event.GetEventType() == statechange.ContainerEvent && event.Status == status.ContainerStopped {
+		if _, ok := event.Container.GetManagedAgentByName(execcmd.ExecuteCommandAgentName); ok {
+			event.ManagedAgents = []api.ManagedAgentStateChange{{
+				Name:   execcmd.ExecuteCommandAgentName,
+				Status: status.ManagedAgentStopped,
+				Reason: "Parent container stopped",
+			}}
+		}
+	}
+
 	seelog.Infof("TaskHandler: batching container event: %s", event.String())
 	handler.tasksToContainerStates[event.TaskArn] = append(handler.tasksToContainerStates[event.TaskArn], event)
 }
