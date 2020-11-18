@@ -1365,3 +1365,33 @@ func assertContainerOrderingNotTimedOut(f func(dep *apicontainer.Container, depC
 		assert.Equal(t, expectedTimedOut, timedOut)
 	}
 }
+
+func TestVerifyContainerOrderingStatusResolvableFailOnDependencyWontStart(t *testing.T) {
+	targetName := "target"
+	dependencyName := "dependency"
+	target := &apicontainer.Container{
+		Name:                targetName,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerPulled,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerCreated,
+		DependsOnUnsafe: []apicontainer.DependsOn{
+			{
+				ContainerName: dependencyName,
+			},
+		},
+	}
+	dep := &apicontainer.Container{
+		Name:                dependencyName,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerPulled,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+		AppliedStatus:       apicontainerstatus.ContainerStatusNone,
+	}
+	contMap := map[string]*apicontainer.Container{
+		targetName:     target,
+		dependencyName: dep,
+	}
+	dummyResolves := func(*apicontainer.Container, *apicontainer.Container, string, *config.Config) bool {
+		return true
+	}
+	_, err := verifyContainerOrderingStatusResolvable(target, contMap, &config.Config{}, dummyResolves)
+	assert.Error(t, err)
+}

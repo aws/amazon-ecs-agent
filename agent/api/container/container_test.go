@@ -757,3 +757,50 @@ func TestRequireNeuronRuntime(t *testing.T) {
 	}
 	assert.True(t, c.RequireNeuronRuntime())
 }
+
+func TestHasNotAndWillNotStart(t *testing.T) {
+	testCases := []struct {
+		name          string
+		knownStatus   apicontainerstatus.ContainerStatus
+		desiredStatus apicontainerstatus.ContainerStatus
+		appliedStatus apicontainerstatus.ContainerStatus
+		expected      bool
+	}{
+		{
+			name:          "container has started",
+			knownStatus:   apicontainerstatus.ContainerRunning,
+			desiredStatus: apicontainerstatus.ContainerRunning,
+			appliedStatus: apicontainerstatus.ContainerStatusNone,
+		},
+		{
+			name:          "container wants to start",
+			knownStatus:   apicontainerstatus.ContainerCreated,
+			desiredStatus: apicontainerstatus.ContainerRunning,
+			appliedStatus: apicontainerstatus.ContainerStatusNone,
+		},
+		{
+			name:          "container in the middle of transition",
+			knownStatus:   apicontainerstatus.ContainerCreated,
+			desiredStatus: apicontainerstatus.ContainerStopped,
+			appliedStatus: apicontainerstatus.ContainerRunning,
+		},
+		{
+			name:          "container has not and will not start",
+			knownStatus:   apicontainerstatus.ContainerPulled,
+			desiredStatus: apicontainerstatus.ContainerStopped,
+			appliedStatus: apicontainerstatus.ContainerStatusNone,
+			expected:      true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cont := &Container{
+				KnownStatusUnsafe:   tc.knownStatus,
+				DesiredStatusUnsafe: tc.desiredStatus,
+				AppliedStatus:       tc.appliedStatus,
+			}
+			assert.Equal(t, tc.expected, cont.HasNotAndWillNotStart())
+		})
+	}
+}
