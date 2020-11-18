@@ -10,7 +10,8 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM golang:1.15 as build
+ARG GO_VERSION
+FROM golang:${GO_VERSION} as build
 
 WORKDIR /go/src/
 ADD . /go/src/

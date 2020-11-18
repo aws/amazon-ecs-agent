@@ -1,4 +1,4 @@
-FROM debian:latest
+FROM debian:stable-20201012
 
 RUN apt-get update &&  \
     apt-get install -y ca-certificates && \
@@ -8,4 +8,3 @@ RUN apt-get update &&  \
 RUN cp /etc/ca-certificates.conf /tmp/caconf && cat /tmp/caconf | \
   grep -v "mozilla/CNNIC_ROOT\.crt" > /etc/ca-certificates.conf && \
   update-ca-certificates --fresh
-
