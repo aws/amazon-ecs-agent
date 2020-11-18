@@ -1174,3 +1174,17 @@ func (c *Container) GetTaskARN() string {
 
 	return c.TaskARNUnsafe
 }
+
+// HasNotAndWillNotStart returns true if the container has never started, and is not going to start in the future.
+// This is true if the following are all true:
+// 1. Container's known status is earlier than running;
+// 2. Container's desired status is stopped;
+// 3. Container is not in the middle a transition (indicated by applied status is none status).
+func (c *Container) HasNotAndWillNotStart() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.KnownStatusUnsafe < apicontainerstatus.ContainerRunning &&
+		c.DesiredStatusUnsafe.Terminal() &&
+		c.AppliedStatus == apicontainerstatus.ContainerStatusNone
+}

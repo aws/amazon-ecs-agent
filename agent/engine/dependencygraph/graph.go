@@ -279,6 +279,12 @@ func verifyContainerOrderingStatusResolvable(target *apicontainer.Container, exi
 			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] as dependency did not exit successfully.", dependencyContainer, target)
 		}
 
+		// For any of the dependency conditions - START/COMPLETE/SUCCESS/HEALTHY, if the dependency container has
+		// not started and will not start in the future, this dependency can never be resolved.
+		if dependencyContainer.HasNotAndWillNotStart() {
+			return nil, fmt.Errorf("dependency graph: failed to resolve container ordering dependency [%v] for target [%v] because dependency will never start", dependencyContainer, target)
+		}
+
 		if !resolves(target, dependencyContainer, dependency.Condition, cfg) {
 			blockedDependency = &dependency
 		}
