@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -ex
+
+# the fluent/fluentd container is only available on x86 and tests are only run there:
+# https://hub.docker.com/r/fluent/fluentd
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    docker build -t amazon/fluentd:make -f Dockerfile .
+fi

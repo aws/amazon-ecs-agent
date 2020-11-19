@@ -17,6 +17,12 @@
 
 set -ex
 
+# This script is being skipped because it is part of a deprecated codebuild
+# path. Since it relies on pulling from dockerhub, it could fail our build steps
+# even though it is not necessary. This script can be deleted completely when
+# our github hook code is deprecated.
+exit 0
+
 NAMESPACE="linux"
 REGION=$1
 REPOSITORY=$2

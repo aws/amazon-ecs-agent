@@ -14,7 +14,7 @@
 
 # Run a local registry on the 'well known' port 51670 if it is not running.
 # Also push images we will need to it.
-set -e
+set -ex
 
 REGISTRY_IMAGE="registry:2.7.0"
 
@@ -29,12 +29,8 @@ docker stop "$REGISTRY_CONTAINER_NAME" || true && docker rm "$REGISTRY_CONTAINER
 
 echo "Running $REGISTRY_CONTAINER_NAME"
 docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p "127.0.0.1:51670:5000" "${REGISTRY_IMAGE}"
-
-# Make sure our images are pushed to it
-mirror_image() {
-  docker pull $1
-  mirror_local_image $@
-}
+# give the registry some seconds to get ready for pushes
+sleep 7
 
 mirror_local_image() {
   echo "Mirroring $1"
@@ -45,14 +41,18 @@ mirror_local_image() {
 
 for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" \
 				"amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
-				"amazon/image-cleanup-test-image3" "amazon/fluentd"; do
+				"amazon/image-cleanup-test-image3" ; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
+
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    mirror_local_image "amazon/fluentd:make" "127.0.0.1:51670/amazon/fluentd:latest"
+fi
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
 docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
 
-mirror_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
+mirror_local_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
 
 # create a context folder used by docker build. It will only have a file
 # full of random bits so that the parallel pull images are different.
