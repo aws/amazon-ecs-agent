@@ -801,13 +801,13 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 	containerConfigDir := filepath.Join(containerCapabilityExecResourcesDir, execConfigRelativePath)
 
 	// certs
-	hostCertsFile := filepath.Join(execHostCertsDir, execRequiredCert)
-	containerCertsFile := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath, execRequiredCert)
+	hostCertsDir := filepath.Join(hostCapabilityExecResourcesDir, execCertsRelativePath)
+	containerCertsDir := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath)
 
 	expectedExecBinds := []string{
 		hostBinDir + ":" + containerBinDir + readOnly,
 		hostConfigDir + ":" + containerConfigDir,
-		hostCertsFile + ":" + containerCertsFile + readOnly,
+		hostCertsDir + ":" + containerCertsDir + readOnly,
 	}
 	expectedAgentBinds += len(expectedExecBinds)
 	defer func() {
@@ -856,8 +856,8 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 	containerConfigDir := filepath.Join(containerCapabilityExecResourcesDir, execConfigRelativePath)
 
 	// certs
-	hostCertsFile := filepath.Join(execHostCertsDir, execRequiredCert)
-	containerCertsFile := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath, execRequiredCert)
+	hostCertsDir := filepath.Join(hostCapabilityExecResourcesDir, execCertsRelativePath)
+	containerCertsDir := filepath.Join(containerCapabilityExecResourcesDir, execCertsRelativePath)
 
 	testCases := []struct {
 		name            string
@@ -872,7 +872,7 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 			expectedBinds: []string{
 				hostBinDir + ":" + containerBinDir + readOnly,
 				hostConfigDir + ":" + containerConfigDir,
-				hostCertsFile + ":" + containerCertsFile + readOnly,
+				hostCertsDir + ":" + containerCertsDir + readOnly,
 			},
 		},
 		{

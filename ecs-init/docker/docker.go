@@ -115,8 +115,6 @@ const (
 	execBinRelativePath    = "bin"
 	execConfigRelativePath = "config"
 	execCertsRelativePath  = "certs"
-	execHostCertsDir       = "/etc/pki/ca-trust/extracted/pem"
-	execRequiredCert       = "tls-ca-bundle.pem"
 
 	execAgentLogRelativePath = "/exec"
 )
@@ -468,11 +466,11 @@ func getCapabilityExecBinds() []string {
 			hostConfigDir+":"+filepath.Join(containerResourcesDir, execConfigRelativePath))
 	}
 
-	// bind mount this specific cert file for now
-	hostCert := filepath.Join(execHostCertsDir, execRequiredCert)
-	if isPathValid(hostCert, false) {
+	// bind mount the entire /host/dependency/path/execute-command/certs folder
+	hostCertsDir := filepath.Join(hostResourcesDir, execCertsRelativePath)
+	if isPathValid(hostCertsDir, true) {
 		binds = append(binds,
-			hostCert+":"+filepath.Join(containerResourcesDir, execCertsRelativePath, execRequiredCert)+readOnly)
+			hostCertsDir+":"+filepath.Join(containerResourcesDir, execCertsRelativePath)+readOnly)
 	}
 
 	return binds
