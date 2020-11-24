@@ -24,7 +24,6 @@ const (
 	ContainerInstanceARNKey = "container-instance-arn"
 	EC2InstanceIDKey        = "ec2-instance-id"
 	TaskManifestSeqNumKey   = "task-manifest-seq-num"
-	RegistrationTokenKey    = "registration-token"
 )
 
 func (c *client) SaveMetadata(key, val string) error {
