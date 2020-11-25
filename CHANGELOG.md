@@ -1,12 +1,16 @@
 # Changelog
 
+## 1.48.1
+* Bug - Fix an edge case that can cause container dependency deadlock [#2734](https://github.com/aws/amazon-ecs-agent/pull/2734)
+* Bug - Revert the change that adds client token persistence [#2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
+
 ## 1.48.0
-* Enhancement - Docker stop timeout buffer increased from 30s to 2m [2697](https://github.com/aws/amazon-ecs-agent/pull/2697)
-* Enhancement - More informative ENI attachment logs [2703](https://github.com/aws/amazon-ecs-agent/pull/2703)
-* Enhancement - Introduce new environment variable ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT to pull images of dependent containers even before dependsOn condition is satisfied. This feature is turned off by default [2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
-* Enhancement - Add pulled containers metadata to Task Metadata Endpoint V4 [2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
-* Bug - Fix a bug where agent persists RCI client token to avoid being registered as different container instance ARNs [2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
-* Bug - Fix jumbled min & max for engine connection retry delays [2721](https://github.com/aws/amazon-ecs-agent/pull/2721)
+* Enhancement - Docker stop timeout buffer increased from 30s to 2m [#2697](https://github.com/aws/amazon-ecs-agent/pull/2697)
+* Enhancement - More informative ENI attachment logs [#2703](https://github.com/aws/amazon-ecs-agent/pull/2703)
+* Enhancement - Introduce new environment variable ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT to pull images of dependent containers even before dependsOn condition is satisfied. This feature is turned off by default [#2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
+* Enhancement - Add pulled containers metadata to Task Metadata Endpoint V4 [#2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
+* Bug - Fix a bug where agent persists RCI client token to avoid being registered as different container instance ARNs [#2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
+* Bug - Fix jumbled min & max for engine connection retry delays [#2721](https://github.com/aws/amazon-ecs-agent/pull/2721)
 
 ## 1.47.0
 * Feature - Add support for FSxWindowsFileServerVolumeConfiguration in task definition [#2690](https://github.com/aws/amazon-ecs-agent/pull/2690)
