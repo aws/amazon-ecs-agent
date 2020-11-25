@@ -1,3 +1,9 @@
+amazon-ecs-init (1.48.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.48.1
+
+ -- Shubham Goyal <shugy@amazon.com>  Mon, 23 Nov 2020 11:54:00 +0000
+
 amazon-ecs-init (1.48.0-2) trusty; urgency=medium
 
   * Cache Agent version 1.48.0
