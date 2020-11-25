@@ -34,13 +34,10 @@ const (
 	LOG_MAX_FILE_SIZE_ENV_VAR    = "ECS_LOG_MAX_FILE_SIZE_MB"
 	LOG_MAX_ROLL_COUNT_ENV_VAR   = "ECS_LOG_MAX_ROLL_COUNT"
 
-	logFmt  = "logfmt"
-	jsonFmt = "json"
-
 	DEFAULT_LOGLEVEL                         = "info"
 	DEFAULT_LOGLEVEL_WHEN_DRIVER_SET         = "off"
 	DEFAULT_ROLLOVER_TYPE                    = "date"
-	DEFAULT_OUTPUT_FORMAT                    = logFmt
+	DEFAULT_OUTPUT_FORMAT                    = "logfmt"
 	DEFAULT_MAX_FILE_SIZE            float64 = 10
 	DEFAULT_MAX_ROLL_COUNT           int     = 24
 )
@@ -58,87 +55,27 @@ type logConfig struct {
 
 var Config *logConfig
 
-func ecsMsgFormatter(params string) seelog.FormatterFunc {
-	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		buf := bufferPool.Get()
-		defer bufferPool.Put(buf)
-		// temporary measure to make this change backwards compatible as we update to structured logs
-		if strings.HasPrefix(message, structuredTxtFormatPrefix) {
-			message = strings.TrimPrefix(message, structuredTxtFormatPrefix)
-			buf.WriteString(message)
-		} else if strings.HasPrefix(message, structuredJsonFormatPrefix) {
-			message = strings.TrimPrefix(message, structuredJsonFormatPrefix)
-			message = strings.TrimRight(message, ",")
-			buf.WriteByte('{')
-			buf.WriteString(message)
-			buf.WriteByte('}')
-		} else {
-			buf.WriteString(message)
-		}
-		return buf.String()
-	}
-}
-
 func logfmtFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		buf := bufferPool.Get()
-		defer bufferPool.Put(buf)
-		buf.WriteString("level=")
-		buf.WriteString(level.String())
-		buf.WriteByte(' ')
-		buf.WriteString("time=")
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
-		buf.WriteByte(' ')
-		// temporary measure to make this change backwards compatible as we update to structured logs
-		if strings.HasPrefix(message, structuredTxtFormatPrefix) {
-			message = strings.TrimPrefix(message, structuredTxtFormatPrefix)
-			buf.WriteString(message)
-		} else {
-			buf.WriteString("msg=")
-			buf.WriteString(fmt.Sprintf("%q", message))
-			buf.WriteByte(' ')
-			buf.WriteString("module=")
-			buf.WriteString(context.FileName())
-		}
-		buf.WriteByte('\n')
-		return buf.String()
+		return fmt.Sprintf(`level=%s time=%s msg=%q module=%s
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
 	}
 }
 
 func jsonFormatter(params string) seelog.FormatterFunc {
 	return func(message string, level seelog.LogLevel, context seelog.LogContextInterface) interface{} {
-		buf := bufferPool.Get()
-		defer bufferPool.Put(buf)
-		buf.WriteString(`{"level":"`)
-		buf.WriteString(level.String())
-		buf.WriteString(`","time":"`)
-		buf.WriteString(context.CallTime().UTC().Format(time.RFC3339))
-		buf.WriteString(`",`)
-		// temporary measure to make this change backwards compatible as we update to structured logs
-		if strings.HasPrefix(message, structuredJsonFormatPrefix) {
-			message = strings.TrimPrefix(message, structuredJsonFormatPrefix)
-			message = strings.TrimRight(message, ",")
-			buf.WriteString(message)
-			buf.WriteByte('}')
-		} else {
-			buf.WriteString(`"msg":`)
-			buf.WriteString(fmt.Sprintf("%q", message))
-			buf.WriteString(`,"module":"`)
-			buf.WriteString(context.FileName())
-			buf.WriteString(`"}`)
-		}
-		buf.WriteByte('\n')
-		return buf.String()
+		return fmt.Sprintf(`{"level": %q, "time": %q, "msg": %q, "module": %q}
+`, level.String(), context.CallTime().UTC().Format(time.RFC3339), message, context.FileName())
 	}
 }
 
 func reloadConfig() {
 	logger, err := seelog.LoggerFromConfigAsString(seelogConfig())
-	if err != nil {
+	if err == nil {
+		seelog.ReplaceLogger(logger)
+	} else {
 		seelog.Error(err)
-		return
 	}
-	setGlobalLogger(logger, Config.outputFormat)
 }
 
 func seelogConfig() string {
@@ -168,9 +105,9 @@ func seelogConfig() string {
 	c += `
 	</outputs>
 	<formats>
-		<format id="` + logFmt + `" format="%EcsAgentLogfmt" />
-		<format id="` + jsonFmt + `" format="%EcsAgentJson" />
-		<format id="windows" format="%EcsMsg" />
+		<format id="logfmt" format="%EcsAgentLogfmt" />
+		<format id="json" format="%EcsAgentJson" />
+		<format id="windows" format="%Msg" />
 	</formats>
 </seelog>`
 
@@ -251,9 +188,6 @@ func InitSeelog() {
 		seelog.Error(err)
 	}
 	if err := seelog.RegisterCustomFormatter("EcsAgentJson", jsonFormatter); err != nil {
-		seelog.Error(err)
-	}
-	if err := seelog.RegisterCustomFormatter("EcsMsg", ecsMsgFormatter); err != nil {
 		seelog.Error(err)
 	}
 
