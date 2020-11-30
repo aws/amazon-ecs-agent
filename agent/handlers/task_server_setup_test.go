@@ -50,6 +50,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -1486,6 +1487,37 @@ func TestV4BridgeTaskMetadata(t *testing.T) {
 	expectedV4BridgeTaskResponse.TaskResponse.Containers = nil
 	expectedV4BridgeContainerResponse.ContainerResponse.Networks = nil
 	assert.Equal(t, expectedV4BridgeTaskResponse, taskResponse)
+}
+
+func TestV4BridgeTaskMetadataAllowMissingContainerNetwork(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerByID(containerID).Return(nil, false),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+	)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/task", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v4.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
 }
 
 func TestV4BridgeContainerMetadata(t *testing.T) {
