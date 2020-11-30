@@ -53,7 +53,7 @@ const (
 	ContainerLogDir    = "/var/log/amazon/ssm"
 	ECSAgentExecLogDir = "/log/exec"
 
-	HostCertFile            = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+	HostCertFile            = "/var/lib/ecs/deps/execute-command/certs/tls-ca-bundle.pem"
 	ContainerCertFileSuffix = "certs/amazon-ssm-agent.crt"
 
 	containerConfigFileName   = "amazon-ssm-agent.json"
@@ -158,7 +158,7 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 
 	// Append TLS cert mount
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
-		HostCertFile, // TODO: [ecs-exec] decision pending - review the location of the certs in the host
+		HostCertFile,
 		filepath.Join(containerDepsFolder, ContainerCertFileSuffix)))
 
 	// Add ssm log bind mount
