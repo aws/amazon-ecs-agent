@@ -193,7 +193,7 @@ func TestInitializeContainer(t *testing.T) {
 						"/ecs-execute-command-test-UUID/configuration/amazon-ssm-agent.json:ro"})
 
 				assert.Subset(t, hc.Binds, []string{
-					"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:" +
+					"/var/lib/ecs/deps/execute-command/certs/tls-ca-bundle.pem:" +
 						"/ecs-execute-command-test-UUID/certs/amazon-ssm-agent.crt:ro"})
 
 				assert.Subset(t, hc.Binds, []string{
