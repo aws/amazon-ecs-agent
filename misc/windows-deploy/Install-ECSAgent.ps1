@@ -99,7 +99,7 @@ Process {
     try {
         $ServiceParams = @{
             Name = "$($Script:ServiceName)";
-            BinaryPathName = "$($ECS_EXE) -windows-service";
+            BinaryPathName = "`"$($ECS_EXE)`" -windows-service";
             DisplayName = "Amazon ECS";
             Description = "The $($Script:ServiceName) service runs the Amazon ECS agent";
             DependsOn = 'Docker';
