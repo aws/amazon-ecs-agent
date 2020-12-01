@@ -19,6 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
@@ -144,31 +145,43 @@ func NewTaskResponse(
 	}
 
 	if propagateTags {
-		propagateTagsToMetadata(state, ecsClient, containerInstanceArn, taskARN, resp)
+		propagateTagsToMetadata(state, ecsClient, containerInstanceArn, task, resp)
 	}
 
 	return resp, nil
 }
 
-func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.ECSClient, containerInstanceArn, taskARN string, resp *TaskResponse) {
-	containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceArn)
-	if err == nil {
-		resp.ContainerInstanceTags = make(map[string]string)
-		for _, tag := range containerInstanceTags {
-			resp.ContainerInstanceTags[*tag.Key] = *tag.Value
-		}
+func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.ECSClient, containerInstanceArn string, task *apitask.Task, resp *TaskResponse) {
+	instanceTags := task.GetContainerInstanceTags()
+	if len(instanceTags) > 0 {
+		resp.ContainerInstanceTags = instanceTags
 	} else {
-		seelog.Errorf("Could not get container instance tags for %s: %s", containerInstanceArn, err.Error())
+		containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceArn)
+		if err == nil {
+			task.SetContainerInstanceTags(containerInstanceTags)
+			resp.ContainerInstanceTags = make(map[string]string)
+			for _, tag := range containerInstanceTags {
+				resp.ContainerInstanceTags[*tag.Key] = *tag.Value
+			}
+		} else {
+			seelog.Errorf("Could not get container instance tags for %s: %s", containerInstanceArn, err.Error())
+		}
 	}
 
-	taskTags, err := ecsClient.GetResourceTags(taskARN)
+	tags := task.GetTags()
+	if len(tags) > 0 {
+		resp.TaskTags = tags
+		return
+	}
+	taskTags, err := ecsClient.GetResourceTags(task.Arn)
 	if err == nil {
+		task.SetTags(taskTags)
 		resp.TaskTags = make(map[string]string)
 		for _, tag := range taskTags {
 			resp.TaskTags[*tag.Key] = *tag.Value
 		}
 	} else {
-		seelog.Errorf("Could not get task tags for %s: %s", taskARN, err.Error())
+		seelog.Errorf("Could not get task tags for %s: %s", task.Arn, err.Error())
 	}
 }
 

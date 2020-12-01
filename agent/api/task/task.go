@@ -41,6 +41,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/asmauth"
@@ -266,6 +267,10 @@ type Task struct {
 
 	// LaunchType is the launch type of this task.
 	LaunchType string `json:"LaunchType,omitempty"`
+
+	Tags map[string]string `json:"Tags,omitempty"`
+
+	ContainerInstanceTags map[string]string `json:"ContainerInstanceTags,omitempty"`
 
 	// lock is for protecting all fields in the task struct
 	lock sync.RWMutex
@@ -2720,4 +2725,38 @@ func (task *Task) SetLocalIPAddress(addr string) {
 	defer task.lock.Unlock()
 
 	task.LocalIPAddressUnsafe = addr
+}
+
+func (task *Task) GetTags() map[string]string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.Tags
+}
+
+func (task *Task) SetTags(tags []*ecs.Tag) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.Tags = make(map[string]string)
+	for _, tag := range tags {
+		task.Tags[*tag.Key] = *tag.Value
+	}
+}
+
+func (task *Task) GetContainerInstanceTags() map[string]string {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
+
+	return task.ContainerInstanceTags
+}
+
+func (task *Task) SetContainerInstanceTags(tags []*ecs.Tag) {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	task.ContainerInstanceTags = make(map[string]string)
+	for _, tag := range tags {
+		task.ContainerInstanceTags[*tag.Key] = *tag.Value
+	}
 }

@@ -850,6 +850,10 @@ func TestV2TaskWithTagsMetadata(t *testing.T) {
 			err = json.Unmarshal(res, &taskResponse)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedTaskResponseWithTags, taskResponse)
+			assert.Equal(t, expectedContainerInstanceTags, task.ContainerInstanceTags)
+			assert.Equal(t, expectedTaskTags, task.Tags)
+			task.ContainerInstanceTags = nil
+			task.Tags = nil
 		})
 	}
 }
@@ -1123,6 +1127,10 @@ func TestV3TaskMetadataWithTags(t *testing.T) {
 	err = json.Unmarshal(res, &taskResponse)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedTaskResponseWithTags, taskResponse)
+	assert.Equal(t, expectedContainerInstanceTags, task.ContainerInstanceTags)
+	assert.Equal(t, expectedTaskTags, task.Tags)
+	task.ContainerInstanceTags = nil
+	task.Tags = nil
 }
 
 func TestV3ContainerMetadata(t *testing.T) {
