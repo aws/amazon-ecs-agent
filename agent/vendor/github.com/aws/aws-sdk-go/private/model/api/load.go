@@ -5,6 +5,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -202,12 +203,16 @@ func (a *API) Setup() error {
 	a.setMetadataEndpointsKey()
 	a.writeShapeNames()
 	a.resolveReferences()
+	a.backfillErrorMembers()
 
 	if !a.NoRemoveUnusedShapes {
 		a.removeUnusedShapes()
 	}
 
 	a.fixStutterNames()
+	if err := a.validateShapeNames(); err != nil {
+		log.Fatalf(err.Error())
+	}
 	a.renameExportable()
 	a.applyShapeNameAliases()
 	a.createInputOutputShapes()
@@ -221,9 +226,16 @@ func (a *API) Setup() error {
 
 	a.findEndpointDiscoveryOp()
 	a.injectUnboundedOutputStreaming()
+
+	// Enables generated types for APIs using REST-JSON and JSONRPC protocols.
+	// Other protocols will be added as supported.
+	a.enableGeneratedTypedErrors()
+
 	if err := a.customizationPasses(); err != nil {
 		return err
 	}
+
+	a.addHeaderMapDocumentation()
 
 	if !a.NoRemoveUnusedShapes {
 		a.removeUnusedShapes()

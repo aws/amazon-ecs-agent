@@ -63,6 +63,12 @@ type ShapeRef struct {
 
 	// Flags whether the member reference is a endpoint ARN
 	EndpointARN bool
+
+	// Flags whether the member reference is a Outpost ID
+	OutpostIDMember bool
+
+	// Flag whether the member reference is a Account ID when endpoint shape ARN is present
+	AccountIDMemberWithARN bool
 }
 
 // A Shape defines the definition of a shape type
@@ -125,6 +131,12 @@ type Shape struct {
 	// Flags that a member of the shape is an EndpointARN
 	HasEndpointARNMember bool
 
+	// Flags that a member of the shape is an OutpostIDMember
+	HasOutpostIDMember bool
+
+	// Flags that the shape has an account id member along with EndpointARN member
+	HasAccountIdMemberWithARN bool
+
 	// Indicates the Shape is used as an operation input
 	UsedAsInput bool
 
@@ -134,7 +146,7 @@ type Shape struct {
 
 // CanBeEmpty returns if the shape value can sent request as an empty value.
 // String, blob, list, and map are types must not be empty when the member is
-// serialized to the uri path, or decorated with HostLabel.
+// serialized to the URI path, or decorated with HostLabel.
 func (ref *ShapeRef) CanBeEmpty() bool {
 	switch ref.Shape.Type {
 	case "string":
@@ -658,8 +670,8 @@ var structShapeTmpl = func() *template.Template {
 	)
 	template.Must(
 		shapeTmpl.AddParseTree(
-			"eventStreamExceptionEventShapeTmpl",
-			eventStreamExceptionEventShapeTmpl.Tree),
+			"exceptionShapeMethodTmpl",
+			exceptionShapeMethodTmpl.Tree),
 	)
 	shapeTmpl.Funcs(eventStreamEventShapeTmplFuncs)
 
@@ -675,6 +687,18 @@ var structShapeTmpl = func() *template.Template {
 			endpointARNShapeTmpl.Tree),
 	)
 
+	template.Must(
+		shapeTmpl.AddParseTree(
+			"outpostIDShapeTmpl",
+			outpostIDShapeTmpl.Tree),
+	)
+
+	template.Must(
+		shapeTmpl.AddParseTree(
+			"accountIDWithARNShapeTmpl",
+			accountIDWithARNShapeTmpl.Tree),
+	)
+
 	return shapeTmpl
 }()
 
@@ -688,6 +712,11 @@ const structShapeTmplDef = `
 {{ end -}}
 type {{ $.ShapeName }} struct {
 	_ struct{} {{ $.GoTags true false }}
+
+	{{- if $.Exception }}
+		{{- $_ := $.API.AddSDKImport "private/protocol" }}
+		RespMetadata protocol.ResponseMetadata` + "`json:\"-\" xml:\"-\"`" + `
+	{{- end }}
 
 	{{- if $.OutputEventStreamAPI }}
 
@@ -722,14 +751,16 @@ type {{ $.ShapeName }} struct {
 		{{ $name }} {{ $.GoStructType $name $elem }} {{ $elem.GoTags false $isRequired }}
 	{{- end }}
 }
-{{ if not $.API.NoStringerMethods }}
+
+{{- if not $.API.NoStringerMethods }}
 	{{ $.GoCodeStringers }}
-{{ end }}
-{{ if not (or $.API.NoValidataShapeMethods $.Exception) }}
-	{{ if $.Validations -}}
+{{- end }}
+
+{{- if not (or $.API.NoValidataShapeMethods $.Exception) }}
+	{{- if $.Validations }}
 		{{ $.Validations.GoCode $ }}
-	{{ end }}
-{{ end }}
+	{{- end }}
+{{- end }}
 
 {{- if not (or $.API.NoGenStructFieldAccessors $.Exception) }}
 	{{- $builderShapeName := print $.ShapeName }}
@@ -779,22 +810,80 @@ type {{ $.ShapeName }} struct {
 	}
 {{- end }}
 
-{{ if $.EventFor }}
+{{- if $.EventFor }}
 	{{ template "eventStreamEventShapeTmpl" $ }}
+{{- end }}
 
-	{{- if $.Exception }}
-		{{ template "eventStreamExceptionEventShapeTmpl" $ }}
-	{{ end -}}
-{{ end }}
+{{- if and $.Exception (or $.API.WithGeneratedTypedErrors $.EventFor) }}
+	{{ template "exceptionShapeMethodTmpl" $ }}
+{{- end }}
 
-{{ if $.HasHostLabelMembers }}
+{{- if $.HasHostLabelMembers }}
 	{{ template "hostLabelsShapeTmpl" $ }}
-{{ end }}
+{{- end }}
 
-{{ if $.HasEndpointARNMember }}
+{{- if $.HasEndpointARNMember }}
 	{{ template "endpointARNShapeTmpl" $ }}
-{{ end }}
+{{- end }}
+
+{{- if $.HasOutpostIDMember }}
+	{{ template "outpostIDShapeTmpl" $ }}
+{{- end }}
+
+{{- if $.HasAccountIdMemberWithARN }}
+	{{ template "accountIDWithARNShapeTmpl" $ }}
+{{- end }}
+
 `
+
+var exceptionShapeMethodTmpl = template.Must(
+	template.New("exceptionShapeMethodTmpl").Parse(`
+{{- $_ := $.API.AddImport "fmt" }}
+{{/* TODO allow service custom input to be used */}}
+func newError{{ $.ShapeName }}(v protocol.ResponseMetadata) error {
+	return &{{ $.ShapeName }}{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *{{ $.ShapeName }}) Code() string {
+	return "{{ $.ErrorName }}"
+}
+
+// Message returns the exception's message.
+func (s *{{ $.ShapeName }}) Message() string {
+	{{- if index $.MemberRefs "Message_" }}
+		if s.Message_ != nil {
+			return *s.Message_
+		}
+	{{ end -}}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *{{ $.ShapeName }}) OrigErr() error {
+	return nil
+}
+
+func (s *{{ $.ShapeName }}) Error() string {
+	{{- if or (and (eq (len $.MemberRefs) 1) (not (index $.MemberRefs "Message_"))) (gt (len $.MemberRefs) 1) }}
+		return fmt.Sprintf("%s: %s\n%s", s.Code(), s.Message(), s.String())
+	{{- else }}
+		return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+	{{- end }}
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *{{ $.ShapeName }}) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *{{ $.ShapeName }}) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+`))
 
 var enumShapeTmpl = template.Must(template.New("EnumShape").Parse(`
 {{ $.Docstring }}
@@ -806,6 +895,16 @@ const (
 
 	{{ end }}
 )
+
+{{/* Enum iterators use non-idomatic _Values suffix to avoid naming collisions with other generated types, and enum values */}}
+// {{ $.ShapeName }}_Values returns all elements of the {{ $.ShapeName }} enum
+func {{ $.ShapeName }}_Values() []string {
+	return []string{
+		{{ range $index, $elem := $.Enum -}}
+		{{ index $.EnumConsts $index }},
+		{{ end }}
+	}
+}
 `))
 
 // GoCode returns the rendered Go code for the Shape.

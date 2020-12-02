@@ -15,7 +15,12 @@
 
 package ecsacs
 
-import "github.com/aws/aws-sdk-go/aws/awsutil"
+import (
+	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/private/protocol"
+)
 
 type ASMAuthData struct {
 	_ struct{} `type:"structure"`
@@ -36,7 +41,8 @@ func (s ASMAuthData) GoString() string {
 }
 
 type AccessDeniedException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -49,6 +55,44 @@ func (s AccessDeniedException) String() string {
 // GoString returns the string representation
 func (s AccessDeniedException) GoString() string {
 	return s.String()
+}
+
+func newErrorAccessDeniedException(v protocol.ResponseMetadata) error {
+	return &AccessDeniedException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *AccessDeniedException) Code() string {
+	return "AccessDeniedException"
+}
+
+// Message returns the exception's message.
+func (s *AccessDeniedException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *AccessDeniedException) OrigErr() error {
+	return nil
+}
+
+func (s *AccessDeniedException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *AccessDeniedException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *AccessDeniedException) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 type AckRequest struct {
@@ -242,7 +286,8 @@ func (s AttachTaskNetworkInterfacesOutput) GoString() string {
 }
 
 type BadRequestException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -255,6 +300,44 @@ func (s BadRequestException) String() string {
 // GoString returns the string representation
 func (s BadRequestException) GoString() string {
 	return s.String()
+}
+
+func newErrorBadRequestException(v protocol.ResponseMetadata) error {
+	return &BadRequestException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *BadRequestException) Code() string {
+	return "BadRequestException"
+}
+
+// Message returns the exception's message.
+func (s *BadRequestException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *BadRequestException) OrigErr() error {
+	return nil
+}
+
+func (s *BadRequestException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *BadRequestException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *BadRequestException) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 type CloseMessage struct {
@@ -800,7 +883,8 @@ func (s IPv6AddressAssignment) GoString() string {
 }
 
 type InactiveInstanceException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -815,8 +899,47 @@ func (s InactiveInstanceException) GoString() string {
 	return s.String()
 }
 
+func newErrorInactiveInstanceException(v protocol.ResponseMetadata) error {
+	return &InactiveInstanceException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InactiveInstanceException) Code() string {
+	return "InactiveInstanceException"
+}
+
+// Message returns the exception's message.
+func (s *InactiveInstanceException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InactiveInstanceException) OrigErr() error {
+	return nil
+}
+
+func (s *InactiveInstanceException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InactiveInstanceException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InactiveInstanceException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 type InvalidClusterException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -831,8 +954,47 @@ func (s InvalidClusterException) GoString() string {
 	return s.String()
 }
 
+func newErrorInvalidClusterException(v protocol.ResponseMetadata) error {
+	return &InvalidClusterException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidClusterException) Code() string {
+	return "InvalidClusterException"
+}
+
+// Message returns the exception's message.
+func (s *InvalidClusterException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidClusterException) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidClusterException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidClusterException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidClusterException) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 type InvalidInstanceException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -845,6 +1007,44 @@ func (s InvalidInstanceException) String() string {
 // GoString returns the string representation
 func (s InvalidInstanceException) GoString() string {
 	return s.String()
+}
+
+func newErrorInvalidInstanceException(v protocol.ResponseMetadata) error {
+	return &InvalidInstanceException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidInstanceException) Code() string {
+	return "InvalidInstanceException"
+}
+
+// Message returns the exception's message.
+func (s *InvalidInstanceException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidInstanceException) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidInstanceException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidInstanceException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidInstanceException) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 type MountPoint struct {
@@ -1238,7 +1438,8 @@ func (s Secret) GoString() string {
 }
 
 type ServerException struct {
-	_ struct{} `type:"structure"`
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
 
 	Message_ *string `locationName:"message" type:"string"`
 }
@@ -1251,6 +1452,44 @@ func (s ServerException) String() string {
 // GoString returns the string representation
 func (s ServerException) GoString() string {
 	return s.String()
+}
+
+func newErrorServerException(v protocol.ResponseMetadata) error {
+	return &ServerException{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *ServerException) Code() string {
+	return "ServerException"
+}
+
+// Message returns the exception's message.
+func (s *ServerException) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *ServerException) OrigErr() error {
+	return nil
+}
+
+func (s *ServerException) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *ServerException) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *ServerException) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 type StageUpdateInput struct {
