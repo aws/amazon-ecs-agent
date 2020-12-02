@@ -230,39 +230,68 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 	configFileName := fmt.Sprintf("amazon-ssm-agent-%s.json", sha)
 	var tests = []struct {
 		fileExists             bool
+		fileIsDir              bool
+		removeDirErr           error
 		createConfigFileErr    error
 		expectedConfigFileName string
 		expectedError          error
 	}{
 		{
 			fileExists:             true,
+			fileIsDir:              false,
+			removeDirErr:           nil,
 			createConfigFileErr:    nil,
 			expectedConfigFileName: configFileName,
 			expectedError:          nil,
 		},
 		{
 			fileExists:             false,
+			fileIsDir:              false,
+			removeDirErr:           nil,
 			createConfigFileErr:    nil,
 			expectedConfigFileName: configFileName,
 			expectedError:          nil,
 		},
 		{
 			fileExists:             false,
+			fileIsDir:              false,
+			removeDirErr:           nil,
 			createConfigFileErr:    errors.New("cannot create config"),
 			expectedConfigFileName: "",
 			expectedError:          errors.New("cannot create config"),
+		},
+		{
+			fileExists:             true,
+			fileIsDir:              true,
+			removeDirErr:           nil,
+			createConfigFileErr:    nil,
+			expectedConfigFileName: configFileName,
+			expectedError:          nil,
+		},
+		{
+			fileExists:             true,
+			fileIsDir:              true,
+			removeDirErr:           errors.New("remove dir error"),
+			createConfigFileErr:    nil,
+			expectedConfigFileName: "",
+			expectedError:          errors.New("remove dir error"),
 		},
 	}
 	defer func() {
 		osStat = os.Stat
 		createNewExecAgentConfigFile = createNewConfigFile
+		removeAll = os.RemoveAll
 	}()
 	for _, tc := range tests {
 		osStat = func(name string) (os.FileInfo, error) {
 			return &mockFileInfo{
 				name:  "whatever",
-				isDir: !tc.fileExists,
+				isDir: tc.fileIsDir,
 			}, nil
+		}
+
+		removeAll = func(name string) error {
+			return tc.removeDirErr
 		}
 
 		createNewExecAgentConfigFile = func(c, f string) error {
@@ -313,6 +342,8 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 		expectedFile             string
 		expectedError            error
 		execAgentConfigFileExist bool
+		fileIsDir                bool
+		removeDirErr             error
 		existingLogConfigReadErr error
 		existingLogConfig        string
 		createNewConfigError     error
@@ -321,6 +352,8 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
 			expectedError:            nil,
 			execAgentConfigFileExist: true,
+			fileIsDir:                false,
+			removeDirErr:             nil,
 			existingLogConfigReadErr: nil,
 			existingLogConfig:        execAgentLogConfigTemplate,
 			createNewConfigError:     nil,
@@ -329,6 +362,8 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
 			expectedError:            nil,
 			execAgentConfigFileExist: false,
+			fileIsDir:                false,
+			removeDirErr:             nil,
 			existingLogConfigReadErr: nil,
 			existingLogConfig:        execAgentLogConfigTemplate,
 			createNewConfigError:     nil,
@@ -337,6 +372,8 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
 			expectedError:            nil,
 			execAgentConfigFileExist: true,
+			fileIsDir:                false,
+			removeDirErr:             nil,
 			existingLogConfigReadErr: nil,
 			existingLogConfig:        "junk",
 			createNewConfigError:     nil,
@@ -345,6 +382,8 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
 			expectedError:            nil,
 			execAgentConfigFileExist: true,
+			fileIsDir:                false,
+			removeDirErr:             nil,
 			existingLogConfigReadErr: errors.New("read file error"),
 			existingLogConfig:        "",
 			createNewConfigError:     nil,
@@ -353,22 +392,48 @@ func TestGetExecAgentLogConfigFile(t *testing.T) {
 			expectedFile:             "",
 			expectedError:            errors.New("create file error"),
 			execAgentConfigFileExist: false,
+			fileIsDir:                false,
+			removeDirErr:             nil,
 			existingLogConfigReadErr: nil,
 			existingLogConfig:        "",
 			createNewConfigError:     errors.New("create file error"),
+		},
+		{
+			expectedFile:             fmt.Sprintf("seelog-%s.xml", hash),
+			expectedError:            nil,
+			execAgentConfigFileExist: true,
+			fileIsDir:                true,
+			removeDirErr:             nil,
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        execAgentLogConfigTemplate,
+			createNewConfigError:     nil,
+		},
+		{
+			expectedFile:             "",
+			expectedError:            errors.New("remove dir error"),
+			execAgentConfigFileExist: true,
+			fileIsDir:                true,
+			removeDirErr:             errors.New("remove dir error"),
+			existingLogConfigReadErr: nil,
+			existingLogConfig:        execAgentLogConfigTemplate,
+			createNewConfigError:     nil,
 		},
 	}
 	defer func() {
 		osStat = os.Stat
 		getFileContent = readFileContent
 		createNewExecAgentConfigFile = createNewConfigFile
+		removeAll = os.RemoveAll
 	}()
 	for _, tc := range tests {
 		osStat = func(name string) (os.FileInfo, error) {
 			if tc.execAgentConfigFileExist {
-				return &mockFileInfo{name: "", isDir: false}, nil
+				return &mockFileInfo{name: "", isDir: tc.fileIsDir}, nil
 			}
 			return &mockFileInfo{}, errors.New("no such file")
+		}
+		removeAll = func(name string) error {
+			return tc.removeDirErr
 		}
 		getFileContent = func(path string) ([]byte, error) {
 			return []byte(tc.existingLogConfig), tc.existingLogConfigReadErr
