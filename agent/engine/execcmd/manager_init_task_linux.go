@@ -254,12 +254,20 @@ func getAgentLogConfigFile() (string, error) {
 	if fileExists(logConfigFilePath) && validConfigExists(logConfigFilePath, hash) {
 		return logConfigFileName, nil
 	}
+	// check if config file is a dir; if true, remove it
+	if isDir(logConfigFilePath) {
+		if err := removeAll(logConfigFilePath); err != nil {
+			return "", err
+		}
+	}
 	// create new seelog config file
 	if err := createNewExecAgentConfigFile(execAgentLogConfigTemplate, logConfigFilePath); err != nil {
 		return "", err
 	}
 	return logConfigFileName, nil
 }
+
+var removeAll = os.RemoveAll
 
 func validConfigExists(configFilePath, expectedHash string) bool {
 	config, err := getFileContent(configFilePath)
@@ -287,6 +295,12 @@ func getAgentConfigFileName(sessionLimit int) (string, error) {
 	if fileExists(configFilePath) && validConfigExists(configFilePath, hash) {
 		return configFileName, nil
 	}
+	// check if config file is a dir; if true, remove it
+	if isDir(configFilePath) {
+		if err := removeAll(configFilePath); err != nil {
+			return "", err
+		}
+	}
 	// config doesn't exist; create a new one
 	if err := createNewExecAgentConfigFile(config, configFilePath); err != nil {
 		return "", err
@@ -305,6 +319,13 @@ var osStat = os.Stat
 func fileExists(path string) bool {
 	if fi, err := osStat(path); err == nil {
 		return !fi.IsDir()
+	}
+	return false
+}
+
+func isDir(path string) bool {
+	if fi, err := osStat(path); err == nil {
+		return fi.IsDir()
 	}
 	return false
 }
