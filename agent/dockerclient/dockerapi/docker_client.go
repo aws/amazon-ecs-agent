@@ -1414,6 +1414,9 @@ func getContainerStatsNotStreamed(client sdkclient.Client, ctx context.Context, 
 	}()
 	select {
 	case resp := <-response:
+		if resp.err != nil {
+			return nil, fmt.Errorf("DockerGoClient: Unable to retrieve stats for container %s: %v", id, resp.err)
+		}
 		decoder := json.NewDecoder(resp.stats.Body)
 		stats := &types.StatsJSON{}
 		err := decoder.Decode(stats)
