@@ -15,6 +15,10 @@
 
 package ecr
 
+import (
+	"github.com/aws/aws-sdk-go/private/protocol"
+)
+
 const (
 
 	// ErrCodeInvalidParameterException for service response error code
@@ -25,3 +29,8 @@ const (
 	// "ServerException".
 	ErrCodeServerException = "ServerException"
 )
+
+var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
+	"InvalidParameterException": newErrorInvalidParameterException,
+	"ServerException":           newErrorServerException,
+}

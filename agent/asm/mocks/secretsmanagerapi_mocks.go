@@ -1015,3 +1015,53 @@ func (mr *MockSecretsManagerAPIMockRecorder) UpdateSecretWithContext(arg0, arg1 
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecretWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).UpdateSecretWithContext), varargs...)
 }
+
+// ValidateResourcePolicy mocks base method
+func (m *MockSecretsManagerAPI) ValidateResourcePolicy(arg0 *secretsmanager.ValidateResourcePolicyInput) (*secretsmanager.ValidateResourcePolicyOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateResourcePolicy", arg0)
+	ret0, _ := ret[0].(*secretsmanager.ValidateResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateResourcePolicy indicates an expected call of ValidateResourcePolicy
+func (mr *MockSecretsManagerAPIMockRecorder) ValidateResourcePolicy(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateResourcePolicy", reflect.TypeOf((*MockSecretsManagerAPI)(nil).ValidateResourcePolicy), arg0)
+}
+
+// ValidateResourcePolicyRequest mocks base method
+func (m *MockSecretsManagerAPI) ValidateResourcePolicyRequest(arg0 *secretsmanager.ValidateResourcePolicyInput) (*request.Request, *secretsmanager.ValidateResourcePolicyOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateResourcePolicyRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*secretsmanager.ValidateResourcePolicyOutput)
+	return ret0, ret1
+}
+
+// ValidateResourcePolicyRequest indicates an expected call of ValidateResourcePolicyRequest
+func (mr *MockSecretsManagerAPIMockRecorder) ValidateResourcePolicyRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateResourcePolicyRequest", reflect.TypeOf((*MockSecretsManagerAPI)(nil).ValidateResourcePolicyRequest), arg0)
+}
+
+// ValidateResourcePolicyWithContext mocks base method
+func (m *MockSecretsManagerAPI) ValidateResourcePolicyWithContext(arg0 context.Context, arg1 *secretsmanager.ValidateResourcePolicyInput, arg2 ...request.Option) (*secretsmanager.ValidateResourcePolicyOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ValidateResourcePolicyWithContext", varargs...)
+	ret0, _ := ret[0].(*secretsmanager.ValidateResourcePolicyOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateResourcePolicyWithContext indicates an expected call of ValidateResourcePolicyWithContext
+func (mr *MockSecretsManagerAPIMockRecorder) ValidateResourcePolicyWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateResourcePolicyWithContext", reflect.TypeOf((*MockSecretsManagerAPI)(nil).ValidateResourcePolicyWithContext), varargs...)
+}

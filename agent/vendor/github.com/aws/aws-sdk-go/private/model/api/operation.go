@@ -31,9 +31,10 @@ type Operation struct {
 
 	EventStreamAPI *EventStreamAPI
 
-	IsEndpointDiscoveryOp bool               `json:"endpointoperation"`
-	EndpointDiscovery     *EndpointDiscovery `json:"endpointdiscovery"`
-	Endpoint              *EndpointTrait     `json:"endpoint"`
+	IsEndpointDiscoveryOp  bool               `json:"endpointoperation"`
+	EndpointDiscovery      *EndpointDiscovery `json:"endpointdiscovery"`
+	Endpoint               *EndpointTrait     `json:"endpoint"`
+	IsHttpChecksumRequired bool               `json:"httpChecksumRequired"`
 }
 
 // EndpointTrait provides the structure of the modeled endpoint trait, and its
@@ -142,6 +143,11 @@ func (o *Operation) GetSigner() string {
 	return buf.String()
 }
 
+// HasAccountIDMemberWithARN returns true if an account id member exists for an input shape that may take in an ARN.
+func (o *Operation) HasAccountIDMemberWithARN() bool {
+	return o.InputRef.Shape.HasAccountIdMemberWithARN
+}
+
 // operationTmpl defines a template for rendering an API Operation
 var operationTmpl = template.Must(template.New("operation").Funcs(template.FuncMap{
 	"EnableStopOnSameToken": enableStopOnSameToken,
@@ -207,6 +213,12 @@ func (c *{{ .API.StructName }}) {{ .ExportedName }}Request(` +
 		{{ .GetSigner }}
 	{{- end }}
 
+	{{- if .HasAccountIDMemberWithARN }}
+		// update account id or check if provided input for account id member matches 
+		// the account id present in ARN
+		req.Handlers.Validate.PushFrontNamed(updateAccountIDWithARNHandler)
+	{{- end }}
+
 	{{- if .ShouldDiscardResponse -}}
 		{{- $_ := .API.AddSDKImport "private/protocol" }}
 		{{- $_ := .API.AddSDKImport "private/protocol" .API.ProtocolPackage }}
@@ -221,7 +233,7 @@ func (c *{{ .API.StructName }}) {{ .ExportedName }}Request(` +
 				)
 			{{- end }}
 
-			es := new{{ $esapi.Name }}()
+			es := New{{ $esapi.Name }}()
 			{{- if $esapi.Legacy }}
 				req.Handlers.Unmarshal.PushBack(es.setStreamCloser)
 			{{- end }}
@@ -267,53 +279,65 @@ func (c *{{ .API.StructName }}) {{ .ExportedName }}Request(` +
 	{{- end }}
 
 	{{- if .EndpointDiscovery }}
-		{{- if not .EndpointDiscovery.Required }}
-			if aws.BoolValue(req.Config.EnableEndpointDiscovery) {
-		{{- end }}
-		de := discoverer{{ .API.EndpointDiscoveryOp.Name }}{
-			Required: {{ .EndpointDiscovery.Required }},
-			EndpointCache: c.endpointCache,
-			Params: map[string]*string{
-				"op": aws.String(req.Operation.Name),
-				{{- range $key, $ref := .InputRef.Shape.MemberRefs -}}
-					{{- if $ref.EndpointDiscoveryID -}}
-						{{- if ne (len $ref.LocationName) 0 -}}
-							"{{ $ref.LocationName }}": input.{{ $key }},
-						{{- else }}
-							"{{ $key }}": input.{{ $key }},
+		// if custom endpoint for the request is set to a non empty string,
+		// we skip the endpoint discovery workflow.
+		if req.Config.Endpoint == nil || *req.Config.Endpoint == "" {
+			{{- if not .EndpointDiscovery.Required }}
+				if aws.BoolValue(req.Config.EnableEndpointDiscovery) {
+			{{- end }}
+			de := discoverer{{ .API.EndpointDiscoveryOp.Name }}{
+				Required: {{ .EndpointDiscovery.Required }},
+				EndpointCache: c.endpointCache,
+				Params: map[string]*string{
+					"op": aws.String(req.Operation.Name),
+					{{- range $key, $ref := .InputRef.Shape.MemberRefs -}}
+						{{- if $ref.EndpointDiscoveryID -}}
+							{{- if ne (len $ref.LocationName) 0 -}}
+								"{{ $ref.LocationName }}": input.{{ $key }},
+							{{- else }}
+								"{{ $key }}": input.{{ $key }},
+							{{- end }}
 						{{- end }}
 					{{- end }}
-				{{- end }}
-			},
-			Client: c,
-		}
-
-		for k, v := range de.Params {
-			if v == nil {
-				delete(de.Params, k)
+				},
+				Client: c,
 			}
-		}
 
-		req.Handlers.Build.PushFrontNamed(request.NamedHandler{
-			Name: "crr.endpointdiscovery",
-			Fn: de.Handler,
-		})
-		{{- if not .EndpointDiscovery.Required }}
+			for k, v := range de.Params {
+				if v == nil {
+					delete(de.Params, k)
+				}
 			}
-		{{- end }}
+
+			req.Handlers.Build.PushFrontNamed(request.NamedHandler{
+				Name: "crr.endpointdiscovery",
+				Fn: de.Handler,
+			})
+			{{- if not .EndpointDiscovery.Required }}
+				}
+			{{- end }}
+		}
 	{{- end }}
 
 	{{- range $_, $handler := $.CustomBuildHandlers }}
 		req.Handlers.Build.PushBackNamed({{ $handler }})
 	{{- end }}
+
+	{{- if .IsHttpChecksumRequired }}
+		{{- $_ := .API.AddSDKImport "private/checksum" }}
+		req.Handlers.Build.PushBackNamed(request.NamedHandler{
+			Name: "contentMd5Handler",
+			Fn: checksum.AddBodyContentMD5Handler,
+		})
+	{{- end }}
 	return
 }
 
 // {{ .ExportedName }} API operation for {{ .API.Metadata.ServiceFullName }}.
-{{ if .Documentation -}}
+{{- if .Documentation }}
 //
 {{ .Documentation }}
-{{ end -}}
+{{- end }}
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -321,17 +345,21 @@ func (c *{{ .API.StructName }}) {{ .ExportedName }}Request(` +
 //
 // See the AWS API reference guide for {{ .API.Metadata.ServiceFullName }}'s
 // API operation {{ .ExportedName }} for usage and error information.
-{{ if .ErrorRefs -}}
+{{- if .ErrorRefs }}
 //
-// Returned Error Codes:
-{{ range $_, $err := .ErrorRefs -}}
+// Returned Error {{ if $.API.WithGeneratedTypedErrors }}Types{{ else }}Codes{{ end }}:
+{{- range $_, $err := .ErrorRefs -}}
+{{- if $.API.WithGeneratedTypedErrors }}
+//   * {{ $err.ShapeName }}
+{{- else }}
 //   * {{ $err.Shape.ErrorCodeName }} "{{ $err.Shape.ErrorName}}"
-{{ if $err.Docstring -}}
+{{- end }}
+{{- if $err.Docstring }}
 {{ $err.IndentedDocstring }}
-{{ end -}}
+{{- end }}
 //
-{{ end -}}
-{{ end -}}
+{{- end }}
+{{- end }}
 {{ $crosslinkURL := $.API.GetCrosslinkURL $.ExportedName -}}
 {{ if ne $crosslinkURL "" -}}
 // See also, {{ $crosslinkURL }}
@@ -440,6 +468,7 @@ type discoverer{{ .ExportedName }} struct {
 	EndpointCache *crr.EndpointCache
 	Params map[string]*string
 	Key string
+	req *request.Request
 }
 
 func (d *discoverer{{ .ExportedName }}) Discover() (crr.Endpoint, error) {
@@ -466,8 +495,19 @@ func (d *discoverer{{ .ExportedName }}) Discover() (crr.Endpoint, error) {
 			continue
 		}
 
+		address := *e.Address
+
+		var scheme string
+		if idx := strings.Index(address, "://"); idx != -1 {
+			scheme = address[:idx]
+		}
+
+		if len(scheme) == 0 {
+			address = fmt.Sprintf("%s://%s", d.req.HTTPRequest.URL.Scheme, address)
+		}
+
 		cachedInMinutes := aws.Int64Value(e.CachePeriodInMinutes)
-		u, err := url.Parse(*e.Address)
+		u, err := url.Parse(address)
 		if err != nil {
 			continue
 		}
@@ -488,6 +528,7 @@ func (d *discoverer{{ .ExportedName }}) Discover() (crr.Endpoint, error) {
 func (d *discoverer{{ .ExportedName }}) Handler(r *request.Request) {
 	endpointKey := crr.BuildEndpointKey(d.Params)
 	d.Key = endpointKey
+	d.req = r
 
 	endpoint, err := d.EndpointCache.Get(d, endpointKey, d.Required)
 	if err != nil {
@@ -510,6 +551,8 @@ func (o *Operation) GoCode() string {
 		o.API.AddSDKImport("aws/crr")
 		o.API.AddImport("time")
 		o.API.AddImport("net/url")
+		o.API.AddImport("fmt")
+		o.API.AddImport("strings")
 	}
 
 	if o.Endpoint != nil && len(o.Endpoint.HostPrefix) != 0 {

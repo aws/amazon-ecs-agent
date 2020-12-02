@@ -21,6 +21,10 @@ func renderEventStreamAPI(w io.Writer, op *Operation) error {
 	op.API.AddSDKImport("private/protocol/eventstream")
 	op.API.AddSDKImport("private/protocol/eventstream/eventstreamapi")
 
+	w.Write([]byte(`
+var _ awserr.Error
+`))
+
 	return eventStreamAPITmpl.Execute(w, op)
 }
 
@@ -45,6 +49,10 @@ const eventStreamAPITmplDef = `
 {{- $inputStream := $esapi.InputStream }}
 
 // {{ $esapi.Name }} provides the event stream handling for the {{ $.ExportedName }}.
+//
+// For testing and mocking the event stream this type should be initialized via
+// the New{{ $esapi.Name }} constructor function. Using the functional options
+// to pass in nested mock behavior.
 type {{ $esapi.Name }} struct {
 	{{- if $inputStream }}
 
@@ -91,11 +99,46 @@ type {{ $esapi.Name }} struct {
 	err       *eventstreamapi.OnceError
 }
 
-func new{{ $esapi.Name }}() *{{ $esapi.Name }} {
-	return &{{ $esapi.Name }} {
+// New{{ $esapi.Name }} initializes an {{ $esapi.Name }}.
+// This function should only be used for testing and mocking the {{ $esapi.Name }}
+// stream within your application.
+{{- if $inputStream }}
+//
+// The Writer member must be set before writing events to the stream.
+{{- end }}
+{{- if $outputStream }}
+//
+// The Reader member must be set before reading events from the stream.
+{{- end }}
+{{- if $esapi.Legacy }}
+//
+// The StreamCloser member should be set to the underlying io.Closer,
+// (e.g. http.Response.Body), that will be closed when the stream Close method
+// is called.
+{{- end }}
+//
+//   es := New{{ $esapi.Name }}(func(o *{{ $esapi.Name}}{
+{{- if $inputStream }}
+//       es.Writer = myMockStreamWriter
+{{- end }}
+{{- if $outputStream }}
+//       es.Reader = myMockStreamReader
+{{- end }}
+{{- if $esapi.Legacy }}
+//       es.StreamCloser = myMockStreamCloser
+{{- end }}
+//   })
+func New{{ $esapi.Name }}(opts ...func(*{{ $esapi.Name}})) *{{ $esapi.Name }} {
+	es := &{{ $esapi.Name }} {
 		done: make(chan struct{}),
 		err: eventstreamapi.NewOnceError(),
 	}
+
+	for _, fn := range opts {
+		fn(es)
+	}
+
+	return es
 }
 
 {{- if $esapi.Legacy }}
@@ -234,14 +277,17 @@ func (es *{{ $esapi.Name }}) waitStreamPartClose() {
 {{- end }}
 
 {{- if $outputStream }}
-
 	{{- if eq .API.Metadata.Protocol "json" }}
 
-		func (es *{{ $esapi.Name}}) {{ $esapi.StreamOutputUnmarshalerForEventName }}(eventType string) (eventstreamapi.Unmarshaler, error) {
+		type {{ $esapi.StreamOutputUnmarshalerForEventName }} struct {
+			unmarshalerForEvent func(string) (eventstreamapi.Unmarshaler, error)
+			output {{ $.OutputRef.GoType }}
+		}
+		func (e {{ $esapi.StreamOutputUnmarshalerForEventName }}) UnmarshalerForEventName(eventType string) (eventstreamapi.Unmarshaler, error) {
 			if eventType == "initial-response" {
-				return es.output, nil
+				return e.output, nil
 			}
-			return {{ $outputStream.StreamUnmarshalerForEventName }}(eventType)
+			return e.unmarshalerForEvent(eventType)
 		}
 	{{- end }}
 
@@ -251,6 +297,7 @@ func (es *{{ $esapi.Name }}) waitStreamPartClose() {
 	// {{ range $_, $event := $outputStream.Events }}
 	//     * {{ $event.Shape.ShapeName }}
 	{{- end }}
+    //     * {{ $outputStream.StreamUnknownEventName }}
 	func (es *{{ $esapi.Name }}) Events() <-chan {{ $outputStream.EventGroupName }} {
 		return es.Reader.Events()
 	}
@@ -261,16 +308,25 @@ func (es *{{ $esapi.Name }}) waitStreamPartClose() {
 			opts = append(opts, eventstream.DecodeWithLogger(r.Config.Logger))
 		}
 
+		unmarshalerForEvent := {{ $outputStream.StreamUnmarshalerForEventName }}{
+			metadata: protocol.ResponseMetadata{
+				StatusCode: r.HTTPResponse.StatusCode,
+				RequestID: r.RequestID,
+			},
+		}.UnmarshalerForEventName
+		{{- if eq .API.Metadata.Protocol "json" }}
+			unmarshalerForEvent = {{ $esapi.StreamOutputUnmarshalerForEventName }}{
+				unmarshalerForEvent: unmarshalerForEvent,
+				output: es.output,
+			}.UnmarshalerForEventName
+		{{- end }}
+
 		decoder := eventstream.NewDecoder(r.HTTPResponse.Body, opts...)
 		eventReader := eventstreamapi.NewEventReader(decoder,
 			protocol.HandlerPayloadUnmarshal{
 				Unmarshalers: r.Handlers.UnmarshalStream,
 			},
-			{{- if eq .API.Metadata.Protocol "json" }}
-				es.{{ $esapi.StreamOutputUnmarshalerForEventName }},
-			{{- else }}
-				{{ $outputStream.StreamUnmarshalerForEventName }},
-			{{- end }}
+			unmarshalerForEvent,
 		)
 
 		es.outputReader = r.HTTPResponse.Body
@@ -311,7 +367,7 @@ func (es *{{ $esapi.Name }}) waitStreamPartClose() {
 {{- if $inputStream }}
 //
 // Will close the underlying EventStream writer, and no more events can be
-// sent. 
+// sent.
 {{- end }}
 {{- if $outputStream }}
 //
@@ -572,6 +628,8 @@ func (s *{{ $.ShapeName }}) UnmarshalEvent(
 	return nil
 }
 
+// MarshalEvent marshals the type into an stream event value. This method
+// should only used internally within the SDK's EventStream handling.
 func (s *{{ $.ShapeName}}) MarshalEvent(pm protocol.PayloadMarshaler) (msg eventstream.Message, err error) {
 	msg.Headers.Set(eventstreamapi.MessageTypeHeader, eventstream.StringValue({{ ShapeMessageType $ }}))
 
@@ -595,35 +653,5 @@ func (s *{{ $.ShapeName}}) MarshalEvent(pm protocol.PayloadMarshaler) (msg event
 		msg.Payload = buf.Bytes()
 	{{- end }}
 	return msg, err
-}
-`))
-
-var eventStreamExceptionEventShapeTmpl = template.Must(
-	template.New("eventStreamExceptionEventShapeTmpl").Parse(`
-// Code returns the exception type name.
-func (s {{ $.ShapeName }}) Code() string {
-	{{- if $.ErrorInfo.Code }}
-		return "{{ $.ErrorInfo.Code }}"
-	{{- else }}
-		return "{{ $.ShapeName }}"
-	{{ end -}}
-}
-
-// Message returns the exception's message.
-func (s {{ $.ShapeName }}) Message() string {
-	{{- if index $.MemberRefs "Message_" }}
-		return *s.Message_
-	{{- else }}
-		return ""
-	{{ end -}}
-}
-
-// OrigErr always returns nil, satisfies awserr.Error interface.
-func (s {{ $.ShapeName }}) OrigErr() error {
-	return nil
-}
-
-func (s {{ $.ShapeName }}) Error() string {
-	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
 }
 `))
