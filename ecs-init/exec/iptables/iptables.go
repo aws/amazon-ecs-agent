@@ -113,11 +113,9 @@ func (route *NetfilterRoute) Remove() error {
 		}
 	}
 
-	if !allowOffhostIntrospection() {
-		introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs)
-		if introspectionInputError != nil {
-			introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
-		}
+	introspectionInputError = route.modifyNetfilterEntry(iptablesTableFilter, iptablesDelete, getBlockIntrospectionOffhostAccessInputChainArgs)
+	if introspectionInputError != nil {
+		introspectionInputError = fmt.Errorf("error removing input chain entry: %v", introspectionInputError)
 	}
 
 	outputErr := route.modifyNetfilterEntry(iptablesTableNat, iptablesDelete, getOutputChainArgs)
