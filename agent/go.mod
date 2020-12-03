@@ -54,3 +54,6 @@ require (
 	gotest.tools v1.4.0 // indirect
 	honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc
 )
+
+// Workaround for https://github.com/golang/go/issues/34610
+replace golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
