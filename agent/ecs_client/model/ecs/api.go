@@ -9427,13 +9427,6 @@ func (s *ManagedAgentStateChange) SetStatus(v string) *ManagedAgentStateChange {
 	return s
 }
 
-// Details on a volume mount point that is used in a container definition.
-type MountPoint struct {
-	_ struct{} `type:"structure"`
-
-	Message_ *string `locationName:"message" type:"string"`
-}
-
 // String returns the string representation
 func (s MissingVersionException) String() string {
 	return awsutil.Prettify(s)
