@@ -9314,17 +9314,6 @@ func (s *LogConfiguration) SetSecretOptions(v []*Secret) *LogConfiguration {
 	return s
 }
 
-// Amazon ECS is unable to determine the current version of the Amazon ECS container
-// agent on the container instance and does not have enough information to proceed
-// with an update. This could be because the agent running on the container
-// instance is an older or custom version that does not use our version information.
-type MissingVersionException struct {
-	_            struct{}                  `type:"structure"`
-	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
-
-	Message_ *string `locationName:"message" type:"string"`
-}
-
 type ManagedAgent struct {
 	_ struct{} `type:"structure"`
 
@@ -9425,6 +9414,17 @@ func (s *ManagedAgentStateChange) SetReason(v string) *ManagedAgentStateChange {
 func (s *ManagedAgentStateChange) SetStatus(v string) *ManagedAgentStateChange {
 	s.Status = &v
 	return s
+}
+
+// Amazon ECS is unable to determine the current version of the Amazon ECS container
+// agent on the container instance and does not have enough information to proceed
+// with an update. This could be because the agent running on the container
+// instance is an older or custom version that does not use our version information.
+type MissingVersionException struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	Message_ *string `locationName:"message" type:"string"`
 }
 
 // String returns the string representation
@@ -14210,6 +14210,13 @@ const (
 	// ManagedAgentNameExecuteCommandAgent is a ManagedAgentName enum value
 	ManagedAgentNameExecuteCommandAgent = "ExecuteCommandAgent"
 )
+
+// ManagedAgentName_Values returns all elements of the ManagedAgentName enum
+func ManagedAgentName_Values() []string {
+	return []string{
+		ManagedAgentNameExecuteCommandAgent,
+	}
+}
 
 const (
 	// NetworkModeBridge is a NetworkMode enum value
