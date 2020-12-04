@@ -33,7 +33,7 @@ import (
 const (
 	testTempDirPrefix = "init-docker-test-"
 
-	expectedAgentBindsUnspecifiedPlatform = 20
+	expectedAgentBindsUnspecifiedPlatform = 21
 	expectedAgentBindsSuseUbuntuPlatform  = 18
 )
 
@@ -806,10 +806,12 @@ func TestStartAgentWithExecBinds(t *testing.T) {
 
 	expectedExecBinds := []string{
 		hostBinDir + ":" + containerBinDir + readOnly,
-		hostConfigDir + ":" + containerConfigDir,
 		hostCertsDir + ":" + containerCertsDir + readOnly,
 	}
 	expectedAgentBinds += len(expectedExecBinds)
+
+	// bind mount for the config folder is already included in expectedAgentBinds since it's always added
+	expectedExecBinds = append(expectedExecBinds, hostConfigDir+":"+containerConfigDir)
 	defer func() {
 		expectedAgentBinds = expectedAgentBindsUnspecifiedPlatform
 		isPathValid = defaultIsPathValid
@@ -882,6 +884,7 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 			},
 			expectedBinds: []string{
 				hostBinDir + ":" + containerBinDir + readOnly,
+				hostConfigDir + ":" + containerConfigDir,
 			},
 		},
 		{
@@ -889,7 +892,9 @@ func TestGetCapabilityExecBinds(t *testing.T) {
 			testIsPathValid: func(path string, isDir bool) bool {
 				return false
 			},
-			expectedBinds: nil,
+			expectedBinds: []string{
+				hostConfigDir + ":" + containerConfigDir,
+			},
 		},
 	}
 	for _, tc := range testCases {

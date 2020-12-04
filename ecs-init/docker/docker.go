@@ -460,11 +460,10 @@ func getCapabilityExecBinds() []string {
 
 	// bind mount the entire /host/dependency/path/execute-command/config folder
 	// in read-write mode to allow ecs-agent to write config files to host file system
+	// (docker will) create the config folder if it does not exist
 	hostConfigDir := filepath.Join(hostResourcesDir, execConfigRelativePath)
-	if isPathValid(hostConfigDir, true) {
-		binds = append(binds,
-			hostConfigDir+":"+filepath.Join(containerResourcesDir, execConfigRelativePath))
-	}
+	binds = append(binds,
+		hostConfigDir+":"+filepath.Join(containerResourcesDir, execConfigRelativePath))
 
 	// bind mount the entire /host/dependency/path/execute-command/certs folder
 	hostCertsDir := filepath.Join(hostResourcesDir, execCertsRelativePath)
