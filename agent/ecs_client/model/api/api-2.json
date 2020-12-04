@@ -1555,7 +1555,8 @@
         "status"
       ],
       "members":{
-        "name":{"shape":"ManagedAgentName"},
+        "managedAgentName":{"shape":"ManagedAgentName"},
+        "containerName": {"shape":"String"},
         "status":{"shape":"String"},
         "reason":{"shape":"String"}
       }
@@ -2114,6 +2115,7 @@
         "status":{"shape":"String"},
         "reason":{"shape":"String"},
         "containers":{"shape":"ContainerStateChanges"},
+        "managedAgents":{"shape":"ManagedAgentStateChanges"},
         "attachments":{"shape":"AttachmentStateChanges"},
         "pullStartedAt":{"shape":"Timestamp"},
         "pullStoppedAt":{"shape":"Timestamp"},

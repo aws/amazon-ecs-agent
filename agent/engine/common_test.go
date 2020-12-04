@@ -325,20 +325,18 @@ func waitForContainerHealthStatus(t *testing.T, testTask *apitask.Task) {
 	}
 }
 
-// sorts through stateChangeEvents to locate and assert that the container event matches the expectedContainer event.
+// sorts through stateChangeEvents to locate and assert that the ManagedAgent event matchess the expectedManagedAgent event.
 // expectContainerEvent field is a boolean to allow us to ignore an expected empty channel
 func checkManagedAgentEvents(t *testing.T, expectContainerEvent bool, stateChangeEvents <-chan statechange.Event,
 	expectedManagedAgent apicontainer.ManagedAgent, waitDone chan<- struct{}) {
 	if expectContainerEvent {
 		for event := range stateChangeEvents {
-			if containerEvent, ok := event.(api.ContainerStateChange); ok {
-				if containerEvent.ManagedAgents != nil {
-					// there is currently only ever a single managed agent
-					assert.Equal(t, expectedManagedAgent.Status, containerEvent.ManagedAgents[0].Status,
-						"expected managedAgent container state change event did not match actual event")
-					close(waitDone)
-					return
-				}
+			if managedAgentEvent, ok := event.(api.ManagedAgentStateChange); ok {
+				// there is currently only ever a single managed agent
+				assert.Equal(t, expectedManagedAgent.Status, managedAgentEvent.Status,
+					"expected managedAgent container state change event did not match actual event")
+				close(waitDone)
+				return
 			}
 			seelog.Debugf("processed errant event: %v", event)
 		}

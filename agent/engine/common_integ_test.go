@@ -121,13 +121,12 @@ func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
 	expectedStatus apicontainerstatus.ManagedAgentStatus, waitDone chan<- struct{}) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	for event := range stateChangeEvents {
-		if containerEvent, ok := event.(api.ContainerStateChange); ok {
-			if containerEvent.ManagedAgents != nil {
-				if containerEvent.ManagedAgents[0].Status == expectedStatus {
-					close(waitDone)
-					return
-				}
+		if managedAgentEvent, ok := event.(api.ManagedAgentStateChange); ok {
+			if managedAgentEvent.Status == expectedStatus {
+				close(waitDone)
+				return
 			}
+
 		}
 	}
 }

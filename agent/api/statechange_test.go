@@ -24,7 +24,7 @@ import (
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
-	"github.com/aws/amazon-ecs-agent/agent/statechange"
+	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -184,7 +184,7 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 				Container:   task.Containers[0],
 			}
 
-			event, err := newUncheckedContainerStateChangeEvent(task, task.Containers[0], "reason", statechange.ContainerEvent)
+			event, err := newUncheckedContainerStateChangeEvent(task, task.Containers[0], "reason")
 			if tc.containerType == apicontainer.ContainerNormal {
 				assert.NoError(t, err)
 				assert.Equal(t, expectedEvent, event)
@@ -196,8 +196,6 @@ func TestNewUncheckedContainerStateChangeEvent(t *testing.T) {
 }
 
 func TestNewManagedAgentChangeEvent(t *testing.T) {
-	steadyStateStatus := apicontainerstatus.ContainerRunning
-	exitCode := 1
 	tests := []struct {
 		name          string
 		managedAgents []apicontainer.ManagedAgent
@@ -206,6 +204,16 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 		{
 			name:        "no managed agents",
 			expectError: true,
+		},
+		{
+			name:        "non-existent managed agent",
+			expectError: true,
+			managedAgents: []apicontainer.ManagedAgent{{
+				Name: "nonExistentAgent",
+				ManagedAgentState: apicontainer.ManagedAgentState{
+					Status: apicontainerstatus.ManagedAgentStatusNone,
+					Reason: "reason",
+				}}},
 		},
 		{
 			name: "with managed agents that should NOT be reported",
@@ -220,7 +228,7 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 		{
 			name: "with managed agents that should be reported",
 			managedAgents: []apicontainer.ManagedAgent{{
-				Name: "dummyAgent",
+				Name: execcmd.ExecuteCommandAgentName,
 				ManagedAgentState: apicontainer.ManagedAgentState{
 					Status: apicontainerstatus.ManagedAgentRunning,
 					Reason: "reason",
@@ -235,47 +243,20 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 				Arn: "arn:123",
 				Containers: []*apicontainer.Container{
 					{
-						Name:                    "c1",
-						RuntimeID:               "222",
-						KnownStatusUnsafe:       apicontainerstatus.ContainerRunning,
-						SentStatusUnsafe:        apicontainerstatus.ContainerStatusNone,
-						Type:                    apicontainer.ContainerNormal,
-						SteadyStateStatusUnsafe: &steadyStateStatus,
-						KnownExitCodeUnsafe:     &exitCode,
-						KnownPortBindingsUnsafe: []apicontainer.PortBinding{{
-							ContainerPort: 1,
-							HostPort:      2,
-							BindIP:        "1.2.3.4",
-							Protocol:      3,
-						}},
-						ImageDigest:         "image",
+						Name:                "c1",
 						ManagedAgentsUnsafe: tc.managedAgents,
 					},
 				}}
 
-			expectedEvent := ContainerStateChange{
+			expectedEvent := ManagedAgentStateChange{
 				TaskArn:       "arn:123",
+				Name:          execcmd.ExecuteCommandAgentName,
 				ContainerName: "c1",
-				RuntimeID:     "222",
-				Status:        apicontainerstatus.ContainerRunning,
-				ExitCode:      &exitCode,
-				PortBindings: []apicontainer.PortBinding{{
-					ContainerPort: 1,
-					HostPort:      2,
-					BindIP:        "1.2.3.4",
-					Protocol:      3,
-				}},
-				ImageDigest: "image",
-				Container:   task.Containers[0],
-				ManagedAgents: []ManagedAgentStateChange{{
-					Name:   "dummyAgent",
-					Status: apicontainerstatus.ManagedAgentRunning,
-					Reason: "reason",
-				}},
-				Type: statechange.ManagedAgentEvent,
+				Status:        apicontainerstatus.ManagedAgentRunning,
+				Reason:        "test",
 			}
 
-			event, err := NewManagedAgentChangeEvent(task, task.Containers[0])
+			event, err := NewManagedAgentChangeEvent(task, task.Containers[0], execcmd.ExecuteCommandAgentName, "test")
 			if tc.expectError {
 				assert.Error(t, err)
 			} else {
