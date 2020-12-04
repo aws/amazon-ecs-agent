@@ -300,7 +300,9 @@ func (change *TaskStateChange) String() string {
 	for _, containerChange := range change.Containers {
 		res += ", " + containerChange.String()
 	}
-
+	for _, managedAgentChange := range change.ManagedAgents {
+		res += ", " + managedAgentChange.String()
+	}
 	return res
 }
 

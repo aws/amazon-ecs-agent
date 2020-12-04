@@ -176,7 +176,7 @@ func (handler *TaskHandler) startDrainEventsTicker() {
 	for {
 		select {
 		case <-handler.ctx.Done():
-			seelog.Infof("TaskHandler: Stopping periodic container state change submission ticker")
+			seelog.Infof("TaskHandler: Stopping periodic container/managed agent state change submission ticker")
 			return
 		case <-ticker:
 			// Gather a list of task state changes to send. This list is constructed from
@@ -200,7 +200,7 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 	handler.lock.RLock()
 	defer handler.lock.RUnlock()
 
-	var events []api.TaskStateChange
+	events := make(map[string]api.TaskStateChange)
 	for taskARN := range handler.tasksToContainerStates {
 		// An entry for the task in tasksToContainerStates means that there
 		// is at least 1 container event for that task that hasn't been sent
@@ -224,15 +224,13 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 				Task:    task,
 			}
 			event.SetTaskTimestamps()
-
-			events = append(events, event)
+			events[taskARN] = event
 		}
 	}
+
 	for taskARN := range handler.tasksToManagedAgentStates {
-		for _, event := range events {
-			if event.TaskARN == taskARN {
-				continue
-			}
+		if _, ok := events[taskARN]; ok {
+			continue
 		}
 		if task, ok := handler.state.TaskByArn(taskARN); ok {
 			// We do not allow the ticker to submit managed agent state updates for
@@ -240,7 +238,6 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 			// updates from clobbering managed agent states when the task
 			// transitions to STOPPED, since ECS does not allow updates to
 			// managed agent states once the task has moved to STOPPED.
-			// TODO: verify with Backend about this behavior.
 			knownStatus := task.GetKnownStatus()
 			if knownStatus >= apitaskstatus.TaskStopped {
 				continue
@@ -252,10 +249,14 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 			}
 			event.SetTaskTimestamps()
 
-			events = append(events, event)
+			events[taskARN] = event
 		}
 	}
-	return events
+	var taskEvents []api.TaskStateChange
+	for _, tEvent := range events {
+		taskEvents = append(taskEvents, tEvent)
+	}
+	return taskEvents
 }
 
 // batchContainerEventUnsafe collects container state change events for a given task arn
