@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 )
 
 func TestInitializeContainer(t *testing.T) {
@@ -171,6 +172,11 @@ func TestInitializeContainer(t *testing.T) {
 
 				if test.expectedError != nil {
 					assert.Empty(t, hc.Binds)
+					if ma, ok := container.GetManagedAgentByName(ExecuteCommandAgentName); ok {
+						assert.Equal(t, "", ma.ID)
+						assert.True(t, ma.InitFailed)
+						assert.Equal(t, apicontainerstatus.ManagedAgentStopped, ma.Status)
+					}
 					continue
 				}
 
