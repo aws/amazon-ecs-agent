@@ -29,6 +29,7 @@ import (
 	"github.com/pborman/uuid"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 )
 
 const (
@@ -37,7 +38,8 @@ const (
 	ecsAgentExecDepsDir = "/managed-agents/execute-command"
 
 	// ecsAgentDepsBinDir is the directory where ECS Agent will read versions of SSM agent
-	ecsAgentDepsBinDir = ecsAgentExecDepsDir + "/bin"
+	ecsAgentDepsBinDir   = ecsAgentExecDepsDir + "/bin"
+	ecsAgentDepsCertsDir = ecsAgentExecDepsDir + "/certs"
 
 	ContainerDepsDirPrefix = "/ecs-execute-command-"
 
@@ -112,25 +114,41 @@ var (
 
 // InitializeContainer adds the necessary bind mounts in order for the ExecCommandAgent to run properly in the container
 // TODO: [ecs-exec] Should we validate the ssm agent binaries & certs are valid and fail here if they're not? (bind mount will succeed even if files don't exist in host)
-func (m *manager) InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) error {
+func (m *manager) InitializeContainer(taskId string, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) (rErr error) {
+	defer func() {
+		if rErr != nil {
+			container.UpdateManagedAgentByName(ExecuteCommandAgentName, apicontainer.ManagedAgentState{
+				InitFailed: true,
+				Status:     apicontainerstatus.ManagedAgentStopped,
+				Reason:     rErr.Error(),
+			})
+		}
+	}()
 	ma, ok := container.GetManagedAgentByName(ExecuteCommandAgentName)
 	if !ok {
 		return errExecCommandManagedAgentNotFound
 	}
-	configFile, err := GetExecAgentConfigFileName(getSessionWorkersLimit(ma))
-	if err != nil {
-		return fmt.Errorf("could not generate ExecAgent Config File: %v", err)
+	configFile, rErr := GetExecAgentConfigFileName(getSessionWorkersLimit(ma))
+	if rErr != nil {
+		rErr = fmt.Errorf("could not generate ExecAgent Config File: %v", rErr)
+		return rErr
 	}
-	logConfigFile, err := GetExecAgentLogConfigFile()
-	if err != nil {
-		return fmt.Errorf("could not generate ExecAgent LogConfig file: %v", err)
+	logConfigFile, rErr := GetExecAgentLogConfigFile()
+	if rErr != nil {
+		rErr = fmt.Errorf("could not generate ExecAgent LogConfig file: %v", rErr)
+		return rErr
 	}
 	uuid := newUUID()
 	containerDepsFolder := ContainerDepsDirPrefix + uuid
 
-	latestBinVersionDir, err := m.getLatestVersionedHostBinDir()
-	if err != nil {
-		return err
+	latestBinVersionDir, rErr := m.getLatestVersionedHostBinDir()
+	if rErr != nil {
+		return rErr
+	}
+
+	if !certsExist() {
+		rErr = fmt.Errorf("could not find certs required for exec agent")
+		return rErr
 	}
 
 	// Add ssm binary mounts
@@ -334,4 +352,8 @@ var createNewExecAgentConfigFile = createNewConfigFile
 
 func createNewConfigFile(config, configFilePath string) error {
 	return ioutil.WriteFile(configFilePath, []byte(config), filePerm)
+}
+
+func certsExist() bool {
+	return fileExists(filepath.Join(ecsAgentDepsCertsDir, "tls-ca-bundle.pem"))
 }
