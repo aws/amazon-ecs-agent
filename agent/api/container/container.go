@@ -124,6 +124,8 @@ type ManagedAgentState struct {
 	LastStartedAt time.Time `json:"lastStartedAt,omitempty"`
 	// Metadata holds metadata about the managed agent
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	// InitFailed indicates if exec agent initialization failed
+	InitFailed bool `json:"initFailed,omitempty"`
 }
 
 type ManagedAgent struct {
