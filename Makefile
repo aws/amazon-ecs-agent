@@ -23,7 +23,7 @@ else
 endif
 
 ifeq (${TARGET_OS},windows)
-	GO_VERSION=1.12
+	GO_VERSION=$(shell cat ./GO_VERSION_WINDOWS)
 else
 	GO_VERSION=$(shell cat ./GO_VERSION)
 endif
