@@ -45,7 +45,7 @@ gobuild:
 static:
 	./scripts/build
 
-# Cross-platform build target for travis
+# Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
