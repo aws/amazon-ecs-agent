@@ -311,6 +311,10 @@ func (cfg *Config) validateAndOverrideBounds() error {
 	}
 	var badDrivers []string
 	for _, driver := range cfg.AvailableLoggingDrivers {
+		// Don't classify awsfirelens as a bad driver
+		if driver == dockerclient.AWSFirelensDriver {
+			continue
+		}
 		_, ok := dockerclient.LoggingDriverMinimumVersion[driver]
 		if !ok {
 			badDrivers = append(badDrivers, string(driver))
