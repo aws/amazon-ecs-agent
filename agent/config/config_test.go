@@ -264,6 +264,13 @@ func TestInvalidLoggingDriver(t *testing.T) {
 	assert.Error(t, conf.validateAndOverrideBounds(), "Should be error with invalid-logging-driver")
 }
 
+func TestAwsFirelensLoggingDriver(t *testing.T) {
+	conf := DefaultConfig()
+	conf.AWSRegion = "us-west-2"
+	conf.AvailableLoggingDrivers = []dockerclient.LoggingDriver{"awsfirelens"}
+	assert.NoError(t, conf.validateAndOverrideBounds(), "awsfirelens is a valid logging driver, no error was expected")
+}
+
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
