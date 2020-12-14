@@ -69,6 +69,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, defaultCgroupCPUPeriod, cfg.CgroupCPUPeriod, "CFS cpu period set incorrectly")
 	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout, "Default ImagePullTimeout set incorrectly")
 	assert.False(t, cfg.DependentContainersPullUpfront.Enabled(), "Default DependentContainersPullUpfront set incorrectly")
+	assert.False(t, cfg.PollMetrics.Enabled(), "ECS_POLL_METRICS default should be false")
 }
 
 // TestConfigFromFile tests the configuration can be read from file

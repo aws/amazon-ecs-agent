@@ -267,7 +267,7 @@ func TestInvalidLoggingDriver(t *testing.T) {
 func TestDefaultPollMetricsWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
-	assert.True(t, conf.PollMetrics.Enabled())
+	assert.False(t, conf.PollMetrics.Enabled())
 }
 
 func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
