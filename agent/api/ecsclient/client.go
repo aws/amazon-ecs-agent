@@ -394,6 +394,12 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 		ExecutionStoppedAt: change.ExecutionStoppedAt,
 	}
 
+	for _, managedAgentEvent := range change.ManagedAgents {
+		if mgspl := client.buildManagedAgentStateChangePayload(managedAgentEvent); mgspl != nil {
+			req.ManagedAgents = append(req.ManagedAgents, mgspl)
+		}
+	}
+
 	containerEvents := make([]*ecs.ContainerStateChange, len(change.Containers))
 	for i, containerEvent := range change.Containers {
 		containerEvents[i] = client.buildContainerStateChangePayload(containerEvent)
@@ -416,6 +422,24 @@ func trimString(inputString string, maxLen int) string {
 		return trimmed
 	} else {
 		return inputString
+	}
+}
+
+func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.ManagedAgentStateChange) *ecs.ManagedAgentStateChange {
+	if !change.Status.ShouldReportToBackend() {
+		seelog.Warnf("Not submitting unsupported managed agent state %s for container %s in task %s",
+			change.Status.String(), change.ContainerName, change.TaskArn)
+		return nil
+	}
+	var trimmedReason *string
+	if change.Reason != "" {
+		trimmedReason = aws.String(trimString(change.Reason, ecsMaxReasonLength))
+	}
+	return &ecs.ManagedAgentStateChange{
+		ManagedAgentName: aws.String(change.Name),
+		ContainerName:    aws.String(change.ContainerName),
+		Status:           aws.String(change.Status.String()),
+		Reason:           trimmedReason,
 	}
 }
 
@@ -468,15 +492,6 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 	}
 	statechange.NetworkBindings = networkBindings
 
-	var managedAgents []*ecs.ManagedAgentStateChange
-	for _, ma := range change.ManagedAgents {
-		managedAgents = append(managedAgents, &ecs.ManagedAgentStateChange{
-			Name:   aws.String(ma.Name),
-			Status: aws.String(ma.Status.BackendStatus()),
-			Reason: aws.String(ma.Reason),
-		})
-	}
-	statechange.ManagedAgents = managedAgents
 	return statechange
 }
 
