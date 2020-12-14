@@ -524,23 +524,29 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 	seelog.Infof("Managed task [%s]: sent task change event [%s]", mtask.Arn, event.String())
 }
 
+// emitManagedAgentEvent passes a special task event up through the taskEvents channel if there are managed
+// agent changes in the container passed as parameter.
+// It will omit events the backend would not process
+func (mtask *managedTask) emitManagedAgentEvent(task *apitask.Task, cont *apicontainer.Container, managedAgentName string, reason string) {
+	event, err := api.NewManagedAgentChangeEvent(task, cont, managedAgentName, reason)
+	if err != nil {
+		seelog.Errorf("Managed task [%s]: skipping emitting ManagedAgent event for task [%s]: %v",
+			task.Arn, reason, err)
+		return
+	}
+	seelog.Infof("Managed task [%s]: sending managed agent event [%s]", mtask.Arn, event.String())
+	select {
+	case <-mtask.ctx.Done():
+		seelog.Infof("Managed task [%s]: unable to send managed agent event [%s] due to exit", mtask.Arn, event.String())
+	case mtask.stateChangeEvents <- event:
+	}
+	seelog.Infof("Managed task [%s]: sent managed agent event [%s]", mtask.Arn, event.String())
+}
+
 // emitContainerEvent passes a given event up through the containerEvents channel if necessary.
 // It will omit events the backend would not process and will perform best-effort deduplication of events.
 func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontainer.Container, reason string) {
 	event, err := api.NewContainerStateChangeEvent(task, cont, reason)
-	if err != nil {
-		seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
-			task.Arn, cont.Name, err)
-		return
-	}
-	mtask.doEmitContainerEvent(event)
-}
-
-// emitManagedAgentEvent passes a special container event up through the containerEvents channel if there are managed
-// agent changes in the container passed as parameter.
-// It will omit events the backend would not process and will perform best-effort deduplication of events.
-func (mtask *managedTask) emitManagedAgentEvent(task *apitask.Task, cont *apicontainer.Container) {
-	event, err := api.NewManagedAgentChangeEvent(task, cont)
 	if err != nil {
 		seelog.Debugf("Managed task [%s]: skipping emitting event for container [%s]: %v",
 			task.Arn, cont.Name, err)

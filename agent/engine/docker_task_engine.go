@@ -313,10 +313,10 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 	status, err := engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
-		mTask.emitManagedAgentEvent(mTask.Task, c)
+		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "Execute Command Agent cannot be restarted")
 	}
 	if status == execcmd.Restarted {
-		mTask.emitManagedAgentEvent(mTask.Task, c)
+		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "Execute Command Agent restarted")
 	}
 
 }
@@ -1314,7 +1314,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 		mTask, ok := engine.managedTasks[task.Arn]
 		engine.tasksLock.RUnlock()
 		if ok {
-			mTask.emitManagedAgentEvent(mTask.Task, container)
+			mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, "Execute Command Agent started")
 		} else {
 			seelog.Errorf("Task engine [%s]: Failed to update status of ExecCommandAgent Process for container [%s]: managed task not found", task.Arn, container.Name)
 		}
