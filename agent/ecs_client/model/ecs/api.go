@@ -9363,8 +9363,9 @@ func (s *ManagedAgent) SetReason(v string) *ManagedAgent {
 type ManagedAgentStateChange struct {
 	_ struct{} `type:"structure"`
 
-	// Name is a required field
-	Name *string `locationName:"name" type:"string" required:"true" enum:"ManagedAgentName"`
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	ManagedAgentName *string `locationName:"managedAgentName" type:"string" enum:"ManagedAgentName"`
 
 	Reason *string `locationName:"reason" type:"string"`
 
@@ -9385,9 +9386,6 @@ func (s ManagedAgentStateChange) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *ManagedAgentStateChange) Validate() error {
 	invalidParams := request.ErrInvalidParams{Context: "ManagedAgentStateChange"}
-	if s.Name == nil {
-		invalidParams.Add(request.NewErrParamRequired("Name"))
-	}
 	if s.Status == nil {
 		invalidParams.Add(request.NewErrParamRequired("Status"))
 	}
@@ -9398,9 +9396,15 @@ func (s *ManagedAgentStateChange) Validate() error {
 	return nil
 }
 
-// SetName sets the Name field's value.
-func (s *ManagedAgentStateChange) SetName(v string) *ManagedAgentStateChange {
-	s.Name = &v
+// SetContainerName sets the ContainerName field's value.
+func (s *ManagedAgentStateChange) SetContainerName(v string) *ManagedAgentStateChange {
+	s.ContainerName = &v
+	return s
+}
+
+// SetManagedAgentName sets the ManagedAgentName field's value.
+func (s *ManagedAgentStateChange) SetManagedAgentName(v string) *ManagedAgentStateChange {
+	s.ManagedAgentName = &v
 	return s
 }
 
@@ -12163,6 +12167,8 @@ type SubmitTaskStateChangeInput struct {
 	// The Unix time stamp for when the task execution stopped.
 	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp"`
 
+	ManagedAgents []*ManagedAgentStateChange `locationName:"managedAgents" type:"list"`
+
 	// The Unix time stamp for when the container image pull began.
 	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp"`
 
@@ -12212,6 +12218,16 @@ func (s *SubmitTaskStateChangeInput) Validate() error {
 			}
 		}
 	}
+	if s.ManagedAgents != nil {
+		for i, v := range s.ManagedAgents {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ManagedAgents", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12240,6 +12256,12 @@ func (s *SubmitTaskStateChangeInput) SetContainers(v []*ContainerStateChange) *S
 // SetExecutionStoppedAt sets the ExecutionStoppedAt field's value.
 func (s *SubmitTaskStateChangeInput) SetExecutionStoppedAt(v time.Time) *SubmitTaskStateChangeInput {
 	s.ExecutionStoppedAt = &v
+	return s
+}
+
+// SetManagedAgents sets the ManagedAgents field's value.
+func (s *SubmitTaskStateChangeInput) SetManagedAgents(v []*ManagedAgentStateChange) *SubmitTaskStateChangeInput {
+	s.ManagedAgents = v
 	return s
 }
 

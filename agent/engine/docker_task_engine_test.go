@@ -3224,7 +3224,7 @@ func TestStartExecAgent(t *testing.T) {
 		dockerTaskEngine.state.AddTask(testTask)
 		dockerTaskEngine.managedTasks[testTask.Arn] = mTestTask
 
-		// check for expected containerEvent in stateChangeEvents
+		// check for expected taskEvent in stateChangeEvents
 		waitDone := make(chan struct{})
 		expectedManagedAgent := apicontainer.ManagedAgent{
 			ManagedAgentState: apicontainer.ManagedAgentState{
