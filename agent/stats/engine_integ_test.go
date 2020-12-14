@@ -342,7 +342,7 @@ func TestStatsEngineWithNewContainers(t *testing.T) {
 
 func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	// additional config fields to use polling instead of stream
-	cfg.PollMetrics = config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled}
+	cfg.PollMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.PollingMetricsWaitDuration = 1 * time.Second
 	// Create a new docker client with new config
 	dockerClientForNewContainersWithPolling, _ := dockerapi.NewDockerGoClient(sdkClientFactory, &cfg, ctx)
@@ -422,7 +422,7 @@ func TestStatsEngineWithNewContainersWithPolling(t *testing.T) {
 	validateEmptyTaskHealthMetrics(t, engine)
 
 	// reset cfg, currently cfg is shared by all tests.
-	cfg.PollMetrics = config.BooleanDefaultTrue{Value: config.ExplicitlyDisabled}
+	cfg.PollMetrics = config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled}
 	cfg.PollingMetricsWaitDuration = config.DefaultPollingMetricsWaitDuration
 }
 
