@@ -64,9 +64,16 @@ var (
 		},
 	}
 	containerInstanceTagsMap = map[string]string{
-
 		"my_key1": "my_val1",
 		"my_key2": "my_val2",
+	}
+	testManagedAgents = []*ecs.ManagedAgentStateChange{
+		{
+			ManagedAgentName: aws.String("test_managed_agent"),
+			ContainerName:    aws.String("test_container"),
+			Status:           aws.String("RUNNING"),
+			Reason:           aws.String("test_reason"),
+		},
 	}
 )
 
@@ -237,13 +244,6 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 					Protocol:      strptr("tcp"),
 				},
 			},
-			ManagedAgents: []*ecs.ManagedAgentStateChange{
-				{
-					Name:   strptr("ExecuteCommandAgent"),
-					Status: strptr("RUNNING"),
-					Reason: strptr(reason),
-				},
-			},
 		},
 	})
 	err := client.SubmitContainerStateChange(api.ContainerStateChange{
@@ -256,11 +256,6 @@ func TestSubmitContainerStateChangeFull(t *testing.T) {
 		PortBindings: []apicontainer.PortBinding{
 			{},
 		},
-		ManagedAgents: []api.ManagedAgentStateChange{{
-			Name:   "ExecuteCommandAgent",
-			Status: apicontainerstatus.ManagedAgentRunning,
-			Reason: reason,
-		}},
 	})
 	if err != nil {
 		t.Errorf("Unable to submit container state change: %v", err)
@@ -997,6 +992,28 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
 }
 
+func TestSubmitTaskStateChangeWithManagedAgents(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster:       aws.String(configuredCluster),
+			Task:          aws.String("task_arn"),
+			Reason:        aws.String(""),
+			Status:        aws.String("RUNNING"),
+			ManagedAgents: testManagedAgents,
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskARN: "task_arn",
+		Status:  apitaskstatus.TaskRunning,
+	})
+	assert.NoError(t, err, "Unable to submit task state change with managed agents")
+}
+
 // TestSubmitContainerStateChangeWhileTaskInPending tests the container state change was submitted
 // when the task is still in pending state
 func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
@@ -1026,11 +1043,6 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 				ContainerName: "container",
 				RuntimeID:     "runtimeid",
 				Status:        apicontainerstatus.ContainerRunning,
-				ManagedAgents: []api.ManagedAgentStateChange{{
-					Name:   "DummyAgent",
-					Status: apicontainerstatus.ManagedAgentRunning,
-					Reason: "DummyReason",
-				}},
 			},
 		},
 	}
@@ -1051,13 +1063,6 @@ func TestSubmitContainerStateChangeWhileTaskInPending(t *testing.T) {
 							RuntimeId:       strptr("runtimeid"),
 							Status:          strptr("RUNNING"),
 							NetworkBindings: []*ecs.NetworkBinding{},
-							ManagedAgents: []*ecs.ManagedAgentStateChange{
-								{
-									Name:   strptr("DummyAgent"),
-									Status: strptr("RUNNING"),
-									Reason: strptr("DummyReason"),
-								},
-							},
 						},
 					},
 				},
