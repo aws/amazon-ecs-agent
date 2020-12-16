@@ -1142,8 +1142,17 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		}
 		err = engine.execCmdMgr.InitializeContainer(tID, container, hostConfig)
 		if err != nil {
-			// TODO: Send a managed agent state change event for this
 			seelog.Warnf("Exec Agent initialization: %v . Continuing to start container without enabling exec feature.", err)
+
+			// Emit a managedagent state chnage event if exec agent initialization fails
+			engine.tasksLock.RLock()
+			mTask, ok := engine.managedTasks[task.Arn]
+			engine.tasksLock.RUnlock()
+			if ok {
+				mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, fmt.Sprintf("Execute Command Agent Initialization failed - %v", err))
+			} else {
+				seelog.Errorf("Task engine [%s]: Failed to update status of ExecCommandAgent Process for container [%s]: managed task not found", task.Arn, container.Name)
+			}
 		}
 	}
 

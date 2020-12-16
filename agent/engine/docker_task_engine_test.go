@@ -3625,16 +3625,24 @@ func TestPeriodicExecAgentsMonitoring(t *testing.T) {
 
 func TestCreateContainerWithExecAgent(t *testing.T) {
 	testcases := []struct {
-		name  string
-		error error
+		name                 string
+		error                error
+		expectContainerEvent bool
+		execAgentInitFailed  bool
+		execAgentStatus      apicontainerstatus.ManagedAgentStatus
 	}{
 		{
-			name:  "ExecAgent config mount success",
-			error: nil,
+			name:                 "ExecAgent config mount success",
+			error:                nil,
+			expectContainerEvent: false,
+			execAgentInitFailed:  false,
 		},
 		{
-			name:  "ExecAgent config mount Error",
-			error: errors.New("mount error"),
+			name:                 "ExecAgent config mount Error",
+			error:                errors.New("mount error"),
+			expectContainerEvent: true,
+			execAgentInitFailed:  true,
+			execAgentStatus:      apicontainerstatus.ManagedAgentStopped,
 		},
 	}
 
@@ -3645,16 +3653,47 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 			ctrl, client, _, engine, _, _, _ := mocks(t, ctx, &config.Config{})
 			defer ctrl.Finish()
 			taskEngine, _ := engine.(*DockerTaskEngine)
+			stateChangeEvents := engine.StateChangeEvents()
 			execCmdMgr := mock_execcmdagent.NewMockManager(ctrl)
 			taskEngine.execCmdMgr = execCmdMgr
 			sleepTask := testdata.LoadTask("sleep5")
 			sleepContainer, _ := sleepTask.ContainerByName("sleep5")
-			enableExecCommandAgentForContainer(sleepContainer, apicontainer.ManagedAgentState{})
+			enableExecCommandAgentForContainer(sleepContainer, apicontainer.ManagedAgentState{
+				Status:     tc.execAgentStatus,
+				InitFailed: tc.execAgentInitFailed,
+			})
+
+			mTestTask := &managedTask{
+				Task:              sleepTask,
+				engine:            taskEngine,
+				ctx:               ctx,
+				stateChangeEvents: stateChangeEvents,
+			}
+
+			taskEngine.state.AddTask(sleepTask)
+			taskEngine.managedTasks[sleepTask.Arn] = mTestTask
+
+			waitDone := make(chan struct{})
+			expectedManagedAgent := apicontainer.ManagedAgent{
+				ManagedAgentState: apicontainer.ManagedAgentState{
+					Status: apicontainerstatus.ManagedAgentStopped,
+				},
+			}
+
+			go checkManagedAgentEvents(t, tc.expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
 			execCmdMgr.EXPECT().InitializeContainer(gomock.Any(), sleepContainer, gomock.Any()).Return(tc.error)
 			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil)
 			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 			metadata := taskEngine.createContainer(sleepTask, sleepContainer)
 			assert.NoError(t, metadata.Error)
+
+			timeout := false
+			select {
+			case <-waitDone:
+			case <-time.After(time.Second):
+				timeout = true
+			}
+			assert.False(t, timeout)
 		})
 	}
 }
