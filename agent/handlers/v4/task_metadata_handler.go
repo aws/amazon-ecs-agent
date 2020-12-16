@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
@@ -49,11 +51,23 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		taskResponse, err := NewTaskResponse(taskArn, state, ecsClient, cluster, az, containerInstanceArn, propagateTags)
 		if err != nil {
-			errResponseJson, err := json.Marshal("Unable to generate metadata for v4 task: '" + taskArn + "'")
+			statusCode := http.StatusInternalServerError
+			errorResponse := fmt.Sprintf("Unable to generate metadata for v4 task: '%s'.", taskArn)
+
+			if awsErr, ok := err.(awserr.Error); ok {
+				if reqErr, ok := err.(awserr.RequestFailure); ok {
+					statusCode = reqErr.StatusCode()
+					errorLogMessage := fmt.Sprintf(" Error code: %d - %s: %s for v4 task '%s'",
+						statusCode, awsErr.Code(), awsErr.Message(), taskArn)
+					errorResponse = errorResponse + errorLogMessage
+				}
+			}
+
+			errResponseJSON, err := json.Marshal(errorResponse)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJson, utils.RequestTypeTaskMetadata)
+			utils.WriteJSONToResponse(w, statusCode, errResponseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
 

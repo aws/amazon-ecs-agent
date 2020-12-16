@@ -22,6 +22,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 )
 
@@ -53,11 +54,23 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 
 		taskResponse, err := v2.NewTaskResponse(taskARN, state, ecsClient, cluster, az, containerInstanceArn, propagateTags, false)
 		if err != nil {
-			errResponseJSON, err := json.Marshal("Unable to generate metadata for task: '" + taskARN + "'")
+			statusCode := http.StatusInternalServerError
+			errorResponse := fmt.Sprintf("Unable to generate metadata for v3 task: '%s'.", taskARN)
+
+			if awsErr, ok := err.(awserr.Error); ok {
+				if reqErr, ok := err.(awserr.RequestFailure); ok {
+					statusCode = reqErr.StatusCode()
+					errorLogMessage := fmt.Sprintf(" Error code: %d - %s: %s for v3 task '%s'",
+						statusCode, awsErr.Code(), awsErr.Message(), taskARN)
+					errorResponse = errorResponse + errorLogMessage
+				}
+			}
+
+			errResponseJSON, err := json.Marshal(errorResponse)
 			if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
 				return
 			}
-			utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeTaskMetadata)
+			utils.WriteJSONToResponse(w, statusCode, errResponseJSON, utils.RequestTypeTaskMetadata)
 			return
 		}
 

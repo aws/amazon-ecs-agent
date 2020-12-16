@@ -17,6 +17,7 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -232,6 +234,91 @@ func TestTaskResponseWithV4Metadata(t *testing.T) {
 	// Log driver and config should be populated
 	assert.Equal(t, "awslogs", taskResponse.Containers[0].LogDriver)
 	assert.Equal(t, map[string]string{"awslogs-group": "myLogGroup"}, taskResponse.Containers[0].LogOptions)
+}
+
+func TestTaskResponseWithTagsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	now := time.Now()
+	task := &apitask.Task{
+		Arn:                 taskARN,
+		Family:              family,
+		Version:             version,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
+				},
+			},
+		},
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
+	}
+	container := &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		VolumesUnsafe: []types.MountPoint{
+			{
+				Name:        volName,
+				Source:      volSource,
+				Destination: volDestination,
+			},
+		},
+	}
+	created := time.Now()
+	container.SetCreatedAt(created)
+	labels := map[string]string{
+		"foo": "bar",
+	}
+	container.SetLabels(labels)
+	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
+		taskARN: {
+			DockerID:   containerID,
+			DockerName: containerName,
+			Container:  container,
+		},
+	}
+
+	errCode := "ThrottlingException"
+	errMessage := "Rate exceeded"
+	errStatusCode := 400
+	requestId := "cef9da77-aee7-431d-84d5-f92b2d342c51"
+	ecsClientErr := awserr.NewRequestFailure(awserr.Error(awserr.New(errCode, errMessage, errors.New(""))), errStatusCode, requestId)
+
+	gomock.InOrder(
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, ecsClientErr),
+	)
+
+	_, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, false)
+	assert.Error(t, err)
+	assert.Equal(t, err.(awserr.Error).Code(), errCode)
+	assert.Equal(t, err.(awserr.Error).Message(), errMessage)
+	assert.Equal(t, err.(awserr.RequestFailure).StatusCode(), errStatusCode)
+	assert.Equal(t, err.(awserr.RequestFailure).RequestID(), requestId)
 }
 
 func TestContainerResponse(t *testing.T) {

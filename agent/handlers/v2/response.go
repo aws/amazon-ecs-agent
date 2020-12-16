@@ -144,32 +144,41 @@ func NewTaskResponse(
 	}
 
 	if propagateTags {
-		propagateTagsToMetadata(state, ecsClient, containerInstanceArn, taskARN, resp)
+		if err := propagateTagsToMetadata(ecsClient, containerInstanceArn, task.Arn, resp); err != nil {
+			return nil, err
+		}
 	}
 
 	return resp, nil
 }
 
-func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.ECSClient, containerInstanceArn, taskARN string, resp *TaskResponse) {
+func propagateTagsToMetadata(
+	ecsClient api.ECSClient,
+	containerInstanceArn,
+	taskARN string,
+	resp *TaskResponse,
+) error {
 	containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceArn)
-	if err == nil {
-		resp.ContainerInstanceTags = make(map[string]string)
-		for _, tag := range containerInstanceTags {
-			resp.ContainerInstanceTags[*tag.Key] = *tag.Value
-		}
-	} else {
-		seelog.Errorf("Could not get container instance tags for %s: %s", containerInstanceArn, err.Error())
+	if err != nil {
+		return err
+	}
+
+	resp.ContainerInstanceTags = make(map[string]string)
+	for _, tag := range containerInstanceTags {
+		resp.ContainerInstanceTags[*tag.Key] = *tag.Value
 	}
 
 	taskTags, err := ecsClient.GetResourceTags(taskARN)
-	if err == nil {
-		resp.TaskTags = make(map[string]string)
-		for _, tag := range taskTags {
-			resp.TaskTags[*tag.Key] = *tag.Value
-		}
-	} else {
-		seelog.Errorf("Could not get task tags for %s: %s", taskARN, err.Error())
+	if err != nil {
+		return err
 	}
+
+	resp.TaskTags = make(map[string]string)
+	for _, tag := range taskTags {
+		resp.TaskTags[*tag.Key] = *tag.Value
+	}
+
+	return nil
 }
 
 // NewContainerResponseFromState creates a new container response based on container id
