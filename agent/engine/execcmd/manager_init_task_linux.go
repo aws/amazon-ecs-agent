@@ -147,7 +147,7 @@ func (m *manager) InitializeContainer(taskId string, container *apicontainer.Con
 	}
 
 	if !certsExist() {
-		rErr = fmt.Errorf("could not find certs required for exec agent")
+		rErr = fmt.Errorf("could not find certs")
 		return rErr
 	}
 
