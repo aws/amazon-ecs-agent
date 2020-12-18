@@ -350,7 +350,7 @@ func containerEvent(arn string) statechange.Event {
 }
 
 func managedAgentEvent(arn string) statechange.Event {
-	return api.ManagedAgentStateChange{TaskArn: arn, Name: "ExecAgent", Status: apicontainerstatus.ManagedAgentRunning}
+	return api.ManagedAgentStateChange{TaskArn: arn, Container: &apicontainer.Container{}, Name: "ExecAgent", Status: apicontainerstatus.ManagedAgentRunning}
 }
 
 func containerEventStopped(arn string) statechange.Event {
