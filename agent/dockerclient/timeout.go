@@ -33,7 +33,7 @@ const (
 	RemoveImageTimeout = 3 * time.Minute
 
 	// CreateContainerTimeout is the timeout for the CreateContainer API.
-	CreateContainerTimeout = 4 * time.Minute
+	CreateContainerTimeout = 20 * time.Minute
 	// ListContainersTimeout is the timeout for the ListContainers API.
 	ListContainersTimeout = 10 * time.Minute
 	// InspectContainerTimeout is the timeout for the InspectContainer API.
