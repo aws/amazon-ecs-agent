@@ -288,21 +288,51 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 
 // waitForStopEvents waits for a task to emit 'STOPPED' events for a container
 // and the task
-func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool) {
+func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool, isExecEnabled bool) {
+	// why can't this be a for loop?
+	// we expect 2 events for a non-exec enabled task
+	// and 3 for an exec enabled task
+	// compare this refactor (minus the isExecEnabled below) to previous waitForStopEvents() function
+	// current implementation works if you comment out line 414 of agent/engine/task_manager.go
+
+	//if isExecEnabled {
+	//	event = <-stateChangeEvents
+	//	checkStoppedEventByType(t, event, verifyExitCode)
+	//}
+
 	event := <-stateChangeEvents
-	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
-		t.Fatal("Expected container to stop first")
-		if verifyExitCode {
-			assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
-		}
-	}
+	checkStoppedEventByType(t, event, verifyExitCode)
+
 	event = <-stateChangeEvents
-	assert.Equal(t, event.(api.TaskStateChange).Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
+	checkStoppedEventByType(t, event, verifyExitCode)
 
 	select {
 	case <-stateChangeEvents:
 		t.Fatal("Should be out of events")
 	default:
+	}
+}
+
+func checkStoppedEventByType(t *testing.T, event statechange.Event, verifyExitCode bool) {
+	switch event.(type) {
+	case api.ContainerStateChange:
+		cont := event.(api.ContainerStateChange)
+		if cont.Status != apicontainerstatus.ContainerStopped {
+			t.Fatal("Expected container to stop first")
+			if verifyExitCode {
+				assert.Equal(t, *cont.ExitCode, 1, "Exit code should be present")
+			}
+		}
+	case api.ManagedAgentStateChange:
+		managedAgent := event.(api.ManagedAgentStateChange)
+		if managedAgent.Status != apicontainerstatus.ManagedAgentStopped {
+			t.Fatal("Expected managed agent event")
+		}
+	case api.TaskStateChange:
+		task := event.(api.TaskStateChange)
+		assert.Equal(t, task.Status, apitaskstatus.TaskStopped, "Expected task to be STOPPED")
+	default:
+		seelog.Debugf("processed errant event")
 	}
 }
 

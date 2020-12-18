@@ -31,6 +31,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -407,6 +408,8 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
 	containerKnownStatus := container.GetKnownStatus()
 	mtask.handleStoppedToRunningContainerTransition(event.Status, container)
+	// if this is an execute command enabled STOPPED container event we should emit a managedAgent event
+	mtask.handleManagedAgentStoppedTransition(event.Status, container, execcmd.ExecuteCommandAgentName)
 	if event.Status <= containerKnownStatus {
 		seelog.Infof("Managed task [%s]: Container [name=%s runtimeID=%s]: container change %s->%s is redundant",
 			mtask.Arn, container.Name, runtimeID, containerKnownStatus.String(), event.Status.String())
@@ -657,6 +660,30 @@ func (mtask *managedTask) handleStoppedToRunningContainerTransition(status apico
 		go mtask.engine.transitionContainer(mtask.Task, container, apicontainerstatus.ContainerStopped)
 		// This will not proceed afterwards because status <= knownstatus below
 	})
+}
+
+// handleManagedAgentStoppedTransition handles a container change event which has a managed agent status
+// we should emit ManagedAgent events for certain container events.
+func (mtask *managedTask) handleManagedAgentStoppedTransition(status apicontainerstatus.ContainerStatus, container *apicontainer.Container, managedAgentName string) {
+	//for now we only have the ExecuteCommandAgent
+	switch managedAgentName {
+	case execcmd.ExecuteCommandAgentName:
+		if status != apicontainerstatus.ContainerStopped || !execcmd.IsExecEnabledContainer(container) {
+			seelog.Warnf("Managed task [%s]: managed agent [%s] in container [%s]; unable to process stopped container transition event",
+				mtask.Arn, managedAgentName, container.Name)
+			return
+		}
+		ma, err := container.GetManagedAgentByName(managedAgentName)
+		seelog.Warnf("Managed task [%s]: cannot find managed agent %s for container %s. Error: %v", mtask.Arn, managedAgentName, container.Name, err)
+		container.UpdateManagedAgentByName(managedAgentName, apicontainer.ManagedAgentState{
+			ID:     ma.ID,
+			Status: apicontainerstatus.ManagedAgentStopped,
+		})
+		mtask.emitManagedAgentEvent(mtask.Task, container, managedAgentName, "Received Container Stopped event")
+	default:
+		seelog.Warnf("Managed task [%s]: unexpected managed agent [%s] in container [%s]; unable to process stopped container transition event",
+			mtask.Arn, managedAgentName, container.Name)
+	}
 }
 
 // handleEventError handles a container change event error and decides whether

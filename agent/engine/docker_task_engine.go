@@ -1144,7 +1144,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 		if err != nil {
 			seelog.Warnf("Exec Agent initialization: %v . Continuing to start container without enabling exec feature.", err)
 
-			// Emit a managedagent state chnage event if exec agent initialization fails
+			// Emit a managedagent state change event if exec agent initialization fails
 			engine.tasksLock.RLock()
 			mTask, ok := engine.managedTasks[task.Arn]
 			engine.tasksLock.RUnlock()
