@@ -14,6 +14,7 @@
 package app
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -396,7 +397,7 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	if len(binDependencies) < 1 {
 		return capabilities, nil
 	}
-	if exists, err := dependenciesExist(binDependencies); err != nil || !exists {
+	if exists, err := checkAnyValidDependency(binDependencies); err != nil || !exists {
 		return capabilities, err
 	}
 
@@ -432,6 +433,31 @@ func dependenciesExist(dependencies map[string][]string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func checkAnyValidDependency(dependencies map[string][]string) (bool, error) {
+	var validDependencies = 0
+	for directory, files := range dependencies {
+		filesValid := true
+		if exists, err := pathExists(directory, true); err != nil || !exists {
+			continue
+		}
+
+		for _, filename := range files {
+			path := filepath.Join(directory, filename)
+			if exists, err := pathExists(path, false); err != nil || !exists {
+				filesValid = false
+			}
+		}
+
+		if filesValid {
+			validDependencies++
+		}
+	}
+	if validDependencies >= 1 {
+		return true, nil
+	}
+	return false, fmt.Errorf("no valid dependencies")
 }
 
 func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {
