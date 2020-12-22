@@ -810,9 +810,22 @@ func TestCapabilitiesExecuteCommand(t *testing.T) {
 			shouldHaveExecCapability: false,
 		},
 		{
+			name:                     "execute-command capability should not be added if there are directroies exist but have no valid ssm version exist",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0", "3.1.23.0"}, nil },
+			invalidSsmVersions:       map[string]struct{}{"3.0.236.0": struct{}{}, "3.1.23.0": struct{}{}},
+			shouldHaveExecCapability: false,
+		},
+		{
 			name:                     "execute-command capability should be added if requirements are met",
 			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
 			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: true,
+		},
+		{
+			name:                     "execute-command capability should be added if have valid ssm version exists",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0", "3.1.23.0"}, nil },
 			shouldHaveExecCapability: true,
 		},
 	}
