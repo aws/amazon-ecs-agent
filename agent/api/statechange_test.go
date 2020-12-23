@@ -237,23 +237,23 @@ func TestNewManagedAgentChangeEvent(t *testing.T) {
 		},
 	}
 	for _, tc := range tests {
+		testContainer := apicontainer.Container{
+			Name:                "c1",
+			ManagedAgentsUnsafe: tc.managedAgents,
+		}
+		testContainers := []*apicontainer.Container{&testContainer}
 		t.Run(tc.name, func(t *testing.T) {
 
 			task := &apitask.Task{
-				Arn: "arn:123",
-				Containers: []*apicontainer.Container{
-					{
-						Name:                "c1",
-						ManagedAgentsUnsafe: tc.managedAgents,
-					},
-				}}
-
+				Arn:        "arn:123",
+				Containers: testContainers,
+			}
 			expectedEvent := ManagedAgentStateChange{
-				TaskArn:       "arn:123",
-				Name:          execcmd.ExecuteCommandAgentName,
-				ContainerName: "c1",
-				Status:        apicontainerstatus.ManagedAgentRunning,
-				Reason:        "test",
+				TaskArn:   "arn:123",
+				Name:      execcmd.ExecuteCommandAgentName,
+				Container: &testContainer,
+				Status:    apicontainerstatus.ManagedAgentRunning,
+				Reason:    "test",
 			}
 
 			event, err := NewManagedAgentChangeEvent(task, task.Containers[0], execcmd.ExecuteCommandAgentName, "test")
