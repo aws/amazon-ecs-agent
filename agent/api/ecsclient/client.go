@@ -428,7 +428,7 @@ func trimString(inputString string, maxLen int) string {
 func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.ManagedAgentStateChange) *ecs.ManagedAgentStateChange {
 	if !change.Status.ShouldReportToBackend() {
 		seelog.Warnf("Not submitting unsupported managed agent state %s for container %s in task %s",
-			change.Status.String(), change.ContainerName, change.TaskArn)
+			change.Status.String(), change.Container.Name, change.TaskArn)
 		return nil
 	}
 	var trimmedReason *string
@@ -437,7 +437,7 @@ func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.Manag
 	}
 	return &ecs.ManagedAgentStateChange{
 		ManagedAgentName: aws.String(change.Name),
-		ContainerName:    aws.String(change.ContainerName),
+		ContainerName:    aws.String(change.Container.Name),
 		Status:           aws.String(change.Status.String()),
 		Reason:           trimmedReason,
 	}
