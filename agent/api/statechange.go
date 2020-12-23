@@ -59,8 +59,9 @@ type ManagedAgentStateChange struct {
 	TaskArn string
 	// Name is the name of the managed agent
 	Name string
-	// ContainerName is the name of the managed agent's container
-	ContainerName string
+	// Container is a pointer to the container involved in the state change that gives the event handler a hook into
+	// storing what status was sent.  This is used to ensure the same event is handled only once.
+	Container *apicontainer.Container
 	// Status is the status of the managed agent
 	Status apicontainerstatus.ManagedAgentStatus
 	// Reason indicates an error in a managed agent state chage
@@ -188,11 +189,11 @@ func NewManagedAgentChangeEvent(task *apitask.Task, cont *apicontainer.Container
 	}
 
 	event = ManagedAgentStateChange{
-		TaskArn:       task.Arn,
-		Name:          managedAgent.Name,
-		ContainerName: cont.Name,
-		Status:        managedAgent.Status,
-		Reason:        reason,
+		TaskArn:   task.Arn,
+		Name:      managedAgent.Name,
+		Container: cont,
+		Status:    managedAgent.Status,
+		Reason:    reason,
 	}
 
 	return event, nil
@@ -225,7 +226,7 @@ func (c *ContainerStateChange) String() string {
 
 // String returns a human readable string representation of ManagedAgentStateChange
 func (m *ManagedAgentStateChange) String() string {
-	res := fmt.Sprintf("%s %s -> %s", m.TaskArn, m.Name, m.Status.String())
+	res := fmt.Sprintf("%s %s %s -> %s", m.TaskArn, m.Container.Name, m.Name, m.Status.String())
 	if m.Reason != "" {
 		res += ", Reason " + m.Reason
 	}

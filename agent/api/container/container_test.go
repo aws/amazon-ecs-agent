@@ -554,6 +554,34 @@ func TestGetManagedAgents(t *testing.T) {
 	assert.Equal(t, expectedManagedAgent, container.GetManagedAgents()[0])
 }
 
+func TestGetManagedAgentStatus(t *testing.T) {
+	container := Container{}
+	assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, container.GetManagedAgentStatus("dummyAgent"))
+
+	expectedManagedAgent := ManagedAgent{
+		Name: "dummyAgent",
+		ManagedAgentState: ManagedAgentState{
+			Status: apicontainerstatus.ManagedAgentCreated,
+		},
+	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, apicontainerstatus.ManagedAgentCreated, container.GetManagedAgentStatus("dummyAgent"))
+}
+
+func TestGetManagedAgentSentStatus(t *testing.T) {
+	container := Container{}
+	assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, container.GetManagedAgentSentStatus("dummyAgent"))
+
+	expectedManagedAgent := ManagedAgent{
+		Name: "dummyAgent",
+		ManagedAgentState: ManagedAgentState{
+			SentStatus: apicontainerstatus.ManagedAgentCreated,
+		},
+	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, apicontainerstatus.ManagedAgentCreated, container.GetManagedAgentSentStatus("dummyAgent"))
+}
+
 func TestDependsOnContainer(t *testing.T) {
 	testCases := []struct {
 		name          string

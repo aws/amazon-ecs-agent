@@ -1270,3 +1270,27 @@ func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicon
 	}
 	return false
 }
+
+func (c *Container) GetManagedAgentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return c.ManagedAgentsUnsafe[i].Status
+		}
+	}
+	// we shouldn't get here because we'll always have a valid ManagedAgentName
+	return apicontainerstatus.ManagedAgentStatusNone
+}
+
+func (c *Container) GetManagedAgentSentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return c.ManagedAgentsUnsafe[i].SentStatus
+		}
+	}
+	// we shouldn't get here because we'll always have a valid ManagedAgentName
+	return apicontainerstatus.ManagedAgentStatusNone
+}
