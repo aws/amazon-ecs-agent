@@ -295,7 +295,7 @@ func TestBatchContainerHappyPath(t *testing.T) {
 			// the cleanup phase. Account for that.
 			client.EXPECT().StopContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 				dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
-			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+			waitForStopEvents(t, taskEngine.StateChangeEvents(), true, tc.execCommandAgentEnabled)
 			// This ensures that managedTask.waitForStopReported makes progress
 			sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
@@ -466,7 +466,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 			ExitCode: aws.Int(exitCode),
 		},
 	}
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 }
 
 // TestRemoveEvents tests if the task engine can handle task events while the task is being
@@ -513,7 +513,7 @@ func TestRemoveEvents(t *testing.T) {
 		},
 	}
 
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 	sleepTaskStop := testdata.LoadTask("sleep5")
 	sleepTaskStop.SetDesiredStatus(apitaskstatus.TaskStopped)
 	taskEngine.AddTask(sleepTaskStop)
@@ -585,7 +585,7 @@ func TestStartTimeoutThenStart(t *testing.T) {
 	assert.NoError(t, err)
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	taskEngine.AddTask(sleepTask)
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 
 	// Now surprise surprise, it actually did start!
 	eventStream <- createDockerEvent(apicontainerstatus.ContainerRunning)
@@ -663,7 +663,7 @@ func TestSteadyStatePoll(t *testing.T) {
 	client.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerID, dockerclient.RemoveContainerTimeout).Return(nil)
 	imageManager.EXPECT().RemoveContainerReferenceFromImageState(gomock.Any()).Return(nil)
 
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 	// trigger cleanup, this ensures all the goroutines were finished
 	sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 	cleanup <- time.Now()
@@ -967,7 +967,7 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 }
 
 // TestTaskTransitionWhenStopContainerReturnsUnretriableError tests if the task transitions
@@ -1038,7 +1038,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 	go taskEngine.AddTask(updateSleepTask)
 	// StopContainer was called again and received stop event from docker event stream
 	// Expect it to go to stopped
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 }
 
 // TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding tests if the task
@@ -1092,7 +1092,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 	updateSleepTask.SetDesiredStatus(apitaskstatus.TaskStopped)
 	go taskEngine.AddTask(updateSleepTask)
 	// StopContainer invocation should have caused it to stop eventually.
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), false)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), false, false)
 }
 
 func TestGetTaskByArn(t *testing.T) {

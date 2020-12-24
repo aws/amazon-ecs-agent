@@ -136,7 +136,7 @@ func TestResourceContainerProgression(t *testing.T) {
 			ExitCode: aws.Int(exitCode),
 		},
 	}
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 }
 
 func TestDeleteTask(t *testing.T) {
@@ -270,7 +270,7 @@ func TestResourceContainerProgressionFailure(t *testing.T) {
 	taskEngine.AddTask(sleepTask)
 	cleanup := make(chan time.Time, 1)
 	mockTime.EXPECT().After(gomock.Any()).Return(cleanup).AnyTimes()
-	waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+	waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 }
 
 func TestTaskCPULimitHappyPath(t *testing.T) {
@@ -378,7 +378,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 			// the cleanup phase. Account for that.
 			client.EXPECT().StopContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 				dockerapi.DockerContainerMetadata{DockerID: containerID}).AnyTimes()
-			waitForStopEvents(t, taskEngine.StateChangeEvents(), true)
+			waitForStopEvents(t, taskEngine.StateChangeEvents(), true, false)
 			// This ensures that managedTask.waitForStopReported makes progress
 			sleepTask.SetSentStatus(apitaskstatus.TaskStopped)
 			// Extra events should not block forever; duplicate acs and docker events are possible
