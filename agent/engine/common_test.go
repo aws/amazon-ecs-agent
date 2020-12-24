@@ -288,7 +288,14 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 
 // waitForStopEvents waits for a task to emit 'STOPPED' events for a container
 // and the task
-func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool) {
+func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode, execEnabled bool) {
+	if execEnabled {
+		event := <-stateChangeEvents
+		if masc := event.(api.ManagedAgentStateChange); masc.Status != apicontainerstatus.ManagedAgentStopped {
+			t.Fatal("Expected managed agent to stop first")
+		}
+	}
+
 	event := <-stateChangeEvents
 	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
 		t.Fatal("Expected container to stop first")
