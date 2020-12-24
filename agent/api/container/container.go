@@ -1257,6 +1257,20 @@ func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgen
 	return false
 }
 
+// UpdateManagedAgentStatus updates the status of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentStatus(agentName string, status apicontainerstatus.ManagedAgentStatus) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			c.ManagedAgentsUnsafe[i].Status = status
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateManagedAgentSentStatus updates the sent status of the managed agent with the name specified. If the agent is not found,
 // this method returns false.
 func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicontainerstatus.ManagedAgentStatus) bool {
