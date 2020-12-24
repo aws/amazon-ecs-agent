@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -433,6 +435,11 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 		}
 	}
 
+	if execcmd.IsExecEnabledContainer(container) && container.GetKnownStatus() == apicontainerstatus.ContainerStopped {
+		// if this is an execute-command-enabled container STOPPED event, we should emit a corresponding managedAgent event
+		mtask.handleManagedAgentStoppedTransition(container, execcmd.ExecuteCommandAgentName)
+	}
+
 	mtask.RecordExecutionStoppedAt(container)
 	seelog.Debugf("Managed task [%s]: Container [name=%s runtimeID=%s]: sending container change event to tcs, status: %s",
 		mtask.Arn, container.Name, runtimeID, event.Status.String())
@@ -657,6 +664,22 @@ func (mtask *managedTask) handleStoppedToRunningContainerTransition(status apico
 		go mtask.engine.transitionContainer(mtask.Task, container, apicontainerstatus.ContainerStopped)
 		// This will not proceed afterwards because status <= knownstatus below
 	})
+}
+
+// handleManagedAgentStoppedTransition handles a container change event which has a managed agent status
+// we should emit ManagedAgent events for certain container events.
+func (mtask *managedTask) handleManagedAgentStoppedTransition(container *apicontainer.Container, managedAgentName string) {
+	//for now we only have the ExecuteCommandAgent
+	switch managedAgentName {
+	case execcmd.ExecuteCommandAgentName:
+		if !container.UpdateManagedAgentStatus(managedAgentName, apicontainerstatus.ManagedAgentStopped) {
+			seelog.Warnf("Managed task [%s]: cannot find managed agent %s for container %s", mtask.Arn, managedAgentName, container.Name)
+		}
+		mtask.emitManagedAgentEvent(mtask.Task, container, managedAgentName, "Received Container Stopped event")
+	default:
+		seelog.Warnf("Managed task [%s]: unexpected managed agent [%s] in container [%s]; unable to process stopped container transition event",
+			mtask.Arn, managedAgentName, container.Name)
+	}
 }
 
 // handleEventError handles a container change event error and decides whether
