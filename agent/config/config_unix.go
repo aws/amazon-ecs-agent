@@ -38,6 +38,10 @@ const (
 	defaultContainerStartTimeout = 3 * time.Minute
 	// minimumContainerStartTimeout specifies the minimum value for starting a container
 	minimumContainerStartTimeout = 45 * time.Second
+	// defaultContainerCreateTimeout specifies the value for container create timeout duration
+	defaultContainerCreateTimeout = 4 * time.Minute
+	// minimumContainerCreateTimeout specifies the minimum value for creating a container
+	minimumContainerCreateTimeout = 1 * time.Minute
 	// default docker inactivity time is extra time needed on container extraction
 	defaultImagePullInactivityTimeout = 1 * time.Minute
 )
@@ -56,6 +60,7 @@ func DefaultConfig() Config {
 		TaskCleanupWaitDuration:             DefaultTaskCleanupWaitDuration,
 		DockerStopTimeout:                   defaultDockerStopTimeout,
 		ContainerStartTimeout:               defaultContainerStartTimeout,
+		ContainerCreateTimeout:              defaultContainerCreateTimeout,
 		DependentContainersPullUpfront:      BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		CredentialsAuditLogFile:             defaultCredentialsAuditLogFile,
 		CredentialsAuditLogDisabled:         false,

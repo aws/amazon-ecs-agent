@@ -119,6 +119,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_RESERVED_MEMORY", "20")()
 	defer setTestEnv("ECS_CONTAINER_STOP_TIMEOUT", "60s")()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "5m")()
+	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "4m")()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "10m")()
 	defer setTestEnv("ECS_AVAILABLE_LOGGING_DRIVERS", "[\""+string(dockerclient.SyslogDriver)+"\"]")()
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
@@ -164,6 +165,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, expectedDurationDockerStopTimeout, conf.DockerStopTimeout)
 	expectedDurationContainerStartTimeout, _ := time.ParseDuration("5m")
 	assert.Equal(t, expectedDurationContainerStartTimeout, conf.ContainerStartTimeout)
+	expectedDurationContainerCreateTimeout, _ := time.ParseDuration("4m")
+	assert.Equal(t, expectedDurationContainerCreateTimeout, conf.ContainerCreateTimeout)
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.SyslogDriver}, conf.AvailableLoggingDrivers)
 	assert.True(t, conf.PrivilegedDisabled.Enabled())
 	assert.True(t, conf.SELinuxCapable.Enabled(), "Wrong value for SELinuxCapable")
@@ -322,6 +325,14 @@ func TestInvalidFormatContainerStartTimeout(t *testing.T) {
 	assert.Equal(t, defaultContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
 
+func TestInvalidFormatContainerCreateTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "invalid")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, defaultContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreateTimeout")
+}
+
 func TestInvalidFormatDockerInactivityTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_IMAGE_PULL_INACTIVITY_TIMEOUT", "invalid")()
@@ -355,12 +366,28 @@ func TestZeroValueContainerStartTimeout(t *testing.T) {
 	assert.Equal(t, defaultContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
 }
 
+func TestZeroValueContainerCreateTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "0s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, defaultContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreateTimeout")
+}
+
 func TestInvalidValueContainerStartTimeout(t *testing.T) {
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CONTAINER_START_TIMEOUT", "-10s")()
 	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.Equal(t, minimumContainerStartTimeout, conf.ContainerStartTimeout, "Wrong value for ContainerStartTimeout")
+}
+
+func TestInvalidValueContainerCreateTimeout(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_CONTAINER_CREATE_TIMEOUT", "-10s")()
+	conf, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.NoError(t, err)
+	assert.Equal(t, minimumContainerCreateTimeout, conf.ContainerCreateTimeout, "Wrong value for ContainerCreataeTimeout")
 }
 
 func TestZeroValueDockerPullInactivityTimeout(t *testing.T) {

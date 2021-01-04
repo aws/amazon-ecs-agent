@@ -428,7 +428,7 @@ func TestCreateContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, nil, hostConfig, name, dockerclient.CreateContainerTimeout)
+	metadata := client.CreateContainer(ctx, nil, hostConfig, name, defaultTestConfig().ContainerCreateTimeout)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
