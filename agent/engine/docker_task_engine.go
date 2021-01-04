@@ -1099,7 +1099,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	createContainerBegin := time.Now()
 	metadata := client.CreateContainer(engine.ctx, config, hostConfig,
-		dockerContainerName, dockerclient.CreateContainerTimeout)
+		dockerContainerName, engine.cfg.ContainerCreateTimeout)
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
 			task.Arn, container.Name, metadata.DockerID)
