@@ -16,6 +16,8 @@ package v2
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -45,6 +47,7 @@ type TaskResponse struct {
 	TaskTags              map[string]string   `json:"TaskTags,omitempty"`
 	ContainerInstanceTags map[string]string   `json:"ContainerInstanceTags,omitempty"`
 	LaunchType            string              `json:"LaunchType,omitempty"`
+	Errors                []ErrorResponse     `json:"Errors,omitempty"`
 }
 
 // ContainerResponse defines the schema for the container response
@@ -78,6 +81,16 @@ type ContainerResponse struct {
 type LimitsResponse struct {
 	CPU    *float64 `json:"CPU,omitempty"`
 	Memory *int64   `json:"Memory,omitempty"`
+}
+
+// ErrorResponse defined the schema for error response
+// JSON object
+type ErrorResponse struct {
+	ErrorCode    string `json:"ErrorCode,omitempty"`
+	ErrorMessage string `json:"ErrorMessage,omitempty"`
+	StatusCode   int    `json:"StatusCode,omitempty"`
+	RequestId    string `json:"RequestId,omitempty"`
+	ResourceARN  string `json:"ResourceARN,omitempty"`
 }
 
 // NewTaskResponse creates a new response object for the task
@@ -144,14 +157,15 @@ func NewTaskResponse(
 	}
 
 	if propagateTags {
-		propagateTagsToMetadata(state, ecsClient, containerInstanceArn, taskARN, resp)
+		propagateTagsToMetadata(state, ecsClient, containerInstanceArn, taskARN, resp, includeV4Metadata)
 	}
 
 	return resp, nil
 }
 
-func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.ECSClient, containerInstanceArn, taskARN string, resp *TaskResponse) {
+func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.ECSClient, containerInstanceArn, taskARN string, resp *TaskResponse, includeV4Metadata bool) {
 	containerInstanceTags, err := ecsClient.GetResourceTags(containerInstanceArn)
+
 	if err == nil {
 		resp.ContainerInstanceTags = make(map[string]string)
 		for _, tag := range containerInstanceTags {
@@ -159,6 +173,12 @@ func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.EC
 		}
 	} else {
 		seelog.Errorf("Could not get container instance tags for %s: %s", containerInstanceArn, err.Error())
+		if includeV4Metadata {
+			errResp, err := newErrorResponse(err, containerInstanceArn)
+			if err == nil {
+				resp.Errors = append(resp.Errors, *errResp)
+			}
+		}
 	}
 
 	taskTags, err := ecsClient.GetResourceTags(taskARN)
@@ -169,6 +189,12 @@ func propagateTagsToMetadata(state dockerstate.TaskEngineState, ecsClient api.EC
 		}
 	} else {
 		seelog.Errorf("Could not get task tags for %s: %s", taskARN, err.Error())
+		if includeV4Metadata {
+			errResp, err := newErrorResponse(err, taskARN)
+			if err == nil {
+				resp.Errors = append(resp.Errors, *errResp)
+			}
+		}
 	}
 }
 
@@ -271,4 +297,22 @@ func NewContainerResponse(
 
 	resp.Volumes = v1.NewVolumesResponse(dockerContainer)
 	return resp
+}
+
+// newErrorResponse creates a new error response
+func newErrorResponse(err error, resourceARN string) (*ErrorResponse, error) {
+	if awsErr, ok := err.(awserr.Error); ok {
+		if reqErr, ok := err.(awserr.RequestFailure); ok {
+			errResp := &ErrorResponse{
+				ErrorCode:    awsErr.Code(),
+				ErrorMessage: awsErr.Message(),
+				StatusCode:   reqErr.StatusCode(),
+				RequestId:    reqErr.RequestID(),
+				ResourceARN:  resourceARN,
+			}
+			return errResp, nil
+		}
+	}
+
+	return nil, errors.Errorf("Unable to get an error response for resource '%s'", resourceARN)
 }

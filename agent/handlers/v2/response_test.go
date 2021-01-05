@@ -30,8 +30,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -561,4 +563,103 @@ func TestContainerResponseMarshal(t *testing.T) {
 	containerResponseMap := make(map[string]interface{})
 	json.Unmarshal(containerResponseJSON, &containerResponseMap)
 	assert.Equal(t, expectedContainerResponseMap, containerResponseMap)
+}
+
+func TestTaskResponseWithV4TagsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+	now := time.Now()
+	task := &apitask.Task{
+		Arn:                 taskARN,
+		Family:              family,
+		Version:             version,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
+				},
+			},
+		},
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
+	}
+	container := &apicontainer.Container{
+		Name:                containerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerRunning,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		Ports: []apicontainer.PortBinding{
+			{
+				ContainerPort: 80,
+				Protocol:      apicontainer.TransportProtocolTCP,
+			},
+		},
+		VolumesUnsafe: []types.MountPoint{
+			{
+				Name:        volName,
+				Source:      volSource,
+				Destination: volDestination,
+			},
+		},
+		DockerConfig: apicontainer.DockerConfig{
+			HostConfig: aws.String(`{"LogConfig":{"Type":"awslogs","Config":{"awslogs-group":"myLogGroup"}}}`),
+		},
+	}
+	created := time.Now()
+	container.SetCreatedAt(created)
+	labels := map[string]string{
+		"foo": "bar",
+	}
+	container.SetLabels(labels)
+	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
+		taskARN: {
+			DockerID:   containerID,
+			DockerName: containerName,
+			Container:  container,
+		},
+	}
+
+	errCode := "ThrottlingException"
+	errMessage := "Rate exceeded"
+	errStatusCode := 400
+	containerTagsRequestId := "cef9da77-aee7-431d-84d5-f92b2d342c51"
+	taskTagsRequestId := "45dbbc67-0c60-4248-855e-14fdf4c11870"
+	containerTagsErr := awserr.NewRequestFailure(awserr.Error(awserr.New(errCode, errMessage, errors.New(""))), errStatusCode, containerTagsRequestId)
+	taskTagsError := awserr.NewRequestFailure(awserr.Error(awserr.New(errCode, errMessage, errors.New(""))), errStatusCode, taskTagsRequestId)
+
+	gomock.InOrder(
+		state.EXPECT().TaskByArn(taskARN).Return(task, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+		ecsClient.EXPECT().GetResourceTags(containerInstanceArn).Return(nil, containerTagsErr),
+		ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, taskTagsError),
+	)
+
+	taskWithTagsResponse, err := NewTaskResponse(taskARN, state, ecsClient, cluster, availabilityZone, containerInstanceArn, true, true)
+	assert.NoError(t, err)
+	_, err = json.Marshal(taskWithTagsResponse)
+	assert.NoError(t, err)
+	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorCode, errCode)
+	assert.Equal(t, taskWithTagsResponse.Errors[0].ErrorMessage, errMessage)
+	assert.Equal(t, taskWithTagsResponse.Errors[0].StatusCode, errStatusCode)
+	assert.Equal(t, taskWithTagsResponse.Errors[0].RequestId, containerTagsRequestId)
+	assert.Equal(t, taskWithTagsResponse.Errors[0].ResourceARN, containerInstanceArn)
+	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorCode, errCode)
+	assert.Equal(t, taskWithTagsResponse.Errors[1].ErrorMessage, errMessage)
+	assert.Equal(t, taskWithTagsResponse.Errors[1].StatusCode, errStatusCode)
+	assert.Equal(t, taskWithTagsResponse.Errors[1].RequestId, taskTagsRequestId)
+	assert.Equal(t, taskWithTagsResponse.Errors[1].ResourceARN, taskARN)
 }
