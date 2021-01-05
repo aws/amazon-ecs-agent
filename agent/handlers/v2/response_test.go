@@ -351,7 +351,7 @@ func TestTaskResponseMarshal(t *testing.T) {
 				"DesiredStatus": "NONE",
 				"KnownStatus":   "NONE",
 				"Limits": map[string]interface{}{
-					"CPU":    float64(0),
+					"CPU":    float64(2),
 					"Memory": float64(0),
 				},
 				"Type": "NORMAL",

@@ -94,6 +94,10 @@ type ErrorResponse struct {
 	ResourceARN  string `json:"ResourceARN,omitempty"`
 }
 
+// Agent versions >= 1.2.0: Null, zero, and CPU values of 1
+// are passed to Docker as two CPU shares
+const minimumCPUUnit = 2
+
 // NewTaskResponse creates a new response object for the task
 func NewTaskResponse(
 	taskARN string,
@@ -234,6 +238,12 @@ func NewContainerResponse(
 		ExitCode: container.GetKnownExitCode(),
 		Labels:   container.GetLabels(),
 	}
+
+	if container.CPU < minimumCPUUnit {
+		defaultCPU := func(val float64) *float64 { return &val }(minimumCPUUnit)
+		resp.Limits.CPU = defaultCPU
+	}
+
 	// V4 metadata endpoint calls this function for consistency across versions,
 	// but needs additional metadata only available at this scope.
 	if includeV4Metadata {
