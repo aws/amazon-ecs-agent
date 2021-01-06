@@ -1317,17 +1317,19 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	}
 	if execcmd.IsExecEnabledContainer(container) {
 		if ma, _ := container.GetManagedAgentByName(execcmd.ExecuteCommandAgentName); !ma.InitFailed {
+			reason := "Execute Command Agent started"
 			if err := engine.execCmdMgr.StartAgent(engine.ctx, engine.client, task, container, dockerID); err != nil {
+				reason = err.Error()
 				seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, container.Name, err)
 			}
 
-			// whether we started or failed to start, we'll want to emit a state change event
-			// redundant state change events like RUNNING->RUNNING are allowed
 			engine.tasksLock.RLock()
 			mTask, ok := engine.managedTasks[task.Arn]
 			engine.tasksLock.RUnlock()
+			// whether we started or failed to start, we'll want to emit a state change event
+			// redundant state change events like RUNNING->RUNNING are allowed
 			if ok {
-				mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, "Execute Command Agent started")
+				mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, reason)
 			} else {
 				seelog.Errorf("Task engine [%s]: Failed to update status of ExecCommandAgent Process for container [%s]: managed task not found", task.Arn, container.Name)
 			}

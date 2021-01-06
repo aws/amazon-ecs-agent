@@ -342,6 +342,8 @@ func checkManagedAgentEvents(t *testing.T, expectContainerEvent bool, stateChang
 				// there is currently only ever a single managed agent
 				assert.Equal(t, expectedManagedAgent.Status, managedAgentEvent.Status,
 					"expected managedAgent container state change event did not match actual event")
+				assert.Equal(t, expectedManagedAgent.Reason, managedAgentEvent.Reason,
+					"expected managedAgent container state change event reports the wrong reason")
 				close(waitDone)
 				return
 			}
