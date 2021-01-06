@@ -87,6 +87,12 @@ const (
 
 	// DockerHostEnvVar is the environment variable that specifies the location of the Docker daemon socket.
 	DockerHostEnvVar = "DOCKER_HOST"
+
+	// ExternalEnvVar is the environment variable for specifying whether we are running in external (non-EC2) environment.
+	ExternalEnvVar = "ECS_EXTERNAL"
+
+	// DefaultRegionEnvVar is the environment variable for specifying the default AWS region to use.
+	DefaultRegionEnvVar = "AWS_DEFAULT_REGION"
 )
 
 // partitionBucketRegion provides the "partitional" bucket region
@@ -286,6 +292,12 @@ func InstanceConfigFile() string {
 // recommended and may be removed in future versions of amazon-ecs-init.
 func RunPrivileged() bool {
 	envVar := os.Getenv("ECS_AGENT_RUN_PRIVILEGED")
+	return envVar == "true"
+}
+
+// RunningInExternal returns whether we are running in external (non-EC2) environment.
+func RunningInExternal() bool {
+	envVar := os.Getenv(ExternalEnvVar)
 	return envVar == "true"
 }
 

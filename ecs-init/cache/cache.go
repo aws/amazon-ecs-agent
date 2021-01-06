@@ -73,16 +73,20 @@ func NewDownloader() (*Downloader, error) {
 		fs: &standardFS{},
 	}
 
-	// If metadata cannot be initialized the region string is populated with the default value to prevent future
-	// calls to retrieve the region from metadata
-	sessionInstance, err := session.NewSession()
-	if err != nil {
-		log.Debugf("Got error when initializing session for metadata client: %v. Use default region: %s",
-			err, config.DefaultRegionName)
-		downloader.region = config.DefaultRegionName
+	if config.RunningInExternal() {
+		downloader.metadata = &blackholeInstanceMetadata{}
 	} else {
-		// metadata is only used for retrieving the user's region
-		downloader.metadata = ec2metadata.New(sessionInstance)
+		sessionInstance, err := session.NewSession()
+		if err != nil {
+			// metadata client is only used for retrieving the user's region.
+			// If it cannot be initialized, the region field is populated with the default value to prevent future
+			// calls to retrieve the region from metadata.
+			log.Warnf("Got error when initializing session for metadata client: %v. Use default region: %s",
+				err, config.DefaultRegionName)
+			downloader.region = config.DefaultRegionName
+		} else {
+			downloader.metadata = ec2metadata.New(sessionInstance)
+		}
 	}
 
 	s3Downloader := &s3Downloader{
@@ -166,10 +170,21 @@ func (d *Downloader) getRegion() string {
 		return d.region
 	}
 
+	defaultRegion := config.DefaultRegionName
+	if config.RunningInExternal() {
+		region := os.Getenv(config.DefaultRegionEnvVar)
+		if region == "" {
+			log.Warnf("%s is not specified while running in external (non-EC2) environment. Using default region: %s",
+				config.DefaultRegionEnvVar, defaultRegion)
+		}
+		d.region = defaultRegion
+		return d.region
+	}
+
 	region, err := d.metadata.Region()
 	if err != nil {
 		log.Warn("Could not retrieve the region from EC2 Instance Metadata. Error: %s", err.Error())
-		region = config.DefaultRegionName
+		region = defaultRegion
 	}
 	d.region = region
 

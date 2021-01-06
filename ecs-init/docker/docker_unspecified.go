@@ -46,12 +46,20 @@ func createHostConfig(binds []string) *godocker.HostConfig {
 
 	logConfig := config.AgentDockerLogDriverConfiguration()
 
+	var caps []string
+	if !config.RunningInExternal() {
+		// CapNetAdmin and CapSysAdmin are needed for running task in awsvpc network mode.
+		// This network mode is (at least currently) not supported in external environment,
+		// hence not adding them in that case.
+		caps = []string{CapNetAdmin, CapSysAdmin}
+	}
+
 	hostConfig := &godocker.HostConfig{
 		LogConfig:   logConfig,
 		Binds:       binds,
 		NetworkMode: networkMode,
 		UsernsMode:  usernsMode,
-		CapAdd:      []string{CapNetAdmin, CapSysAdmin},
+		CapAdd:      caps,
 		Init:        true,
 	}
 

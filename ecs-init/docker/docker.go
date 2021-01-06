@@ -98,6 +98,10 @@ const (
 	iptablesAltDir = "/etc/alternatives"
 	// legacyDir holds the location of legacy iptables
 	iptablesLegacyDir = "/usr/sbin"
+	// externalEnvCredsHostDir specifies the location of the credentials on host when running in external environment.
+	externalEnvCredsHostDir = "/root/.aws"
+	// externalEnvCredsContainerDir specifies the location of the credentials that will be mounted in agent container.
+	externalEnvCredsContainerDir = "/rotatingcreds"
 
 	// the following libDirs  specify the location of shared libraries on the
 	// host and in the Agent container required for the execution of the iptables
@@ -276,6 +280,10 @@ func (c *Client) getContainerConfig(envVarsFromFiles map[string]string) *godocke
 	for key, val := range envVarsFromFiles {
 		envVariables[key] = val
 	}
+	if config.RunningInExternal() {
+		// Task networking is not supported when not running on EC2. Explicitly disable since it's enabled by default.
+		envVariables["ECS_ENABLE_TASK_ENI"] = "false"
+	}
 
 	var env []string
 	for envKey, envValue := range envVariables {
@@ -381,6 +389,11 @@ func (c *Client) getHostConfig(envVarsFromFiles map[string]string) *godocker.Hos
 	if pkiDir := config.HostPKIDirPath(); pkiDir != "" {
 		certsPath := pkiDir + ":" + pkiDir + readOnly
 		binds = append(binds, certsPath)
+	}
+
+	if config.RunningInExternal() {
+		credsPath := externalEnvCredsHostDir + ":" + externalEnvCredsContainerDir + readOnly
+		binds = append(binds, credsPath)
 	}
 
 	for key, val := range c.LoadEnvVars() {
