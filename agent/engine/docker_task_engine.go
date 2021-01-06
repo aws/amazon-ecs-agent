@@ -74,8 +74,8 @@ const (
 	getIPBridgeRetryJitterMultiplier   = 0.2
 	getIPBridgeRetryDelayMultiplier    = 2
 	ipamCleanupTmeout                  = 5 * time.Second
-	minEngineConnectRetryDelay         = 200 * time.Second
-	maxEngineConnectRetryDelay         = 2 * time.Second
+	minEngineConnectRetryDelay         = 2 * time.Second
+	maxEngineConnectRetryDelay         = 200 * time.Second
 	engineConnectRetryJitterMultiplier = 0.20
 	engineConnectRetryDelayMultiplier  = 1.5
 	// logDriverTypeFirelens is the log driver type for containers that want to use the firelens container to send logs.
@@ -321,7 +321,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 				return
 			}
 			if !eniAttachment.IsSent() {
-				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record with MAC address: %s", eniAttachment.MACAddress)
+				seelog.Warnf("Timed out waiting for ENI ack; removing ENI attachment record %s", eniAttachment.String())
 				engine.removeENIAttachmentData(eniAttachment.MACAddress)
 				engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 			}
@@ -330,7 +330,7 @@ func (engine *DockerTaskEngine) synchronizeState() {
 		if err != nil {
 			// The only case where we get an error from Initialize is that the attachment has expired. In that case, remove the expired
 			// attachment from state.
-			seelog.Warnf("ENI attachment with mac address %s has expired. Removing it from state.", eniAttachment.MACAddress)
+			seelog.Warnf("ENI attachment has expired. Removing it from state. %s", eniAttachment.String())
 			engine.removeENIAttachmentData(eniAttachment.MACAddress)
 			engine.state.RemoveENIAttachment(eniAttachment.MACAddress)
 		}
@@ -710,7 +710,7 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		task.UpdateDesiredStatus()
 
 		engine.state.AddTask(task)
-		if dependencygraph.ValidDependencies(task) {
+		if dependencygraph.ValidDependencies(task, engine.cfg) {
 			engine.startTask(task)
 		} else {
 			seelog.Errorf("Task engine [%s]: unable to progress task with circular dependencies", task.Arn)
@@ -873,6 +873,12 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		return metadata
 	}
 	pullSucceeded := metadata.Error == nil
+	if pullSucceeded {
+		dockerContainer := &apicontainer.DockerContainer{
+			Container: container,
+		}
+		engine.state.AddPulledContainer(dockerContainer, task)
+	}
 	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
 }
@@ -1093,7 +1099,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	createContainerBegin := time.Now()
 	metadata := client.CreateContainer(engine.ctx, config, hostConfig,
-		dockerContainerName, dockerclient.CreateContainerTimeout)
+		dockerContainerName, engine.cfg.ContainerCreateTimeout)
 	if metadata.DockerID != "" {
 		seelog.Infof("Task engine [%s]: created docker container for task: %s -> %s",
 			task.Arn, container.Name, metadata.DockerID)

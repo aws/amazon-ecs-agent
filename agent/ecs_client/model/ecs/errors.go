@@ -15,6 +15,10 @@
 
 package ecs
 
+import (
+	"github.com/aws/aws-sdk-go/private/protocol"
+)
+
 const (
 
 	// ErrCodeAccessDeniedException for service response error code
@@ -156,3 +160,25 @@ const (
 	// it resumes where it stopped previously.
 	ErrCodeUpdateInProgressException = "UpdateInProgressException"
 )
+
+var exceptionFromCode = map[string]func(protocol.ResponseMetadata) error{
+	"AccessDeniedException":                          newErrorAccessDeniedException,
+	"AttributeLimitExceededException":                newErrorAttributeLimitExceededException,
+	"BlockedException":                               newErrorBlockedException,
+	"ClientException":                                newErrorClientException,
+	"ClusterContainsContainerInstancesException":     newErrorClusterContainsContainerInstancesException,
+	"ClusterContainsServicesException":               newErrorClusterContainsServicesException,
+	"ClusterContainsTasksException":                  newErrorClusterContainsTasksException,
+	"ClusterNotFoundException":                       newErrorClusterNotFoundException,
+	"InvalidParameterException":                      newErrorInvalidParameterException,
+	"MissingVersionException":                        newErrorMissingVersionException,
+	"NoUpdateAvailableException":                     newErrorNoUpdateAvailableException,
+	"PlatformTaskDefinitionIncompatibilityException": newErrorPlatformTaskDefinitionIncompatibilityException,
+	"PlatformUnknownException":                       newErrorPlatformUnknownException,
+	"ServerException":                                newErrorServerException,
+	"ServiceNotActiveException":                      newErrorServiceNotActiveException,
+	"ServiceNotFoundException":                       newErrorServiceNotFoundException,
+	"TargetNotFoundException":                        newErrorTargetNotFoundException,
+	"UnsupportedFeatureException":                    newErrorUnsupportedFeatureException,
+	"UpdateInProgressException":                      newErrorUpdateInProgressException,
+}

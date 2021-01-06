@@ -15,6 +15,7 @@ package engine
 
 import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -73,22 +74,29 @@ func (engine *DockerTaskEngine) loadContainers() error {
 			return errors.Errorf("did not find the task of container %s: %s", container.Container.Name,
 				container.Container.GetTaskARN())
 		}
-		engine.state.AddContainer(container, task)
+		if container.Container.GetKnownStatus() == apicontainerstatus.ContainerPulled {
+			engine.state.AddPulledContainer(container, task)
+		} else {
+			engine.state.AddContainer(container, task)
+		}
 	}
 
 	// Update containers in task from data in container table. It stores more updated data of container
 	// than the task table.
 	tasks := engine.state.AllTasks()
 	for _, task := range tasks {
-		dockerContainers, ok := engine.state.ContainerMapByArn(task.Arn)
-		if !ok {
-			// A task's container map contains containers loaded from container table. It is ok
-			// that there isn't any container in the map, because we first save a container to container table
-			// when finished a transition on it, and before that the container is just stored as part of the task.
-			continue
-		}
+		// A task's container map contains containers loaded from container table. It is ok
+		// that there isn't any container in the map, because we first save a container to container table
+		// when finished a transition on it, and before that the container is just stored as part of the task.
+		dockerContainers, _ := engine.state.ContainerMapByArn(task.Arn)
+		pulledContainers, _ := engine.state.PulledContainerMapByArn(task.Arn)
 
 		for idx, container := range task.Containers {
+			for _, pulledContainer := range pulledContainers {
+				if container.Name == pulledContainer.Container.Name {
+					task.Containers[idx] = pulledContainer.Container
+				}
+			}
 			for _, dockerContainer := range dockerContainers {
 				if container.Name == dockerContainer.Container.Name {
 					task.Containers[idx] = dockerContainer.Container

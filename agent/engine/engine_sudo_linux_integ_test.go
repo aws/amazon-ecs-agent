@@ -19,6 +19,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -30,6 +34,7 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
@@ -47,8 +52,8 @@ import (
 )
 
 const (
-	testLogSenderImage = "amazonlinux:2"
-	testFluentbitImage = "amazon/aws-for-fluent-bit:latest"
+	testLogSenderImage = "amazonlinux:2.0.20200722.0"
+	testFluentbitImage = "amazon/aws-for-fluent-bit:2.9.0"
 	testVolumeImage    = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 	testCluster        = "testCluster"
 	validTaskArnPrefix = "arn:aws:ecs:region:account-id:task/"
@@ -60,6 +65,12 @@ const (
 	testECSRegion      = "us-east-1"
 	testLogGroupName   = "test-fluentbit"
 	testLogGroupPrefix = "firelens-fluentbit-"
+)
+
+var (
+	mockTaskMeatadataHandler = http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		rw.Write([]byte(`{"TaskARN": "arn:aws:ecs:region:account-id:task/task-id"}`))
+	})
 )
 
 func TestStartStopWithCgroup(t *testing.T) {
@@ -164,6 +175,20 @@ func TestFirelensFluentbit(t *testing.T) {
 	taskEngine, done, _ := setup(cfg, nil, t)
 	defer done()
 
+	// Mock task metadata server as the firelens container needs to access it.
+	// Note that the listener has to be overwritten here, because the default one from httptest.NewServer
+	// only listens to localhost and isn't reachable from container running in bridge network mode.
+	l, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+	server := httptest.NewUnstartedServer(mockTaskMeatadataHandler)
+	server.Listener = l
+	server.Start()
+	defer server.Close()
+
+	port := getPortFromAddr(t, server.URL)
+	serverURL := fmt.Sprintf("http://%s:%s", getHostPrivateIP(t, ec2.NewEC2MetadataClient(nil)), port)
+	defer setV3MetadataURLFormat(serverURL + "/v3/%s")()
+
 	testTask := createFirelensTask(t)
 	taskEngine.(*DockerTaskEngine).resourceFields = &taskresource.ResourceFields{
 		ResourceFieldsCommon: &taskresource.ResourceFieldsCommon{
@@ -174,7 +199,7 @@ func TestFirelensFluentbit(t *testing.T) {
 	testEvents := InitEventCollection(taskEngine)
 
 	//Verify logsender container is running
-	err := VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
+	err = VerifyContainerStatus(apicontainerstatus.ContainerRunning, testTask.Arn+":logsender", testEvents, t)
 	assert.NoError(t, err, "Verify logsender container is running")
 
 	//Verify firelens container is running
@@ -236,6 +261,31 @@ func TestFirelensFluentbit(t *testing.T) {
 	// Make sure all the resource is cleaned up
 	_, err = ioutil.ReadDir(filepath.Join(testDataDir, "firelens", testTask.Arn))
 	assert.Error(t, err)
+}
+
+// getPortFromAddr returns the port part of an address in format "http://<addr>:<port>".
+func getPortFromAddr(t *testing.T, addr string) string {
+	u, err := url.Parse(addr)
+	require.NoErrorf(t, err, "unable to parse address: %s", addr)
+	_, port, err := net.SplitHostPort(u.Host)
+	require.NoErrorf(t, err, "unable to get port from address: %s", addr)
+	return port
+}
+
+// getHostPrivateIP returns the host's private IP.
+func getHostPrivateIP(t *testing.T, ec2MetadataClient ec2.EC2MetadataClient) string {
+	ip, err := ec2MetadataClient.PrivateIPv4Address()
+	require.NoError(t, err)
+	return ip
+}
+
+// setV3MetadataURLFormat sets the container metadata URI format and returns a function to set it back.
+func setV3MetadataURLFormat(fmt string) func() {
+	backup := apicontainer.MetadataURIFormat
+	apicontainer.MetadataURIFormat = fmt
+	return func() {
+		apicontainer.MetadataURIFormat = backup
+	}
 }
 
 func createFirelensTask(t *testing.T) *apitask.Task {

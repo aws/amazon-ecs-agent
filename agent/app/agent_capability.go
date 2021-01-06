@@ -62,6 +62,7 @@ const (
 	capabilityEFSAuth                           = "efsAuth"
 	capabilityEnvFilesS3                        = "env-files.s3"
 	capabilityExternal                          = "external"
+	capabilityFSxWindowsFileServer              = "fsxWindowsFileServer"
 )
 
 var (
@@ -152,6 +153,7 @@ var (
 //    ecs.capability.efsAuth
 //    ecs.capability.env-files.s3
 //    ecs.capability.external
+//    ecs.capability.fsxWindowsFileServer
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -243,6 +245,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 		}
 		capabilities = removeAttributesByNames(capabilities, externalUnsupportedCapabilities)
 	}
+	// support fsxWindowsFileServer on ecs capabilities
+	capabilities = agent.appendFSxWindowsFileServerCapabilities(capabilities)
 
 	return capabilities, nil
 }

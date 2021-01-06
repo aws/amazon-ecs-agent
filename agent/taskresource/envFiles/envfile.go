@@ -24,18 +24,19 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/s3"
 	"github.com/aws/amazon-ecs-agent/agent/s3/factory"
-	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
-	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
-	"github.com/cihub/seelog"
-	"github.com/pkg/errors"
-
-	"github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/utils/bufiowrapper"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+
+	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -45,6 +46,12 @@ const (
 	envFileExtension     = ".env"
 	commentIndicator     = "#"
 	envVariableDelimiter = "="
+
+	renameBackoffMin      = 500 * time.Millisecond
+	renameBackoffMax      = 5 * time.Second
+	renameBackoffJitter   = 0.0
+	renameBackoffMultiple = 1.5
+	renameRetryAttempts   = 5
 
 	s3DownloadTimeout = 30 * time.Second
 )
@@ -402,7 +409,10 @@ func (envfile *EnvironmentFileResource) writeEnvFile(writeFunc func(file oswrapp
 		return err
 	}
 
-	err = rename(tmpFile.Name(), fullPathName)
+	backoff := retry.NewExponentialBackoff(renameBackoffMin, renameBackoffMax, renameBackoffJitter, renameBackoffMultiple)
+	err = retry.RetryNWithBackoff(backoff, renameRetryAttempts, func() error {
+		return rename(tmpFile.Name(), fullPathName)
+	})
 	if err != nil {
 		seelog.Errorf("Something went wrong when trying to rename envfile from %s to %s", tmpFile.Name(), fullPathName)
 		return err

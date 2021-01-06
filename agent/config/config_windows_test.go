@@ -40,6 +40,7 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, uint16(0), cfg.ReservedMemory, "Default reserved memory set incorrectly")
 	assert.Equal(t, 30*time.Second, cfg.DockerStopTimeout, "Default docker stop container timeout set incorrectly")
 	assert.Equal(t, 8*time.Minute, cfg.ContainerStartTimeout, "Default docker start container timeout set incorrectly")
+	assert.Equal(t, 4*time.Minute, cfg.ContainerCreateTimeout, "Default docker create container timeout set incorrectly")
 	assert.False(t, cfg.PrivilegedDisabled.Enabled(), "Default PrivilegedDisabled set incorrectly")
 	assert.Equal(t, []dockerclient.LoggingDriver{dockerclient.JSONFileDriver, dockerclient.NoneDriver, dockerclient.AWSLogsDriver},
 		cfg.AvailableLoggingDrivers, "Default logging drivers set incorrectly")
@@ -61,6 +62,7 @@ func TestConfigDefault(t *testing.T) {
 		"Default TaskMetadataBurstRate is set incorrectly")
 	assert.False(t, cfg.SharedVolumeMatchFullConfig.Enabled(), "Default SharedVolumeMatchFullConfig set incorrectly")
 	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout, "Default ImagePullTimeout set incorrectly")
+	assert.False(t, cfg.DependentContainersPullUpfront.Enabled(), "Default DependentContainersPullUpfront set incorrectly")
 }
 
 func TestConfigIAMTaskRolesReserves80(t *testing.T) {

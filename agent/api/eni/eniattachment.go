@@ -143,11 +143,11 @@ func (eni *ENIAttachment) stringUnsafe() string {
 	// skip TaskArn field for instance level eni attachment since it won't have a task arn
 	if eni.AttachmentType == ENIAttachmentTypeInstanceENI {
 		return fmt.Sprintf(
-			"ENI Attachment: attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
-			eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+			"ENI Attachment: attachment=%s attachmentType=%s attachmentSent=%t mac=%s status=%s expiresAt=%s",
+			eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.Format(time.RFC3339))
 	}
 
 	return fmt.Sprintf(
-		"ENI Attachment: task=%s;attachment=%s;attachmentType=%s;attachmentSent=%t;mac=%s;status=%s;expiresAt=%s",
-		eni.TaskARN, eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.String())
+		"ENI Attachment: task=%s attachment=%s attachmentType=%s attachmentSent=%t mac=%s status=%s expiresAt=%s",
+		eni.TaskARN, eni.AttachmentARN, eni.AttachmentType, eni.AttachStatusSent, eni.MACAddress, eni.Status.String(), eni.ExpiresAt.Format(time.RFC3339))
 }

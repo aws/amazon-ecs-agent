@@ -10,9 +10,13 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
+FROM gcc:7.3.0 as build
+
+WORKDIR /src/
+ADD . /src/
+
+RUN gcc -Os -Wall -Werror -static ./pause.c -o pause
 
 FROM scratch
-MAINTAINER Amazon Web Services, Inc.
-COPY pause /usr/bin/
-WORKDIR /usr/bin
-CMD ["./pause"]
+COPY --from=build /src/pause /
+ENTRYPOINT ["/pause"]

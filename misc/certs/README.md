@@ -5,4 +5,3 @@ certificate store to trust.
 This directory is meant to generate a store suitable for use by our agent.
 
 Specifically, it uses debian's certificate store
-

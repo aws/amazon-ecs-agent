@@ -85,7 +85,7 @@ func CredentialsHandlerImpl(w http.ResponseWriter, r *http.Request, auditLogger 
 func processCredentialsRequest(credentialsManager credentials.Manager, r *http.Request, credentialsID string, errPrefix string) ([]byte, string, string, *handlersutils.ErrorMessage, error) {
 	if credentialsID == "" {
 		errText := errPrefix + "No Credential ID in the request"
-		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
+		seelog.Errorf("Error processing credential request: %s", errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrNoIDInRequest,
 			Message:       errText,
@@ -97,7 +97,7 @@ func processCredentialsRequest(credentialsManager credentials.Manager, r *http.R
 	credentials, ok := credentialsManager.GetTaskCredentials(credentialsID)
 	if !ok {
 		errText := errPrefix + "Credentials not found"
-		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
+		seelog.Errorf("Error processing credential request: %s", errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrInvalidIDInRequest,
 			Message:       errText,
@@ -106,10 +106,14 @@ func processCredentialsRequest(credentialsManager credentials.Manager, r *http.R
 		return nil, "", "", msg, errors.New(errText)
 	}
 
+	seelog.Infof("Processing credential request, credentialType=%s taskARN=%s",
+		credentials.IAMRoleCredentials.RoleType, credentials.ARN)
+
 	if utils.ZeroOrNil(credentials.ARN) && utils.ZeroOrNil(credentials.IAMRoleCredentials) {
 		// This can happen when the agent is restarted and is reconciling its state.
 		errText := errPrefix + "Credentials uninitialized for ID"
-		seelog.Infof("%s. Request IP Address: %s", errText, r.RemoteAddr)
+		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrCredentialsUninitialized,
 			Message:       errText,
@@ -121,7 +125,8 @@ func processCredentialsRequest(credentialsManager credentials.Manager, r *http.R
 	credentialsJSON, err := json.Marshal(credentials.IAMRoleCredentials)
 	if err != nil {
 		errText := errPrefix + "Error marshaling credentials"
-		seelog.Errorf("%s. Request IP Address: %s", errText, r.RemoteAddr)
+		seelog.Errorf("Error processing credential request credentialType=%s taskARN=%s: %s",
+			credentials.IAMRoleCredentials.RoleType, credentials.ARN, errText)
 		msg := &handlersutils.ErrorMessage{
 			Code:          ErrInternalServer,
 			Message:       "Internal server error",

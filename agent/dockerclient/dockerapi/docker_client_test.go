@@ -428,7 +428,7 @@ func TestCreateContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.CreateContainer(ctx, nil, hostConfig, name, dockerclient.CreateContainerTimeout)
+	metadata := client.CreateContainer(ctx, nil, hostConfig, name, defaultTestConfig().ContainerCreateTimeout)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
@@ -476,7 +476,11 @@ func TestStopContainerTimeout(t *testing.T) {
 	cfg.DockerStopTimeout = xContainerShortTimeout
 	mockDockerSDK, client, _, _, _, done := dockerClientSetupWithConfig(t, cfg)
 	defer done()
-	ctxTimeoutStopContainer = xContainerShortTimeout
+	reset := stopContainerTimeoutBuffer
+	stopContainerTimeoutBuffer = xContainerShortTimeout
+	defer func() {
+		stopContainerTimeoutBuffer = reset
+	}()
 
 	wait := &sync.WaitGroup{}
 	wait.Add(1)
@@ -488,7 +492,7 @@ func TestStopContainerTimeout(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	metadata := client.StopContainer(ctx, "id", xContainerShortTimeout)
-	assert.Error(t, metadata.Error, "Expected error for pull timeout")
+	assert.Error(t, metadata.Error, "Expected error for stop timeout")
 	assert.Equal(t, "DockerTimeoutError", metadata.Error.(apierrors.NamedError).ErrorName())
 	wait.Done()
 }
@@ -514,7 +518,7 @@ func TestStopContainer(t *testing.T) {
 	)
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	metadata := client.StopContainer(ctx, "id", dockerclient.StopContainerTimeout)
+	metadata := client.StopContainer(ctx, "id", client.config.DockerStopTimeout)
 	assert.NoError(t, metadata.Error)
 	assert.Equal(t, "id", metadata.DockerID)
 }
@@ -1177,6 +1181,19 @@ func TestPollStatsTimeout(t *testing.T) {
 	_, err := getContainerStatsNotStreamed(mockDockerSDK, ctx, "", shortTimeout)
 	assert.Error(t, err)
 	wait.Done()
+}
+
+func TestPollStatsError(t *testing.T) {
+	shortTimeout := 1 * time.Millisecond
+	mockDockerSDK, _, _, _, _, done := dockerClientSetup(t)
+	defer done()
+	mockDockerSDK.EXPECT().ContainerStats(gomock.Any(), gomock.Any(), false).MaxTimes(1).Return(types.ContainerStats{
+		Body: nil},
+		errors.New("Container stats error"))
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	_, err := getContainerStatsNotStreamed(mockDockerSDK, ctx, "foo", shortTimeout)
+	assert.Error(t, err)
 }
 
 func TestStatsInactivityTimeoutNoHit(t *testing.T) {
