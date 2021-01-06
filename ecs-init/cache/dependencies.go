@@ -141,6 +141,13 @@ type instanceMetadata interface {
 	Region() (string, error)
 }
 
+type blackholeInstanceMetadata struct {
+}
+
+func (b *blackholeInstanceMetadata) Region() (string, error) {
+	return "", errors.New("blackholed")
+}
+
 // standardFS delegates to the package-level functions
 type standardFS struct{}
 
