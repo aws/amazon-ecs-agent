@@ -3183,6 +3183,7 @@ func TestStartExecAgent(t *testing.T) {
 		expectContainerEvent    bool
 		execAgentStatus         apicontainerstatus.ManagedAgentStatus
 		execAgentInitFailed     bool
+		execAgentStartError     error
 	}{
 		{
 			execCommandAgentEnabled: false,
@@ -3195,6 +3196,12 @@ func TestStartExecAgent(t *testing.T) {
 			expectContainerEvent:    true,
 			execAgentStatus:         apicontainerstatus.ManagedAgentRunning,
 			execAgentInitFailed:     false,
+		},
+		{
+			execCommandAgentEnabled: true,
+			expectContainerEvent:    true,
+			execAgentStatus:         apicontainerstatus.ManagedAgentStopped,
+			execAgentStartError:     errors.New("mock error"),
 		},
 		{
 			execCommandAgentEnabled: true,
@@ -3235,10 +3242,18 @@ func TestStartExecAgent(t *testing.T) {
 
 		// check for expected taskEvent in stateChangeEvents
 		waitDone := make(chan struct{})
+		var reason string
+		if tc.expectContainerEvent {
+			reason = "Execute Command Agent started"
+		}
+		if tc.execAgentStartError != nil {
+			reason = tc.execAgentStartError.Error()
+		}
 		expectedManagedAgent := apicontainer.ManagedAgent{
 			ManagedAgentState: apicontainer.ManagedAgentState{
 				Status:     tc.execAgentStatus,
 				InitFailed: tc.execAgentInitFailed,
+				Reason:     reason,
 			},
 		}
 		go checkManagedAgentEvents(t, tc.expectContainerEvent, stateChangeEvents, expectedManagedAgent, waitDone)
@@ -3248,7 +3263,9 @@ func TestStartExecAgent(t *testing.T) {
 		if tc.execCommandAgentEnabled {
 			execCmdMgr.EXPECT().InitializeContainer(gomock.Any(), testTask.Containers[0], gomock.Any()).AnyTimes()
 			if !tc.execAgentInitFailed {
-				execCmdMgr.EXPECT().StartAgent(gomock.Any(), client, testTask, testTask.Containers[0], testContainerId).AnyTimes()
+				execCmdMgr.EXPECT().StartAgent(gomock.Any(), client, testTask, testTask.Containers[0], testContainerId).
+					Return(tc.execAgentStartError).
+					AnyTimes()
 			}
 		}
 		ret := taskEngine.(*DockerTaskEngine).startContainer(testTask, testTask.Containers[0])
@@ -3354,6 +3371,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		expectedManagedAgent := apicontainer.ManagedAgent{
 			ManagedAgentState: apicontainer.ManagedAgentState{
 				Status: apicontainerstatus.ManagedAgentRunning,
+				Reason: "Execute Command Agent restarted",
 			},
 		}
 		// only if we expect restart will we also expect a managed agent container event
@@ -3444,6 +3462,7 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 			Name: execcmd.ExecuteCommandAgentName,
 			ManagedAgentState: apicontainer.ManagedAgentState{
 				Status:        tc.execAgentStatus,
+				Reason:        "Execute Command Agent restarted",
 				LastStartedAt: nowTime,
 			},
 		}
@@ -3674,9 +3693,14 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 			taskEngine.managedTasks[sleepTask.Arn] = mTestTask
 
 			waitDone := make(chan struct{})
+			var reason string
+			if tc.error != nil {
+				reason = fmt.Sprintf("Execute Command Agent Initialization failed - %v", tc.error)
+			}
 			expectedManagedAgent := apicontainer.ManagedAgent{
 				ManagedAgentState: apicontainer.ManagedAgentState{
 					Status: apicontainerstatus.ManagedAgentStopped,
+					Reason: reason,
 				},
 			}
 
