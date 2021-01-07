@@ -3244,7 +3244,7 @@ func TestStartExecAgent(t *testing.T) {
 		waitDone := make(chan struct{})
 		var reason string
 		if tc.expectContainerEvent {
-			reason = "Execute Command Agent started"
+			reason = "ExecuteCommandAgent started"
 		}
 		if tc.execAgentStartError != nil {
 			reason = tc.execAgentStartError.Error()
@@ -3371,7 +3371,7 @@ func TestMonitorExecAgentRunning(t *testing.T) {
 		expectedManagedAgent := apicontainer.ManagedAgent{
 			ManagedAgentState: apicontainer.ManagedAgentState{
 				Status: apicontainerstatus.ManagedAgentRunning,
-				Reason: "Execute Command Agent restarted",
+				Reason: "ExecuteCommandAgent restarted",
 			},
 		}
 		// only if we expect restart will we also expect a managed agent container event
@@ -3462,7 +3462,7 @@ func TestMonitorExecAgentProcesses(t *testing.T) {
 			Name: execcmd.ExecuteCommandAgentName,
 			ManagedAgentState: apicontainer.ManagedAgentState{
 				Status:        tc.execAgentStatus,
-				Reason:        "Execute Command Agent restarted",
+				Reason:        "ExecuteCommandAgent restarted",
 				LastStartedAt: nowTime,
 			},
 		}
@@ -3695,7 +3695,7 @@ func TestCreateContainerWithExecAgent(t *testing.T) {
 			waitDone := make(chan struct{})
 			var reason string
 			if tc.error != nil {
-				reason = fmt.Sprintf("Execute Command Agent Initialization failed - %v", tc.error)
+				reason = fmt.Sprintf("ExecuteCommandAgent Initialization failed - %v", tc.error)
 			}
 			expectedManagedAgent := apicontainer.ManagedAgent{
 				ManagedAgentState: apicontainer.ManagedAgentState{

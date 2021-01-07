@@ -315,10 +315,10 @@ func (engine *DockerTaskEngine) monitorExecAgentRunning(ctx context.Context,
 	status, err := engine.execCmdMgr.RestartAgentIfStopped(ctx, engine.client, task, c, dockerID)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: Failed to restart ExecCommandAgent Process for container [%s]: %v", task.Arn, dockerID, err)
-		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "Execute Command Agent cannot be restarted")
+		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "ExecuteCommandAgent cannot be restarted")
 	}
 	if status == execcmd.Restarted {
-		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "Execute Command Agent restarted")
+		mTask.emitManagedAgentEvent(mTask.Task, c, execcmd.ExecuteCommandAgentName, "ExecuteCommandAgent restarted")
 	}
 
 }
@@ -1149,7 +1149,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 			mTask, ok := engine.managedTasks[task.Arn]
 			engine.tasksLock.RUnlock()
 			if ok {
-				mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, fmt.Sprintf("Execute Command Agent Initialization failed - %v", err))
+				mTask.emitManagedAgentEvent(mTask.Task, container, execcmd.ExecuteCommandAgentName, fmt.Sprintf("ExecuteCommandAgent Initialization failed - %v", err))
 			} else {
 				seelog.Errorf("Task engine [%s]: Failed to update status of ExecCommandAgent Process for container [%s]: managed task not found", task.Arn, container.Name)
 			}
@@ -1317,7 +1317,7 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 	}
 	if execcmd.IsExecEnabledContainer(container) {
 		if ma, _ := container.GetManagedAgentByName(execcmd.ExecuteCommandAgentName); !ma.InitFailed {
-			reason := "Execute Command Agent started"
+			reason := "ExecuteCommandAgent started"
 			if err := engine.execCmdMgr.StartAgent(engine.ctx, engine.client, task, container, dockerID); err != nil {
 				reason = err.Error()
 				seelog.Errorf("Task engine [%s]: Failed to start ExecCommandAgent Process for container [%s]: %v", task.Arn, container.Name, err)

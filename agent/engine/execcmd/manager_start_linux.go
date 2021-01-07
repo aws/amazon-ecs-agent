@@ -165,13 +165,13 @@ func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClien
 
 	err = client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
 	if err != nil {
-		return newMD, StartError{error: fmt.Errorf("unable to start Execute Command Agent [pre-start]: %v", err), retryable: true}
+		return newMD, StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [pre-start]: %v", err), retryable: true}
 	}
 	seelog.Debugf("Task engine [%s]: sent ExecCommandAgent start signal for container: %s ->  docker exec id: %s", task.Arn, containerId, execRes.ID)
 
 	inspect, err := client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
 	if err != nil {
-		return newMD, StartError{error: fmt.Errorf("unable to start Execute Command Agent [inspect]: %v", err), retryable: true}
+		return newMD, StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [inspect]: %v", err), retryable: true}
 	}
 	seelog.Debugf("Task engine [%s]: inspect ExecCommandAgent for container: %s -> pid: %d, exitCode: %d, running:%v, err:%v",
 		task.Arn, containerId, inspect.Pid, inspect.ExitCode, inspect.Running, err)
