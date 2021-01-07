@@ -182,7 +182,7 @@ func NewManagedAgentChangeEvent(task *apitask.Task, cont *apicontainer.Container
 	var event = ManagedAgentStateChange{}
 	managedAgent, ok := cont.GetManagedAgentByName(managedAgentName)
 	if !ok {
-		return event, errors.Errorf("No execute command agent available in container: %v", cont.Name)
+		return event, errors.Errorf("No ExecuteCommandAgent available in container: %v", cont.Name)
 	}
 	if !managedAgent.Status.ShouldReportToBackend() {
 		return event, errors.Errorf("create managed agent state change event: status not recognized by ECS: %v", managedAgent.Status)

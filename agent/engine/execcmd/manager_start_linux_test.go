@@ -103,7 +103,7 @@ func TestStartAgent(t *testing.T) {
 			expectStartContainerExec: true,
 			expectedStatus:           apicontainerstatus.ManagedAgentStopped,
 			startContainerExecErr:    mockError,
-			expectedError:            StartError{error: fmt.Errorf("unable to start Execute Command Agent [pre-start]: %v", mockError), retryable: true},
+			expectedError:            StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [pre-start]: %v", mockError), retryable: true},
 			expectedStartTime:        zeroTime,
 		},
 		{
@@ -119,7 +119,7 @@ func TestStartAgent(t *testing.T) {
 			expectInspectContainerExec: true,
 			expectedStatus:             apicontainerstatus.ManagedAgentStopped,
 			inspectContainerExecErr:    mockError,
-			expectedError:              StartError{error: fmt.Errorf("unable to start Execute Command Agent [inspect]: %v", mockError), retryable: true},
+			expectedError:              StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [inspect]: %v", mockError), retryable: true},
 			expectedStartTime:          zeroTime,
 		},
 		{
