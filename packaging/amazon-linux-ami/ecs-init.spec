@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.48.1
+Version:        1.49.0
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -278,6 +278,10 @@ fi
 %endif
 
 %changelog
+* Wed Jan 06 2021 Shubham Goyal <shugy@amazon.com> - 1.49.0-1
+- Cache Agent version 1.49.0
+- Removes iptable rule that drops packets to port 51678 unconditionally on ecs service stop
+
 * Mon Nov 23 2020 Shubham Goyal <shugy@amazon.com> - 1.48.1-1
 - Cache Agent version 1.48.1
 

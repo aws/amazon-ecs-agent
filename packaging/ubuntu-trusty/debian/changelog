@@ -1,3 +1,10 @@
+amazon-ecs-init (1.49.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.49.0
+  * Removes iptable rule that drops packets to port 51678 unconditionally on ecs service stop
+
+ -- Shubham Goyal <shugy@amazon.com>  Wed, 06 Jan 2021 11:54:00 +0000
+
 amazon-ecs-init (1.48.1-1) trusty; urgency=medium
 
   * Cache Agent version 1.48.1
