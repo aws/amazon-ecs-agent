@@ -1,0 +1,27 @@
+name: Linux
+
+on:
+  push:
+    pull_request:
+      types: [ labeled ]
+
+jobs:
+  al2-integ-test:
+    if: ${{ github.event.label.name == 'bot\test' }}
+    name: Linux AL2 integration test
+    runs-on: [self-hosted, Linux, X64, "al2-integ-${GITHUB_SHA::8}"]
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.15.4
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+        path: src/github.com/aws/amazon-ecs-agent
+    - name: make run-integ-test
+      run: |
+        export GOPATH=$GITHUB_WORKSPACE
+        cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
+        export CGROUP_PATH="/sys/fs/cgroup"
+        make run-integ-tests
+        shutdown -hP now
