@@ -176,6 +176,7 @@ func TestStartAgent(t *testing.T) {
 			}
 			if test.expectCreateContainerExec {
 				execCfg := types.ExecConfig{
+					User:   "0",
 					Detach: true,
 					Cmd:    []string{"/ecs-execute-command-test-uid/amazon-ssm-agent"},
 				}
@@ -259,6 +260,7 @@ func TestIdempotentStartAgent(t *testing.T) {
 	}
 
 	execCfg := types.ExecConfig{
+		User:   "0",
 		Detach: true,
 		Cmd:    []string{"/ecs-execute-command-test-uid/amazon-ssm-agent"},
 	}

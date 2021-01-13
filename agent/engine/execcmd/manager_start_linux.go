@@ -152,6 +152,7 @@ func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClien
 	execAgentCmdBinDir := ContainerDepsDirPrefix + ma.ID
 	execAgentCmd := filepath.Join(execAgentCmdBinDir, SSMAgentBinName)
 	execCfg := types.ExecConfig{
+		User:   "0",
 		Detach: true,
 		Cmd:    []string{execAgentCmd},
 	}
