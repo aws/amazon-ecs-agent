@@ -1001,6 +1001,7 @@ func TestDockerExecAPI(t *testing.T) {
 		A,
 	}
 	execConfig := types.ExecConfig{
+		User:   "0",
 		Detach: true,
 		Cmd:    []string{"ls"},
 	}
