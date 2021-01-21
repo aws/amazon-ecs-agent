@@ -322,7 +322,7 @@ func (task *Task) initializeVolumes(cfg *config.Config, dockerClient dockerapi.D
 // able to handle such an occurrence appropriately (e.g. behave idempotently).
 func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	credentialsManager credentials.Manager, resourceFields *taskresource.ResourceFields,
-	dockerClient dockerapi.DockerClient, ctx context.Context) error {
+	dockerClient dockerapi.DockerClient, ctx context.Context, options ...Option) error {
 	// TODO, add rudimentary plugin support and call any plugins that want to
 	// hook into this
 	task.adjustForPlatform(cfg)
@@ -346,6 +346,7 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 	task.initSecretResources(credentialsManager, resourceFields)
 
 	task.initializeCredentialsEndpoint(credentialsManager)
+
 	// NOTE: initializeVolumes needs to be after initializeCredentialsEndpoint, because EFS volume might
 	// need the credentials endpoint constructed by it.
 	if err := task.initializeVolumes(cfg, dockerClient, ctx); err != nil {
@@ -391,6 +392,12 @@ func (task *Task) PostUnmarshalTask(cfg *config.Config,
 		}
 	}
 
+	for _, opt := range options {
+		if err := opt(task); err != nil {
+			seelog.Errorf("Task [%s]: could not apply task option: %v", task.Arn, err)
+			return err
+		}
+	}
 	return nil
 }
 
@@ -494,7 +501,6 @@ func (task *Task) initializeDockerLocalVolumes(dockerClient dockerapi.DockerClie
 					resourcestatus.ResourceStatus(taskresourcevolume.VolumeCreated),
 					apicontainerstatus.ContainerPulled)
 				requiredLocalVolumes = append(requiredLocalVolumes, mountPoint.SourceVolume)
-
 			}
 		}
 	}

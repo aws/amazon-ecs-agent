@@ -33,9 +33,11 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
+	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/golang/mock/gomock"
 	"github.com/pborman/uuid"
@@ -286,7 +288,14 @@ func waitForRunningEvents(t *testing.T, stateChangeEvents <-chan statechange.Eve
 
 // waitForStopEvents waits for a task to emit 'STOPPED' events for a container
 // and the task
-func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode bool) {
+func waitForStopEvents(t *testing.T, stateChangeEvents <-chan statechange.Event, verifyExitCode, execEnabled bool) {
+	if execEnabled {
+		event := <-stateChangeEvents
+		if masc := event.(api.ManagedAgentStateChange); masc.Status != apicontainerstatus.ManagedAgentStopped {
+			t.Fatal("Expected managed agent to stop first")
+		}
+	}
+
 	event := <-stateChangeEvents
 	if cont := event.(api.ContainerStateChange); cont.Status != apicontainerstatus.ContainerStopped {
 		t.Fatal("Expected container to stop first")
@@ -320,5 +329,38 @@ func waitForContainerHealthStatus(t *testing.T, testTask *apitask.Task) {
 			}
 			return
 		}
+	}
+}
+
+// sorts through stateChangeEvents to locate and assert that the ManagedAgent event matchess the expectedManagedAgent event.
+// expectContainerEvent field is a boolean to allow us to ignore an expected empty channel
+func checkManagedAgentEvents(t *testing.T, expectContainerEvent bool, stateChangeEvents <-chan statechange.Event,
+	expectedManagedAgent apicontainer.ManagedAgent, waitDone chan<- struct{}) {
+	if expectContainerEvent {
+		for event := range stateChangeEvents {
+			if managedAgentEvent, ok := event.(api.ManagedAgentStateChange); ok {
+				// there is currently only ever a single managed agent
+				assert.Equal(t, expectedManagedAgent.Status, managedAgentEvent.Status,
+					"expected managedAgent container state change event did not match actual event")
+				assert.Equal(t, expectedManagedAgent.Reason, managedAgentEvent.Reason,
+					"expected managedAgent container state change event reports the wrong reason")
+				close(waitDone)
+				return
+			}
+			seelog.Debugf("processed errant event: %v", event)
+		}
+	} else {
+		assert.Empty(t, stateChangeEvents, "expected empty stateChangeEvents channel, but found an event")
+		close(waitDone)
+	}
+}
+
+func enableExecCommandAgentForContainer(container *apicontainer.Container, state apicontainer.ManagedAgentState) {
+	container.ManagedAgentsUnsafe = []apicontainer.ManagedAgent{
+		{
+			Name:              execcmd.ExecuteCommandAgentName,
+			Properties:        make(map[string]string),
+			ManagedAgentState: state,
+		},
 	}
 }

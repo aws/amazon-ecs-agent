@@ -14,6 +14,12 @@
 package app
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"regexp"
+
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
@@ -62,29 +68,49 @@ const (
 	capabilityEFSAuth                           = "efsAuth"
 	capabilityEnvFilesS3                        = "env-files.s3"
 	capabilityFSxWindowsFileServer              = "fsxWindowsFileServer"
+	capabilityExec                              = "execute-command"
+	capabilityDepsRootDir                       = "/managed-agents"
+	capabilityExecBinRelativePath               = "bin"
+	capabilityExecConfigRelativePath            = "config"
+	capabilityExecCertsRelativePath             = "certs"
 )
 
-var nameOnlyAttributes = []string{
-	// ecs agent version 1.19.0 supports private registry authentication using
-	// aws secrets manager
-	capabilityPrivateRegistryAuthASM,
-	// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
-	capabilitySecretEnvSSM,
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilitySecretLogDriverSSM,
-	// support ecr endpoint override
-	capabilityECREndpoint,
-	// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
-	capabilitySecretEnvASM,
-	// ecs agent version 1.27.0 supports ecs secrets for logging drivers
-	capabilitySecretLogDriverASM,
-	// support container ordering in agent
-	capabilityContainerOrdering,
-	// support full task sync
-	capabilityFullTaskSync,
-	// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
-	capabilityEnvFilesS3,
-}
+var (
+	nameOnlyAttributes = []string{
+		// ecs agent version 1.19.0 supports private registry authentication using
+		// aws secrets manager
+		capabilityPrivateRegistryAuthASM,
+		// ecs agent version 1.22.0 supports ecs secrets integrating with aws systems manager
+		capabilitySecretEnvSSM,
+		// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+		capabilitySecretLogDriverSSM,
+		// support ecr endpoint override
+		capabilityECREndpoint,
+		// ecs agent version 1.23.0 supports ecs secrets integrating with aws secrets manager
+		capabilitySecretEnvASM,
+		// ecs agent version 1.27.0 supports ecs secrets for logging drivers
+		capabilitySecretLogDriverASM,
+		// support container ordering in agent
+		capabilityContainerOrdering,
+		// support full task sync
+		capabilityFullTaskSync,
+		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
+		capabilityEnvFilesS3,
+	}
+	capabilityExecRequiredBinaries = []string{
+		"amazon-ssm-agent",
+		"ssm-agent-worker",
+		"ssm-session-worker",
+	}
+	capabilityExecRequiredCerts = []string{
+		"tls-ca-bundle.pem",
+	}
+	// use empty struct as value type to simulate set
+	capabilityExecInvalidSsmVersions = map[string]struct{}{}
+
+	pathExists        = defaultPathExists
+	getSubDirectories = defaultGetSubDirectories
+)
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
 // Currently, the following capabilities are possible:
@@ -133,6 +159,7 @@ var nameOnlyAttributes = []string{
 //    ecs.capability.efsAuth
 //    ecs.capability.env-files.s3
 //    ecs.capability.fsxWindowsFileServer
+//    ecs.capability.execute-command
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -219,6 +246,11 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support fsxWindowsFileServer on ecs capabilities
 	capabilities = agent.appendFSxWindowsFileServerCapabilities(capabilities)
+	// add ecs-exec capabilities if applicable
+	capabilities, err = agent.appendExecCapabilities(capabilities)
+	if err != nil {
+		return nil, err
+	}
 
 	return capabilities, nil
 }
@@ -321,6 +353,126 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 	return capabilities
 }
 
+func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]*ecs.Attribute, error) {
+	// for an instance to be exec-enabled, it needs resources needed by SSM (binaries, configuration files and certs)
+	// the following bind mounts are defined in ecs-init and added to the ecs-agent container
+
+	capabilityExecRootDir := filepath.Join(capabilityDepsRootDir, capabilityExec)
+	binDir := filepath.Join(capabilityExecRootDir, capabilityExecBinRelativePath)
+	configDir := filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
+	certsDir := filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
+
+	// top-level folders, /bin, /config, /certs
+	dependencies := map[string][]string{
+		binDir:    []string{},
+		configDir: []string{},
+		certsDir:  capabilityExecRequiredCerts,
+	}
+	if exists, err := dependenciesExist(dependencies); err != nil || !exists {
+		return capabilities, err
+	}
+
+	// ssm binaries are stored in /bin/<version>/, 1 version is downloaded by ami builder for ECS instances
+	binDependencies := map[string][]string{}
+	// child folders named by version inside binDir, e.g. 3.0.236.0
+	binFolders, err := getSubDirectories(binDir)
+	if err != nil {
+		return capabilities, err
+	}
+	// use raw string for regular expression to avoid escaping backslash (\)
+	var validSsmVersion = regexp.MustCompile(`^\d+(\.\d+)*$`)
+	for _, binFolder := range binFolders {
+		if matched := validSsmVersion.Match([]byte(binFolder)); !matched {
+			continue
+		}
+		if _, found := capabilityExecInvalidSsmVersions[binFolder]; found {
+			continue
+		}
+
+		// check for the same set of binaries for all versions for now
+		// change this if future versions of ssm agent require different binaries
+		versionSubDirectory := filepath.Join(binDir, binFolder)
+		binDependencies[versionSubDirectory] = capabilityExecRequiredBinaries
+	}
+	if len(binDependencies) < 1 {
+		return capabilities, nil
+	}
+	if exists, err := checkAnyValidDependency(binDependencies); err != nil || !exists {
+		return capabilities, err
+	}
+
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityExec), nil
+}
+
+func defaultGetSubDirectories(path string) ([]string, error) {
+	var subDirectories []string
+
+	fileInfos, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+	for _, fileInfo := range fileInfos {
+		if fileInfo.IsDir() {
+			subDirectories = append(subDirectories, fileInfo.Name())
+		}
+	}
+	return subDirectories, nil
+}
+
+func dependenciesExist(dependencies map[string][]string) (bool, error) {
+	for directory, files := range dependencies {
+		if exists, err := pathExists(directory, true); err != nil || !exists {
+			return false, err
+		}
+
+		for _, filename := range files {
+			path := filepath.Join(directory, filename)
+			if exists, err := pathExists(path, false); err != nil || !exists {
+				return false, err
+			}
+		}
+	}
+	return true, nil
+}
+
+func checkAnyValidDependency(dependencies map[string][]string) (bool, error) {
+	var validDependencies = 0
+	for directory, files := range dependencies {
+		filesValid := true
+		if exists, err := pathExists(directory, true); err != nil || !exists {
+			continue
+		}
+
+		for _, filename := range files {
+			path := filepath.Join(directory, filename)
+			if exists, err := pathExists(path, false); err != nil || !exists {
+				filesValid = false
+			}
+		}
+
+		if filesValid {
+			validDependencies++
+		}
+	}
+	if validDependencies >= 1 {
+		return true, nil
+	}
+	return false, fmt.Errorf("no valid dependencies")
+}
+
+func defaultPathExists(path string, shouldBeDirectory bool) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	isDirectory := fileInfo.IsDir()
+	return (isDirectory && shouldBeDirectory) || (!isDirectory && !shouldBeDirectory), nil
+}
+
 // getTaskENIPluginVersionAttribute returns the version information of the ECS
 // CNI plugins. It just executes the ENI plugin as the assumption is that these
 // plugins are packaged with the ECS Agent, which means all of the other plugins
@@ -343,5 +495,7 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 }
 
 func appendNameOnlyAttribute(attributes []*ecs.Attribute, name string) []*ecs.Attribute {
-	return append(attributes, &ecs.Attribute{Name: aws.String(name)})
+	return append(attributes, &ecs.Attribute{
+		Name: aws.String(name),
+	})
 }

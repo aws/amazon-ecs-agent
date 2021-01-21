@@ -141,6 +141,23 @@ type DockerClient interface {
 	// provided for the request.
 	InspectContainer(context.Context, string, time.Duration) (*types.ContainerJSON, error)
 
+	// TopContainer returns information about the top processes running in the specified container.  A timeout value and a context
+	// should be provided for the request. The last argument is an optional parameter for passing in 'ps' arguments
+	// as part of the top command.
+	TopContainer(context.Context, string, time.Duration, ...string) (*dockercontainer.ContainerTopOKBody, error)
+
+	// CreateContainerExec creates a new exec configuration to run an exec process with the provided Config. A timeout value
+	// and a context should be provided for the request.
+	CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error)
+
+	// StartContainerExec starts an exec process already created in the docker host. A timeout value
+	// and a context should be provided for the request.
+	StartContainerExec(ctx context.Context, execID string, timeout time.Duration) error
+
+	// InspectContainerExec returns information about a specific exec process on the docker host. A timeout value
+	// and a context should be provided for the request.
+	InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error)
+
 	// ListContainers returns the set of containers known to the Docker daemon. A timeout value and a context
 	// should be provided for the request.
 	ListContainers(context.Context, bool, time.Duration) ListContainersResponse
@@ -660,6 +677,45 @@ func (dg *dockerGoClient) inspectContainer(ctx context.Context, dockerID string)
 	}
 	containerData, err := client.ContainerInspect(ctx, dockerID)
 	return &containerData, err
+}
+
+func (dg *dockerGoClient) TopContainer(ctx context.Context, dockerID string, timeout time.Duration, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
+	type topResponse struct {
+		top *dockercontainer.ContainerTopOKBody
+		err error
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("TOP_CONTAINER")()
+	// Buffered channel so in the case of timeout it takes one write, never gets
+	// read, and can still be GC'd
+	response := make(chan topResponse, 1)
+	go func() {
+		top, err := dg.topContainer(ctx, dockerID, psArgs...)
+		response <- topResponse{top, err}
+	}()
+
+	// Wait until we get a response or for the 'done' context channel
+	select {
+	case resp := <-response:
+		return resp.top, resp.err
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "listing top"}
+		}
+
+		return nil, &CannotGetContainerTopError{err}
+	}
+}
+
+func (dg *dockerGoClient) topContainer(ctx context.Context, dockerID string, psArgs ...string) (*dockercontainer.ContainerTopOKBody, error) {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return nil, err
+	}
+	topResponse, err := client.ContainerTop(ctx, dockerID, psArgs)
+	return &topResponse, err
 }
 
 func (dg *dockerGoClient) StopContainer(ctx context.Context, dockerID string, timeout time.Duration) DockerContainerMetadata {
@@ -1490,4 +1546,126 @@ func (dg *dockerGoClient) loadImage(ctx context.Context, reader io.Reader) error
 		_, err = io.Copy(ioutil.Discard, resp.Body)
 	}
 	return err
+}
+
+func (dg *dockerGoClient) CreateContainerExec(ctx context.Context, containerID string, execConfig types.ExecConfig, timeout time.Duration) (*types.IDResponse, error) {
+	type createContainerExecResponse struct {
+		execID *types.IDResponse
+		err    error
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER_EXEC")()
+	response := make(chan createContainerExecResponse, 1)
+	go func() {
+		execIDresponse, err := dg.createContainerExec(ctx, containerID, execConfig)
+		response <- createContainerExecResponse{execIDresponse, err}
+	}()
+
+	select {
+	case resp := <-response:
+		return resp.execID, resp.err
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "exec command"}
+		}
+		return nil, &CannotCreateContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) createContainerExec(ctx context.Context, containerID string, config types.ExecConfig) (*types.IDResponse, error) {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	execIDResponse, err := client.ContainerExecCreate(ctx, containerID, config)
+	if err != nil {
+		return nil, &CannotCreateContainerExecError{err}
+	}
+	return &execIDResponse, nil
+}
+
+func (dg *dockerGoClient) StartContainerExec(ctx context.Context, execID string, timeout time.Duration) error {
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("START_CONTAINER_EXEC")()
+	response := make(chan error, 1)
+	go func() {
+		err := dg.startContainerExec(ctx, execID)
+		response <- err
+	}()
+
+	select {
+	case resp := <-response:
+		return resp
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return &DockerTimeoutError{timeout, "start exec command"}
+		}
+		return &CannotStartContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) startContainerExec(ctx context.Context, execID string) error {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return err
+	}
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	err = client.ContainerExecStart(ctx, execID, execStartCheck)
+	if err != nil {
+		return &CannotStartContainerExecError{err}
+	}
+	return nil
+}
+
+func (dg *dockerGoClient) InspectContainerExec(ctx context.Context, execID string, timeout time.Duration) (*types.ContainerExecInspect, error) {
+	type inspectContainerExecResponse struct {
+		execInspect *types.ContainerExecInspect
+		err         error
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	defer metrics.MetricsEngineGlobal.RecordDockerMetric("INSPECT_CONTAINER_EXEC")()
+	response := make(chan inspectContainerExecResponse, 1)
+	go func() {
+		execInspectResponse, err := dg.inspectContainerExec(ctx, execID)
+		response <- inspectContainerExecResponse{execInspectResponse, err}
+	}()
+
+	select {
+	case resp := <-response:
+		return resp.execInspect, resp.err
+
+	case <-ctx.Done():
+		err := ctx.Err()
+		if err == context.DeadlineExceeded {
+			return nil, &DockerTimeoutError{timeout, "inspect exec command"}
+		}
+		return nil, &CannotInspectContainerExecError{err}
+	}
+}
+
+func (dg *dockerGoClient) inspectContainerExec(ctx context.Context, containerID string) (*types.ContainerExecInspect, error) {
+	client, err := dg.sdkDockerClient()
+	if err != nil {
+		return nil, err
+	}
+
+	execInspectResponse, err := client.ContainerExecInspect(ctx, containerID)
+	if err != nil {
+		return nil, &CannotInspectContainerExecError{err}
+	}
+	return &execInspectResponse, nil
 }

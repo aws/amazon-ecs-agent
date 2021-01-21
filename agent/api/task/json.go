@@ -22,9 +22,9 @@ import (
 type jTask Task
 
 // MarshalJSON wraps Go's marshalling logic with a necessary read lock.
-func (t *Task) MarshalJSON() ([]byte, error) {
-	t.lock.RLock()
-	defer t.lock.RUnlock()
+func (task *Task) MarshalJSON() ([]byte, error) {
+	task.lock.RLock()
+	defer task.lock.RUnlock()
 
-	return json.Marshal((*jTask)(t))
+	return json.Marshal((*jTask)(task))
 }

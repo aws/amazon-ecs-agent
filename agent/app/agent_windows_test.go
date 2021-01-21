@@ -287,7 +287,7 @@ func TestHandler_Execute_AgentStops(t *testing.T) {
 
 func TestDoStartTaskLimitsFail(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory := setup(t)
+		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	cfg := getTestConfig()
@@ -308,6 +308,6 @@ func TestDoStartTaskLimitsFail(t *testing.T) {
 	dockerClient.EXPECT().SupportedVersions().Return(apiVersions)
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdMgr)
 	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
 }

@@ -110,6 +110,32 @@ type HealthStatus struct {
 	Output string `json:"output,omitempty"`
 }
 
+type ManagedAgentState struct {
+	// ID of this managed agent state
+	ID string `json:"id,omitempty"`
+	// TODO: [ecs-exec] Change variable name from Status to KnownStatus in future PR to avoid noise
+	// Status is the managed agent health status
+	Status apicontainerstatus.ManagedAgentStatus `json:"status,omitempty"`
+	// SentStatus is the managed agent sent status
+	SentStatus apicontainerstatus.ManagedAgentStatus `json:"sentStatus,omitempty"`
+	// Reason is a placeholder for failure messaging
+	Reason string `json:"reason,omitempty"`
+	// LastStartedAt is the timestamp when the status last went from PENDING->RUNNING
+	LastStartedAt time.Time `json:"lastStartedAt,omitempty"`
+	// Metadata holds metadata about the managed agent
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
+	// InitFailed indicates if exec agent initialization failed
+	InitFailed bool `json:"initFailed,omitempty"`
+}
+
+type ManagedAgent struct {
+	ManagedAgentState
+	// Name is the name of this managed agent. This name is streamed down from ACS.
+	Name string `json:"name,omitempty"`
+	// Properties of this managed agent. Properties are streamed down from ACS.
+	Properties map[string]string `json:"properties,omitempty"`
+}
+
 // Container is the internal representation of a container in the ECS agent
 type Container struct {
 	// Name is the name of the container specified in the task definition
@@ -121,6 +147,8 @@ type Container struct {
 	TaskARNUnsafe string `json:"taskARN"`
 	// DependsOnUnsafe is the field which specifies the ordering for container startup and shutdown.
 	DependsOnUnsafe []DependsOn `json:"dependsOn,omitempty"`
+	// ManagedAgentsUnsafe presently contains only the executeCommandAgent
+	ManagedAgentsUnsafe []ManagedAgent `json:"managedAgents,omitempty"`
 	// V3EndpointID is a container identifier used to construct v3 metadata endpoint; it's unique among
 	// all the containers managed by the agent
 	V3EndpointID string
@@ -672,6 +700,13 @@ func (c *Container) GetKnownPortBindings() []PortBinding {
 	return c.KnownPortBindingsUnsafe
 }
 
+// GetManagedAgents returns the managed agents configured for this container
+func (c *Container) GetManagedAgents() []ManagedAgent {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.ManagedAgentsUnsafe
+}
+
 // SetVolumes sets the volumes mounted in a container
 func (c *Container) SetVolumes(volumes []types.MountPoint) {
 	c.lock.Lock()
@@ -1187,4 +1222,89 @@ func (c *Container) HasNotAndWillNotStart() bool {
 	return c.KnownStatusUnsafe < apicontainerstatus.ContainerRunning &&
 		c.DesiredStatusUnsafe.Terminal() &&
 		c.AppliedStatus == apicontainerstatus.ContainerStatusNone
+}
+
+// GetManagedAgentByName retrieves the managed agent with the name specified and a boolean indicating whether an agent
+// was found or not.
+// note: a zero value for ManagedAgent if the name is not known to this container.
+func (c *Container) GetManagedAgentByName(agentName string) (ManagedAgent, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for _, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return ma, true
+		}
+	}
+	return ManagedAgent{}, false
+}
+
+// UpdateManagedAgentByName updates the state of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentByName(agentName string, state ManagedAgentState) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			// It's necessary to clone the whole ManagedAgent struct
+			c.ManagedAgentsUnsafe[i] = ManagedAgent{
+				Name:              ma.Name,
+				Properties:        ma.Properties,
+				ManagedAgentState: state,
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// UpdateManagedAgentStatus updates the status of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentStatus(agentName string, status apicontainerstatus.ManagedAgentStatus) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			c.ManagedAgentsUnsafe[i].Status = status
+			return true
+		}
+	}
+	return false
+}
+
+// UpdateManagedAgentSentStatus updates the sent status of the managed agent with the name specified. If the agent is not found,
+// this method returns false.
+func (c *Container) UpdateManagedAgentSentStatus(agentName string, status apicontainerstatus.ManagedAgentStatus) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			c.ManagedAgentsUnsafe[i].SentStatus = status
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Container) GetManagedAgentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return c.ManagedAgentsUnsafe[i].Status
+		}
+	}
+	// we shouldn't get here because we'll always have a valid ManagedAgentName
+	return apicontainerstatus.ManagedAgentStatusNone
+}
+
+func (c *Container) GetManagedAgentSentStatus(agentName string) apicontainerstatus.ManagedAgentStatus {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for i, ma := range c.ManagedAgentsUnsafe {
+		if ma.Name == agentName {
+			return c.ManagedAgentsUnsafe[i].SentStatus
+		}
+	}
+	// we shouldn't get here because we'll always have a valid ManagedAgentName
+	return apicontainerstatus.ManagedAgentStatusNone
 }

@@ -85,7 +85,7 @@ var (
 
 func TestLoadDataNoPreviousState(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		_, stateManagerFactory, _ := setup(t)
+		_, stateManagerFactory, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	stateManager, dataClient, cleanup := newTestClient(t)
@@ -113,13 +113,13 @@ func TestLoadDataNoPreviousState(t *testing.T) {
 	}
 
 	_, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, dockerstate.NewTaskEngineState(), imageManager)
+		credentialsManager, dockerstate.NewTaskEngineState(), imageManager, execCmdMgr)
 	assert.NoError(t, err)
 }
 
 func TestLoadDataLoadFromBoltDB(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		_, stateManagerFactory, _ := setup(t)
+		_, stateManagerFactory, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	_, dataClient, cleanup := newTestClient(t)
@@ -143,14 +143,14 @@ func TestLoadDataLoadFromBoltDB(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager)
+		credentialsManager, state, imageManager, execCmdMgr)
 	assert.NoError(t, err)
 	checkLoadedData(state, s, t)
 }
 
 func TestLoadDataLoadFromStateFile(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, _,
-		_, stateManagerFactory, _ := setup(t)
+		_, stateManagerFactory, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	stateManager, dataClient, cleanup := newTestClient(t)
@@ -181,7 +181,7 @@ func TestLoadDataLoadFromStateFile(t *testing.T) {
 
 	state := dockerstate.NewTaskEngineState()
 	s, err := agent.loadData(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager)
+		credentialsManager, state, imageManager, execCmdMgr)
 	assert.NoError(t, err)
 	checkLoadedData(state, s, t)
 

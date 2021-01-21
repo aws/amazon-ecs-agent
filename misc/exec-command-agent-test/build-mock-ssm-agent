@@ -1,0 +1,25 @@
+#!/bin/bash
+# Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#	http://aws.amazon.com/apache2.0/
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+SIMULATED_ECS_AGENT_DEPS_BIN_DIR="/managed-agents/execute-command/bin/1.0.0.0"
+rm -rf ./$SIMULATED_ECS_AGENT_DEPS_BIN_DIR
+mkdir -p $SIMULATED_ECS_AGENT_DEPS_BIN_DIR # mock version folder for our mock ssm agent binaries
+CGO_ENABLED=0 go build -tags integration -installsuffix cgo -a -o $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/amazon-ssm-agent ./sleep/
+touch $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/ssm-agent-worker
+touch $SIMULATED_ECS_AGENT_DEPS_BIN_DIR/ssm-session-worker
+SIMULATED_ECS_AGENT_DEPS_CERTS_DIR="/managed-agents/execute-command/certs"
+rm -rf ./$SIMULATED_ECS_AGENT_DEPS_CERTS_DIR
+mkdir -p $SIMULATED_ECS_AGENT_DEPS_CERTS_DIR # mock certs folder for our mock ssm agent
+touch $SIMULATED_ECS_AGENT_DEPS_CERTS_DIR/tls-ca-bundle.pem
+

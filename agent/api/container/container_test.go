@@ -538,11 +538,48 @@ func TestSetRuntimeIDInContainer(t *testing.T) {
 	assert.Equal(t, "asdfghjkl1234", container.GetRuntimeID())
 }
 
-func TestSetImageDigestInContainer(t *testing.T) {
+func TestGetManagedAgents(t *testing.T) {
 	container := Container{}
-	container.SetImageDigest("sha256:123456789")
-	assert.Equal(t, "sha256:123456789", container.ImageDigest)
-	assert.Equal(t, "sha256:123456789", container.GetImageDigest())
+	assert.Nil(t, container.GetManagedAgents())
+
+	expectedManagedAgent := ManagedAgent{
+		Name:       "dummyAgent",
+		Properties: map[string]string{"test": "prop"},
+		ManagedAgentState: ManagedAgentState{
+			LastStartedAt: time.Now(),
+			Status:        apicontainerstatus.ManagedAgentCreated,
+		},
+	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, expectedManagedAgent, container.GetManagedAgents()[0])
+}
+
+func TestGetManagedAgentStatus(t *testing.T) {
+	container := Container{}
+	assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, container.GetManagedAgentStatus("dummyAgent"))
+
+	expectedManagedAgent := ManagedAgent{
+		Name: "dummyAgent",
+		ManagedAgentState: ManagedAgentState{
+			Status: apicontainerstatus.ManagedAgentCreated,
+		},
+	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, apicontainerstatus.ManagedAgentCreated, container.GetManagedAgentStatus("dummyAgent"))
+}
+
+func TestGetManagedAgentSentStatus(t *testing.T) {
+	container := Container{}
+	assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, container.GetManagedAgentSentStatus("dummyAgent"))
+
+	expectedManagedAgent := ManagedAgent{
+		Name: "dummyAgent",
+		ManagedAgentState: ManagedAgentState{
+			SentStatus: apicontainerstatus.ManagedAgentCreated,
+		},
+	}
+	container.ManagedAgentsUnsafe = []ManagedAgent{expectedManagedAgent}
+	assert.Equal(t, apicontainerstatus.ManagedAgentCreated, container.GetManagedAgentSentStatus("dummyAgent"))
 }
 
 func TestDependsOnContainer(t *testing.T) {
@@ -801,6 +838,134 @@ func TestHasNotAndWillNotStart(t *testing.T) {
 				AppliedStatus:       tc.appliedStatus,
 			}
 			assert.Equal(t, tc.expected, cont.HasNotAndWillNotStart())
+		})
+	}
+}
+
+func TestUpdateManagedAgentByName(t *testing.T) {
+	const (
+		dummyAgent = "dummyAgent"
+		testStatus = apicontainerstatus.ManagedAgentStopped
+		testReason = "reason"
+	)
+	cases := []struct {
+		name      string
+		agentName string
+		state     ManagedAgentState
+	}{
+		{
+			name:      "test nonexistent managed agent",
+			agentName: "nonexistentAgent",
+		},
+		{
+			name:      "test managed agent with default (zero) state",
+			agentName: dummyAgent,
+		},
+		{
+			name:      "test managed agent with nil metadata",
+			agentName: dummyAgent,
+			state: ManagedAgentState{
+				Status:        testStatus,
+				Reason:        testReason,
+				LastStartedAt: time.Time{},
+				Metadata:      nil,
+			},
+		},
+		{
+			name:      "test managed agent with full state",
+			agentName: dummyAgent,
+			state: ManagedAgentState{
+				Status:        testStatus,
+				Reason:        testReason,
+				LastStartedAt: time.Time{},
+			},
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			c := &Container{}
+
+			// Verify we don't have extraneous data on a blank Container
+			assert.Nil(t, c.GetManagedAgents())
+			agent, ok := c.GetManagedAgentByName(test.agentName)
+			assert.False(t, ok)
+			assert.Equal(t, ManagedAgentState{}, agent.ManagedAgentState)
+			var expectAgentFound bool
+			// simulate we only have data for "dummyAgent"
+			if test.agentName == dummyAgent {
+				expectAgentFound = true
+				c.ManagedAgentsUnsafe = []ManagedAgent{
+					{
+						Name:              test.agentName,
+						ManagedAgentState: test.state,
+					},
+				}
+			}
+
+			// Verify that we can retrieve the correct data stored in container.ManagedAgentsUnsafe
+			agent, ok = c.GetManagedAgentByName(test.agentName)
+			assert.Equal(t, expectAgentFound, ok)
+			assert.Equal(t, test.state, agent.ManagedAgentState)
+
+			var newState ManagedAgentState
+			// simulate we only replace data data for "dummyAgent"
+			if test.agentName == dummyAgent {
+				newState = ManagedAgentState{
+					Status:        apicontainerstatus.ManagedAgentRunning,
+					Reason:        "new reason",
+					LastStartedAt: time.Now(),
+				}
+				c.UpdateManagedAgentByName(test.agentName, newState)
+			}
+			agent, ok = c.GetManagedAgentByName(test.agentName)
+			assert.Equal(t, expectAgentFound, ok)
+			assert.Equal(t, newState, agent.ManagedAgentState)
+		})
+	}
+}
+
+func TestUpdateManagedAgentSentStatus(t *testing.T) {
+	const dummyAgent = "dummyAgent"
+	cases := []struct {
+		name               string
+		agentName          string
+		updateSentStatus   bool
+		sentStatus         apicontainerstatus.ManagedAgentStatus
+		expectedSentStatus apicontainerstatus.ManagedAgentStatus
+	}{
+		{
+			name:               "test nonexistent managed agent",
+			agentName:          "nonexistentAgent",
+			expectedSentStatus: apicontainerstatus.ManagedAgentStatusNone,
+		},
+		{
+			name:               "test managed agent with default (zero) status",
+			agentName:          dummyAgent,
+			expectedSentStatus: apicontainerstatus.ManagedAgentStatusNone,
+		},
+		{
+			name:               "test managed agent with custom status",
+			agentName:          dummyAgent,
+			updateSentStatus:   true,
+			sentStatus:         apicontainerstatus.ManagedAgentRunning,
+			expectedSentStatus: apicontainerstatus.ManagedAgentRunning,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Container{
+				ManagedAgentsUnsafe: []ManagedAgent{{
+					Name: tc.agentName,
+				}},
+			}
+			before, _ := c.GetManagedAgentByName(tc.agentName)
+			assert.Equal(t, apicontainerstatus.ManagedAgentStatusNone, before.SentStatus)
+			if tc.updateSentStatus {
+				c.UpdateManagedAgentSentStatus(tc.agentName, tc.sentStatus)
+			}
+			after, _ := c.GetManagedAgentByName(tc.agentName)
+			assert.Equal(t, tc.expectedSentStatus, after.SentStatus)
+
 		})
 	}
 }

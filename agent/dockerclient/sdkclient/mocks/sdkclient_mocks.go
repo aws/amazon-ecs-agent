@@ -85,6 +85,50 @@ func (mr *MockClientMockRecorder) ContainerCreate(arg0, arg1, arg2, arg3, arg4 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerCreate", reflect.TypeOf((*MockClient)(nil).ContainerCreate), arg0, arg1, arg2, arg3, arg4)
 }
 
+// ContainerExecCreate mocks base method
+func (m *MockClient) ContainerExecCreate(arg0 context.Context, arg1 string, arg2 types.ExecConfig) (types.IDResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerExecCreate", arg0, arg1, arg2)
+	ret0, _ := ret[0].(types.IDResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContainerExecCreate indicates an expected call of ContainerExecCreate
+func (mr *MockClientMockRecorder) ContainerExecCreate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecCreate", reflect.TypeOf((*MockClient)(nil).ContainerExecCreate), arg0, arg1, arg2)
+}
+
+// ContainerExecInspect mocks base method
+func (m *MockClient) ContainerExecInspect(arg0 context.Context, arg1 string) (types.ContainerExecInspect, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerExecInspect", arg0, arg1)
+	ret0, _ := ret[0].(types.ContainerExecInspect)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContainerExecInspect indicates an expected call of ContainerExecInspect
+func (mr *MockClientMockRecorder) ContainerExecInspect(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecInspect", reflect.TypeOf((*MockClient)(nil).ContainerExecInspect), arg0, arg1)
+}
+
+// ContainerExecStart mocks base method
+func (m *MockClient) ContainerExecStart(arg0 context.Context, arg1 string, arg2 types.ExecStartCheck) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerExecStart", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ContainerExecStart indicates an expected call of ContainerExecStart
+func (mr *MockClientMockRecorder) ContainerExecStart(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerExecStart", reflect.TypeOf((*MockClient)(nil).ContainerExecStart), arg0, arg1, arg2)
+}
+
 // ContainerInspect mocks base method
 func (m *MockClient) ContainerInspect(arg0 context.Context, arg1 string) (types.ContainerJSON, error) {
 	m.ctrl.T.Helper()
@@ -170,6 +214,21 @@ func (m *MockClient) ContainerStop(arg0 context.Context, arg1 string, arg2 *time
 func (mr *MockClientMockRecorder) ContainerStop(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerStop", reflect.TypeOf((*MockClient)(nil).ContainerStop), arg0, arg1, arg2)
+}
+
+// ContainerTop mocks base method
+func (m *MockClient) ContainerTop(arg0 context.Context, arg1 string, arg2 []string) (container.ContainerTopOKBody, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainerTop", arg0, arg1, arg2)
+	ret0, _ := ret[0].(container.ContainerTopOKBody)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ContainerTop indicates an expected call of ContainerTop
+func (mr *MockClientMockRecorder) ContainerTop(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerTop", reflect.TypeOf((*MockClient)(nil).ContainerTop), arg0, arg1, arg2)
 }
 
 // Events mocks base method

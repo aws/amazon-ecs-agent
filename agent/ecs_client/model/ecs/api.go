@@ -4659,6 +4659,8 @@ type Container struct {
 	// The last known status of the container.
 	LastStatus *string `locationName:"lastStatus" type:"string"`
 
+	ManagedAgents []*ManagedAgent `locationName:"managedAgents" type:"list"`
+
 	// The name of the container.
 	Name *string `locationName:"name" type:"string"`
 
@@ -4721,6 +4723,12 @@ func (s *Container) SetImageDigest(v string) *Container {
 // SetLastStatus sets the LastStatus field's value.
 func (s *Container) SetLastStatus(v string) *Container {
 	s.LastStatus = &v
+	return s
+}
+
+// SetManagedAgents sets the ManagedAgents field's value.
+func (s *Container) SetManagedAgents(v []*ManagedAgent) *Container {
+	s.ManagedAgents = v
 	return s
 }
 
@@ -5859,6 +5867,8 @@ type ContainerStateChange struct {
 
 	ImageDigest *string `locationName:"imageDigest" type:"string"`
 
+	ManagedAgents []*ManagedAgentStateChange `locationName:"managedAgents" type:"list"`
+
 	// Any network bindings associated with the container.
 	NetworkBindings []*NetworkBinding `locationName:"networkBindings" type:"list"`
 
@@ -5881,6 +5891,26 @@ func (s ContainerStateChange) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ContainerStateChange) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ContainerStateChange"}
+	if s.ManagedAgents != nil {
+		for i, v := range s.ManagedAgents {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ManagedAgents", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // SetContainerName sets the ContainerName field's value.
 func (s *ContainerStateChange) SetContainerName(v string) *ContainerStateChange {
 	s.ContainerName = &v
@@ -5896,6 +5926,12 @@ func (s *ContainerStateChange) SetExitCode(v int64) *ContainerStateChange {
 // SetImageDigest sets the ImageDigest field's value.
 func (s *ContainerStateChange) SetImageDigest(v string) *ContainerStateChange {
 	s.ImageDigest = &v
+	return s
+}
+
+// SetManagedAgents sets the ManagedAgents field's value.
+func (s *ContainerStateChange) SetManagedAgents(v []*ManagedAgentStateChange) *ContainerStateChange {
+	s.ManagedAgents = v
 	return s
 }
 
@@ -9278,6 +9314,112 @@ func (s *LogConfiguration) SetSecretOptions(v []*Secret) *LogConfiguration {
 	return s
 }
 
+type ManagedAgent struct {
+	_ struct{} `type:"structure"`
+
+	LastStartedAt *time.Time `locationName:"lastStartedAt" type:"timestamp"`
+
+	LastStatus *string `locationName:"lastStatus" type:"string"`
+
+	Name *string `locationName:"name" type:"string" enum:"ManagedAgentName"`
+
+	Reason *string `locationName:"reason" type:"string"`
+}
+
+// String returns the string representation
+func (s ManagedAgent) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ManagedAgent) GoString() string {
+	return s.String()
+}
+
+// SetLastStartedAt sets the LastStartedAt field's value.
+func (s *ManagedAgent) SetLastStartedAt(v time.Time) *ManagedAgent {
+	s.LastStartedAt = &v
+	return s
+}
+
+// SetLastStatus sets the LastStatus field's value.
+func (s *ManagedAgent) SetLastStatus(v string) *ManagedAgent {
+	s.LastStatus = &v
+	return s
+}
+
+// SetName sets the Name field's value.
+func (s *ManagedAgent) SetName(v string) *ManagedAgent {
+	s.Name = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ManagedAgent) SetReason(v string) *ManagedAgent {
+	s.Reason = &v
+	return s
+}
+
+type ManagedAgentStateChange struct {
+	_ struct{} `type:"structure"`
+
+	ContainerName *string `locationName:"containerName" type:"string"`
+
+	ManagedAgentName *string `locationName:"managedAgentName" type:"string" enum:"ManagedAgentName"`
+
+	Reason *string `locationName:"reason" type:"string"`
+
+	// Status is a required field
+	Status *string `locationName:"status" type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s ManagedAgentStateChange) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s ManagedAgentStateChange) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ManagedAgentStateChange) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ManagedAgentStateChange"}
+	if s.Status == nil {
+		invalidParams.Add(request.NewErrParamRequired("Status"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetContainerName sets the ContainerName field's value.
+func (s *ManagedAgentStateChange) SetContainerName(v string) *ManagedAgentStateChange {
+	s.ContainerName = &v
+	return s
+}
+
+// SetManagedAgentName sets the ManagedAgentName field's value.
+func (s *ManagedAgentStateChange) SetManagedAgentName(v string) *ManagedAgentStateChange {
+	s.ManagedAgentName = &v
+	return s
+}
+
+// SetReason sets the Reason field's value.
+func (s *ManagedAgentStateChange) SetReason(v string) *ManagedAgentStateChange {
+	s.Reason = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ManagedAgentStateChange) SetStatus(v string) *ManagedAgentStateChange {
+	s.Status = &v
+	return s
+}
+
 // Amazon ECS is unable to determine the current version of the Amazon ECS container
 // agent on the container instance and does not have enough information to proceed
 // with an update. This could be because the agent running on the container
@@ -11884,6 +12026,8 @@ type SubmitContainerStateChangeInput struct {
 	// The exit code returned for the state change request.
 	ExitCode *int64 `locationName:"exitCode" type:"integer"`
 
+	ManagedAgents []*ManagedAgentStateChange `locationName:"managedAgents" type:"list"`
+
 	// The network bindings of the container.
 	NetworkBindings []*NetworkBinding `locationName:"networkBindings" type:"list"`
 
@@ -11910,6 +12054,26 @@ func (s SubmitContainerStateChangeInput) GoString() string {
 	return s.String()
 }
 
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *SubmitContainerStateChangeInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "SubmitContainerStateChangeInput"}
+	if s.ManagedAgents != nil {
+		for i, v := range s.ManagedAgents {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ManagedAgents", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // SetCluster sets the Cluster field's value.
 func (s *SubmitContainerStateChangeInput) SetCluster(v string) *SubmitContainerStateChangeInput {
 	s.Cluster = &v
@@ -11925,6 +12089,12 @@ func (s *SubmitContainerStateChangeInput) SetContainerName(v string) *SubmitCont
 // SetExitCode sets the ExitCode field's value.
 func (s *SubmitContainerStateChangeInput) SetExitCode(v int64) *SubmitContainerStateChangeInput {
 	s.ExitCode = &v
+	return s
+}
+
+// SetManagedAgents sets the ManagedAgents field's value.
+func (s *SubmitContainerStateChangeInput) SetManagedAgents(v []*ManagedAgentStateChange) *SubmitContainerStateChangeInput {
+	s.ManagedAgents = v
 	return s
 }
 
@@ -11997,6 +12167,8 @@ type SubmitTaskStateChangeInput struct {
 	// The Unix time stamp for when the task execution stopped.
 	ExecutionStoppedAt *time.Time `locationName:"executionStoppedAt" type:"timestamp"`
 
+	ManagedAgents []*ManagedAgentStateChange `locationName:"managedAgents" type:"list"`
+
 	// The Unix time stamp for when the container image pull began.
 	PullStartedAt *time.Time `locationName:"pullStartedAt" type:"timestamp"`
 
@@ -12036,6 +12208,26 @@ func (s *SubmitTaskStateChangeInput) Validate() error {
 			}
 		}
 	}
+	if s.Containers != nil {
+		for i, v := range s.Containers {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Containers", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+	if s.ManagedAgents != nil {
+		for i, v := range s.ManagedAgents {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "ManagedAgents", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
 
 	if invalidParams.Len() > 0 {
 		return invalidParams
@@ -12064,6 +12256,12 @@ func (s *SubmitTaskStateChangeInput) SetContainers(v []*ContainerStateChange) *S
 // SetExecutionStoppedAt sets the ExecutionStoppedAt field's value.
 func (s *SubmitTaskStateChangeInput) SetExecutionStoppedAt(v time.Time) *SubmitTaskStateChangeInput {
 	s.ExecutionStoppedAt = &v
+	return s
+}
+
+// SetManagedAgents sets the ManagedAgents field's value.
+func (s *SubmitTaskStateChangeInput) SetManagedAgents(v []*ManagedAgentStateChange) *SubmitTaskStateChangeInput {
+	s.ManagedAgents = v
 	return s
 }
 
@@ -14027,6 +14225,18 @@ func LogDriver_Values() []string {
 		LogDriverAwslogs,
 		LogDriverSplunk,
 		LogDriverAwsfirelens,
+	}
+}
+
+const (
+	// ManagedAgentNameExecuteCommandAgent is a ManagedAgentName enum value
+	ManagedAgentNameExecuteCommandAgent = "ExecuteCommandAgent"
+)
+
+// ManagedAgentName_Values returns all elements of the ManagedAgentName enum
+func ManagedAgentName_Values() []string {
+	return []string{
+		ManagedAgentNameExecuteCommandAgent,
 	}
 }
 

@@ -434,6 +434,158 @@ func TestCreateContainer(t *testing.T) {
 	assert.Nil(t, metadata.ExitCode, "Expected a created container to not have an exit code")
 }
 
+func TestCreateContainerExecTimeout(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	execConfig := types.ExecConfig{
+		Privileged:   false,
+		AttachStdin:  false,
+		AttachStderr: false,
+		AttachStdout: false,
+		Detach:       true,
+		DetachKeys:   "",
+		Env:          []string{},
+		Cmd:          []string{"ls"},
+	}
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerExecCreate(gomock.Any(), gomock.Any(), execConfig).Do(func(v, w, x interface{}) {
+		wait.Wait() // wait until timeout happens
+	}).MaxTimes(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	_, err := client.CreateContainerExec(ctx, "id", execConfig, xContainerShortTimeout)
+	assert.NotNil(t, err, "Expected error for create container exec")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
+	wait.Done()
+}
+
+func TestCreateContainerExec(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	name := "containerName"
+	execEnv := make([]string, 0)
+	execCmd := make([]string, 0)
+	execCmd = append(execCmd, "ls")
+	execConfig := types.ExecConfig{
+		Privileged:   false,
+		AttachStdin:  false,
+		AttachStderr: false,
+		AttachStdout: false,
+		Detach:       true,
+		DetachKeys:   "",
+		Env:          execEnv,
+		Cmd:          execCmd,
+	}
+
+	execCreateResponse := types.IDResponse{ID: "id"}
+
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerExecCreate(gomock.Any(), gomock.Any(), execConfig).
+			Do(func(v, w, x interface{}) {
+				assert.True(t, reflect.DeepEqual(x, execConfig),
+					"Mismatch in create container ExecConfig, %v != %v", x, execConfig)
+			}).Return(execCreateResponse, nil),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	response, err := client.CreateContainerExec(ctx, name, execConfig, dockerclient.ContainerExecCreateTimeout)
+	assert.NoError(t, err)
+	assert.NotNil(t, response)
+	assert.Equal(t, execCreateResponse, *response)
+}
+
+func TestStartContainerExecTimeout(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Do(func(x, y, z interface{}) {
+		wait.Wait() // wait until timeout happens
+	}).MaxTimes(1).Return(nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.StartContainerExec(ctx, "id", xContainerShortTimeout)
+	assert.NotNil(t, err, "Expected error for start container exec")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
+	wait.Done()
+}
+
+func TestStartContainerExec(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	execStartCheck := types.ExecStartCheck{
+		Detach: true,
+		Tty:    false,
+	}
+
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerExecStart(gomock.Any(), "id", execStartCheck).Return(nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	err := client.StartContainerExec(ctx, "id", dockerclient.ContainerExecStartTimeout)
+	assert.NoError(t, err)
+}
+
+func TestInspectContainerExecTimeout(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerExecInspect(gomock.Any(), "id").Do(func(x, y interface{}) {
+		wait.Wait() // wait until timeout happens
+	}).MaxTimes(1)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	_, err := client.InspectContainerExec(ctx, "id", xContainerShortTimeout)
+	assert.NotNil(t, err, "Expected error for inspect container exec")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
+	wait.Done()
+}
+
+func TestInspectContainerExec(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	inspectContainerResponse := types.ContainerExecInspect{
+		ExecID:      "id",
+		ContainerID: "cont",
+		Running:     true,
+		ExitCode:    0,
+		Pid:         25537,
+	}
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerExecInspect(gomock.Any(), "id").Return(inspectContainerResponse, nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	resp, err := client.InspectContainerExec(ctx, "id", dockerclient.ContainerExecInspectTimeout)
+	assert.NoError(t, err)
+	assert.Equal(t, "id", resp.ExecID)
+	assert.Equal(t, "cont", resp.ContainerID)
+	assert.Equal(t, true, resp.Running)
+	assert.Equal(t, 0, resp.ExitCode)
+	assert.Equal(t, 25537, resp.Pid)
+}
+
 func TestStartContainerTimeout(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
@@ -608,6 +760,39 @@ func TestInspectContainer(t *testing.T) {
 	container, err := client.InspectContainer(ctx, "id", dockerclient.InspectContainerTimeout)
 	assert.NoError(t, err)
 	assert.True(t, reflect.DeepEqual(&containerOutput, container))
+}
+
+func TestTopContainerTimeout(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	wait := &sync.WaitGroup{}
+	wait.Add(1)
+	mockDockerSDK.EXPECT().ContainerTop(gomock.Any(), "id", gomock.Any()).Do(func(ctx context.Context, x interface{}, y interface{}) {
+		wait.Wait()
+	}).MaxTimes(1).Return(dockercontainer.ContainerTopOKBody{}, nil)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	_, err := client.TopContainer(ctx, "id", xContainerShortTimeout)
+	assert.Error(t, err, "Expected error for top timeout")
+	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName())
+	wait.Done()
+}
+
+func TestTopContainer(t *testing.T) {
+	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
+	defer done()
+
+	topOutput := dockercontainer.ContainerTopOKBody{}
+	gomock.InOrder(
+		mockDockerSDK.EXPECT().ContainerTop(gomock.Any(), "id", gomock.Any()).Return(topOutput, nil),
+	)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	topResponse, err := client.TopContainer(ctx, "id", dockerclient.TopContainerTimeout, "pid")
+	assert.NoError(t, err)
+	assert.Equal(t, &topOutput, topResponse)
 }
 
 func TestContainerEvents(t *testing.T) {

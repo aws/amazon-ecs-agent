@@ -36,10 +36,14 @@ type Client interface {
 		networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
 	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
+	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error)
 	ContainerRemove(ctx context.Context, containerID string, options types.ContainerRemoveOptions) error
 	ContainerStart(ctx context.Context, containerID string, options types.ContainerStartOptions) error
 	ContainerStats(ctx context.Context, containerID string, stream bool) (types.ContainerStats, error)
 	ContainerStop(ctx context.Context, containerID string, timeout *time.Duration) error
+	ContainerExecCreate(ctx context.Context, container string, config types.ExecConfig) (types.IDResponse, error)
+	ContainerExecStart(ctx context.Context, execID string, config types.ExecStartCheck) error
+	ContainerExecInspect(ctx context.Context, execID string) (types.ContainerExecInspect, error)
 	Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error)
 	ImageImport(ctx context.Context, source types.ImageImportSource, ref string,
 		options types.ImageImportOptions) (io.ReadCloser, error)

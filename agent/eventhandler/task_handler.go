@@ -59,7 +59,8 @@ type TaskHandler struct {
 	// tasksToContainerStates is used to collect container events
 	// between task transitions
 	tasksToContainerStates map[string][]api.ContainerStateChange
-
+	// tasksToManagedAgentStates is used to collect managed agent events
+	tasksToManagedAgentStates map[string][]api.ManagedAgentStateChange
 	//  taskHandlerLock is used to safely access the following maps:
 	// * taskToEvents
 	// * tasksToContainerStates
@@ -105,15 +106,16 @@ func NewTaskHandler(ctx context.Context,
 	client api.ECSClient) *TaskHandler {
 	// Create a handler and start the periodic event drain loop
 	taskHandler := &TaskHandler{
-		ctx:                     ctx,
-		tasksToEvents:           make(map[string]*taskSendableEvents),
-		submitSemaphore:         utils.NewSemaphore(concurrentEventCalls),
-		tasksToContainerStates:  make(map[string][]api.ContainerStateChange),
-		dataClient:              dataClient,
-		state:                   state,
-		client:                  client,
-		minDrainEventsFrequency: minDrainEventsFrequency,
-		maxDrainEventsFrequency: maxDrainEventsFrequency,
+		ctx:                       ctx,
+		tasksToEvents:             make(map[string]*taskSendableEvents),
+		submitSemaphore:           utils.NewSemaphore(concurrentEventCalls),
+		tasksToContainerStates:    make(map[string][]api.ContainerStateChange),
+		tasksToManagedAgentStates: make(map[string][]api.ManagedAgentStateChange),
+		dataClient:                dataClient,
+		state:                     state,
+		client:                    client,
+		minDrainEventsFrequency:   minDrainEventsFrequency,
+		maxDrainEventsFrequency:   maxDrainEventsFrequency,
 	}
 	go taskHandler.startDrainEventsTicker()
 
@@ -123,20 +125,22 @@ func NewTaskHandler(ctx context.Context,
 // AddStateChangeEvent queues up the state change event to be sent to ECS.
 // If the event is for a container state change, it just gets added to the
 // handler.tasksToContainerStates map.
+// If the event is for a managed agent state change, it just gets added to the
+// handler.tasksToManagedAgentStates map.
 // If the event is for task state change, it triggers the non-blocking
 // handler.submitTaskEvents method to submit the batched container state
 // changes and the task state change to ECS
 func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client api.ECSClient) error {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
-
+	seelog.Debugf("handling Event: %v", change)
 	switch change.GetEventType() {
 	case statechange.TaskEvent:
 		event, ok := change.(api.TaskStateChange)
 		if !ok {
 			return errors.New("eventhandler: unable to get task event from state change event")
 		}
-		// Task event: gather all the container events and send them
+		// Task event: gather all the container and managed agent events and send them
 		// to ECS by invoking the async submitTaskEvents method from
 		// the sendable event list object
 		handler.flushBatchUnsafe(&event, client)
@@ -148,6 +152,15 @@ func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client
 			return errors.New("eventhandler: unable to get container event from state change event")
 		}
 		handler.batchContainerEventUnsafe(event)
+		return nil
+
+	case statechange.ManagedAgentEvent:
+		event, ok := change.(api.ManagedAgentStateChange)
+		if !ok {
+			return errors.New("eventhandler: unable to get managed agent event from state change event")
+		}
+
+		handler.batchManagedAgentEventUnsafe(event)
 		return nil
 
 	default:
@@ -164,15 +177,15 @@ func (handler *TaskHandler) startDrainEventsTicker() {
 	for {
 		select {
 		case <-handler.ctx.Done():
-			seelog.Infof("TaskHandler: Stopping periodic container state change submission ticker")
+			seelog.Infof("TaskHandler: Stopping periodic container/managed agent state change submission ticker")
 			return
 		case <-ticker:
-			// Gather a list of task state changes to send. This list is
-			// constructed from the tasksToEvents map based on the task
-			// arns of containers that haven't been sent to ECS yet.
+			// Gather a list of task state changes to send. This list is constructed from
+			// the tasksToContainerStates and tasksToManagedAgentStates maps based on the
+			// task arns of containers and managed agents that haven't been sent to ECS yet.
 			for _, taskEvent := range handler.taskStateChangesToSend() {
 				seelog.Infof(
-					"TaskHandler: Adding a state change event to send batched container events: %s",
+					"TaskHandler: Adding a state change event to send batched container/managed agent events: %s",
 					taskEvent.String())
 				// Force start the the task state change submission
 				// workflow by calling AddStateChangeEvent method.
@@ -188,7 +201,7 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 	handler.lock.RLock()
 	defer handler.lock.RUnlock()
 
-	var events []api.TaskStateChange
+	events := make(map[string]api.TaskStateChange)
 	for taskARN := range handler.tasksToContainerStates {
 		// An entry for the task in tasksToContainerStates means that there
 		// is at least 1 container event for that task that hasn't been sent
@@ -212,17 +225,51 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 				Task:    task,
 			}
 			event.SetTaskTimestamps()
-
-			events = append(events, event)
+			events[taskARN] = event
 		}
 	}
-	return events
+
+	for taskARN := range handler.tasksToManagedAgentStates {
+		if _, ok := events[taskARN]; ok {
+			continue
+		}
+		if task, ok := handler.state.TaskByArn(taskARN); ok {
+			// We do not allow the ticker to submit managed agent state updates for
+			// tasks that are STOPPED. This prevents the ticker's asynchronous
+			// updates from clobbering managed agent states when the task
+			// transitions to STOPPED, since ECS does not allow updates to
+			// managed agent states once the task has moved to STOPPED.
+			knownStatus := task.GetKnownStatus()
+			if knownStatus >= apitaskstatus.TaskStopped {
+				continue
+			}
+			event := api.TaskStateChange{
+				TaskARN: taskARN,
+				Status:  task.GetKnownStatus(),
+				Task:    task,
+			}
+			event.SetTaskTimestamps()
+
+			events[taskARN] = event
+		}
+	}
+	var taskEvents []api.TaskStateChange
+	for _, tEvent := range events {
+		taskEvents = append(taskEvents, tEvent)
+	}
+	return taskEvents
 }
 
 // batchContainerEventUnsafe collects container state change events for a given task arn
 func (handler *TaskHandler) batchContainerEventUnsafe(event api.ContainerStateChange) {
 	seelog.Infof("TaskHandler: batching container event: %s", event.String())
 	handler.tasksToContainerStates[event.TaskArn] = append(handler.tasksToContainerStates[event.TaskArn], event)
+}
+
+// batchManagedAgentEventUnsafe collects managed agent state change events for a given task arn
+func (handler *TaskHandler) batchManagedAgentEventUnsafe(event api.ManagedAgentStateChange) {
+	seelog.Infof("TaskHandler: batching managed agent event: %s", event.String())
+	handler.tasksToManagedAgentStates[event.TaskArn] = append(handler.tasksToManagedAgentStates[event.TaskArn], event)
 }
 
 // flushBatchUnsafe attaches the task arn's container events to TaskStateChange event
@@ -233,7 +280,11 @@ func (handler *TaskHandler) flushBatchUnsafe(taskStateChange *api.TaskStateChang
 	// All container events for the task have now been copied to the
 	// task state change object. Remove them from the map
 	delete(handler.tasksToContainerStates, taskStateChange.TaskARN)
-
+	taskStateChange.ManagedAgents = append(taskStateChange.ManagedAgents,
+		handler.tasksToManagedAgentStates[taskStateChange.TaskARN]...)
+	// All managed agent events for the task have now been copied to the
+	// task state change object. Remove them from the map
+	delete(handler.tasksToManagedAgentStates, taskStateChange.TaskARN)
 	// Prepare a given event to be sent by adding it to the handler's
 	// eventList
 	event := newSendableTaskEvent(*taskStateChange)
