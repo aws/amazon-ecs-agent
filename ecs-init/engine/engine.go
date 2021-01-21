@@ -35,7 +35,8 @@ import (
 const (
 	terminalSuccessAgentExitCode  = 0
 	containerFailureAgentExitCode = 2
-	terminalFailureAgentExitCode  = 5
+	TerminalFailureAgentExitCode  = 5
+	DefaultInitErrorExitCode      = -1
 	upgradeAgentExitCode          = 42
 	serviceStartMinRetryTime      = time.Millisecond * 500
 	serviceStartMaxRetryTime      = time.Second * 15
@@ -53,6 +54,15 @@ type Engine struct {
 	credentialsProxyRoute    credentialsProxyRoute
 	ipv6RouterAdvertisements ipv6RouterAdvertisements
 	nvidiaGPUManager         gpu.GPUManager
+}
+
+type TerminalError struct {
+	err      string
+	exitCode int
+}
+
+func (e *TerminalError) Error() string {
+	return fmt.Sprintf("%s: %d", e.err, e.exitCode)
 }
 
 // New creates an instance of Engine
@@ -228,8 +238,11 @@ func (e *Engine) StartSupervised() error {
 			log.Infof("Captured the last %s lines of the agent container logs====>\n", failedContainerLogWindowSize)
 			log.Info(e.docker.GetContainerLogTail(failedContainerLogWindowSize))
 			log.Infof("<====end %s lines of the failed agent container logs\n", failedContainerLogWindowSize)
-		case terminalFailureAgentExitCode:
-			return errors.New("agent exited with terminal exit code")
+		case TerminalFailureAgentExitCode:
+			return &TerminalError{
+				err:      "agent exited with terminal exit code",
+				exitCode: TerminalFailureAgentExitCode,
+			}
 		case terminalSuccessAgentExitCode:
 			return nil
 		}
