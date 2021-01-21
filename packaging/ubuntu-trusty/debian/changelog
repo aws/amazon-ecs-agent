@@ -1,3 +1,10 @@
+amazon-ecs-init (1.50.0-1) trusty; urgency=medium
+
+  * Cache Agent version 1.50.0
+  * Allows ECS customers to execute interactive commands inside containers.
+
+ -- Utsa Bhattacharjya <utsa@amazon.com>  Fri, 22 Jan 2021 11:54:00 +0000
+
 amazon-ecs-init (1.49.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.49.0
