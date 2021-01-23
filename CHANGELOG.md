@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.0-1
+* Cache Agent version 1.50.0
+* Allows ECS customers to execute interactive commands inside containers.
+
 ## 1.49.0-1
 * Cache Agent version 1.49.0
 * Removes iptable rule that drops packets to port 51678 unconditionally on ecs service stop

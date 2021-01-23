@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Fri Jan 22, 11:54:00 UTC 2021 - utsa@amazon.com - 1.50.0-1
+
+- Cache Agent version 1.50.0
+- Allows ECS customers to execute interactive commands inside containers.
+-------------------------------------------------------------------
 Wed Jan 06, 11:54:00 UTC 2021 - shugy@amazon.com - 1.49.0-1
 
 - Cache Agent version 1.49.0
