@@ -33,6 +33,7 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/asm"
@@ -1685,41 +1686,131 @@ func TestUpdateContainerReference(t *testing.T) {
 }
 
 // TestPullAndUpdateContainerReference checks whether a container is added to task engine state when
-// pullSucceeded and DependentContainersPullUpfront is enabled.
+// Test # | Image availability  | DependentContainersPullUpfront | ImagePullBehavior
+// -----------------------------------------------------------------------------------
+//     1  |       remote        |              enabled           |      default
+//     2  |       remote        |              disabled          |      default
+//     3  |       local         |              enabled           |      default
+//     4  |       local         |              enabled           |       once
+//     5  |       local         |              enabled           |    prefer-cached
+//     6  |       local         |              enabled           |       always
 func TestPullAndUpdateContainerReference(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	cfg := &config.Config{
-		DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+	testcases := []struct {
+		Name                 string
+		ImagePullUpfront     config.BooleanDefaultFalse
+		ImagePullBehavior    config.ImagePullBehaviorType
+		ImageState           *image.ImageState
+		ImageInspect         *types.ImageInspect
+		InspectImage         bool
+		NumOfPulledContainer int
+		PullImageErr         apierrors.NamedError
+	}{
+		{
+			Name:              "DependentContainersPullUpfrontEnabledWithRemoteImage",
+			ImagePullUpfront:  config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior: config.ImagePullDefaultBehavior,
+			ImageState: &image.ImageState{
+				Image: &image.Image{ImageID: "id"},
+			},
+			InspectImage:         false,
+			NumOfPulledContainer: 1,
+			PullImageErr:         nil,
+		},
+		{
+			Name:              "DependentContainersPullUpfrontDisabledWithRemoteImage",
+			ImagePullUpfront:  config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+			ImagePullBehavior: config.ImagePullDefaultBehavior,
+			ImageState: &image.ImageState{
+				Image: &image.Image{ImageID: "id"},
+			},
+			InspectImage:         false,
+			NumOfPulledContainer: 1,
+			PullImageErr:         nil,
+		},
+		{
+			Name:                 "DependentContainersPullUpfrontEnabledWithCachedImage",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullDefaultBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			InspectImage:         true,
+			NumOfPulledContainer: 1,
+			PullImageErr:         dockerapi.CannotPullContainerError{fmt.Errorf("error")},
+		},
+		{
+			Name:                 "DependentContainersPullUpfrontEnabledAndImagePullOnceBehavior",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullOnceBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			InspectImage:         true,
+			NumOfPulledContainer: 1,
+			PullImageErr:         dockerapi.CannotPullContainerError{fmt.Errorf("error")},
+		},
+		{
+			Name:                 "DependentContainersPullUpfrontEnabledAndImagePullPreferCachedBehavior",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullPreferCachedBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			InspectImage:         true,
+			NumOfPulledContainer: 1,
+			PullImageErr:         dockerapi.CannotPullContainerError{fmt.Errorf("error")},
+		},
+		{
+			Name:                 "DependentContainersPullUpfrontEnabledAndImagePullAlwaysBehavior",
+			ImagePullUpfront:     config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+			ImagePullBehavior:    config.ImagePullAlwaysBehavior,
+			ImageState:           nil,
+			ImageInspect:         nil,
+			InspectImage:         false,
+			NumOfPulledContainer: 0,
+			PullImageErr:         dockerapi.CannotPullContainerError{fmt.Errorf("error")},
+		},
 	}
-	ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, cfg)
-	defer ctrl.Finish()
 
-	taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
-	taskEngine._time = nil
-	imageName := "image"
-	taskArn := "taskArn"
-	container := &apicontainer.Container{
-		Type:  apicontainer.ContainerNormal,
-		Image: imageName,
-	}
-	task := &apitask.Task{
-		Arn:        taskArn,
-		Containers: []*apicontainer.Container{container},
-	}
-	imageState := &image.ImageState{
-		Image: &image.Image{ImageID: "id"},
-	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			cfg := &config.Config{
+				DependentContainersPullUpfront: tc.ImagePullUpfront,
+				ImagePullBehavior:              tc.ImagePullBehavior,
+			}
+			ctrl, client, _, privateTaskEngine, _, imageManager, _ := mocks(t, ctx, cfg)
+			defer ctrl.Finish()
 
-	client.EXPECT().PullImage(gomock.Any(), imageName, gomock.Any(), gomock.Any())
-	imageManager.EXPECT().RecordContainerReference(container)
-	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
-	metadata := taskEngine.pullAndUpdateContainerReference(task, container)
-	pulledContainersMap, ok := taskEngine.State().PulledContainerMapByArn(taskArn)
-	require.True(t, ok, "no container found in the agent state")
-	require.Len(t, pulledContainersMap, 1)
-	assert.True(t, imageState.PullSucceeded, "PullSucceeded set to false")
-	assert.Equal(t, dockerapi.DockerContainerMetadata{}, metadata, "expected empty metadata")
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine._time = nil
+			imageName := "image"
+			taskArn := "taskArn"
+			container := &apicontainer.Container{
+				Type:      apicontainer.ContainerNormal,
+				Image:     imageName,
+				Essential: true,
+			}
+
+			task := &apitask.Task{
+				Arn:        taskArn,
+				Containers: []*apicontainer.Container{container},
+			}
+
+			client.EXPECT().PullImage(gomock.Any(), imageName, nil, gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{Error: tc.PullImageErr})
+
+			if tc.InspectImage {
+				client.EXPECT().InspectImage(imageName).Return(tc.ImageInspect, nil)
+			}
+
+			imageManager.EXPECT().RecordContainerReference(container)
+			imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(tc.ImageState, false)
+			metadata := taskEngine.pullAndUpdateContainerReference(task, container)
+			pulledContainersMap, _ := taskEngine.State().PulledContainerMapByArn(taskArn)
+			require.Len(t, pulledContainersMap, tc.NumOfPulledContainer)
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: tc.PullImageErr},
+				metadata, "expected metadata with error")
+		})
+	}
 }
 
 // TestMetadataFileUpdatedAgentRestart checks whether metadataManager.Update(...) is
