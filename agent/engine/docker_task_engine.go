@@ -840,6 +840,13 @@ func (engine *DockerTaskEngine) pullContainer(task *apitask.Task, container *api
 
 	}
 
+	// No pull image is required, the cached image will be used.
+	// Add the container that uses the cached image to the pulled container state.
+	dockerContainer := &apicontainer.DockerContainer{
+		Container: container,
+	}
+	engine.state.AddPulledContainer(dockerContainer, task)
+
 	// No pull image is required, just update container reference and use cached image.
 	engine.updateContainerReference(false, container, task.Arn)
 	// Return the metadata without any error
@@ -958,12 +965,37 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 		return metadata
 	}
 	pullSucceeded := metadata.Error == nil
-	if pullSucceeded {
+	findCachedImage := false
+	if !pullSucceeded {
+		// If Agent failed to pull an image when
+		// 1. DependentContainersPullUpfront is enabled
+		// 2. ImagePullBehavior is not set to always
+		// search the image in local cached images
+		if engine.cfg.DependentContainersPullUpfront.Enabled() && engine.cfg.ImagePullBehavior != config.ImagePullAlwaysBehavior {
+			if _, err := engine.client.InspectImage(container.Image); err != nil {
+				seelog.Errorf("Task engine [%s]: failed to find cached image %s for container %s",
+					task.Arn, container.Image, container.Name)
+				// Stop the task if the container is an essential container,
+				// and the image is not available in both remote and local caches
+				if container.IsEssential() {
+					task.SetDesiredStatus(apitaskstatus.TaskStopped)
+					engine.emitTaskEvent(task, fmt.Sprintf("%s: %s", metadata.Error.ErrorName(), metadata.Error.Error()))
+				}
+				return dockerapi.DockerContainerMetadata{Error: metadata.Error}
+			}
+			seelog.Infof("Task engine [%s]: found cached image %s, use it directly for container %s",
+				task.Arn, container.Image, container.Name)
+			findCachedImage = true
+		}
+	}
+
+	if pullSucceeded || findCachedImage {
 		dockerContainer := &apicontainer.DockerContainer{
 			Container: container,
 		}
 		engine.state.AddPulledContainer(dockerContainer, task)
 	}
+
 	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
 }
