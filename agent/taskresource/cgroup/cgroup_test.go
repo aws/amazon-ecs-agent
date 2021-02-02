@@ -129,9 +129,14 @@ func TestCleanupCgroupDeletedError(t *testing.T) {
 	mockControl := mock_control.NewMockControl(ctrl)
 	cgroupRoot := fmt.Sprintf("/ecs/%s", taskID)
 
-	mockControl.EXPECT().Remove(gomock.Any()).Return(cgroups.ErrCgroupDeleted)
+	err := cgroups.ErrCgroupDeleted
+	wrappedErr := fmt.Errorf("cgroup remove: unable to obtain controller: %w", err)
+	// check that the wrapped err unwraps to cgroups.ErrCgroupDeleted
+	assert.True(t, errors.Is(wrappedErr, cgroups.ErrCgroupDeleted))
+	mockControl.EXPECT().Remove(gomock.Any()).Return(wrappedErr)
 
 	cgroupResource := NewCgroupResource("taskArn", mockControl, nil, cgroupRoot, cgroupMountPath, specs.LinuxResources{})
+	// the ErrCgroupDeleted is caught and logs a warning, returns no error
 	assert.NoError(t, cgroupResource.Cleanup())
 }
 

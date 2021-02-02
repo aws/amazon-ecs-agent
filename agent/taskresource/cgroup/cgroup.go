@@ -16,6 +16,8 @@ package cgroup
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -32,7 +34,6 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/containerd/cgroups"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -163,7 +164,7 @@ func (cgroup *CgroupResource) ApplyTransition(nextState resourcestatus.ResourceS
 	if !ok {
 		seelog.Errorf("Cgroup Resource [%s]: unsupported desired state transition [%s]: %s",
 			cgroup.taskARN, cgroup.GetName(), cgroup.StatusString(nextState))
-		return errors.Errorf("resource [%s]: transition to %s impossible", cgroup.GetName(),
+		return fmt.Errorf("resource [%s]: transition to %s impossible", cgroup.GetName(),
 			cgroup.StatusString(nextState))
 	}
 	return transitionFunc()
@@ -276,14 +277,14 @@ func (cgroup *CgroupResource) setupTaskCgroup() error {
 
 	_, err := cgroup.control.Create(&cgroupSpec)
 	if err != nil {
-		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to create cgroup at %s", cgroup.taskARN, cgroupRoot)
+		return fmt.Errorf("cgroup resource [%s]: setup cgroup: unable to create cgroup at %s: %w", cgroup.taskARN, cgroupRoot, err)
 	}
 
 	// enabling cgroup memory hierarchy by doing 'echo 1 > memory.use_hierarchy'
 	memoryHierarchyPath := filepath.Join(cgroup.cgroupMountPath, memorySubsystem, cgroupRoot, memoryUseHierarchy)
 	err = cgroup.ioutil.WriteFile(memoryHierarchyPath, enableMemoryHierarchy, rootReadOnlyPermissions)
 	if err != nil {
-		return errors.Wrapf(err, "cgroup resource [%s]: setup cgroup: unable to set use hierarchy flag", cgroup.taskARN)
+		return fmt.Errorf("cgroup resource [%s]: setup cgroup: unable to set use hierarchy flag: %w", cgroup.taskARN, err)
 	}
 
 	return nil
@@ -294,11 +295,11 @@ func (cgroup *CgroupResource) Cleanup() error {
 	err := cgroup.control.Remove(cgroup.cgroupRoot)
 	// Explicitly handle cgroup deleted error
 	if err != nil {
-		if err == cgroups.ErrCgroupDeleted {
+		if errors.Is(err, cgroups.ErrCgroupDeleted) {
 			seelog.Warnf("Cgroup at %s has already been removed: %v", cgroup.cgroupRoot, err)
 			return nil
 		}
-		return errors.Wrapf(err, "resource: cleanup cgroup: unable to remove cgroup at %s", cgroup.cgroupRoot)
+		return fmt.Errorf("resource: cleanup cgroup: unable to remove cgroup at %s: %w", cgroup.cgroupRoot, err)
 	}
 	return nil
 }

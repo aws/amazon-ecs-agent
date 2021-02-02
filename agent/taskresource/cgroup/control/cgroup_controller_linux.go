@@ -16,6 +16,8 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/factory"
 
 	"github.com/cihub/seelog"
@@ -45,7 +47,7 @@ func (c *control) Create(cgroupSpec *Spec) (cgroups.Cgroup, error) {
 	// Validate incoming spec
 	err := validateCgroupSpec(cgroupSpec)
 	if err != nil {
-		return nil, errors.Wrapf(err, "cgroup create: failed to validate spec")
+		return nil, fmt.Errorf("cgroup create: failed to validate spec: %w", err)
 	}
 
 	// Create cgroup
@@ -53,7 +55,7 @@ func (c *control) Create(cgroupSpec *Spec) (cgroups.Cgroup, error) {
 	controller, err := c.New(cgroups.V1, cgroups.StaticPath(cgroupSpec.Root), cgroupSpec.Specs)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "cgroup create: unable to create controller")
+		return nil, fmt.Errorf("cgroup create: unable to create controller: %w", err)
 	}
 
 	return controller, nil
@@ -65,13 +67,14 @@ func (c *control) Remove(cgroupPath string) error {
 
 	controller, err := c.Load(cgroups.V1, cgroups.StaticPath(cgroupPath))
 	if err != nil {
-		return errors.Wrapf(err, "cgroup remove: unable to obtain controller")
+		// use the %w verb to wrap the error to be unwrapped by errors.Is()
+		return fmt.Errorf("cgroup remove: unable to obtain controller: %w", err)
 	}
 
 	// Delete cgroup
 	err = controller.Delete()
 	if err != nil {
-		return errors.Wrapf(err, "cgroup remove: unable to delete cgroup")
+		return fmt.Errorf("cgroup remove: unable to delete cgroup: %w", err)
 	}
 	return nil
 }
