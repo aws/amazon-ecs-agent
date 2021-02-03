@@ -14,6 +14,7 @@
 
 # Please submit bugfixes or comments via http://bugs.opensuse.org/
 #
+# TODO: replace with generic rpm. Need to verify the latter works on EC2.
 
 %define short_name amazon-ecs
 Name:           amazon-ecs-init

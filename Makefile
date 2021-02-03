@@ -123,6 +123,18 @@ BUILDROOT/ecs-agent.tar:
 	mkdir -p BUILDROOT
 	curl -o BUILDROOT/ecs-agent.tar ${AGENT_URL}
 
+.generic-rpm-done:
+	./scripts/update-version.sh
+	cp packaging/generic-rpm/amazon-ecs-init.spec amazon-ecs-init.spec
+	cp packaging/generic-rpm/ecs.service ecs.service
+	tar -czf ./sources.tgz ecs-init scripts
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --define "%_topdir $(PWD)" -bb amazon-ecs-init.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .rpm-done
+
+generic-rpm: .generic-rpm-done
+
 .PHONY: deb
 deb: .deb-done
 .deb-done: BUILDROOT/ecs-agent.tar
@@ -156,7 +168,7 @@ clean:
 	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
-	-rm -f .srpm-done .rpm-done
+	-rm -f .srpm-done .rpm-done .generic-rpm-done
 	-rm -f .deb-done
 	-rm -f cover.out
 	-rm -f coverprofile.out
