@@ -12,7 +12,6 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
-DEB_SIGN ?= 1
 
 .PHONY: dev generate lint static test build-mock-images sources rpm srpm govet
 
@@ -24,10 +23,10 @@ generate:
 
 PLATFORM:=$(shell uname -s)
 ifeq (${PLATFORM},Linux)
-                dep_arch=linux-386
-        else ifeq (${PLATFORM},Darwin)
-                dep_arch=darwin-386
-        endif
+	dep_arch=linux-386
+else ifeq (${PLATFORM},Darwin)
+	dep_arch=darwin-386
+endif
 
 DEP_VERSION=v0.5.0
 .PHONY: get-dep
@@ -113,16 +112,25 @@ srpm: .srpm-done
 
 rpm: .rpm-done
 
-ubuntu-trusty:
-	cp packaging/ubuntu-trusty/ecs.conf ecs.conf
-	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init ecs.conf scripts README.md
+ARCH:=$(shell uname -m)
+ifeq (${ARCH},x86_64)
+	AGENT_URL=https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-v${VERSION}.tar
+else ifeq (${ARCH},aarch64)
+	AGENT_URL=https://s3.amazonaws.com/amazon-ecs-agent/ecs-agent-arm64-v${VERSION}.tar
+endif
+
+BUILDROOT/ecs-agent.tar:
 	mkdir -p BUILDROOT
-	cp -r packaging/ubuntu-trusty/debian BUILDROOT/debian
-	cp -r ecs-init BUILDROOT
-	cp packaging/ubuntu-trusty/ecs.conf BUILDROOT
-	cp -r scripts BUILDROOT
-	cp README.md BUILDROOT
-	cd BUILDROOT && debuild $(shell [ "$(DEB_SIGN)" -ne "0" ] || echo "-uc -us")
+	curl -o BUILDROOT/ecs-agent.tar ${AGENT_URL}
+
+.PHONY: deb
+deb: .deb-done
+.deb-done: BUILDROOT/ecs-agent.tar
+	./scripts/update-version.sh
+	tar -czf ./amazon-ecs-init_${VERSION}.orig.tar.gz ecs-init scripts README.md
+	cp -r packaging/generic-deb/debian ecs-init scripts README.md BUILDROOT
+	cd BUILDROOT && debuild -uc -us --lintian-opts --suppress-tags bad-distribution-in-changes-file,file-in-unusual-dir
+	touch .deb-done
 
 get-deps:
 	go get golang.org/x/tools/cover
@@ -149,5 +157,7 @@ clean:
 	-rm -rf ./x86_64
 	-rm -f ./amazon-ecs-init_${VERSION}*
 	-rm -f .srpm-done .rpm-done
+	-rm -f .deb-done
 	-rm -f cover.out
 	-rm -f coverprofile.out
+	-rm -f amazon-ecs-volume-plugin

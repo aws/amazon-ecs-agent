@@ -1,0 +1,6 @@
+etc/ecs
+var/log/ecs
+var/lib/ecs
+var/lib/ecs/data
+var/cache/ecs
+usr/libexec

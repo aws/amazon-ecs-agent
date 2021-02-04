@@ -29,6 +29,15 @@ import (
 	godocker "github.com/fsouza/go-dockerclient"
 )
 
+const (
+	// dockerClientAPIVersion specifies the minimum docker client API version
+	// required by ECS Init
+	// Version 1.25 is required for setting Init to true when constructing
+	// the HostConfig for creating the ECS Agent to enable the Task
+	// Networking with ENI capability
+	dockerClientAPIVersion = "1.25"
+)
+
 type dockerclient interface {
 	ListImages(opts godocker.ListImagesOptions) ([]godocker.APIImages, error)
 	LoadImage(opts godocker.LoadImageOptions) error
