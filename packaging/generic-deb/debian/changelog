@@ -1,110 +1,110 @@
-amazon-ecs-init (1.48.1-1) trusty; urgency=medium
+amazon-ecs-init (1.48.1-1) stable; urgency=medium
 
   * Cache Agent version 1.48.1
 
  -- Shubham Goyal <shugy@amazon.com>  Mon, 23 Nov 2020 11:54:00 +0000
 
-amazon-ecs-init (1.48.0-2) trusty; urgency=medium
+amazon-ecs-init (1.48.0-2) stable; urgency=medium
 
   * Cache Agent version 1.48.0
 
  -- Shubham Goyal <shugy@amazon.com>  Thu, 19 Nov 2020 20:19:00 +0000
 
-amazon-ecs-init (1.47.0-1) trusty; urgency=medium
+amazon-ecs-init (1.47.0-1) stable; urgency=medium
 
   * Cache Agent version 1.47.0
 
  -- Mythri Garaga Manjunatha <mythr@amazon.com>  Fri, 30 Oct 2020 19:00:00 +0000
 
-amazon-ecs-init (1.46.0-1) trusty; urgency=medium
+amazon-ecs-init (1.46.0-1) stable; urgency=medium
 
   * Cache Agent version 1.46.0
 
  -- Meghna Srivastav <mssrivas@amazon.com>  Fri, 16 Oct 2020 19:03:32 +0000
 
-amazon-ecs-init (1.45.0-1) trusty; urgency=medium
+amazon-ecs-init (1.45.0-1) stable; urgency=medium
 
   * Cache Agent version 1.45.0
   * Block offhost access to agent's introspection port by default. Configurable via env ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS
 
  -- Cam Sparr <cssparr@amazon.com>  Wed, 30 Sep 2020 19:00:00 +0000
 
-amazon-ecs-init (1.44.4-1) trusty; urgency=medium
+amazon-ecs-init (1.44.4-1) stable; urgency=medium
 
   * Cache Agent version 1.44.4
 
  -- Ray Allan <fierlion@amazon.com>  Tue, 15 Sep 2020 19:34:32 +0000
 
-amazon-ecs-init (1.44.3-1) trusty; urgency=medium
+amazon-ecs-init (1.44.3-1) stable; urgency=medium
 
   * Cache Agent version 1.44.3
 
  -- Meghna Srivastav  <mssrivas@amazon.com>  Wed, 02 Sep 2020 19:03:32 +0000
 
-amazon-ecs-init (1.44.2-1) trusty; urgency=medium
+amazon-ecs-init (1.44.2-1) stable; urgency=medium
 
   * Cache Agent version 1.44.2
 
  -- Utsa Bhattacharjya <utsa@amazon.com>  Wed, 26 Aug 2020 19:03:32 +0000
 
-amazon-ecs-init (1.44.1-1) trusty; urgency=medium
+amazon-ecs-init (1.44.1-1) stable; urgency=medium
 
   * Cache Agent version 1.44.1
 
  -- Shubham Goyal <shugy@amazon.com>  Thu, 20 Aug 2020 18:35:32 +0000
 
-amazon-ecs-init (1.44.0-1) trusty; urgency=medium
+amazon-ecs-init (1.44.0-1) stable; urgency=medium
 
   * Cache Agent version 1.44.0
   * Add support for configuring Agent container logs
 
  -- Shubham Goyal <shugy@amazon.com>  Thu, 13 Aug 2020 20:39:32 +0000
 
-amazon-ecs-init (1.43.0-2) trusty; urgency=medium
+amazon-ecs-init (1.43.0-2) stable; urgency=medium
 
   * Cache Agent version 1.43.0
 
  -- Feng Xiong <fenxiong@amazon.com>  Tue, 04 Aug 2020 17:22:32 +0000
 
-amazon-ecs-init (1.42.0-1) trusty; urgency=medium
+amazon-ecs-init (1.42.0-1) stable; urgency=medium
 
   * Cache Agent version 1.42.0
   * Add a flag ECS_SKIP_LOCALHOST_TRAFFIC_FILTER to allow skipping local traffic filtering
 
  -- Yunhee Lee <yhlee@amazon.com>  Thu, 23 Jul 2020 17:55:00 +0000
 
-amazon-ecs-init (1.41.1-2) trusty; urgency=medium
+amazon-ecs-init (1.41.1-2) stable; urgency=medium
 
   * Drop traffic to 127.0.0.1 that isn't originated from the host
 
  -- Feng Xiong <fenxiong@amazon.com>  Thu, 09 Jul 2020 00:46:00 +0000
 
-amazon-ecs-init (1.41.1-1) trusty; urgency=medium
+amazon-ecs-init (1.41.1-1) stable; urgency=medium
 
   * Cache Agent version 1.41.1
 
  -- Yajie Chu <cya@amazon.com>  Mon, 06 Jul 2020 23:45:00 +0000
 
-amazon-ecs-init (1.41.0-1) trusty; urgency=medium
+amazon-ecs-init (1.41.0-1) stable; urgency=medium
 
   * Cache Agent version 1.41.0
 
  -- Meghna Srivastav <mssrivas@amazon.com>  Mon, 22 Jun 2020 23:45:00 +0000
 
-amazon-ecs-init (1.40.0-1) trusty; urgency=medium
+amazon-ecs-init (1.40.0-1) stable; urgency=medium
 
   * Cache Agent version 1.40.0
 
  -- Meghna Srivastav <mssrivas@amazon.com>  Tue, 02 Jun 2020 23:45:00 +0000
 
-amazon-ecs-init (1.39.0-2) trusty; urgency=medium
+amazon-ecs-init (1.39.0-2) stable; urgency=medium
 
   * Cache Agent version 1.39.0
   * Ignore IPv6 disable failure if already disabled
 
  -- Yunhee Lee <yhlee@amazon.com>  Fri, 03 Apr 2020 19:04:00 +0000
 
-amazon-ecs-init (1.38.0-1) trusty; urgency=medium
+amazon-ecs-init (1.38.0-1) stable; urgency=medium
 
   * Cache Agent version 1.38.0
   * Adds support for ECS volume plugin
@@ -112,168 +112,168 @@ amazon-ecs-init (1.38.0-1) trusty; urgency=medium
 
  -- Sharanya Devaraj <sharanyd@amazon.com>  Thu, 19 Mar 2020 21:42:00 +0000
 
-amazon-ecs-init (1.37.0-2) trusty; urgency=medium
+amazon-ecs-init (1.37.0-2) stable; urgency=medium
 
   * Cache Agent version 1.37.0
   * Add '/etc/alternatives' to mounts
 
  -- Jessie Young <youngli@amazon.com>  Sat, 22 Feb 2020 01:40:00 +0000
 
-amazon-ecs-init (1.36.2-1) trusty; urgency=medium
+amazon-ecs-init (1.36.2-1) stable; urgency=medium
 
   * Cache Agent version 1.36.2
   * update sbin mount point to avoid conflict with Docker >= 19.03.5
 
  -- Ray Allan <fierlion@amazon.com>  Tue, 04 Feb 2020 22:32:00 +0000
 
-amazon-ecs-init (1.36.1-1) trusty; urgency=medium
+amazon-ecs-init (1.36.1-1) stable; urgency=medium
 
   * Cache Agent version 1.36.1
 
  -- Yunhee Lee <yhlee@amazon.com>  Fri, 10 Jan 2020 19:00:00 +0000
 
-amazon-ecs-init (1.36.0-1) trusty; urgency=medium
+amazon-ecs-init (1.36.0-1) stable; urgency=medium
 
   * Cache Agent version 1.36.0
   * capture a fixed tail of container logs when removing a container
 
  -- Cameron Sparr <cssparr@amazon.com>  Wed, 08 Jan 2020 19:00:00 +0000
 
-amazon-ecs-init (1.35.0-1) trusty; urgency=medium
+amazon-ecs-init (1.35.0-1) stable; urgency=medium
 
   * Cache Agent version 1.35.0
   * Fix bug where stopping agent gracefully would still restart ecs-init
 
  -- Derek Petersen <petderek@amazon.com>  Thu, 12 Dec 2019 17:00:00 +0000
 
-amazon-ecs-init (1.33.0-1) trusty; urgency=medium
+amazon-ecs-init (1.33.0-1) stable; urgency=medium
 
   * Cache Agent version 1.33.0
   * Fix destination path in docker socket bind mount to match the one specified using DOCKER_HOST on Amazon Linux 2
 
  -- Shubham Goyal <shugy@amazon.com>  Mon, 11 Nov 2019 17:00:00 +0000
 
-amazon-ecs-init (1.32.1-1) trusty; urgency=medium
+amazon-ecs-init (1.32.1-1) stable; urgency=medium
 
   * Cache Agent version 1.32.1
   * Add the ability to set Agent container's labels
 
  -- Shubham Goyal <shugy@amazon.com>  Mon, 28 Oct 2019 17:00:00 +0000
 
-amazon-ecs-init (1.32.0-1) trusty; urgency=medium
+amazon-ecs-init (1.32.0-1) stable; urgency=medium
 
   * Cache Agent version 1.32.0
 
  -- Cameron Sparr <cssparr@amazon.com>  Wed, 25 Sep 2019 18:00:00 +0000
 
-amazon-ecs-init (1.31.0-1) trusty; urgency=medium
+amazon-ecs-init (1.31.0-1) stable; urgency=medium
 
   * Cache Agent version 1.31.0
 
  -- Yajie Chu <cya@amazon.com>  Fri, 13 Sep 2019 18:00:00 +0000
 
-amazon-ecs-init (1.30.0-1) trusty; urgency=medium
+amazon-ecs-init (1.30.0-1) stable; urgency=medium
 
   * Cache Agent version 1.30.0
 
  -- Feng Xiong <fenxiong@amazon.com>  Thu, 15 Aug 2019 18:00:00 +0000
 
-amazon-ecs-init (1.29.1-1) trusty; urgency=medium
+amazon-ecs-init (1.29.1-1) stable; urgency=medium
 
   * Cache Agent version 1.29.1
 
  -- Shubham Goyal <shugy@amazon.com>  Mon, 08 Jul 2019 19:06:00 +0000
 
-amazon-ecs-init (1.29.0-1) trusty; urgency=medium
+amazon-ecs-init (1.29.0-1) stable; urgency=medium
 
   * Cache Agent version 1.29.0
 
  -- Yumeng Xie <yumex@amazon.com>  Thu, 06 Jun 2019 22:47:00 +0000
 
-amazon-ecs-init (1.28.1-2) trusty; urgency=medium
+amazon-ecs-init (1.28.1-2) stable; urgency=medium
 
   * Cache Agent version 1.28.1
   * Use exponential backoff when restarting agent
 
  -- Feng Xiong <fenxiong@amazon.com>  Fri, 31 May 2019 18:00:00 +0000
 
-amazon-ecs-init (1.28.0-1) trusty; urgency=medium
+amazon-ecs-init (1.28.0-1) stable; urgency=medium
 
   * Cache Agent version 1.28.0
 
  -- Feng Xiong <fenxiong@amazon.com>  Thu, 09 May 2019 18:00:00 +0000
 
-amazon-ecs-init (1.27.0-1) trusty; urgency=medium
+amazon-ecs-init (1.27.0-1) stable; urgency=medium
 
   * Cache Agent version 1.27.0
 
  -- Shaobo Han <obo@amazon.com>  Thu, 28 Mar 2019 22:00:00 +0000
 
-amazon-ecs-init (1.26.1-1) trusty; urgency=medium
+amazon-ecs-init (1.26.1-1) stable; urgency=medium
 
   * Cache Agent version 1.26.1
 
  -- Derek Petersen <petderek@amazon.com>  Thu, 21 Mar 2019 21:30:00 +0000
 
-amazon-ecs-init (1.26.0-1) trusty; urgency=medium
+amazon-ecs-init (1.26.0-1) stable; urgency=medium
 
   * Cache Agent version 1.26.0
   * Add support for running iptables within agent container
 
  -- Derek Petersen <petderek@amazon.com>  Thu, 28 Feb 2019 21:30:00 +0000
 
-amazon-ecs-init (1.25.3-1) trusty; urgency=medium
+amazon-ecs-init (1.25.3-1) stable; urgency=medium
 
   * Cache Agent version 1.25.3
 
  -- Ray Allan <fierlion@amazon.com>  Fri, 15 Feb 2019 19:30:00 +0000
 
-amazon-ecs-init (1.25.2-1) trusty; urgency=medium
+amazon-ecs-init (1.25.2-1) stable; urgency=medium
 
   * Cache Agent version 1.25.2
 
  -- Shaobo Han <obo@amazon.com>  Thu, 31 Jan 2019 19:53:00 +0000
 
-amazon-ecs-init (1.25.1-1) trusty; urgency=medium
+amazon-ecs-init (1.25.1-1) stable; urgency=medium
 
   * Cache Agent version 1.25.1
   * Update ecr models for private link support
 
  -- Adnan Khan <adnkha@amazon.com>  Sat, 26 Jan 2019 04:39:00 +0000
 
-amazon-ecs-init (1.25.0-1) trusty; urgency=medium
+amazon-ecs-init (1.25.0-1) stable; urgency=medium
 
   * Cache Agent version 1.25.0
   * Add Nvidia GPU support for p2 and p3 instances
 
  -- Eric Sun <yuzhusun@amazon.com>  Thu, 17 Jan 2019 18:32:18 +0000
 
-amazon-ecs-init (1.24.0-1) trusty; urgency=medium
+amazon-ecs-init (1.24.0-1) stable; urgency=medium
 
   * Cache Agent version 1.24.0
 
  -- Eric Sun <yuzhusun@amazon.com>  Fri, 04 Jan 2019 18:16:18 +0000
 
-amazon-ecs-init (1.22.0-4) trusty; urgency=medium
+amazon-ecs-init (1.22.0-4) stable; urgency=medium
 
   * Cache ECS agent version 1.22.0 for x86_64 & ARM
   * Support ARM architecture builds
 
  -- Jacob Vallejo <jakeev@amazon.com>  Fri, 16 Nov 2018 19:00:00 +0000
 
-amazon-ecs-init (1.22.0-3) trusty; urgency=medium
+amazon-ecs-init (1.22.0-3) stable; urgency=medium
 
   * Rebuild
 
  -- Jacob Vallejo <jakeev@amazon.com>  Thu, 15 Nov 2018 19:00:00 +0000
 
-amazon-ecs-init (1.22.0-2) trusty; urgency=medium
+amazon-ecs-init (1.22.0-2) stable; urgency=medium
 
   * Cache Agent version 1.22.0
 
  -- Yunhee Lee <yhlee@amazon.com>  Fri, 02 Nov 2018 17:51:28 +0000
 
-amazon-ecs-init (1.21.0-1) trusty; urgency=medium
+amazon-ecs-init (1.21.0-1) stable; urgency=medium
 
   * Cache Agent version 1.21.0
   * Support configurable logconfig for Agent container to reduce disk usage
@@ -281,50 +281,50 @@ amazon-ecs-init (1.21.0-1) trusty; urgency=medium
 
  -- Sharanya Devaraj <sharanyd@amazon.com>  Thu, 11 Oct 2018 18:49:28 +0000
 
-amazon-ecs-init (1.20.3-1) trusty; urgency=medium
+amazon-ecs-init (1.20.3-1) stable; urgency=medium
 
   * Cache Agent version 1.20.3
 
  -- Yumeng Xie <yumex@amazon.com>  Fri, 14 Sep 2018 00:38:10 +0000
 
-amazon-ecs-init (1.20.2-1) trusty; urgency=medium
+amazon-ecs-init (1.20.2-1) stable; urgency=medium
 
   * Cache Agent version 1.20.2
 
  -- Feng Xiong <fenxiong@amazon.com>  Fri, 31 Aug 2018 00:43:01 +0000
 
-amazon-ecs-init (1.20.1-1) trusty; urgency=medium
+amazon-ecs-init (1.20.1-1) stable; urgency=medium
 
   * Cache Agent version 1.20.1
 
  -- Peng Yin <penyin@amazon.com>  Thu, 09 Aug 2018 00:04:01 +0000
 
-amazon-ecs-init (1.20.0-1) trusty; urgency=medium
+amazon-ecs-init (1.20.0-1) stable; urgency=medium
 
   * Cache Agent version 1.20.0
 
  -- Haikuo Liu <haikuo@amazon.com>  Wed, 01 Aug 2018 23:44:01 +0000
 
-amazon-ecs-init (1.19.1-1) trusty; urgency=medium
+amazon-ecs-init (1.19.1-1) stable; urgency=medium
 
   * Cache Agent version 1.19.1
 
  -- Haikuo Liu <haikuo@amazon.com>  Thu, 26 Jul 2018 21:31:24 +0000
 
-amazon-ecs-init (1.19.0-1) trusty; urgency=medium
+amazon-ecs-init (1.19.0-1) stable; urgency=medium
 
   * Cache Agent version 1.19.0
 
  -- Feng Xiong <fenxiong@amazon.com>  Thu, 19 Jul 2018 23:09:41 +0000
 
-amazon-ecs-init (1.18.0-2) trusty; urgency=medium
+amazon-ecs-init (1.18.0-2) stable; urgency=medium
 
   * Spec file cleanups
   * Enable builds for both AL1 and AL2
 
  -- iliana weller <iweller@amazon.com>  Wed, 23 May 2018 19:00:00 +0000
 
-amazon-ecs-init (1.18.0-1) trusty; urgency=medium
+amazon-ecs-init (1.18.0-1) stable; urgency=medium
 
   * Cache Agent version 1.18.0
   * Add support for regional buckets
@@ -334,82 +334,82 @@ amazon-ecs-init (1.18.0-1) trusty; urgency=medium
 
  -- Haikuo Liu <haikuo@amazon.com>  Fri, 04 May 2018 21:30:22 +0000
 
-amazon-ecs-init (1.17.3-1) trusty; urgency=medium
+amazon-ecs-init (1.17.3-1) stable; urgency=medium
 
   * Cache Agent version 1.17.3
   * Use s3client instead of httpclient when downloading
 
  -- Justin Haynes <jushay@amazon.com>  Fri, 30 Mar 2018 20:20:41 +0000
 
-amazon-ecs-init (1.17.2-1) trusty; urgency=medium
+amazon-ecs-init (1.17.2-1) stable; urgency=medium
 
   * Cache Agent version 1.17.2
 
  -- Jacob Vallejo <jakeev@amazon.com>  Mon, 05 Mar 2018 18:31:19 +0000
 
-amazon-ecs-init (1.17.1-1) trusty; urgency=medium
+amazon-ecs-init (1.17.1-1) stable; urgency=medium
 
   * Cache Agent version 1.17.1
 
  -- Justin Haynes <jushay@amazon.com>  Mon, 19 Feb 2018 18:57:33 +0000
 
-amazon-ecs-init (1.17.0-2) trusty; urgency=medium
+amazon-ecs-init (1.17.0-2) stable; urgency=medium
 
   * Cache Agent version 1.17.0
 
  -- Justin Haynes <jushay@amazon.com>  Mon, 05 Feb 2018 18:03:33 +0000
 
-amazon-ecs-init (1.16.2-1) trusty; urgency=medium
+amazon-ecs-init (1.16.2-1) stable; urgency=medium
 
   * Cache Agent version 1.16.2
   * Add GovCloud endpoint
 
  -- Derek Petersen <petderek@amazon.com>  Tue, 16 Jan 2018 18:12:56 +0000
 
-amazon-ecs-init (1.16.1-1) trusty; urgency=medium
+amazon-ecs-init (1.16.1-1) stable; urgency=medium
 
   * Cache Agent version 1.16.1
   * Improve startup behavior when Docker socket doesn't exist yet
 
  -- Noah Meyerhans <nmeyerha@amazon.com>  Wed, 03 Jan 2018 22:52:56 +0000
 
-amazon-ecs-init (1.16.0-1) trusty; urgency=medium
+amazon-ecs-init (1.16.0-1) stable; urgency=medium
 
   * Cache Agent version 1.16.0
 
  -- Noah Meyerhans <nmeyerha@amazon.com>  Tue, 21 Nov 2017 21:03:59 +0000
 
-amazon-ecs-init (1.15.2-1) trusty; urgency=medium
+amazon-ecs-init (1.15.2-1) stable; urgency=medium
 
   * Cache Agent version 1.15.2
 
  -- Noah Meyerhans <nmeyerha@amazon.com>  Wed, 15 Nov 2017 00:53:54 +0000
 
-amazon-ecs-init (1.15.1-1) trusty; urgency=medium
+amazon-ecs-init (1.15.1-1) stable; urgency=medium
 
   * Update ECS Agent version
 
  -- Jacob Vallejo <jakeev@amazon.com>  Tue, 17 Oct 2017 15:55:19 +0000
 
-amazon-ecs-init (1.15.0-1) trusty; urgency=medium
+amazon-ecs-init (1.15.0-1) stable; urgency=medium
 
   * Update ECS Agent version
 
  -- Justin Haynes <jushay@amazon.com>  Sat, 07 Oct 2017 07:50:23 +0000
 
-amazon-ecs-init (1.14.5-1) trusty; urgency=medium
+amazon-ecs-init (1.14.5-1) stable; urgency=medium
 
   * Update ECS Agent version
 
  -- Justin Haynes <jushay@amazon.com>  Sat, 30 Sep 2017 01:36:34 +0000
 
-amazon-ecs-init (1.14.4-1) trusty; urgency=medium
+amazon-ecs-init (1.14.4-1) stable; urgency=medium
 
   * Update ECS Agent version
 
  -- Justin Haynes <jushay@amazon.com>  Tue, 22 Aug 2017 23:44:03 +0000
 
-amazon-ecs-init (1.14.2-2) trusty; urgency=medium
+amazon-ecs-init (1.14.2-2) stable; urgency=medium
 
   * Cache Agent version 1.14.2
   * Add functionality for running agent with userns=host when Docker has userns-remap enabled
@@ -417,68 +417,68 @@ amazon-ecs-init (1.14.2-2) trusty; urgency=medium
 
  -- Adnan Khan <adnkha@amazon.com>  Thu, 01 Jun 2017 19:00:00 +0000
 
-amazon-ecs-init (1.14.1-1) trusty; urgency=medium
+amazon-ecs-init (1.14.1-1) stable; urgency=medium
 
   * Cache Agent version 1.14.1
 
  -- Adnan Khan <adnkha@amazon.com>  Mon, 06 Mar 2017 19:00:00 +0000
 
-amazon-ecs-init (1.14.0-2) trusty; urgency=medium
+amazon-ecs-init (1.14.0-2) stable; urgency=medium
 
   * Add retry-backoff for pinging the Docker socket when creating the Docker client
 
  -- Anirudh Aithal <aithal@amazon.com>  Wed, 25 Jan 2017 19:00:00 +0000
 
-amazon-ecs-init (1.14.0-1) trusty; urgency=medium
+amazon-ecs-init (1.14.0-1) stable; urgency=medium
 
   * Cache Agent version 1.14.0
 
  -- Derek Petersen <petderek@amazon.com>  Mon, 16 Jan 2017 19:00:00 +0000
 
-amazon-ecs-init (1.13.1-2) trusty; urgency=medium
+amazon-ecs-init (1.13.1-2) stable; urgency=medium
 
   * Update Requires to indicate support for docker <= 1.12.6
 
  -- Noah Meyerhans <nmeyerha@amazon.com>  Fri, 06 Jan 2017 19:00:00 +0000
 
-amazon-ecs-init (1.13.1-1) trusty; urgency=medium
+amazon-ecs-init (1.13.1-1) stable; urgency=medium
 
   * Cache Agent version 1.13.1
 
  -- Peng Yin <penyin@amazon.com>  Mon, 14 Nov 2016 19:00:00 +0000
 
-amazon-ecs-init (1.13.0-1) trusty; urgency=medium
+amazon-ecs-init (1.13.0-1) stable; urgency=medium
 
   * Cache Agent version 1.13.0
 
  -- Noah Meyerhans <nmeyerha@amazon.com>  Tue, 27 Sep 2016 19:00:00 +0000
 
-amazon-ecs-init (1.12.2-1) trusty; urgency=medium
+amazon-ecs-init (1.12.2-1) stable; urgency=medium
 
   * Cache Agent version 1.12.2
 
  -- Anirudh Aithal <aithal@amazon.com>  Tue, 13 Sep 2016 19:00:00 +0000
 
-amazon-ecs-init (1.12.1-1) trusty; urgency=medium
+amazon-ecs-init (1.12.1-1) stable; urgency=medium
 
   * Cache Agent version 1.12.1
 
  -- Peng Yin <penyin@amazon.com>  Wed, 17 Aug 2016 19:00:00 +0000
 
-amazon-ecs-init (1.12.0-1) trusty; urgency=medium
+amazon-ecs-init (1.12.0-1) stable; urgency=medium
 
   * Cache Agent version 1.12.0
   * Add netfilter rules to support host network reaching credentials proxy
 
  -- Anirudh Aithal <aithal@amazon.com>  Wed, 10 Aug 2016 19:00:00 +0000
 
-amazon-ecs-init (1.11.1-1) trusty; urgency=medium
+amazon-ecs-init (1.11.1-1) stable; urgency=medium
 
   * Cache Agent version 1.11.1
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 03 Aug 2016 19:00:00 +0000
 
-amazon-ecs-init (1.11.0-1) trusty; urgency=medium
+amazon-ecs-init (1.11.0-1) stable; urgency=medium
 
   * Cache Agent version 1.11.0
   * Add support for Docker 1.11.2
@@ -488,59 +488,59 @@ amazon-ecs-init (1.11.0-1) trusty; urgency=medium
 
  -- Samuel Karp <skarp@amazon.com>  Tue, 05 Jul 2016 19:00:00 +0000
 
-amazon-ecs-init (1.10.0-1) trusty; urgency=medium
+amazon-ecs-init (1.10.0-1) stable; urgency=medium
 
   * Cache Agent version 1.10.0
   * Add support for Docker 1.11.1
 
  -- Peng Yin <penyin@amazon.com>  Mon, 23 May 2016 19:00:00 +0000
 
-amazon-ecs-init (1.9.0-1) trusty; urgency=medium
+amazon-ecs-init (1.9.0-1) stable; urgency=medium
 
   * Cache Agent version 1.9.0
   * Make awslogs driver available by default
 
  -- Peng Yin <penyin@amazon.com>  Tue, 26 Apr 2016 19:00:00 +0000
 
-amazon-ecs-init (1.8.2-1) trusty; urgency=medium
+amazon-ecs-init (1.8.2-1) stable; urgency=medium
 
   * Cache Agent version 1.8.2
 
  -- Juan Rhenals <rhenalsj@amazon.com>  Thu, 24 Mar 2016 19:00:00 +0000
 
-amazon-ecs-init (1.8.1-1) trusty; urgency=medium
+amazon-ecs-init (1.8.1-1) stable; urgency=medium
 
   * Cache Agent version 1.8.1
 
  -- Juan Rhenals <rhenalsj@amazon.com>  Mon, 29 Feb 2016 19:00:00 +0000
 
-amazon-ecs-init (1.8.0-1) trusty; urgency=medium
+amazon-ecs-init (1.8.0-1) stable; urgency=medium
 
   * Cache Agent version 1.8.0
 
  -- Juan Rhenals <rhenalsj@amazon.com>  Wed, 10 Feb 2016 19:00:00 +0000
 
-amazon-ecs-init (1.7.1-1) trusty; urgency=medium
+amazon-ecs-init (1.7.1-1) stable; urgency=medium
 
   * Cache Agent version 1.7.1
 
  -- Samuel Karp <skarp@amazon.com>  Fri, 08 Jan 2016 19:00:00 +0000
 
-amazon-ecs-init (1.7.0-1) trusty; urgency=medium
+amazon-ecs-init (1.7.0-1) stable; urgency=medium
 
   * Cache Agent version 1.7.0
   * Add support for Docker 1.9.1
 
  -- Samuel Karp <skarp@amazon.com>  Tue, 08 Dec 2015 19:00:00 +0000
 
-amazon-ecs-init (1.6.0-1) trusty; urgency=medium
+amazon-ecs-init (1.6.0-1) stable; urgency=medium
 
   * Cache Agent version 1.6.0
   * Updated source dependencies
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 21 Oct 2015 19:00:00 +0000
 
-amazon-ecs-init (1.5.0-1) trusty; urgency=medium
+amazon-ecs-init (1.5.0-1) stable; urgency=medium
 
   * Cache Agent version 1.5.0
   * Improved merge strategy for user-supplied environment variables
@@ -548,38 +548,38 @@ amazon-ecs-init (1.5.0-1) trusty; urgency=medium
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 23 Sep 2015 19:00:00 +0000
 
-amazon-ecs-init (1.4.0-2) trusty; urgency=medium
+amazon-ecs-init (1.4.0-2) stable; urgency=medium
 
   * Add support for Docker 1.7.1
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 26 Aug 2015 19:00:00 +0000
 
-amazon-ecs-init (1.4.0-1) trusty; urgency=medium
+amazon-ecs-init (1.4.0-1) stable; urgency=medium
 
   * Cache Agent version 1.4.0
 
  -- Samuel Karp <skarp@amazon.com>  Tue, 11 Aug 2015 19:00:00 +0000
 
-amazon-ecs-init (1.3.1-1) trusty; urgency=medium
+amazon-ecs-init (1.3.1-1) stable; urgency=medium
 
   * Cache Agent version 1.3.1
   * Read Docker endpoint from environment variable DOCKER_HOST if present
 
  -- Samuel Karp <skarp@amazon.com>  Thu, 30 Jul 2015 19:00:00 +0000
 
-amazon-ecs-init (1.3.0-1) trusty; urgency=medium
+amazon-ecs-init (1.3.0-1) stable; urgency=medium
 
   * Cache Agent version 1.3.0
 
  -- Samuel Karp <skarp@amazon.com>  Thu, 02 Jul 2015 19:00:00 +0000
 
-amazon-ecs-init (1.2.1-2) trusty; urgency=medium
+amazon-ecs-init (1.2.1-2) stable; urgency=medium
 
   * Cache Agent version 1.2.1
 
  -- Euan Kemp <euank@amazon.com>  Fri, 19 Jun 2015 19:00:00 +0000
 
-amazon-ecs-init (1.2.0-1) trusty; urgency=medium
+amazon-ecs-init (1.2.0-1) stable; urgency=medium
 
   * Update versioning scheme to match Agent version
   * Cache Agent version 1.2.0
@@ -587,25 +587,25 @@ amazon-ecs-init (1.2.0-1) trusty; urgency=medium
 
  -- Samuel Karp <skarp@amazon.com>  Tue, 02 Jun 2015 19:00:00 +0000
 
-amazon-ecs-init (1.0-5) trusty; urgency=medium
+amazon-ecs-init (1.0-5) stable; urgency=medium
 
   * Add support for Docker 1.6.2
 
  -- Samuel Karp <skarp@amazon.com>  Mon, 01 Jun 2015 19:00:00 +0000
 
-amazon-ecs-init (1.0-4) trusty; urgency=medium
+amazon-ecs-init (1.0-4) stable; urgency=medium
 
   * Properly restart if the ecs-init package is upgraded in isolation
 
  -- Samuel Karp <skarp@amazon.com>  Mon, 11 May 2015 19:00:00 +0000
 
-amazon-ecs-init (1.0-3) trusty; urgency=medium
+amazon-ecs-init (1.0-3) stable; urgency=medium
 
   * Restart on upgrade if already running
 
  -- Samuel Karp <skarp@amazon.com>  Wed, 06 May 2015 19:00:00 +0000
 
-amazon-ecs-init (1.0-2) trusty; urgency=medium
+amazon-ecs-init (1.0-2) stable; urgency=medium
 
   * Cache Agent version 1.1.0
   * Add support for Docker 1.6.0
@@ -614,7 +614,7 @@ amazon-ecs-init (1.0-2) trusty; urgency=medium
 
  -- Samuel Karp <skarp@amazon.com>  Tue, 05 May 2015 19:00:00 +0000
 
-amazon-ecs-init (1.0-1) trusty; urgency=medium
+amazon-ecs-init (1.0-1) stable; urgency=medium
 
   * Re-start Agent on non-terminal exit codes
   * Enable Agent self-updates
@@ -623,26 +623,26 @@ amazon-ecs-init (1.0-1) trusty; urgency=medium
 
  -- Samuel Karp <skarp@amazon.com>  Thu, 26 Mar 2015 19:00:00 +0000
 
-amazon-ecs-init (0.3-0) trusty; urgency=medium
+amazon-ecs-init (0.3-0) stable; urgency=medium
 
   * Migrate to statically-compiled Go binary
 
  -- Samuel Karp <skarp@amazon.com>  Mon, 16 Mar 2015 19:00:00 +0000
 
-amazon-ecs-init (0.2-3) trusty; urgency=medium
+amazon-ecs-init (0.2-3) stable; urgency=medium
 
   * Test for existing container agent and force remove it
 
  -- Eric Nordlund <ericn@amazon.com>  Tue, 17 Feb 2015 19:00:00 +0000
 
-amazon-ecs-init (0.2-2) trusty; urgency=medium
+amazon-ecs-init (0.2-2) stable; urgency=medium
 
   * Mount data directory for state persistence
   * Enable JSON-based configuration
 
  -- Samuel Karp <skarp@amazon.com>  Thu, 15 Jan 2015 19:00:00 +0000
 
-amazon-ecs-init (0.2-1) trusty; urgency=medium
+amazon-ecs-init (0.2-1) stable; urgency=medium
 
   * Naive update functionality
 

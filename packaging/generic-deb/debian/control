@@ -1,16 +1,16 @@
 Source: amazon-ecs-init
 Section: misc
 Priority: optional
-Maintainer: Samuel Karp <skarp@amazon.com>
-Build-Depends: debhelper (>= 9.0.0), golang-1.7 (>= 1.7)
-Standards-Version: 3.9.5
+Maintainer: ecs-agent-dev <ecs-agent-dev@amazon.com>
+Build-Depends: debhelper (>= 9.20160709~), golang-go (>= 1.7)
+Standards-Version: 4.3.0
 Homepage: https://aws.amazon.com/ecs
 Vcs-Git: git://github.com/aws/amazon-ecs-init.git
 Vcs-Browser: http://github.com/aws/amazon-ecs-init
 
 Package: amazon-ecs-init
-Architecture: amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}, docker-engine (>= 1.6.0)
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}, systemd, docker-ce (>= 17.12.0) | docker-engine (>= 1.6.0) | docker-ee | docker.io
 Description: Starts the Amazon ECS Agent
  amazon-ecs-init may be run to register an EC2 instance as an Amazon ECS
  Container Instance.

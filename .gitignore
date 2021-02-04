@@ -5,6 +5,7 @@
 /ecs-init-*
 *.swp
 /ecs.conf
+/.deb-done
 /.rpm-done
 /.srpm-done
 /BUILD
@@ -14,7 +15,7 @@
 /ecs-init.spec
 /sources.tgz
 ecs-agent-*.tar
-ecs.service
+/ecs.service
 *.log
 .idea/
 cover.out

@@ -20,7 +20,7 @@ const (
 	TOP_LEVEL       = "../../CHANGELOG.md"
 	AMAZON_LINUX    = "../../packaging/amazon-linux-ami/ecs-init.spec"
 	SUSE            = "../../packaging/suse/amazon-ecs-init.changes"
-	UBUNTU          = "../../packaging/ubuntu-trusty/debian/changelog"
+	UBUNTU          = "../../packaging/generic-deb/debian/changelog"
 
 	AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
 	DEBIAN_TIME_FMT       = "Mon, 02 Jan 2006 15:04:05 -0700"
@@ -137,7 +137,7 @@ func getAmazonLinuxChangeString(allChange []Change) string {
 
 // format as follows:
 //
-// amazon-ecs-init (1.36.0-1) trusty; urgency=medium
+// amazon-ecs-init (1.36.0-1) stable; urgency=medium
 //
 //  * Cache Agent version 1.36.0
 //  * capture a fixed tail of container logs when removing a container
@@ -146,7 +146,7 @@ func getAmazonLinuxChangeString(allChange []Change) string {
 func getUbuntuChangeString(allChange []Change) string {
 	result := ""
 	for _, change := range allChange {
-		result += fmt.Sprintf("amazon-ecs-init (%s) trusty; urgency=medium\n\n", change.Version)
+		result += fmt.Sprintf("amazon-ecs-init (%s) stable; urgency=medium\n\n", change.Version)
 		thisTime := change.Datetime.UTC().Format(DEBIAN_TIME_FMT)
 		for _, update := range change.Changes {
 			result += fmt.Sprintf("  * %s\n", update)
