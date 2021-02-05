@@ -22,6 +22,7 @@ After=cloud-final.service
 [Service]
 Type=simple
 Restart=on-failure
+RestartPreventExitStatus=5
 RestartSec=10s
 EnvironmentFile=-/etc/ecs/ecs.config
 ExecStartPre=/usr/libexec/amazon-ecs-init pre-start

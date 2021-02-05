@@ -1,3 +1,15 @@
+1.50.0-1
+Utsa Bhattacharjya <utsa@amazon.com>
+2021-01-22T03:54:00-08:00
+Cache Agent version 1.50.0
+Allows ECS customers to execute interactive commands inside containers.
+
+1.49.0-1
+Shubham Goyal <shugy@amazon.com>
+2021-01-06T03:54:00-08:00
+Cache Agent version 1.49.0
+Removes iptable rule that drops packets to port 51678 unconditionally on ecs service stop
+
 1.48.1-1
 Shubham Goyal <shugy@amazon.com>
 2020-11-23T03:54:00-08:00

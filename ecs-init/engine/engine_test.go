@@ -260,15 +260,21 @@ func TestStartSupervisedExitsWhenTerminalFailure(t *testing.T) {
 		mockDocker.EXPECT().RemoveExistingAgentContainer(),
 		mockDocker.EXPECT().StartAgent().Return(1, nil),
 		mockDocker.EXPECT().RemoveExistingAgentContainer(),
-		mockDocker.EXPECT().StartAgent().Return(terminalFailureAgentExitCode, nil),
+		mockDocker.EXPECT().StartAgent().Return(TerminalFailureAgentExitCode, nil),
 	)
 
 	engine := &Engine{
 		docker: mockDocker,
 	}
 	err := engine.StartSupervised()
+
 	if err == nil {
 		t.Error("Expected error to be returned but was nil")
+	}
+
+	_, ok := err.(*TerminalError)
+	if !ok {
+		t.Error("Expected error to be of type TerminalError")
 	}
 }
 

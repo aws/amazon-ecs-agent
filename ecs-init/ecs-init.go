@@ -48,7 +48,7 @@ func main() {
 
 	logger, err := log.LoggerFromConfigAsString(config.Logger())
 	if err != nil {
-		die(err)
+		die(err, engine.DefaultInitErrorExitCode)
 	}
 	log.ReplaceLogger(logger)
 
@@ -62,7 +62,7 @@ func main() {
 
 	init, err := engine.New()
 	if err != nil {
-		die(err)
+		die(err, engine.DefaultInitErrorExitCode)
 	}
 	log.Info(args[0])
 	actions := actions(init)
@@ -72,8 +72,12 @@ func main() {
 		os.Exit(1)
 	}
 	err = action.function()
+
 	if err != nil {
-		die(err)
+		if err, ok := err.(*engine.TerminalError); ok {
+			die(err, engine.TerminalFailureAgentExitCode)
+		}
+		die(err, engine.DefaultInitErrorExitCode)
 	}
 }
 
@@ -123,8 +127,8 @@ func usage(actions map[string]action) {
 	fmt.Println("")
 }
 
-func die(err error) {
+func die(err error, exitCode int) {
 	log.Error(err.Error())
 	log.Flush()
-	os.Exit(-1)
+	os.Exit(exitCode)
 }
