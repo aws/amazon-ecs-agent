@@ -25,6 +25,10 @@ const (
 	// AttachmentEvent is used to define the attachment state transition events
 	// emitted by ENI watcher
 	AttachmentEvent
+
+	// ManagedAgentEvent is used to define the managed agent state transition events
+	// emitted by the engine
+	ManagedAgentEvent
 )
 
 // Event defines the type of state change event
@@ -33,7 +37,6 @@ type EventType int32
 // Event is used to abstract away the two transition event types
 // passed up through a single channel from the the engine
 type Event interface {
-
 	// GetEventType implementations should return one the enums defined above to
 	// identify the type of event being emitted
 	GetEventType() EventType

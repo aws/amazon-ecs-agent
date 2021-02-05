@@ -144,6 +144,96 @@ func TestShouldTaskEventBeSent(t *testing.T) {
 			shouldBeSent: true,
 		},
 		{
+			// ManagedAgent state change should be sent if SentStatus is != Status
+			// regardless of task status
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: apitaskstatus.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskStatusNone,
+				},
+				ManagedAgents: []api.ManagedAgentStateChange{
+					{
+						TaskArn: "test_task_arn",
+						Name:    "test_agent",
+						Container: &apicontainer.Container{
+							ManagedAgentsUnsafe: []apicontainer.ManagedAgent{
+								{
+									Name: "test_agent",
+									ManagedAgentState: apicontainer.ManagedAgentState{
+										Status:     apicontainerstatus.ManagedAgentRunning,
+										SentStatus: apicontainerstatus.ManagedAgentStatusNone,
+									},
+								},
+							},
+						},
+						Status: apicontainerstatus.ManagedAgentStatusNone,
+						Reason: "test_reason",
+					},
+				},
+			}),
+			shouldBeSent: true,
+		},
+		{
+			// ManagedAgent state change should be sent if SentStatus is != Status
+			// regardless of task status
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: apitaskstatus.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskStatusNone,
+				},
+				ManagedAgents: []api.ManagedAgentStateChange{
+					{
+						TaskArn: "test_task_arn",
+						Name:    "test_agent",
+						Container: &apicontainer.Container{
+							ManagedAgentsUnsafe: []apicontainer.ManagedAgent{
+								{
+									Name: "test_agent",
+									ManagedAgentState: apicontainer.ManagedAgentState{
+										Status:     apicontainerstatus.ManagedAgentRunning,
+										SentStatus: apicontainerstatus.ManagedAgentStopped,
+									},
+								},
+							},
+						},
+						Status: apicontainerstatus.ManagedAgentStatusNone,
+						Reason: "test_reason",
+					},
+				},
+			}),
+			shouldBeSent: true,
+		},
+		{
+			// ManagedAgent state change should not be sent if SentStatus is == Status
+			// regardless of task status
+			event: newSendableTaskEvent(api.TaskStateChange{
+				Status: apitaskstatus.TaskStatusNone,
+				Task: &apitask.Task{
+					SentStatusUnsafe: apitaskstatus.TaskStatusNone,
+				},
+				ManagedAgents: []api.ManagedAgentStateChange{
+					{
+						TaskArn: "test_task_arn",
+						Name:    "test_agent",
+						Container: &apicontainer.Container{
+							ManagedAgentsUnsafe: []apicontainer.ManagedAgent{
+								{
+									Name: "test_agent",
+									ManagedAgentState: apicontainer.ManagedAgentState{
+										Status:     apicontainerstatus.ManagedAgentRunning,
+										SentStatus: apicontainerstatus.ManagedAgentRunning,
+									},
+								},
+							},
+						},
+						Status: apicontainerstatus.ManagedAgentStatusNone,
+						Reason: "test_reason",
+					},
+				},
+			}),
+			shouldBeSent: false,
+		},
+		{
 			// All states sent, nothing to send
 			event: newSendableTaskEvent(api.TaskStateChange{
 				Status: apitaskstatus.TaskRunning,
@@ -255,9 +345,14 @@ func TestSetTaskSentStatus(t *testing.T) {
 	dataClient, cleanup := newTestDataClient(t)
 	defer cleanup()
 
+	testManagedAgent := apicontainer.ManagedAgent{
+		ManagedAgentState: apicontainer.ManagedAgentState{},
+		Name:              "dummyAgent",
+	}
 	testContainer := &apicontainer.Container{
-		Name:          testConainerName,
-		TaskARNUnsafe: testTaskARN,
+		Name:                testConainerName,
+		TaskARNUnsafe:       testTaskARN,
+		ManagedAgentsUnsafe: []apicontainer.ManagedAgent{testManagedAgent},
 	}
 	testTask := &apitask.Task{
 		Arn:        testTaskARN,
@@ -273,6 +368,14 @@ func TestSetTaskSentStatus(t *testing.T) {
 				Container: testContainer,
 			},
 		},
+		ManagedAgents: []api.ManagedAgentStateChange{
+			{
+				TaskArn:   testTaskARN,
+				Name:      "dummyAgent",
+				Container: testContainer,
+				Status:    apicontainerstatus.ManagedAgentRunning,
+			},
+		},
 	})
 	taskStoppedStateChange := newSendableTaskEvent(api.TaskStateChange{
 		Status: apitaskstatus.TaskStopped,
@@ -283,14 +386,29 @@ func TestSetTaskSentStatus(t *testing.T) {
 				Container: testContainer,
 			},
 		},
+		ManagedAgents: []api.ManagedAgentStateChange{
+			{
+				TaskArn:   testTaskARN,
+				Name:      "dummyAgent",
+				Container: testContainer,
+				Status:    apicontainerstatus.ManagedAgentStopped,
+			},
+		},
 	})
 
 	setTaskChangeSent(taskStoppedStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+
+	updatedManagedAgent, _ := testContainer.GetManagedAgentByName("dummyAgent")
+	assert.Equal(t, apicontainerstatus.ManagedAgentStopped, updatedManagedAgent.SentStatus)
+
 	setTaskChangeSent(taskRunningStateChange, dataClient)
 	assert.Equal(t, testTask.GetSentStatus(), apitaskstatus.TaskStopped)
 	assert.Equal(t, testContainer.GetSentStatus(), apicontainerstatus.ContainerStopped)
+
+	updatedManagedAgent, _ = testContainer.GetManagedAgentByName("dummyAgent")
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, updatedManagedAgent.SentStatus)
 
 	tasks, err := dataClient.GetTasks()
 	require.NoError(t, err)
@@ -301,6 +419,8 @@ func TestSetTaskSentStatus(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, containers, 1)
 	assert.Equal(t, apicontainerstatus.ContainerStopped, containers[0].Container.GetSentStatus())
+	updatedManagedAgent, _ = containers[0].Container.GetManagedAgentByName("dummyAgent")
+	assert.Equal(t, apicontainerstatus.ManagedAgentRunning, updatedManagedAgent.SentStatus)
 }
 
 func TestSetContainerSentStatus(t *testing.T) {

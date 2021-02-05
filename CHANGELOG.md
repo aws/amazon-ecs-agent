@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.50.0
+* Feature - Allows ECS customers to execute interactive commands inside containers [#2798](https://github.com/aws/amazon-ecs-agent/pull/2798)
+* Enhancement - Add error responses into TMDEv4 taskWithTags responses [#2789](https://github.com/aws/amazon-ecs-agent/pull/2789)
+* Bug - Fixed the number of cpu units the Agent will reserve for the Linux container instances [#2783](https://github.com/aws/amazon-ecs-agent/pull/2783)
+
+## 1.49.0
+* Enhancement - Allow task metadata endpoint to return metadata for task when some of the container does not have network metadata [#2747](https://github.com/aws/amazon-ecs-agent/pull/2747)
+* Enhancement - Improve error and info logging around credentials requests [#2705](https://github.com/aws/amazon-ecs-agent/pull/2705)
+* Enhancement - Introduce new environment variable ECS_CONTAINER_CREATE_TIMEOUT to make Docker create timeout configurable. Minimum value is 1m. Default value is 4m. [#2781](https://github.com/aws/amazon-ecs-agent/pull/2781)
+* Bug - Add missing error handling in getContainerStatsNotStreamed. [#2757](https://github.com/aws/amazon-ecs-agent/pull/2757)
+
+## 1.48.1
+* Bug - Fix an edge case that can cause container dependency deadlock [#2734](https://github.com/aws/amazon-ecs-agent/pull/2734)
+* Bug - Revert the change that adds client token persistence [#2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
+
+## 1.48.0
+* Enhancement - Docker stop timeout buffer increased from 30s to 2m [#2697](https://github.com/aws/amazon-ecs-agent/pull/2697)
+* Enhancement - More informative ENI attachment logs [#2703](https://github.com/aws/amazon-ecs-agent/pull/2703)
+* Enhancement - Introduce new environment variable ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT to pull images of dependent containers even before dependsOn condition is satisfied. This feature is turned off by default [#2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
+* Enhancement - Add pulled containers metadata to Task Metadata Endpoint V4 [#2731](https://github.com/aws/amazon-ecs-agent/pull/2731)
+* Bug - Fix a bug where agent persists RCI client token to avoid being registered as different container instance ARNs [#2708](https://github.com/aws/amazon-ecs-agent/pull/2708)
+* Bug - Fix jumbled min & max for engine connection retry delays [#2721](https://github.com/aws/amazon-ecs-agent/pull/2721)
+
+## 1.47.0
+* Feature - Add support for FSxWindowsFileServerVolumeConfiguration in task definition [#2690](https://github.com/aws/amazon-ecs-agent/pull/2690)
+* Bug - Fixed Makefile to use Go1.12 for Agent windows build
+[#2688](https://github.com/aws/amazon-ecs-agent/pull/2688)
+* Bug - Initialize the logger from the agent’s main() [#2644](https://github.com/aws/amazon-ecs-agent/pull/2644)
+
+## 1.46.0
+* Enhancement -  Use Go 1.15 for Linux platforms and Go 1.12 for Windows platforms [#2653](https://github.com/aws/amazon-ecs-agent/pull/2653)
+* Bug - Currently, while polling docker stats, there is no timeout for the API call. So the call could be stuck until the container is stopped. Adding poll stats timeout [#2656](https://github.com/aws/amazon-ecs-agent/pull/2656)
+
 ## 1.45.0
 * Feature - ECS metadata for AWS service lens and x-ray. We have added new fields to the TMDEv4 endpoint. Specfically, ContainerARN, LogDriver, LogOptions, and LaunchType [#2623](https://github.com/aws/amazon-ecs-agent/pull/2623)
 * Feature - add IPv6 support for task networking [#2646](https://github.com/aws/amazon-ecs-agent/pull/2646)

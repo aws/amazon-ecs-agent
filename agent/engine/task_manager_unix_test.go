@@ -18,17 +18,25 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
+	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/engine/testdata"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	mock_ttime "github.com/aws/amazon-ecs-agent/agent/utils/ttime/mocks"
 	"github.com/golang/mock/gomock"
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
@@ -379,4 +387,69 @@ func TestEFSVolumeNextStateWithTransitionDependencies(t *testing.T) {
 			assert.Equal(t, tc.reason, transition.reason, "transition possible")
 		})
 	}
+}
+
+func TestCleanupExecEnabledTask(t *testing.T) {
+	cfg := getTestConfig()
+	ctrl := gomock.NewController(t)
+	mockTime := mock_ttime.NewMockTime(ctrl)
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	taskEngine := &DockerTaskEngine{
+		ctx:          ctx,
+		cfg:          &cfg,
+		dataClient:   data.NewNoopClient(),
+		state:        mockState,
+		client:       mockClient,
+		imageManager: mockImageManager,
+	}
+	mTask := &managedTask{
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:                      taskEngine.cfg,
+	}
+	container := mTask.Containers[0]
+	enableExecCommandAgentForContainer(container, apicontainer.ManagedAgentState{})
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
+
+	dockerContainer := &apicontainer.DockerContainer{
+		DockerName: "dockerContainer",
+	}
+	tID, _ := mTask.Task.GetID()
+	removeAll = func(path string) error {
+		assert.Equal(t, fmt.Sprintf("/log/exec/%s", tID), path)
+		return nil
+	}
+	defer func() {
+		removeAll = os.RemoveAll
+	}()
+	// Expectations for triggering cleanup
+	now := mTask.GetKnownStatusTime()
+	taskStoppedDuration := 1 * time.Minute
+	mockTime.EXPECT().Now().Return(now).AnyTimes()
+	cleanupTimeTrigger := make(chan time.Time)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanupTimeTrigger)
+	go func() {
+		cleanupTimeTrigger <- now
+	}()
+
+	// Expectations to verify that the task gets removed
+	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
+	mockState.EXPECT().RemoveTask(mTask.Task)
+	mTask.cleanupTask(taskStoppedDuration)
 }

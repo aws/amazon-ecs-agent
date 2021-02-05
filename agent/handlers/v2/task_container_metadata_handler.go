@@ -71,7 +71,7 @@ func TaskContainerMetadataHandler(state dockerstate.TaskEngineState, ecsClient a
 
 // WriteContainerMetadataResponse writes the container metadata to response writer.
 func WriteContainerMetadataResponse(w http.ResponseWriter, containerID string, state dockerstate.TaskEngineState) {
-	containerResponse, err := NewContainerResponse(containerID, state, false)
+	containerResponse, err := NewContainerResponseFromState(containerID, state, false)
 	if err != nil {
 		errResponseJSON, err := json.Marshal("Unable to generate metadata for container '" + containerID + "'")
 		if e := utils.WriteResponseIfMarshalError(w, err); e != nil {

@@ -38,6 +38,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclientfactory"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	log "github.com/cihub/seelog"
@@ -116,6 +117,20 @@ func verifyContainerRunningStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 		"Expected container runtimeID should not empty")
 }
 
+func verifyExecAgentStateChange(t *testing.T, taskEngine TaskEngine,
+	expectedStatus apicontainerstatus.ManagedAgentStatus, waitDone chan<- struct{}) {
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	for event := range stateChangeEvents {
+		if managedAgentEvent, ok := event.(api.ManagedAgentStateChange); ok {
+			if managedAgentEvent.Status == expectedStatus {
+				close(waitDone)
+				return
+			}
+
+		}
+	}
+}
+
 func verifyContainerStoppedStateChange(t *testing.T, taskEngine TaskEngine) {
 	stateChangeEvents := taskEngine.StateChangeEvents()
 	event := <-stateChangeEvents
@@ -133,12 +148,12 @@ func verifyContainerStoppedStateChangeWithRuntimeID(t *testing.T, taskEngine Tas
 }
 
 func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) (TaskEngine, func(), credentials.Manager) {
-	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
-		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
-	}
-	if !isDockerRunning() {
-		t.Skip("Docker not running")
-	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	skipIntegTestIfApplicable(t)
+
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
 	if err != nil {
 		t.Fatalf("Error creating Docker client: %v", err)
@@ -152,11 +167,21 @@ func setup(cfg *config.Config, state dockerstate.TaskEngineState, t *testing.T) 
 	metadataManager := containermetadata.NewManager(dockerClient, cfg)
 
 	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
-		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager, nil)
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
+		nil, execcmd.NewManager())
 	taskEngine.MustInit(context.TODO())
 	return taskEngine, func() {
 		taskEngine.Shutdown()
 	}, credentialsManager
+}
+
+func skipIntegTestIfApplicable(t *testing.T) {
+	if os.Getenv("ECS_SKIP_ENGINE_INTEG_TEST") != "" {
+		t.Skip("ECS_SKIP_ENGINE_INTEG_TEST")
+	}
+	if !isDockerRunning() {
+		t.Skip("Docker not running")
+	}
 }
 
 func createTestContainerWithImageAndName(image string, name string) *apicontainer.Container {

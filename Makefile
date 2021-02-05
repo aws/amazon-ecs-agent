@@ -13,13 +13,19 @@
 
 USERID=$(shell id -u)
 
-.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry namespace-tests benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
+.PHONY: all gobuild static xplatform-build docker release certs test clean netkitten test-registry benchmark-test gogenerate run-integ-tests pause-container get-cni-sources cni-plugins test-artifacts
 BUILD_PLATFORM:=$(shell uname -m)
 
 ifeq (${BUILD_PLATFORM},aarch64)
 	GOARCH=arm64
 else
 	GOARCH=amd64
+endif
+
+ifeq (${TARGET_OS},windows)
+	GO_VERSION=$(shell cat ./GO_VERSION_WINDOWS)
+else
+	GO_VERSION=$(shell cat ./GO_VERSION)
 endif
 
 all: docker
@@ -39,7 +45,7 @@ gobuild:
 static:
 	./scripts/build
 
-# Cross-platform build target for travis
+# Cross-platform build target for static checks
 xplatform-build:
 	GOOS=linux GOARCH=arm64 ./scripts/build true "" false
 	GOOS=windows GOARCH=amd64 ./scripts/build true "" false
@@ -47,7 +53,7 @@ xplatform-build:
 
 BUILDER_IMAGE="amazon/amazon-ecs-agent-build:make"
 .builder-image-stamp: scripts/dockerfiles/Dockerfile.build
-	@docker build -f scripts/dockerfiles/Dockerfile.build -t $(BUILDER_IMAGE) .
+	@docker build --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.build -t $(BUILDER_IMAGE) .
 	touch .builder-image-stamp
 
 # 'build-in-docker' builds the agent within a dockerfile and saves it to the ./out
@@ -71,11 +77,17 @@ docker: certs build-in-docker pause-container-release cni-plugins .out-stamp
 	@docker build -f scripts/dockerfiles/Dockerfile.release -t "amazon/amazon-ecs-agent:make" .
 	@echo "Built Docker image \"amazon/amazon-ecs-agent:make\""
 
+ifeq (${TARGET_OS},windows)
+    BUILD="cleanbuild-${TARGET_OS}"
+else
+    BUILD=cleanbuild
+endif
+
 # 'docker-release' builds the agent from a clean snapshot of the git repo in
 # 'RELEASE' mode
 # TODO: make this idempotent
 docker-release: pause-container-release cni-plugins .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-cleanbuild:make" .
+	@docker build --build-arg GO_VERSION=${GO_VERSION} -f scripts/dockerfiles/Dockerfile.cleanbuild -t "amazon/amazon-ecs-agent-${BUILD}:make" .
 	@docker run --net=none \
 		--env TARGET_OS="${TARGET_OS}" \
 		--env LDFLAGS="-X github.com/aws/amazon-ecs-agent/agent/config.DefaultPauseContainerTag=$(PAUSE_CONTAINER_TAG) \
@@ -84,7 +96,7 @@ docker-release: pause-container-release cni-plugins .out-stamp
 		--volume "$(PWD)/out:/out" \
 		--volume "$(PWD):/src/amazon-ecs-agent" \
 		--rm \
-		"amazon/amazon-ecs-agent-cleanbuild:make"
+		"amazon/amazon-ecs-agent-${BUILD}:make"
 
 # Release packages our agent into a "scratch" based dockerfile
 release: certs docker-release
@@ -144,7 +156,7 @@ benchmark-test:
 
 .PHONY: build-image-for-ecr upload-images replicate-images
 
-build-image-for-ecr: netkitten volumes-test awscli image-cleanup-test-images fluentd taskmetadata-validator
+build-image-for-ecr: netkitten volumes-test image-cleanup-test-images fluentd exec-command-agent-test
 
 upload-images: build-image-for-ecr
 	@./scripts/upload-images $(STANDARD_REGION) $(STANDARD_REPOSITORY)
@@ -157,15 +169,7 @@ PAUSE_CONTAINER_TAG = "0.1.0"
 PAUSE_CONTAINER_TARBALL = "amazon-ecs-pause.tar"
 
 pause-container: .out-stamp
-	@docker build -f scripts/dockerfiles/Dockerfile.buildPause -t "amazon/amazon-ecs-build-pause-bin:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/pause-container:/out" \
-		-v "$(PWD)/misc/pause-container/buildPause:/usr/src/buildPause" \
-		"amazon/amazon-ecs-build-pause-bin:make"
-
 	$(MAKE) -C misc/pause-container $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-build-pause-bin:make"
 
 pause-container-release: pause-container
 	@docker save ${PAUSE_CONTAINER_IMAGE}:${PAUSE_CONTAINER_TAG} > "$(PWD)/out/${PAUSE_CONTAINER_TARBALL}"
@@ -181,7 +185,7 @@ get-cni-sources:
 	git submodule update --init --recursive
 
 build-ecs-cni-plugins:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
+	@docker build --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildECSCNIPlugins -t "amazon/amazon-ecs-build-ecs-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-e GIT_PORCELAIN=$(shell cd $(ECS_CNI_REPOSITORY_SRC_DIR) && git status --porcelain 2> /dev/null | wc -l | sed 's/^ *//') \
@@ -192,7 +196,7 @@ build-ecs-cni-plugins:
 	@echo "Built amazon-ecs-cni-plugins successfully."
 
 build-vpc-cni-plugins:
-	@docker build --build-arg GOARCH=$(GOARCH) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
+	@docker build --build-arg GOARCH=$(GOARCH) --build-arg GO_VERSION=$(GO_VERSION) -f scripts/dockerfiles/Dockerfile.buildVPCCNIPlugins -t "amazon/amazon-ecs-build-vpc-cni-plugins:make" .
 	docker run --rm --net=none \
 		-e GIT_SHORT_HASH=$(shell cd $(VPC_CNI_REPOSITORY_SRC_DIR) && git rev-parse --short=8 HEAD) \
 		-u "$(USERID)" \
@@ -220,42 +224,24 @@ netkitten:
 volumes-test:
 	$(MAKE) -C misc/volumes-test $(MFLAGS)
 
-namespace-tests:
-	@docker build -f scripts/dockerfiles/Dockerfile.buildNamespaceTests -t "amazon/amazon-ecs-namespace-tests:make" .
-	@docker run --net=none \
-		-u "$(USERID)" \
-		-v "$(PWD)/misc/namespace-tests:/out" \
-		-v "$(PWD)/misc/namespace-tests/buildContainer:/usr/src/buildContainer" \
-		"amazon/amazon-ecs-namespace-tests:make"
+# Run our 'test' registry needed for integ tests
+test-registry: netkitten volumes-test pause-container image-cleanup-test-images fluentd exec-command-agent-test
 
-	$(MAKE) -C misc/namespace-tests $(MFLAGS)
-	@docker rmi -f "amazon/amazon-ecs-namespace-tests:make"
-
-# Run our 'test' registry needed for integ and functional tests
-test-registry: netkitten volumes-test namespace-tests pause-container awscli image-cleanup-test-images fluentd \
-				taskmetadata-validator  \
+exec-command-agent-test:
+	$(MAKE) -C misc/exec-command-agent-test $(MFLAGS)
 
 	@./scripts/setup-test-registry
 
-
-# TODO, replace this with a build on dockerhub or a mechanism for the
-# functional tests themselves to build this
-.PHONY: awscli fluentd gremlin taskmetadata-validator image-cleanup-test-images
+.PHONY: fluentd gremlin image-cleanup-test-images
 
 gremlin:
 	$(MAKE) -C misc/gremlin $(MFLAGS)
-
-awscli:
-	$(MAKE) -C misc/awscli $(MFLAGS)
 
 fluentd:
 	$(MAKE) -C misc/fluentd $(MFLAGS)
 
 image-cleanup-test-images:
 	$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS)
-
-taskmetadata-validator:
-	$(MAKE) -C misc/taskmetadata-validator $(MFLAGS)
 
 container-health-check-image:
 	$(MAKE) -C misc/container-health $(MFLAGS)
@@ -268,7 +254,7 @@ GOFILES:=$(shell go list -f '{{$$p := .}}{{range $$f := .GoFiles}}{{$$p.Dir}}/{{
 .PHONY: gocyclo
 gocyclo:
 	# Run gocyclo over all .go files
-	gocyclo -over 15 ${GOFILES}
+	gocyclo -over 17 ${GOFILES}
 
 # same as gofiles above, but without the `-f`
 .PHONY: govet
@@ -304,7 +290,7 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo
+	go get github.com/fzipp/gocyclo/cmd/gocyclo
 	go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
@@ -331,15 +317,15 @@ clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
 	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild:make"
+	-docker rmi $(BUILDER_IMAGE) "amazon/amazon-ecs-agent-cleanbuild-windows:make"
 	rm -f misc/certs/ca-certificates.crt &> /dev/null
 	rm -rf out/
 	-$(MAKE) -C $(ECS_CNI_REPOSITORY_SRC_DIR) clean
 	-$(MAKE) -C misc/netkitten $(MFLAGS) clean
 	-$(MAKE) -C misc/volumes-test $(MFLAGS) clean
-	-$(MAKE) -C misc/namespace-tests $(MFLAGS) clean
+	-$(MAKE) -C misc/exec-command-agent-test $(MFLAGS) clean
 	-$(MAKE) -C misc/gremlin $(MFLAGS) clean
 	-$(MAKE) -C misc/image-cleanup-test-images $(MFLAGS) clean
-	-$(MAKE) -C misc/taskmetadata-validator $(MFLAGS) clean
 	-$(MAKE) -C misc/container-health $(MFLAGS) clean
 	-rm -f .get-deps-stamp
 	-rm -f .builder-image-stamp

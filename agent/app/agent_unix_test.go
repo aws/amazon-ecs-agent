@@ -62,7 +62,7 @@ func resetGetpid() {
 
 func TestDoStartTaskENIHappyPath(t *testing.T) {
 	ctrl, credentialsManager, _, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	cniCapabilities := []string{ecscni.CapabilityAWSVPCNetworkingMode}
@@ -172,7 +172,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client)
+			credentialsManager, dockerstate.NewTaskEngineState(), imageManager, client, execCmdMgr)
 		agentW.Done()
 	}()
 
@@ -416,7 +416,7 @@ func TestInitializeTaskENIDependenciesQueryCNICapabilitiesError(t *testing.T) {
 
 func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockControl := mock_control.NewMockControl(ctrl)
@@ -487,7 +487,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, state, imageManager, client)
+			credentialsManager, state, imageManager, client, execCmdMgr)
 		agentW.Done()
 	}()
 
@@ -502,7 +502,7 @@ func TestDoStartCgroupInitHappyPath(t *testing.T) {
 
 func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -540,14 +540,14 @@ func TestDoStartCgroupInitErrorPath(t *testing.T) {
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdMgr)
 
 	assert.Equal(t, exitcodes.ExitTerminal, status)
 }
 
 func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
@@ -636,7 +636,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	agentW.Add(1)
 	go func() {
 		agent.doStart(eventstream.NewEventStream("events", ctx),
-			credentialsManager, state, imageManager, client)
+			credentialsManager, state, imageManager, client, execCmdMgr)
 		agentW.Done()
 	}()
 
@@ -651,7 +651,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 
 func TestDoStartGPUManagerInitError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
@@ -687,14 +687,14 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdMgr)
 
 	assert.Equal(t, exitcodes.ExitError, status)
 }
 
 func TestDoStartTaskENIPauseError(t *testing.T) {
 	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, _, _ := setup(t)
+		dockerClient, _, _, execCmdMgr := setup(t)
 	defer ctrl.Finish()
 
 	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
@@ -734,7 +734,7 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 	}
 
 	status := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client)
+		credentialsManager, state, imageManager, client, execCmdMgr)
 
 	assert.Equal(t, exitcodes.ExitError, status)
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/app"
+	"github.com/aws/amazon-ecs-agent/agent/logger"
 )
 
 func init() {
@@ -26,5 +27,6 @@ func init() {
 }
 
 func main() {
+	logger.InitSeelog()
 	os.Exit(app.Run(os.Args[1:]))
 }

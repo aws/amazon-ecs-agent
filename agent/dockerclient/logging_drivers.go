@@ -16,16 +16,17 @@ package dockerclient
 type LoggingDriver string
 
 const (
-	JSONFileDriver   LoggingDriver = "json-file"
-	SyslogDriver     LoggingDriver = "syslog"
-	JournaldDriver   LoggingDriver = "journald"
-	GelfDriver       LoggingDriver = "gelf"
-	FluentdDriver    LoggingDriver = "fluentd"
-	AWSLogsDriver    LoggingDriver = "awslogs"
-	SplunklogsDriver LoggingDriver = "splunk"
-	LogentriesDriver LoggingDriver = "logentries"
-	SumoLogicDriver  LoggingDriver = "sumologic"
-	NoneDriver       LoggingDriver = "none"
+	JSONFileDriver    LoggingDriver = "json-file"
+	SyslogDriver      LoggingDriver = "syslog"
+	JournaldDriver    LoggingDriver = "journald"
+	GelfDriver        LoggingDriver = "gelf"
+	FluentdDriver     LoggingDriver = "fluentd"
+	AWSLogsDriver     LoggingDriver = "awslogs"
+	SplunklogsDriver  LoggingDriver = "splunk"
+	LogentriesDriver  LoggingDriver = "logentries"
+	SumoLogicDriver   LoggingDriver = "sumologic"
+	NoneDriver        LoggingDriver = "none"
+	AWSFirelensDriver LoggingDriver = "awsfirelens"
 )
 
 var LoggingDriverMinimumVersion = map[LoggingDriver]DockerVersion{

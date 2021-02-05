@@ -65,9 +65,16 @@ var (
 		},
 	}
 	containerInstanceTagsMap = map[string]string{
-
 		"my_key1": "my_val1",
 		"my_key2": "my_val2",
+	}
+	testManagedAgents = []*ecs.ManagedAgentStateChange{
+		{
+			ManagedAgentName: aws.String("test_managed_agent"),
+			ContainerName:    aws.String("test_container"),
+			Status:           aws.String("RUNNING"),
+			Reason:           aws.String("test_reason"),
+		},
 	}
 )
 
@@ -122,6 +129,7 @@ func (lhs *containerSubmitInputMatcher) Matches(x interface{}) bool {
 		equal(lhs.ContainerName, rhs.ContainerName) &&
 		equal(lhs.ExitCode, rhs.ExitCode) &&
 		equal(lhs.NetworkBindings, rhs.NetworkBindings) &&
+		equal(lhs.ManagedAgents, rhs.ManagedAgents) &&
 		equal(lhs.Reason, rhs.Reason) &&
 		equal(lhs.Status, rhs.Status) &&
 		equal(lhs.Task, rhs.Task))
@@ -149,6 +157,10 @@ func (lhs *taskSubmitInputMatcher) Matches(x interface{}) bool {
 				return false
 			}
 		}
+	}
+
+	if len(lhs.Containers) != 0 && !equal(lhs.Containers, rhs.Containers) {
+		return false
 	}
 
 	return true
@@ -970,6 +982,28 @@ func TestSubmitTaskStateChangeWithoutAttachments(t *testing.T) {
 		Status:  apitaskstatus.TaskRunning,
 	})
 	assert.NoError(t, err, "Unable to submit task state change with no attachments")
+}
+
+func TestSubmitTaskStateChangeWithManagedAgents(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	client, _, mockSubmitStateClient := NewMockClient(mockCtrl, ec2.NewBlackholeEC2MetadataClient(), nil)
+	mockSubmitStateClient.EXPECT().SubmitTaskStateChange(&taskSubmitInputMatcher{
+		ecs.SubmitTaskStateChangeInput{
+			Cluster:       aws.String(configuredCluster),
+			Task:          aws.String("task_arn"),
+			Reason:        aws.String(""),
+			Status:        aws.String("RUNNING"),
+			ManagedAgents: testManagedAgents,
+		},
+	})
+
+	err := client.SubmitTaskStateChange(api.TaskStateChange{
+		TaskARN: "task_arn",
+		Status:  apitaskstatus.TaskRunning,
+	})
+	assert.NoError(t, err, "Unable to submit task state change with managed agents")
 }
 
 // TestSubmitContainerStateChangeWhileTaskInPending tests the container state change was submitted

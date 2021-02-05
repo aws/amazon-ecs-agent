@@ -18,6 +18,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/fsxwindowsfileserver"
 	taskresourcetypes "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 
@@ -26,9 +27,10 @@ import (
 )
 
 const (
-	HostVolumeType   = "host"
-	DockerVolumeType = "docker"
-	EFSVolumeType    = "efs"
+	HostVolumeType                 = "host"
+	DockerVolumeType               = "docker"
+	EFSVolumeType                  = "efs"
+	FSxWindowsFileServerVolumeType = "fsxWindowsFileServer"
 )
 
 // TaskVolume is a definition of all the volumes available for containers to
@@ -71,12 +73,14 @@ func (tv *TaskVolume) UnmarshalJSON(b []byte) error {
 		return tv.unmarshalDockerVolume(intermediate["dockerVolumeConfiguration"])
 	case EFSVolumeType:
 		return tv.unmarshalEFSVolume(intermediate["efsVolumeConfiguration"])
+	case FSxWindowsFileServerVolumeType:
+		return tv.unmarshalFSxWindowsFileServerVolume(intermediate["fsxWindowsFileServerVolumeConfiguration"])
 	default:
 		return errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
 }
 
-// MarshalJSON overrides the logic for JSON-encoding a  TaskVolume object
+// MarshalJSON overrides the logic for JSON-encoding a TaskVolume object
 func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 	result := make(map[string]interface{})
 
@@ -94,6 +98,8 @@ func (tv *TaskVolume) MarshalJSON() ([]byte, error) {
 		result["host"] = tv.Volume
 	case EFSVolumeType:
 		result["efsVolumeConfiguration"] = tv.Volume
+	case FSxWindowsFileServerVolumeType:
+		result["fsxWindowsFileServerVolumeConfiguration"] = tv.Volume
 	default:
 		return nil, errors.Errorf("unrecognized volume type: %q", tv.Type)
 	}
@@ -126,6 +132,20 @@ func (tv *TaskVolume) unmarshalEFSVolume(data json.RawMessage) error {
 	}
 
 	tv.Volume = &efsVolumeConfig
+	return nil
+}
+
+func (tv *TaskVolume) unmarshalFSxWindowsFileServerVolume(data json.RawMessage) error {
+	if data == nil {
+		return errors.New("invalid volume: empty volume configuration")
+	}
+	var fsxWindowsFileServerVolumeConfig fsxwindowsfileserver.FSxWindowsFileServerVolumeConfig
+	err := json.Unmarshal(data, &fsxWindowsFileServerVolumeConfig)
+	if err != nil {
+		return err
+	}
+
+	tv.Volume = &fsxWindowsFileServerVolumeConfig
 	return nil
 }
 

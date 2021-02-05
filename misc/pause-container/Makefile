@@ -13,7 +13,6 @@
 
 .PHONY: all container clean
 
-
 IMAGE = "amazon/amazon-ecs-pause"
 TAG = 0.1.0
 

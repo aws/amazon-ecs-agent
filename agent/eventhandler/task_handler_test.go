@@ -349,6 +349,10 @@ func containerEvent(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerRunning, Container: &apicontainer.Container{}}
 }
 
+func managedAgentEvent(arn string) statechange.Event {
+	return api.ManagedAgentStateChange{TaskArn: arn, Container: &apicontainer.Container{}, Name: "ExecAgent", Status: apicontainerstatus.ManagedAgentRunning}
+}
+
 func containerEventStopped(arn string) statechange.Event {
 	return api.ContainerStateChange{TaskArn: arn, ContainerName: "containerName", Status: apicontainerstatus.ContainerStopped, Container: &apicontainer.Container{}}
 }
@@ -578,4 +582,126 @@ func TestSubmitTaskEventsWhenSubmittingTaskStoppedAfterRunning(t *testing.T) {
 	assert.True(t, ok)
 	assert.NoError(t, err)
 	wg.Wait()
+}
+
+func TestSendContainerAndManagedAgentEvents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewTaskHandler(ctx, data.NewNoopClient(), dockerstate.NewTaskEngineState(), client)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	maEvent1 := managedAgentEvent(taskARN)
+	cEevent1 := containerEvent(taskARN)
+	taskEvent1 := taskEvent(taskARN)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, 1, len(change.ManagedAgents))
+		assert.Equal(t, 1, len(change.Containers))
+		assert.Equal(t, taskARN, change.ManagedAgents[0].TaskArn)
+		assert.Equal(t, taskARN, change.Containers[0].TaskArn)
+		wg.Done()
+	})
+
+	handler.AddStateChangeEvent(maEvent1, client)
+	handler.AddStateChangeEvent(cEevent1, client)
+	handler.AddStateChangeEvent(taskEvent1, client)
+
+	wg.Wait()
+	assert.Len(t, handler.tasksToManagedAgentStates, 0)
+	assert.Len(t, handler.tasksToContainerStates, 0)
+}
+
+func TestSendManagedAgentEventsTaskDifferences(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	client := mock_api.NewMockECSClient(ctrl)
+	dataClient := data.NewNoopClient()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	handler := NewTaskHandler(ctx, dataClient, dockerstate.NewTaskEngineState(), client)
+	defer cancel()
+
+	taskARNA := "taskarnA"
+	taskARNB := "taskarnB"
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var wgAddEvent sync.WaitGroup
+	wgAddEvent.Add(1)
+
+	// Test task event replacement doesn't happen
+	taskEventA := taskEvent(taskARNA)
+	maEventA1 := managedAgentEvent(taskARNA)
+
+	maEventB1 := managedAgentEvent(taskARNB)
+	taskEventB := taskEventStopped(taskARNB)
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, taskARNA, change.TaskARN)
+		wgAddEvent.Done()
+		wg.Done()
+	})
+
+	client.EXPECT().SubmitTaskStateChange(gomock.Any()).Do(func(change api.TaskStateChange) {
+		assert.Equal(t, taskARNB, change.TaskARN)
+		wg.Done()
+	})
+
+	handler.AddStateChangeEvent(maEventB1, client)
+	handler.AddStateChangeEvent(maEventA1, client)
+
+	handler.AddStateChangeEvent(taskEventA, client)
+	wgAddEvent.Wait()
+
+	handler.AddStateChangeEvent(taskEventB, client)
+
+	wg.Wait()
+}
+
+func TestGetBatchedManagedAgentEvents(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+
+	handler := &TaskHandler{
+		tasksToManagedAgentStates: map[string][]api.ManagedAgentStateChange{
+			"t1": {},
+			"t2": {},
+		},
+		state: state,
+	}
+
+	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitaskstatus.TaskRunning}, true)
+	state.EXPECT().TaskByArn("t2").Return(nil, false)
+
+	events := handler.taskStateChangesToSend()
+	assert.Len(t, events, 1)
+	assert.Equal(t, "t1", events[0].TaskARN)
+}
+
+func TestGetBatchedManagedAgentEventsStoppedTask(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+
+	handler := &TaskHandler{
+		tasksToManagedAgentStates: map[string][]api.ManagedAgentStateChange{
+			"t1": {},
+		},
+		state: state,
+	}
+
+	state.EXPECT().TaskByArn("t1").Return(&apitask.Task{Arn: "t1", KnownStatusUnsafe: apitaskstatus.TaskStopped}, true)
+
+	events := handler.taskStateChangesToSend()
+	assert.Len(t, events, 0)
 }

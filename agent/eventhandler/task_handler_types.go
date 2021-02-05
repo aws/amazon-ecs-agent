@@ -59,7 +59,7 @@ func (event *sendableEvent) taskArn() string {
 }
 
 // taskShouldBeSent checks whether the event should be sent, this includes
-// both task state change and container state change events
+// both task state change and container/managed agent state change events
 func (event *sendableEvent) taskShouldBeSent() bool {
 	event.lock.RLock()
 	defer event.lock.RUnlock()
@@ -86,12 +86,18 @@ func (event *sendableEvent) taskShouldBeSent() bool {
 	for _, containerStateChange := range tevent.Containers {
 		container := containerStateChange.Container
 		if container.GetSentStatus() < container.GetKnownStatus() {
-			// We found a container that needs its state
-			// change to be sent to ECS.
 			return true
 		}
 	}
 
+	// Managed agent event should be sent
+	for _, managedAgentStateChange := range tevent.ManagedAgents {
+		managedAgentName := managedAgentStateChange.Name
+		container := managedAgentStateChange.Container
+		if container.GetManagedAgentSentStatus(managedAgentName) != container.GetManagedAgentStatus(managedAgentName) {
+			return true
+		}
+	}
 	return false
 }
 
@@ -195,12 +201,12 @@ func setTaskChangeSent(event *sendableEvent, dataClient data.Client) {
 		updataTaskSentStatus(task, taskChangeStatus, dataClient)
 	}
 	for _, containerStateChange := range event.taskChange.Containers {
-		container := containerStateChange.Container
-		containerChangeStatus := containerStateChange.Status
-		if container.GetSentStatus() < containerChangeStatus {
-			updateContainerSentStatus(container, containerStateChange.Status, dataClient)
-		}
+		updateContainerSentStatus(containerStateChange.Container, containerStateChange.Status, dataClient)
 	}
+	for _, managedAgentStateChange := range event.taskChange.ManagedAgents {
+		updateManagedAgentSentStatus(managedAgentStateChange.Container, managedAgentStateChange.Name, managedAgentStateChange.Status, dataClient)
+	}
+
 }
 
 // setTaskAttachmentSent sets the event's task attachment object as sent
@@ -236,9 +242,19 @@ func updataTaskSentStatus(task *apitask.Task, status apitaskstatus.TaskStatus, d
 }
 
 func updateContainerSentStatus(container *apicontainer.Container, status apicontainerstatus.ContainerStatus, dataClient data.Client) {
-	container.SetSentStatus(status)
-	err := dataClient.SaveContainer(container)
-	if err != nil {
-		seelog.Errorf("Failed to update container sent status in databse for container %s: %v", container.Name, err)
+	if container.GetSentStatus() < status {
+		container.SetSentStatus(status)
+		if err := dataClient.SaveContainer(container); err != nil {
+			seelog.Errorf("Failed to update container sent status in database for container %s: %v", container.Name, err)
+		}
+	}
+}
+
+func updateManagedAgentSentStatus(container *apicontainer.Container, managedAgentName string, status apicontainerstatus.ManagedAgentStatus, dataClient data.Client) {
+	if container.GetManagedAgentSentStatus(managedAgentName) != status {
+		container.UpdateManagedAgentSentStatus(managedAgentName, status)
+		if err := dataClient.SaveContainer(container); err != nil {
+			seelog.Errorf("Failed to update %s managed agent sent status in database for container %s: %v", managedAgentName, container.Name, err)
+		}
 	}
 }

@@ -16,6 +16,7 @@ package taskresource
 import (
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
 )
@@ -24,6 +25,7 @@ type ResourceFieldsCommon struct {
 	IOUtil             ioutilwrapper.IOUtil
 	ASMClientCreator   asmfactory.ClientCreator
 	SSMClientCreator   ssmfactory.SSMClientCreator
+	FSxClientCreator   fsxfactory.FSxClientCreator
 	CredentialsManager credentials.Manager
 	EC2InstanceID      string
 }

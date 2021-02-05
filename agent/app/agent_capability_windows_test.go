@@ -34,6 +34,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	mockPathExists(false)
+}
+
 func TestVolumeDriverCapabilitiesWindows(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -257,6 +261,50 @@ func TestAppendGMSACapabilitiesFalse(t *testing.T) {
 	}
 
 	capabilities := agent.appendGMSACapabilities(inputCapabilities)
+
+	assert.Equal(t, len(expectedCapabilities), len(capabilities))
+}
+
+func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
+	var inputCapabilities []*ecs.Attribute
+	var expectedCapabilities []*ecs.Attribute
+
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{
+			{
+				Name: aws.String(attributePrefix + capabilityFSxWindowsFileServer),
+			},
+		}...)
+
+	agent := &ecsAgent{
+		cfg: &config.Config{
+			FSxWindowsFileServerCapable: true,
+		},
+	}
+
+	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
+
+	assert.Equal(t, len(expectedCapabilities), len(capabilities))
+	for i, expected := range expectedCapabilities {
+		assert.Equal(t, aws.StringValue(expected.Name), aws.StringValue(capabilities[i].Name))
+		assert.Equal(t, aws.StringValue(expected.Value), aws.StringValue(capabilities[i].Value))
+	}
+}
+
+func TestAppendFSxWindowsFileServerCapabilitiesFalse(t *testing.T) {
+	var inputCapabilities []*ecs.Attribute
+	var expectedCapabilities []*ecs.Attribute
+
+	expectedCapabilities = append(expectedCapabilities,
+		[]*ecs.Attribute{}...)
+
+	agent := &ecsAgent{
+		cfg: &config.Config{
+			FSxWindowsFileServerCapable: false,
+		},
+	}
+
+	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
 
 	assert.Equal(t, len(expectedCapabilities), len(capabilities))
 }

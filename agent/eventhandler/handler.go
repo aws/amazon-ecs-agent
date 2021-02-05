@@ -57,7 +57,7 @@ func HandleEngineEvents(
 func handleEngineEvent(event statechange.Event, client api.ECSClient, taskHandler *TaskHandler,
 	attachmentEventHandler *AttachmentEventHandler) error {
 	switch event.GetEventType() {
-	case statechange.TaskEvent, statechange.ContainerEvent:
+	case statechange.TaskEvent, statechange.ContainerEvent, statechange.ManagedAgentEvent:
 		return taskHandler.AddStateChangeEvent(event, client)
 	case statechange.AttachmentEvent:
 		return attachmentEventHandler.AddStateChangeEvent(event)

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
@@ -232,7 +233,7 @@ func (agent *ecsAgent) start() int {
 	client := ecsclient.NewECSClient(agent.credentialProvider, agent.cfg, agent.ec2MetadataClient)
 
 	agent.initializeResourceFields(credentialsManager)
-	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client)
+	return agent.doStart(containerChangeEventStream, credentialsManager, state, imageManager, client, execcmd.NewManager())
 }
 
 // doStart is the worker invoked by start for starting the ECS Agent. This involves
@@ -242,7 +243,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
 	imageManager engine.ImageManager,
-	client api.ECSClient) int {
+	client api.ECSClient,
+	execCmdMgr execcmd.Manager) int {
 	// check docker version >= 1.9.0, exit agent if older
 	if exitcode, ok := agent.verifyRequiredDockerVersion(); !ok {
 		return exitcode
@@ -265,7 +267,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
-		credentialsManager, state, imageManager)
+		credentialsManager, state, imageManager, execCmdMgr)
 	if err != nil {
 		seelog.Criticalf("Unable to initialize new task engine: %v", err)
 		return exitcodes.ExitTerminal
@@ -362,7 +364,8 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.EventStream,
 	credentialsManager credentials.Manager,
 	state dockerstate.TaskEngineState,
-	imageManager engine.ImageManager) (engine.TaskEngine, string, error) {
+	imageManager engine.ImageManager,
+	execCmdMgr execcmd.Manager) (engine.TaskEngine, string, error) {
 
 	containerChangeEventStream.StartListening()
 
@@ -370,10 +373,10 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		seelog.Info("Checkpointing not enabled; a new container instance will be created each time the agent is run")
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state,
-			agent.metadataManager, agent.resourceFields), "", nil
+			agent.metadataManager, agent.resourceFields, execCmdMgr), "", nil
 	}
 
-	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager)
+	savedData, err := agent.loadData(containerChangeEventStream, credentialsManager, state, imageManager, execCmdMgr)
 	if err != nil {
 		seelog.Criticalf("Error loading previously saved state: %v", err)
 		return nil, "", err
@@ -395,7 +398,7 @@ func (agent *ecsAgent) newTaskEngine(containerChangeEventStream *eventstream.Eve
 		// Reset taskEngine; all the other values are still default
 		return engine.NewTaskEngine(agent.cfg, agent.dockerClient, credentialsManager,
 			containerChangeEventStream, imageManager, state, agent.metadataManager,
-			agent.resourceFields), currentEC2InstanceID, nil
+			agent.resourceFields, execCmdMgr), currentEC2InstanceID, nil
 	}
 
 	if savedData.cluster != "" {
@@ -517,7 +520,7 @@ func (agent *ecsAgent) registerContainerInstance(
 	additionalAttributes []*ecs.Attribute) error {
 	// Preflight request to make sure they're good
 	if preflightCreds, err := agent.credentialProvider.Get(); err != nil || preflightCreds.AccessKeyID == "" {
-		seelog.Warnf("Error getting valid credentials (AKID %s): %v", preflightCreds.AccessKeyID, err)
+		seelog.Errorf("Error getting valid credentials: %s", err)
 	}
 
 	agentCapabilities, err := agent.capabilities()

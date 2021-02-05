@@ -48,7 +48,7 @@ func TestSeelogConfigWindows_Default(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -74,7 +74,7 @@ func TestSeelogConfigWindows_WithoutLogFile(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -105,7 +105,7 @@ func TestSeelogConfigWindows_DebugLevel(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -136,7 +136,7 @@ func TestSeelogConfigWindows_SizeRollover(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -167,7 +167,7 @@ func TestSeelogConfigWindows_SizeRolloverFileSizeChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -198,7 +198,7 @@ func TestSeelogConfigWindows_SizeRolloverRollCountChange(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -229,7 +229,7 @@ func TestSeelogConfigWindows_JSONOutput(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -260,7 +260,7 @@ func TestSeelogConfigWindows_NoOnInstanceLog(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -291,7 +291,7 @@ func TestSeelogConfigWindows_DifferentLevels(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }
@@ -325,7 +325,7 @@ func TestSeelogConfigWindows_FileLevelDefault(t *testing.T) {
 	<formats>
 		<format id="logfmt" format="%EcsAgentLogfmt" />
 		<format id="json" format="%EcsAgentJson" />
-		<format id="windows" format="%Msg" />
+		<format id="windows" format="%EcsMsg" />
 	</formats>
 </seelog>`, c)
 }

@@ -41,6 +41,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func init() {
+	mockPathExists(false)
+}
+
 func TestVolumeDriverCapabilitiesUnix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -853,6 +857,16 @@ func TestAppendGMSACapabilities(t *testing.T) {
 	agent := &ecsAgent{}
 
 	capabilities := agent.appendGMSACapabilities(inputCapabilities)
+	assert.Equal(t, len(inputCapabilities), len(capabilities))
+	assert.EqualValues(t, capabilities, inputCapabilities)
+}
+
+func TestAppendFSxWindowsFileServerCapabilities(t *testing.T) {
+	var inputCapabilities []*ecs.Attribute
+
+	agent := &ecsAgent{}
+
+	capabilities := agent.appendFSxWindowsFileServerCapabilities(inputCapabilities)
 	assert.Equal(t, len(inputCapabilities), len(capabilities))
 	assert.EqualValues(t, capabilities, inputCapabilities)
 }

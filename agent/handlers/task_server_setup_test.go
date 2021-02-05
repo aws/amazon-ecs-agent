@@ -50,6 +50,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -61,11 +62,14 @@ const (
 	version                    = "1"
 	containerID                = "cid"
 	containerName              = "sleepy"
+	pulledContainerName        = "pulled"
 	imageName                  = "busybox"
 	imageID                    = "bUsYbOx"
 	cpu                        = 1024
 	memory                     = 512
 	statusRunning              = "RUNNING"
+	statusPulled               = "PULLED"
+	statusNone                 = "NONE"
 	containerType              = "NORMAL"
 	containerPort              = 80
 	containerPortProtocol      = "tcp"
@@ -106,6 +110,15 @@ var (
 		Name: associationName,
 		Type: associationType,
 	}
+	pulledAssociation = apitask.Association{
+		Containers: []string{containerName, pulledContainerName},
+		Content: apitask.EncodedString{
+			Encoding: associationEncoding,
+			Value:    associationValue,
+		},
+		Name: associationName,
+		Type: associationType,
+	}
 	task = &apitask.Task{
 		Arn:                 taskARN,
 		Associations:        []apitask.Association{association},
@@ -113,6 +126,32 @@ var (
 		Version:             version,
 		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
 		KnownStatusUnsafe:   apitaskstatus.TaskRunning,
+		ENIs: []*apieni.ENI{
+			{
+				IPV4Addresses: []*apieni.ENIIPV4Address{
+					{
+						Address: eniIPv4Address,
+					},
+				},
+				MacAddress:               macAddress,
+				PrivateDNSName:           privateDNSName,
+				SubnetGatewayIPV4Address: subnetGatewayIpv4Address,
+			},
+		},
+		CPU:                      cpu,
+		Memory:                   memory,
+		PullStartedAtUnsafe:      now,
+		PullStoppedAtUnsafe:      now,
+		ExecutionStoppedAtUnsafe: now,
+		LaunchType:               "EC2",
+	}
+	pulledTask = &apitask.Task{
+		Arn:                 taskARN,
+		Associations:        []apitask.Association{pulledAssociation},
+		Family:              family,
+		Version:             version,
+		DesiredStatusUnsafe: apitaskstatus.TaskRunning,
+		KnownStatusUnsafe:   apitaskstatus.TaskStatusNone,
 		ENIs: []*apieni.ENI{
 			{
 				IPV4Addresses: []*apieni.ENIIPV4Address{
@@ -149,13 +188,30 @@ var (
 			},
 		},
 	}
+	pulledContainer = &apicontainer.Container{
+		Name:                pulledContainerName,
+		Image:               imageName,
+		ImageID:             imageID,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerRunning,
+		KnownStatusUnsafe:   apicontainerstatus.ContainerPulled,
+		CPU:                 cpu,
+		Memory:              memory,
+		Type:                apicontainer.ContainerNormal,
+		ContainerArn:        "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+	}
 	dockerContainer = &apicontainer.DockerContainer{
 		DockerID:   containerID,
 		DockerName: containerName,
 		Container:  container,
 	}
+	pulledDockerContainer = &apicontainer.DockerContainer{
+		Container: pulledContainer,
+	}
 	containerNameToDockerContainer = map[string]*apicontainer.DockerContainer{
 		taskARN: dockerContainer,
+	}
+	pulledContainerNameToDockerContainer = map[string]*apicontainer.DockerContainer{
+		taskARN: pulledDockerContainer,
 	}
 	labels = map[string]string{
 		"foo": "bar",
@@ -187,6 +243,18 @@ var (
 				IPv4Addresses: []string{eniIPv4Address},
 			},
 		},
+	}
+	expectedPulledContainerResponse = v2.ContainerResponse{
+		Name:          pulledContainerName,
+		Image:         imageName,
+		ImageID:       imageID,
+		DesiredStatus: statusRunning,
+		KnownStatus:   statusPulled,
+		Limits: v2.LimitsResponse{
+			CPU:    aws.Float64(cpu),
+			Memory: aws.Int64(memory),
+		},
+		Type: containerType,
 	}
 	expectedTaskResponse = v2.TaskResponse{
 		Cluster:       clusterName,
@@ -343,6 +411,21 @@ var (
 			}},
 		},
 	}
+	expectedV4PulledContainerResponse = v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			Name:          pulledContainerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusPulled,
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			Type: containerType,
+		},
+	}
 	expectedV4TaskResponse = v4.TaskResponse{
 		TaskResponse: &v2.TaskResponse{
 			Cluster:       clusterName,
@@ -363,6 +446,27 @@ var (
 			LaunchType:         "EC2",
 		},
 		Containers: []v4.ContainerResponse{expectedV4ContainerResponse},
+	}
+	expectedV4PulledTaskResponse = v4.TaskResponse{
+		TaskResponse: &v2.TaskResponse{
+			Cluster:       clusterName,
+			TaskARN:       taskARN,
+			Family:        family,
+			Revision:      version,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusNone,
+			Containers:    []v2.ContainerResponse{expectedContainerResponse, expectedPulledContainerResponse},
+			Limits: &v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			PullStartedAt:      aws.Time(now.UTC()),
+			PullStoppedAt:      aws.Time(now.UTC()),
+			ExecutionStoppedAt: aws.Time(now.UTC()),
+			AvailabilityZone:   availabilityzone,
+			LaunchType:         "EC2",
+		},
+		Containers: []v4.ContainerResponse{expectedV4ContainerResponse, expectedV4PulledContainerResponse},
 	}
 	expectedV4BridgeContainerResponse = v4.ContainerResponse{
 		ContainerResponse: &expectedBridgeContainerResponse,
@@ -1189,6 +1293,7 @@ func TestV4TaskMetadata(t *testing.T) {
 		state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
@@ -1205,6 +1310,38 @@ func TestV4TaskMetadata(t *testing.T) {
 	expectedV4TaskResponse.TaskResponse.Containers = nil
 	expectedV4ContainerResponse.ContainerResponse.Networks = nil
 	assert.Equal(t, expectedV4TaskResponse, taskResponse)
+}
+
+func TestV4TaskMetadataWithPulledContainers(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true).AnyTimes(),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(pulledTask, true).AnyTimes(),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(pulledContainerNameToDockerContainer, true),
+	)
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/task", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v4.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
+	expectedV4PulledTaskResponse.TaskResponse.Containers = nil
+	expectedV4ContainerResponse.ContainerResponse.Networks = nil
+	assert.Equal(t, expectedV4PulledTaskResponse, taskResponse)
 }
 
 func TestV4ContainerMetadata(t *testing.T) {
@@ -1298,6 +1435,7 @@ func TestV4TaskMetadataWithTags(t *testing.T) {
 			},
 		}, nil),
 		state.EXPECT().TaskByArn(taskARN).Return(task, true).AnyTimes(),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 	)
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
@@ -1331,6 +1469,7 @@ func TestV4BridgeTaskMetadata(t *testing.T) {
 		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
 		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
 		state.EXPECT().ContainerByID(containerID).Return(bridgeContainer, true),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
 	)
 
 	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
@@ -1348,6 +1487,37 @@ func TestV4BridgeTaskMetadata(t *testing.T) {
 	expectedV4BridgeTaskResponse.TaskResponse.Containers = nil
 	expectedV4BridgeContainerResponse.ContainerResponse.Networks = nil
 	assert.Equal(t, expectedV4BridgeTaskResponse, taskResponse)
+}
+
+func TestV4BridgeTaskMetadataAllowMissingContainerNetwork(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	auditLog := mock_audit.NewMockAuditLogger(ctrl)
+	statsEngine := mock_stats.NewMockEngine(ctrl)
+	ecsClient := mock_api.NewMockECSClient(ctrl)
+
+	gomock.InOrder(
+		state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToBridgeContainer, true),
+		state.EXPECT().TaskByArn(taskARN).Return(bridgeTask, true),
+		state.EXPECT().ContainerByID(containerID).Return(nil, false),
+		state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, true),
+	)
+
+	server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+		config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, availabilityzone, containerInstanceArn)
+	recorder := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", v4BasePath+v3EndpointID+"/task", nil)
+	server.Handler.ServeHTTP(recorder, req)
+	res, err := ioutil.ReadAll(recorder.Body)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var taskResponse v4.TaskResponse
+	err = json.Unmarshal(res, &taskResponse)
+	assert.NoError(t, err)
 }
 
 func TestV4BridgeContainerMetadata(t *testing.T) {

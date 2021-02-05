@@ -17,6 +17,12 @@
 
 set -ex
 
+# This script is being skipped because it is part of a deprecated codebuild
+# path. Since it relies on pulling from dockerhub, it could fail our build steps
+# even though it is not necessary. This script can be deleted completely when
+# our github hook code is deprecated.
+exit 0
+
 NAMESPACE="linux"
 REGION=$1
 REPOSITORY=$2
@@ -53,19 +59,9 @@ NGINX_IMAGE="nginx:stable"
 PYTHON2_IMAGE="python:2.7.15"
 UBUNTU_IMAGE="ubuntu:20.04"
 
-PARALLEL_PULL_FTS_BUSYBOX=${BUSYBOX_IMAGE}
-PARALLEL_PULL_FTS_UBUNTU=${UBUNTU_IMAGE}
-PARALLEL_PULL_FTS_NGINX=${NGINX_IMAGE}
-PARALLEL_PULL_FTS_CONSUL="consul:1.3.0"
-PARALLEL_PULL_FTS_DEBIAN="debian:stable"
-PARALLEL_PULL_FTS_HTTPD="httpd:2.4"
-PARALLEL_PULL_FTS_REDIS="redis:4.0.13"
-
-
-
 $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
 
-for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "squid" "awscli" "image-cleanup-test-image1" "image-cleanup-test-image2" "image-cleanup-test-image3" "fluentd" "amazon-ecs-taskmetadata-validator" "amazon-ecs-telemetry-test" "amazon-ecs-containerhealthcheck"; do
+for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "image-cleanup-test-image1" "image-cleanup-test-image2" "image-cleanup-test-image3" "fluentd" "amazon-ecs-telemetry-test" "amazon-ecs-containerhealthcheck" "amazon-ecs-exec-command-agent-test"; do
   # Create the repository if it does not exist
   if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
   then
@@ -75,7 +71,7 @@ for image in "amazon-ecs-netkitten" "amazon-ecs-volumes-test" "squid" "awscli" "
 done
 
 
-for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debian" "httpd" "redis" "registry"; do
+for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "debian" "httpd" "redis" "registry"; do
   # Create the repository if it does not exist
   if ! aws ecr describe-repositories --region ${AWS_DEFAULT_REGION}| grep -q "repositoryName\": \"${NAMESPACE}/${image}" ;
   then
@@ -83,23 +79,11 @@ for image in "executionrole" "busybox" "nginx" "python" "ubuntu" "consul" "debia
   fi
 done
 
-REGISTRY_CONTAINER_NAME="test-ecs-registry"
-REGISTRY_IMAGE="registry:2.7.0"
-
-mirror_local_image "${REGISTRY_IMAGE}" "127.0.0.1:51670/registry:parallel-pull-fts"
-
 mirror_local_image "amazon/${ECR_ROLE_IMAGE}:fts" "${PREFIX}/${ECR_ROLE_IMAGE}:fts"
 mirror_image ${BUSYBOX_IMAGE} "${PREFIX}/busybox:latest"
 mirror_image ${NGINX_IMAGE} "${PREFIX}/nginx:latest"
 mirror_image ${PYTHON2_IMAGE} "${PREFIX}/python:2"
 mirror_image ${UBUNTU_IMAGE} "${PREFIX}/ubuntu:latest"
-mirror_image ${PARALLEL_PULL_FTS_BUSYBOX} "${PREFIX}/busybox:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_UBUNTU} "${PREFIX}/ubuntu:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_CONSUL} "${PREFIX}/consul:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_DEBIAN} "${PREFIX}/debian:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_HTTPD} "${PREFIX}/httpd:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_NGINX} "${PREFIX}/nginx:parallel-pull-fts"
-mirror_image ${PARALLEL_PULL_FTS_REDIS} "${PREFIX}/redis:parallel-pull-fts"
 
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests

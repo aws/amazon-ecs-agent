@@ -65,17 +65,20 @@ func TaskMetadataHandler(state dockerstate.TaskEngineState, ecsClient api.ECSCli
 			for _, containerResponse := range taskResponse.Containers {
 				networks, err := GetContainerNetworkMetadata(containerResponse.ID, state)
 				if err != nil {
-					errResponseJSON, err := json.Marshal(err.Error())
-					if e := utils.WriteResponseIfMarshalError(w, err); e != nil {
-						return
-					}
-					utils.WriteJSONToResponse(w, http.StatusInternalServerError, errResponseJSON, utils.RequestTypeContainerMetadata)
-					return
+					seelog.Warnf("Error retrieving network metadata for container %s - %s", containerResponse.ID, err)
 				}
 				containerResponse.Networks = networks
 				responses = append(responses, containerResponse)
 			}
 			taskResponse.Containers = responses
+		}
+
+		pulledContainers, _ := state.PulledContainerMapByArn(task.Arn)
+		// Convert each pulled container into v4 container response
+		// and append pulled containers to taskResponse.Containers
+		for _, dockerContainer := range pulledContainers {
+			taskResponse.Containers = append(taskResponse.Containers,
+				NewPulledContainerResponse(dockerContainer, task.GetPrimaryENI()))
 		}
 
 		responseJSON, err := json.Marshal(taskResponse)

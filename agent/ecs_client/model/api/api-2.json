@@ -731,6 +731,7 @@
         "networkBindings":{"shape":"NetworkBindings"},
         "networkInterfaces":{"shape":"NetworkInterfaces"},
         "healthStatus":{"shape":"HealthStatus"},
+        "managedAgents":{"shape":"ManagedAgents"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"}
       }
     },
@@ -860,10 +861,11 @@
       "type":"structure",
       "members":{
         "containerName":{"shape":"String"},
-        "imageDigest":{"shape": "String"},
-        "runtimeId":{"shape": "String"},
+        "imageDigest":{"shape":"String"},
+        "runtimeId":{"shape":"String"},
         "exitCode":{"shape":"BoxedInteger"},
         "networkBindings":{"shape":"NetworkBindings"},
+        "managedAgents":{"shape":"ManagedAgentStateChanges"},
         "reason":{"shape":"String"},
         "status":{"shape":"String"}
       }
@@ -1200,6 +1202,30 @@
         "authorizationConfig":{"shape":"EFSAuthorizationConfig"}
       }
     },
+    "FSxWindowsFileServerAuthorizationConfig":{
+      "type":"structure",
+      "required":[
+        "credentialsParameter",
+        "domain"
+      ],
+      "members":{
+        "credentialsParameter":{"shape":"String"},
+        "domain":{"shape":"String"}
+      }
+    },
+    "FSxWindowsFileServerVolumeConfiguration":{
+      "type":"structure",
+      "required":[
+        "fileSystemId",
+        "rootDirectory",
+        "authorizationConfig"
+      ],
+      "members":{
+        "fileSystemId":{"shape":"String"},
+        "rootDirectory":{"shape":"String"},
+        "authorizationConfig":{"shape":"FSxWindowsFileServerAuthorizationConfig"}
+      }
+    },
     "Failure":{
       "type":"structure",
       "members":{
@@ -1509,6 +1535,40 @@
       "value":{"shape":"String"}
     },
     "Long":{"type":"long"},
+    "ManagedAgent":{
+      "type":"structure",
+      "members":{
+        "lastStartedAt":{"shape":"Timestamp"},
+        "name":{"shape":"ManagedAgentName"},
+        "reason":{"shape":"String"},
+        "lastStatus":{"shape":"String"}
+      }
+    },
+    "ManagedAgentName":{
+      "type":"string",
+      "enum":["ExecuteCommandAgent"]
+    },
+    "ManagedAgentStateChange":{
+      "type":"structure",
+      "required":[
+        "name",
+        "status"
+      ],
+      "members":{
+        "managedAgentName":{"shape":"ManagedAgentName"},
+        "containerName": {"shape":"String"},
+        "status":{"shape":"String"},
+        "reason":{"shape":"String"}
+      }
+    },
+    "ManagedAgentStateChanges":{
+      "type":"list",
+      "member":{"shape":"ManagedAgentStateChange"}
+    },
+    "ManagedAgents":{
+      "type":"list",
+      "member":{"shape":"ManagedAgent"}
+    },
     "MissingVersionException":{
       "type":"structure",
       "members":{
@@ -2033,11 +2093,12 @@
         "cluster":{"shape":"String"},
         "task":{"shape":"String"},
         "containerName":{"shape":"String"},
-        "runtimeId":{"shape": "String"},
+        "runtimeId":{"shape":"String"},
         "status":{"shape":"String"},
         "exitCode":{"shape":"BoxedInteger"},
         "reason":{"shape":"String"},
-        "networkBindings":{"shape":"NetworkBindings"}
+        "networkBindings":{"shape":"NetworkBindings"},
+        "managedAgents":{"shape":"ManagedAgentStateChanges"}
       }
     },
     "SubmitContainerStateChangeResponse":{
@@ -2054,6 +2115,7 @@
         "status":{"shape":"String"},
         "reason":{"shape":"String"},
         "containers":{"shape":"ContainerStateChanges"},
+        "managedAgents":{"shape":"ManagedAgentStateChanges"},
         "attachments":{"shape":"AttachmentStateChanges"},
         "pullStartedAt":{"shape":"Timestamp"},
         "pullStoppedAt":{"shape":"Timestamp"},
@@ -2354,7 +2416,8 @@
         "name":{"shape":"String"},
         "host":{"shape":"HostVolumeProperties"},
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
-        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
+        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"},
+        "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"}
       }
     },
     "VolumeFrom":{

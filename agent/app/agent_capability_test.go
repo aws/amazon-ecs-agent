@@ -18,6 +18,9 @@ package app
 import (
 	"context"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,11 +42,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testTempDirPrefix = "agent-capability-test-"
+)
+
+func init() {
+	mockPathExists(false)
+}
+
+func mockPathExists(shouldExist bool) {
+	pathExists = func(path string, shouldBeDirectory bool) (bool, error) {
+		return shouldExist, nil
+	}
+}
+
 func TestCapabilities(t *testing.T) {
 	cfg := getCapabilitiesTestConfig()
 	capabilities := getCapabilitiesWithConfig(cfg, t)
+	mockPathExists(true)
+	defer mockPathExists(false)
+	getSubDirectories = func(path string) ([]string, error) {
+		// appendExecCapabilities() requires at least 1 version to exist
+		return []string{"3.0.236.0"}, nil
+	}
+	defer func() {
+		getSubDirectories = defaultGetSubDirectories
+	}()
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-	expectedCapabilityNames := []string{
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JSONFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+	}
+
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	// Scan() and ListPluginsWithFilters() are tested with
+	// AnyTimes() because they are not called in windows.
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
+		cniClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	expectedNameOnlyCapabilities := []string{
 		capabilityPrefix + "privileged-container",
 		capabilityPrefix + "docker-remote-api.1.17",
 		capabilityPrefix + "docker-remote-api.1.18",
@@ -64,10 +132,11 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
+		attributePrefix + capabilityExec,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
-	for _, name := range expectedCapabilityNames {
+	for _, name := range expectedNameOnlyCapabilities {
 		expectedCapabilities = append(expectedCapabilities,
 			&ecs.Attribute{Name: aws.String(name)})
 	}
@@ -802,4 +871,223 @@ func TestAppendAndRemoveAttributes(t *testing.T) {
 	assert.Contains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-2"),
 	})
+}
+
+func TestCapabilitiesExecuteCommand(t *testing.T) {
+	execCapability := ecs.Attribute{
+		Name: aws.String(attributePrefix + capabilityExec),
+	}
+	testCases := []struct {
+		name                     string
+		pathExists               func(string, bool) (bool, error)
+		getSubDirectories        func(path string) ([]string, error)
+		invalidSsmVersions       map[string]struct{}
+		shouldHaveExecCapability bool
+	}{
+		{
+			name:                     "execute-command capability should not be added if any required file is not found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return false, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return nil, nil },
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if no valid ssm versions are found",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"2.0.0.0", "some_folder"}, nil },
+			invalidSsmVersions:       map[string]struct{}{"2.0.0.0": struct{}{}},
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should not be added if there are directroies exist but have no valid ssm version exist",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0", "3.1.23.0"}, nil },
+			invalidSsmVersions:       map[string]struct{}{"3.0.236.0": struct{}{}, "3.1.23.0": struct{}{}},
+			shouldHaveExecCapability: false,
+		},
+		{
+			name:                     "execute-command capability should be added if requirements are met",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0"}, nil },
+			shouldHaveExecCapability: true,
+		},
+		{
+			name:                     "execute-command capability should be added if have valid ssm version exists",
+			pathExists:               func(path string, shouldBeDirectory bool) (bool, error) { return true, nil },
+			getSubDirectories:        func(path string) ([]string, error) { return []string{"3.0.236.0", "3.1.23.0"}, nil },
+			shouldHaveExecCapability: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pathExists = tc.pathExists
+			getSubDirectories = tc.getSubDirectories
+			oCapabilityExecInvalidSsmVersions := capabilityExecInvalidSsmVersions
+			capabilityExecInvalidSsmVersions = tc.invalidSsmVersions
+			defer func() {
+				mockPathExists(false)
+				getSubDirectories = defaultGetSubDirectories
+				capabilityExecInvalidSsmVersions = oCapabilityExecInvalidSsmVersions
+			}()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+			versionList := []dockerclient.DockerVersion{dockerclient.Version_1_19}
+			mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+			mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+			gomock.InOrder(
+				client.EXPECT().SupportedVersions().Return(versionList),
+				client.EXPECT().KnownVersions().Return(versionList),
+				mockMobyPlugins.EXPECT().Scan().AnyTimes().Return(nil, errors.New("Scan plugins error happened")),
+				client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+					gomock.Any()).AnyTimes().Return([]string{}, nil),
+			)
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:          ctx,
+				cfg:          &config.Config{},
+				dockerClient: client,
+				pauseLoader:  mockPauseLoader,
+				mobyPlugins:  mockMobyPlugins,
+			}
+
+			capabilities, err := agent.capabilities()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tc.shouldHaveExecCapability {
+				assert.Contains(t, capabilities, &execCapability)
+			} else {
+				assert.NotContains(t, capabilities, &execCapability)
+			}
+		})
+	}
+}
+
+func TestDefaultGetSubDirectories(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	subDir, err := ioutil.TempDir(rootDir, "dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+
+	testCases := []struct {
+		name           string
+		path           string
+		expectedResult []string
+		shouldFail     bool
+	}{
+		{
+			name:           "return names of child folders if path exists",
+			path:           rootDir,
+			expectedResult: []string{filepath.Base(subDir)},
+			shouldFail:     false,
+		},
+		{
+			name:           "return error if path does not exist",
+			path:           notExistingPath,
+			expectedResult: nil,
+			shouldFail:     true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			subDirectories, err := defaultGetSubDirectories(tc.path)
+			if tc.shouldFail {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// actual result should have the same elements, don't need to be in same order
+				assert.Subset(t, tc.expectedResult, subDirectories)
+				assert.Subset(t, subDirectories, tc.expectedResult)
+			}
+		})
+	}
+}
+
+func TestDefaultPathExistsd(t *testing.T) {
+	rootDir, err := ioutil.TempDir(os.TempDir(), testTempDirPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(rootDir)
+
+	file, err := ioutil.TempFile(rootDir, "file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notExistingPath := filepath.Join(rootDir, "not-existing")
+	testCases := []struct {
+		name              string
+		path              string
+		shouldBeDirectory bool
+		expected          bool
+	}{
+		{
+			name:              "return false if directory does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+		{
+			name:              "return false if false does not exist",
+			path:              notExistingPath,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: true,
+			expected:          true,
+		},
+		{
+			name:              "if directory exists, return shouldBeDirectory",
+			path:              rootDir,
+			shouldBeDirectory: false,
+			expected:          false,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: false,
+			expected:          true,
+		},
+		{
+			name:              "if file exists, return !shouldBeDirectory",
+			path:              file.Name(),
+			shouldBeDirectory: true,
+			expected:          false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := defaultPathExists(tc.path, tc.shouldBeDirectory)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assert.Equal(t, result, tc.expected)
+		})
+	}
 }

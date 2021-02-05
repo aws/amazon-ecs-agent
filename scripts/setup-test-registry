@@ -14,10 +14,9 @@
 
 # Run a local registry on the 'well known' port 51670 if it is not running.
 # Also push images we will need to it.
-set -e
+set -ex
 
 REGISTRY_IMAGE="registry:2.7.0"
-NGINX_IMAGE="nginx:stable"
 
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
@@ -30,12 +29,8 @@ docker stop "$REGISTRY_CONTAINER_NAME" || true && docker rm "$REGISTRY_CONTAINER
 
 echo "Running $REGISTRY_CONTAINER_NAME"
 docker run -d --name="$REGISTRY_CONTAINER_NAME" -e SETTINGS_FLAVOR=local -p "127.0.0.1:51670:5000" "${REGISTRY_IMAGE}"
-
-# Make sure our images are pushed to it
-mirror_image() {
-  docker pull $1
-  mirror_local_image $@
-}
+# give the registry some seconds to get ready for pushes
+sleep 7
 
 mirror_local_image() {
   echo "Mirroring $1"
@@ -44,32 +39,20 @@ mirror_local_image() {
   docker rmi $2
 }
 
-setup_parallel_pull_image() {
-  local image_name="127.0.0.1:51670/$1:parallel-pull-fts"
-  echo "Generating parallel pull image $image_name"
-
-  # Get new random bits every time we build
-  head -c 25m < /dev/urandom > docker-context/random-bits
-  docker build -t "$image_name" docker-context
-
-  echo "Done generating parallel pull image $image_name"
-  mirror_local_image "$image_name" "$image_name"
-}
-
-for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" "amazon/amazon-ecs-pid-namespace-test" \
-				"amazon/amazon-ecs-ipc-namespace-test" "amazon/awscli" \
+for image in "amazon/amazon-ecs-netkitten" "amazon/amazon-ecs-volumes-test" \
 				"amazon/image-cleanup-test-image1" "amazon/image-cleanup-test-image2" \
-				"amazon/image-cleanup-test-image3" "amazon/fluentd" \
-				"amazon/amazon-ecs-taskmetadata-validator"; do
+				"amazon/image-cleanup-test-image3" "amazon/amazon-ecs-exec-command-agent-test"; do
   mirror_local_image "${image}:make" "127.0.0.1:51670/${image}:latest"
 done
+
+if [[ "$(uname -m)" == "x86_64" ]]; then
+    mirror_local_image "amazon/fluentd:make" "127.0.0.1:51670/amazon/fluentd:latest"
+fi
 
 # Remove the tag so this image can be deleted successfully in the docker image cleanup integ tests
 docker rmi amazon/image-cleanup-test-image1:make amazon/image-cleanup-test-image2:make amazon/image-cleanup-test-image3:make
 
-mirror_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
-mirror_image "$NGINX_IMAGE" "127.0.0.1:51670/nginx:latest"
-mirror_image ubuntu:20.04 "127.0.0.1:51670/ubuntu:latest"
+mirror_local_image busybox:1.32.0 "127.0.0.1:51670/busybox:latest"
 
 # create a context folder used by docker build. It will only have a file
 # full of random bits so that the parallel pull images are different.
@@ -79,24 +62,5 @@ FROM amazon/amazon-ecs-pause:0.1.0
 ADD random-bits /random-bits
 EOF
 
-for image in "busybox" "ubuntu" "consul" "debian" "httpd" "crux" "nginx" "redis"; do
-  setup_parallel_pull_image $image
-done
-
 # cleanup the context
 rm -rf docker-context
-
-mirror_local_image "${REGISTRY_IMAGE}" "127.0.0.1:51670/registry:parallel-pull-fts"
-
-
-# Now setup a v2 registry with auth... aka nginx with basic auth in front of it
-REGISTRY_AUTH_CONTAINER_NAME="test-ecs-registry-auth"
-status=$(docker inspect -f "{{ .State.Running }}" "${REGISTRY_AUTH_CONTAINER_NAME}") || true
-if [[ "$status" == "false" ]]; then
-  docker rm -f "${REGISTRY_AUTH_CONTAINER_NAME}"
-fi
-
-if [[ "$status" != "true" ]]; then
-  docker run -d -p "127.0.0.1:51671:80" --link "${REGISTRY_CONTAINER_NAME}:registry" --name="${REGISTRY_AUTH_CONTAINER_NAME}" -v "${ROOT}/scripts/registry/nginx-auth:/etc/nginx" "${NGINX_IMAGE}"
-fi
-

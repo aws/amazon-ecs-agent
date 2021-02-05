@@ -91,7 +91,7 @@ type Config struct {
 
 	// PollMetrics configures whether metrics are constantly streamed for each container or
 	// polled on interval instead.
-	PollMetrics BooleanDefaultTrue
+	PollMetrics BooleanDefaultFalse
 
 	// PollingMetricsWaitDuration configures how long a container should wait before polling metrics
 	// again when PollMetrics is set to true
@@ -111,6 +111,13 @@ type Config struct {
 
 	// ContainerStartTimeout specifies the amount of time to wait to start a container
 	ContainerStartTimeout time.Duration
+
+	// ContainerCreateTimeout specifies the amount of time to wait to create a container
+	ContainerCreateTimeout time.Duration
+
+	// DependentContainersPullUpfront specifies whether pulling images upfront should be applied to this agent.
+	// Default false
+	DependentContainersPullUpfront BooleanDefaultFalse
 
 	// ImagePullInactivityTimeout is here to override the amount of time to wait when pulling and extracting a container
 	ImagePullInactivityTimeout time.Duration
@@ -321,4 +328,7 @@ type Config struct {
 
 	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
 	External BooleanDefaultFalse
+	// FSxWindowsFileServerCapable is the config option to indicate if fsxWindowsFileServer is supported.
+	// It should be enabled by default only if the container instance is part of a valid active directory domain.
+	FSxWindowsFileServerCapable bool
 }

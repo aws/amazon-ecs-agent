@@ -219,6 +219,7 @@
         "name":{"shape":"String"},
         "overrides":{"shape":"String"},
         "portMappings":{"shape":"PortMappingList"},
+        "managedAgents":{"shape":"ManagedAgentList"},
         "mountPoints":{"shape":"MountPointList"},
         "volumesFrom":{"shape":"VolumeFromList"},
         "dockerConfig":{"shape":"DockerConfig"},
@@ -394,6 +395,21 @@
         "message":{"shape":"String"}
       }
     },
+    "FSxWindowsFileServerAuthorizationConfig":{
+      "type":"structure",
+      "members":{
+        "credentialsParameter":{"shape":"String"},
+        "domain":{"shape":"String"}
+      }
+    },
+    "FSxWindowsFileServerVolumeConfiguration":{
+      "type":"structure",
+      "members":{
+        "fileSystemId":{"shape":"String"},
+        "rootDirectory":{"shape":"String"},
+        "authorizationConfig":{"shape":"FSxWindowsFileServerAuthorizationConfig"}
+      }
+    },
     "HealthCheckType":{
       "type":"string",
       "enum":["docker"]
@@ -480,6 +496,21 @@
         "message":{"shape":"String"}
       },
       "exception":true
+    },
+    "ManagedAgent":{
+      "type":"structure",
+      "members":{
+        "name":{"shape":"ManagedAgentName"},
+        "properties":{"shape":"StringMap"}
+      }
+    },
+    "ManagedAgentList":{
+      "type":"list",
+      "member":{"shape":"ManagedAgent"}
+    },
+    "ManagedAgentName":{
+      "type":"string",
+      "enum":["ExecuteCommandAgent"]
     },
     "FirelensConfiguration":{
       "type":"structure",
@@ -720,7 +751,8 @@
         "type":{"shape":"VolumeType"},
         "host":{"shape":"HostVolumeProperties"},
         "dockerVolumeConfiguration":{"shape":"DockerVolumeConfiguration"},
-        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"}
+        "efsVolumeConfiguration":{"shape":"EFSVolumeConfiguration"},
+        "fsxWindowsFileServerVolumeConfiguration":{"shape":"FSxWindowsFileServerVolumeConfiguration"}
       }
     },
     "VolumeFrom":{
@@ -743,7 +775,8 @@
       "enum":[
         "host",
         "docker",
-        "efs"
+        "efs",
+        "fsxWindowsFileServer"
       ]
     },
     "TaskIdentifier": {
