@@ -32,7 +32,7 @@
 %endif
 
 Name:           ecs-init
-Version:        1.50.0
+Version:        1.50.1
 Release:        1%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
@@ -278,6 +278,10 @@ fi
 %endif
 
 %changelog
+* Wed Feb 10 2021 Shubham Goyal <shugy@amazon.com> - 1.50.1-1
+- Cache Agent version 1.50.1
+- Does not restart ECS Agent when it exits with exit code 5
+
 * Fri Jan 22 2021 Utsa Bhattacharjya <utsa@amazon.com> - 1.50.0-1
 - Cache Agent version 1.50.0
 - Allows ECS customers to execute interactive commands inside containers.
