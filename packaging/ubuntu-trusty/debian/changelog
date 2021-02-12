@@ -1,3 +1,10 @@
+amazon-ecs-init (1.50.1-1) trusty; urgency=medium
+
+  * Cache Agent version 1.50.1
+  * Does not restart ECS Agent when it exits with exit code 5
+
+ -- Shubham Goyal <shugy@amazon.com>  Wed, 10 Feb 2021 20:43:00 +0000
+
 amazon-ecs-init (1.50.0-1) trusty; urgency=medium
 
   * Cache Agent version 1.50.0

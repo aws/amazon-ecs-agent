@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Feb 10, 20:43:00 UTC 2021 - shugy@amazon.com - 1.50.1-1
+
+- Cache Agent version 1.50.1
+- Does not restart ECS Agent when it exits with exit code 5
+-------------------------------------------------------------------
 Fri Jan 22, 11:54:00 UTC 2021 - utsa@amazon.com - 1.50.0-1
 
 - Cache Agent version 1.50.0
