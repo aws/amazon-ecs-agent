@@ -133,7 +133,6 @@ func NewTaskHandler(ctx context.Context,
 func (handler *TaskHandler) AddStateChangeEvent(change statechange.Event, client api.ECSClient) error {
 	handler.lock.Lock()
 	defer handler.lock.Unlock()
-	seelog.Debugf("handling Event: %v", change)
 	switch change.GetEventType() {
 	case statechange.TaskEvent:
 		event, ok := change.(api.TaskStateChange)

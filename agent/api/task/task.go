@@ -2247,35 +2247,15 @@ func (task *Task) GetExecutionStoppedAt() time.Time {
 
 // String returns a human readable string representation of this object
 func (task *Task) String() string {
-	task.lock.Lock()
-	defer task.lock.Unlock()
 	return task.stringUnsafe()
 }
 
 // stringUnsafe returns a human readable string representation of this object
 func (task *Task) stringUnsafe() string {
-	res := fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s)",
+	return fmt.Sprintf("%s:%s %s, TaskStatus: (%s->%s) N Containers: %d, N ENIs %d",
 		task.Family, task.Version, task.Arn,
-		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String())
-
-	res += " Containers: ["
-	for _, container := range task.Containers {
-		res += fmt.Sprintf("%s (%s->%s),",
-			container.Name,
-			container.GetKnownStatus().String(),
-			container.GetDesiredStatus().String())
-	}
-	res += "]"
-
-	if len(task.ENIs) > 0 {
-		res += " ENIs: ["
-		for _, eni := range task.ENIs {
-			res += fmt.Sprintf("%s,", eni.String())
-		}
-		res += "]"
-	}
-
-	return res
+		task.KnownStatusUnsafe.String(), task.DesiredStatusUnsafe.String(),
+		len(task.Containers), len(task.ENIs))
 }
 
 // GetID is used to retrieve the taskID from taskARN
