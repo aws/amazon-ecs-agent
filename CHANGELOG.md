@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.2-1
+* Cache Agent version 1.50.2
+
 ## 1.50.1-1
 * Cache Agent version 1.50.1
 * Does not restart ECS Agent when it exits with exit code 5
