@@ -278,7 +278,7 @@ static-check: gocyclo govet importcheck gogenerate-check
 	# use default checks of staticcheck tool, except style checks (-ST*) and depracation checks (-SA1019)
 	# depracation checks have been left out for now; removing their warnings requires error handling for newer suggested APIs, changes in function signatures and their usages.
 	# https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-	staticcheck -tests=false -checks "inherit,-ST*,-SA1019" ./agent/...
+	staticcheck -tests=false -checks "inherit,-ST*,-SA1019,-SA9002" ./agent/...
 
 .PHONY: goimports
 goimports:
