@@ -12,7 +12,7 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
-%global gobuild_tag generic-rpm
+%global gobuild_tag generic_rpm
 %global _cachedir %{_localstatedir}/cache
 %global bundled_agent_version %{version}
 %global no_exec_perm 644

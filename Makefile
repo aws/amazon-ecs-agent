@@ -162,6 +162,7 @@ clean:
 	-rm -rf ./bin
 	-rm -f ./sources.tgz
 	-rm -f ./amazon-ecs-init
+	-rm -f ./amazon-ecs-init-*.rpm
 	-rm -f ./ecs-agent-*.tar
 	-rm -f ./ecs-init-*.src.rpm
 	-rm -rf ./ecs-init-*
