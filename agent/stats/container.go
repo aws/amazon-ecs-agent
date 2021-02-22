@@ -118,8 +118,13 @@ func (container *StatsContainer) processStatsStream() error {
 		case <-container.ctx.Done():
 			return nil
 		case err := <-errC:
-			seelog.Warnf("Error encountered processing metrics stream from docker, this may affect cloudwatch metric accuracy: %s", err)
-			returnError = true
+			select {
+			case <-container.ctx.Done():
+				// ignore error when container.ctx.Done()
+			default:
+				seelog.Warnf("Error encountered processing metrics stream from docker, this may affect cloudwatch metric accuracy: %s", err)
+				returnError = true
+			}
 		case rawStat, ok := <-dockerStats:
 			if !ok {
 				if returnError {
