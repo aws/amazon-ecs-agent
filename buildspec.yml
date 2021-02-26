@@ -3,6 +3,7 @@ version: 0.2
 phases:
   build:
     commands:
+      - echo "test"
       - make codebuild
 artifacts:
   files:
