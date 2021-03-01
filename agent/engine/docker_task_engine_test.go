@@ -1372,8 +1372,9 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
-		Name: "pausecontainer",
-		Type: apicontainer.ContainerCNIPause,
+		Name:                "pausecontainer",
+		Type:                apicontainer.ContainerCNIPause,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
@@ -1410,6 +1411,7 @@ func TestStopPauseContainerCleanupCalled(t *testing.T) {
 	)
 
 	taskEngine.(*DockerTaskEngine).stopContainer(testTask, pauseContainer)
+	require.True(t, pauseContainer.IsContainerTornDown())
 }
 
 // TestStopPauseContainerCleanupCalled tests when stopping the pause container
@@ -1432,8 +1434,9 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	testTask := testdata.LoadTask("sleep5")
 	pauseContainer := &apicontainer.Container{
-		Name: "pausecontainer",
-		Type: apicontainer.ContainerCNIPause,
+		Name:                "pausecontainer",
+		Type:                apicontainer.ContainerCNIPause,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
 	}
 	testTask.Containers = append(testTask.Containers, pauseContainer)
 	testTask.AddTaskENI(mockENI)
@@ -1463,9 +1466,62 @@ func TestStopPauseContainerCleanupDelay(t *testing.T) {
 	select {
 	case actualDelay := <-delayedChan:
 		assert.Equal(t, expectedDelay, actualDelay)
+		require.True(t, pauseContainer.IsContainerTornDown())
 	default:
 		assert.Fail(t, "engine.handleDelay wasn't called")
 	}
+}
+
+// TestCheckTearDownPauseContainer that the pause container teardown works and is idempotent
+func TestCheckTearDownPauseContainer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
+	testTask := testdata.LoadTask("sleep5")
+	pauseContainer := &apicontainer.Container{
+		Name:                "pausecontainer",
+		Type:                apicontainer.ContainerCNIPause,
+		DesiredStatusUnsafe: apicontainerstatus.ContainerStopped,
+	}
+	testTask.Containers = append(testTask.Containers, pauseContainer)
+	testTask.AddTaskENI(mockENI)
+	testTask.SetAppMesh(&appmesh.AppMesh{
+		IgnoredUID:       ignoredUID,
+		ProxyIngressPort: proxyIngressPort,
+		ProxyEgressPort:  proxyEgressPort,
+		AppPorts: []string{
+			appPort,
+		},
+		EgressIgnoredIPs: []string{
+			egressIgnoredIP,
+		},
+	})
+	taskEngine.(*DockerTaskEngine).State().AddTask(testTask)
+	taskEngine.(*DockerTaskEngine).State().AddContainer(&apicontainer.DockerContainer{
+		DockerID:   containerID,
+		DockerName: dockerContainerName,
+		Container:  pauseContainer,
+	}, testTask)
+
+	gomock.InOrder(
+		dockerClient.EXPECT().InspectContainer(gomock.Any(), containerID, gomock.Any()).Return(&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    containerID,
+				State: &types.ContainerState{Pid: containerPid},
+			},
+		}, nil).MaxTimes(1),
+		mockCNIClient.EXPECT().CleanupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).MaxTimes(1),
+	)
+
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
+	require.True(t, pauseContainer.IsContainerTornDown())
+
+	// Invoke one more time to check for idempotency (mocks configured with maxTimes = 1)
+	taskEngine.(*DockerTaskEngine).checkTearDownPauseContainer(testTask)
 }
 
 // TestTaskWithCircularDependency tests the task with containers of which the
