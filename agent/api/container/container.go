@@ -301,6 +301,10 @@ type Container struct {
 	// ContainerArn is the Arn of this container.
 	ContainerArn string `json:"ContainerArn,omitempty"`
 
+	// ContainerTornDownUnsafe is set to true when we have cleaned up this container. For now this is only used for the
+	// pause container
+	ContainerTornDownUnsafe bool `json:"containerTornDown"`
+
 	createdAt  time.Time
 	startedAt  time.Time
 	finishedAt time.Time
@@ -1307,4 +1311,16 @@ func (c *Container) GetManagedAgentSentStatus(agentName string) apicontainerstat
 	}
 	// we shouldn't get here because we'll always have a valid ManagedAgentName
 	return apicontainerstatus.ManagedAgentStatusNone
+}
+
+func (c *Container) SetContainerTornDown(td bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ContainerTornDownUnsafe = td
+}
+
+func (c *Container) IsContainerTornDown() bool {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return c.ContainerTornDownUnsafe
 }
