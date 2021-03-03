@@ -1,11 +1,11 @@
 dir=$(dirname "${BASH_SOURCE[0]}")
 GO_VERSION=$(cat "$dir/../GO_VERSION")
+GO_VERSION_WINDOWS=$(cat "$dir/../GO_VERSION_WINDOWS")
 
 IMAGES="registry:2.7.0
 golang:$GO_VERSION
+golang:$GO_VERSION_WINDOWS
 gcc:7.3.0
 busybox:1.32.0
-amazonlinux:2.0.20200722.0
-amazon/aws-for-fluent-bit:2.9.0
 debian:stable-20201012
 fluent/fluentd:v1.11.5-1.0"
