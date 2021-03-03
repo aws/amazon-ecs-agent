@@ -196,7 +196,7 @@ func TestStartStopUnpulledImage(t *testing.T) {
 // TestStartStopUnpulledImageDigest ensures that an unpulled image with
 // specified digest is successfully pulled, run, and stopped via docker.
 func TestStartStopUnpulledImageDigest(t *testing.T) {
-	imageDigest := "gcr.io/distroless/python3@sha256:5a82acd4e6ece3978aa58b931699166b1e19e2d3121fceb9238b6356ea5bebaa"
+	imageDigest := "public.ecr.aws/amazonlinux/amazonlinux@sha256:1b6599b4846a765106350130125e2480f6c1cb7791df0ce3e59410362f311259"
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
 	// Ensure this image isn't pulled by deleting it
