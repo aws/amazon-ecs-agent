@@ -1,4 +1,4 @@
-FROM debian:stable-20201012
+FROM public.ecr.aws/l4y9d2e2/ci/debian:stable-20201012
 
 RUN apt-get update &&  \
     apt-get install -y ca-certificates && \

@@ -10,7 +10,7 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-FROM busybox:1.32.0
+FROM public.ecr.aws/l4y9d2e2/ci/busybox:1.32.0
 
 MAINTAINER Amazon Web Services, Inc.
 

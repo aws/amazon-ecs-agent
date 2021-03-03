@@ -13,7 +13,9 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-set -e
+set -ex
+
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
 dir=$(dirname "${BASH_SOURCE[0]}")
 source "$dir/ci-ecr"
@@ -25,14 +27,10 @@ usage() {
     cat <<EOF
 Usage: ${0} REGISTRY_ALIAS
 
-This script attempts to pull the following images from dockerhub locally and then
-push them to an ECR public repo:
+This script creates multi-arch manifest lists at public.ecr.aws/REGISTRY_ALIAS/ci/IMAGE_NAME
+for the following images:
 
 $IMAGES
-
-It pushes them to an ECR repo named like:
-
-public.ecr.aws/REGISTRY_ALIAS/ci/IMAGE_NAME:TAG-ARCH
 EOF
 }
 
@@ -45,18 +43,24 @@ fi
 aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
 for image in $IMAGES; do
-    docker pull "$image"
     repotag=(${image//:/ })
     repo="${repotag[0]}"
     tag="${repotag[1]}"
-    imageArch=$(docker image inspect "$image" --format "{{.Architecture}}")
 
     repoName="ci/$repo"
+    amd64URI=""
+    arm64URI=""
+
+    if aws ecr-public --region us-east-1 describe-images --repository-name "$repoName" --image-ids "imageTag=$tag-amd64"; then
+        amd64URI="public.ecr.aws/$REGISTRY_ALIAS/ci/$repo:$tag-amd64"
+    fi
+    if aws ecr-public --region us-east-1 describe-images --repository-name "$repoName" --image-ids "imageTag=$tag-arm64"; then
+        arm64URI="public.ecr.aws/$REGISTRY_ALIAS/ci/$repo:$tag-arm64"
+    fi
     if ! aws ecr-public --region "us-east-1" describe-repositories --repository-names "$repoName" &>/dev/null; then
         aws ecr-public --region "us-east-1" create-repository --repository-name "$repoName"
     fi
 
-    docker tag "$image" "public.ecr.aws/$REGISTRY_ALIAS/$repoName:$tag-$imageArch"
-    docker push "public.ecr.aws/$REGISTRY_ALIAS/$repoName:$tag-$imageArch"
-    echo "PUSHED public.ecr.aws/$REGISTRY_ALIAS/$repoName:$tag-$imageArch"
+    docker manifest create --amend "public.ecr.aws/$REGISTRY_ALIAS/$repoName:$tag" $amd64URI $arm64URI
+    docker manifest push "public.ecr.aws/$REGISTRY_ALIAS/$repoName:$tag"
 done

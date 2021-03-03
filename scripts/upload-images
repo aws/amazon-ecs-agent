@@ -54,10 +54,10 @@ fi
 
 ECR_ROLE_IMAGE="executionrole"
 
-BUSYBOX_IMAGE="busybox:1.32.0"
-NGINX_IMAGE="nginx:stable"
-PYTHON2_IMAGE="python:2.7.15"
-UBUNTU_IMAGE="ubuntu:20.04"
+BUSYBOX_IMAGE="public.ecr.aws/l4y9d2e2/ci/busybox:1.32.0"
+NGINX_IMAGE="public.ecr.aws/l4y9d2e2/ci/nginx:1.18.0"
+PYTHON2_IMAGE="public.ecr.aws/l4y9d2e2/ci/python:2.7.15"
+UBUNTU_IMAGE="public.ecr.aws/l4y9d2e2/ci/ubuntu:20.04"
 
 $(aws ecr get-login --region ${AWS_DEFAULT_REGION} --no-include-email)
 

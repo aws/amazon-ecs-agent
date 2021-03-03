@@ -8,4 +8,5 @@ busybox:1.32.0
 amazonlinux:2.0.20200722.0
 amazon/aws-for-fluent-bit:2.9.0
 debian:stable-20201012
-fluent/fluentd:v1.11.5-1.0"
+fluent/fluentd:v1.11.5-1.0
+nginx:1.18.0"

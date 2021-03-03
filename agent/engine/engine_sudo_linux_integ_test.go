@@ -74,8 +74,8 @@ var (
 )
 
 const (
-	testLogSenderImage           = "amazonlinux:2.0.20200722.0"
-	testFluentbitImage           = "amazon/aws-for-fluent-bit:2.9.0"
+	testLogSenderImage           = "public.ecr.aws/l4y9d2e2/ci/amazonlinux:2.0.20200722.0"
+	testFluentbitImage           = "public.ecr.aws/l4y9d2e2/ci/amazon/aws-for-fluent-bit:2.9.0"
 	testVolumeImage              = "127.0.0.1:51670/amazon/amazon-ecs-volumes-test:latest"
 	testCluster                  = "testCluster"
 	validTaskArnPrefix           = "arn:aws:ecs:region:account-id:task/"
