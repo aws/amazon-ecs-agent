@@ -18,12 +18,20 @@ package watcher
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
-type ENIWatcher struct{}
+type ENIWatcher struct {
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	updateIntervalTicker *time.Ticker
+	agentState           dockerstate.TaskEngineState
+	eniChangeEvent       chan<- statechange.Event
+	primaryMAC           string
+}
 
 // newWatcher is used to nest the return of the ENIWatcher struct
 func newWatcher(ctx context.Context,
