@@ -16,8 +16,6 @@
 package iphelperwrapper
 
 import (
-	"C"
-
 	"math"
 	"syscall"
 	"time"

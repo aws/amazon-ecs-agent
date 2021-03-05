@@ -195,3 +195,10 @@ func (eniWatcher *ENIWatcher) eventHandler() {
 		}
 	}
 }
+
+// InjectFields is used to inject mock services.
+func (eniWatcher *ENIWatcher) InjectFields(udevMonitor udevwrapper.Udev) {
+	if udevMonitor != nil {
+		eniWatcher.udevMonitor = udevMonitor
+	}
+}

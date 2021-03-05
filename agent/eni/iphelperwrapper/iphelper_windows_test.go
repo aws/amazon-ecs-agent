@@ -257,7 +257,7 @@ func TestStartInitialNotificationAfterTimeout(t *testing.T) {
 	funcNotifyIPInterfaceChange := func(...uintptr) (uintptr, uintptr, error) {
 		// Send initial notification after timeout
 		go func() {
-			time.Sleep(initialNotificationTimeout)
+			time.Sleep(initialNotificationTimeout * 2)
 			callback(uintptr(0), uintptr(0), uintptr(3))
 		}()
 		return uintptr(0), uintptr(0), nil
