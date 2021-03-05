@@ -228,7 +228,7 @@ func TestReconcileENIsWithRetry(t *testing.T) {
 	}()
 
 	// Create Watcher
-	watcher := newWatcher(ctx, primaryMAC, mockNetlink, nil, mockState, eventChannel)
+	watcher := newTestWatcher(ctx, primaryMAC, mockNetlink, nil, mockState, eventChannel)
 	require.NoError(t, watcher.reconcileOnce(true))
 
 	<-done

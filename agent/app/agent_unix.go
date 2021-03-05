@@ -170,13 +170,17 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 // notifications from the monitor
 func (agent *ecsAgent) startENIWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
 	seelog.Debug("Setting up ENI Watcher")
-	eniWatcher, err := watcher.New(agent.ctx, agent.mac, state, stateChangeEvents)
-	if err != nil {
-		return errors.Wrapf(err, "unable to create ENI watcher")
-	}
+	if agent.eniWatcher == nil {
+		eniWatcher, err := watcher.New(agent.ctx, agent.mac, state, stateChangeEvents)
+		if err != nil {
+			return errors.Wrapf(err, "unable to create ENI watcher")
+		}
+		agent.eniWatcher = eniWatcher
 
-	if err := eniWatcher.Init(); err != nil {
-		return errors.Wrapf(err, "unable to initialize eni watcher")
+		if err := agent.eniWatcher.Init(); err != nil {
+			return errors.Wrapf(err, "unable to initialize eni watcher")
+		}
+		go agent.eniWatcher.Start()
 	}
 	return nil
 }
