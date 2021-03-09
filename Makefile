@@ -11,7 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-VERSION := $(shell git describe --tags | sed -e 's/v//' -e 's/-.*//')
+VERSION = $(shell cat ecs-init/ECSVERSION)
 
 .PHONY: dev generate lint static test build-mock-images sources rpm srpm govet
 
