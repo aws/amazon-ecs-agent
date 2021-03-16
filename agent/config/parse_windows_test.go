@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sys/windows/registry"
 )
 
 func TestParseGMSACapability(t *testing.T) {
@@ -49,4 +50,28 @@ func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 	defer os.Unsetenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED")
 
 	assert.False(t, parseFSxWindowsFileServerCapability())
+}
+
+func TestGetOSFamilyType(t *testing.T) {
+	key, _ := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.WRITE)
+	defer key.Close()
+	key.SetStringValue("ProductName", "Windows Server 2019 Datacenter")
+	key.SetStringValue("InstallationType", "Server Core")
+	key.SetStringValue("ReleaseId", "1809")
+	assert.Equal(t, "WINDOWS_SERVER_2019_CORE", GetOSFamilyType())
+
+	key.SetStringValue("ProductName", "Windows Server Datacenter")
+	key.SetStringValue("InstallationType", "Server Core")
+	key.SetStringValue("ReleaseId", "2004")
+	assert.Equal(t, "WINDOWS_SERVER_2004_CORE", GetOSFamilyType())
+
+	key.SetStringValue("ProductName", "Windows Server 2016 Datacenter")
+	key.SetStringValue("InstallationType", "Server")
+	key.SetStringValue("ReleaseId", "1607")
+	assert.Equal(t, "WINDOWS_SERVER_2016_FULL", GetOSFamilyType())
+
+	key.SetStringValue("ProductName", "Windows Server 2019 Datacenter")
+	key.SetStringValue("InstallationType", "Server")
+	key.SetStringValue("ReleaseId", "1809")
+	assert.Equal(t, "WINDOWS_SERVER_2019_FULL", GetOSFamilyType())
 }

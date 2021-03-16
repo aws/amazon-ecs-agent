@@ -325,10 +325,12 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecs.At
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
+	osFamilyStr := config.GetOSFamilyType()
+	seelog.Infof("Server OSFamily string: %s", osFamilyStr)
 	return []*ecs.Attribute{
 		{
 			Name:  aws.String("ecs.os-type"),
-			Value: aws.String(config.OSType),
+			Value: aws.String(osFamilyStr),
 		},
 	}
 }
