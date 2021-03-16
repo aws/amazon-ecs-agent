@@ -20,9 +20,8 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
-
+	"fmt"
 	"golang.org/x/sys/windows/registry"
-
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
 )
@@ -32,6 +31,16 @@ const (
 	// domain join check validation. This is useful for integration and
 	// functional-tests but should not be set for any non-test use-case.
 	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+
+	// The following constants are used to generate Windows OS family types
+	ReleaseId2004SAC = "2004"
+	ReleaseId1909SAC = "1909"
+	Windows_Server_2019 = "Windows Server 2019"
+	Windows_Server_2016 = "Windows Server 2016"
+	Windows_Server_DataCenter = "Windows Server Datacenter"
+	InstallationTypeCore = "Server Core"
+	InstallationTypeFull = "Server"
+	UnknownOSType = "unknown"
 )
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
@@ -112,4 +121,62 @@ var isWindows2016 = func() (bool, error) {
 	}
 
 	return false, nil
+}
+
+func getInstallationType(installationType string) (string, error) {
+	if strings.Compare(installationType, InstallationTypeFull) == 0 {
+		return "FULL", nil;
+	} else if strings.Compare(installationType, InstallationTypeCore) == 0 {
+		return "CORE", nil;
+	} else {
+		err := seelog.Errorf("Invalid Installation type")
+		return "", err
+	}
+}
+
+func GetWindowsOSFamilyType() string {
+	osTypeFormat := "WINDOWS_SERVER_%s_%s"
+	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
+	if err != nil {
+		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
+		return UnknownOSType
+	}
+	defer key.Close()
+
+	productName, _, err := key.GetStringValue("ProductName")
+	if err != nil {
+		seelog.Errorf("Unable to read registry key, ProductName: %v", err)
+		return UnknownOSType
+	}
+	installationType, _, err := key.GetStringValue("InstallationType")
+	if err != nil {
+		seelog.Errorf("Unable to read registry key, InstallationType: %v", err)
+		return UnknownOSType
+	}
+	iType, err := getInstallationType(installationType)
+	if err != nil {
+		seelog.Errorf("Invalid Installation type found: %v", err)
+		return UnknownOSType
+	}
+	releaseId, _, err := key.GetStringValue("ReleaseId")
+	if err != nil {
+		seelog.Errorf("Unable to read registry key, ReleaseId: %v", err)
+		return UnknownOSType
+	}
+
+	if strings.HasPrefix(productName, Windows_Server_2019) {
+		osTypeFormat = fmt.Sprintf(osTypeFormat, "2019", iType)
+	} else if strings.HasPrefix(productName, Windows_Server_2016) {
+		osTypeFormat = fmt.Sprintf(osTypeFormat, "2016", iType)
+	} else if strings.HasPrefix(productName, Windows_Server_DataCenter) {
+		if (strings.Compare(releaseId, ReleaseId2004SAC) == 0) {
+			osTypeFormat = fmt.Sprintf(osTypeFormat, ReleaseId2004SAC, iType)
+		} else if (strings.Compare(releaseId, ReleaseId1909SAC) == 0) {
+			osTypeFormat = fmt.Sprintf(osTypeFormat, ReleaseId1909SAC, iType)
+		}
+	} else {
+		seelog.Errorf("Invalid productName found in the registry with value: %v", productName)
+		return UnknownOSType
+	}
+	return osTypeFormat
 }

@@ -22,3 +22,7 @@ func parseGMSACapability() bool {
 func parseFSxWindowsFileServerCapability() bool {
 	return false
 }
+
+func GetWindowsOSFamilyType() string {
+	return config.OSType
+}
