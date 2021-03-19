@@ -14,6 +14,8 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/app/args"
@@ -22,6 +24,10 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	log "github.com/cihub/seelog"
+)
+
+const (
+	ECS_AGENT_HEALTHCHECK_HOST_ENV_VAR = "ECS_AGENT_HEALTHCHECK_HOST"
 )
 
 // Run runs the ECS Agent App. It returns an exit code, which is used by
@@ -43,7 +49,14 @@ func Run(arguments []string) int {
 		// timeout of 30s. This is so that we can catch any http timeout and log the
 		// issue within agent logs.
 		// see https://docs.docker.com/engine/reference/builder/#healthcheck
-		return runHealthcheck("http://localhost:51678/v1/metadata", time.Second*25)
+		// if ECS_AGENT_HEALTHCHECK_HOST env var is set, it will override
+		// the healthcheck's localhost ip address inside the ecs-agent container
+		localhost := "localhost"
+		if localhostOverride := os.Getenv(ECS_AGENT_HEALTHCHECK_HOST_ENV_VAR); localhostOverride != "" {
+			localhost = localhostOverride
+		}
+		healthcheckUrl := fmt.Sprintf("http://%s:51678/v1/metadata", localhost)
+		return runHealthcheck(healthcheckUrl, time.Second*25)
 	}
 
 	if *parsedArgs.LogLevel != "" {

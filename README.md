@@ -172,6 +172,7 @@ additional details on each available environment variable.
 | `ECS_ENABLE_TASK_CPU_MEM_LIMIT` | `true` | Whether to enable task-level cpu and memory limits | `true` | `false` |
 | `ECS_CGROUP_PATH` | `/sys/fs/cgroup` | The root cgroup path that is expected by the ECS agent. This is the path that accessible from the agent mount. | `/sys/fs/cgroup` | Not applicable |
 | `ECS_CGROUP_CPU_PERIOD` | `10ms` | CGroups CPU period for task level limits. This value should be between 8ms to 100ms | `100ms` | Not applicable |
+| `ECS_AGENT_HEALTHCHECK_HOST` | `localhost` | Override for the ecs-agent container's healthcheck localhost ip address| `localhost` | `localhost` |
 | `ECS_ENABLE_CPU_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will allow CPU unbounded(CPU=`0`) tasks to run along with CPU bounded tasks in Windows. | Not applicable | `false` |
 | `ECS_ENABLE_MEMORY_UNBOUNDED_WINDOWS_WORKAROUND` | `true` | When `true`, ECS will ignore the memory reservation parameter (soft limit) to run along with memory bounded tasks in Windows. To run a memory unbounded task, omit the memory hard limit and set any memory reservation, it will be ignored. | Not applicable | `false` |
 | `ECS_TASK_METADATA_RPS_LIMIT` | `100,150` | Comma separated integer values for steady state and burst throttle limits for task metadata endpoint | `40,60` | `40,60` |
