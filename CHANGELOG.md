@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.50.3-1
+* Cache Agent version 1.50.3
+
 ## 1.50.2-1
 * Cache Agent version 1.50.2
 

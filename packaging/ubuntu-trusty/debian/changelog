@@ -1,3 +1,9 @@
+amazon-ecs-init (1.50.3-1) trusty; urgency=medium
+
+  * Cache Agent version 1.50.3
+
+ -- Mythri Garaga Manjunatha <mythr@amazon.com>  Wed, 17 Mar 2021 18:02:00 +0000
+
 amazon-ecs-init (1.50.2-1) trusty; urgency=medium
 
   * Cache Agent version 1.50.2
