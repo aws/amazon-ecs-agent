@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.50.3
+* Enhancement - Eliminate benign docker stats "context canceled" warning messages from logs [#2813](https://github.com/aws/amazon-ecs-agent/pull/2813)
+* Bug - Fix bug where pause container was not always cleaned up [#2824](https://github.com/aws/amazon-ecs-agent/pull/2824)
+
 ## 1.50.2
 * Bug - Fix potential deadlock due to seelog's string marshalling of task struct [#2811](https://github.com/aws/amazon-ecs-agent/pull/2811)
 
