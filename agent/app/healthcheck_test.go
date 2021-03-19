@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -37,6 +38,22 @@ func TestHealthcheck_InvalidURL2(t *testing.T) {
 	// leading space in url is invalid
 	rc := runHealthcheck("  http://foobar", time.Second*2)
 	require.Equal(t, 1, rc)
+}
+
+func TestHealthcheck_EnvvarConfig(t *testing.T) {
+	testEnvVar := "TEST_AGENT_HEALTHCHECK_ENV_VAR"
+	defer os.Unsetenv(testEnvVar)
+	os.Setenv(testEnvVar, "127.0.0.1")
+
+	// testing healthcheck url setup from app/run.go
+	localhost := "localhost"
+	if localhostOverride := os.Getenv(testEnvVar); localhostOverride != "" {
+		localhost = localhostOverride
+	}
+	healthcheckUrl := fmt.Sprintf("http://%s:51678/v1/metadata", localhost)
+	expectedUrl := "http://127.0.0.1:51678/v1/metadata"
+
+	require.Equal(t, healthcheckUrl, expectedUrl)
 }
 
 func TestHealthcheck_Timeout(t *testing.T) {
