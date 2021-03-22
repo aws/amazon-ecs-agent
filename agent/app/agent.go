@@ -140,7 +140,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	if cfg.AcceptInsecureCert {
 		seelog.Warn("SSL certificate verification disabled. This is not recommended.")
 	}
-	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
+	seelog.Infof("Amazon ECS agent Versionsss: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
 	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
