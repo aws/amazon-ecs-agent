@@ -30,6 +30,7 @@ func init() {
 	// the .json model or the generated struct names.
 	acsRecognizedTypes = []interface{}{
 		ecsacs.HeartbeatMessage{},
+		ecsacs.HeartbeatAckRequest{},
 		ecsacs.PayloadMessage{},
 		ecsacs.CloseMessage{},
 		ecsacs.AckRequest{},
