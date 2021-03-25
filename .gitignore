@@ -20,3 +20,4 @@ ecs-agent-*.tar
 .idea/
 cover.out
 coverprofile.out
+*.DS_Store
