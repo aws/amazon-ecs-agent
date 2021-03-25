@@ -59,6 +59,12 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 		},
 	}
 
+	testContainer1 := &apicontainer.DockerContainer{
+		Container: &apicontainer.Container{
+			Name: "test1",
+		},
+	}
+
 	t1 := &apitask.Task{
 		Arn:               "t1",
 		Family:            "f1",
@@ -71,9 +77,11 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 	}
 
 	resolver.EXPECT().ResolveTask("c1").AnyTimes().Return(t1, nil)
+	resolver.EXPECT().ResolveTask("c2").AnyTimes().Return(t1, nil)
 	resolver.EXPECT().ResolveTaskByARN(gomock.Any()).Return(t1, nil).AnyTimes()
 
-	resolver.EXPECT().ResolveContainer(gomock.Any()).AnyTimes().Return(testContainer, nil)
+	resolver.EXPECT().ResolveContainer("c1").AnyTimes().Return(testContainer, nil)
+	resolver.EXPECT().ResolveContainer("c2").AnyTimes().Return(testContainer1, nil)
 	mockDockerClient.EXPECT().Stats(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	mockDockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerJSON{
@@ -91,6 +99,7 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 	engine.containerInstanceArn = defaultContainerInstance
 	engine.client = mockDockerClient
 	engine.addAndStartStatsContainer("c1")
+	engine.addAndStartStatsContainer("c2")
 	ts1 := parseNanoTime("2015-02-12T21:22:05.131117533Z")
 	containerStats := createFakeContainerStats()
 	dockerStats := []*types.StatsJSON{{}, {}}
@@ -108,6 +117,10 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, taskMetrics, 1)
 	for _, containerMetric := range taskMetrics[0].ContainerMetrics {
-		assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty")
+		if *containerMetric.ContainerName == "test1" {
+			assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty")
+		} else {
+			assert.Nil(t, containerMetric.NetworkStatsSet, "network stats should be empty for pause")
+		}
 	}
 }
