@@ -697,17 +697,23 @@ func (engine *DockerStatsEngine) taskContainerMetricsUnsafe(taskArn string) ([]*
 				if !taskExistsInTaskStats {
 					return nil, fmt.Errorf("task not found")
 				}
-				networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
-				if err != nil {
-					seelog.Warnf("error getting network stats: %v, task: %v", err, taskArn)
+				if dockerContainer, err := engine.resolver.ResolveContainer(dockerID); err != nil {
+					seelog.Debugf("Could not map container ID to container, container: %s, err: %s", dockerID, err)
 				} else {
-					containerMetric.NetworkStatsSet = networkStats
+					// do not add network stats for pause container
+					if dockerContainer.Container.Type != apicontainer.ContainerCNIPause {
+						networkStats, err := taskStatsMap.StatsQueue.GetNetworkStatsSet()
+						if err != nil {
+							seelog.Warnf("error getting network stats: %v, task: %v", err, taskArn)
+						} else {
+							containerMetric.NetworkStatsSet = networkStats
+						}
+					}
 				}
 			}
 		}
 		containerMetrics = append(containerMetrics, containerMetric)
 	}
-
 	return containerMetrics, nil
 }
 
