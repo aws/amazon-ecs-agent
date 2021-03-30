@@ -20,9 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
-	"github.com/aws/amazon-ecs-agent/agent/metrics"
-
 	acshandler "github.com/aws/amazon-ecs-agent/agent/acs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/api/ecsclient"
@@ -31,6 +28,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -40,11 +38,13 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/eni/pause"
 	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/handlers"
+	"github.com/aws/amazon-ecs-agent/agent/metrics"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	"github.com/aws/amazon-ecs-agent/agent/statemanager"
@@ -56,7 +56,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -144,6 +143,12 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
+	if cfg.External.Enabled() {
+		seelog.Info("Running in external mode.")
+		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
+		cfg.NoIID = true
+	}
+
 	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 
@@ -186,7 +191,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
-		credentialProvider:          defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		credentialProvider:          instancecreds.GetCredentials(),
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),
