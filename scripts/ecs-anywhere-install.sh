@@ -14,7 +14,8 @@ if [ $(id -u) -ne 0 ]; then
 fi
 
 # check if system is using systemd
-if ! pidof systemd &>/dev/null; then
+# from https://www.freedesktop.org/software/systemd/man/sd_booted.html
+if [ ! -d /run/systemd/system ]; then
     echo "The install script currently supports only systemd."
     fail
 fi
