@@ -33,4 +33,6 @@ Usage of ./ecs-anywhere-install.sh
     	(optional) ecs endpoint that can be used to different requests to ECS internal endpoints
   --skip-registration
     	(optional) if this is enabled, ssm agent install and instance registration with ssm is skipped
+  --no-start
+    	(optional) if this flag is provided, ssm agent, docker and ecs agent will not be started by the script despite being installed.
 ```

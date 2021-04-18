@@ -41,6 +41,7 @@ RPM_URL=""
 ECS_ENDPOINT=""
 # Whether to check sha for the downloaded ecs-init package. true unless --rpm-url or --deb-url is specified.
 CHECK_SHA=true
+NO_START=false
 while :; do
     case "$1" in
     --region)
@@ -83,6 +84,10 @@ while :; do
         ;;
     --skip-registration)
         SKIP_REGISTRATION=true
+        shift 1
+        ;;
+    --no-start)
+        NO_START=true
         shift 1
         ;;
     *)
@@ -222,7 +227,11 @@ register-ssm-agent() {
         systemctl stop "$SERVICE_NAME"
         amazon-ssm-agent -register -code "$ACTIVATION_CODE" -id "$ACTIVATION_ID" -region "$REGION"
         systemctl enable "$SERVICE_NAME"
-        systemctl start "$SERVICE_NAME"
+        if ! $NO_START; then
+            systemctl start "$SERVICE_NAME"
+        else
+            echo "Skip starting ssm agent because --no-start is specified."
+        fi
         echo "Instance is registered."
     else
         echo "instance registration found."
@@ -270,11 +279,13 @@ install-ssm-agent() {
             curl -o "$dir/$SSM_RPM_PKG_NAME" "$SSM_RPM_URL"
             curl -o "$dir/$SSM_RPM_PKG_NAME.sig" "$SSM_RPM_URL.sig"
             ssm-agent-signature-verify "$dir/$SSM_RPM_PKG_NAME.sig" "$dir/$SSM_RPM_PKG_NAME"
-            local args="-y"
+            local args=""
+            local install_args="-y"
             if [[ "$PKG_MANAGER" == "zypper" ]]; then
-                args="${args} --allow-unsigned-rpm"
+                install_args="${install_args} --allow-unsigned-rpm"
+                args="--no-gpg-checks"
             fi
-            $PKG_MANAGER install ${args} "$dir/$SSM_RPM_PKG_NAME"
+            $PKG_MANAGER ${args} install ${install_args} "$dir/$SSM_RPM_PKG_NAME"
             ;;
         esac
         rm -rf "$dir"
@@ -456,7 +467,11 @@ install-ecs-agent() {
         echo "ECS_BACKEND_HOST=$ECS_ENDPOINT" >>/var/lib/ecs/ecs.config
     fi
     systemctl enable ecs
-    systemctl start ecs
+    if ! $NO_START; then
+        systemctl start ecs
+    else
+        echo "Skip starting ecs agent because --no-start is specified."
+    fi
 
     ok
 }
@@ -479,6 +494,11 @@ ecs-init-signature-verify() {
 }
 
 verify-agent() {
+    if $NO_START; then
+        echo "--no-start is specified. Not verifying ecs agent startup."
+        return
+    fi
+
     retryLimit=10
     i=0
     for ((i = 0 ; i < retryLimit ; i++))
