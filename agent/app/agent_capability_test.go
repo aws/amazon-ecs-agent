@@ -108,8 +108,6 @@ func TestCapabilities(t *testing.T) {
 		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any()).AnyTimes().Return([]string{}, nil),
 	)
-	cfg := getCapabilitiesTestConfig()
-	capabilities := getCapabilitiesWithConfig(cfg, t)
 
 	expectedNameOnlyCapabilities := []string{
 		capabilityPrefix + "privileged-container",
@@ -147,6 +145,21 @@ func TestCapabilities(t *testing.T) {
 				Value: aws.String("v1"),
 			},
 		}...)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		cniClient:          cniClient,
+		pauseLoader:        mockPauseLoader,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
 
 	for _, expected := range expectedCapabilities {
 		assert.Contains(t, capabilities, &ecs.Attribute{
@@ -1069,6 +1082,8 @@ func TestDefaultPathExistsd(t *testing.T) {
 			assert.Equal(t, result, tc.expected)
 		})
 	}
+}
+
 func TestAppendAndRemoveAttributes(t *testing.T) {
 	attrs := appendNameOnlyAttribute([]*ecs.Attribute{}, "cap-1")
 	attrs = appendNameOnlyAttribute(attrs, "cap-2")
