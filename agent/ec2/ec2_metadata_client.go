@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ const (
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
 	OutpostARN                                = "outpost-arn"
+	PrimaryIPV4VPCCIDR                        = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
 )
 
 const (
@@ -81,6 +83,7 @@ type EC2MetadataClient interface {
 	PublicIPv4Address() (string, error)
 	SpotInstanceAction() (string, error)
 	OutpostARN() (string, error)
+	PrimaryIPV4VPCCIDR(mac string) (*net.IPNet, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -201,4 +204,19 @@ func (c *ec2MetadataClientImpl) SpotInstanceAction() (string, error) {
 
 func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
 	return c.client.GetMetadata(OutpostARN)
+}
+
+// PrimaryIPV4VPCCIDR returns the primary IPV4 block associated with the VPC
+func (c *ec2MetadataClientImpl) PrimaryIPV4VPCCIDR(mac string) (*net.IPNet, error) {
+	vpcCIDR, err := c.client.GetMetadata(fmt.Sprintf(PrimaryIPV4VPCCIDR, mac))
+	if err != nil {
+		return nil, err
+	}
+
+	_, parsedCIDR, err := net.ParseCIDR(vpcCIDR)
+	if err != nil {
+		return nil, err
+	}
+
+	return parsedCIDR, nil
 }
