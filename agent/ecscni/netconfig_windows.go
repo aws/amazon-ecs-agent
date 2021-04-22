@@ -32,11 +32,11 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 		Nameservers: eni.DomainNameServers,
 	}
 
-	if len(eni.DomainNameServers) == 0 {
+	if len(eni.DomainNameServers) == 0 && cfg.PrimaryIPv4VPCCIDR != nil {
 		if gateway == "" {
 			return nil, errors.New("cannot create bridge network config due to invalid gateway")
 		}
-		constructedDNS, err := constructDNSFromVPCGateway(gateway)
+		constructedDNS, err := constructDNSFromVPCCIDR(cfg.PrimaryIPv4VPCCIDR)
 		if err != nil {
 			return nil, errors.Wrapf(err, "cannot create bridge network config")
 		}
@@ -67,17 +67,16 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 	return networkConfig, nil
 }
 
-// constructDNSFromVPCGateway is used to construct DNS server from subnet gateway address
-func constructDNSFromVPCGateway(subnetGateway string) ([]string, error) {
+// constructDNSFromVPCCIDR is used to construct DNS server from the primary ipv4 cidr of the vpc
+func constructDNSFromVPCCIDR(vpcCIDR *net.IPNet) ([]string, error) {
 	// The DNS server maps to a reserved IP address at the base of the VPC IPv4 network rage plus 2
 	// https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html#AmazonDNS
-	// Therefore, we construct the same by replacing the last token of the subnet gateway to 2
-	subnetIPv4 := net.ParseIP(subnetGateway)
-	if subnetIPv4 == nil {
-		return nil, errors.New("failed to construct dns from gateway address")
+
+	if vpcCIDR == nil {
+		return nil, errors.Errorf("unable to contruct dns from invalid vpc cidr")
 	}
 	mask := net.CIDRMask(24, 32)
-	maskedIPv4 := subnetIPv4.Mask(mask).To4()
+	maskedIPv4 := vpcCIDR.IP.Mask(mask).To4()
 	maskedIPv4[3] = 2
 
 	return []string{maskedIPv4.String()}, nil

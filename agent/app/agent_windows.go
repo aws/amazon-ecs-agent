@@ -17,6 +17,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -74,6 +75,13 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		// Therefore, this is not a terminal error. Thus returning error and false
 		return err, false
 	}
+
+	// Query the VPC's primary IPv4 CIDR using IMDS
+	primaryIPv4VPCCIDR, err := agent.ec2MetadataClient.PrimaryIPV4VPCCIDR(agent.mac)
+	if err != nil {
+		return fmt.Errorf("unable to get primary ipv4 cidr of the vpc: %v", err), false
+	}
+	agent.cfg.PrimaryIPv4VPCCIDR = primaryIPv4VPCCIDR
 
 	return nil, false
 }
