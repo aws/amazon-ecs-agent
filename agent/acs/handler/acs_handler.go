@@ -24,7 +24,6 @@ import (
 	"time"
 
 	acsclient "github.com/aws/amazon-ecs-agent/agent/acs/client"
-	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	updater "github.com/aws/amazon-ecs-agent/agent/acs/update_handler"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -65,6 +64,10 @@ const (
 	// credentials for all tasks on establishing the connection
 	sendCredentialsURLParameterName = "sendCredentials"
 	inactiveInstanceExceptionPrefix = "InactiveInstanceException:"
+	// ACS protocol version spec:
+	// 1: default protocol version
+	// 2: ACS will proactively close the connection when heartbeat acks are missing
+	acsProtocolVersion = 2
 )
 
 // Session defines an interface for handler's long-lived connection with ACS.
@@ -332,8 +335,13 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	// Ignore heartbeat messages; anyMessageHandler gets 'em
-	client.AddRequestHandler(func(*ecsacs.HeartbeatMessage) {})
+	// Add HeartbeatHandler to acknowledge ACS heartbeats
+	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client)
+	defer heartbeatHandler.clearAcks()
+	heartbeatHandler.start()
+	defer heartbeatHandler.stop()
+
+	client.AddRequestHandler(heartbeatHandler.handlerFunc())
 
 	updater.AddAgentUpdateHandlers(client, cfg, acsSession.state, acsSession.dataClient, acsSession.taskEngine)
 
@@ -454,6 +462,7 @@ func acsWsURL(endpoint, cluster, containerInstanceArn string, taskEngine engine.
 	query.Set("agentHash", version.GitHashString())
 	query.Set("agentVersion", version.Version)
 	query.Set("seqNum", "1")
+	query.Set("protocolVersion", strconv.Itoa(acsProtocolVersion))
 	if dockerVersion, err := taskEngine.Version(); err == nil {
 		query.Set("dockerVersion", "DockerVersion: "+dockerVersion)
 	}

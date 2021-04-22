@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -178,6 +179,8 @@ func TestACSWSURL(t *testing.T) {
 	assert.Equal(t, "DockerVersion: Docker version result", parsed.Query().Get("dockerVersion"), "wrong docker version")
 	assert.Equalf(t, "true", parsed.Query().Get(sendCredentialsURLParameterName), "Wrong value set for: %s", sendCredentialsURLParameterName)
 	assert.Equal(t, "1", parsed.Query().Get("seqNum"), "wrong seqNum")
+	protocolVersion, _ := strconv.Atoi(parsed.Query().Get("protocolVersion"))
+	assert.True(t, protocolVersion > 1, "ACS protocol version should be greater than 1")
 }
 
 // TestHandlerReconnectsOnConnectErrors tests if handler reconnects retries
@@ -844,12 +847,12 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 		ended <- true
 	}()
 	// Warm it up
-	serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true}}`
+	serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
 	serverIn <- samplePayloadMessage
 
 	beforeGoroutines := runtime.NumGoroutine()
-	for i := 0; i < 100; i++ {
-		serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true}}`
+	for i := 0; i < 40; i++ {
+		serverIn <- `{"type":"HeartbeatMessage","message":{"healthy":true,"messageId":"123"}}`
 		serverIn <- samplePayloadMessage
 		closeWS <- true
 	}
@@ -859,15 +862,15 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 
 	// The number of goroutines finishing in the MockACSServer will affect
 	// the result unless we wait here.
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 	afterGoroutines := runtime.NumGoroutine()
 
 	t.Logf("Goroutines after 1 and after %v acs messages: %v and %v", timesConnected, beforeGoroutines, afterGoroutines)
 
-	if timesConnected < 50 {
+	if timesConnected < 20 {
 		t.Fatal("Expected times connected to be a large number, was ", timesConnected)
 	}
-	if afterGoroutines > beforeGoroutines+5 {
+	if afterGoroutines > beforeGoroutines+2 {
 		t.Error("Goroutine leak, oh no!")
 		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 	}
