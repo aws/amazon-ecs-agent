@@ -25,7 +25,7 @@
 %endif
 
 Name:           amazon-ecs-init
-Version:        1.48.1
+Version:        1.51.0
 Release:        1
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
