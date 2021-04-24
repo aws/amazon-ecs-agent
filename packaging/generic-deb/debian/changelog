@@ -1,17 +1,29 @@
-amazon-ecs-init (1.50.2-1) trusty; urgency=medium
+amazon-ecs-init (1.51.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.51.0
+
+ -- Shubham Goyal  <shugy@amazon.com>  Wed, 31 Mar 2021 09:32:00 +0000
+
+amazon-ecs-init (1.50.3-1) stable; urgency=medium
+
+  * Cache Agent version 1.50.3
+
+ -- Mythri Garaga Manjunatha <mythr@amazon.com>  Wed, 17 Mar 2021 18:02:00 +0000
+
+amazon-ecs-init (1.50.2-1) stable; urgency=medium
 
   * Cache Agent version 1.50.2
 
  -- Meghna Srivastav <mssrivas@amazon.com>  Fri, 19 Feb 2021 19:03:32 +0000
 
-amazon-ecs-init (1.50.1-1) trusty; urgency=medium
+amazon-ecs-init (1.50.1-1) stable; urgency=medium
 
   * Cache Agent version 1.50.1
   * Does not restart ECS Agent when it exits with exit code 5
 
  -- Shubham Goyal <shugy@amazon.com>  Wed, 10 Feb 2021 20:43:00 +0000
 
-amazon-ecs-init (1.50.0-1) trusty; urgency=medium
+amazon-ecs-init (1.50.0-1) stable; urgency=medium
 
   * Cache Agent version 1.50.0
   * Allows ECS customers to execute interactive commands inside containers.
