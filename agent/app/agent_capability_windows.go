@@ -17,7 +17,10 @@ package app
 
 import (
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/cihub/seelog"
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
@@ -87,4 +90,22 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 	}
 
 	return capabilities
+}
+
+// getTaskENIPluginVersionAttribute returns the version information of the ECS
+// CNI plugins. It just executes the ECSVPCSharedENIPluginName plugin to get the Version information.
+// Currently, only this plugin is used by ECS Windows for awsvpc mode.
+func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
+	version, err := agent.cniClient.Version(ecscni.ECSVPCSharedENIPluginExecutable)
+	if err != nil {
+		seelog.Warnf(
+			"Unable to determine the version of the plugin '%s': %v",
+			ecscni.ECSVPCSharedENIPluginName, err)
+		return nil, err
+	}
+
+	return &ecs.Attribute{
+		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+		Value: aws.String(version),
+	}, nil
 }
