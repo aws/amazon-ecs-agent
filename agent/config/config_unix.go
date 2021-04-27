@@ -15,8 +15,10 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -44,6 +46,9 @@ const (
 	minimumContainerCreateTimeout = 1 * time.Minute
 	// default docker inactivity time is extra time needed on container extraction
 	defaultImagePullInactivityTimeout = 1 * time.Minute
+
+	// location of ipv6 route table
+	ipv6RouteFile = "/proc/net/ipv6_route"
 )
 
 // DefaultConfig returns the default configuration for Linux
@@ -91,6 +96,7 @@ func DefaultConfig() Config {
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 		GMSACapable:                         false,
 		FSxWindowsFileServerCapable:         false,
+		MissingIPv6DefaultRoute:             false,
 	}
 }
 
@@ -102,6 +108,9 @@ func (cfg *Config) platformOverrides() {
 
 	if cfg.TaskENIEnabled.Enabled() { // when task networking is enabled, eni trunking is enabled by default
 		cfg.ENITrunkingEnabled = parseBooleanDefaultTrueConfig("ECS_ENABLE_HIGH_DENSITY_ENI")
+	}
+	if !hasIPv6DefaultRoute() {
+		cfg.MissingIPv6DefaultRoute = true
 	}
 }
 
@@ -116,4 +125,26 @@ func (cfg *Config) platformString() string {
 			cfg.PauseContainerImageName, cfg.PauseContainerTag)
 	}
 	return ""
+}
+
+// hasIPv6DefaultRoute returns whether an non-zero IPv6 default route exists.
+// This returns true in error conditions to ensure the existing behaviour
+// isn't modified
+func hasIPv6DefaultRoute() bool {
+	file, err := os.Open(ipv6RouteFile)
+	if err != nil {
+		return true
+	}
+	defer file.Close()
+	scanner := bufio.NewReader(file)
+	for {
+		line, err := scanner.ReadString('\n')
+		if err != nil {
+			break
+		}
+		if strings.Fields(line)[4] != "00000000000000000000000000000000" {
+			return true
+		}
+	}
+	return false
 }
