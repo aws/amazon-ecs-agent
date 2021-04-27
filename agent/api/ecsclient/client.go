@@ -476,19 +476,23 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		exitCode := int64(aws.IntValue(change.ExitCode))
 		statechange.ExitCode = aws.Int64(exitCode)
 	}
-	networkBindings := make([]*ecs.NetworkBinding, len(change.PortBindings))
-	for i, binding := range change.PortBindings {
+
+	networkBindings := []*ecs.NetworkBinding{}
+	for _, binding := range change.PortBindings {
+		if binding.BindIP == "::" && client.config.MissingIPv6DefaultRoute {
+			continue
+		}
 		hostPort := int64(binding.HostPort)
 		containerPort := int64(binding.ContainerPort)
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 
-		networkBindings[i] = &ecs.NetworkBinding{
+		networkBindings = append(networkBindings, &ecs.NetworkBinding{
 			BindIP:        aws.String(bindIP),
 			ContainerPort: aws.Int64(containerPort),
 			HostPort:      aws.Int64(hostPort),
 			Protocol:      aws.String(protocol),
-		}
+		})
 	}
 	statechange.NetworkBindings = networkBindings
 
