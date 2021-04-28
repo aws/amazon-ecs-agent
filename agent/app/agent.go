@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/credentials/instancecreds"
 	"github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	"github.com/aws/amazon-ecs-agent/agent/metrics"
 
@@ -56,7 +57,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/cihub/seelog"
 	"github.com/pborman/uuid"
 )
@@ -144,6 +144,12 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 	seelog.Infof("Amazon ECS agent Version: %s, Commit: %s", version.Version, version.GitShortHash)
 	seelog.Debugf("Loaded config: %s", cfg.String())
 
+	if cfg.External.Enabled() {
+		seelog.Info("Running in external mode.")
+		ec2MetadataClient = ec2.NewBlackholeEC2MetadataClient()
+		cfg.NoIID = true
+	}
+
 	ec2Client := ec2.NewClientImpl(cfg.AWSRegion)
 	dockerClient, err := dockerapi.NewDockerGoClient(sdkclientfactory.NewFactory(ctx, cfg.DockerEndpoint), cfg, ctx)
 
@@ -186,7 +192,7 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		// We instantiate our own credentialProvider for use in acs/tcs. This tries
 		// to mimic roughly the way it's instantiated by the SDK for a default
 		// session.
-		credentialProvider:          defaults.CredChain(defaults.Config(), defaults.Handlers()),
+		credentialProvider:          instancecreds.GetCredentials(),
 		stateManagerFactory:         factory.NewStateManager(),
 		saveableOptionFactory:       factory.NewSaveableOption(),
 		pauseLoader:                 pause.New(),

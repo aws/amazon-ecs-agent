@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.51.0
+* Enhancement - Add configurable agent healthcheck localhost ip env var. [#2834](https://github.com/aws/amazon-ecs-agent/pull/2834)
+* Bug - Fix bug that could incorrectly clean up pause container before other containers. [#2838](https://github.com/aws/amazon-ecs-agent/pull/2838)
+* Bug - Fix task's network stats by omitting pause container in the network metrics calculation. [#2836](https://github.com/aws/amazon-ecs-agent/pull/2836)
+
+## 1.50.3
+* Enhancement - Eliminate benign docker stats "context canceled" warning messages from logs [#2813](https://github.com/aws/amazon-ecs-agent/pull/2813)
+* Bug - Fix bug where pause container was not always cleaned up [#2824](https://github.com/aws/amazon-ecs-agent/pull/2824)
+
 ## 1.50.2
 * Bug - Fix potential deadlock due to seelog's string marshalling of task struct [#2811](https://github.com/aws/amazon-ecs-agent/pull/2811)
 

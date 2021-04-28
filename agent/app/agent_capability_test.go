@@ -169,6 +169,92 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
+// Test exteernal capability by checking that when external config is set, capabilities not supported on external capacity
+// aren't added, external specific capabilities are added, and capabilities common for both external and non-external are added.
+func TestCapabilitiesExternal(t *testing.T) {
+	cfg := getCapabilitiesTestConfig()
+	capsNonExternal := getCapabilitiesWithConfig(cfg, t)
+	cfg.External = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	capsExternal := getCapabilitiesWithConfig(cfg, t)
+
+	for _, cap := range externalUnsupportedCapabilities {
+		assert.NotContains(t, capsExternal, &ecs.Attribute{
+			Name: aws.String(cap),
+		})
+	}
+	for _, cap := range externalSpecificCapabilities {
+		assert.Contains(t, capsExternal, &ecs.Attribute{
+			Name: aws.String(cap),
+		})
+	}
+	commonCaps := removeAttributesByNames(capsNonExternal, externalUnsupportedCapabilities)
+	for _, cap := range commonCaps {
+		assert.Contains(t, capsExternal, cap)
+	}
+}
+
+func getCapabilitiesTestConfig() *config.Config {
+	return &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JSONFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+	}
+}
+
+func getCapabilitiesWithConfig(cfg *config.Config, t *testing.T) []*ecs.Attribute {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
+
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	mockCNIClient.EXPECT().Version(ecscni.ECSENIPluginName).Return("v1", nil).AnyTimes()
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                cfg,
+		dockerClient:       client,
+		pauseLoader:        mockPauseLoader,
+		cniClient:          mockCNIClient,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+	}
+	capabilities, err := agent.capabilities()
+	require.NoError(t, err)
+	return capabilities
+}
+
 func TestCapabilitiesECR(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -996,4 +1082,25 @@ func TestDefaultPathExistsd(t *testing.T) {
 			assert.Equal(t, result, tc.expected)
 		})
 	}
+}
+
+func TestAppendAndRemoveAttributes(t *testing.T) {
+	attrs := appendNameOnlyAttribute([]*ecs.Attribute{}, "cap-1")
+	attrs = appendNameOnlyAttribute(attrs, "cap-2")
+	require.Len(t, attrs, 2)
+	assert.Contains(t, attrs, &ecs.Attribute{
+		Name: aws.String("cap-1"),
+	})
+	assert.Contains(t, attrs, &ecs.Attribute{
+		Name: aws.String("cap-2"),
+	})
+
+	attrs = removeAttributesByNames(attrs, []string{"cap-1"})
+	require.Len(t, attrs, 1)
+	assert.NotContains(t, attrs, &ecs.Attribute{
+		Name: aws.String("cap-1"),
+	})
+	assert.Contains(t, attrs, &ecs.Attribute{
+		Name: aws.String("cap-2"),
+	})
 }

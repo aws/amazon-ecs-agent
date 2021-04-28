@@ -1417,8 +1417,33 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	}
 }
 
+// checkTearDownPauseContainer idempotently tears down the pause container network when the pause container's known
+//or desired status is stopped.
+func (engine *DockerTaskEngine) checkTearDownPauseContainer(task *apitask.Task) {
+	if !task.IsNetworkModeAWSVPC() {
+		return
+	}
+	for _, container := range task.Containers {
+		// Cleanup the pause container network namespace before stop the container
+		if container.Type == apicontainer.ContainerCNIPause {
+			// Clean up if the pause container has stopped or will stop
+			if container.KnownTerminal() || container.DesiredTerminal() {
+				err := engine.cleanupPauseContainerNetwork(task, container)
+				if err != nil {
+					seelog.Errorf("Task engine [%s]: unable to cleanup pause container network namespace: %v", task.Arn, err)
+				}
+			}
+			return
+		}
+	}
+}
+
 // cleanupPauseContainerNetwork will clean up the network namespace of pause container
 func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task, container *apicontainer.Container) error {
+	// This operation is idempotent
+	if container.IsContainerTornDown() {
+		return nil
+	}
 	delay := time.Duration(engine.cfg.ENIPauseContainerCleanupDelaySeconds) * time.Second
 	if engine.handleDelay != nil && delay > 0 {
 		seelog.Infof("Task engine [%s]: waiting %s before cleaning up pause container.", task.Arn, delay)
@@ -1436,7 +1461,14 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 			"engine: failed cleanup task network namespace, task: %s", task.String())
 	}
 
-	return engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	err = engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	if err != nil {
+		return err
+	}
+
+	container.SetContainerTornDown(true)
+	seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
+	return nil
 }
 
 // buildCNIConfigFromTaskContainer builds a CNI config for the task and container.
@@ -1496,7 +1528,6 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 			seelog.Errorf("Task engine [%s]: unable to cleanup pause container network namespace: %v",
 				task.Arn, err)
 		}
-		seelog.Infof("Task engine [%s]: cleaned pause container network namespace", task.Arn)
 	}
 
 	apiTimeoutStopContainer := container.GetStopTimeout()

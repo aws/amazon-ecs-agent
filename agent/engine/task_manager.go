@@ -236,6 +236,7 @@ func (mtask *managedTask) overseeTask() {
 	logger.Info("Managed task has reached stopped; waiting for container cleanup", logger.Fields{
 		field.TaskARN: mtask.Arn,
 	})
+	mtask.engine.checkTearDownPauseContainer(mtask.Task)
 	mtask.cleanupCredentials()
 	if mtask.StopSequenceNumber != 0 {
 		logger.Debug("Marking done for this sequence", logger.Fields{

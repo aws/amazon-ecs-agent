@@ -29,6 +29,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMerge(t *testing.T) {
@@ -841,6 +842,20 @@ func TestTaskMetadataAZDisabled(t *testing.T) {
 	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
 	assert.NoError(t, err)
 	assert.True(t, cfg.TaskMetadataAZDisabled, "Wrong value for TaskMetadataAZDisabled")
+}
+
+func TestExternalConfig(t *testing.T) {
+	defer setTestRegion()()
+	defer setTestEnv("ECS_EXTERNAL", "true")()
+	cfg, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	require.NoError(t, err)
+	assert.True(t, cfg.External.Enabled())
+}
+
+func TestExternalConfigMissingRegion(t *testing.T) {
+	defer setTestEnv("ECS_EXTERNAL", "true")()
+	_, err := NewConfig(ec2.NewBlackholeEC2MetadataClient())
+	assert.Error(t, err)
 }
 
 func setTestRegion() func() {

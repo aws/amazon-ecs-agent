@@ -720,10 +720,28 @@ func (s FirelensConfiguration) GoString() string {
 	return s.String()
 }
 
+type HeartbeatAckRequest struct {
+	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
+}
+
+// String returns the string representation
+func (s HeartbeatAckRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s HeartbeatAckRequest) GoString() string {
+	return s.String()
+}
+
 type HeartbeatInput struct {
 	_ struct{} `type:"structure"`
 
 	Healthy *bool `locationName:"healthy" type:"boolean"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
 }
 
 // String returns the string representation
@@ -740,6 +758,8 @@ type HeartbeatMessage struct {
 	_ struct{} `type:"structure"`
 
 	Healthy *bool `locationName:"healthy" type:"boolean"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
 }
 
 // String returns the string representation
@@ -754,6 +774,8 @@ func (s HeartbeatMessage) GoString() string {
 
 type HeartbeatOutput struct {
 	_ struct{} `type:"structure"`
+
+	MessageId *string `locationName:"messageId" type:"string"`
 }
 
 // String returns the string representation
