@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.52.0-1
+* Cache Agent version 1.52.0
+* Add support for ECS EXTERNAL launch type (ECS Anywhere)
+
 ## 1.51.0-1
 * Cache Agent version 1.51.0
 
