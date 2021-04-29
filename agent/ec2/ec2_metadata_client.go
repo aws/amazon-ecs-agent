@@ -40,7 +40,7 @@ const (
 	PrivateIPv4Resource                       = "local-ipv4"
 	PublicIPv4Resource                        = "public-ipv4"
 	OutpostARN                                = "outpost-arn"
-	PrimaryIPV4VPCCIDR                        = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
+	PrimaryIPV4VPCCIDRResourceFormat          = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
 )
 
 const (
@@ -208,7 +208,7 @@ func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
 
 // PrimaryIPV4VPCCIDR returns the primary IPV4 block associated with the VPC
 func (c *ec2MetadataClientImpl) PrimaryIPV4VPCCIDR(mac string) (*net.IPNet, error) {
-	vpcCIDR, err := c.client.GetMetadata(fmt.Sprintf(PrimaryIPV4VPCCIDR, mac))
+	vpcCIDR, err := c.client.GetMetadata(fmt.Sprintf(PrimaryIPV4VPCCIDRResourceFormat, mac))
 	if err != nil {
 		return nil, err
 	}
