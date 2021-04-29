@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Wed Apr 28, 20:05:00 UTC 2021 - fierlion@amazon.com - 1.52.0-1
+
+- Cache Agent version 1.52.0
+- Add support for ECS EXTERNAL launch type (ECS Anywhere)
+-------------------------------------------------------------------
 Wed Mar 31, 09:32:00 UTC 2021 - shugy@amazon.com - 1.51.0-1
 
 - Cache Agent version 1.51.0
