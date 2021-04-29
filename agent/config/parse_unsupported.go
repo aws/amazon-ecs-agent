@@ -22,3 +22,7 @@ func parseGMSACapability() bool {
 func parseFSxWindowsFileServerCapability() bool {
 	return false
 }
+
+func GetOperatingSystemFamily() string {
+	return OSType
+}

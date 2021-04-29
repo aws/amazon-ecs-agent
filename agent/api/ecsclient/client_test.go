@@ -379,7 +379,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 
 			fakeCapabilities := []string{"capability1", "capability2"}
 			expectedAttributes := map[string]string{
-				"ecs.os-type":               config.OSType,
+				"ecs.os-type":               config.GetOperatingSystemFamily(),
 				"my_custom_attribute":       "Custom_Value1",
 				"my_other_custom_attribute": "Custom_Value2",
 				"ecs.availability-zone":     "us-west-2b",
@@ -480,7 +480,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
-		"ecs.os-type":           config.OSType,
+		"ecs.os-type":           config.GetOperatingSystemFamily(),
 		"ecs.availability-zone": "us-west-2b",
 		"ecs.outpost-arn":       "test:arn:outpost",
 	}
@@ -570,7 +570,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 	client, mc, _ := NewMockClient(mockCtrl, mockEC2Metadata, nil)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type":               config.OSType,
+		"ecs.os-type":               config.GetOperatingSystemFamily(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
@@ -637,7 +637,7 @@ func TestRegisterBlankCluster(t *testing.T) {
 	client.(*APIECSClient).SetSDK(mc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type": config.OSType,
+		"ecs.os-type": config.GetOperatingSystemFamily(),
 	}
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
@@ -693,7 +693,7 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 	client.(*APIECSClient).SetSDK(mc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type": config.OSType,
+		"ecs.os-type": config.GetOperatingSystemFamily(),
 	}
 
 	gomock.InOrder(
