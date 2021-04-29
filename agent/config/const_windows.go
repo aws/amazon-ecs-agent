@@ -17,6 +17,7 @@ package config
 
 import "golang.org/x/sys/windows/registry"
 
+const OSType = "windows"
 const (
 	// envSkipDomainJoinCheck is an environment setting that can be used to skip
 	// domain join check validation. This is useful for integration and
