@@ -262,7 +262,7 @@ func TestPrimaryIPV4VPCCIDRSuccess(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDR, mac)).
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDRResourceFormat, mac)).
 		Return(vpcPrimaryCIDR, nil)
 	resp, err := testClient.PrimaryIPV4VPCCIDR(mac)
 
@@ -277,7 +277,7 @@ func TestPrimaryIPV4VPCCIDRError(t *testing.T) {
 	mockGetter := mock_ec2.NewMockHttpClient(ctrl)
 	testClient := ec2.NewEC2MetadataClient(mockGetter)
 
-	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDR, mac)).
+	mockGetter.EXPECT().GetMetadata(fmt.Sprintf(ec2.PrimaryIPV4VPCCIDRResourceFormat, mac)).
 		Return(incorrectVPCPrimaryCIDR, nil)
 	resp, err := testClient.PrimaryIPV4VPCCIDR(mac)
 
