@@ -1496,6 +1496,7 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	cniConfig := &ecscni.Config{
 		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
 		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
+		PrimaryIPv4VPCCIDR:     engine.cfg.PrimaryIPv4VPCCIDR,
 	}
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
 		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&

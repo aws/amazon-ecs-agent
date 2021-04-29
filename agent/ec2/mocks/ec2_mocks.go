@@ -19,6 +19,7 @@
 package mock_ec2
 
 import (
+	net "net"
 	reflect "reflect"
 
 	ec2 "github.com/aws/amazon-ecs-agent/agent/ec2"
@@ -184,6 +185,21 @@ func (m *MockEC2MetadataClient) PrimaryENIMAC() (string, error) {
 func (mr *MockEC2MetadataClientMockRecorder) PrimaryENIMAC() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrimaryENIMAC", reflect.TypeOf((*MockEC2MetadataClient)(nil).PrimaryENIMAC))
+}
+
+// PrimaryIPV4VPCCIDR mocks base method
+func (m *MockEC2MetadataClient) PrimaryIPV4VPCCIDR(arg0 string) (*net.IPNet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrimaryIPV4VPCCIDR", arg0)
+	ret0, _ := ret[0].(*net.IPNet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrimaryIPV4VPCCIDR indicates an expected call of PrimaryIPV4VPCCIDR
+func (mr *MockEC2MetadataClientMockRecorder) PrimaryIPV4VPCCIDR(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrimaryIPV4VPCCIDR", reflect.TypeOf((*MockEC2MetadataClient)(nil).PrimaryIPV4VPCCIDR), arg0)
 }
 
 // PrivateIPv4Address mocks base method

@@ -14,6 +14,7 @@
 package config
 
 import (
+	"net"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -332,4 +333,8 @@ type Config struct {
 
 	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
 	External BooleanDefaultFalse
+
+	// PrimaryIPv4VPCCIDR stores the primary IPv4 CIDR of the VPC in which agent is running
+	// Currently, this field is only populated for Windows and is used during task networking setup
+	PrimaryIPv4VPCCIDR *net.IPNet
 }
