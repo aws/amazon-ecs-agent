@@ -16,12 +16,13 @@
 package config
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/windows/registry"
 
 	"os"
 	"testing"
+
+	"github.com/golang/mock/gomock"
 
 	mock_dependencies "github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies/mocks"
 )
@@ -118,7 +119,7 @@ func TestGetOperatingSystemFamilyForKeyError(t *testing.T) {
 	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
 	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, registry.ErrNotExist)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForProductNameNotExistError(t *testing.T) {
@@ -130,7 +131,7 @@ func TestGetOperatingSystemFamilyForProductNameNotExistError(t *testing.T) {
 	mockKey.EXPECT().GetStringValue("ProductName").Return("", uint32(0), registry.ErrNotExist)
 
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForInstallationTypeNotExistError(t *testing.T) {
@@ -142,7 +143,7 @@ func TestGetOperatingSystemFamilyForInstallationTypeNotExistError(t *testing.T) 
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), registry.ErrNotExist)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForInvalidInstallationType(t *testing.T) {
@@ -154,7 +155,7 @@ func TestGetOperatingSystemFamilyForInvalidInstallationType(t *testing.T) {
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core Invalid`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForReleaseIdNotExistError(t *testing.T) {
@@ -167,7 +168,7 @@ func TestGetOperatingSystemFamilyForReleaseIdNotExistError(t *testing.T) {
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`2004`, uint32(0), registry.ErrNotExist)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForInvalidLTSCReleaseId(t *testing.T) {
@@ -180,7 +181,7 @@ func TestGetOperatingSystemFamilyForInvalidLTSCReleaseId(t *testing.T) {
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`2028`, uint32(0), registry.ErrNotExist)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForInvalidSACReleaseId(t *testing.T) {
@@ -192,5 +193,5 @@ func TestGetOperatingSystemFamilyForInvalidSACReleaseId(t *testing.T) {
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server BadVersion`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().Close()
-	assert.Equal(t, UnknownOSType, GetOperatingSystemFamily())
+	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
