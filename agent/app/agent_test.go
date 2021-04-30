@@ -737,6 +737,29 @@ func TestSetClusterInConfig(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestGetEC2InstanceID(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
+
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
+	assert.Equal(t, "i-123", agent.getEC2InstanceID())
+}
+
+func TestGetEC2InstanceIDBlackholedError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
+
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
+	assert.Equal(t, "", agent.getEC2InstanceID())
+}
+
 func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -744,6 +767,8 @@ func TestGetEC2InstanceIDIIDError(t *testing.T) {
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient}
 
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
+	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("error"))
 	assert.Equal(t, "", agent.getEC2InstanceID())
 }
