@@ -54,6 +54,7 @@ import (
 	tcshandler "github.com/aws/amazon-ecs-agent/agent/tcs/handler"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper"
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 	"github.com/aws/amazon-ecs-agent/agent/version"
 	"github.com/aws/aws-sdk-go/aws"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -70,6 +71,14 @@ const (
 
 	vpcIDAttributeName    = "ecs.vpc-id"
 	subnetIDAttributeName = "ecs.subnet-id"
+
+	blackholed = "blackholed"
+
+	instanceIdBackoffMin      = time.Second
+	instanceIdBackoffMax      = time.Second * 5
+	instanceIdBackoffJitter   = 0.2
+	instanceIdBackoffMultiple = 1.3
+	instanceIdMaxRetryCount   = 3
 )
 
 var (
@@ -454,11 +463,21 @@ func (agent *ecsAgent) setClusterInConfig(previousCluster string) error {
 
 // getEC2InstanceID gets the EC2 instance ID from the metadata service
 func (agent *ecsAgent) getEC2InstanceID() string {
-	instanceID, err := agent.ec2MetadataClient.InstanceID()
+	var instanceID string
+	var err error
+	backoff := retry.NewExponentialBackoff(instanceIdBackoffMin, instanceIdBackoffMax, instanceIdBackoffJitter, instanceIdBackoffMultiple)
+	for i := 0; i < instanceIdMaxRetryCount; i++ {
+		instanceID, err = agent.ec2MetadataClient.InstanceID()
+		if err == nil || err.Error() == blackholed {
+			return instanceID
+		}
+		if i < instanceIdMaxRetryCount-1 {
+			time.Sleep(backoff.Duration())
+		}
+	}
 	if err != nil {
 		seelog.Warnf(
 			"Unable to access EC2 Metadata service to determine EC2 ID: %v", err)
-		return ""
 	}
 	return instanceID
 }
