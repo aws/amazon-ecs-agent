@@ -136,12 +136,16 @@ fi
 S3_BUCKET="amazon-ecs-agent-shadow-$REGION"
 RPM_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH.rpm"
 DEB_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH_ALT.deb"
+S3_URL_SUFFIX=""
+if grep -q "^cn-" <<< "$REGION"; then
+    S3_URL_SUFFIX=".cn"
+fi
 
 if [ -z "$RPM_URL" ]; then
-    RPM_URL="https://$S3_BUCKET.s3.amazonaws.com/$RPM_PKG_NAME"
+    RPM_URL="https://$S3_BUCKET.s3.amazonaws.com${S3_URL_SUFFIX}/$RPM_PKG_NAME"
 fi
 if [ -z "$DEB_URL" ]; then
-    DEB_URL="https://$S3_BUCKET.s3.amazonaws.com/$DEB_PKG_NAME"
+    DEB_URL="https://$S3_BUCKET.s3.amazonaws.com${S3_URL_SUFFIX}/$DEB_PKG_NAME"
 fi
 
 # source /etc/os-release to get the VERSION_ID and ID fields
@@ -263,8 +267,8 @@ install-ssm-agent() {
     else
         local dir
         dir="$(mktemp -d)"
-        local SSM_DEB_URL="https://s3.$REGION.amazonaws.com/amazon-ssm-$REGION/latest/debian_$ARCH_ALT/amazon-ssm-agent.deb"
-        local SSM_RPM_URL="https://s3.$REGION.amazonaws.com/amazon-ssm-$REGION/latest/linux_$ARCH_ALT/amazon-ssm-agent.rpm"
+        local SSM_DEB_URL="https://s3.$REGION.amazonaws.com${S3_URL_SUFFIX}/amazon-ssm-$REGION/latest/debian_$ARCH_ALT/amazon-ssm-agent.deb"
+        local SSM_RPM_URL="https://s3.$REGION.amazonaws.com${S3_URL_SUFFIX}/amazon-ssm-$REGION/latest/linux_$ARCH_ALT/amazon-ssm-agent.rpm"
         local SSM_DEB_PKG_NAME="ssm-agent.deb"
         local SSM_RPM_PKG_NAME="ssm-agent.rpm"
 
