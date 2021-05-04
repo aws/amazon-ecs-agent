@@ -17,6 +17,10 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
+
+	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
+	"github.com/cihub/seelog"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,6 +31,9 @@ import (
 type ENI struct {
 	// ID is the id of eni
 	ID string `json:"ec2Id"`
+	// LinkName is the name of the ENI on the instance.
+	// Currently, this field is being used only for Windows and is used during task networking setup.
+	LinkName string
 	// MacAddress is the mac address of the eni
 	MacAddress string
 	// IPV4Addresses is the ipv4 address associated with the eni
@@ -55,6 +62,11 @@ type ENI struct {
 	ipv4SubnetPrefixLength string
 	ipv4SubnetCIDRBlock    string
 	ipv6SubnetCIDRBlock    string
+
+	// net is a wrapper around golang's net package.
+	net netwrapper.NetWrapper
+	// guard protects access to fields of this struct.
+	guard sync.RWMutex
 }
 
 // InterfaceVlanProperties contains information for an interface that
@@ -181,6 +193,30 @@ func (eni *ENI) GetHostname() string {
 	return eni.PrivateDNSName
 }
 
+// GetLinkName returns the name of the ENI on the instance.
+func (eni *ENI) GetLinkName() string {
+	eni.guard.Lock()
+	defer eni.guard.Unlock()
+
+	if eni.LinkName == "" && eni.net != nil {
+		// Find all interfaces on the instance.
+		ifaces, err := eni.net.GetAllNetworkInterfaces()
+		if err != nil {
+			seelog.Errorf("Failed to find link name: %v.", err)
+			return ""
+		}
+		// Iterate over the list and find the interface with the ENI's MAC address.
+		for _, iface := range ifaces {
+			if strings.EqualFold(eni.MacAddress, iface.HardwareAddr.String()) {
+				eni.LinkName = iface.Name
+				break
+			}
+		}
+	}
+
+	return eni.LinkName
+}
+
 // IsStandardENI returns true if the ENI is a standard/regular ENI. That is, if it
 // has its association protocol as standard. To be backwards compatible, if the
 // association protocol is not set for an ENI, it's considered a standard ENI as well.
@@ -280,6 +316,7 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		PrivateDNSName:               aws.StringValue(acsENI.PrivateDnsName),
 		InterfaceAssociationProtocol: aws.StringValue(acsENI.InterfaceAssociationProtocol),
 		InterfaceVlanProperties:      &interfaceVlanProperties,
+		net:                          netwrapper.New(),
 	}
 
 	for _, nameserverIP := range acsENI.DomainNameServers {

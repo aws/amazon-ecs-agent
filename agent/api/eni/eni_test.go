@@ -16,11 +16,16 @@
 package eni
 
 import (
+	"net"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+
+	mock_netwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
 )
 
 const (
@@ -28,6 +33,8 @@ const (
 	customDNS          = "10.0.0.2"
 	customSearchDomain = "us-west-2.compute.internal"
 
+	linkName                 = "eth1"
+	macAddr                  = "02:22:ea:8c:81:dc"
 	ipv4Addr                 = "1.2.3.4"
 	ipv4Gw                   = "1.2.3.1"
 	ipv4SubnetPrefixLength   = "20"
@@ -127,6 +134,50 @@ func TestGetIPv6SubnetCIDRBlock(t *testing.T) {
 
 func TestGetSubnetGatewayIPv4Address(t *testing.T) {
 	assert.Equal(t, ipv4Gw, testENI.GetSubnetGatewayIPv4Address())
+}
+
+// TestGetLinkNameSuccess tests the retrieval of ENIs name on the instance.
+func TestGetLinkNameSuccess(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+
+	parsedMAC, _ := net.ParseMAC(macAddr)
+	expectedIfaces := []net.Interface{
+		net.Interface{
+			Name:         linkName,
+			HardwareAddr: parsedMAC,
+		},
+	}
+
+	eni := &ENI{
+		MacAddress: parsedMAC.String(),
+		net:        mocknetwrapper,
+	}
+
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(expectedIfaces, nil)
+	eniLinkName := eni.GetLinkName()
+
+	assert.EqualValues(t, linkName, eniLinkName)
+}
+
+// TestGetLinkNameFailure tests the retrieval of ENI Name in case of failure.
+func TestGetLinkNameFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+
+	eni := &ENI{
+		MacAddress: macAddr,
+		net:        mocknetwrapper,
+	}
+
+	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("failed to find interfaces"))
+	eniLinkName := eni.GetLinkName()
+
+	assert.EqualValues(t, "", eniLinkName)
 }
 
 func TestENIToString(t *testing.T) {
