@@ -251,7 +251,6 @@ func (task *Task) addFSxWindowsFileServerResource(
 }
 
 // BuildCNIConfig builds a list of CNI network configurations for the task.
-// The first configuration is for vpc-shared-eni plugin to setup the task eni in task namespace
 func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
 	if !task.IsNetworkModeAWSVPC() {
 		return nil, errors.New("task config: task network mode is not awsvpc")
@@ -267,7 +266,7 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 		// compatibility), consider it a "standard" ENI attachment.
 		case "", apieni.DefaultInterfaceAssociationProtocol:
 			cniConfig.ID = eni.MacAddress
-			netconf, err = ecscni.NewBridgeNetworkConfigForTaskNSSetup(eni, cniConfig)
+			netconf, err = ecscni.NewVPCENIPluginConfigForTaskNSSetup(eni, cniConfig)
 		default:
 			err = errors.Errorf("task config: unknown interface association type: %s",
 				eni.InterfaceAssociationProtocol)
@@ -277,9 +276,9 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 			return nil, err
 		}
 
-		// IfName can be an empty string for Windows CNI plugins as it is not used for naming HNS endpoints
+		// IfName can be an empty string for Windows CNI plugins as it is not used for naming HNS endpoints.
 		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           ecscni.TaskENIBridgeNetworkPrefix,
+			IfName:           "",
 			CNINetworkConfig: netconf,
 		})
 	}

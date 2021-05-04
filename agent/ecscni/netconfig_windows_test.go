@@ -62,26 +62,25 @@ func getCNIConfig() *Config {
 	}
 }
 
-// TestNewBridgeNetworkConfigForTaskNSSetup tests the generated configuration when all parameters are valid
-func TestNewBridgeNetworkConfigForTaskNSSetup(t *testing.T) {
+// TestNewVPCENIPluginConfigForTaskNSSetup tests the generated configuration when all parameters are valid.
+func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	taskENI := getTaskENI()
 	cniConfig := getCNIConfig()
-	config, err := NewBridgeNetworkConfigForTaskNSSetup(taskENI, cniConfig)
+	config, err := NewVPCENIPluginConfigForTaskNSSetup(taskENI, cniConfig)
 
-	bridgeConfig := &BridgeForTaskENIConfig{}
-	json.Unmarshal(config.Bytes, bridgeConfig)
+	netConfig := &VPCENIPluginConfig{}
+	json.Unmarshal(config.Bytes, netConfig)
 
 	assert.NoError(t, err)
-	assert.EqualValues(t, ECSVPCSharedENIPluginExecutable, config.Network.Type)
-	assert.EqualValues(t, TaskENIBridgeNetworkPrefix, config.Network.Name)
+	assert.EqualValues(t, ECSVPCENIPluginExecutable, config.Network.Type)
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
-	assert.EqualValues(t, []string{validDNSServer}, bridgeConfig.DNS.Nameservers)
-	assert.EqualValues(t, ipv4CIDR, bridgeConfig.ENIIPAddress)
-	assert.EqualValues(t, ipv4CIDR, bridgeConfig.IPAddress)
-	assert.EqualValues(t, mac, bridgeConfig.ENIMACAddress)
-	assert.EqualValues(t, validVPCGatewayIPv4Addr, bridgeConfig.GatewayIPAddress)
-	assert.EqualValues(t, linkName, bridgeConfig.ENIName)
-	assert.True(t, bridgeConfig.TaskENIConfig.PauseContainer)
+	assert.EqualValues(t, []string{validDNSServer}, netConfig.DNS.Nameservers)
+	assert.EqualValues(t, ipv4CIDR, netConfig.ENIIPAddress)
+	assert.EqualValues(t, mac, netConfig.ENIMACAddress)
+	assert.EqualValues(t, validVPCGatewayIPv4Addr, netConfig.GatewayIPAddress)
+	assert.EqualValues(t, linkName, netConfig.ENIName)
+	assert.False(t, netConfig.UseExistingNetwork)
+	assert.False(t, netConfig.NoInfraContainer)
 }
 
 // TestConstructDNSFromVPCCIDRSuccess tests if the dns is constructed properly from the given vpc's primary cidr
