@@ -32,10 +32,6 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 	runtimeConfig := libcni.RuntimeConf{
 		ContainerID: cfg.ContainerID,
 		NetNS:       cfg.ContainerNetNS,
-		// This field is not used in the windows plugin
-		// However, we cannot keep it blank as it is expected by plugin due to its generic nature
-		// Therefore, we will pass dummy value here
-		IfName: TaskENIBridgeNetworkPrefix,
 	}
 
 	// Execute all CNI network configurations serially, in the given order.
