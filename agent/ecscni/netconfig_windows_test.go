@@ -25,6 +25,7 @@ import (
 )
 
 const (
+	linkName                = "Ethernet 4"
 	validVPCGatewayCIDR     = "10.0.0.1/24"
 	validVPCGatewayIPv4Addr = "10.0.0.1"
 	invalidVPCGatewayCIDR   = "10.0.0.300/24"
@@ -40,6 +41,7 @@ const (
 func getTaskENI() *apieni.ENI {
 	return &apieni.ENI{
 		ID:                           "TestENI",
+		LinkName:                     linkName,
 		MacAddress:                   mac,
 		InterfaceAssociationProtocol: apieni.DefaultInterfaceAssociationProtocol,
 		SubnetGatewayIPV4Address:     validVPCGatewayCIDR,
@@ -78,6 +80,7 @@ func TestNewBridgeNetworkConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, ipv4CIDR, bridgeConfig.IPAddress)
 	assert.EqualValues(t, mac, bridgeConfig.ENIMACAddress)
 	assert.EqualValues(t, validVPCGatewayIPv4Addr, bridgeConfig.GatewayIPAddress)
+	assert.EqualValues(t, linkName, bridgeConfig.ENIName)
 	assert.True(t, bridgeConfig.TaskENIConfig.PauseContainer)
 }
 

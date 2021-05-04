@@ -504,34 +504,32 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	dockerClient.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(),
 		gomock.Any(), gomock.Any()).Return(dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
 
-	gomock.InOrder(
-		dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID1, defaultConfig.ContainerStartTimeout).Return(
-			dockerapi.DockerContainerMetadata{DockerID: sleepContainerID1}),
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    sleepContainerID1,
-					State: &types.ContainerState{Pid: containerPid},
-					HostConfig: &dockercontainer.HostConfig{
-						NetworkMode: containerNetNS,
-					},
+	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID1, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{DockerID: sleepContainerID1})
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    sleepContainerID1,
+				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetNS,
 				},
-			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
-		dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID2, defaultConfig.ContainerStartTimeout).Return(
-			dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2}),
-		dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerJSON{
-				ContainerJSONBase: &types.ContainerJSONBase{
-					ID:    sleepContainerID2,
-					State: &types.ContainerState{Pid: containerPid},
-					HostConfig: &dockercontainer.HostConfig{
-						NetworkMode: containerNetNS,
-					},
+			},
+		}, nil)
+	cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil)
+	dockerClient.EXPECT().StartContainer(gomock.Any(), sleepContainerID2, defaultConfig.ContainerStartTimeout).Return(
+		dockerapi.DockerContainerMetadata{DockerID: sleepContainerID2})
+	dockerClient.EXPECT().InspectContainer(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		&types.ContainerJSON{
+			ContainerJSONBase: &types.ContainerJSONBase{
+				ID:    sleepContainerID2,
+				State: &types.ContainerState{Pid: containerPid},
+				HostConfig: &dockercontainer.HostConfig{
+					NetworkMode: containerNetNS,
 				},
-			}, nil),
-		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
-	)
+			},
+		}, nil)
+	cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil)
 
 	cleanup := make(chan time.Time)
 	defer close(cleanup)

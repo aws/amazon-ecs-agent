@@ -45,6 +45,7 @@ func NewBridgeNetworkConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Ne
 
 	eniConf := BridgeForTaskENIConfig{
 		Type:             ECSVPCSharedENIPluginName,
+		ENIName:          eni.GetLinkName(),
 		ENIIPAddress:     eni.GetPrimaryIPv4AddressWithPrefixLength(),
 		ENIMACAddress:    eni.MacAddress,
 		GatewayIPAddress: gateway,
