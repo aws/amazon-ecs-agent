@@ -50,7 +50,7 @@ const (
 
 // awsVPCCNIPlugins is a list of CNI plugins required by the ECS Agent to configure the ENI for a task
 var awsVPCCNIPlugins = []string{
-	ecscni.ECSVPCSharedENIPluginExecutable,
+	ecscni.ECSVPCENIPluginExecutable,
 }
 
 // initializeTaskENIDependencies initializes all the dependencies required to support awsvpc mode.
