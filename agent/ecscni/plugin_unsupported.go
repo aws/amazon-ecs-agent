@@ -23,6 +23,11 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
+const (
+	// vpcCNIPluginPath is the path of the cni plugin's log file.
+	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
+)
+
 type cniPluginVersion struct{}
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
