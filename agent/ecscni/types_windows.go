@@ -18,40 +18,31 @@ package ecscni
 import "github.com/containernetworking/cni/pkg/types"
 
 const (
-	// ECSVPCSharedENIPluginName is the name of the vpc-shared-eni plugin
-	ECSVPCSharedENIPluginName = "vpc-shared-eni"
-	// ECSVPCSharedENIPluginExecutable is the name of vpc-shared-eni executable
-	ECSVPCSharedENIPluginExecutable = "vpc-shared-eni.exe"
-	// TaskENIBridgeNetworkPrefix is the prefix added to the Task ENI bridge network name by the CNI plugin
-	TaskENIBridgeNetworkPrefix = "task"
+	// ECSVPCENIPluginName is the name of the vpc-eni plugin.
+	ECSVPCENIPluginName = "vpc-eni"
+	// ECSVPCENIPluginExecutable is the name of vpc-eni executable.
+	ECSVPCENIPluginExecutable = "vpc-eni.exe"
 )
 
-// TaskENIConfig defines the Task Networking specific data required by the plugin
-type TaskENIConfig struct {
-	PauseContainer bool `json:"pauseContainer"`
-}
-
-// BridgeForTaskENIConfig contains all the information to invoke the vpc-shared-eni plugin
-// This config is used to invoke plugin for setting up the Task ENI in task compartment
-type BridgeForTaskENIConfig struct {
-	// Type is the cni plugin name
+// VPCENIPluginConfig contains all the information required to invoke the vpc-eni plugin.
+type VPCENIPluginConfig struct {
+	// Type is the cni plugin name.
 	Type string `json:"type,omitempty"`
-	// CNIVersion is the cni spec version to use
+	// CNIVersion is the cni spec version to use.
 	CNIVersion string `json:"cniVersion,omitempty"`
-	// DNS is used to pass DNS information to the plugin
+	// DNS is used to pass DNS information to the plugin.
 	DNS types.DNS `json:"dns"`
 
-	// ENIName is the name/id of the ENI
+	// ENIName is the name of the eni on the instance.
 	ENIName string `json:"eniName"`
-	// ENIMACAddress is the MAC address of the eni
+	// ENIMACAddress is the MAC address of the eni.
 	ENIMACAddress string `json:"eniMACAddress"`
-	// ENIIPAddress is the is the ipv4 of eni
+	// ENIIPAddress is the is the ipv4 of eni.
 	ENIIPAddress string `json:"eniIPAddress"`
-	// GatewayIPAddress specifies the IPv4 address of the subnet gateway for the ENI
+	// GatewayIPAddress specifies the IPv4 address of the subnet gateway for the eni.
 	GatewayIPAddress string `json:"gatewayIPAddress"`
-	// IPAddress which needs to be allocated to pause container endpoint
-	IPAddress string `json:"ipAddress"`
-	// TaskENIConfig provides the Task ENI specific information to the plugin
-	// For now, we will use it to signal plugin to delete network on invokation of DEL
-	TaskENIConfig TaskENIConfig `json:"taskENIConfig"`
+	// NoInfraContainer specifies if HCN Namespace is being used for networking setup.
+	NoInfraContainer bool `json:"noInfraContainer"`
+	// UseExistingNetwork specifies if existing network should be used instead of creating a new one.
+	UseExistingNetwork bool `json:"useExistingNetwork"`
 }

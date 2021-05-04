@@ -747,10 +747,10 @@ func TestBuildCNIConfig(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
-	// vpc-shared-eni for task ENI setup
+	// vpc-eni for task ENI setup
 	require.Len(t, cniConfig.NetworkConfigs, 1)
-	var eniConfig ecscni.BridgeForTaskENIConfig
+	var eniConfig ecscni.VPCENIPluginConfig
 	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 	require.NoError(t, err)
-	assert.EqualValues(t, ecscni.ECSVPCSharedENIPluginName, eniConfig.Type)
+	assert.EqualValues(t, ecscni.ECSVPCENIPluginName, eniConfig.Type)
 }
