@@ -20,6 +20,7 @@ import (
 
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/statechange"
 )
 
@@ -50,6 +51,7 @@ type TaskEngine interface {
 	GetTaskByArn(string) (*apitask.Task, bool)
 
 	Version() (string, error)
+	TaskEngineClient() dockerapi.DockerClient
 
 	// LoadState loads the task engine state with data in db.
 	LoadState() error

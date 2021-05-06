@@ -25,6 +25,7 @@ import (
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	data "github.com/aws/amazon-ecs-agent/agent/data"
+	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	gomock "github.com/golang/mock/gomock"
@@ -200,6 +201,20 @@ func (m *MockTaskEngine) StateChangeEvents() chan statechange.Event {
 func (mr *MockTaskEngineMockRecorder) StateChangeEvents() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateChangeEvents", reflect.TypeOf((*MockTaskEngine)(nil).StateChangeEvents))
+}
+
+// TaskEngineClient mocks base method
+func (m *MockTaskEngine) TaskEngineClient() dockerapi.DockerClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TaskEngineClient")
+	ret0, _ := ret[0].(dockerapi.DockerClient)
+	return ret0
+}
+
+// TaskEngineClient indicates an expected call of TaskEngineClient
+func (mr *MockTaskEngineMockRecorder) TaskEngineClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TaskEngineClient", reflect.TypeOf((*MockTaskEngine)(nil).TaskEngineClient))
 }
 
 // UnmarshalJSON mocks base method
