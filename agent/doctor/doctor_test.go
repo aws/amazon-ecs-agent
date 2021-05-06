@@ -24,28 +24,41 @@ import (
 
 type trueHealthcheck struct{}
 
-func (tc *trueHealthcheck) RunCheck() bool { return true }
+func (tc *trueHealthcheck) RunCheck() HealthcheckStatus { return HealthcheckStatusOk }
 func (tc *trueHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
+	return HealthcheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
 	return HealthcheckStatusInitializing
 }
 func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
+func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (tc *trueHealthcheck) SetHealthcheckStatus(status HealthcheckStatus) {}
 
 type falseHealthcheck struct{}
 
-func (fc *falseHealthcheck) RunCheck() bool { return false }
+func (fc *falseHealthcheck) RunCheck() HealthcheckStatus { return HealthcheckStatusImpaired }
 func (fc *falseHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
 	return HealthcheckStatusInitializing
 }
 func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
+func (tc *falseHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
+	return HealthcheckStatusInitializing
+}
+func (tc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (tc *falseHealthcheck) SetHealthcheckStatus(status HealthcheckStatus) {}
 
 func TestNewDoctor(t *testing.T) {
 	trueCheck := &trueHealthcheck{}
 	falseCheck := &falseHealthcheck{}
-
 	healthchecks := []Healthcheck{trueCheck, falseCheck}
 	newDoctor, _ := NewDoctor(healthchecks)
 	assert.Len(t, newDoctor.healthchecks, 2)
@@ -55,8 +68,8 @@ type testHealthcheck struct {
 	testName string
 }
 
-func (thc *testHealthcheck) RunCheck() bool {
-	return true
+func (thc *testHealthcheck) RunCheck() HealthcheckStatus {
+	return HealthcheckStatusOk
 }
 
 func (thc *testHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
@@ -66,6 +79,14 @@ func (thc *testHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
 func (thc *testHealthcheck) GetHealthcheckTime() time.Time {
 	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
 }
+
+func (tc *testHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
+	return HealthcheckStatusInitializing
+}
+func (tc *testHealthcheck) GetLastHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (tc *testHealthcheck) SetHealthcheckStatus(status HealthcheckStatus) {}
 
 func TestAddHealthcheck(t *testing.T) {
 	newDoctor := Doctor{}
@@ -118,27 +139,27 @@ func TestRunHealthchecks(t *testing.T) {
 func TestAllRight(t *testing.T) {
 	testcases := []struct {
 		name             string
-		testChecksResult []bool
+		testChecksResult []HealthcheckStatus
 		expectedResult   bool
 	}{
 		{
 			name:             "empty checks",
-			testChecksResult: []bool{},
+			testChecksResult: []HealthcheckStatus{},
 			expectedResult:   true,
 		},
 		{
 			name:             "all true checks",
-			testChecksResult: []bool{true, true},
+			testChecksResult: []HealthcheckStatus{HealthcheckStatusOk, HealthcheckStatusOk},
 			expectedResult:   true,
 		},
 		{
 			name:             "all false checks",
-			testChecksResult: []bool{false, false},
+			testChecksResult: []HealthcheckStatus{HealthcheckStatusImpaired, HealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 		{
 			name:             "mixed checks",
-			testChecksResult: []bool{true, false},
+			testChecksResult: []HealthcheckStatus{HealthcheckStatusOk, HealthcheckStatusImpaired},
 			expectedResult:   false,
 		},
 	}
