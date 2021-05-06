@@ -794,6 +794,9 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		// This will update the container desired status
 		task.UpdateDesiredStatus()
 
+		// This will update any dependencies for awsvpc network mode before the task is started.
+		engine.updateTaskENIDependencies(task)
+
 		engine.state.AddTask(task)
 		if dependencygraph.ValidDependencies(task, engine.cfg) {
 			engine.startTask(task)
