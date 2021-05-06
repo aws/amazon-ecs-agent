@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
 	"github.com/cihub/seelog"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
@@ -63,8 +62,6 @@ type ENI struct {
 	ipv4SubnetCIDRBlock    string
 	ipv6SubnetCIDRBlock    string
 
-	// net is a wrapper around golang's net package.
-	net netwrapper.NetWrapper
 	// guard protects access to fields of this struct.
 	guard sync.RWMutex
 }
@@ -89,6 +86,11 @@ const (
 	// The ACS ENI payload structure does not contain an IPv6 subnet prefix length because "/64" is
 	// the only allowed length per RFCs above, and the only one that VPC supports.
 	IPv6SubnetPrefixLength = "64"
+)
+
+var (
+	// netInterfaces is the Interfaces() method of net package.
+	netInterfaces = net.Interfaces
 )
 
 // GetIPV4Addresses returns the list of IPv4 addresses assigned to the ENI.
@@ -198,9 +200,9 @@ func (eni *ENI) GetLinkName() string {
 	eni.guard.Lock()
 	defer eni.guard.Unlock()
 
-	if eni.LinkName == "" && eni.net != nil {
+	if eni.LinkName == "" {
 		// Find all interfaces on the instance.
-		ifaces, err := eni.net.GetAllNetworkInterfaces()
+		ifaces, err := netInterfaces()
 		if err != nil {
 			seelog.Errorf("Failed to find link name: %v.", err)
 			return ""
@@ -316,7 +318,6 @@ func ENIFromACS(acsENI *ecsacs.ElasticNetworkInterface) (*ENI, error) {
 		PrivateDNSName:               aws.StringValue(acsENI.PrivateDnsName),
 		InterfaceAssociationProtocol: aws.StringValue(acsENI.InterfaceAssociationProtocol),
 		InterfaceVlanProperties:      &interfaceVlanProperties,
-		net:                          netwrapper.New(),
 	}
 
 	for _, nameserverIP := range acsENI.DomainNameServers {
