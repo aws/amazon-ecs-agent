@@ -50,7 +50,7 @@ func TestSetupNS(t *testing.T) {
 	ecscniClient.(*cniClient).libcni = libcniClient
 
 	gomock.InOrder(
-		// vpc-shared-eni plugin called to setup task namespace
+		// vpc-eni plugin called to setup task namespace
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
 				assert.Equal(t, ECSVPCENIPluginExecutable, net.Network.Type, "first plugin should be vpc-eni")
@@ -82,7 +82,7 @@ func eniNetworkConfig(config *Config) *NetworkConfig {
 	return &NetworkConfig{CNINetworkConfig: eniNetworkConfig}
 }
 
-// TestSetupNSTimeout tests the behavior when CNI plugin invocation returns an error
+// TestSetupNSTimeout tests the behavior when CNI plugin invocation returns an error.
 func TestSetupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -92,10 +92,10 @@ func TestSetupNSTimeout(t *testing.T) {
 	ecscniClient.(*cniClient).libcni = libcniClient
 
 	gomock.InOrder(
-		// vpc-shared-eni plugin will be called first
+		// vpc-eni plugin will be called first
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, errors.New("timeout")).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-			}).MaxTimes(1),
+			}).MaxTimes(3),
 	)
 
 	config := &Config{
@@ -106,6 +106,36 @@ func TestSetupNSTimeout(t *testing.T) {
 	_, err := ecscniClient.SetupNS(context.TODO(), config, time.Millisecond)
 
 	assert.Error(t, err)
+}
+
+// TestSetupNSWithRetry tests the behavior when CNI plugin invocation returns an error and then succeeds in retry.
+func TestSetupNSWithRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	ecscniClient := NewClient("")
+	libcniClient := mock_libcni.NewMockCNI(ctrl)
+	ecscniClient.(*cniClient).libcni = libcniClient
+
+	gomock.InOrder(
+		// First invocation of the plugin for setupNS will fail and the same will succeed in retry.
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, errors.New("timeout")).Do(
+			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+			}),
+		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, nil).Do(
+			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
+				assert.Equal(t, ECSVPCENIPluginExecutable, net.Network.Type, "first plugin should be vpc-eni")
+			}),
+	)
+
+	config := &Config{
+		NetworkConfigs: []*NetworkConfig{},
+	}
+
+	config.NetworkConfigs = append(config.NetworkConfigs, eniNetworkConfig(config))
+	_, err := ecscniClient.SetupNS(context.TODO(), config, setupNSBackoffMax)
+
+	assert.NoError(t, err)
 }
 
 // TestCleanupNS tests the cleanup of the task namespace when CleanupNS is called
@@ -137,7 +167,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
 
-	// This will be called for both bridge and eni plugin
+	// This will be called for both the endpoints.
 	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(x interface{}, y interface{}, z interface{}) {
 		}).Return(errors.New("timeout")).MaxTimes(1)
