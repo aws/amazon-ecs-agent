@@ -357,6 +357,10 @@ func (engine *DockerTaskEngine) TaskEngineClient() dockerapi.DockerClient {
 	return engine.client
 }
 
+func (engine *DockerTaskEngine) Context() context.Context {
+	return engine.ctx
+}
+
 // Shutdown makes a best-effort attempt to cleanup after the task engine.
 // This should not be relied on for anything more complicated than testing.
 func (engine *DockerTaskEngine) Shutdown() {
