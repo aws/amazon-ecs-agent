@@ -15,6 +15,7 @@ package doctor
 
 import (
 	"sync"
+	"time"
 
 	"github.com/cihub/seelog"
 )
@@ -38,14 +39,13 @@ func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
 	doc.healthchecks = append(doc.healthchecks, healthcheck)
-
 }
-
 
 func (doc *Doctor) RunHealthchecks() bool {
 	doc.lock.RLock()
 	defer doc.lock.RUnlock()
-	allChecksResult := []bool{}
+	allChecksResult := []HealthcheckStatus{}
+
 	for _, healthcheck := range doc.healthchecks {
 		res := healthcheck.RunCheck()
 		seelog.Debugf("instance healthcheck result: %v", res)
@@ -54,10 +54,19 @@ func (doc *Doctor) RunHealthchecks() bool {
 	return doc.allRight(allChecksResult)
 }
 
-func (doc *Doctor) allRight(checksResult []bool) bool {
+func (doc *Doctor) allRight(checksResult []HealthcheckStatus) bool {
 	overallResult := true
 	for _, checkResult := range checksResult {
-		overallResult = overallResult && checkResult
+		overallResult = overallResult && checkResult.Ok()
 	}
 	return overallResult
+}
+
+type Healthcheck interface {
+	GetLastHealthcheckStatus() HealthcheckStatus
+	GetLastHealthcheckTime() time.Time
+	GetHealthcheckStatus() HealthcheckStatus
+	GetHealthcheckTime() time.Time
+	RunCheck() HealthcheckStatus
+	SetHealthcheckStatus(status HealthcheckStatus)
 }
