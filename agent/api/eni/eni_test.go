@@ -21,11 +21,8 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-
-	mock_netwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
 )
 
 const (
@@ -64,6 +61,20 @@ var (
 			},
 		},
 		SubnetGatewayIPV4Address: ipv4GwWithPrefixLength,
+	}
+	// validNetInterfacesFunc represents a mock of valid response from net.Interfaces() method.
+	validNetInterfacesFunc = func() ([]net.Interface, error) {
+		parsedMAC, _ := net.ParseMAC(macAddr)
+		return []net.Interface{
+			net.Interface{
+				Name:         linkName,
+				HardwareAddr: parsedMAC,
+			},
+		}, nil
+	}
+	// invalidNetInterfacesFunc represents a mock of error response from net.Interfaces() method.
+	invalidNetInterfacesFunc = func() ([]net.Interface, error) {
+		return nil, errors.New("failed to find interfaces")
 	}
 )
 
@@ -138,45 +149,23 @@ func TestGetSubnetGatewayIPv4Address(t *testing.T) {
 
 // TestGetLinkNameSuccess tests the retrieval of ENIs name on the instance.
 func TestGetLinkNameSuccess(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-
-	parsedMAC, _ := net.ParseMAC(macAddr)
-	expectedIfaces := []net.Interface{
-		net.Interface{
-			Name:         linkName,
-			HardwareAddr: parsedMAC,
-		},
-	}
-
+	netInterfaces = validNetInterfacesFunc
 	eni := &ENI{
-		MacAddress: parsedMAC.String(),
-		net:        mocknetwrapper,
+		MacAddress: macAddr,
 	}
 
-	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(expectedIfaces, nil)
 	eniLinkName := eni.GetLinkName()
-
 	assert.EqualValues(t, linkName, eniLinkName)
 }
 
 // TestGetLinkNameFailure tests the retrieval of ENI Name in case of failure.
 func TestGetLinkNameFailure(t *testing.T) {
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
-
+	netInterfaces = invalidNetInterfacesFunc
 	eni := &ENI{
 		MacAddress: macAddr,
-		net:        mocknetwrapper,
 	}
 
-	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(nil, errors.New("failed to find interfaces"))
 	eniLinkName := eni.GetLinkName()
-
 	assert.EqualValues(t, "", eniLinkName)
 }
 
