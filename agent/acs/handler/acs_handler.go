@@ -335,8 +335,8 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	// Add HeartbeatHandler to acknowledge ACS heartbeats
-	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client)
+	// TODO add healthcheck-specific acs heartbeat handler
+	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.taskEngine)
 	defer heartbeatHandler.clearAcks()
 	heartbeatHandler.start()
 	defer heartbeatHandler.stop()
