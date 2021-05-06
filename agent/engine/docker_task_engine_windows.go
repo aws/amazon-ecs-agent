@@ -22,6 +22,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
+	if !task.IsNetworkModeAWSVPC() {
+		return
+	}
+	task.UpdateTaskENIsLinkName()
+}
+
 // invokePluginForContainer is used to invoke the CNI plugin for the given container
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
 	containerInspectOutput, err := engine.inspectContainer(task, container)

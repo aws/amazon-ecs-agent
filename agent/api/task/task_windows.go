@@ -276,9 +276,9 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 			return nil, err
 		}
 
-		// IfName can be an empty string for Windows CNI plugins as it is not used for naming HNS endpoints.
+		// IfName is expected by the plugin but is not used.
 		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
-			IfName:           "",
+			IfName:           eni.GetLinkName(),
 			CNINetworkConfig: netconf,
 		})
 	}

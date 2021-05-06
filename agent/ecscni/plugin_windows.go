@@ -51,6 +51,7 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 			cniNetworkConfig.Network.Name,
 			cniNetworkConfig.Network.Type,
 			cfg.ContainerID)
+		runtimeConfig.IfName = networkConfig.IfName
 		_, err := client.libcni.AddNetwork(ctx, cniNetworkConfig, &runtimeConfig)
 		if err != nil {
 			return nil, errors.Wrap(err, "add network failed")
