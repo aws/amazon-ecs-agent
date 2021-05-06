@@ -20,6 +20,11 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 )
 
+// updateTaskENIDependencies updates the task's dependencies for awsvpc networking mode.
+// This method is used only on Windows platform.
+func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
+}
+
 // invokePluginForContainer is used to invoke the CNI plugin for the given container
 // On non-windows platform, we will not invoke CNI plugins for non-pause containers
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
