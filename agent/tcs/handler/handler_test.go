@@ -30,6 +30,7 @@ import (
 
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
@@ -62,6 +63,8 @@ var testCfg = &config.Config{
 	AcceptInsecureCert: true,
 	AWSRegion:          "us-east-1",
 }
+
+var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
 func (*mockStatsEngine) GetInstanceMetrics() (*ecstcs.MetricsMetadata, []*ecstcs.TaskMetric, error) {
 	req := createPublishMetricsRequest()
@@ -136,7 +139,7 @@ func TestStartSession(t *testing.T) {
 	// Start a session with the test server.
 	go startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 
 	// startSession internally starts publishing metrics from the mockStatsEngine object.
 	time.Sleep(testPublishMetricsInterval)
@@ -200,7 +203,7 @@ func TestSessionConnectionClosedByRemote(t *testing.T) {
 	// Start a session with the test server.
 	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		defaultHeartbeatTimeout, defaultHeartbeatJitter,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 
 	if err == nil {
 		t.Error("Expected io.EOF on closed connection")
@@ -237,7 +240,7 @@ func TestConnectionInactiveTimeout(t *testing.T) {
 	// Start a session with the test server.
 	err = startSession(ctx, server.URL, testCfg, testCreds, &mockStatsEngine{},
 		50*time.Millisecond, 100*time.Millisecond,
-		testPublishMetricsInterval, deregisterInstanceEventStream)
+		testPublishMetricsInterval, deregisterInstanceEventStream, emptyDoctor)
 	// if we are not blocked here, then the test pass as it will reconnect in StartSession
 	assert.NoError(t, err, "Close the connection should cause the tcs client return error")
 

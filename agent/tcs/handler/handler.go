@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
@@ -102,7 +103,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
-		params.DeregisterInstanceEventStream)
+		params.DeregisterInstanceEventStream, params.Doctor)
 }
 
 func startSession(
@@ -113,9 +114,11 @@ func startSession(
 	statsEngine stats.Engine,
 	heartbeatTimeout, heartbeatJitter,
 	publishMetricsInterval time.Duration,
-	deregisterInstanceEventStream *eventstream.EventStream) error {
+	deregisterInstanceEventStream *eventstream.EventStream,
+	doctor *doctor.Doctor,
+) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
-		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled())
+		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled(), doctor)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
@@ -138,6 +141,7 @@ func startSession(
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
+	client.AddRequestHandler(ackPublishInstanceStatusHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
 	serveC := make(chan error)
 	go func() {
@@ -178,6 +182,15 @@ func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 func ackPublishHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishHealth) {
 	return func(*ecstcs.AckPublishHealth) {
 		seelog.Debug("Received ACKPublishHealth from tcs")
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+	}
+}
+
+// ackPublishInstanceStatusHandler consumes the ack message from backend. The backend sends
+// the ack each time it processes a health message
+func ackPublishInstanceStatusHandler(timer *time.Timer) func(*ecstcs.AckPublishInstanceStatus) {
+	return func(*ecstcs.AckPublishInstanceStatus) {
+		seelog.Debug("Received AckPublishInstanceStatus from tcs")
 		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }
