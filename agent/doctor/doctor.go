@@ -37,9 +37,10 @@ func NewDoctor(healthchecks []Healthcheck) (*Doctor, error) {
 func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
-
 	doc.healthchecks = append(doc.healthchecks, healthcheck)
+
 }
+
 
 func (doc *Doctor) RunHealthchecks() bool {
 	doc.lock.RLock()
