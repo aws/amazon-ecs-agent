@@ -2641,3 +2641,14 @@ func (task *Task) SetLocalIPAddress(addr string) {
 
 	task.LocalIPAddressUnsafe = addr
 }
+
+// UpdateTaskENIsLinkName updates the link name of all the enis associated with the task.
+func (task *Task) UpdateTaskENIsLinkName() {
+	task.lock.Lock()
+	defer task.lock.Unlock()
+
+	// Update the link name of the task eni.
+	for _, eni := range task.ENIs {
+		eni.GetLinkName()
+	}
+}
