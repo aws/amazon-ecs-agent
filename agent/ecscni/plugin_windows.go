@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
+
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
 	"github.com/cihub/seelog"
@@ -35,8 +37,28 @@ var (
 		"Amazon", "ECS", "log", "vpc-eni.log")
 )
 
-// setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
+// setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations.
+// For Windows, we will retry the setup on Windows before conceding error.
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
+	var result *current.Result
+	var err error
+	backoff := retry.NewExponentialBackoff(setupNSBackoffMin, setupNSBackoffMax,
+		setupNSBackoffJitter, setupNSBackoffMultiple)
+
+	for count := 1; count < setupNSMaxRetryCount; count++ {
+		result, err = client.setupNSOnce(ctx, cfg)
+		if err == nil {
+			return result, nil
+		}
+		if count < setupNSMaxRetryCount {
+			time.Sleep(backoff.Duration())
+		}
+	}
+	return nil, err
+}
+
+// setupNSOnce invokes the CNI plugins to setup the task network namespace.
+func (client *cniClient) setupNSOnce(ctx context.Context, cfg *Config) (*current.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
 
 	runtimeConfig := libcni.RuntimeConf{
