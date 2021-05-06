@@ -38,7 +38,6 @@ type heartbeatHandler struct {
 // newHeartbeatHandler returns an instance of the heartbeatHandler struct
 func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine) heartbeatHandler {
 	doctor := &doctor.Doctor{}
-	doctor, _ := doctor.NewDoctor()
 
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
@@ -93,17 +92,6 @@ func (heartbeatHandler *heartbeatHandler) handleSingleHeartbeatMessage(message *
 	//}()
 
 	// Agent will send simple ack to the heartbeatAckMessageBuffer
-	// Agent will run healthchecks triggered by ACS heartbeat
-	// healthcheck results will be sent on to TACS
-	dockerHealthcheck := doctor.NewDockerRuntimeHealthcheck(heartbeatHandler.taskEngine.TaskEngineClient())
-	heartbeatHandler.doctor.AddHealthcheck(&dockerHealthcheck)
-
-	go func() {
-		checkResult := heartbeatHandler.doctor.RunHealthchecks()
-		seelog.Infof("handler healthcheck result: %v", checkResult)
-	}()
-
-	// Angent will send simple ack to the heartbeatAckMessageBuffer
 	go func() {
 		response := &ecsacs.HeartbeatAckRequest{
 			MessageId: message.MessageId,

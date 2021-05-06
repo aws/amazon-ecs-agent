@@ -52,7 +52,6 @@ type TaskEngine interface {
 
 	Version() (string, error)
 	TaskEngineClient() dockerapi.DockerClient
-	Context() context.Context
 
 	// LoadState loads the task engine state with data in db.
 	LoadState() error

@@ -25,12 +25,9 @@ import (
 
 // HandleEngineEvents handles state change events from the state change event channel by sending it to
 // responsible event handler
-func HandleEngineEvents(
-	ctx context.Context,
-	taskEngine engine.TaskEngine,
-	client api.ECSClient,
-	taskHandler *TaskHandler,
-	attachmentEventHandler *AttachmentEventHandler) {
+func HandleEngineEvents(ctx context.Context, taskEngine engine.TaskEngine, client api.ECSClient,
+	taskHandler *TaskHandler, attachmentEventHandler *AttachmentEventHandler) {
+
 	for {
 		stateChangeEvents := taskEngine.StateChangeEvents()
 
