@@ -283,7 +283,15 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 		})
 	}
 
-	// TODO: Build configuration for second invocation of plugin to setup ecs-bridge
+	// Create the vpc-eni plugin configuration to setup ecs-bridge endpoint in the task namespace.
+	netconf, err = ecscni.NewVPCENIPluginConfigForECSBridgeSetup(cniConfig)
+	if err != nil {
+		return nil, err
+	}
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ecscni.ECSBridgeNetworkName,
+		CNINetworkConfig: netconf,
+	})
 
 	return cniConfig, nil
 }

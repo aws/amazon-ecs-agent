@@ -274,9 +274,10 @@ func TestBuildCNIConfigFromTaskContainer(t *testing.T) {
 	assert.Equal(t, strconv.Itoa(containerPid), cniConfig.ContainerPID)
 	assert.Equal(t, containerNetNS, cniConfig.ContainerNetNS)
 	assert.Equal(t, mac, cniConfig.ID, "ID should be set to the mac of eni")
-	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
-	// Bridge for Task ENI
-	require.Len(t, cniConfig.NetworkConfigs, 1)
+	// We expect 2 NetworkConfig objects in the cni Config wrapper object:
+	// Config for task ns setup.
+	// Config for ecs-bridge setup for the task.
+	require.Len(t, cniConfig.NetworkConfigs, 2)
 }
 
 // TestTaskWithSteadyStateResourcesProvisioned tests container and task transitions

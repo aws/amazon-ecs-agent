@@ -746,11 +746,20 @@ func TestBuildCNIConfig(t *testing.T) {
 		MinSupportedCNIVersion: "latest",
 	})
 	assert.NoError(t, err)
-	// We expect 1 NetworkConfig objects in the cni Config wrapper object:
-	// vpc-eni for task ENI setup
-	require.Len(t, cniConfig.NetworkConfigs, 1)
+	// We expect 2 NetworkConfig objects in the cni Config wrapper object:
+	// vpc-eni for task ENI setup.
+	// vpc-eni for ecs-bridge setup.
+	require.Len(t, cniConfig.NetworkConfigs, 2)
 	var eniConfig ecscni.VPCENIPluginConfig
+	// For the task ns setup.
 	err = json.Unmarshal(cniConfig.NetworkConfigs[0].CNINetworkConfig.Bytes, &eniConfig)
 	require.NoError(t, err)
 	assert.EqualValues(t, ecscni.ECSVPCENIPluginName, eniConfig.Type)
+	assert.False(t, eniConfig.UseExistingNetwork)
+	// For the ecs-bridge setup.
+	err = json.Unmarshal(cniConfig.NetworkConfigs[1].CNINetworkConfig.Bytes, &eniConfig)
+	require.NoError(t, err)
+	assert.EqualValues(t, ecscni.ECSVPCENIPluginName, eniConfig.Type)
+	assert.True(t, eniConfig.UseExistingNetwork)
+	assert.EqualValues(t, ecscni.ECSBridgeNetworkName, cniConfig.NetworkConfigs[1].CNINetworkConfig.Network.Name)
 }
