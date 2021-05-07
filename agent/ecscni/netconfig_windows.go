@@ -58,6 +58,23 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 	return networkConfig, nil
 }
 
+// NewVPCENIPluginConfigForECSBridgeSetup creates the configuration required by vpc-eni plugin to setup ecs-bridge endpoint for the task.
+func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig, error) {
+	bridgeConf := VPCENIPluginConfig{
+		Type:               ECSVPCENIPluginName,
+		NoInfraContainer:   false,
+		UseExistingNetwork: true,
+	}
+
+	networkConfig, err := newNetworkConfig(bridgeConf, ECSVPCENIPluginExecutable, cfg.MinSupportedCNIVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create vpc-eni plugin configuration for setting up ecs-bridge endpoint of the task")
+	}
+
+	networkConfig.Network.Name = ECSBridgeNetworkName
+	return networkConfig, nil
+}
+
 // constructDNSFromVPCCIDR is used to construct DNS server from the primary ipv4 cidr of the vpc.
 func constructDNSFromVPCCIDR(vpcCIDR *net.IPNet) ([]string, error) {
 	// The DNS server maps to a reserved IP address at the base of the VPC IPv4 network rage plus 2
