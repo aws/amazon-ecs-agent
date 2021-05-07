@@ -26,11 +26,14 @@ const (
 	ECSVPCENIPluginName = "vpc-eni"
 	// ECSVPCENIPluginExecutable is the name of vpc-eni executable.
 	ECSVPCENIPluginExecutable = "vpc-eni.exe"
-	setupNSBackoffMin         = time.Second
-	setupNSBackoffMax         = time.Second * 3
-	setupNSBackoffJitter      = 0.2
-	setupNSBackoffMultiple    = 1.3
-	setupNSMaxRetryCount      = 3
+	// ECSBridgeNetworkName is the name of the HNS network used as ecs-bridge.
+	ECSBridgeNetworkName = "nat"
+	// Constants for creating backoff while retrying setupNS.
+	setupNSBackoffMin      = time.Second * 2
+	setupNSBackoffMax      = time.Second * 6
+	setupNSBackoffJitter   = 0.2
+	setupNSBackoffMultiple = 1.3
+	setupNSMaxRetryCount   = 3
 )
 
 // VPCENIPluginConfig contains all the information required to invoke the vpc-eni plugin.
