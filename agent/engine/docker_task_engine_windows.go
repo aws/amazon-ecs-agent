@@ -16,10 +16,18 @@
 package engine
 
 import (
+	"time"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
+)
+
+const (
+	// Constants for CNI timeout during setup and cleanup on Windows.
+	cniSetupTimeout   = 3 * time.Minute
+	cniCleanupTimeout = 2 * time.Minute
 )
 
 func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
