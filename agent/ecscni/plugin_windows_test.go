@@ -175,7 +175,7 @@ func TestCleanupNSTimeout(t *testing.T) {
 	// This will be called for both the endpoints.
 	libcniClient.EXPECT().DelNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(x interface{}, y interface{}, z interface{}) {
-		}).Return(errors.New("timeout")).MaxTimes(1)
+		}).Return(errors.New("timeout")).MaxTimes(2)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Millisecond)
 	defer cancel()
