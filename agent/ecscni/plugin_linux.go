@@ -39,6 +39,12 @@ const (
 	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
 )
 
+// cniClient is the client to call plugin and setup the network.
+type cniClient struct {
+	pluginsPath string
+	libcni      libcni.CNI
+}
+
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
@@ -89,6 +95,40 @@ func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Res
 	}
 
 	return curResult, nil
+}
+
+// cleanupNS is called by CleanupNS to cleanup the task namespace by invoking DEL for given CNI configurations.
+func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
+	seelog.Debugf("[ECSCNI] Cleaning up the container namespace %s", cfg.ContainerID)
+
+	runtimeConfig := libcni.RuntimeConf{
+		ContainerID: cfg.ContainerID,
+		NetNS:       cfg.ContainerNetNS,
+	}
+
+	// Execute all CNI network configurations serially, in the reverse order.
+	for i := len(cfg.NetworkConfigs) - 1; i >= 0; i-- {
+		networkConfig := cfg.NetworkConfigs[i]
+		cniNetworkConfig := networkConfig.CNINetworkConfig
+		seelog.Debugf("[ECSCNI] Deleting network %s type %s in the container namespace %s",
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
+			cfg.ContainerID)
+		runtimeConfig.IfName = networkConfig.IfName
+		err := client.libcni.DelNetwork(ctx, cniNetworkConfig, &runtimeConfig)
+		if err != nil {
+			return errors.Wrap(err, "delete network failed")
+		}
+
+		seelog.Debugf("[ECSCNI] Completed deleting network %s type %s in the container namespace %s",
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
+			cfg.ContainerID)
+	}
+
+	seelog.Debugf("[ECSCNI] Completed cleaning up the container namespace %s", cfg.ContainerID)
+
+	return nil
 }
 
 // ReleaseIPResource marks the ip available in the ipam db

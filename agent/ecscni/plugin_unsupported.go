@@ -20,6 +20,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
@@ -28,12 +29,23 @@ const (
 	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
 )
 
+// cniClient is the client to call plugin and setup the network
+type cniClient struct {
+	pluginsPath string
+	libcni      libcni.CNI
+}
+
 type cniPluginVersion struct{}
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
 // On unsupported platforms, we will return an error
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
 	return nil, errors.New("unsupported platform")
+}
+
+// cleanupNS is called by CleanupNS to cleanup the task namespace by invoking DEL for given CNI configurations.
+func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
+	return errors.New("unsupported platform")
 }
 
 // ReleaseIPResource marks the ip available in the ipam db

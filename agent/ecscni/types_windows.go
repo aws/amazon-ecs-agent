@@ -29,8 +29,8 @@ const (
 	// ECSBridgeNetworkName is the name of the HNS network used as ecs-bridge.
 	ECSBridgeNetworkName = "nat"
 	// Constants for creating backoff while retrying setupNS.
-	setupNSBackoffMin      = time.Second * 2
-	setupNSBackoffMax      = time.Second * 6
+	setupNSBackoffMin      = time.Second * 4
+	setupNSBackoffMax      = time.Minute
 	setupNSBackoffJitter   = 0.2
 	setupNSBackoffMultiple = 1.3
 	setupNSMaxRetryCount   = 3

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
-	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/pkg/errors"
@@ -44,12 +43,6 @@ type CNIClient interface {
 	CleanupNS(context.Context, *Config, time.Duration) error
 	// ReleaseIPResource marks the ip available in the ipam db
 	ReleaseIPResource(context.Context, *Config, time.Duration) error
-}
-
-// cniClient is the client to call plugin and setup the network
-type cniClient struct {
-	pluginsPath string
-	libcni      libcni.CNI
 }
 
 // NewClient creates a client of ecscni which is used to invoke the plugin
@@ -96,40 +89,6 @@ func (client *cniClient) CleanupNS(
 	defer cancel()
 
 	return client.cleanupNS(ctx, cfg)
-}
-
-// cleanupNS is called by CleanupNS to cleanup the task namespace by invoking DEL for given CNI configurations
-func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
-	seelog.Debugf("[ECSCNI] Cleaning up the container namespace %s", cfg.ContainerID)
-
-	runtimeConfig := libcni.RuntimeConf{
-		ContainerID: cfg.ContainerID,
-		NetNS:       cfg.ContainerNetNS,
-	}
-
-	// Execute all CNI network configurations serially, in the reverse order.
-	for i := len(cfg.NetworkConfigs) - 1; i >= 0; i-- {
-		networkConfig := cfg.NetworkConfigs[i]
-		cniNetworkConfig := networkConfig.CNINetworkConfig
-		seelog.Debugf("[ECSCNI] Deleting network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-		runtimeConfig.IfName = networkConfig.IfName
-		err := client.libcni.DelNetwork(ctx, cniNetworkConfig, &runtimeConfig)
-		if err != nil {
-			return errors.Wrap(err, "delete network failed")
-		}
-
-		seelog.Debugf("[ECSCNI] Completed deleting network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-	}
-
-	seelog.Debugf("[ECSCNI] Completed cleaning up the container namespace %s", cfg.ContainerID)
-
-	return nil
 }
 
 // Version returns the version of the plugin
