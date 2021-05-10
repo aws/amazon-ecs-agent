@@ -27,6 +27,22 @@ if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
     fail
 fi
 
+SSM_SERVICE_NAME="amazon-ssm-agent"
+SSM_BIN_NAME="amazon-ssm-agent"
+if [ "$(systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service)" == "enabled" ]; then
+    echo "Detected SSM agent installed via snap."
+    SSM_SERVICE_NAME="snap.amazon-ssm-agent.amazon-ssm-agent.service"
+    SSM_BIN_NAME="/snap/amazon-ssm-agent/current/amazon-ssm-agent"
+fi
+SSM_MANAGED_INSTANCE_ID=""
+
+check-option-value() {
+    if [ "${2:0:2}" == "--" ]; then
+        echo "Option $1 was passed an invalid value: $2. Perhaps you passed in an empty env var?"
+        fail
+    fi
+}
+
 # required:
 REGION=""
 ACTIVATION_CODE=""
@@ -45,40 +61,49 @@ NO_START=false
 while :; do
     case "$1" in
     --region)
+        check-option-value "$1" "$2"
         REGION="$2"
         shift 2
         ;;
     --cluster)
+        check-option-value "$1" "$2"
         ECS_CLUSTER="$2"
         shift 2
         ;;
     --activation-code)
+        check-option-value "$1" "$2"
         ACTIVATION_CODE="$2"
         shift 2
         ;;
     --activation-id)
+        check-option-value "$1" "$2"
         ACTIVATION_ID="$2"
         shift 2
         ;;
     --docker-install-source)
+        check-option-value "$1" "$2"
         DOCKER_SOURCE="$2"
         shift 2
         ;;
     --ecs-version)
+        check-option-value "$1" "$2"
         ECS_VERSION="$2"
         shift 2
         ;;
     --deb-url)
+        check-option-value "$1" "$2"
         DEB_URL="$2"
         CHECK_SHA=false
         shift 2
         ;;
     --rpm-url)
+        check-option-value "$1" "$2"
         RPM_URL="$2"
         CHECK_SHA=false
         shift 2
         ;;
     --ecs-endpoint)
+        check-option-value "$1" "$2"
         ECS_ENDPOINT="$2"
         shift 2
         ;;
@@ -105,7 +130,12 @@ fi
 # If activation code is absent and skip activation flag is present, set flag to skip ssm registration
 # if both activation code is present
 if $SKIP_REGISTRATION; then
-    echo "Skipping registering as --skip-registration flag is specified."
+    echo "Skipping ssm registration."
+    if ! systemctl is-enabled $SSM_SERVICE_NAME &>/dev/null; then
+        echo "--skip-registration flag specified but the SSM agent service is not running."
+        echo "a running SSM agent service is required for ECS Anywhere."
+        fail
+    fi
 else
     if [[ -z $ACTIVATION_ID || -z $ACTIVATION_CODE ]]; then
         echo "Both --activation-id and --activation-code are required unless --skip-registration is specified."
@@ -210,60 +240,37 @@ else
     fail
 fi
 
-INSTANCE_REGISTERED=false
-check-instance-registered() {
-    try "check if instance already has an SSM managed instance ID."
+get-ssm-managed-instance-id() {
     SSM_REGISTRATION_FILE='/var/lib/amazon/ssm/registration'
     if [ -f ${SSM_REGISTRATION_FILE} ]; then
-        MANAGED_INSTANCE_ID=$(jq -r ".ManagedInstanceID" $SSM_REGISTRATION_FILE)
-        if [ ! -z $MANAGED_INSTANCE_ID ]; then
-            INSTANCE_REGISTERED=true
-            return
+        SSM_MANAGED_INSTANCE_ID=$(jq -r ".ManagedInstanceID" $SSM_REGISTRATION_FILE)
+    fi
+}
+
+register-ssm-agent() {
+    try "Register SSM agent"
+    get-ssm-managed-instance-id
+    if [ -z "$SSM_MANAGED_INSTANCE_ID" ]; then
+        systemctl stop "$SSM_SERVICE_NAME" &>/dev/null
+        $SSM_BIN_NAME -register -code "$ACTIVATION_CODE" -id "$ACTIVATION_ID" -region "$REGION"
+        systemctl enable "$SSM_SERVICE_NAME"
+        if ! $NO_START; then
+            systemctl start "$SSM_SERVICE_NAME"
+        else
+            echo "Skip starting ssm agent because --no-start is specified."
         fi
+        systemctl start "$SSM_SERVICE_NAME"
+        echo "SSM agent has been registered."
+    else
+        echo "SSM agent is already registered. Managed instance ID: $SSM_MANAGED_INSTANCE_ID"
     fi
     ok
 }
 
-register-ssm-agent() {
-    check-instance-registered
-    if ! $INSTANCE_REGISTERED; then
-        SERVICE_NAME="amazon-ssm-agent"
-        systemctl stop "$SERVICE_NAME"
-        amazon-ssm-agent -register -code "$ACTIVATION_CODE" -id "$ACTIVATION_ID" -region "$REGION"
-        systemctl enable "$SERVICE_NAME"
-        if ! $NO_START; then
-            systemctl start "$SERVICE_NAME"
-        else
-            echo "Skip starting ssm agent because --no-start is specified."
-        fi
-        echo "Instance is registered."
-    else
-        echo "instance registration found."
-    fi
-}
-
 install-ssm-agent() {
     try "install ssm agent"
-    if [ "$(systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service)" == "enabled" ]; then
-        check-instance-registered
-        if $INSTANCE_REGISTERED; then
-            echo "Instance has been registered."
-            return
-        else
-            echo "We currently don't support instance registration on ssm agent installed via Snap. Please ensure your instance is registered and then rerun the script with --skip-registration flag."
-            fail
-        fi
-    elif [ "$(systemctl is-enabled amazon-ssm-agent)" == "enabled" ]; then
-        echo "ssm agent is installed, checking if the instance is registered."
-        check-instance-registered
-        if $INSTANCE_REGISTERED; then
-            echo "Instance has been registered."
-            return
-        else
-            echo "SSM Agent is installed. The instance needs to be registered."
-            register-ssm-agent
-            return
-        fi
+    if systemctl is-enabled $SSM_SERVICE_NAME &>/dev/null; then
+        echo "SSM agent is already installed."
     else
         local dir
         dir="$(mktemp -d)"
@@ -296,12 +303,16 @@ install-ssm-agent() {
     fi
     # register the instance
     register-ssm-agent
-
     ok
 }
 
 ssm-agent-signature-verify() {
     try "verify the signature of amazon-ssm-agent package"
+    if ! command -v gpg; then
+        echo "WARNING: gpg command not available on this server, not able to verify amazon-ssm-agent package signature."
+        ok
+        return
+    fi
 
     # TODO [Update before release] Change this url to main repo master branch
     curl -o "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/Realmonia/amazon-ecs-init/ssmGpg/scripts/amazon-ssm-agent.gpg"
@@ -421,7 +432,6 @@ install-ecs-agent() {
     try "install ecs agent"
     if [ -x "/usr/libexec/amazon-ecs-init" ]; then
         echo "ecs agent is already installed"
-        # TODO upgrade the agent?
         ok
         return
     fi
@@ -482,6 +492,11 @@ install-ecs-agent() {
 
 ecs-init-signature-verify() {
     try "verify the signature of amazon-ecs-init package"
+    if ! command -v gpg; then
+        echo "WARNING: gpg command not available on this server, not able to verify amazon-ecs-init package signature."
+        ok
+        return
+    fi
 
     #TODO [Update before release] Update links here to use prod urls (or urls specified by $DEB_URL or $RPM_URL)
     curl -o "$dir/amazon-ecs-init.gpg" "https://ecs-init-packages-testing.s3.amazonaws.com/amazon-ecs-public-key.gpg"
