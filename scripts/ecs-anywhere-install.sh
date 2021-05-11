@@ -7,40 +7,34 @@ fail() {
     exit 1
 }
 
-# check if the script is run with root or sudo
-if [ $(id -u) -ne 0 ]; then
-    echo "Please run as root."
-    fail
-fi
-
-# check if system is using systemd
-# from https://www.freedesktop.org/software/systemd/man/sd_booted.html
-if [ ! -d /run/systemd/system ]; then
-    echo "The install script currently supports only systemd."
-    fail
-fi
-
-if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
-    echo "Your system is using cgroups v2, which is not supported by ECS."
-    echo "Please change your system to cgroups v1 and reboot. If your system has grubby, we suggest using the following command:"
-    echo '    sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0" && sudo shutdown -r now'
-    fail
-fi
-
-SSM_SERVICE_NAME="amazon-ssm-agent"
-SSM_BIN_NAME="amazon-ssm-agent"
-if systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service &>/dev/null; then
-    echo "Detected SSM agent installed via snap."
-    SSM_SERVICE_NAME="snap.amazon-ssm-agent.amazon-ssm-agent.service"
-    SSM_BIN_NAME="/snap/amazon-ssm-agent/current/amazon-ssm-agent"
-fi
-SSM_MANAGED_INSTANCE_ID=""
-
 check-option-value() {
     if [ "${2:0:2}" == "--" ]; then
         echo "Option $1 was passed an invalid value: $2. Perhaps you passed in an empty env var?"
         fail
     fi
+}
+
+usage() {
+    echo "$(basename "$0") [--help] --region REGION --activation-code CODE --activation-id ID [--cluster CLUSTER] [--docker-install-source all|docker|distro|none] [--ecs-version VERSION] [--ecs-endpoint ENDPOINT] [--skip-registration] [--no-start]
+
+  --help
+        (optional) display this help message.
+  --region string
+        (required) this must match the region of your ECS cluster and SSM activation.
+  --activation-id string
+        (required) activation id from the create activation command. Not required if --skip-registration is specified.
+  --activation-code string
+        (required) activation code from the create activation command. Not required if --skip-registration is specified.
+  --cluster string
+        (optional) pass the cluster name that ECS agent will connect too. By default its value is 'default'.
+  --docker-install-source
+        (optional) Source of docker installation. Possible values are 'all, docker, distro, none'. Defaults to 'all'.
+  --ecs-version string
+        (optional) Version of the ECS agent rpm/deb package to use. If not specified, default to latest.
+  --skip-registration
+        (optional) if this is enabled, SSM agent install and instance registration with SSM is skipped.
+  --no-start
+        (optional) if this flag is provided, SSM agent, docker and ECS agent will not be started by the script despite being installed."
 }
 
 # required:
@@ -60,6 +54,10 @@ CHECK_SHA=true
 NO_START=false
 while :; do
     case "$1" in
+    --help)
+        usage
+        exit 0
+        ;;
     --region)
         check-option-value "$1" "$2"
         REGION="$2"
@@ -122,6 +120,35 @@ while :; do
         ;;
     esac
 done
+
+# check if the script is run with root or sudo
+if [ $(id -u) -ne 0 ]; then
+    echo "Please run as root."
+    fail
+fi
+
+# check if system is using systemd
+# from https://www.freedesktop.org/software/systemd/man/sd_booted.html
+if [ ! -d /run/systemd/system ]; then
+    echo "The install script currently supports only systemd."
+    fail
+fi
+
+if [ -f "/sys/fs/cgroup/cgroup.controllers" ]; then
+    echo "Your system is using cgroups v2, which is not supported by ECS."
+    echo "Please change your system to cgroups v1 and reboot. If your system has grubby, we suggest using the following command:"
+    echo '    sudo grubby --update-kernel=ALL --args="systemd.unified_cgroup_hierarchy=0" && sudo shutdown -r now'
+    fail
+fi
+
+SSM_SERVICE_NAME="amazon-ssm-agent"
+SSM_BIN_NAME="amazon-ssm-agent"
+if systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service &>/dev/null; then
+    echo "Detected SSM agent installed via snap."
+    SSM_SERVICE_NAME="snap.amazon-ssm-agent.amazon-ssm-agent.service"
+    SSM_BIN_NAME="/snap/amazon-ssm-agent/current/amazon-ssm-agent"
+fi
+SSM_MANAGED_INSTANCE_ID=""
 
 if [ -z "$REGION" ]; then
     echo "--region is required"
