@@ -241,9 +241,9 @@ else
 fi
 
 get-ssm-managed-instance-id() {
-    SSM_REGISTRATION_FILE='/var/lib/amazon/ssm/registration'
+    SSM_REGISTRATION_FILE='/var/lib/amazon/ssm/Vault/Store/RegistrationKey'
     if [ -f ${SSM_REGISTRATION_FILE} ]; then
-        SSM_MANAGED_INSTANCE_ID=$(jq -r ".ManagedInstanceID" $SSM_REGISTRATION_FILE)
+        SSM_MANAGED_INSTANCE_ID=$(jq -r ".instanceID" $SSM_REGISTRATION_FILE)
     fi
 }
 
