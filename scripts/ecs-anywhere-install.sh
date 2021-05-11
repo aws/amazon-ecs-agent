@@ -29,7 +29,7 @@ fi
 
 SSM_SERVICE_NAME="amazon-ssm-agent"
 SSM_BIN_NAME="amazon-ssm-agent"
-if [ "$(systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service)" == "enabled" ]; then
+if systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service &>/dev/null; then
     echo "Detected SSM agent installed via snap."
     SSM_SERVICE_NAME="snap.amazon-ssm-agent.amazon-ssm-agent.service"
     SSM_BIN_NAME="/snap/amazon-ssm-agent/current/amazon-ssm-agent"
@@ -247,6 +247,13 @@ get-ssm-managed-instance-id() {
     fi
 }
 
+curl-helper() {
+    if ! curl -o "$1" "$2" -fSs; then
+        echo "Failed to download $2"
+        fail
+    fi
+}
+
 register-ssm-agent() {
     try "Register SSM agent"
     get-ssm-managed-instance-id
@@ -281,14 +288,14 @@ install-ssm-agent() {
 
         case "$PKG_MANAGER" in
         apt)
-            curl -o "$dir/$SSM_DEB_PKG_NAME" "$SSM_DEB_URL"
-            curl -o "$dir/$SSM_DEB_PKG_NAME.sig" "$SSM_DEB_URL.sig"
+            curl-helper "$dir/$SSM_DEB_PKG_NAME" "$SSM_DEB_URL"
+            curl-helper "$dir/$SSM_DEB_PKG_NAME.sig" "$SSM_DEB_URL.sig"
             ssm-agent-signature-verify "$dir/$SSM_DEB_PKG_NAME.sig" "$dir/$SSM_DEB_PKG_NAME"
             dpkg -i "$dir/ssm-agent.deb"
             ;;
         dnf | yum | zypper)
-            curl -o "$dir/$SSM_RPM_PKG_NAME" "$SSM_RPM_URL"
-            curl -o "$dir/$SSM_RPM_PKG_NAME.sig" "$SSM_RPM_URL.sig"
+            curl-helper "$dir/$SSM_RPM_PKG_NAME" "$SSM_RPM_URL"
+            curl-helper "$dir/$SSM_RPM_PKG_NAME.sig" "$SSM_RPM_URL.sig"
             ssm-agent-signature-verify "$dir/$SSM_RPM_PKG_NAME.sig" "$dir/$SSM_RPM_PKG_NAME"
             local args=""
             local install_args="-y"
@@ -315,7 +322,7 @@ ssm-agent-signature-verify() {
     fi
 
     # TODO [Update before release] Change this url to main repo master branch
-    curl -o "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/Realmonia/amazon-ecs-init/ssmGpg/scripts/amazon-ssm-agent.gpg"
+    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/Realmonia/amazon-ecs-init/ssmGpg/scripts/amazon-ssm-agent.gpg"
     local fp
     fp=$(gpg --quiet --with-colons --with-fingerprint "$dir/amazon-ssm-agent.gpg" | awk -F: '$1 == "fpr" {print $10;}')
     echo "$fp"
@@ -440,18 +447,18 @@ install-ecs-agent() {
     dir="$(mktemp -d)"
     case "$PKG_MANAGER" in
     apt)
-        curl -o "$dir/$DEB_PKG_NAME" "$DEB_URL"
+        curl-helper "$dir/$DEB_PKG_NAME" "$DEB_URL"
         if $CHECK_SHA; then
-            curl -o "$dir/$DEB_PKG_NAME.asc" "$DEB_URL.asc"
+            curl-helper "$dir/$DEB_PKG_NAME.asc" "$DEB_URL.asc"
             ecs-init-signature-verify "$dir/$DEB_PKG_NAME.asc" "$dir/$DEB_PKG_NAME"
         fi
         apt install -y "$dir/$DEB_PKG_NAME"
         rm -rf "$dir"
         ;;
     dnf | yum | zypper)
-        curl -o "$dir/$RPM_PKG_NAME" "$RPM_URL"
+        curl-helper "$dir/$RPM_PKG_NAME" "$RPM_URL"
         if $CHECK_SHA; then
-            curl -o "$dir/$RPM_PKG_NAME.asc" "$RPM_URL.asc"
+            curl-helper "$dir/$RPM_PKG_NAME.asc" "$RPM_URL.asc"
             ecs-init-signature-verify "$dir/$RPM_PKG_NAME.asc" "$dir/$RPM_PKG_NAME"
         fi
         local args="-y"
@@ -477,7 +484,7 @@ install-ecs-agent() {
     fi
     echo "AWS_DEFAULT_REGION=$REGION" >>/var/lib/ecs/ecs.config
     echo "ECS_EXTERNAL=true" >>/var/lib/ecs/ecs.config
-    if [ ! -z "$ECS_ENDPOINT" ]; then
+    if [ -n "$ECS_ENDPOINT" ]; then
         echo "ECS_BACKEND_HOST=$ECS_ENDPOINT" >>/var/lib/ecs/ecs.config
     fi
     systemctl enable ecs
@@ -499,7 +506,7 @@ ecs-init-signature-verify() {
     fi
 
     #TODO [Update before release] Update links here to use prod urls (or urls specified by $DEB_URL or $RPM_URL)
-    curl -o "$dir/amazon-ecs-init.gpg" "https://ecs-init-packages-testing.s3.amazonaws.com/amazon-ecs-public-key.gpg"
+    curl-helper "$dir/amazon-ecs-init.gpg" "https://ecs-init-packages-testing.s3.amazonaws.com/amazon-ecs-public-key.gpg"
     gpg --import "$dir/amazon-ecs-init.gpg"
 
     if gpg --verify "$1" "$2"; then
@@ -512,11 +519,12 @@ ecs-init-signature-verify() {
     ok
 }
 
-verify-agent() {
+wait-agent-start() {
     if $NO_START; then
         echo "--no-start is specified. Not verifying ecs agent startup."
         return
     fi
+    try "wait for ECS agent to start"
 
     retryLimit=10
     i=0
@@ -527,21 +535,25 @@ verify-agent() {
             echo "Ping ECS Agent registered successfully! Container instance arn: $curlResult"
             echo ""
             echo "You can check your ECS cluster here https://console.aws.amazon.com/ecs/home?region=$REGION#/clusters/$ECS_CLUSTER"
+            ok
             return
         fi
         sleep 10 # wait for 10s before next retry for agent to start up.
     done
 
     # TODO [Update before release] Provide hyperlink to public doc troubleshoot page
-    echo "ECS Agent verification failed. Please check logs at /var/log/ecs/ecs-agent.log and follow documentation [HERE]"
+    echo "Timed out waiting for ECS Agent to start. Please check logs at /var/log/ecs/ecs-agent.log and follow documentation [HERE]"
     fail
 }
 
 show-license() {
     echo ""
     echo "##########################"
-    echo "This setup artifact uses Apache License 2.0."
-    echo "For more details, see https://github.com/aws/amazon-ecs-agent/blob/master/LICENSE"
+    echo "This script installed three open source packages that all use Apache License 2.0."
+    echo "You can view their license information here:"
+    echo "  - ECS Agent https://github.com/aws/amazon-ecs-agent/blob/master/LICENSE"
+    echo "  - SSM Agent https://github.com/aws/amazon-ssm-agent/blob/master/LICENSE"
+    echo "  - Docker engine https://github.com/moby/moby/blob/master/LICENSE"
     echo "##########################"
     echo ""
 }
@@ -551,5 +563,5 @@ if ! $SKIP_REGISTRATION; then
 fi
 install-docker "$DOCKER_SOURCE"
 install-ecs-agent
-verify-agent
+wait-agent-start
 show-license
