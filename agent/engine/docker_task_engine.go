@@ -1445,6 +1445,19 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		task.SetLocalIPAddress(taskIP)
 		engine.saveTaskData(task)
 	}
+
+	// Invoke additional commands required to complete namespace setup for the task.
+	err = engine.invokeCommandsForTaskNamespaceSetup(engine.ctx, task, cniConfig, result)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+			task.Arn, err)
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrapf(err,
+				"container resource provisioning: failed to setup network namespace")},
+		}
+	}
+
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1495,6 +1508,12 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	}
 
 	err = engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	if err != nil {
+		return err
+	}
+
+	// Invoke additional command to cleanup the task network namespace.
+	err = engine.invokeCommandsForTaskNamespaceCleanup(task, cniConfig)
 	if err != nil {
 		return err
 	}

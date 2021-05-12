@@ -17,11 +17,14 @@ package engine
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/containernetworking/cni/pkg/types/current"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -47,7 +50,8 @@ import (
 )
 
 const (
-	containerNetNS = "container:abcd"
+	containerNetNS  = "container:abcd"
+	containerExecID = "container1234"
 )
 
 func TestDeleteTask(t *testing.T) {
@@ -366,6 +370,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Then setting up the pause container network namespace
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 
+		// Then execute commands inside the pause namespace
+		client.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&types.IDResponse{ID: containerID}, nil),
+		client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+			ExitCode: 0,
+			Running:  false,
+		}, nil),
+
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
@@ -491,6 +504,13 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				},
 			}, nil),
 		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&types.IDResponse{ID: containerID}, nil),
+		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+			ExitCode: 0,
+			Running:  false,
+		}, nil),
 	)
 
 	// For the other container
@@ -598,4 +618,58 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	wg.Wait()
+}
+
+// TestInvokeCommandsForTaskNamespaceSetupSuccessWithRetry tests invokeCommandsForTaskNamespaceSetup
+// with retry while inspecting exec container.
+func TestInvokeCommandsForTaskNamespaceSetupSuccessWithRetry(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+	defer ctrl.Finish()
+
+	testTask := testdata.LoadTask("sleep5")
+	testTask.AddTaskENI(mockENI)
+	cniConfig := &ecscni.Config{ContainerID: containerID, BlockInstanceMetadata: false}
+	result := &current.Result{
+		IPs: []*current.IPConfig{{
+			Address: net.IPNet{
+				IP:   net.ParseIP(ipv4),
+				Mask: net.CIDRMask(24, 32),
+			},
+		}},
+	}
+
+	bridgeEpName := fmt.Sprintf(ecscni.ECSBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, containerID)
+	cmd1 := fmt.Sprintf(ecscni.ECSBridgeDefaultRouteDeleteCmdFormat, bridgeEpName)
+	cmd2 := fmt.Sprintf(ecscni.ECSBridgeSubnetRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
+	cmd3 := fmt.Sprintf(ecscni.ECSBridgeCredentialsRouteAddCmdFormat, bridgeEpName)
+	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3}, " && ")
+
+	gomock.InOrder(
+		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(_ context.Context, container string, execConfig types.ExecConfig, _ time.Duration) {
+				assert.Equal(t, container, containerID)
+				assert.Len(t, execConfig.Cmd, 3)
+				assert.Equal(t, execConfig.Cmd[2], finalCmd)
+				assert.Equal(t, execConfig.User, containerAdminUser)
+			}).Return(&types.IDResponse{ID: containerExecID}, nil),
+		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(_ context.Context, execID string, _ time.Duration) {
+				assert.Equal(t, execID, containerExecID)
+			}).Return(nil),
+		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			&types.ContainerExecInspect{
+				ExitCode: 0,
+				Running:  true,
+			}, nil),
+		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+			&types.ContainerExecInspect{
+				ExitCode: 0,
+				Running:  false,
+			}, nil).MaxTimes(1),
+	)
+
+	err := taskEngine.(*DockerTaskEngine).invokeCommandsForTaskNamespaceSetup(ctx, testTask, cniConfig, result)
+	assert.NoError(t, err)
 }
