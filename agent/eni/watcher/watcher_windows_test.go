@@ -144,6 +144,8 @@ func TestReconcileOnce(t *testing.T) {
 	ctx := context.Background()
 	eventChannel := make(chan statechange.Event)
 
+	waitForEvents := sync.WaitGroup{}
+
 	mockStateManager := mock_dockerstate.NewMockTaskEngineState(mockCtrl)
 	mockStateManager.EXPECT().ENIByMac(macAddress1).
 		Return(&apieni.ENIAttachment{
@@ -151,7 +153,10 @@ func TestReconcileOnce(t *testing.T) {
 			AttachStatusSent: false,
 			ExpiresAt:        time.Now().Add(expirationTimeAddition),
 		}, true)
-	mockStateManager.EXPECT().ENIByMac(macAddress2).
+	mockStateManager.EXPECT().ENIByMac(macAddress2).Do(
+		func(mac string) {
+			waitForEvents.Done()
+		}).
 		Return(&apieni.ENIAttachment{
 			MACAddress:       macAddress2,
 			AttachStatusSent: true,
@@ -166,8 +171,7 @@ func TestReconcileOnce(t *testing.T) {
 	netutils.SetNetWrapper(mocknetwrapper)
 	watcher.SetNetworkUtils(netutils)
 
-	waitForEvents := sync.WaitGroup{}
-	waitForEvents.Add(1)
+	waitForEvents.Add(2)
 
 	go func() {
 		event := <-eventChannel
