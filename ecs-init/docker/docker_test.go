@@ -790,6 +790,32 @@ func TestGetDockerSocketBind(t *testing.T) {
 	}
 }
 
+func TestGetHostConfigExternal(t *testing.T) {
+	os.Setenv(config.ExternalEnvVar, "true")
+	defer os.Unsetenv(config.ExternalEnvVar)
+
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mockFS := NewMockfileSystem(mockCtrl)
+	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
+	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error")).AnyTimes()
+
+	credsBind := "/root/.aws:/rotatingcreds:ro"
+
+	client := &Client{
+		fs: mockFS,
+	}
+	hostConfig := client.getHostConfig(map[string]string{})
+	assert.Contains(t, hostConfig.Binds, credsBind)
+	assert.Empty(t, hostConfig.CapAdd)
+
+	os.Setenv(config.ExternalEnvVar, "false")
+	hostConfig = client.getHostConfig(map[string]string{})
+	assert.NotContains(t, hostConfig.Binds, credsBind)
+	assert.NotEmpty(t, hostConfig.CapAdd)
+}
+
 func TestStartAgentWithExecBinds(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
@@ -976,30 +1002,4 @@ func TestDefaultIsPathValid(t *testing.T) {
 			assert.Equal(t, result, tc.expected)
 		})
 	}
-}
-
-func TestGetHostConfigExternal(t *testing.T) {
-	os.Setenv(config.ExternalEnvVar, "true")
-	defer os.Unsetenv(config.ExternalEnvVar)
-
-	mockCtrl := gomock.NewController(t)
-	defer mockCtrl.Finish()
-
-	mockFS := NewMockfileSystem(mockCtrl)
-	mockFS.EXPECT().ReadFile(config.InstanceConfigFile()).Return(nil, errors.New("not found")).AnyTimes()
-	mockFS.EXPECT().ReadFile(config.AgentConfigFile()).Return(nil, errors.New("test error")).AnyTimes()
-
-	credsBind := "/root/.aws:/rotatingcreds:ro"
-
-	client := &Client{
-		fs: mockFS,
-	}
-	hostConfig := client.getHostConfig(map[string]string{})
-	assert.Contains(t, hostConfig.Binds, credsBind)
-	assert.Empty(t, hostConfig.CapAdd)
-
-	os.Setenv(config.ExternalEnvVar, "false")
-	hostConfig = client.getHostConfig(map[string]string{})
-	assert.NotContains(t, hostConfig.Binds, credsBind)
-	assert.NotEmpty(t, hostConfig.CapAdd)
 }

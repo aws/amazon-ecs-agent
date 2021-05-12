@@ -16,11 +16,12 @@ type Change struct {
 }
 
 const (
-	CHANGE_TEMPLATE = "./CHANGELOG_MASTER"
-	TOP_LEVEL       = "../../CHANGELOG.md"
-	AMAZON_LINUX    = "../../packaging/amazon-linux-ami/ecs-init.spec"
-	SUSE            = "../../packaging/suse/amazon-ecs-init.changes"
-	UBUNTU          = "../../packaging/generic-deb/debian/changelog"
+	CHANGE_TEMPLATE  = "./CHANGELOG_MASTER"
+	TOP_LEVEL        = "../../CHANGELOG.md"
+	AMAZON_LINUX_RPM = "../../packaging/amazon-linux-ami/ecs-init.spec"
+	GENERIC_RPM      = "../../packaging/generic-rpm/amazon-ecs-init.spec"
+	SUSE             = "../../packaging/suse/amazon-ecs-init.changes"
+	UBUNTU           = "../../packaging/generic-deb/debian/changelog"
 
 	AMAZON_LINUX_TIME_FMT = "Mon Jan 02 2006"
 	DEBIAN_TIME_FMT       = "Mon, 02 Jan 2006 15:04:05 -0700"
@@ -65,7 +66,7 @@ func main() {
 	}
 
 	// Create formatted strings for each log
-	amazonLinuxChangeString := getAmazonLinuxChangeString(changeArray)
+	rpmChangeString := getRPMChangeString(changeArray)
 	ubuntuChangeString := getUbuntuChangeString(changeArray)
 	suseChangeString := getSuseChangeString(changeArray)
 	topLevelChangeString := getTopLevelChangeString(changeArray)
@@ -75,24 +76,32 @@ func main() {
 	rewriteChangelog(UBUNTU, ubuntuChangeString)
 	rewriteChangelog(SUSE, suseChangeString)
 
-	// find changelog in AmazonLinux rpm spec
-	var amazonLinuxSpecBase = ""
-	if _, err := os.Stat(AMAZON_LINUX); err == nil {
-		f, err := os.Open(AMAZON_LINUX)
-		handleErr(err, "unable to open amazon linux changelog")
+	rpmSpecs := []string{AMAZON_LINUX_RPM, GENERIC_RPM}
+	for _, spec := range rpmSpecs {
+		// Get everything before the %changelog section, so that the change logs
+		// in rpmChangeString are appended after it.
+		base := getRPMSpecBaseContent(spec)
+		rewriteChangelog(spec, base+rpmChangeString)
+	}
+}
+
+func getRPMSpecBaseContent(specFile string) string {
+	var base string
+	if _, err := os.Stat(specFile); err == nil {
+		f, err := os.Open(specFile)
+		handleErr(err, fmt.Sprintf("unable to open rpm spec file at %s", specFile))
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if strings.Contains(line, "%changelog") {
-				amazonLinuxSpecBase += "%changelog\n"
+				base += "%changelog\n"
 				break
 			}
-			amazonLinuxSpecBase += fmt.Sprintln(line)
+			base += fmt.Sprintln(line)
 		}
 	}
-	completeAmazonLinuxChangeString := amazonLinuxSpecBase + amazonLinuxChangeString
-	rewriteChangelog(AMAZON_LINUX, completeAmazonLinuxChangeString)
+	return base
 }
 
 func validateChangelog(allChange []Change) bool {
@@ -122,7 +131,7 @@ func validateChangelog(allChange []Change) bool {
 // * Wed Jan 08 2020 Cameron Sparr <cssparr@amazon.com> - 1.36.0-1
 // - Cache Agent version 1.36.0
 // - Capture a fixed tail of container logs when removing a container
-func getAmazonLinuxChangeString(allChange []Change) string {
+func getRPMChangeString(allChange []Change) string {
 	result := ""
 	for _, change := range allChange {
 		thisTime := change.Datetime.UTC().Format(AMAZON_LINUX_TIME_FMT)
