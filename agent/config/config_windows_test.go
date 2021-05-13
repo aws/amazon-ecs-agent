@@ -16,12 +16,17 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
 
+	"golang.org/x/sys/windows"
+
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	"github.com/aws/amazon-ecs-agent/agent/ec2"
+
+	"github.com/hectane/go-acl/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -133,4 +138,67 @@ func TestMemoryUnboundedWindowsDisabled(t *testing.T) {
 	cfg.platformOverrides()
 	assert.NoError(t, err)
 	assert.False(t, cfg.PlatformVariables.MemoryUnbounded.Enabled())
+}
+
+func TestGetConfigFileName(t *testing.T) {
+	configFileName := "/foo/bar/config.json"
+	testCases := []struct {
+		name             string
+		envVarVal        string
+		expectedFileName string
+		expectedError    error
+		cfgFileSid       string
+	}{
+		{
+			name:             "config file via env var, no errors",
+			envVarVal:        configFileName,
+			expectedFileName: configFileName,
+			expectedError:    nil,
+			cfgFileSid:       "",
+		},
+		{
+			name:             "default config file without env var, no errors",
+			envVarVal:        "",
+			expectedFileName: defaultConfigFileName,
+			expectedError:    nil,
+			cfgFileSid:       adminSid,
+		},
+		{
+			name:             "unable to validate cfg file error",
+			envVarVal:        "",
+			expectedFileName: "",
+			expectedError:    errors.New("Unable to validate cfg file"),
+			cfgFileSid:       "random-sid",
+		},
+		{
+			name:             "invalid cfg file error",
+			envVarVal:        "",
+			expectedFileName: "",
+			expectedError:    errors.New("Invalid cfg file"),
+			cfgFileSid:       "S-1-5-7",
+		},
+	}
+	defer func() {
+		osStat = os.Stat
+		getNamedSecurityInfo = api.GetNamedSecurityInfo
+	}()
+
+	for _, tc := range testCases {
+		os.Setenv("ECS_AGENT_CONFIG_FILE_PATH", tc.envVarVal)
+		defer os.Unsetenv("ECS_AGENT_CONFIG_FILE_PATH")
+
+		osStat = func(name string) (os.FileInfo, error) {
+			return nil, nil
+		}
+
+		getNamedSecurityInfo = func(fileName string, fileType int32, secInfo uint32, owner,
+			group **windows.SID, dacl, sacl, secDesc *windows.Handle) error {
+			*owner, _ = windows.StringToSid(tc.cfgFileSid)
+			return tc.expectedError
+		}
+
+		fileName, err := getConfigFileName()
+		assert.Equal(t, tc.expectedFileName, fileName)
+		assert.Equal(t, tc.expectedError, err)
+	}
 }

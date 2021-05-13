@@ -437,8 +437,11 @@ func (cfg *Config) complete() bool {
 }
 
 func fileConfig() (Config, error) {
-	fileName := utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName)
 	cfg := Config{}
+	fileName, err := getConfigFileName()
+	if err != nil {
+		return cfg, nil
+	}
 
 	file, err := os.Open(fileName)
 	if err != nil {
