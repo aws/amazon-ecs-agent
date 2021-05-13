@@ -309,6 +309,14 @@
   version = "v1.2.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:0795133a65ff7ee9109d570ba36fe54616e947a4089456422ed4556cdde4c598"
+  name = "github.com/hectane/go-acl"
+  packages = ["api"]
+  pruneopts = "UT"
+  revision = "da78bae5fc95895d8855ed8c5b1505b10e254450"
+
+[[projects]]
   digest = "1:bb81097a5b62634f3e9fec1014657855610c82d19b9a40c17612e32651e35dca"
   name = "github.com/jmespath/go-jmespath"
   packages = ["."]
@@ -577,6 +585,7 @@
     "github.com/golang/mock/mockgen/model",
     "github.com/gorilla/mux",
     "github.com/gorilla/websocket",
+    "github.com/hectane/go-acl/api",
     "github.com/opencontainers/runtime-spec/specs-go",
     "github.com/pborman/uuid",
     "github.com/pkg/errors",
