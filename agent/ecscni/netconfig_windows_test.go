@@ -83,6 +83,22 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.False(t, netConfig.NoInfraContainer)
 }
 
+// TestNewVPCENIPluginConfigForECSBridgeSetup tests the generated configuration for ecs-bridge setup.
+func TestNewVPCENIPluginConfigForECSBridgeSetup(t *testing.T) {
+	cniConfig := getCNIConfig()
+	config, err := NewVPCENIPluginConfigForECSBridgeSetup(cniConfig)
+
+	netConfig := &VPCENIPluginConfig{}
+	json.Unmarshal(config.Bytes, netConfig)
+
+	assert.NoError(t, err)
+	assert.EqualValues(t, ECSVPCENIPluginExecutable, config.Network.Type)
+	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
+	assert.EqualValues(t, ECSBridgeNetworkName, config.Network.Name)
+	assert.True(t, netConfig.UseExistingNetwork)
+	assert.False(t, netConfig.NoInfraContainer)
+}
+
 // TestConstructDNSFromVPCCIDRSuccess tests if the dns is constructed properly from the given vpc's primary cidr
 func TestConstructDNSFromVPCCIDRSuccess(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR(vpcCIDR)
