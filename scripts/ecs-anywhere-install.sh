@@ -189,8 +189,7 @@ else
     fail
 fi
 
-# TODO [Update before release] Change to prod regional buckets
-S3_BUCKET="amazon-ecs-agent-shadow-$REGION"
+S3_BUCKET="amazon-ecs-agent-$REGION"
 RPM_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH.rpm"
 DEB_PKG_NAME="amazon-ecs-init-$ECS_VERSION.$ARCH_ALT.deb"
 S3_URL_SUFFIX=""
@@ -348,8 +347,7 @@ ssm-agent-signature-verify() {
         return
     fi
 
-    # TODO [Update before release] Change this url to main repo master branch
-    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/Realmonia/amazon-ecs-init/ssmGpg/scripts/amazon-ssm-agent.gpg"
+    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/dev/scripts/amazon-ssm-agent.gpg"
     local fp
     fp=$(gpg --quiet --with-colons --with-fingerprint "$dir/amazon-ssm-agent.gpg" | awk -F: '$1 == "fpr" {print $10;}')
     echo "$fp"
@@ -532,10 +530,7 @@ ecs-init-signature-verify() {
         return
     fi
 
-    #TODO [Update before release] Update links here to use prod urls (or urls specified by $DEB_URL or $RPM_URL)
-    curl-helper "$dir/amazon-ecs-init.gpg" "https://ecs-init-packages-testing.s3.amazonaws.com/amazon-ecs-public-key.gpg"
-    gpg --import "$dir/amazon-ecs-init.gpg"
-
+    gpg --keyserver hkp://keys.gnupg.net:80 --recv BCE9D9A42D51784F
     if gpg --verify "$1" "$2"; then
         echo "amazon-ecs-init GPG verification passed. Install amazon-ecs-init."
     else
@@ -568,8 +563,8 @@ wait-agent-start() {
         sleep 10 # wait for 10s before next retry for agent to start up.
     done
 
-    # TODO [Update before release] Provide hyperlink to public doc troubleshoot page
-    echo "Timed out waiting for ECS Agent to start. Please check logs at /var/log/ecs/ecs-agent.log and follow documentation [HERE]"
+    # TODO Update to ecs anywhere specific documentation when available.
+    echo "Timed out waiting for ECS Agent to start. Please check logs at /var/log/ecs/ecs-agent.log and follow troubleshooting documentation at https://docs.aws.amazon.com/AmazonECS/latest/developerguide/troubleshooting.html"
     fail
 }
 
