@@ -41,11 +41,11 @@ var (
 		"Amazon", "ECS", "log", "vpc-eni.log")
 )
 
-// cniClient is the client to call plugin and setup the network.
-type cniClient struct {
-	pluginsPath string
-	libcni      libcni.CNI
-	guard       sync.Mutex
+// newCNIGuard returns a new instance of CNI guard for the CNI client.
+func newCNIGuard() cniGuard {
+	return &guard{
+		mutex: &sync.Mutex{},
+	}
 }
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations.
@@ -120,46 +120,6 @@ func (client *cniClient) doSetupNS(ctx context.Context, cfg *Config) (*current.R
 	}
 
 	return curResult, nil
-}
-
-// cleanupNS is called by CleanupNS to cleanup the task namespace by invoking DEL for given CNI configurations.
-func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
-	client.guard.Lock()
-	defer client.guard.Unlock()
-
-	seelog.Debugf("[ECSCNI] Cleaning up the container namespace %s", cfg.ContainerID)
-
-	runtimeConfig := libcni.RuntimeConf{
-		ContainerID: cfg.ContainerID,
-		NetNS:       cfg.ContainerNetNS,
-	}
-
-	var delError error = nil
-	// Execute all CNI network configurations serially, in the reverse order.
-	for i := len(cfg.NetworkConfigs) - 1; i >= 0; i-- {
-		networkConfig := cfg.NetworkConfigs[i]
-		cniNetworkConfig := networkConfig.CNINetworkConfig
-		seelog.Debugf("[ECSCNI] Deleting network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-		runtimeConfig.IfName = networkConfig.IfName
-		err := client.libcni.DelNetwork(ctx, cniNetworkConfig, &runtimeConfig)
-		if err != nil {
-			// In case of error, continue cleanup as much as possible before conceding error.
-			seelog.Errorf("Delete network failed: %v", err)
-			delError = errors.Wrapf(err, "delete network failed")
-		}
-
-		seelog.Debugf("[ECSCNI] Completed deleting network %s type %s in the container namespace %s",
-			cniNetworkConfig.Network.Name,
-			cniNetworkConfig.Network.Type,
-			cfg.ContainerID)
-	}
-
-	seelog.Debugf("[ECSCNI] Completed cleaning up the container namespace %s", cfg.ContainerID)
-
-	return delError
 }
 
 // ReleaseIPResource marks the ip available in the ipam db

@@ -19,9 +19,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types/current"
 	"github.com/pkg/errors"
@@ -45,6 +47,27 @@ type CNIClient interface {
 	ReleaseIPResource(context.Context, *Config, time.Duration) error
 }
 
+// cniGuard is the mutex interface for CNI Client.
+// It is actively used only on Windows due to limitations of hcsshim.
+// It is used to serialize the cleanupNS calls when multiple tasks are stopped at the same time.
+// During setupNS, we use retries for better task startup performance.
+type cniGuard interface {
+	lock()
+	unlock()
+}
+
+// cniClient is the client to call plugin and setup the network
+type cniClient struct {
+	pluginsPath string
+	libcni      libcni.CNI
+	guard       cniGuard
+}
+
+// guard is the client to call lock and unlock methods on the mutex.
+type guard struct {
+	mutex *sync.Mutex
+}
+
 // NewClient creates a client of ecscni which is used to invoke the plugin
 func NewClient(pluginsPath string) CNIClient {
 	libcniConfig := &libcni.CNIConfig{
@@ -54,6 +77,7 @@ func NewClient(pluginsPath string) CNIClient {
 	cniClient := &cniClient{
 		pluginsPath: pluginsPath,
 		libcni:      libcniConfig,
+		guard:       newCNIGuard(),
 	}
 	cniClient.init()
 	return cniClient
@@ -89,6 +113,46 @@ func (client *cniClient) CleanupNS(
 	defer cancel()
 
 	return client.cleanupNS(ctx, cfg)
+}
+
+// cleanupNS is called by CleanupNS to cleanup the task namespace by invoking DEL for given CNI configurations
+func (client *cniClient) cleanupNS(ctx context.Context, cfg *Config) error {
+	client.guard.lock()
+	defer client.guard.unlock()
+
+	seelog.Debugf("[ECSCNI] Cleaning up the container namespace %s", cfg.ContainerID)
+
+	runtimeConfig := libcni.RuntimeConf{
+		ContainerID: cfg.ContainerID,
+		NetNS:       cfg.ContainerNetNS,
+	}
+
+	var delError error
+	// Execute all CNI network configurations serially, in the reverse order.
+	for i := len(cfg.NetworkConfigs) - 1; i >= 0; i-- {
+		networkConfig := cfg.NetworkConfigs[i]
+		cniNetworkConfig := networkConfig.CNINetworkConfig
+		seelog.Debugf("[ECSCNI] Deleting network %s type %s in the container namespace %s",
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
+			cfg.ContainerID)
+		runtimeConfig.IfName = networkConfig.IfName
+		err := client.libcni.DelNetwork(ctx, cniNetworkConfig, &runtimeConfig)
+		if err != nil {
+			// In case of error, continue cleanup as much as possible before conceding error.
+			seelog.Errorf("Delete network failed: %v", err)
+			delError = errors.Wrapf(err, "delete network failed")
+		}
+
+		seelog.Debugf("[ECSCNI] Completed deleting network %s type %s in the container namespace %s",
+			cniNetworkConfig.Network.Name,
+			cniNetworkConfig.Network.Type,
+			cfg.ContainerID)
+	}
+
+	seelog.Debugf("[ECSCNI] Completed cleaning up the container namespace %s", cfg.ContainerID)
+
+	return delError
 }
 
 // Version returns the version of the plugin
@@ -146,4 +210,16 @@ func (client *cniClient) Capabilities(name string) ([]string, error) {
 	}
 
 	return capabilities.Capabilities, nil
+}
+
+func (cniGuard *guard) lock() {
+	if cniGuard.mutex != nil {
+		cniGuard.mutex.Lock()
+	}
+}
+
+func (cniGuard *guard) unlock() {
+	if cniGuard.mutex != nil {
+		cniGuard.mutex.Unlock()
+	}
 }
