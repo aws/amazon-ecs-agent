@@ -24,8 +24,8 @@ import (
 
 const (
 	// Constants for CNI timeout during setup and cleanup.
-	cniSetupTimeout   = 1 * time.Minute
-	cniCleanupTimeout = 30 * time.Second
+	cniSetupTimeout   = time.Duration(0)
+	cniCleanupTimeout = time.Duration(0)
 )
 
 // updateTaskENIDependencies updates the task's dependencies for awsvpc networking mode.
