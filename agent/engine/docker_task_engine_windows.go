@@ -16,14 +16,13 @@
 package engine
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/aws/amazon-ecs-agent/agent/utils/retry"
 
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 
@@ -45,12 +44,6 @@ const (
 	cniCleanupTimeout = 2 * time.Minute
 	// containerAdminUser is the admin username for any container on Windows.
 	containerAdminUser = "ContainerAdministrator"
-	// Constants for creating backoff while querying state of command execution inside pause namespace.
-	commandExecBackoffMin      = time.Second * 2
-	commandExecBackoffMax      = time.Second * 10
-	commandExecBackoffJitter   = 0.2
-	commandExecBackoffMultiple = 1.3
-	commandExecMaxRetryCount   = 3
 )
 
 func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
@@ -134,10 +127,9 @@ func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceCleanup(task *apit
 		// Delete the firewall rule created for blocking IMDS access by the task.
 		checkExistingFirewallRule := fmt.Sprintf(ecscni.ValidateExistingFirewallRuleCmdFormat, eni.GetPrimaryIPv4Address())
 		blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(ecscni.BlockIMDSFirewallDeleteRuleCmdFormat, eni.GetPrimaryIPv4Address())
-		err := engine.invokeCommandsOnHost(task, []string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
-		if err != nil {
-			return errors.Wrapf(err, "failed to delete firewall rule to disable imds")
-		}
+		// An error at this point means that the firewall rule was not present and was therefore not deleted.
+		// Hence, skip returning the error as it is redundant.
+		engine.invokeCommandsOnHost(task, []string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
 	}
 
 	return nil
@@ -166,34 +158,26 @@ func (engine *DockerTaskEngine) invokeCommandsInsideContainer(ctx context.Contex
 		return err
 	}
 
-	err = engine.client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
+	err = engine.client.StartContainerExec(ctx, execRes.ID, types.ExecStartCheck{Detach: false, Tty: false},
+		dockerclient.ContainerExecStartTimeout)
 	if err != nil {
 		seelog.Errorf("Task [%s]: Failed to execute command in pause namespace [pre-start]: %v", task.Arn, err)
 		return err
 	}
 
-	// Query the exec container using retry to determine if the commands succeeded.
-	backoff := retry.NewExponentialBackoff(commandExecBackoffMin, commandExecBackoffMax,
-		commandExecBackoffJitter, commandExecBackoffMultiple)
-	for count := 0; count < commandExecMaxRetryCount; count++ {
-		inspect, err := engine.client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
-		if err != nil {
-			seelog.Errorf("Task [%s]: Failed to execute command in pause namespace [inspect]: %v", task.Arn, err)
-			return err
-		}
-
-		// If the commands succeeded then return nil.
-		if !inspect.Running && inspect.ExitCode == 0 {
-			return nil
-		}
-
-		if count < commandExecMaxRetryCount-1 {
-			time.Sleep(backoff.Duration())
-		}
+	// Query the exec container to determine if the commands succeeded.
+	inspect, err := engine.client.InspectContainerExec(ctx, execRes.ID, dockerclient.ContainerExecInspectTimeout)
+	if err != nil {
+		seelog.Errorf("Task [%s]: Failed to execute command in pause namespace [inspect]: %v", task.Arn, err)
+		return err
 	}
 
-	// If the commands did not succeed then return error.
-	return errors.Errorf("failed to execute command in pause namespace: %v", commands)
+	// If the commands succeeded then return nil.
+	if !inspect.Running && inspect.ExitCode != 0 {
+		return errors.Errorf("failed to execute command in pause namespace: %d", inspect.ExitCode)
+	}
+
+	return nil
 }
 
 // invokeCommandsOnHost invokes given commands on the host instance.
@@ -204,9 +188,12 @@ func (engine *DockerTaskEngine) invokeCommandsOnHost(task *apitask.Task, command
 	execCommands := strings.Join(commands, separator)
 
 	cmd := exec.Command("cmd", "/C", execCommands)
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
 	err := cmd.Run()
 	if err != nil {
-		seelog.Errorf("Task [%s]: Failed to execute powershell command on host: %v", task.Arn, err)
+		seelog.Errorf("Task [%s]: Failed to execute command on host: %v: %s", task.Arn, err, stdout.String())
 		return err
 	}
 

@@ -1014,7 +1014,7 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	// These mock calls would be made only for Windows.
 	dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&types.IDResponse{ID: containerID}, nil).MinTimes(0).MaxTimes(1)
-	dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).
+	dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).
 		MinTimes(0).MaxTimes(1)
 	dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
 		ExitCode: 0,
