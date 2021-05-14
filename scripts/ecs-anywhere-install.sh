@@ -528,6 +528,10 @@ ecs-init-signature-verify() {
         echo "WARNING: gpg command not available on this server, not able to verify amazon-ecs-init package signature."
         ok
         return
+    elif ! command -v dirmngr; then
+        echo "WARNING: dirmngr not installed on this server, not able to verify amazon-ecs-init package signature."
+        ok
+        return
     fi
 
     gpg --keyserver hkp://keys.gnupg.net:80 --recv BCE9D9A42D51784F
