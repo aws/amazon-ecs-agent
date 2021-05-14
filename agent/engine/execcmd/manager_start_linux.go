@@ -164,7 +164,7 @@ func (m *manager) doStartAgent(ctx context.Context, client dockerapi.DockerClien
 
 	seelog.Debugf("Task engine [%s]: created ExecCommandAgent for container: %s -> docker exec id: %s", task.Arn, containerId, execRes.ID)
 
-	err = client.StartContainerExec(ctx, execRes.ID, dockerclient.ContainerExecStartTimeout)
+	err = client.StartContainerExec(ctx, execRes.ID, types.ExecStartCheck{Detach: true, Tty: false}, dockerclient.ContainerExecStartTimeout)
 	if err != nil {
 		return newMD, StartError{error: fmt.Errorf("unable to start ExecuteCommandAgent [pre-start]: %v", err), retryable: true}
 	}
