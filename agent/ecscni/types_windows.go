@@ -48,7 +48,7 @@ const (
 	BlockIMDSFirewallAddRuleCmdFormat = `netsh advfirewall firewall add rule name="Disable IMDS for %s" ` +
 		`dir=out localip=%s remoteip=169.254.169.254 action=block`
 	// BlockIMDSFirewallDeleteRuleCmdFormat is the format of command to delete firewall rule on Windows to block task's IMDS access.
-	BlockIMDSFirewallDeleteRuleCmdFormat = "netsh advfirewall firewall delete rule name=\"Disable IMDS for %s\" dir=out"
+	BlockIMDSFirewallDeleteRuleCmdFormat = `netsh advfirewall firewall delete rule name="Disable IMDS for %s" dir=out`
 )
 
 // VPCENIPluginConfig contains all the information required to invoke the vpc-eni plugin.

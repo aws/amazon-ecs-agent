@@ -373,7 +373,7 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Then execute commands inside the pause namespace
 		client.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&types.IDResponse{ID: containerID}, nil),
-		client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
 			ExitCode: 0,
 			Running:  false,
@@ -506,7 +506,7 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(&types.IDResponse{ID: containerID}, nil),
-		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
 			ExitCode: 0,
 			Running:  false,
@@ -620,9 +620,8 @@ func TestPauseContainerHappyPath(t *testing.T) {
 	wg.Wait()
 }
 
-// TestInvokeCommandsForTaskNamespaceSetupSuccessWithRetry tests invokeCommandsForTaskNamespaceSetup
-// with retry while inspecting exec container.
-func TestInvokeCommandsForTaskNamespaceSetupSuccessWithRetry(t *testing.T) {
+// TestInvokeCommandsForTaskNamespaceSetupSuccess tests invokeCommandsForTaskNamespaceSetup in a success scenario.
+func TestInvokeCommandsForTaskNamespaceSetupSuccess(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
@@ -654,20 +653,16 @@ func TestInvokeCommandsForTaskNamespaceSetupSuccessWithRetry(t *testing.T) {
 				assert.Equal(t, execConfig.Cmd[2], finalCmd)
 				assert.Equal(t, execConfig.User, containerAdminUser)
 			}).Return(&types.IDResponse{ID: containerExecID}, nil),
-		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(_ context.Context, execID string, _ time.Duration) {
+		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+			func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {
 				assert.Equal(t, execID, containerExecID)
+				assert.False(t, execStartCheck.Detach)
 			}).Return(nil),
 		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 			&types.ContainerExecInspect{
 				ExitCode: 0,
-				Running:  true,
-			}, nil),
-		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerExecInspect{
-				ExitCode: 0,
 				Running:  false,
-			}, nil).MaxTimes(1),
+			}, nil),
 	)
 
 	err := taskEngine.(*DockerTaskEngine).invokeCommandsForTaskNamespaceSetup(ctx, testTask, cniConfig, result)
