@@ -16,8 +16,16 @@
 package engine
 
 import (
+	"time"
+
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+)
+
+const (
+	// Constants for CNI timeout during setup and cleanup.
+	cniSetupTimeout   = time.Duration(0)
+	cniCleanupTimeout = time.Duration(0)
 )
 
 // updateTaskENIDependencies updates the task's dependencies for awsvpc networking mode.

@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	cnitypes "github.com/containernetworking/cni/pkg/types"
@@ -39,6 +40,13 @@ var (
 	vpcCNIPluginPath = filepath.Join(utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`),
 		"Amazon", "ECS", "log", "vpc-eni.log")
 )
+
+// newCNIGuard returns a new instance of CNI guard for the CNI client.
+func newCNIGuard() cniGuard {
+	return &guard{
+		mutex: &sync.Mutex{},
+	}
+}
 
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations.
 // For Windows, we will retry the setup before conceding error.

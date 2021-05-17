@@ -69,8 +69,6 @@ const (
 	labelTaskDefinitionFamily          = labelPrefix + "task-definition-family"
 	labelTaskDefinitionVersion         = labelPrefix + "task-definition-version"
 	labelCluster                       = labelPrefix + "cluster"
-	cniSetupTimeout                    = 1 * time.Minute
-	cniCleanupTimeout                  = 30 * time.Second
 	minGetIPBridgeTimeout              = time.Second
 	maxGetIPBridgeTimeout              = 10 * time.Second
 	getIPBridgeRetryJitterMultiplier   = 0.2

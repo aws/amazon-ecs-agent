@@ -39,6 +39,14 @@ const (
 	vpcCNIPluginPath = "/log/vpc-branch-eni.log"
 )
 
+// newCNIGuard returns a new instance of CNI guard for the CNI client.
+// It is supported only on Windows.
+func newCNIGuard() cniGuard {
+	return &guard{
+		mutex: nil,
+	}
+}
+
 // setupNS is the called by SetupNS to setup the task namespace by invoking ADD for given CNI configurations
 func (client *cniClient) setupNS(ctx context.Context, cfg *Config) (*current.Result, error) {
 	seelog.Debugf("[ECSCNI] Setting up the container namespace %s", cfg.ContainerID)
