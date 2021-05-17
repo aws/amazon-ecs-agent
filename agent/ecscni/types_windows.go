@@ -34,21 +34,6 @@ const (
 	setupNSBackoffJitter   = 0.2
 	setupNSBackoffMultiple = 1.3
 	setupNSMaxRetryCount   = 3
-	// ECSBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
-	ECSBridgeEndpointNameFormat = "%s-ep-%s"
-	// ECSBridgeDefaultRouteDeleteCmdFormat is the format of command for deleting default route of ECS bridge endpoint.
-	ECSBridgeDefaultRouteDeleteCmdFormat = `netsh interface ipv4 delete route prefix=0.0.0.0/0 interface="vEthernet (%s)"`
-	// ECSBridgeSubnetRouteDeleteCmdFormat is the format of command for deleting subnet route of ECS bridge endpoint.
-	ECSBridgeSubnetRouteDeleteCmdFormat = `netsh interface ipv4 delete route prefix=%s interface="vEthernet (%s)"`
-	// ECSBridgeCredentialsRouteAddCmdFormat is the format of command for adding route to credentials IP using ECS Bridge.
-	ECSBridgeCredentialsRouteAddCmdFormat = `netsh interface ipv4 add route prefix=169.254.170.2/32 interface="vEthernet (%s)"`
-	// ValidateExistingFirewallRuleCmdFormat is the format of the command to check if the firewall rule exists.
-	ValidateExistingFirewallRuleCmdFormat = `netsh advfirewall firewall show rule name="Disable IMDS for %s" >nul`
-	// BlockIMDSFirewallAddRuleCmdFormat is the format of command for creating firewall rule on Windows to block task's IMDS access.
-	BlockIMDSFirewallAddRuleCmdFormat = `netsh advfirewall firewall add rule name="Disable IMDS for %s" ` +
-		`dir=out localip=%s remoteip=169.254.169.254 action=block`
-	// BlockIMDSFirewallDeleteRuleCmdFormat is the format of command to delete firewall rule on Windows to block task's IMDS access.
-	BlockIMDSFirewallDeleteRuleCmdFormat = `netsh advfirewall firewall delete rule name="Disable IMDS for %s" dir=out`
 )
 
 // VPCENIPluginConfig contains all the information required to invoke the vpc-eni plugin.
