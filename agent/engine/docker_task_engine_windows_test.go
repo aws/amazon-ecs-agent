@@ -639,10 +639,10 @@ func TestInvokeCommandsForTaskNamespaceSetupSuccess(t *testing.T) {
 		}},
 	}
 
-	bridgeEpName := fmt.Sprintf(ecscni.ECSBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, containerID)
-	cmd1 := fmt.Sprintf(ecscni.ECSBridgeDefaultRouteDeleteCmdFormat, bridgeEpName)
-	cmd2 := fmt.Sprintf(ecscni.ECSBridgeSubnetRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
-	cmd3 := fmt.Sprintf(ecscni.ECSBridgeCredentialsRouteAddCmdFormat, bridgeEpName)
+	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, containerID)
+	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
+	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
+	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
 	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3}, " && ")
 
 	gomock.InOrder(

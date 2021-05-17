@@ -44,6 +44,26 @@ const (
 	cniCleanupTimeout = 2 * time.Minute
 	// containerAdminUser is the admin username for any container on Windows.
 	containerAdminUser = "ContainerAdministrator"
+	// windowsDefaultRoute is the default route of any endpoint.
+	windowsDefaultRoute = "0.0.0.0/0"
+	// credentialsEndpointRoute is the route of credentials endpoint for accessing task iam roles/task metadata.
+	credentialsEndpointRoute = "169.254.170.2/32"
+	// imdsEndpointIPAddress is the IP address of the endpoint for accessing IMDS.
+	imdsEndpointIPAddress = "169.254.169.254"
+	// ecsBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
+	ecsBridgeEndpointNameFormat = "%s-ep-%s"
+	// blockIMDSFirewallRuleNameFormat is the format of firewall rule name for blocking IMDS from task namespace.
+	blockIMDSFirewallRuleNameFormat = "Disable IMDS for %s"
+	// ecsBridgeRouteAddCmdFormat is the format of command for adding route entry through ECS Bridge.
+	ecsBridgeRouteAddCmdFormat = `netsh interface ipv4 add route prefix=%s interface="vEthernet (%s)"`
+	// ecsBridgeRouteDeleteCmdFormat is the format of command for deleting route entry of ECS bridge endpoint.
+	ecsBridgeRouteDeleteCmdFormat = `netsh interface ipv4 delete route prefix=%s interface="vEthernet (%s)"`
+	// checkExistingFirewallRuleCmdFormat is the format of the command to check if the firewall rule exists.
+	checkExistingFirewallRuleCmdFormat = `netsh advfirewall firewall show rule name="%s" >nul`
+	// addFirewallRuleCmdFormat is the format of command for creating firewall rule on Windows.
+	addFirewallRuleCmdFormat = `netsh advfirewall firewall add rule name="%s" dir=out localip=%s remoteip=%s action=block`
+	// deleteFirewallRuleCmdFormat is the format of the command to delete a firewall rule on Windows.
+	deleteFirewallRuleCmdFormat = `netsh advfirewall firewall delete rule name="%s" dir=out`
 )
 
 func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
@@ -82,13 +102,13 @@ func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceSetup(ctx context.
 		IP:   result.IPs[0].Address.IP.Mask(result.IPs[0].Address.Mask),
 		Mask: result.IPs[0].Address.Mask,
 	}
-	ecsBridgeEndpointName := fmt.Sprintf(ecscni.ECSBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, config.ContainerID)
+	ecsBridgeEndpointName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, config.ContainerID)
 
 	// Prepare the commands to be executed inside pause namespace to setup the ECS Bridge.
-	defaultRouteDeletionCmd := fmt.Sprintf(ecscni.ECSBridgeDefaultRouteDeleteCmdFormat, ecsBridgeEndpointName)
-	defaultSubnetRouteDeletionCmd := fmt.Sprintf(ecscni.ECSBridgeSubnetRouteDeleteCmdFormat, ecsBridgeSubnetIPAddress.String(),
+	defaultRouteDeletionCmd := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, ecsBridgeEndpointName)
+	defaultSubnetRouteDeletionCmd := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, ecsBridgeSubnetIPAddress.String(),
 		ecsBridgeEndpointName)
-	credentialsAddressRouteAdditionCmd := fmt.Sprintf(ecscni.ECSBridgeCredentialsRouteAddCmdFormat, ecsBridgeEndpointName)
+	credentialsAddressRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, ecsBridgeEndpointName)
 	commands := []string{defaultRouteDeletionCmd, defaultSubnetRouteDeletionCmd, credentialsAddressRouteAdditionCmd}
 
 	// Invoke the generated commands inside the pause namespace.
@@ -104,9 +124,13 @@ func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceSetup(ctx context.
 			return errors.New("could not find the task eni")
 		}
 
-		checkExistingFirewallRule := fmt.Sprintf(ecscni.ValidateExistingFirewallRuleCmdFormat, eni.GetPrimaryIPv4Address())
-		blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(ecscni.BlockIMDSFirewallAddRuleCmdFormat,
-			eni.GetPrimaryIPv4Address(), eni.GetPrimaryIPv4Address())
+		firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, eni.GetPrimaryIPv4Address())
+		checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
+		blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(addFirewallRuleCmdFormat, firewallRuleName,
+			eni.GetPrimaryIPv4Address(), imdsEndpointIPAddress)
+
+		// Invoke the generated command on the host to add the firewall rule.
+		// Separator is "||" as either the firewall rule should exist or a new one should be created.
 		err = engine.invokeCommandsOnHost(task, []string{checkExistingFirewallRule, blockIMDSFirewallRuleCreationCmd}, " || ")
 		if err != nil {
 			return errors.Wrapf(err, "failed to create firewall rule to disable imds")
@@ -124,9 +148,13 @@ func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceCleanup(task *apit
 			return errors.New("could not find the task eni")
 		}
 
+		firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, eni.GetPrimaryIPv4Address())
+
 		// Delete the firewall rule created for blocking IMDS access by the task.
-		checkExistingFirewallRule := fmt.Sprintf(ecscni.ValidateExistingFirewallRuleCmdFormat, eni.GetPrimaryIPv4Address())
-		blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(ecscni.BlockIMDSFirewallDeleteRuleCmdFormat, eni.GetPrimaryIPv4Address())
+		checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
+		blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(deleteFirewallRuleCmdFormat, firewallRuleName)
+
+		// The separator would be "&&" to ensure if the firewall rule exists then delete it.
 		// An error at this point means that the firewall rule was not present and was therefore not deleted.
 		// Hence, skip returning the error as it is redundant.
 		engine.invokeCommandsOnHost(task, []string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
@@ -139,7 +167,7 @@ func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceCleanup(task *apit
 func (engine *DockerTaskEngine) invokeCommandsInsideContainer(ctx context.Context, task *apitask.Task,
 	config *ecscni.Config, commands []string, separator string) error {
 
-	seelog.Infof("Task [%s]: Executing commands inside pause namespace: %v", task.Arn, commands)
+	seelog.Debugf("Task [%s]: Executing commands inside pause namespace: %v", task.Arn, commands)
 
 	// Concatenate all the commands into a single command.
 	execCommands := strings.Join(commands, separator)
@@ -182,7 +210,7 @@ func (engine *DockerTaskEngine) invokeCommandsInsideContainer(ctx context.Contex
 
 // invokeCommandsOnHost invokes given commands on the host instance.
 func (engine *DockerTaskEngine) invokeCommandsOnHost(task *apitask.Task, commands []string, separator string) error {
-	seelog.Infof("Task [%s]: Executing commands on host: %v", task.Arn, commands)
+	seelog.Debugf("Task [%s]: Executing commands on host: %v", task.Arn, commands)
 
 	// Concatenate all the commands into a single command.
 	execCommands := strings.Join(commands, separator)
