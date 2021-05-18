@@ -49,8 +49,10 @@ ECS_VERSION=""
 DEB_URL=""
 RPM_URL=""
 ECS_ENDPOINT=""
-# Whether to check sha for the downloaded ecs-init package. true unless --rpm-url or --deb-url is specified.
-CHECK_SHA=true
+# Whether to check signature for the downloaded amazon-ecs-init package. true unless --skip-gpg-check
+# specified. --skip-gpg-check is mostly for testing purpose (so that we can test a custom build of ecs init package
+# without having to sign it).
+CHECK_SIG=true
 NO_START=false
 while :; do
     case "$1" in
@@ -91,13 +93,11 @@ while :; do
     --deb-url)
         check-option-value "$1" "$2"
         DEB_URL="$2"
-        CHECK_SHA=false
         shift 2
         ;;
     --rpm-url)
         check-option-value "$1" "$2"
         RPM_URL="$2"
-        CHECK_SHA=false
         shift 2
         ;;
     --ecs-endpoint)
@@ -111,6 +111,10 @@ while :; do
         ;;
     --no-start)
         NO_START=true
+        shift 1
+        ;;
+    --skip-gpg-check)
+        CHECK_SIG=false
         shift 1
         ;;
     *)
@@ -473,7 +477,7 @@ install-ecs-agent() {
     case "$PKG_MANAGER" in
     apt)
         curl-helper "$dir/$DEB_PKG_NAME" "$DEB_URL"
-        if $CHECK_SHA; then
+        if $CHECK_SIG; then
             curl-helper "$dir/$DEB_PKG_NAME.asc" "$DEB_URL.asc"
             ecs-init-signature-verify "$dir/$DEB_PKG_NAME.asc" "$dir/$DEB_PKG_NAME"
         fi
@@ -482,7 +486,7 @@ install-ecs-agent() {
         ;;
     dnf | yum | zypper)
         curl-helper "$dir/$RPM_PKG_NAME" "$RPM_URL"
-        if $CHECK_SHA; then
+        if $CHECK_SIG; then
             curl-helper "$dir/$RPM_PKG_NAME.asc" "$RPM_URL.asc"
             ecs-init-signature-verify "$dir/$RPM_PKG_NAME.asc" "$dir/$RPM_PKG_NAME"
         fi
@@ -534,7 +538,9 @@ ecs-init-signature-verify() {
         return
     fi
 
-    gpg --keyserver hkp://keys.gnupg.net:80 --recv BCE9D9A42D51784F
+    # TODO: change link to official repo after merging first time.
+    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/fenxiong/amazon-ecs-init/ecs-pubkey/scripts/amazon-ecs-agent.gpg"
+    gpg --import "$dir/amazon-ecs-agent.gpg"
     if gpg --verify "$1" "$2"; then
         echo "amazon-ecs-init GPG verification passed. Install amazon-ecs-init."
     else
