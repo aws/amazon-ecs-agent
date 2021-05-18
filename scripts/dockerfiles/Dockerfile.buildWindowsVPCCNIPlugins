@@ -19,10 +19,9 @@ ARG GOARCH
 
 ENV GOARCH ${GOARCH}
 ENV GOOS windows
-ENV BUILD_FLAGS "-tags disablekubeapi"
 
 RUN mkdir -p /go/src/github.com/aws/
 
 WORKDIR /go/src/github.com/aws/amazon-vpc-cni-plugins
 
-CMD ["make", "vpc-shared-eni"]
+CMD ["make", "vpc-eni"]
