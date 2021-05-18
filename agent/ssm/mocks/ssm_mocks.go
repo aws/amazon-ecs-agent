@@ -19,10 +19,9 @@
 package mock_ssm
 
 import (
-	reflect "reflect"
-
 	ssm "github.com/aws/aws-sdk-go/service/ssm"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockSSMClient is a mock of SSMClient interface

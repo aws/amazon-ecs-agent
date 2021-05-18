@@ -19,11 +19,10 @@
 package mock_factory
 
 import (
-	reflect "reflect"
-
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	ssm "github.com/aws/amazon-ecs-agent/agent/ssm"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockSSMClientCreator is a mock of SSMClientCreator interface

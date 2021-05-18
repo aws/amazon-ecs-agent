@@ -19,9 +19,8 @@
 package mock_mobypkgwrapper
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockPlugins is a mock of Plugins interface

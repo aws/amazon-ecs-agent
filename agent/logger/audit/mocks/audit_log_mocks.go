@@ -19,10 +19,9 @@
 package mock_audit
 
 import (
-	reflect "reflect"
-
 	request "github.com/aws/amazon-ecs-agent/agent/logger/audit/request"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockAuditLogger is a mock of AuditLogger interface

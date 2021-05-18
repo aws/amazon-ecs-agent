@@ -19,10 +19,9 @@
 package mock_udevwrapper
 
 import (
-	reflect "reflect"
-
 	udev "github.com/deniswernert/udev"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockUdev is a mock of Udev interface

@@ -20,11 +20,10 @@ package mock_secretsmanageriface
 
 import (
 	context "context"
-	reflect "reflect"
-
 	request "github.com/aws/aws-sdk-go/aws/request"
 	secretsmanager "github.com/aws/aws-sdk-go/service/secretsmanager"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockSecretsManagerAPI is a mock of SecretsManagerAPI interface

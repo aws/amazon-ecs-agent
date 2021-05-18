@@ -20,13 +20,12 @@ package mock_containermetadata
 
 import (
 	context "context"
-	reflect "reflect"
-	time "time"
-
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	types "github.com/docker/docker/api/types"
 	container "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
+	time "time"
 )
 
 // MockManager is a mock of Manager interface

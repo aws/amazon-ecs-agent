@@ -19,11 +19,10 @@
 package mock_resolver
 
 import (
-	reflect "reflect"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockContainerMetadataResolver is a mock of ContainerMetadataResolver interface

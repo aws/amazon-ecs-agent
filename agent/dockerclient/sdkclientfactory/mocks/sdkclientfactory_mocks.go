@@ -19,11 +19,10 @@
 package mock_sdkclientfactory
 
 import (
-	reflect "reflect"
-
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
 	sdkclient "github.com/aws/amazon-ecs-agent/agent/dockerclient/sdkclient"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockFactory is a mock of Factory interface

@@ -19,12 +19,11 @@
 package mock_wsclient
 
 import (
-	reflect "reflect"
-	time "time"
-
 	wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient"
 	wsconn "github.com/aws/amazon-ecs-agent/agent/wsclient/wsconn"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
+	time "time"
 )
 
 // MockClientServer is a mock of ClientServer interface

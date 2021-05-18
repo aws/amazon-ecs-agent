@@ -20,14 +20,13 @@ package mock_execcmd
 
 import (
 	context "context"
-	reflect "reflect"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	execcmd "github.com/aws/amazon-ecs-agent/agent/engine/execcmd"
 	container0 "github.com/docker/docker/api/types/container"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockManager is a mock of Manager interface

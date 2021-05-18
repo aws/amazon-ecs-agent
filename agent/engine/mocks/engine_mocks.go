@@ -20,14 +20,13 @@ package mock_engine
 
 import (
 	context "context"
-	reflect "reflect"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	data "github.com/aws/amazon-ecs-agent/agent/data"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	statechange "github.com/aws/amazon-ecs-agent/agent/statechange"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockTaskEngine is a mock of TaskEngine interface

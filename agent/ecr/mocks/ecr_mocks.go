@@ -19,12 +19,11 @@
 package mock_ecr
 
 import (
-	reflect "reflect"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	ecr "github.com/aws/amazon-ecs-agent/agent/ecr"
 	ecr0 "github.com/aws/amazon-ecs-agent/agent/ecr/model/ecr"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockECRSDK is a mock of ECRSDK interface

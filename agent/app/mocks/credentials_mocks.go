@@ -19,10 +19,9 @@
 package mock_credentials
 
 import (
-	reflect "reflect"
-
 	credentials "github.com/aws/aws-sdk-go/aws/credentials"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockProvider is a mock of Provider interface

@@ -19,10 +19,9 @@
 package mock_fsx
 
 import (
-	reflect "reflect"
-
 	fsx "github.com/aws/aws-sdk-go/service/fsx"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockFSxClient is a mock of FSxClient interface

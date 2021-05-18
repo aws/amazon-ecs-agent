@@ -19,15 +19,14 @@
 package mock_taskresource
 
 import (
-	reflect "reflect"
-	time "time"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	status0 "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	taskresource "github.com/aws/amazon-ecs-agent/agent/taskresource"
 	status1 "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
+	time "time"
 )
 
 // MockTaskResource is a mock of TaskResource interface

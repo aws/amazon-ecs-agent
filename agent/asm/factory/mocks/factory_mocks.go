@@ -19,11 +19,10 @@
 package mock_factory
 
 import (
-	reflect "reflect"
-
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	secretsmanageriface "github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockClientCreator is a mock of ClientCreator interface

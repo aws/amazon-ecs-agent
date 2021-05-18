@@ -19,10 +19,9 @@
 package mock_nswrapper
 
 import (
-	reflect "reflect"
-
 	ns "github.com/containernetworking/plugins/pkg/ns"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockNS is a mock of NS interface

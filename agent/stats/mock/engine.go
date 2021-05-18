@@ -19,12 +19,11 @@
 package mock_stats
 
 import (
-	reflect "reflect"
-
 	stats "github.com/aws/amazon-ecs-agent/agent/stats"
 	ecstcs "github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	types "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockEngine is a mock of Engine interface

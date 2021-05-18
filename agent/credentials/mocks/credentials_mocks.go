@@ -19,10 +19,9 @@
 package mock_credentials
 
 import (
-	reflect "reflect"
-
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockManager is a mock of Manager interface

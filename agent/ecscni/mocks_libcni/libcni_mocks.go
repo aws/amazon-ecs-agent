@@ -20,11 +20,10 @@ package mock_libcni
 
 import (
 	context "context"
-	reflect "reflect"
-
 	libcni "github.com/containernetworking/cni/libcni"
 	types "github.com/containernetworking/cni/pkg/types"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockCNI is a mock of CNI interface

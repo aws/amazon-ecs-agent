@@ -19,10 +19,9 @@
 package mock_seelog
 
 import (
-	reflect "reflect"
-
 	seelog "github.com/cihub/seelog"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockCustomReceiver is a mock of CustomReceiver interface

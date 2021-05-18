@@ -20,10 +20,6 @@ package mock_sdkclient
 
 import (
 	context "context"
-	io "io"
-	reflect "reflect"
-	time "time"
-
 	types "github.com/docker/docker/api/types"
 	container "github.com/docker/docker/api/types/container"
 	events "github.com/docker/docker/api/types/events"
@@ -31,6 +27,9 @@ import (
 	network "github.com/docker/docker/api/types/network"
 	volume "github.com/docker/docker/api/types/volume"
 	gomock "github.com/golang/mock/gomock"
+	io "io"
+	reflect "reflect"
+	time "time"
 )
 
 // MockClient is a mock of Client interface

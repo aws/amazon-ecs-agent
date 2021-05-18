@@ -19,10 +19,9 @@
 package mock_async
 
 import (
-	reflect "reflect"
-
 	async "github.com/aws/amazon-ecs-agent/agent/async"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockCache is a mock of Cache interface

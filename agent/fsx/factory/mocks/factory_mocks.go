@@ -19,11 +19,10 @@
 package mock_factory
 
 import (
-	reflect "reflect"
-
 	credentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	fsx "github.com/aws/amazon-ecs-agent/agent/fsx"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockFSxClientCreator is a mock of FSxClientCreator interface

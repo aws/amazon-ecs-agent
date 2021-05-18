@@ -19,13 +19,12 @@
 package mock_dockerstate
 
 import (
-	reflect "reflect"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	eni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	task "github.com/aws/amazon-ecs-agent/agent/api/task"
 	image "github.com/aws/amazon-ecs-agent/agent/engine/image"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockTaskEngineState is a mock of TaskEngineState interface

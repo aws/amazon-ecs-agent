@@ -20,10 +20,6 @@ package mock_dockerapi
 
 import (
 	context "context"
-	io "io"
-	reflect "reflect"
-	time "time"
-
 	container "github.com/aws/amazon-ecs-agent/agent/api/container"
 	status "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	dockerclient "github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -32,6 +28,9 @@ import (
 	container0 "github.com/docker/docker/api/types/container"
 	filters "github.com/docker/docker/api/types/filters"
 	gomock "github.com/golang/mock/gomock"
+	io "io"
+	reflect "reflect"
+	time "time"
 )
 
 // MockDockerClient is a mock of DockerClient interface

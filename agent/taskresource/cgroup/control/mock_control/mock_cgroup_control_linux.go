@@ -19,11 +19,10 @@
 package mock_control
 
 import (
-	reflect "reflect"
-
 	control "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	cgroups "github.com/containerd/cgroups"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockControl is a mock of Control interface

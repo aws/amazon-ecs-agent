@@ -19,9 +19,8 @@
 package mock_statemanager
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockStateManager is a mock of StateManager interface

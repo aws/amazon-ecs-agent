@@ -19,10 +19,9 @@
 package mock_netlinkwrapper
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	netlink "github.com/vishvananda/netlink"
+	reflect "reflect"
 )
 
 // MockNetLink is a mock of NetLink interface

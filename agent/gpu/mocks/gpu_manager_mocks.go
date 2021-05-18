@@ -19,10 +19,9 @@
 package mock_gpu
 
 import (
-	reflect "reflect"
-
 	ecs "github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockGPUManager is a mock of GPUManager interface

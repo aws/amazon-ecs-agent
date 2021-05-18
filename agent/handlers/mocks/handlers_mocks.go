@@ -19,10 +19,9 @@
 package mock_utils
 
 import (
-	reflect "reflect"
-
 	dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockDockerStateResolver is a mock of DockerStateResolver interface

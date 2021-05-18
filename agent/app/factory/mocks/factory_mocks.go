@@ -19,11 +19,10 @@
 package mock_factory
 
 import (
-	reflect "reflect"
-
 	config "github.com/aws/amazon-ecs-agent/agent/config"
 	statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockStateManager is a mock of StateManager interface

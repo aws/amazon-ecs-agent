@@ -20,12 +20,11 @@ package mock_pause
 
 import (
 	context "context"
-	reflect "reflect"
-
 	config "github.com/aws/amazon-ecs-agent/agent/config"
 	dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	types "github.com/docker/docker/api/types"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockLoader is a mock of Loader interface

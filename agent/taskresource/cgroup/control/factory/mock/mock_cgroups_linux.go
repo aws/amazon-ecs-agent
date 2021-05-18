@@ -19,11 +19,10 @@
 package mock_cgroups
 
 import (
-	reflect "reflect"
-
 	cgroups "github.com/containerd/cgroups"
 	gomock "github.com/golang/mock/gomock"
 	specs_go "github.com/opencontainers/runtime-spec/specs-go"
+	reflect "reflect"
 )
 
 // MockCgroup is a mock of Cgroup interface

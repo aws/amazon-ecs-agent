@@ -19,9 +19,8 @@
 package mock_utils
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockLicenseProvider is a mock of LicenseProvider interface

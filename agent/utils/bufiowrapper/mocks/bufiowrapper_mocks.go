@@ -19,11 +19,10 @@
 package mock_bufiowrapper
 
 import (
-	io "io"
-	reflect "reflect"
-
 	bufiowrapper "github.com/aws/amazon-ecs-agent/agent/utils/bufiowrapper"
 	gomock "github.com/golang/mock/gomock"
+	io "io"
+	reflect "reflect"
 )
 
 // MockBufio is a mock of Bufio interface

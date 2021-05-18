@@ -20,12 +20,11 @@ package mock_ecscni
 
 import (
 	context "context"
-	reflect "reflect"
-	time "time"
-
 	ecscni "github.com/aws/amazon-ecs-agent/agent/ecscni"
 	current "github.com/containernetworking/cni/pkg/types/current"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
+	time "time"
 )
 
 // MockCNIClient is a mock of CNIClient interface
