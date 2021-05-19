@@ -17,14 +17,11 @@ package engine
 import (
 	"context"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/containernetworking/cni/pkg/types/current"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -50,8 +47,7 @@ import (
 )
 
 const (
-	containerNetNS  = "container:abcd"
-	containerExecID = "container1234"
+	containerNetNS = "container:abcd"
 )
 
 func TestDeleteTask(t *testing.T) {
@@ -618,53 +614,4 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	wg.Wait()
-}
-
-// TestInvokeCommandsForTaskNamespaceSetupSuccess tests invokeCommandsForTaskNamespaceSetup in a success scenario.
-func TestInvokeCommandsForTaskNamespaceSetupSuccess(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	ctrl, dockerClient, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
-	defer ctrl.Finish()
-
-	testTask := testdata.LoadTask("sleep5")
-	testTask.AddTaskENI(mockENI)
-	cniConfig := &ecscni.Config{ContainerID: containerID, BlockInstanceMetadata: false}
-	result := &current.Result{
-		IPs: []*current.IPConfig{{
-			Address: net.IPNet{
-				IP:   net.ParseIP(ipv4),
-				Mask: net.CIDRMask(24, 32),
-			},
-		}},
-	}
-
-	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ecscni.ECSBridgeNetworkName, containerID)
-	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
-	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
-	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
-	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3}, " && ")
-
-	gomock.InOrder(
-		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(_ context.Context, container string, execConfig types.ExecConfig, _ time.Duration) {
-				assert.Equal(t, container, containerID)
-				assert.Len(t, execConfig.Cmd, 3)
-				assert.Equal(t, execConfig.Cmd[2], finalCmd)
-				assert.Equal(t, execConfig.User, containerAdminUser)
-			}).Return(&types.IDResponse{ID: containerExecID}, nil),
-		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {
-				assert.Equal(t, execID, containerExecID)
-				assert.False(t, execStartCheck.Detach)
-			}).Return(nil),
-		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerExecInspect{
-				ExitCode: 0,
-				Running:  false,
-			}, nil),
-	)
-
-	err := taskEngine.(*DockerTaskEngine).invokeCommandsForTaskNamespaceSetup(ctx, testTask, cniConfig, result)
-	assert.NoError(t, err)
 }
