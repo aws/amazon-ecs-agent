@@ -73,8 +73,8 @@ func TestHandleEventError(t *testing.T) {
 			CurrentContainerKnownStatus:     apicontainerstatus.ContainerRunning,
 			Error:                           &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet: true,
-			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerRunning,
-			ExpectedOK:                      false,
+			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerStopped,
+			ExpectedOK:                      true,
 		},
 		{
 			Name:                        "Retriable error with stop",
