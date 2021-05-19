@@ -930,24 +930,6 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.DockerContainerChangeEvent,
 	container *apicontainer.Container,
 	currentKnownStatus apicontainerstatus.ContainerStatus) bool {
-	// If we were trying to transition to stopped and had a timeout error
-	// from docker, reset the known status to the current status and return
-	// This ensures that we don't emit a containerstopped event; a
-	// terminal container event from docker event stream will instead be
-	// responsible for the transition. Alternatively, the steadyState check
-	// could also trigger the progress and have another go at stopping the
-	// container
-	if event.Error.ErrorName() == dockerapi.DockerTimeoutErrorName {
-		logger.Info("Error stopping container; ignoring state change", logger.Fields{
-			field.TaskARN:   mtask.Arn,
-			field.Container: container.Name,
-			field.RuntimeID: container.GetRuntimeID(),
-			"ErrorName":     event.Error.ErrorName(),
-			field.Error:     event.Error.Error(),
-		})
-		container.SetKnownStatus(currentKnownStatus)
-		return false
-	}
 	// If docker returned a transient error while trying to stop a container,
 	// reset the known status to the current status and return
 	cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
@@ -969,7 +951,7 @@ func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.
 	// enough) and get on with it
 	// This can happen in cases where the container we tried to stop
 	// was already stopped or did not exist at all.
-	logger.Warn("Error stopping the container; ignoring state change", logger.Fields{
+	logger.Warn("Error stopping the container; marking it as stopped anyway", logger.Fields{
 		field.TaskARN:   mtask.Arn,
 		field.Container: container.Name,
 		field.RuntimeID: container.GetRuntimeID(),

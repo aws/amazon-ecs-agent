@@ -101,7 +101,15 @@ const (
 	FluentAWSVPCHostValue  = "127.0.0.1"
 
 	defaultMonitorExecAgentsInterval = 15 * time.Minute
+
+	stopContainerBackoffMin        = time.Second
+	stopContainerBackoffMax        = time.Second * 5
+	stopContainerBackoffJitter     = 0.2
+	stopContainerBackoffMultiplier = 1.3
+	stopContainerMaxRetryCount     = 3
 )
+
+var newExponentialBackoff = retry.NewExponentialBackoff
 
 // DockerTaskEngine is a state machine for managing a task and its containers
 // in ECS.
@@ -1535,7 +1543,29 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 		apiTimeoutStopContainer = engine.cfg.DockerStopTimeout
 	}
 
-	return engine.client.StopContainer(engine.ctx, dockerID, apiTimeoutStopContainer)
+	return engine.stopDockerContainer(dockerID, container.Name, apiTimeoutStopContainer)
+}
+
+// stopDockerContainer attempts to stop the container, retrying only in case of time out errors.
+// If the maximum number of retries is reached, the container is marked as stopped. This is because docker sometimes
+// deadlocks when trying to stop a container but the actual container process is stopped.
+// for more information, see: https://github.com/moby/moby/issues/41587
+func (engine *DockerTaskEngine) stopDockerContainer(dockerID, containerName string, apiTimeoutStopContainer time.Duration) dockerapi.DockerContainerMetadata {
+	var md dockerapi.DockerContainerMetadata
+	backoff := newExponentialBackoff(stopContainerBackoffMin, stopContainerBackoffMax, stopContainerBackoffJitter, stopContainerBackoffMultiplier)
+	for i := 0; i < stopContainerMaxRetryCount; i++ {
+		md = engine.client.StopContainer(engine.ctx, dockerID, apiTimeoutStopContainer)
+		if md.Error == nil || md.Error.ErrorName() != dockerapi.DockerTimeoutErrorName {
+			return md
+		}
+		if i < stopContainerMaxRetryCount-1 {
+			time.Sleep(backoff.Duration())
+		}
+	}
+	if md.Error != nil && md.Error.ErrorName() == dockerapi.DockerTimeoutErrorName {
+		seelog.Warnf("Unable to stop container (%s) after %d attempts that timed out; giving up and marking container as stopped anyways", containerName, stopContainerMaxRetryCount)
+	}
+	return md
 }
 
 func (engine *DockerTaskEngine) removeContainer(task *apitask.Task, container *apicontainer.Container) error {
