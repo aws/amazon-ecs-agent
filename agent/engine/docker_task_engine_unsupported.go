@@ -16,13 +16,10 @@
 package engine
 
 import (
-	"context"
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
-	"github.com/aws/amazon-ecs-agent/agent/ecscni"
-	"github.com/containernetworking/cni/pkg/types/current"
 )
 
 const (
@@ -39,18 +36,5 @@ func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
 // invokePluginForContainer is used to invoke the CNI plugin for the given container
 // On non-windows platform, we will not invoke CNI plugins for non-pause containers
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
-	return nil
-}
-
-// invokeCommandsForTaskNamespaceSetup invokes the necessary commands to setup various constructs of awsvpc-network mode for the task.
-// This is applicable only for Windows for now.
-func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceSetup(ctx context.Context, task *apitask.Task,
-	config *ecscni.Config, result *current.Result) error {
-	return nil
-}
-
-// invokeCommandsForTaskNamespaceCleanup invokes the necessary commands to cleanup the constructs of awsvpc-network mode for the task.
-// This is applicable only for Windows for now.
-func (engine *DockerTaskEngine) invokeCommandsForTaskNamespaceCleanup(task *apitask.Task, config *ecscni.Config) error {
 	return nil
 }
