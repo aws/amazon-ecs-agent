@@ -1003,6 +1003,9 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	defer cleanup()
 	taskEngine.SetDataClient(dataClient)
 
+	mockNamespaceHelper := mock_ecscni.NewMockNamespaceHelper(ctrl)
+	taskEngine.(*DockerTaskEngine).namespaceHelper = mockNamespaceHelper
+
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	testTask := testdata.LoadTask("sleep5")
@@ -1034,16 +1037,9 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		mockNamespaceHelper.EXPECT().ConfigureTaskNamespaceRouting(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		mockNamespaceHelper.EXPECT().ConfigureFirewallForTaskNSSetup(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	// These mock calls would be made only for Windows.
-	dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		&types.IDResponse{ID: containerID}, nil).MinTimes(0).MaxTimes(1)
-	dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).
-		MinTimes(0).MaxTimes(1)
-	dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
-		ExitCode: 0,
-		Running:  false,
-	}, nil).MinTimes(0).MaxTimes(1)
 
 	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
 	assert.Equal(t, strconv.Itoa(containerPid), volRes.GetPauseContainerPID())

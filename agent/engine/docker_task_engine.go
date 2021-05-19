@@ -25,6 +25,8 @@ import (
 	"sync"
 	"time"
 
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -166,6 +168,7 @@ type DockerTaskEngine struct {
 	monitorExecAgentsTicker   *time.Ticker
 	execCmdMgr                execcmd.Manager
 	monitorExecAgentsInterval time.Duration
+	namespaceHelper           ecscni.NamespaceHelper
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -204,6 +207,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		handleDelay:                       time.Sleep,
 		execCmdMgr:                        execCmdMgr,
 		monitorExecAgentsInterval:         defaultMonitorExecAgentsInterval,
+		namespaceHelper:                   ecscni.NewNamespaceHelper(client),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -1431,8 +1435,20 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		engine.saveTaskData(task)
 	}
 
-	// Invoke additional commands required to complete namespace setup for the task.
-	err = engine.invokeCommandsForTaskNamespaceSetup(engine.ctx, task, cniConfig, result)
+	// Invoke additional commands required to configure the task namespace routing.
+	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, cniConfig, result)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+			task.Arn, err)
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrapf(err,
+				"container resource provisioning: failed to setup network namespace")},
+		}
+	}
+
+	// Invoke additional commands, if required, to configure the firewall for disabling IMDS access from task.
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSSetup(engine.getTaskENI(task), cniConfig)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
@@ -1497,8 +1513,8 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 		return err
 	}
 
-	// Invoke additional command to cleanup the task network namespace.
-	err = engine.invokeCommandsForTaskNamespaceCleanup(task, cniConfig)
+	// Invoke additional command, if required, to cleanup the firewall rule created during ns setup.
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSCleanup(engine.getTaskENI(task), cniConfig)
 	if err != nil {
 		return err
 	}
@@ -1732,4 +1748,14 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 		return dockerContainer.DockerName, nil
 	}
 	return dockerContainer.DockerID, nil
+}
+
+// getTaskENI returns the primary eni of the task.
+func (engine *DockerTaskEngine) getTaskENI(task *apitask.Task) *apieni.ENI {
+	for _, eni := range task.GetTaskENIs() {
+		if eni.InterfaceAssociationProtocol == "" || eni.InterfaceAssociationProtocol == apieni.DefaultInterfaceAssociationProtocol {
+			return eni
+		}
+	}
+	return nil
 }

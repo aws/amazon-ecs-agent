@@ -58,6 +58,8 @@ func getCNIConfig() *Config {
 	_, cidr, _ := net.ParseCIDR(vpcCIDR)
 	return &Config{
 		MinSupportedCNIVersion: cniMinSupportedVersion,
+		ContainerID:            containerID,
+		BlockInstanceMetadata:  false,
 		PrimaryIPv4VPCCIDR:     cidr,
 	}
 }
