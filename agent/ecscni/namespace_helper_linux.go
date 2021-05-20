@@ -22,6 +22,8 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
+var execCmdExecutorFn execCmdExecutorFnType = nil
+
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
 // This is applicable only for Windows.
 func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, config *Config, result *current.Result) error {

@@ -56,9 +56,7 @@ const (
 	deleteFirewallRuleCmdFormat = `netsh advfirewall firewall delete rule name="%s" dir=out`
 )
 
-type execCmdExecutorFn func(commands []string, separator string) error
-
-var execCmdsOnHostFn = execCmdExecutor
+var execCmdExecutorFn execCmdExecutorFnType = execCmdExecutor
 
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
 func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, config *Config, result *current.Result) error {
@@ -99,7 +97,7 @@ func (nsHelper *helper) ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, con
 
 		// Invoke the generated command on the host to add the firewall rule.
 		// Separator is "||" as either the firewall rule should exist or a new one should be created.
-		err := nsHelper.invokeCommandsOnHost(execCmdsOnHostFn, []string{checkExistingFirewallRule, blockIMDSFirewallRuleCreationCmd}, " || ")
+		err := nsHelper.invokeCommandsOnHost([]string{checkExistingFirewallRule, blockIMDSFirewallRuleCreationCmd}, " || ")
 		if err != nil {
 			return errors.Wrapf(err, "failed to create firewall rule to disable imds")
 		}
@@ -124,7 +122,7 @@ func (nsHelper *helper) ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, c
 		// The separator would be "&&" to ensure if the firewall rule exists then delete it.
 		// An error at this point means that the firewall rule was not present and was therefore not deleted.
 		// Hence, skip returning the error as it is redundant.
-		nsHelper.invokeCommandsOnHost(execCmdsOnHostFn, []string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
+		nsHelper.invokeCommandsOnHost([]string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
 	}
 
 	return nil
@@ -174,8 +172,8 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 }
 
 // invokeCommandsOnHost invokes given commands on the host instance using the executeFn.
-func (nsHelper *helper) invokeCommandsOnHost(executeFn execCmdExecutorFn, commands []string, separator string) error {
-	return executeFn(commands, separator)
+func (nsHelper *helper) invokeCommandsOnHost(commands []string, separator string) error {
+	return nsHelper.execCmdExecutor(commands, separator)
 }
 
 // execCmdExecutor invokes given commands on the host instance.

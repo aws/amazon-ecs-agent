@@ -21,6 +21,9 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
+// execCmdExecutorFnType is the method signature for execCmdExecutorFn.
+type execCmdExecutorFnType func(commands []string, separator string) error
+
 // NamespaceHelper defines the methods for performing additional actions to setup/clean the task namespace.
 type NamespaceHelper interface {
 	ConfigureTaskNamespaceRouting(ctx context.Context, config *Config, result *current.Result) error
@@ -30,10 +33,11 @@ type NamespaceHelper interface {
 
 // helper is the client for executing methods of NamespaceHelper interface.
 type helper struct {
-	dockerClient dockerapi.DockerClient
+	dockerClient    dockerapi.DockerClient
+	execCmdExecutor execCmdExecutorFnType
 }
 
 // NewNamespaceHelper returns a new instance of NamespaceHelper interface.
 func NewNamespaceHelper(client dockerapi.DockerClient) NamespaceHelper {
-	return &helper{dockerClient: client}
+	return &helper{dockerClient: client, execCmdExecutor: execCmdExecutorFn}
 }
