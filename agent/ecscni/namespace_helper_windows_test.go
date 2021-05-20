@@ -97,14 +97,14 @@ func TestConfigureFirewallForTaskNSSetup(t *testing.T) {
 	blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(addFirewallRuleCmdFormat, firewallRuleName,
 		taskENI.GetPrimaryIPv4Address(), imdsEndpointIPAddress)
 
-	execCmdsOnHostFn = func(commands []string, separator string) error {
+	nsHelper := &helper{}
+	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
 		assert.Equal(t, checkExistingFirewallRule, commands[0])
 		assert.Equal(t, blockIMDSFirewallRuleCreationCmd, commands[1])
 		assert.Equal(t, " || ", separator)
 		return nil
 	}
 
-	nsHelper := NewNamespaceHelper(nil)
 	err := nsHelper.ConfigureFirewallForTaskNSSetup(taskENI, cniConfig)
 	assert.NoError(t, err)
 }
@@ -118,13 +118,14 @@ func TestConfigureFirewallForTaskNSCleanup(t *testing.T) {
 	checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
 	blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(deleteFirewallRuleCmdFormat, firewallRuleName)
 
-	execCmdsOnHostFn = func(commands []string, separator string) error {
+	nsHelper := &helper{}
+	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
 		assert.Equal(t, checkExistingFirewallRule, commands[0])
 		assert.Equal(t, blockIMDSFirewallRuleDeletionCmd, commands[1])
 		assert.Equal(t, " && ", separator)
 		return nil
 	}
-	nsHelper := NewNamespaceHelper(nil)
+
 	err := nsHelper.ConfigureFirewallForTaskNSCleanup(taskENI, cniConfig)
 	assert.NoError(t, err)
 }

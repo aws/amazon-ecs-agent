@@ -28,8 +28,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/logger"
 	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 
-	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -1442,13 +1440,11 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	}
 
 	// This is the IP of the task assigned on the bridge for IAM Task roles
-	if result != nil {
-		taskIP := result.IPs[0].Address.IP.String()
-		seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
-		engine.state.AddTaskIPAddress(taskIP, task.Arn)
-		task.SetLocalIPAddress(taskIP)
-		engine.saveTaskData(task)
-	}
+	taskIP := result.IPs[0].Address.IP.String()
+	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
+	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	task.SetLocalIPAddress(taskIP)
+	engine.saveTaskData(task)
 
 	// Invoke additional commands required to configure the task namespace routing.
 	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, cniConfig, result)
@@ -1463,7 +1459,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	}
 
 	// Invoke additional commands, if required, to configure the firewall for disabling IMDS access from task.
-	err = engine.namespaceHelper.ConfigureFirewallForTaskNSSetup(engine.getTaskENI(task), cniConfig)
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSSetup(task.GetPrimaryENI(), cniConfig)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
@@ -1529,7 +1525,7 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	}
 
 	// Invoke additional command, if required, to cleanup the firewall rule created during ns setup.
-	err = engine.namespaceHelper.ConfigureFirewallForTaskNSCleanup(engine.getTaskENI(task), cniConfig)
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSCleanup(task.GetPrimaryENI(), cniConfig)
 	if err != nil {
 		return err
 	}
@@ -1794,14 +1790,4 @@ func (engine *DockerTaskEngine) getDockerID(task *apitask.Task, container *apico
 		return dockerContainer.DockerName, nil
 	}
 	return dockerContainer.DockerID, nil
-}
-
-// getTaskENI returns the primary eni of the task.
-func (engine *DockerTaskEngine) getTaskENI(task *apitask.Task) *apieni.ENI {
-	for _, eni := range task.GetTaskENIs() {
-		if eni.InterfaceAssociationProtocol == "" || eni.InterfaceAssociationProtocol == apieni.DefaultInterfaceAssociationProtocol {
-			return eni
-		}
-	}
-	return nil
 }
