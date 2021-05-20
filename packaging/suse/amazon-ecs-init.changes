@@ -1,4 +1,10 @@
 -------------------------------------------------------------------
+Thu May 20, 01:00:00 UTC 2021 - fenxiong@amazon.com - 1.52.2-1
+
+- Cache Agent version 1.52.2
+- ecs-anywhere-install: remove dependency on gpg key server
+- ecs-anywhere-install: allow sandboxed apt installations
+-------------------------------------------------------------------
 Fri May 14, 18:40:00 UTC 2021 - fenxiong@amazon.com - 1.52.1-1
 
 - Cache Agent version 1.52.1

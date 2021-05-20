@@ -1,3 +1,10 @@
+1.52.2-1
+Feng Xiong <fenxiong@amazon.com>
+2021-05-19T17:00:00-08:00
+Cache Agent version 1.52.2
+ecs-anywhere-install: remove dependency on gpg key server
+ecs-anywhere-install: allow sandboxed apt installations
+
 1.52.1-1
 Feng Xiong <fenxiong@amazon.com>
 2021-05-14T10:40:00-08:00

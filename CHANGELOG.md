@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.52.2-1
+* Cache Agent version 1.52.2
+* ecs-anywhere-install: remove dependency on gpg key server
+* ecs-anywhere-install: allow sandboxed apt installations
+
 ## 1.52.1-1
 * Cache Agent version 1.52.1
 
