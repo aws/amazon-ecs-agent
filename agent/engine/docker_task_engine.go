@@ -166,6 +166,7 @@ type DockerTaskEngine struct {
 	monitorExecAgentsTicker   *time.Ticker
 	execCmdMgr                execcmd.Manager
 	monitorExecAgentsInterval time.Duration
+	namespaceHelper           ecscni.NamespaceHelper
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -204,6 +205,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		handleDelay:                       time.Sleep,
 		execCmdMgr:                        execCmdMgr,
 		monitorExecAgentsInterval:         defaultMonitorExecAgentsInterval,
+		namespaceHelper:                   ecscni.NewNamespaceHelper(client),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -1423,13 +1425,36 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	}
 
 	// This is the IP of the task assigned on the bridge for IAM Task roles
-	if result != nil {
-		taskIP := result.IPs[0].Address.IP.String()
-		seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
-		engine.state.AddTaskIPAddress(taskIP, task.Arn)
-		task.SetLocalIPAddress(taskIP)
-		engine.saveTaskData(task)
+	taskIP := result.IPs[0].Address.IP.String()
+	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
+	engine.state.AddTaskIPAddress(taskIP, task.Arn)
+	task.SetLocalIPAddress(taskIP)
+	engine.saveTaskData(task)
+
+	// Invoke additional commands required to configure the task namespace routing.
+	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, cniConfig, result)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+			task.Arn, err)
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrapf(err,
+				"container resource provisioning: failed to setup network namespace")},
+		}
 	}
+
+	// Invoke additional commands, if required, to configure the firewall for disabling IMDS access from task.
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSSetup(task.GetPrimaryENI(), cniConfig)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+			task.Arn, err)
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrapf(err,
+				"container resource provisioning: failed to setup network namespace")},
+		}
+	}
+
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1480,6 +1505,12 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	}
 
 	err = engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
+	if err != nil {
+		return err
+	}
+
+	// Invoke additional command, if required, to cleanup the firewall rule created during ns setup.
+	err = engine.namespaceHelper.ConfigureFirewallForTaskNSCleanup(task.GetPrimaryENI(), cniConfig)
 	if err != nil {
 		return err
 	}

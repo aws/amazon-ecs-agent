@@ -366,6 +366,15 @@ func TestTaskWithSteadyStateResourcesProvisioned(t *testing.T) {
 		// Then setting up the pause container network namespace
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
 
+		// Then execute commands inside the pause namespace
+		client.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&types.IDResponse{ID: containerID}, nil),
+		client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		client.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+			ExitCode: 0,
+			Running:  false,
+		}, nil),
+
 		// Once the pause container is started, sleep container will be created
 		client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil),
 		client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
@@ -491,6 +500,13 @@ func TestPauseContainerHappyPath(t *testing.T) {
 				},
 			}, nil),
 		cniClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(&types.IDResponse{ID: containerID}, nil),
+		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(&types.ContainerExecInspect{
+			ExitCode: 0,
+			Running:  false,
+		}, nil),
 	)
 
 	// For the other container

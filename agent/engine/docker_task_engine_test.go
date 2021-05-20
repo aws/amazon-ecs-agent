@@ -1003,6 +1003,9 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 	defer cleanup()
 	taskEngine.SetDataClient(dataClient)
 
+	mockNamespaceHelper := mock_ecscni.NewMockNamespaceHelper(ctrl)
+	taskEngine.(*DockerTaskEngine).namespaceHelper = mockNamespaceHelper
+
 	mockCNIClient := mock_ecscni.NewMockCNIClient(ctrl)
 	taskEngine.(*DockerTaskEngine).cniClient = mockCNIClient
 	testTask := testdata.LoadTask("sleep5")
@@ -1034,6 +1037,8 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
+		mockNamespaceHelper.EXPECT().ConfigureTaskNamespaceRouting(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		mockNamespaceHelper.EXPECT().ConfigureFirewallForTaskNSSetup(gomock.Any(), gomock.Any()).Return(nil),
 	)
 
 	require.Nil(t, taskEngine.(*DockerTaskEngine).provisionContainerResources(testTask, pauseContainer).Error)
