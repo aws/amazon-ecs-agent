@@ -1,3 +1,11 @@
+amazon-ecs-init (1.52.2-1) stable; urgency=medium
+
+  * Cache Agent version 1.52.2
+  * ecs-anywhere-install: remove dependency on gpg key server
+  * ecs-anywhere-install: allow sandboxed apt installations
+
+ -- Feng Xiong <fenxiong@amazon.com>  Thu, 20 May 2021 01:00:00 +0000
+
 amazon-ecs-init (1.52.1-1) stable; urgency=medium
 
   * Cache Agent version 1.52.1
