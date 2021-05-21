@@ -39,9 +39,11 @@ const (
 	// credentialsEndpointRoute is the route of credentials endpoint for accessing task iam roles/task metadata.
 	credentialsEndpointRoute = "169.254.170.2/32"
 	// imdsEndpointIPAddress is the IP address of the endpoint for accessing IMDS.
-	imdsEndpointIPAddress = "169.254.169.254"
+	imdsEndpointIPAddress = "169.254.169.254/32"
 	// ecsBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
 	ecsBridgeEndpointNameFormat = "%s-ep-%s"
+	// taskPrimaryEndpointNameFormat is the name format of the primary endpoint in the task namespace.
+	taskPrimaryEndpointNameFormat = "task-br-%s-ep-%s"
 	// blockIMDSFirewallRuleNameFormat is the format of firewall rule name for blocking IMDS from task namespace.
 	blockIMDSFirewallRuleNameFormat = "Disable IMDS for %s"
 	// ecsBridgeRouteAddCmdFormat is the format of command for adding route entry through ECS Bridge.
@@ -59,7 +61,7 @@ const (
 var execCmdExecutorFn execCmdExecutorFnType = execCmdExecutor
 
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
-func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, config *Config, result *current.Result) error {
+func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error {
 	// Obtain the ecs-bridge endpoint's subnet IP address from the CNI plugin execution result.
 	ecsBridgeSubnetIPAddress := &net.IPNet{
 		IP:   result.IPs[0].Address.IP.Mask(result.IPs[0].Address.Mask),
@@ -73,6 +75,14 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, confi
 		ecsBridgeEndpointName)
 	credentialsAddressRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, ecsBridgeEndpointName)
 	commands := []string{defaultRouteDeletionCmd, defaultSubnetRouteDeletionCmd, credentialsAddressRouteAdditionCmd}
+
+	if !config.BlockInstanceMetadata {
+		// This naming convention is drawn from the way CNI plugin names the endpoints.
+		taskPrimaryEndpointId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
+		taskPrimaryEndpointName := fmt.Sprintf(taskPrimaryEndpointNameFormat, taskPrimaryEndpointId, config.ContainerID)
+		imdsRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskPrimaryEndpointName)
+		commands = append(commands, imdsRouteAdditionCmd)
+	}
 
 	// Invoke the generated commands inside the task namespace.
 	err := nsHelper.invokeCommandsInsideContainer(ctx, config.ContainerID, commands, " && ")

@@ -26,7 +26,7 @@ type execCmdExecutorFnType func(commands []string, separator string) error
 
 // NamespaceHelper defines the methods for performing additional actions to setup/clean the task namespace.
 type NamespaceHelper interface {
-	ConfigureTaskNamespaceRouting(ctx context.Context, config *Config, result *current.Result) error
+	ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error
 	ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error
 	ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, config *Config) error
 }

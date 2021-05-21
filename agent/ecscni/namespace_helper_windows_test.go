@@ -55,12 +55,17 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	cniConig := getCNIConfig()
+	taskENI := getTaskENI()
 
 	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
+	taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
+	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, taskEpId, containerID)
+
 	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
 	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
 	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
-	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3}, " && ")
+	cmd4 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
+	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4}, " && ")
 
 	gomock.InOrder(
 		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
@@ -83,7 +88,7 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 	)
 
 	nsHelper := NewNamespaceHelper(dockerClient)
-	err := nsHelper.ConfigureTaskNamespaceRouting(ctx, cniConig, getECSBridgeResult())
+	err := nsHelper.ConfigureTaskNamespaceRouting(ctx, taskENI, cniConig, getECSBridgeResult())
 	assert.NoError(t, err)
 }
 

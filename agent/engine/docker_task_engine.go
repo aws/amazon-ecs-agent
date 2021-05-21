@@ -1432,7 +1432,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	engine.saveTaskData(task)
 
 	// Invoke additional commands required to configure the task namespace routing.
-	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, cniConfig, result)
+	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, task.GetPrimaryENI(), cniConfig, result)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
