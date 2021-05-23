@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	cnitypes "github.com/containernetworking/cni/pkg/types"
+
 	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 
@@ -57,6 +59,11 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 	cniConig := getCNIConfig()
 	taskENI := getTaskENI()
 
+	cniConig.AdditionalLocalRoutes = append(cniConig.AdditionalLocalRoutes, cnitypes.IPNet{
+		net.ParseIP("10.0.0.0"),
+		net.CIDRMask(24, 32),
+	})
+
 	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
 	taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
 	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, taskEpId, containerID)
@@ -65,7 +72,8 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
 	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
 	cmd4 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
-	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4}, " && ")
+	cmd5 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
+	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4, cmd5}, " && ")
 
 	gomock.InOrder(
 		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(

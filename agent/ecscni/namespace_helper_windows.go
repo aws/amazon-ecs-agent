@@ -84,6 +84,18 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 		commands = append(commands, imdsRouteAdditionCmd)
 	}
 
+	// Add any additional route which needs to be routed via ecs-bridge.
+	if len(config.AdditionalLocalRoutes) != 0 {
+		for _, route := range config.AdditionalLocalRoutes {
+			ipRoute := &net.IPNet{
+				IP:   route.IP,
+				Mask: route.Mask,
+			}
+			additionalRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, ipRoute.String(), ecsBridgeEndpointName)
+			commands = append(commands, additionalRouteAdditionCmd)
+		}
+	}
+
 	// Invoke the generated commands inside the task namespace.
 	err := nsHelper.invokeCommandsInsideContainer(ctx, config.ContainerID, commands, " && ")
 	if err != nil {
