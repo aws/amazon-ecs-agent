@@ -16,8 +16,6 @@
 package ecscni
 
 import (
-	"net"
-
 	"github.com/containernetworking/cni/pkg/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -31,12 +29,8 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 		Nameservers: eni.DomainNameServers,
 	}
 
-	if len(eni.DomainNameServers) == 0 && cfg.PrimaryIPv4VPCCIDR != nil {
-		constructedDNS, err := constructDNSFromVPCCIDR(cfg.PrimaryIPv4VPCCIDR)
-		if err != nil {
-			return nil, errors.Wrapf(err, "cannot create vpc-eni network config")
-		}
-		dns.Nameservers = constructedDNS
+	if len(eni.DomainNameSearchList) == 0 && cfg.InstanceENIDNSServerList != nil {
+		dns.Nameservers = cfg.InstanceENIDNSServerList
 	}
 
 	eniConf := VPCENIPluginConfig{
@@ -73,19 +67,4 @@ func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig,
 
 	networkConfig.Network.Name = ECSBridgeNetworkName
 	return networkConfig, nil
-}
-
-// constructDNSFromVPCCIDR is used to construct DNS server from the primary ipv4 cidr of the vpc.
-func constructDNSFromVPCCIDR(vpcCIDR *net.IPNet) ([]string, error) {
-	// The DNS server maps to a reserved IP address at the base of the VPC IPv4 network rage plus 2
-	// https://docs.aws.amazon.com/vpc/latest/userguide/VPC_DHCP_Options.html#AmazonDNS
-
-	if vpcCIDR == nil {
-		return nil, errors.Errorf("unable to contruct dns from invalid vpc cidr")
-	}
-	mask := net.CIDRMask(24, 32)
-	maskedIPv4 := vpcCIDR.IP.Mask(mask).To4()
-	maskedIPv4[3] = 2
-
-	return []string{maskedIPv4.String()}, nil
 }

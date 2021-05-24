@@ -18,7 +18,12 @@ package networkutils
 import (
 	"context"
 	"net"
+	"strings"
+	"syscall"
 	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/eni/netwrapper"
@@ -27,14 +32,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NetworkUtils is the interface used for accessing network utils
+// NetworkUtils is the interface used for accessing network related functionality on Windows.
 // The methods declared in this package may or may not add any additional logic over the actual networking api calls.
-// Moreover, we will use a wrapper over Golang's net package. This is done to ensure that any future change which
-// requires a package different from Golang's net, can be easily implemented by changing the underlying wrapper without
-// impacting watcher
 type NetworkUtils interface {
 	GetInterfaceMACByIndex(int, context.Context, time.Duration) (string, error)
 	GetAllNetworkInterfaces() ([]net.Interface, error)
+	GetDNSServerAddressList(macAddress string) ([]string, error)
 	SetNetWrapper(netWrapper netwrapper.NetWrapper)
 }
 
@@ -50,15 +53,15 @@ type networkUtils struct {
 	netWrapper netwrapper.NetWrapper
 }
 
-// New creates a new network utils
+// New creates a new network utils.
 func New() NetworkUtils {
 	return &networkUtils{
 		netWrapper: netwrapper.New(),
 	}
 }
 
-// This method is used for obtaining the MAC address of an interface with a given interface index
-// We internally call net.InterfaceByIndex for this purpose
+// GetInterfaceMACByIndex is used for obtaining the MAC address of an interface with a given interface index.
+// We internally call net.InterfaceByIndex for this purpose.
 func (utils *networkUtils) GetInterfaceMACByIndex(index int, ctx context.Context,
 	timeout time.Duration) (mac string, err error) {
 
@@ -69,8 +72,8 @@ func (utils *networkUtils) GetInterfaceMACByIndex(index int, ctx context.Context
 	return utils.retrieveMAC()
 }
 
-// This method is used to retrieve MAC address using retry with backoff.
-// We use retry logic in order to account for any delay in MAC Address becoming available after the interface addition notification is received
+// retrieveMAC is used to retrieve MAC address using retry with backoff.
+// We use retry logic in order to account for any delay in MAC Address becoming available after the interface addition notification is received.
 func (utils *networkUtils) retrieveMAC() (string, error) {
 	backoff := retry.NewExponentialBackoff(macAddressBackoffMin, macAddressBackoffMax,
 		macAddressBackoffJitter, macAddressBackoffMultiple)
@@ -106,12 +109,59 @@ func (utils *networkUtils) retrieveMAC() (string, error) {
 	return utils.macAddress, nil
 }
 
-// Returns all the network interfaces
+// GetAllNetworkInterfaces returns all the network interfaces.
 func (utils *networkUtils) GetAllNetworkInterfaces() ([]net.Interface, error) {
 	return utils.netWrapper.GetAllNetworkInterfaces()
 }
 
-// This method is used to inject netWrapper instance. This will be handy while testing to inject mocks.
+// SetNetWrapper is used to inject netWrapper instance. This will be handy while testing to inject mocks.
 func (utils *networkUtils) SetNetWrapper(netWrapper netwrapper.NetWrapper) {
 	utils.netWrapper = netWrapper
+}
+
+// GetDNSServerAddressList returns the DNS server addresses of the queried interface.
+func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string, error) {
+	addresses, err := utils.netWrapper.GetAdapterAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	var firstDnsNode *windows.IpAdapterDnsServerAdapter
+	// Find the adapter which has the same mac as queried.
+	for _, adapterAddr := range addresses {
+		if strings.EqualFold(utils.parseMACAddress(adapterAddr).String(), macAddress) {
+			firstDnsNode = adapterAddr.FirstDnsServerAddress
+			break
+		}
+	}
+
+	dnsServerAddressList := make([]string, 0)
+	for firstDnsNode != nil {
+		dnsServerAddressList = append(dnsServerAddressList, utils.parseSocketAddress(firstDnsNode.Address))
+		firstDnsNode = firstDnsNode.Next
+	}
+
+	return dnsServerAddressList, nil
+}
+
+// parseMACAddress parses the physical address of windows.IpAdapterAddresses into net.HardwareAddr.
+func (utils *networkUtils) parseMACAddress(adapterAddress *windows.IpAdapterAddresses) net.HardwareAddr {
+	hardwareAddr := make(net.HardwareAddr, adapterAddress.PhysicalAddressLength)
+	if adapterAddress.PhysicalAddressLength > 0 {
+		copy(hardwareAddr, adapterAddress.PhysicalAddress[:])
+		return hardwareAddr
+	}
+	return hardwareAddr
+}
+
+// parseSocketAddress parses the SocketAddress into its string representation.
+// This method needs to be deprecated in favour of IP() method of SocketAdress introduced in Go 1.13+.
+// The method details have been taken from https://github.com/golang/sys/blob/release-branch.go1.13/windows/types_windows.go
+func (utils *networkUtils) parseSocketAddress(addr windows.SocketAddress) string {
+	var ipAddr string
+	if uintptr(addr.SockaddrLength) >= unsafe.Sizeof(syscall.RawSockaddrInet4{}) && addr.Sockaddr.Addr.Family == syscall.AF_INET {
+		ip := net.IP((*syscall.RawSockaddrInet4)(unsafe.Pointer(addr.Sockaddr)).Addr[:])
+		ipAddr = ip.String()
+	}
+	return ipAddr
 }
