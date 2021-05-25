@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.52.2-2
+* Cache Agent version 1.52.2
+* ecs-anywhere-install: fix incorrect download url when running in cn region
+
 ## 1.52.2-1
 * Cache Agent version 1.52.2
 * ecs-anywhere-install: remove dependency on gpg key server
