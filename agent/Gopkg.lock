@@ -242,14 +242,6 @@
   version = "v0.3.2"
 
 [[projects]]
-  digest = "1:42b837a2202ea13bc306fadc76967c9fd670b878b2ee27d0eb36ceaf45f79a64"
-  name = "github.com/etcd-io/bbolt"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "232d8fc87f50244f9c808f4745759e08a304c029"
-  version = "v1.3.5"
-
-[[projects]]
   digest = "1:57fa4c058c21ce25d0b7272518dd746065117abf6cc706158b0d361202024520"
   name = "github.com/godbus/dbus"
   packages = ["."]
@@ -478,6 +470,14 @@
   revision = "be1fbeda19366dea804f00efff2dd73a1642fdcc"
 
 [[projects]]
+  digest = "1:3230f2a9b5abb71e6d6b6738aa4f69ec28d44ca2b29edf35f723465f126c6ad8"
+  name = "go.etcd.io/bbolt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "685b13a4ef0053a4a38623bcebda621db6f7eaf7"
+  version = "v1.3.6"
+
+[[projects]]
   branch = "master"
   digest = "1:5a7b6061560d920434c4b853af04fd1027215d80c8645bba360841edb29e672a"
   name = "golang.org/x/crypto"
@@ -580,7 +580,6 @@
     "github.com/docker/docker/pkg/system",
     "github.com/docker/go-connections/nat",
     "github.com/docker/go-units",
-    "github.com/etcd-io/bbolt",
     "github.com/golang/mock/gomock",
     "github.com/golang/mock/mockgen/model",
     "github.com/gorilla/mux",
@@ -596,6 +595,7 @@
     "github.com/stretchr/testify/require",
     "github.com/stretchr/testify/suite",
     "github.com/vishvananda/netlink",
+    "go.etcd.io/bbolt",
     "golang.org/x/net/context",
     "golang.org/x/sys/windows",
     "golang.org/x/sys/windows/registry",

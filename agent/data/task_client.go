@@ -19,8 +19,8 @@ import (
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 )
 
 // SaveTask saves a task to the task bucket.

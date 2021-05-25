@@ -33,7 +33,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 
 	"github.com/cihub/seelog"
-	bolt "github.com/etcd-io/bbolt"
+	bolt "go.etcd.io/bbolt"
 )
 
 const (
