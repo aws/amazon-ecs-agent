@@ -327,11 +327,10 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecs.At
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
-	osFamily := config.GetOperatingSystemFamily()
 	attrs := []*ecs.Attribute{
 		{
 			Name:  aws.String(osTypeAttrName),
-			Value: aws.String(osFamily),
+			Value: aws.String(config.OSType),
 		},
 	}
 	// Send cpu arch attribute directly when running on external capacity. When running on EC2, this is not needed
