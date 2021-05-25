@@ -43,10 +43,9 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
-	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/sys v0.0.0-20210423082822-04245dca01da
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
 	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 	google.golang.org/grpc v1.38.0 // indirect
@@ -74,7 +73,7 @@ replace (
 	github.com/vishvananda/netlink => github.com/vishvananda/netlink v0.0.0-20170220200719-fe3b5664d23a
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
-	golang.org/x/net => golang.org/x/net v0.0.0-20171107184841-a337091b0525
+	golang.org/x/net => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc
 	golang.org/x/tools => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
 )
