@@ -17,6 +17,7 @@ jobs:
       run: |
         export GOPATH=$GITHUB_WORKSPACE
         export PATH=$PATH:$(go env GOPATH)/bin
+        export GO111MODULE=auto
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make get-deps
         make static-check
@@ -27,7 +28,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: 1.15.4
+        go-version: 1.16.4
     - uses: actions/checkout@v2
       with:
         submodules: true
@@ -35,5 +36,6 @@ jobs:
     - name: make xplatform-build
       run: |
         export GOPATH=$GITHUB_WORKSPACE
+        export GO111MODULE=auto
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make xplatform-build

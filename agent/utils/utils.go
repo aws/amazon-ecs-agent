@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"math"
 	"math/big"
+	"net/http"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -32,6 +34,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/pkg/errors"
+
+	"golang.org/x/net/http/httpproxy"
 )
 
 func DefaultIfBlank(str string, default_value string) string {
@@ -233,4 +237,9 @@ func GetENIAttachmentId(eniAttachmentArn string) (string, error) {
 		return "", errors.Errorf("failed to get eni attachment id: eni attachment arn invalid: %s", eniAttachmentArn)
 	}
 	return fields[len(fields)-1], nil
+}
+
+// Proxy is an uncached version of http.ProxyFromEnvironment.
+func Proxy(req *http.Request) (*url.URL, error) {
+	return httpproxy.FromEnvironment().ProxyFunc()(req.URL)
 }

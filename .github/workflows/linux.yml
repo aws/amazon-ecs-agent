@@ -9,7 +9,7 @@ jobs:
     steps:
     - uses: actions/setup-go@v2
       with:
-        go-version: 1.15.4
+        go-version: 1.16.4
     - uses: actions/checkout@v2
       with:
         submodules: true
@@ -17,6 +17,7 @@ jobs:
     - name: make test
       run: |
         export GOPATH=$GITHUB_WORKSPACE
+        export GO111MODULE=auto
         cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
         make test-silent
         make analyze-cover-profile
