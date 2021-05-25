@@ -864,7 +864,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 
 	// The number of goroutines finishing in the MockACSServer will affect
 	// the result unless we wait here.
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 	afterGoroutines := runtime.NumGoroutine()
 
 	t.Logf("Goroutines after 1 and after %v acs messages: %v and %v", timesConnected, beforeGoroutines, afterGoroutines)
