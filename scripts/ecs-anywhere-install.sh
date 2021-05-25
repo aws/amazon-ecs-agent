@@ -202,10 +202,10 @@ if grep -q "^cn-" <<< "$REGION"; then
 fi
 
 if [ -z "$RPM_URL" ]; then
-    RPM_URL="https://$S3_BUCKET.s3.amazonaws.com${S3_URL_SUFFIX}/$RPM_PKG_NAME"
+    RPM_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}/${S3_BUCKET}/$RPM_PKG_NAME"
 fi
 if [ -z "$DEB_URL" ]; then
-    DEB_URL="https://$S3_BUCKET.s3.amazonaws.com${S3_URL_SUFFIX}/$DEB_PKG_NAME"
+    DEB_URL="https://s3.${REGION}.amazonaws.com${S3_URL_SUFFIX}/${S3_BUCKET}/$DEB_PKG_NAME"
 fi
 
 # source /etc/os-release to get the VERSION_ID and ID fields
@@ -352,7 +352,7 @@ ssm-agent-signature-verify() {
         return
     fi
 
-    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/dev/scripts/amazon-ssm-agent.gpg"
+    curl-helper "$dir/amazon-ssm-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ssm-agent.gpg"
     local fp
     fp=$(gpg --quiet --with-colons --with-fingerprint "$dir/amazon-ssm-agent.gpg" | awk -F: '$1 == "fpr" {print $10;}')
     echo "$fp"
@@ -540,8 +540,7 @@ ecs-init-signature-verify() {
         return
     fi
 
-    # TODO: change link to official repo after merging first time.
-    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/fenxiong/amazon-ecs-init/ecs-pubkey/scripts/amazon-ecs-agent.gpg"
+    curl-helper "$dir/amazon-ecs-agent.gpg" "https://raw.githubusercontent.com/aws/amazon-ecs-init/master/scripts/amazon-ecs-agent.gpg"
     gpg --import "$dir/amazon-ecs-agent.gpg"
     if gpg --verify "$1" "$2"; then
         echo "amazon-ecs-init GPG verification passed. Install amazon-ecs-init."
