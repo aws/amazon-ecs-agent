@@ -29,6 +29,25 @@ import (
 	"github.com/cihub/seelog"
 )
 
+const (
+	// envSkipDomainJoinCheck is an environment setting that can be used to skip
+	// domain join check validation. This is useful for integration and
+	// functional-tests but should not be set for any non-test use-case.
+	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+
+	ReleaseId2004SAC        = "2004"
+	ReleaseId1909SAC        = "1909"
+	WindowsServer2019       = "Windows Server 2019"
+	WindowsServer2016       = "Windows Server 2016"
+	WindowsServerDataCenter = "Windows Server Datacenter"
+	InstallationTypeCore    = "Server Core"
+	InstallationTypeFull    = "Server"
+	UnknownOSType           = "unknown"
+	osTypeFormat            = "WINDOWS_SERVER_%s_%s"
+	ecsWinRegistryRootKey   = registry.LOCAL_MACHINE
+	ecsWinRegistryRootPath  = `SOFTWARE\Microsoft\Windows NT\CurrentVersion`
+)
+
 var winRegistry dependencies.WindowsRegistry
 
 func init() {
@@ -40,80 +59,78 @@ func setWinRegistry(mockRegistry dependencies.WindowsRegistry) {
 }
 
 func getInstallationType(installationType string) (string, error) {
-	if installationTypeFull == installationType {
+	if InstallationTypeFull == installationType {
 		return "FULL", nil
-	} else if installationTypeCore == installationType {
+	} else if InstallationTypeCore == installationType {
 		return "CORE", nil
 	} else {
-		err := seelog.Errorf("unsupported Installation type:%s", installationType)
+		err := seelog.Errorf("Unsupported Installation type:%s", installationType)
 		return "", err
 	}
 }
 
 func getReleaseIdForSACReleases(productName string) (string, error) {
-	if strings.HasPrefix(productName, windowsServer2019) {
+	if strings.HasPrefix(productName, WindowsServer2019) {
 		return "2019", nil
-	} else if strings.HasPrefix(productName, windowsServer2016) {
+	} else if strings.HasPrefix(productName, WindowsServer2016) {
 		return "2016", nil
 	}
-	err := seelog.Errorf("unsupported productName:%s for Windows SAC Release", productName)
+	err := seelog.Errorf("Unsupported productName:%s for Windows SAC Release", productName)
 	return "", err
 }
 
 func getReleaseIdForLTSCReleases(releaseId string) (string, error) {
-	if releaseId2004SAC == releaseId {
-		return releaseId2004SAC, nil
-	} else if releaseId1909SAC == releaseId {
-		return releaseId1909SAC, nil
+	if ReleaseId2004SAC == releaseId {
+		return ReleaseId2004SAC, nil
+	} else if ReleaseId1909SAC == releaseId {
+		return ReleaseId1909SAC, nil
 	}
-	err := seelog.Errorf("unsupported ReleaseId:%s for Windows LTSC Release", releaseId)
+	err := seelog.Errorf("Unsupported ReleaseId:%s for Windows LTSC Release", releaseId)
 	return "", err
 }
 
-// GetOperatingSystemFamily() reads the NT current version from windows registry and constructs operating system family string
-// In case of any exception this method just returns "windows" as operating system type.
 func GetOperatingSystemFamily() string {
 	key, err := winRegistry.OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, registry.QUERY_VALUE)
 	if err != nil {
-		seelog.Errorf("unable to open Windows registry key to determine Windows version: %v", err)
-		return unsupportedWindowsOS
+		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
+		return UnknownOSType
 	}
 	defer key.Close()
 
 	productName, _, err := key.GetStringValue("ProductName")
 	if err != nil {
-		seelog.Errorf("unable to read registry key, ProductName: %v", err)
-		return unsupportedWindowsOS
+		seelog.Errorf("Unable to read registry key, ProductName: %v", err)
+		return UnknownOSType
 	}
 	installationType, _, err := key.GetStringValue("InstallationType")
 	if err != nil {
-		seelog.Errorf("unable to read registry key, InstallationType: %v", err)
-		return unsupportedWindowsOS
+		seelog.Errorf("Unable to read registry key, InstallationType: %v", err)
+		return UnknownOSType
 	}
 	iType, err := getInstallationType(installationType)
 	if err != nil {
-		seelog.Errorf("invalid Installation type found: %v", err)
-		return unsupportedWindowsOS
+		seelog.Errorf("Invalid Installation type found: %v", err)
+		return UnknownOSType
 	}
 
 	releaseId := ""
-	if strings.HasPrefix(productName, windowsServerDataCenter) {
+	if strings.HasPrefix(productName, WindowsServerDataCenter) {
 		releaseIdFromRegistry, _, err := key.GetStringValue("ReleaseId")
 		if err != nil {
-			seelog.Errorf("unable to read registry key, ReleaseId: %v", err)
-			return unsupportedWindowsOS
+			seelog.Errorf("Unable to read registry key, ReleaseId: %v", err)
+			return UnknownOSType
 		}
 
 		releaseId, err = getReleaseIdForLTSCReleases(releaseIdFromRegistry)
 		if err != nil {
-			seelog.Errorf("failed to construct releaseId for Windows LTSC, Error: %v", err)
-			return unsupportedWindowsOS
+			seelog.Errorf("Failed to construct releaseId for Windows LTSC, Error: %v", err)
+			return UnknownOSType
 		}
 	} else {
 		releaseId, err = getReleaseIdForSACReleases(productName)
 		if err != nil {
-			seelog.Errorf("failed to construct releaseId for Windows SAC, Error: %v", err)
-			return unsupportedWindowsOS
+			seelog.Errorf("Failed to construct releaseId for Windows SAC, Error: %v", err)
+			return UnknownOSType
 		}
 	}
 	return fmt.Sprintf(osTypeFormat, releaseId, iType)
