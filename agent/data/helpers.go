@@ -16,8 +16,8 @@ package data
 import (
 	"encoding/json"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 )
 
 func putObject(bucket *bolt.Bucket, key string, obj interface{}) error {
