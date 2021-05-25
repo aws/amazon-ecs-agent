@@ -56,31 +56,26 @@ func TestParseFSxWindowsFileServerCapability(t *testing.T) {
 	assert.False(t, parseFSxWindowsFileServerCapability())
 }
 
-func getMockRegistry(controller *gomock.Controller) *mock_dependencies.MockWindowsRegistry {
-	winRegistry := mock_dependencies.NewMockWindowsRegistry(controller)
-	setWinRegistry(winRegistry)
-	return winRegistry
-}
-
-func getMockKey(t *testing.T) *mock_dependencies.MockRegistryKey {
+func TestGetOperatingSystemFamilyForWS2019Core(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	winRegistry := getMockRegistry(ctrl)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
 	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
 	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
-	return mockKey
-}
-
-func TestGetOperatingSystemFamilyForWS2019Core(t *testing.T) {
-	mockKey := getMockKey(t)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server 2019 Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`1809`, uint32(0), nil)
 	mockKey.EXPECT().Close()
+
 	assert.Equal(t, "WINDOWS_SERVER_2019_CORE", GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForWS2019Full(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server 2019 Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`1809`, uint32(0), nil)
@@ -90,7 +85,11 @@ func TestGetOperatingSystemFamilyForWS2019Full(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForWS2016Full(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server 2016 Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`1607`, uint32(0), nil)
@@ -100,7 +99,11 @@ func TestGetOperatingSystemFamilyForWS2016Full(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForWS2004Core(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`2004`, uint32(0), nil)
@@ -110,15 +113,21 @@ func TestGetOperatingSystemFamilyForWS2004Core(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForKeyError(t *testing.T) {
-	mockKey := getMockKey(t)
-	winRegistry := getMockRegistry(gomock.NewController(t))
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
 	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, registry.ErrNotExist)
 	mockKey.EXPECT().Close()
 	assert.Equal(t, unsupportedWindowsOS, GetOperatingSystemFamily())
 }
 
 func TestGetOperatingSystemFamilyForProductNameNotExistError(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return("", uint32(0), registry.ErrNotExist)
 
 	mockKey.EXPECT().Close()
@@ -126,7 +135,11 @@ func TestGetOperatingSystemFamilyForProductNameNotExistError(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForInstallationTypeNotExistError(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), registry.ErrNotExist)
 	mockKey.EXPECT().Close()
@@ -134,7 +147,11 @@ func TestGetOperatingSystemFamilyForInstallationTypeNotExistError(t *testing.T) 
 }
 
 func TestGetOperatingSystemFamilyForInvalidInstallationType(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core Invalid`, uint32(0), nil)
 	mockKey.EXPECT().Close()
@@ -142,7 +159,11 @@ func TestGetOperatingSystemFamilyForInvalidInstallationType(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForReleaseIdNotExistError(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`2004`, uint32(0), registry.ErrNotExist)
@@ -151,7 +172,11 @@ func TestGetOperatingSystemFamilyForReleaseIdNotExistError(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForInvalidLTSCReleaseId(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server Datacenter`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("ReleaseId").Return(`2028`, uint32(0), registry.ErrNotExist)
@@ -160,7 +185,11 @@ func TestGetOperatingSystemFamilyForInvalidLTSCReleaseId(t *testing.T) {
 }
 
 func TestGetOperatingSystemFamilyForInvalidSACReleaseId(t *testing.T) {
-	mockKey := getMockKey(t)
+	ctrl := gomock.NewController(t)
+	winRegistry := mock_dependencies.NewMockWindowsRegistry(ctrl)
+	setWinRegistry(winRegistry)
+	mockKey := mock_dependencies.NewMockRegistryKey(ctrl)
+	winRegistry.EXPECT().OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, gomock.Any()).Return(mockKey, nil)
 	mockKey.EXPECT().GetStringValue("ProductName").Return(`Windows Server BadVersion`, uint32(0), nil)
 	mockKey.EXPECT().GetStringValue("InstallationType").Return(`Server Core`, uint32(0), nil)
 	mockKey.EXPECT().Close()

@@ -22,8 +22,6 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/pkg/errors"
-
 	"golang.org/x/sys/windows/registry"
 
 	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
@@ -42,13 +40,13 @@ func setWinRegistry(mockRegistry dependencies.WindowsRegistry) {
 }
 
 func getInstallationType(installationType string) (string, error) {
-	switch installationType {
-	case installationTypeFull:
+	if installationTypeFull == installationType {
 		return "FULL", nil
-	case installationTypeCore:
+	} else if installationTypeCore == installationType {
 		return "CORE", nil
-	default:
-		return "", errors.Errorf("unsupported Installation type:%s", installationType)
+	} else {
+		err := seelog.Errorf("unsupported Installation type:%s", installationType)
+		return "", err
 	}
 }
 
@@ -63,14 +61,13 @@ func getReleaseIdForSACReleases(productName string) (string, error) {
 }
 
 func getReleaseIdForLTSCReleases(releaseId string) (string, error) {
-	switch releaseId {
-	case releaseId2004SAC:
+	if releaseId2004SAC == releaseId {
 		return releaseId2004SAC, nil
-	case releaseId1909SAC:
+	} else if releaseId1909SAC == releaseId {
 		return releaseId1909SAC, nil
-	default:
-		return "", errors.Errorf("unsupported ReleaseId:%s for Windows LTSC Release", releaseId)
 	}
+	err := seelog.Errorf("unsupported ReleaseId:%s for Windows LTSC Release", releaseId)
+	return "", err
 }
 
 // GetOperatingSystemFamily() reads the NT current version from windows registry and constructs operating system family string
@@ -78,24 +75,24 @@ func getReleaseIdForLTSCReleases(releaseId string) (string, error) {
 func GetOperatingSystemFamily() string {
 	key, err := winRegistry.OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, registry.QUERY_VALUE)
 	if err != nil {
-		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
+		seelog.Errorf("unable to open Windows registry key to determine Windows version: %v", err)
 		return unsupportedWindowsOS
 	}
 	defer key.Close()
 
 	productName, _, err := key.GetStringValue("ProductName")
 	if err != nil {
-		seelog.Errorf("Unable to read registry key, ProductName: %v", err)
+		seelog.Errorf("unable to read registry key, ProductName: %v", err)
 		return unsupportedWindowsOS
 	}
 	installationType, _, err := key.GetStringValue("InstallationType")
 	if err != nil {
-		seelog.Errorf("Unable to read registry key, InstallationType: %v", err)
+		seelog.Errorf("unable to read registry key, InstallationType: %v", err)
 		return unsupportedWindowsOS
 	}
 	iType, err := getInstallationType(installationType)
 	if err != nil {
-		seelog.Errorf("Invalid Installation type found: %v", err)
+		seelog.Errorf("invalid Installation type found: %v", err)
 		return unsupportedWindowsOS
 	}
 
@@ -103,19 +100,19 @@ func GetOperatingSystemFamily() string {
 	if strings.HasPrefix(productName, windowsServerDataCenter) {
 		releaseIdFromRegistry, _, err := key.GetStringValue("ReleaseId")
 		if err != nil {
-			seelog.Errorf("Unable to read registry key, ReleaseId: %v", err)
+			seelog.Errorf("unable to read registry key, ReleaseId: %v", err)
 			return unsupportedWindowsOS
 		}
 
 		releaseId, err = getReleaseIdForLTSCReleases(releaseIdFromRegistry)
 		if err != nil {
-			seelog.Errorf("Failed to construct releaseId for Windows LTSC, Error: %v", err)
+			seelog.Errorf("failed to construct releaseId for Windows LTSC, Error: %v", err)
 			return unsupportedWindowsOS
 		}
 	} else {
 		releaseId, err = getReleaseIdForSACReleases(productName)
 		if err != nil {
-			seelog.Errorf("Failed to construct releaseId for Windows SAC, Error: %v", err)
+			seelog.Errorf("failed to construct releaseId for Windows SAC, Error: %v", err)
 			return unsupportedWindowsOS
 		}
 	}
@@ -185,14 +182,14 @@ var isWindows2016 = func() (bool, error) {
 	key, err := winRegistry.OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, registry.QUERY_VALUE)
 
 	if err != nil {
-		seelog.Errorf("unable to open Windows registry key to determine Windows version: %v", err)
+		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
 		return false, err
 	}
 	defer key.Close()
 
 	version, _, err := key.GetStringValue("ProductName")
 	if err != nil {
-		seelog.Errorf("unable to read current version from Windows registry: %v", err)
+		seelog.Errorf("Unable to read current version from Windows registry: %v", err)
 		return false, err
 	}
 
