@@ -12,6 +12,7 @@
 # permissions and limitations under the License.
 ARG GO_VERSION
 FROM golang:${GO_VERSION}
+ENV GO111MODULE=auto
 
 MAINTAINER Amazon Web Services, Inc.
 COPY fluent-logger /

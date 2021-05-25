@@ -12,6 +12,7 @@
 # permissions and limitations under the License.
 ARG GO_VERSION
 FROM golang:${GO_VERSION} as build
+ENV GO111MODULE=auto
 
 WORKDIR /go/src/
 ADD . /go/src/
