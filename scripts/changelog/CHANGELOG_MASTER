@@ -1,3 +1,9 @@
+1.52.2-2
+Feng Xiong <fenxiong@amazon.com>
+2021-05-25T11:30:00-08:00
+Cache Agent version 1.52.2
+ecs-anywhere-install: fix incorrect download url when running in cn region
+
 1.52.2-1
 Feng Xiong <fenxiong@amazon.com>
 2021-05-19T17:00:00-08:00

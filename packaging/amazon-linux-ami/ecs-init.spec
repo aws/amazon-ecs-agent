@@ -33,7 +33,7 @@
 
 Name:           ecs-init
 Version:        1.52.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 License:        Apache 2.0
 Summary:        Amazon Elastic Container Service initialization application
 ExclusiveArch:  x86_64 aarch64
@@ -278,6 +278,10 @@ fi
 %endif
 
 %changelog
+* Tue May 25 2021 Feng Xiong <fenxiong@amazon.com> - 1.52.2-2
+- Cache Agent version 1.52.2
+- ecs-anywhere-install: fix incorrect download url when running in cn region
+
 * Thu May 20 2021 Feng Xiong <fenxiong@amazon.com> - 1.52.2-1
 - Cache Agent version 1.52.2
 - ecs-anywhere-install: remove dependency on gpg key server

@@ -1,3 +1,10 @@
+amazon-ecs-init (1.52.2-2) stable; urgency=medium
+
+  * Cache Agent version 1.52.2
+  * ecs-anywhere-install: fix incorrect download url when running in cn region
+
+ -- Feng Xiong <fenxiong@amazon.com>  Tue, 25 May 2021 19:30:00 +0000
+
 amazon-ecs-init (1.52.2-1) stable; urgency=medium
 
   * Cache Agent version 1.52.2

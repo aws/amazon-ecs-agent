@@ -1,4 +1,9 @@
 -------------------------------------------------------------------
+Tue May 25, 19:30:00 UTC 2021 - fenxiong@amazon.com - 1.52.2-2
+
+- Cache Agent version 1.52.2
+- ecs-anywhere-install: fix incorrect download url when running in cn region
+-------------------------------------------------------------------
 Thu May 20, 01:00:00 UTC 2021 - fenxiong@amazon.com - 1.52.2-1
 
 - Cache Agent version 1.52.2
