@@ -431,6 +431,20 @@ func (mr *MockDockerClientMockRecorder) SupportedVersions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedVersions", reflect.TypeOf((*MockDockerClient)(nil).SupportedVersions))
 }
 
+// SystemPing mocks base method
+func (m *MockDockerClient) SystemPing(arg0 context.Context, arg1 time.Duration) dockerapi.PingResponse {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SystemPing", arg0, arg1)
+	ret0, _ := ret[0].(dockerapi.PingResponse)
+	return ret0
+}
+
+// SystemPing indicates an expected call of SystemPing
+func (mr *MockDockerClientMockRecorder) SystemPing(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemPing", reflect.TypeOf((*MockDockerClient)(nil).SystemPing), arg0, arg1)
+}
+
 // TopContainer mocks base method
 func (m *MockDockerClient) TopContainer(arg0 context.Context, arg1 string, arg2 time.Duration, arg3 ...string) (*container0.ContainerTopOKBody, error) {
 	m.ctrl.T.Helper()

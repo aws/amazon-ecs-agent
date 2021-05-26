@@ -97,6 +97,11 @@ type ListImagesResponse struct {
 	Error error
 }
 
+type PingResponse struct {
+	Response *types.Ping
+	Error    error
+}
+
 // VolumeResponse wrapper for CreateVolume and InspectVolume
 // TODO Remove type when migration is complete
 type VolumeResponse struct {
