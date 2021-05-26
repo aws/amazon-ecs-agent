@@ -25,6 +25,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -102,11 +105,11 @@ const (
 
 	defaultMonitorExecAgentsInterval = 15 * time.Minute
 
-	stopContainerBackoffMin        = time.Second
-	stopContainerBackoffMax        = time.Second * 5
+	defaultStopContainerBackoffMin = time.Second
+	defaultStopContainerBackoffMax = time.Second * 5
 	stopContainerBackoffJitter     = 0.2
 	stopContainerBackoffMultiplier = 1.3
-	stopContainerMaxRetryCount     = 3
+	stopContainerMaxRetryCount     = 5
 )
 
 var newExponentialBackoff = retry.NewExponentialBackoff
@@ -176,6 +179,8 @@ type DockerTaskEngine struct {
 	monitorExecAgentsTicker   *time.Ticker
 	execCmdMgr                execcmd.Manager
 	monitorExecAgentsInterval time.Duration
+	stopContainerBackoffMin   time.Duration
+	stopContainerBackoffMax   time.Duration
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -214,6 +219,8 @@ func NewDockerTaskEngine(cfg *config.Config,
 		handleDelay:                       time.Sleep,
 		execCmdMgr:                        execCmdMgr,
 		monitorExecAgentsInterval:         defaultMonitorExecAgentsInterval,
+		stopContainerBackoffMin:           defaultStopContainerBackoffMin,
+		stopContainerBackoffMax:           defaultStopContainerBackoffMax,
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -1552,18 +1559,27 @@ func (engine *DockerTaskEngine) stopContainer(task *apitask.Task, container *api
 // for more information, see: https://github.com/moby/moby/issues/41587
 func (engine *DockerTaskEngine) stopDockerContainer(dockerID, containerName string, apiTimeoutStopContainer time.Duration) dockerapi.DockerContainerMetadata {
 	var md dockerapi.DockerContainerMetadata
-	backoff := newExponentialBackoff(stopContainerBackoffMin, stopContainerBackoffMax, stopContainerBackoffJitter, stopContainerBackoffMultiplier)
+	backoff := newExponentialBackoff(engine.stopContainerBackoffMin, engine.stopContainerBackoffMax, stopContainerBackoffJitter, stopContainerBackoffMultiplier)
 	for i := 0; i < stopContainerMaxRetryCount; i++ {
 		md = engine.client.StopContainer(engine.ctx, dockerID, apiTimeoutStopContainer)
-		if md.Error == nil || md.Error.ErrorName() != dockerapi.DockerTimeoutErrorName {
+		if md.Error == nil {
 			return md
 		}
-		if i < stopContainerMaxRetryCount-1 {
-			time.Sleep(backoff.Duration())
+		cannotStopContainerError, ok := md.Error.(cannotStopContainerError)
+		if ok && !cannotStopContainerError.IsRetriableError() {
+			return md
 		}
-	}
-	if md.Error != nil && md.Error.ErrorName() == dockerapi.DockerTimeoutErrorName {
-		seelog.Warnf("Unable to stop container (%s) after %d attempts that timed out; giving up and marking container as stopped anyways", containerName, stopContainerMaxRetryCount)
+
+		if i < stopContainerMaxRetryCount-1 {
+			retryIn := backoff.Duration()
+			logger.Warn(fmt.Sprintf("Error stopping container, retrying in %v", retryIn), logger.Fields{
+				field.Container: containerName,
+				field.RuntimeID: dockerID,
+				field.Error:     md.Error,
+				"attempt":       i + 1,
+			})
+			time.Sleep(retryIn)
+		}
 	}
 	return md
 }

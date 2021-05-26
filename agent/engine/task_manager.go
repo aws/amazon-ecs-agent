@@ -51,6 +51,7 @@ const (
 	// credentials from acs, after the timeout it will check the credentials manager
 	// and start processing the task or start another round of waiting
 	waitForPullCredentialsTimeout            = 1 * time.Minute
+	systemPingTimeout                        = 5 * time.Second
 	defaultTaskSteadyStatePollInterval       = 5 * time.Minute
 	defaultTaskSteadyStatePollIntervalJitter = 30 * time.Second
 	transitionPollTime                       = 5 * time.Second
@@ -132,6 +133,7 @@ type managedTask struct {
 	cfg                *config.Config
 	credentialsManager credentials.Manager
 	cniClient          ecscni.CNIClient
+	dockerClient       dockerapi.DockerClient
 	taskStopWG         *utilsync.SequentialWaitGroup
 
 	acsMessages                chan acsTransition
@@ -180,6 +182,7 @@ func (engine *DockerTaskEngine) newManagedTask(task *apitask.Task) *managedTask 
 		containerChangeEventStream:    engine.containerChangeEventStream,
 		credentialsManager:            engine.credentialsManager,
 		cniClient:                     engine.cniClient,
+		dockerClient:                  engine.client,
 		taskStopWG:                    engine.taskStopGroup,
 		steadyStatePollInterval:       engine.taskSteadyStatePollInterval,
 		steadyStatePollIntervalJitter: engine.taskSteadyStatePollIntervalJitter,
@@ -930,16 +933,16 @@ func (mtask *managedTask) handleEventError(containerChange dockerContainerChange
 func (mtask *managedTask) handleContainerStoppedTransitionError(event dockerapi.DockerContainerChangeEvent,
 	container *apicontainer.Container,
 	currentKnownStatus apicontainerstatus.ContainerStatus) bool {
-	// If docker returned a transient error while trying to stop a container,
-	// reset the known status to the current status and return
-	cannotStopContainerError, ok := event.Error.(cannotStopContainerError)
-	if ok && cannotStopContainerError.IsRetriableError() {
-		logger.Info("Error stopping the container; ignoring state change", logger.Fields{
-			field.TaskARN:   mtask.Arn,
-			field.Container: container.Name,
-			field.RuntimeID: container.GetRuntimeID(),
-			"ErrorName":     event.Error.ErrorName(),
-			field.Error:     cannotStopContainerError.Error(),
+
+	pr := mtask.dockerClient.SystemPing(mtask.ctx, systemPingTimeout)
+	if pr.Error != nil {
+		logger.Info("Error stopping the container, but docker seems to be unresponsive; ignoring state change", logger.Fields{
+			field.TaskARN:     mtask.Arn,
+			field.Container:   container.Name,
+			field.RuntimeID:   container.GetRuntimeID(),
+			"ErrorName":       event.Error.ErrorName(),
+			field.Error:       event.Error.Error(),
+			"SystemPingError": pr.Error,
 		})
 		container.SetKnownStatus(currentKnownStatus)
 		return false
