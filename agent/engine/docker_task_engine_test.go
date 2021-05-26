@@ -175,7 +175,8 @@ func mocks(t *testing.T, ctx context.Context, cfg *config.Config) (*gomock.Contr
 		imageManager, dockerstate.NewTaskEngineState(), metadataManager, nil, execCmdMgr)
 	taskEngine.(*DockerTaskEngine)._time = mockTime
 	taskEngine.(*DockerTaskEngine).ctx = ctx
-
+	taskEngine.(*DockerTaskEngine).stopContainerBackoffMin = time.Millisecond
+	taskEngine.(*DockerTaskEngine).stopContainerBackoffMax = time.Millisecond * 2
 	return ctrl, client, mockTime, taskEngine, credentialsManager, imageManager, metadataManager
 }
 
@@ -920,7 +921,10 @@ func TestTaskTransitionWhenStopContainerTimesout(t *testing.T) {
 			// Validate that timeouts are retried exactly 3 times
 			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).
 				Return(containerStopTimeoutError).
-				Times(3),
+				Times(5),
+
+			client.EXPECT().SystemPing(gomock.Any(), gomock.Any()).Return(dockerapi.PingResponse{}).
+				Times(1),
 		)
 	}
 
@@ -991,7 +995,10 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			// event.
 			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotStopContainerError{dockerapi.NoSuchContainerError{}},
-			}).MinTimes(1),
+			}).MaxTimes(1),
+			client.EXPECT().SystemPing(gomock.Any(), gomock.Any()).
+				Return(dockerapi.PingResponse{}).
+				Times(1),
 		)
 	}
 
@@ -1042,7 +1049,7 @@ func TestTaskTransitionWhenStopContainerReturnsTransientErrorBeforeSucceeding(t 
 			client.EXPECT().StartContainer(gomock.Any(), containerID, defaultConfig.ContainerStartTimeout).Return(
 				dockerapi.DockerContainerMetadata{DockerID: containerID}),
 			// StopContainer errors out a couple of times
-			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(containerStoppingError).Times(2),
+			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(containerStoppingError).Times(4),
 			// Since task is not in steady state, progressContainers causes
 			// another invocation of StopContainer. Return the 'succeed' response,
 			// which should cause the task engine to stop invoking this again and
