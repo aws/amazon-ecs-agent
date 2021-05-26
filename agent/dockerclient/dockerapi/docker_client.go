@@ -753,7 +753,11 @@ func (dg *dockerGoClient) stopContainer(ctx context.Context, dockerID string, ti
 	metadata := dg.containerMetadata(ctx, dockerID)
 	if err != nil {
 		seelog.Errorf("DockerGoClient: error stopping container ID=%s: %v", dockerID, err)
-		if metadata.Error == nil {
+		if metadata.Error != nil {
+			// Wrap metadata.Error in CannotStopContainerError in order to make the whole stopContainer operation
+			// retryable.
+			metadata.Error = CannotStopContainerError{metadata.Error}
+		} else {
 			if strings.Contains(err.Error(), "No such container") {
 				err = NoSuchContainerError{dockerID}
 			}
