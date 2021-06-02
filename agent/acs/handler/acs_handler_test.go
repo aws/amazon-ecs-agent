@@ -797,6 +797,7 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 }
 
 func TestHandlerDoesntLeakGoroutines(t *testing.T) {
+	t.Logf("random")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
