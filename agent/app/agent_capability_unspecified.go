@@ -27,6 +27,14 @@ import (
 	"github.com/cihub/seelog"
 )
 
+const (
+	capabilityDepsRootDir = ""
+)
+
+var (
+	capabilityExecRequiredBinaries = []string{}
+)
+
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	// "local" is default docker driver
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+volume.DockerLocalVolumeDriver)

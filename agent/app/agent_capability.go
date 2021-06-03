@@ -67,7 +67,6 @@ const (
 	capabilityEnvFilesS3                        = "env-files.s3"
 	capabilityFSxWindowsFileServer              = "fsxWindowsFileServer"
 	capabilityExec                              = "execute-command"
-	capabilityDepsRootDir                       = "/managed-agents"
 	capabilityExecBinRelativePath               = "bin"
 	capabilityExecConfigRelativePath            = "config"
 	capabilityExecCertsRelativePath             = "certs"
@@ -95,11 +94,6 @@ var (
 		capabilityFullTaskSync,
 		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
 		capabilityEnvFilesS3,
-	}
-	capabilityExecRequiredBinaries = []string{
-		"amazon-ssm-agent",
-		"ssm-agent-worker",
-		"ssm-session-worker",
 	}
 	capabilityExecRequiredCerts = []string{
 		"tls-ca-bundle.pem",

@@ -30,11 +30,20 @@ import (
 )
 
 const (
-	AVX         = "avx"
-	AVX2        = "avx2"
-	SSE41       = "sse4_1"
-	SSE42       = "sse4_2"
-	CpuInfoPath = "/proc/cpuinfo"
+	AVX                   = "avx"
+	AVX2                  = "avx2"
+	SSE41                 = "sse4_1"
+	SSE42                 = "sse4_2"
+	CpuInfoPath           = "/proc/cpuinfo"
+	capabilityDepsRootDir = "/managed-agents"
+)
+
+var (
+	capabilityExecRequiredBinaries = []string{
+		"amazon-ssm-agent",
+		"ssm-agent-worker",
+		"ssm-session-worker",
+	}
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
