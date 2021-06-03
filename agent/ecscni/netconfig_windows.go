@@ -38,8 +38,8 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 		DNS:                dns,
 		ENIName:            eni.GetLinkName(),
 		ENIMACAddress:      eni.MacAddress,
-		ENIIPAddress:       eni.GetPrimaryIPv4AddressWithPrefixLength(),
-		GatewayIPAddress:   eni.GetSubnetGatewayIPv4Address(),
+		ENIIPAddress:       []string{eni.GetPrimaryIPv4AddressWithPrefixLength()},
+		GatewayIPAddress:   []string{eni.GetSubnetGatewayIPv4Address()},
 		UseExistingNetwork: false,
 	}
 

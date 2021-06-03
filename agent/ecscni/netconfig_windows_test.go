@@ -73,12 +73,12 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, ECSVPCENIPluginExecutable, config.Network.Type)
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, []string{validDNSServer}, netConfig.DNS.Nameservers)
-	assert.EqualValues(t, ipv4CIDR, netConfig.ENIIPAddress)
+	assert.EqualValues(t, TaskHNSNetworkNamePrefix, config.Network.Name)
+	assert.EqualValues(t, []string{ipv4CIDR}, netConfig.ENIIPAddress)
 	assert.EqualValues(t, mac, netConfig.ENIMACAddress)
-	assert.EqualValues(t, validVPCGatewayIPv4Addr, netConfig.GatewayIPAddress)
+	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddress)
 	assert.EqualValues(t, linkName, netConfig.ENIName)
 	assert.False(t, netConfig.UseExistingNetwork)
-	assert.False(t, netConfig.NoInfraContainer)
 }
 
 // TestNewVPCENIPluginConfigForECSBridgeSetup tests the generated configuration for ecs-bridge setup.
@@ -94,5 +94,4 @@ func TestNewVPCENIPluginConfigForECSBridgeSetup(t *testing.T) {
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, ECSBridgeNetworkName, config.Network.Name)
 	assert.True(t, netConfig.UseExistingNetwork)
-	assert.False(t, netConfig.NoInfraContainer)
 }

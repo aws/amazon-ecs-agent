@@ -52,9 +52,9 @@ type VPCENIPluginConfig struct {
 	// ENIMACAddress is the MAC address of the eni.
 	ENIMACAddress string `json:"eniMACAddress"`
 	// ENIIPAddress is the is the ipv4 of eni.
-	ENIIPAddress string `json:"eniIPAddress"`
+	ENIIPAddress []string `json:"eniIPAddresses"`
 	// GatewayIPAddress specifies the IPv4 address of the subnet gateway for the eni.
-	GatewayIPAddress string `json:"gatewayIPAddress"`
+	GatewayIPAddress []string `json:"gatewayIPAddresses"`
 	// UseExistingNetwork specifies if existing network should be used instead of creating a new one.
 	UseExistingNetwork bool `json:"useExistingNetwork"`
 }
