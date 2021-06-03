@@ -18,6 +18,7 @@ package networkutils
 import (
 	"context"
 	"net"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -52,6 +53,8 @@ type networkUtils struct {
 	// A wrapper over Golang's net package
 	netWrapper netwrapper.NetWrapper
 }
+
+var funcGetAdapterAddresses = getAdapterAddresses
 
 // New creates a new network utils.
 func New() NetworkUtils {
@@ -121,7 +124,7 @@ func (utils *networkUtils) SetNetWrapper(netWrapper netwrapper.NetWrapper) {
 
 // GetDNSServerAddressList returns the DNS server addresses of the queried interface.
 func (utils *networkUtils) GetDNSServerAddressList(macAddress string) ([]string, error) {
-	addresses, err := utils.netWrapper.GetAdapterAddresses()
+	addresses, err := funcGetAdapterAddresses()
 	if err != nil {
 		return nil, err
 	}
@@ -164,4 +167,36 @@ func (utils *networkUtils) parseSocketAddress(addr windows.SocketAddress) string
 		ipAddr = ip.String()
 	}
 	return ipAddr
+}
+
+// getAdapterAddresses returns a list of IP adapter and address
+// structures. The structure contains an IP adapter and flattened
+// multiple IP addresses including unicast, anycast and multicast
+// addresses.
+// This method is copied as it is from the official golang source code.
+// https://golang.org/src/net/interface_windows.go
+func getAdapterAddresses() ([]*windows.IpAdapterAddresses, error) {
+	var b []byte
+	l := uint32(15000) // recommended initial size
+	for {
+		b = make([]byte, l)
+		err := windows.GetAdaptersAddresses(syscall.AF_UNSPEC, windows.GAA_FLAG_INCLUDE_PREFIX, 0, (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])), &l)
+		if err == nil {
+			if l == 0 {
+				return nil, nil
+			}
+			break
+		}
+		if err.(syscall.Errno) != syscall.ERROR_BUFFER_OVERFLOW {
+			return nil, os.NewSyscallError("getadaptersaddresses", err)
+		}
+		if l <= uint32(len(b)) {
+			return nil, os.NewSyscallError("getadaptersaddresses", err)
+		}
+	}
+	var aas []*windows.IpAdapterAddresses
+	for aa := (*windows.IpAdapterAddresses)(unsafe.Pointer(&b[0])); aa != nil; aa = aa.Next {
+		aas = append(aas, aa)
+	}
+	return aas, nil
 }

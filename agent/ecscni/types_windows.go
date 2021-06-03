@@ -26,6 +26,8 @@ const (
 	ECSVPCENIPluginName = "vpc-eni"
 	// ECSVPCENIPluginExecutable is the name of vpc-eni executable.
 	ECSVPCENIPluginExecutable = "vpc-eni.exe"
+	// TaskHNSNetworkNamePrefix is the prefix of the HNS network used for task ENI.
+	TaskHNSNetworkNamePrefix = "task"
 	// ECSBridgeNetworkName is the name of the HNS network used as ecs-bridge.
 	ECSBridgeNetworkName = "nat"
 	// Constants for creating backoff while retrying setupNS.
@@ -53,8 +55,6 @@ type VPCENIPluginConfig struct {
 	ENIIPAddress string `json:"eniIPAddress"`
 	// GatewayIPAddress specifies the IPv4 address of the subnet gateway for the eni.
 	GatewayIPAddress string `json:"gatewayIPAddress"`
-	// NoInfraContainer specifies if HCN Namespace is being used for networking setup.
-	NoInfraContainer bool `json:"noInfraContainer"`
 	// UseExistingNetwork specifies if existing network should be used instead of creating a new one.
 	UseExistingNetwork bool `json:"useExistingNetwork"`
 }

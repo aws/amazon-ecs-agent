@@ -76,9 +76,14 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, false
 	}
 
+	// The instance ENI and the task ENI on ECS EC2 Windows will have the same vpc, and therefore,
+	// the same DNS server list. Hence, we store the DNS server list of the instance ENI during
+	// agent startup and use the same during config creation for setting up task ENI.
+	// Another intrinsic benefit of this approach is that any DNS servers added for AD
+	// will be allocated to task ENI, allowing tasks in awsvpc network mode to support gMSA.
 	dnsServerList, err := agent.resourceFields.NetworkUtils.GetDNSServerAddressList(agent.mac)
 	if err != nil {
-		// An error at this point is terminal as the tasks need the access to domain controllers.
+		// An error at this point is terminal as the tasks need the access to DNS servers.
 		return fmt.Errorf("unable to get dns server addresses of instance eni: %v", err), true
 	}
 	agent.cfg.InstanceENIDNSServerList = dnsServerList

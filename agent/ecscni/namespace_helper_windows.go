@@ -43,7 +43,7 @@ const (
 	// ecsBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
 	ecsBridgeEndpointNameFormat = "%s-ep-%s"
 	// taskPrimaryEndpointNameFormat is the name format of the primary endpoint in the task namespace.
-	taskPrimaryEndpointNameFormat = "task-br-%s-ep-%s"
+	taskPrimaryEndpointNameFormat = "%s-br-%s-ep-%s"
 	// blockIMDSFirewallRuleNameFormat is the format of firewall rule name for blocking IMDS from task namespace.
 	blockIMDSFirewallRuleNameFormat = "Disable IMDS for %s"
 	// ecsBridgeRouteAddCmdFormat is the format of command for adding route entry through ECS Bridge.
@@ -61,6 +61,12 @@ const (
 var execCmdExecutorFn execCmdExecutorFnType = execCmdExecutor
 
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
+// The commands currently executed are-
+// netsh interface ipv4 delete route prefix=0.0.0.0/0 interface="vEthernet (nat-ep-<container_id>)
+// netsh interface ipv4 delete route prefix=<ecs-bridge-subnet-cidr> interface="vEthernet (nat-ep-<container_id>)
+// netsh interface ipv4 add route prefix=169.254.170.2/32 interface="vEthernet (nat-ep-<container_id>)
+// netsh interface ipv4 add route prefix=169.254.169.254/32 interface="vEthernet (task-br-<mac>-ep-<container_id>)
+// netsh interface ipv4 add route prefix=<local-route> interface="vEthernet (nat-ep-<container_id>)
 func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error {
 	// Obtain the ecs-bridge endpoint's subnet IP address from the CNI plugin execution result.
 	ecsBridgeSubnetIPAddress := &net.IPNet{
@@ -78,22 +84,22 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 
 	if !config.BlockInstanceMetadata {
 		// This naming convention is drawn from the way CNI plugin names the endpoints.
+		// https://github.com/aws/amazon-vpc-cni-plugins/blob/master/plugins/vpc-eni/network/network_windows.go
 		taskPrimaryEndpointId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
-		taskPrimaryEndpointName := fmt.Sprintf(taskPrimaryEndpointNameFormat, taskPrimaryEndpointId, config.ContainerID)
+		taskPrimaryEndpointName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix,
+			taskPrimaryEndpointId, config.ContainerID)
 		imdsRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskPrimaryEndpointName)
 		commands = append(commands, imdsRouteAdditionCmd)
 	}
 
 	// Add any additional route which needs to be routed via ecs-bridge.
-	if len(config.AdditionalLocalRoutes) != 0 {
-		for _, route := range config.AdditionalLocalRoutes {
-			ipRoute := &net.IPNet{
-				IP:   route.IP,
-				Mask: route.Mask,
-			}
-			additionalRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, ipRoute.String(), ecsBridgeEndpointName)
-			commands = append(commands, additionalRouteAdditionCmd)
+	for _, route := range config.AdditionalLocalRoutes {
+		ipRoute := &net.IPNet{
+			IP:   route.IP,
+			Mask: route.Mask,
 		}
+		additionalRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, ipRoute.String(), ecsBridgeEndpointName)
+		commands = append(commands, additionalRouteAdditionCmd)
 	}
 
 	// Invoke the generated commands inside the task namespace.
@@ -105,6 +111,8 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 }
 
 // ConfigureFirewallForTaskNSSetup executes the commands, if required, to setup firewall rules for disabling IMDS access from task.
+// The commands executed are-
+// netsh advfirewall firewall add rule name="Disable IMDS for <ENI IP>" dir=out localip=<ENI IP> remoteip=169.254.170.2/32 action=block
 func (nsHelper *helper) ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error {
 	if config.BlockInstanceMetadata {
 		if taskENI == nil {
@@ -129,6 +137,8 @@ func (nsHelper *helper) ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, con
 }
 
 // ConfigureFirewallForTaskNSCleanup executes the commands, if required, to cleanup the firewall rules created during setup.
+// The commands executed are-
+// netsh advfirewall firewall delete rule name="Disable IMDS for <ENI IP>" dir=out
 func (nsHelper *helper) ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, config *Config) error {
 	if config.BlockInstanceMetadata {
 		if taskENI == nil {

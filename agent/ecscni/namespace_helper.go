@@ -25,6 +25,8 @@ import (
 type execCmdExecutorFnType func(commands []string, separator string) error
 
 // NamespaceHelper defines the methods for performing additional actions to setup/clean the task namespace.
+// Task namespace in awsvpc network mode is configured using pause container which is the first container
+// launched for the task. These commands are executed inside that container.
 type NamespaceHelper interface {
 	ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error
 	ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error

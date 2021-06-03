@@ -66,7 +66,7 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 
 	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
 	taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
-	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, taskEpId, containerID)
+	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix, taskEpId, containerID)
 
 	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
 	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)

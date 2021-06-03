@@ -23,7 +23,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	windows "golang.org/x/sys/windows"
 )
 
 // MockNetWrapper is a mock of NetWrapper interface
@@ -62,21 +61,6 @@ func (m *MockNetWrapper) FindInterfaceByIndex(arg0 int) (*net.Interface, error) 
 func (mr *MockNetWrapperMockRecorder) FindInterfaceByIndex(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindInterfaceByIndex", reflect.TypeOf((*MockNetWrapper)(nil).FindInterfaceByIndex), arg0)
-}
-
-// GetAdapterAddresses mocks base method
-func (m *MockNetWrapper) GetAdapterAddresses() ([]*windows.IpAdapterAddresses, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAdapterAddresses")
-	ret0, _ := ret[0].([]*windows.IpAdapterAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAdapterAddresses indicates an expected call of GetAdapterAddresses
-func (mr *MockNetWrapperMockRecorder) GetAdapterAddresses() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAdapterAddresses", reflect.TypeOf((*MockNetWrapper)(nil).GetAdapterAddresses))
 }
 
 // GetAllNetworkInterfaces mocks base method

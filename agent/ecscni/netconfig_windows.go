@@ -40,7 +40,6 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 		ENIMACAddress:      eni.MacAddress,
 		ENIIPAddress:       eni.GetPrimaryIPv4AddressWithPrefixLength(),
 		GatewayIPAddress:   eni.GetSubnetGatewayIPv4Address(),
-		NoInfraContainer:   false,
 		UseExistingNetwork: false,
 	}
 
@@ -49,6 +48,7 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 		return nil, errors.Wrap(err, "failed to create vpc-eni plugin configuration for setting up task network namespace")
 	}
 
+	networkConfig.Network.Name = TaskHNSNetworkNamePrefix
 	return networkConfig, nil
 }
 
@@ -56,7 +56,6 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig, error) {
 	bridgeConf := VPCENIPluginConfig{
 		Type:               ECSVPCENIPluginName,
-		NoInfraContainer:   false,
 		UseExistingNetwork: true,
 	}
 

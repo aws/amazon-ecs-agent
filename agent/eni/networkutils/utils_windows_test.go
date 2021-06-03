@@ -211,23 +211,25 @@ func TestGetDNSServerAddressList(t *testing.T) {
 	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
 	netUtils := networkUtils{netWrapper: mocknetwrapper}
 
-	mocknetwrapper.EXPECT().GetAdapterAddresses().Return([]*windows.IpAdapterAddresses{
-		{
-			PhysicalAddressLength: 6,
-			PhysicalAddress:       [8]byte{2, 34, 234, 140, 129, 220, 0, 0},
-			FirstDnsServerAddress: &windows.IpAdapterDnsServerAdapter{
-				Address: windows.SocketAddress{
-					Sockaddr: &syscall.RawSockaddrAny{
-						Addr: syscall.RawSockaddr{
-							Family: syscall.AF_INET,
-							Data:   [14]int8{0, 0, 10, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0},
+	funcGetAdapterAddresses = func() ([]*windows.IpAdapterAddresses, error) {
+		return []*windows.IpAdapterAddresses{
+			{
+				PhysicalAddressLength: 6,
+				PhysicalAddress:       [8]byte{2, 34, 234, 140, 129, 220, 0, 0},
+				FirstDnsServerAddress: &windows.IpAdapterDnsServerAdapter{
+					Address: windows.SocketAddress{
+						Sockaddr: &syscall.RawSockaddrAny{
+							Addr: syscall.RawSockaddr{
+								Family: syscall.AF_INET,
+								Data:   [14]int8{0, 0, 10, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0},
+							},
 						},
+						SockaddrLength: 16,
 					},
-					SockaddrLength: 16,
 				},
 			},
-		},
-	}, nil)
+		}, nil
+	}
 
 	dnsServerList, err := netUtils.GetDNSServerAddressList(macAddress)
 	assert.NoError(t, err)
