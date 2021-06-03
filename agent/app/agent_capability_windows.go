@@ -16,8 +16,20 @@
 package app
 
 import (
+	"path/filepath"
+
+	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
+)
+
+var (
+	capabilityDepsRootDir          = filepath.Join(config.AmazonECSProgramFiles, "managed-agents")
+	capabilityExecRequiredBinaries = []string{
+		"amazon-ssm-agent.exe",
+		"ssm-agent-worker.exe",
+		"ssm-session-worker.exe",
+	}
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
