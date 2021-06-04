@@ -353,10 +353,6 @@ func (engine *DockerTaskEngine) SetDataClient(client data.Client) {
 	engine.dataClient = client
 }
 
-func (engine *DockerTaskEngine) TaskEngineClient() dockerapi.DockerClient {
-	return engine.client
-}
-
 func (engine *DockerTaskEngine) Context() context.Context {
 	return engine.ctx
 }

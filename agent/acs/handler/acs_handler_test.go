@@ -38,6 +38,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -800,6 +801,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	ecsClient := mock_api.NewMockECSClient(ctrl)
 	ctx, cancel := context.WithCancel(context.Background())
 	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
@@ -824,6 +826,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	})
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 	taskEngine.EXPECT().AddTask(gomock.Any()).AnyTimes()
+	dockerClient.EXPECT().SystemPing(gomock.Any(), gomock.Any()).AnyTimes()
 
 	ended := make(chan bool, 1)
 	go func() {
@@ -833,6 +836,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			credentialsProvider:      testCreds,
 			agentConfig:              testConfig,
 			taskEngine:               taskEngine,
+			dockerClient:             dockerClient,
 			ecsClient:                ecsClient,
 			dataClient:               data.NewNoopClient(),
 			taskHandler:              taskHandler,
@@ -909,6 +913,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	taskEngine.EXPECT().Version().Return("Docker: 1.5.0", nil).AnyTimes()
 
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
 	latestSeqNumberTaskManifest := int64(10)
 	ended := make(chan bool, 1)
@@ -918,6 +923,7 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			nil,
 			"myArn",
 			testCreds,
+			dockerClient,
 			ecsClient,
 			dockerstate.NewTaskEngineState(),
 			data.NewNoopClient(),
@@ -1010,11 +1016,12 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 	taskHandler := eventhandler.NewTaskHandler(ctx, data.NewNoopClient(), nil, nil)
 
 	mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
-
 	mockWsClient.EXPECT().SetAnyRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().AddRequestHandler(gomock.Any()).AnyTimes()
 	mockWsClient.EXPECT().Close().Return(nil).AnyTimes()
 	mockWsClient.EXPECT().Serve().Return(io.EOF).AnyTimes()
+
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	resources := newSessionResources(testCreds)
 	gomock.InOrder(
 		// When the websocket client connects to ACS for the first
@@ -1034,6 +1041,7 @@ func TestHandlerReconnectsCorrectlySetsSendCredentialsURLParameter(t *testing.T)
 		credentialsProvider:  testCreds,
 		agentConfig:          testConfig,
 		taskEngine:           taskEngine,
+		dockerClient:         dockerClient,
 		ecsClient:            ecsClient,
 		dataClient:           data.NewNoopClient(),
 		taskHandler:          taskHandler,

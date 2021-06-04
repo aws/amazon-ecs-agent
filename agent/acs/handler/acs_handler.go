@@ -29,6 +29,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -84,6 +85,7 @@ type session struct {
 	agentConfig                     *config.Config
 	deregisterInstanceEventStream   *eventstream.EventStream
 	taskEngine                      engine.TaskEngine
+	dockerClient                    dockerapi.DockerClient
 	ecsClient                       api.ECSClient
 	state                           dockerstate.TaskEngineState
 	dataClient                      data.Client
@@ -140,8 +142,9 @@ type sessionState interface {
 func NewSession(ctx context.Context,
 	config *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
-	containerInstanceArn string,
+	containerInstanceARN string,
 	credentialsProvider *credentials.Credentials,
+	dockerClient dockerapi.DockerClient,
 	ecsClient api.ECSClient,
 	taskEngineState dockerstate.TaskEngineState,
 	dataClient data.Client,
@@ -156,9 +159,10 @@ func NewSession(ctx context.Context,
 	return &session{
 		agentConfig:                     config,
 		deregisterInstanceEventStream:   deregisterInstanceEventStream,
-		containerInstanceARN:            containerInstanceArn,
+		containerInstanceARN:            containerInstanceARN,
 		credentialsProvider:             credentialsProvider,
 		ecsClient:                       ecsClient,
+		dockerClient:                    dockerClient,
 		state:                           taskEngineState,
 		dataClient:                      dataClient,
 		taskEngine:                      taskEngine,
@@ -335,8 +339,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	// TODO add healthcheck-specific acs heartbeat handler
-	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.taskEngine)
+	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.dockerClient, acsSession.agentConfig.Cluster, acsSession.containerInstanceARN)
 	defer heartbeatHandler.clearAcks()
 	heartbeatHandler.start()
 	defer heartbeatHandler.stop()
