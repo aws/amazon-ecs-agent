@@ -40,6 +40,22 @@ func (s AckPublishHealth) GoString() string {
 	return s.String()
 }
 
+type AckPublishInstanceStatus struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s AckPublishInstanceStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s AckPublishInstanceStatus) GoString() string {
+	return s.String()
+}
+
 type AckPublishMetric struct {
 	_ struct{} `type:"structure"`
 
@@ -264,6 +280,48 @@ func (s HeartbeatOutput) String() string {
 
 // GoString returns the string representation
 func (s HeartbeatOutput) GoString() string {
+	return s.String()
+}
+
+type InstanceStatus struct {
+	_ struct{} `type:"structure"`
+
+	LastStatusChange *time.Time `locationName:"lastStatusChange" type:"timestamp"`
+
+	LastUpdated *time.Time `locationName:"lastUpdated" type:"timestamp"`
+
+	Status *string `locationName:"status" type:"string" enum:"InstanceHealthcheckStatus"`
+
+	Type *string `locationName:"type" type:"string"`
+}
+
+// String returns the string representation
+func (s InstanceStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InstanceStatus) GoString() string {
+	return s.String()
+}
+
+type InstanceStatusMetadata struct {
+	_ struct{} `type:"structure"`
+
+	Cluster *string `locationName:"cluster" type:"string"`
+
+	ContainerInstance *string `locationName:"containerInstance" type:"string"`
+
+	RequestId *string `locationName:"requestId" type:"string"`
+}
+
+// String returns the string representation
+func (s InstanceStatusMetadata) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InstanceStatusMetadata) GoString() string {
 	return s.String()
 }
 
@@ -493,6 +551,62 @@ func (s PublishHealthRequest) String() string {
 
 // GoString returns the string representation
 func (s PublishHealthRequest) GoString() string {
+	return s.String()
+}
+
+type PublishInstanceStatusInput struct {
+	_ struct{} `type:"structure"`
+
+	Metadata *InstanceStatusMetadata `locationName:"metadata" type:"structure"`
+
+	Statuses []*InstanceStatus `locationName:"statuses" type:"list"`
+
+	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+}
+
+// String returns the string representation
+func (s PublishInstanceStatusInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublishInstanceStatusInput) GoString() string {
+	return s.String()
+}
+
+type PublishInstanceStatusOutput struct {
+	_ struct{} `type:"structure"`
+
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s PublishInstanceStatusOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublishInstanceStatusOutput) GoString() string {
+	return s.String()
+}
+
+type PublishInstanceStatusRequest struct {
+	_ struct{} `type:"structure"`
+
+	Metadata *InstanceStatusMetadata `locationName:"metadata" type:"structure"`
+
+	Statuses []*InstanceStatus `locationName:"statuses" type:"list"`
+
+	Timestamp *time.Time `locationName:"timestamp" type:"timestamp"`
+}
+
+// String returns the string representation
+func (s PublishInstanceStatusRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s PublishInstanceStatusRequest) GoString() string {
 	return s.String()
 }
 
@@ -791,6 +905,8 @@ func (s *StorageStatsSet) Validate() error {
 type TaskHealth struct {
 	_ struct{} `type:"structure"`
 
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
+
 	Containers []*ContainerHealth `locationName:"containers" type:"list"`
 
 	TaskArn *string `locationName:"taskArn" type:"string"`
@@ -812,6 +928,8 @@ func (s TaskHealth) GoString() string {
 
 type TaskMetric struct {
 	_ struct{} `type:"structure"`
+
+	ClusterArn *string `locationName:"clusterArn" type:"string"`
 
 	ContainerMetrics []*ContainerMetric `locationName:"containerMetrics" type:"list"`
 

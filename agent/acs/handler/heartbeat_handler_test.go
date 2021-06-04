@@ -20,7 +20,8 @@ import (
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
+	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -82,7 +83,6 @@ func TestAckHeartbeatMessageEmpty(t *testing.T) {
 
 func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessage, heartbeatAckExpected *ecsacs.HeartbeatAckRequest) {
 	ctrl := gomock.NewController(t)
-	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
 	defer ctrl.Finish()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -94,7 +94,13 @@ func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessa
 		cancel()
 	}).Times(1)
 
-	handler := newHeartbeatHandler(ctx, mockWsClient, taskEngine)
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerClient.EXPECT().SystemPing(gomock.Any(), gomock.Any()).AnyTimes()
+
+	emptyHealthchecksList := []doctor.Healthcheck{}
+	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "testCluster", "this:is:an:instance:arn")
+
+	handler := newHeartbeatHandler(ctx, mockWsClient, emptyDoctor)
 
 	go handler.sendHeartbeatAck()
 

@@ -18,7 +18,6 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/doctor"
-	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/cihub/seelog"
@@ -31,14 +30,11 @@ type heartbeatHandler struct {
 	ctx                       context.Context
 	cancel                    context.CancelFunc
 	acsClient                 wsclient.ClientServer
-	taskEngine                engine.TaskEngine
 	doctor                    *doctor.Doctor
 }
 
 // newHeartbeatHandler returns an instance of the heartbeatHandler struct
-func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, taskEngine engine.TaskEngine) heartbeatHandler {
-	doctor := &doctor.Doctor{}
-
+func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, heartbeatDoctor *doctor.Doctor) heartbeatHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return heartbeatHandler{
@@ -47,8 +43,7 @@ func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, t
 		ctx:                       derivedContext,
 		cancel:                    cancel,
 		acsClient:                 acsClient,
-		taskEngine:                taskEngine,
-		doctor:                    doctor,
+		doctor:                    heartbeatDoctor,
 	}
 }
 
@@ -80,16 +75,12 @@ func (heartbeatHandler *heartbeatHandler) handleHeartbeatMessage() {
 
 func (heartbeatHandler *heartbeatHandler) handleSingleHeartbeatMessage(message *ecsacs.HeartbeatMessage) error {
 	// TestHandlerDoesntLeakGoroutines unit test is failing because of this section
-	// This should all move under a separate healthcheck handler
 
 	// Agent will run healthchecks triggered by ACS heartbeat
-	// healthcheck results will be sent on to TACS
-	//dockerHealthcheck := doctor.NewDockerRuntimeHealthcheck(heartbeatHandler.taskEngine.TaskEngineClient())
-	//heartbeatHandler.doctor.AddHealthcheck(dockerHealthcheck)
-	//go func() {
-	//	checkResult := heartbeatHandler.doctor.RunHealthchecks()
-	//	seelog.Debugf("handler healthcheck result: %v", checkResult)
-	//}()
+	// healthcheck results will be sent on to TACS, but for now just to debug logs.
+	go func() {
+		heartbeatHandler.doctor.RunHealthchecks()
+	}()
 
 	// Agent will send simple ack to the heartbeatAckMessageBuffer
 	go func() {
