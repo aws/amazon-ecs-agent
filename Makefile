@@ -297,23 +297,6 @@ GOPATH=$(shell go env GOPATH)
 
 get-deps: .get-deps-stamp
 
-
-PLATFORM:=$(shell uname -s)
-ifeq (${PLATFORM},Linux)
-		dep_arch=linux-386
-	else ifeq (${PLATFORM},Darwin)
-		dep_arch=darwin-386
-	endif
-
-DEP_VERSION=v0.5.0
-.PHONY: get-dep
-get-dep: bin/dep
-
-bin/dep:
-	mkdir -p ./bin
-	curl -L https://github.com/golang/dep/releases/download/$(DEP_VERSION)/dep-${dep_arch} -o ./bin/dep
-	chmod +x ./bin/dep
-
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
