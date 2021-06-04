@@ -25,45 +25,68 @@ import (
 const systemPingTimeout = time.Second * 2
 
 type dockerRuntimeHealthcheck struct {
+	// HealthcheckType is the reported healthcheck type
+	HealthcheckType string `json:"HealthcheckType,omitempty"`
 	// Status is the container health status
-	Status HealthcheckStatus `json:"Status,omitempty"`
+	Status HealthcheckStatus `json:"HealthcheckStatus,omitempty"`
 	// Timestamp is the timestamp when container health status changed
 	TimeStamp time.Time `json:"TimeStamp,omitempty"`
+	// StatusChangeTime is the latest time the health status changed
+	StatusChangeTime time.Time `json:"StatusChangeTime,omitempty"`
+
 	// LastStatus is the last container health status
-	LastStatus HealthcheckStatus `json:"lastStatus,omitempty"`
+	LastStatus HealthcheckStatus `json:"LastStatus,omitempty"`
 	// LastTimeStamp is the timestamp of last container health status
 	LastTimeStamp time.Time `json:"LastTimeStamp,omitempty"`
-	client        dockerapi.DockerClient
-	lock          sync.RWMutex
+
+	client dockerapi.DockerClient
+	lock   sync.RWMutex
 }
 
 func NewDockerRuntimeHealthcheck(client dockerapi.DockerClient) *dockerRuntimeHealthcheck {
+	nowTime := time.Now()
 	return &dockerRuntimeHealthcheck{
-		client:    client,
-		Status:    HealthcheckStatusInitializing,
-		TimeStamp: time.Now(),
+		HealthcheckType:  HealthcheckTypeContainerRuntime,
+		Status:           HealthcheckStatusInitializing,
+		TimeStamp:        nowTime,
+		StatusChangeTime: nowTime,
+		client:           client,
 	}
 }
 
 func (dhc *dockerRuntimeHealthcheck) RunCheck() HealthcheckStatus {
 	// TODO pass in context as an argument
 	res := dhc.client.SystemPing(context.TODO(), systemPingTimeout)
-	healthcheck := HealthcheckStatusOk
+	resultStatus := HealthcheckStatusOk
 	if res.Error != nil {
-		seelog.Infof("[DockerHealthcheck] Docker Ping failed with error: %v", res.Error)
-		healthcheck = HealthcheckStatusImpaired
+		seelog.Infof("[DockerRuntimeHealthcheck] Docker Ping failed with error: %v", res.Error)
+		resultStatus = HealthcheckStatusImpaired
 	}
-	dhc.SetHealthcheckStatus(healthcheck)
-	return healthcheck
+	dhc.SetHealthcheckStatus(resultStatus)
+	return resultStatus
 }
 
 func (dhc *dockerRuntimeHealthcheck) SetHealthcheckStatus(healthStatus HealthcheckStatus) {
 	dhc.lock.Lock()
 	defer dhc.lock.Unlock()
+	nowTime := time.Now()
+	// if the status has changed, update status change timestamp
+	if dhc.Status != healthStatus {
+		dhc.StatusChangeTime = nowTime
+	}
+	// track previous status
 	dhc.LastStatus = dhc.Status
-	dhc.Status = healthStatus
 	dhc.LastTimeStamp = dhc.TimeStamp
-	dhc.TimeStamp = time.Now()
+
+	// update latest status
+	dhc.Status = healthStatus
+	dhc.TimeStamp = nowTime
+}
+
+func (dhc *dockerRuntimeHealthcheck) GetHealthcheckType() string {
+	dhc.lock.RLock()
+	defer dhc.lock.RUnlock()
+	return dhc.HealthcheckType
 }
 
 func (dhc *dockerRuntimeHealthcheck) GetHealthcheckStatus() HealthcheckStatus {
@@ -76,6 +99,12 @@ func (dhc *dockerRuntimeHealthcheck) GetHealthcheckTime() time.Time {
 	dhc.lock.RLock()
 	defer dhc.lock.RUnlock()
 	return dhc.TimeStamp
+}
+
+func (dhc *dockerRuntimeHealthcheck) GetStatusChangeTime() time.Time {
+	dhc.lock.RLock()
+	defer dhc.lock.RUnlock()
+	return dhc.StatusChangeTime
 }
 
 func (dhc *dockerRuntimeHealthcheck) GetLastHealthcheckStatus() HealthcheckStatus {
