@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"testing"
+	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
@@ -68,4 +69,31 @@ func TestSetHealthCheckStatus(t *testing.T) {
 	healthCheckStatus := HealthcheckStatusOk
 	dockerRuntimeHealthCheck.SetHealthcheckStatus(healthCheckStatus)
 	assert.Equal(t, HealthcheckStatusOk, dockerRuntimeHealthCheck.Status)
+}
+
+func TestSetHealthcheckStatusChange(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	dockerRuntimeHealthcheck := NewDockerRuntimeHealthcheck(dockerClient)
+
+	// we should start in initializing status
+	assert.Equal(t, HealthcheckStatusInitializing, dockerRuntimeHealthcheck.Status)
+	initializationChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
+
+	// we update to initializing again; our StatusChangeTime remains the same
+	dockerRuntimeHealthcheck.SetHealthcheckStatus(HealthcheckStatusInitializing)
+	updateChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
+	assert.Equal(t, HealthcheckStatusInitializing, dockerRuntimeHealthcheck.Status)
+	assert.Equal(t, initializationChangeTime, updateChangeTime)
+
+	// add a sleep so we know time has elapsed between the initial status and status change time
+	time.Sleep(1 * time.Millisecond)
+
+	// change status.  This should change the update time too
+	dockerRuntimeHealthcheck.SetHealthcheckStatus(HealthcheckStatusOk)
+	assert.Equal(t, HealthcheckStatusOk, dockerRuntimeHealthcheck.Status)
+	okChangeTime := dockerRuntimeHealthcheck.GetStatusChangeTime()
+	// have we updated our change time?
+	assert.True(t, okChangeTime.After(initializationChangeTime))
 }

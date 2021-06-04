@@ -18,16 +18,30 @@ import (
 	"time"
 
 	"github.com/cihub/seelog"
+	"github.com/pborman/uuid"
+	"github.com/pkg/errors"
+
+	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
+	"github.com/aws/aws-sdk-go/aws"
+)
+
+var (
+	// EmptyHealthcheckError indicates an error when there are no healthcheck metrics to report
+	EmptyHealthcheckError = errors.New("No instance healthcheck status metrics to report")
 )
 
 type Doctor struct {
-	healthchecks []Healthcheck
-	lock         sync.RWMutex
+	healthchecks         []Healthcheck
+	lock                 sync.RWMutex
+	cluster              string
+	containerInstanceArn string
 }
 
-func NewDoctor(healthchecks []Healthcheck) (*Doctor, error) {
+func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn string) (*Doctor, error) {
 	newDoctor := &Doctor{
-		healthchecks: []Healthcheck{},
+		healthchecks:         []Healthcheck{},
+		cluster:              cluster,
+		containerInstanceArn: containerInstanceArn,
 	}
 	for _, hc := range healthchecks {
 		newDoctor.AddHealthcheck(hc)
@@ -54,19 +68,45 @@ func (doc *Doctor) RunHealthchecks() bool {
 	return doc.allRight(allChecksResult)
 }
 
+// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
+// a sendable PublishInstanceStatusRequest
+func (doc *Doctor) GetPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
+	metadata := &ecstcs.InstanceStatusMetadata{
+		Cluster:           aws.String(doc.cluster),
+		ContainerInstance: aws.String(doc.containerInstanceArn),
+		RequestId:         aws.String(uuid.NewRandom().String()),
+	}
+	instanceStatuses := doc.getInstanceStatuses()
+
+	if instanceStatuses != nil {
+		return &ecstcs.PublishInstanceStatusRequest{
+			Metadata:  metadata,
+			Statuses:  instanceStatuses,
+			Timestamp: aws.Time(time.Now()),
+		}, nil
+	} else {
+		return nil, EmptyHealthcheckError
+	}
+}
+
+func (doc *Doctor) getInstanceStatuses() []*ecstcs.InstanceStatus {
+	var instanceStatuses []*ecstcs.InstanceStatus
+	for _, healthcheck := range doc.healthchecks {
+		instanceStatus := &ecstcs.InstanceStatus{
+			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
+			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
+			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
+			Type:             aws.String(healthcheck.GetHealthcheckType()),
+		}
+		instanceStatuses = append(instanceStatuses, instanceStatus)
+	}
+	return instanceStatuses
+}
+
 func (doc *Doctor) allRight(checksResult []HealthcheckStatus) bool {
 	overallResult := true
 	for _, checkResult := range checksResult {
 		overallResult = overallResult && checkResult.Ok()
 	}
 	return overallResult
-}
-
-type Healthcheck interface {
-	GetLastHealthcheckStatus() HealthcheckStatus
-	GetLastHealthcheckTime() time.Time
-	GetHealthcheckStatus() HealthcheckStatus
-	GetHealthcheckTime() time.Time
-	RunCheck() HealthcheckStatus
-	SetHealthcheckStatus(status HealthcheckStatus)
 }

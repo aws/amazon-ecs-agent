@@ -741,6 +741,7 @@ func (agent *ecsAgent) startACSSession(
 		deregisterInstanceEventStream,
 		agent.containerInstanceARN,
 		agent.credentialProvider,
+		agent.dockerClient,
 		client,
 		state,
 		agent.dataClient,
