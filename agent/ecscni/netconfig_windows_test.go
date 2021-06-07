@@ -74,9 +74,9 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, []string{validDNSServer}, netConfig.DNS.Nameservers)
 	assert.EqualValues(t, TaskHNSNetworkNamePrefix, config.Network.Name)
-	assert.EqualValues(t, []string{ipv4CIDR}, netConfig.ENIIPAddress)
+	assert.EqualValues(t, []string{ipv4CIDR}, netConfig.ENIIPAddresses)
 	assert.EqualValues(t, mac, netConfig.ENIMACAddress)
-	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddress)
+	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddresses)
 	assert.EqualValues(t, linkName, netConfig.ENIName)
 	assert.False(t, netConfig.UseExistingNetwork)
 }

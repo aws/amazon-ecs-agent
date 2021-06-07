@@ -39,7 +39,7 @@ var (
 	// vpcCNIPluginPath is the path of the cni plugin's log file.
 	// The default value of log file is C:\ProgramData\Amazon\ECS\log\cni\vpc-eni.log
 	vpcCNIPluginPath = filepath.Join(utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`),
-		"Amazon", "ECS", "log", "cni", "vpc-eni.log")
+		`Amazon\ECS\log\cni\vpc-eni.log`)
 )
 
 // cniClient is the client to call plugin and setup the network.

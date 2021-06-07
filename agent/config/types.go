@@ -333,7 +333,7 @@ type Config struct {
 	// External specifies whether agent is running on external compute capacity (i.e. outside of aws).
 	External BooleanDefaultFalse
 
-	// InstanceENIDNSServerList stores the list of dns servers for the primary instance ENI.
+	// InstanceENIDNSServerList stores the list of DNS servers for the primary instance ENI.
 	// Currently, this field is only populated for Windows and is used during task networking setup.
 	InstanceENIDNSServerList []string
 }

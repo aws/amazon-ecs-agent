@@ -201,9 +201,9 @@ func TestConstructNetworkConfig(t *testing.T) {
 	assert.Equal(t, ECSVPCENIPluginName, taskENIConfig.Type)
 	assert.Equal(t, TaskHNSNetworkNamePrefix, config.NetworkConfigs[0].CNINetworkConfig.Network.Name)
 	assert.Equal(t, eniID, taskENIConfig.ENIName)
-	assert.EqualValues(t, []string{ipv4Addr}, taskENIConfig.ENIIPAddress)
+	assert.EqualValues(t, []string{ipv4Addr}, taskENIConfig.ENIIPAddresses)
 	assert.EqualValues(t, taskENI.MacAddress, taskENIConfig.ENIMACAddress)
-	assert.EqualValues(t, []string{subnet[0]}, taskENIConfig.GatewayIPAddress)
+	assert.EqualValues(t, []string{subnet[0]}, taskENIConfig.GatewayIPAddresses)
 	assert.False(t, taskENIConfig.UseExistingNetwork)
 
 	// Config for ecs-bridge endpoint setup for the task.
