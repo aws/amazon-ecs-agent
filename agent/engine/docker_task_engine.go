@@ -1447,7 +1447,7 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 	engine.saveTaskData(task)
 
 	// Invoke additional commands required to configure the task namespace routing.
-	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, cniConfig, result)
+	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, task.GetPrimaryENI(), cniConfig, result)
 	if err != nil {
 		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
 			task.Arn, err)
@@ -1541,9 +1541,9 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	containerInspectOutput *types.ContainerJSON,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
 	cniConfig := &ecscni.Config{
-		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
-		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
-		PrimaryIPv4VPCCIDR:     engine.cfg.PrimaryIPv4VPCCIDR,
+		BlockInstanceMetadata:    engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
+		MinSupportedCNIVersion:   config.DefaultMinSupportedCNIVersion,
+		InstanceENIDNSServerList: engine.cfg.InstanceENIDNSServerList,
 	}
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
 		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&

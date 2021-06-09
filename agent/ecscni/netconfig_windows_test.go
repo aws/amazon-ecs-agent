@@ -17,7 +17,6 @@ package ecscni
 
 import (
 	"encoding/json"
-	"net"
 	"testing"
 
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -28,8 +27,6 @@ const (
 	linkName                = "Ethernet 4"
 	validVPCGatewayCIDR     = "10.0.0.1/24"
 	validVPCGatewayIPv4Addr = "10.0.0.1"
-	invalidVPCGatewayCIDR   = "10.0.0.300/24"
-	invalidVPCGatewayAddr   = "10.0.0.300"
 	validDNSServer          = "10.0.0.2"
 	ipv4                    = "10.0.0.120"
 	ipv4CIDR                = "10.0.0.120/24"
@@ -55,12 +52,11 @@ func getTaskENI() *apieni.ENI {
 }
 
 func getCNIConfig() *Config {
-	_, cidr, _ := net.ParseCIDR(vpcCIDR)
 	return &Config{
-		MinSupportedCNIVersion: cniMinSupportedVersion,
-		ContainerID:            containerID,
-		BlockInstanceMetadata:  false,
-		PrimaryIPv4VPCCIDR:     cidr,
+		MinSupportedCNIVersion:   cniMinSupportedVersion,
+		ContainerID:              containerID,
+		BlockInstanceMetadata:    false,
+		InstanceENIDNSServerList: []string{validDNSServer},
 	}
 }
 
@@ -77,12 +73,12 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, ECSVPCENIPluginExecutable, config.Network.Type)
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, []string{validDNSServer}, netConfig.DNS.Nameservers)
-	assert.EqualValues(t, ipv4CIDR, netConfig.ENIIPAddress)
+	assert.EqualValues(t, TaskHNSNetworkNamePrefix, config.Network.Name)
+	assert.EqualValues(t, []string{ipv4CIDR}, netConfig.ENIIPAddresses)
 	assert.EqualValues(t, mac, netConfig.ENIMACAddress)
-	assert.EqualValues(t, validVPCGatewayIPv4Addr, netConfig.GatewayIPAddress)
+	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddresses)
 	assert.EqualValues(t, linkName, netConfig.ENIName)
 	assert.False(t, netConfig.UseExistingNetwork)
-	assert.False(t, netConfig.NoInfraContainer)
 }
 
 // TestNewVPCENIPluginConfigForECSBridgeSetup tests the generated configuration for ecs-bridge setup.
@@ -98,22 +94,4 @@ func TestNewVPCENIPluginConfigForECSBridgeSetup(t *testing.T) {
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, ECSBridgeNetworkName, config.Network.Name)
 	assert.True(t, netConfig.UseExistingNetwork)
-	assert.False(t, netConfig.NoInfraContainer)
-}
-
-// TestConstructDNSFromVPCCIDRSuccess tests if the dns is constructed properly from the given vpc's primary cidr
-func TestConstructDNSFromVPCCIDRSuccess(t *testing.T) {
-	_, cidr, _ := net.ParseCIDR(vpcCIDR)
-	result, err := constructDNSFromVPCCIDR(cidr)
-
-	assert.NoError(t, err)
-	assert.EqualValues(t, []string{validDNSServer}, result)
-}
-
-// TestConstructDNSFromVPCCIDRError tests if an error is thrown if the vpc cidr is invalid
-func TestConstructDNSFromVPCCIDRError(t *testing.T) {
-	result, err := constructDNSFromVPCCIDR(nil)
-
-	assert.Error(t, err)
-	assert.Nil(t, result)
 }

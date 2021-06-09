@@ -1013,7 +1013,7 @@ func TestProvisionContainerResourcesSetPausePIDInVolumeResources(t *testing.T) {
 			},
 		}, nil),
 		mockCNIClient.EXPECT().SetupNS(gomock.Any(), gomock.Any(), gomock.Any()).Return(nsResult, nil),
-		mockNamespaceHelper.EXPECT().ConfigureTaskNamespaceRouting(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
+		mockNamespaceHelper.EXPECT().ConfigureTaskNamespaceRouting(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil),
 		mockNamespaceHelper.EXPECT().ConfigureFirewallForTaskNSSetup(gomock.Any(), gomock.Any()).Return(nil),
 	)
 

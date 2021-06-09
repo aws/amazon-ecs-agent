@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
-
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
@@ -30,7 +28,9 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
@@ -76,12 +76,18 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, false
 	}
 
-	// Query the VPC's primary IPv4 CIDR using IMDS
-	primaryIPv4VPCCIDR, err := agent.ec2MetadataClient.PrimaryIPV4VPCCIDR(agent.mac)
+	// The instance ENI and the task ENI on ECS EC2 Windows will belong to the same VPC, and therefore,
+	// have the same DNS server list. Hence, we store the DNS server list of the instance ENI during
+	// agent startup and use the same during config creation for setting up task ENI.
+	// Another intrinsic benefit of this approach is that any DNS servers added for Active Directory
+	// will be added to the task ENI, allowing tasks in awsvpc network mode to support gMSA.
+	dnsServerList, err := agent.resourceFields.NetworkUtils.GetDNSServerAddressList(agent.mac)
 	if err != nil {
-		return fmt.Errorf("unable to get primary ipv4 cidr of the vpc: %v", err), false
+		// An error at this point is terminal as the tasks launched with awsvpc network mode
+		// require the DNS entries.
+		return fmt.Errorf("unable to get dns server addresses of instance eni: %v", err), true
 	}
-	agent.cfg.PrimaryIPv4VPCCIDR = primaryIPv4VPCCIDR
+	agent.cfg.InstanceENIDNSServerList = dnsServerList
 
 	return nil, false
 }
@@ -305,6 +311,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		Ctx:             agent.ctx,
 		DockerClient:    agent.dockerClient,
 		S3ClientCreator: s3factory.NewS3ClientCreator(),
+		NetworkUtils:    networkutils.New(),
 	}
 }
 
