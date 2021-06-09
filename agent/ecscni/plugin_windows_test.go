@@ -103,6 +103,9 @@ func TestSetupNSTimeout(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	// Override the maximum retry timeout for the tests
+	setupNSBackoffMax = setupNSBackoffMin
+
 	ecscniClient := NewClient("")
 	libcniClient := mock_libcni.NewMockCNI(ctrl)
 	ecscniClient.(*cniClient).libcni = libcniClient
@@ -111,7 +114,7 @@ func TestSetupNSTimeout(t *testing.T) {
 		// vpc-eni plugin will be called.
 		libcniClient.EXPECT().AddNetwork(gomock.Any(), gomock.Any(), gomock.Any()).Return(&current.Result{}, errors.New("timeout")).Do(
 			func(ctx context.Context, net *libcni.NetworkConfig, rt *libcni.RuntimeConf) {
-			}).MaxTimes(3),
+			}).MaxTimes(setupNSMaxRetryCount),
 	)
 
 	config := getNetworkConfig()
