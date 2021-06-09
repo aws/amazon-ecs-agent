@@ -13,10 +13,12 @@
 
 package netwrapper
 
-import "net"
+import (
+	"net"
+)
 
-// NetWrapper interface is created to abstract Golang's net package from its usage in the watcher
-// Also, this enables us to mock this interface for unit tests
+// NetWrapper interface is created to abstract Golang's net package from its usage.
+// This enables us to mock this interface for unit tests.
 type NetWrapper interface {
 	FindInterfaceByIndex(int) (*net.Interface, error)
 	GetAllNetworkInterfaces() ([]net.Interface, error)
