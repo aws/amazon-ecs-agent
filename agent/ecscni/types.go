@@ -14,8 +14,6 @@
 package ecscni
 
 import (
-	"net"
-
 	"github.com/containernetworking/cni/libcni"
 	cnitypes "github.com/containernetworking/cni/pkg/types"
 )
@@ -62,8 +60,9 @@ type Config struct {
 	AdditionalLocalRoutes []cnitypes.IPNet
 	// NetworkConfigs is the list of CNI network configurations to be invoked
 	NetworkConfigs []*NetworkConfig
-	// PrimaryIPv4VPCCIDR is the primary ipv4 cidr of the vpc in which agent is running
-	PrimaryIPv4VPCCIDR *net.IPNet
+	// InstanceENIDNSServerList stores the list of dns servers for the primary instance ENI.
+	// Currently, this field is only populated for Windows and is used during task networking setup.
+	InstanceENIDNSServerList []string
 }
 
 // NetworkConfig wraps CNI library's NetworkConfig object. It tracks the interface device

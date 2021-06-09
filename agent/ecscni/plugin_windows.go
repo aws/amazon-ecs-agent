@@ -37,8 +37,9 @@ import (
 
 var (
 	// vpcCNIPluginPath is the path of the cni plugin's log file.
+	// The default value of log file is C:\ProgramData\Amazon\ECS\log\cni\vpc-eni.log
 	vpcCNIPluginPath = filepath.Join(utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`),
-		"Amazon", "ECS", "log", "vpc-eni.log")
+		`Amazon\ECS\log\cni\vpc-eni.log`)
 )
 
 // newCNIGuard returns a new instance of CNI guard for the CNI client.

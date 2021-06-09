@@ -19,7 +19,10 @@ import (
 	"context"
 	"errors"
 	"net"
+	"syscall"
 	"testing"
+
+	"golang.org/x/sys/windows"
 
 	mock_netwrapper "github.com/aws/amazon-ecs-agent/agent/eni/netwrapper/mocks"
 
@@ -30,6 +33,7 @@ import (
 const (
 	interfaceIndex = 9
 	macAddress     = "02:22:ea:8c:81:dc"
+	validDnsServer = "10.0.0.2"
 )
 
 // This is a success test. We receive the appropriate MAC address corresponding to the interface index.
@@ -145,7 +149,7 @@ func TestGetInterfaceMACByIndexWithGolangNetError(t *testing.T) {
 	netUtils.SetNetWrapper(mocknetwrapper)
 
 	mocknetwrapper.EXPECT().FindInterfaceByIndex(interfaceIndex).Return(
-		nil, errors.New("Unable to retrieve interface"))
+		nil, errors.New("unable to retrieve interface"))
 
 	mac, err := netUtils.GetInterfaceMACByIndex(interfaceIndex, ctx, macAddressBackoffMax)
 
@@ -190,11 +194,45 @@ func TestGetAllNetworkInterfacesError(t *testing.T) {
 	netUtils.SetNetWrapper(mocknetwrapper)
 
 	mocknetwrapper.EXPECT().GetAllNetworkInterfaces().Return(
-		nil, errors.New("Error occured while fetching interfaces"),
+		nil, errors.New("error occurred while fetching interfaces"),
 	)
 
 	inf, err := netUtils.GetAllNetworkInterfaces()
 
 	assert.Nil(t, inf)
 	assert.Error(t, err)
+}
+
+// TestGetDNSServerAddressList tests the success path of GetDNSServerAddressList.
+func TestGetDNSServerAddressList(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	mocknetwrapper := mock_netwrapper.NewMockNetWrapper(mockCtrl)
+	netUtils := networkUtils{netWrapper: mocknetwrapper}
+
+	funcGetAdapterAddresses = func() ([]*windows.IpAdapterAddresses, error) {
+		return []*windows.IpAdapterAddresses{
+			{
+				PhysicalAddressLength: 6,
+				PhysicalAddress:       [8]byte{2, 34, 234, 140, 129, 220, 0, 0},
+				FirstDnsServerAddress: &windows.IpAdapterDnsServerAdapter{
+					Address: windows.SocketAddress{
+						Sockaddr: &syscall.RawSockaddrAny{
+							Addr: syscall.RawSockaddr{
+								Family: syscall.AF_INET,
+								Data:   [14]int8{0, 0, 10, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0},
+							},
+						},
+						SockaddrLength: 16,
+					},
+				},
+			},
+		}, nil
+	}
+
+	dnsServerList, err := netUtils.GetDNSServerAddressList(macAddress)
+	assert.NoError(t, err)
+	assert.Len(t, dnsServerList, 1)
+	assert.EqualValues(t, dnsServerList[0], validDnsServer)
 }

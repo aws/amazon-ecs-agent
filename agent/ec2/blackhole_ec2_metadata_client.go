@@ -15,7 +15,6 @@ package ec2
 
 import (
 	"errors"
-	"net"
 
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 )
@@ -84,8 +83,4 @@ func (blackholeMetadataClient) SpotInstanceAction() (string, error) {
 
 func (blackholeMetadataClient) OutpostARN() (string, error) {
 	return "", errors.New("blackholed")
-}
-
-func (c blackholeMetadataClient) PrimaryIPV4VPCCIDR(mac string) (*net.IPNet, error) {
-	return nil, errors.New("blackholed")
 }
