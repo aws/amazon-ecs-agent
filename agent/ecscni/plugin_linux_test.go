@@ -20,11 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os/exec"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -615,33 +611,4 @@ func TestCNIPluginVersion(t *testing.T) {
 			assert.Equal(t, tc.str, tc.version.str())
 		})
 	}
-}
-
-// Asserts that CNI plugin version matches the expected version
-func TestCNIPluginVersionNumber(t *testing.T) {
-	versionStr := getCNIVersionString(t)
-	assert.Equal(t, versionStr, currentECSCNIVersion)
-}
-
-// Asserts that CNI plugin version is upgraded when new commits are made to CNI plugin submodule
-func TestCNIPluginVersionUpgrade(t *testing.T) {
-	versionStr := getCNIVersionString(t)
-	cmd := exec.Command("git", "submodule")
-	versionInfo, err := cmd.Output()
-	assert.NoError(t, err, "Error running the command: git submodule")
-	versionInfoStrList := strings.Split(string(versionInfo), "\n")
-	// If a new commit is added, version should be upgraded
-	if currentECSCNIGitHash != strings.Split(versionInfoStrList[0], " ")[1] {
-		assert.NotEqual(t, currentECSCNIVersion, versionStr)
-	}
-	assert.Equal(t, currentVPCCNIGitHash, strings.Split(versionInfoStrList[1], " ")[1])
-}
-
-// Returns the version in CNI plugin VERSION file as a string
-func getCNIVersionString(t *testing.T) string {
-	// ../../amazon-ecs-cni-plugins/VERSION
-	versionFilePath := filepath.Clean(filepath.Join("..", "..", "amazon-ecs-cni-plugins", "VERSION"))
-	versionStr, err := ioutil.ReadFile(versionFilePath)
-	assert.NoError(t, err, "Error reading the CNI plugin version file")
-	return strings.TrimSpace(string(versionStr))
 }
