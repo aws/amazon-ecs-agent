@@ -31,10 +31,10 @@ stage_windows() {
 	cp out/amazon-ecs-agent.exe "${ziproot}"
 	cp -v misc/windows-deploy/*.ps1 "${ziproot}"
 
-	if [[ -f "${buildroot}/out/cni-plugins/vpc-shared-eni" ]]
+	if [[ -f "${buildroot}/out/cni-plugins/vpc-eni" ]]
 	then
 	  mkdir "${ziproot}/cni"
-	  mv "${buildroot}/out/cni-plugins/vpc-shared-eni" "${ziproot}/cni/vpc-shared-eni.exe"
+	  mv "${buildroot}/out/cni-plugins/vpc-eni" "${ziproot}/cni/vpc-eni.exe"
 	fi
 
 	pushd "${ziproot}"
