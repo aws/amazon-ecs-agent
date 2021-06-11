@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.53.0-1
+* Cache Agent version 1.53.0
+
 ## 1.52.2-2
 * Cache Agent version 1.52.2
 * ecs-anywhere-install: fix incorrect download url when running in cn region

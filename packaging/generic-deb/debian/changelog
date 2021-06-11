@@ -1,3 +1,9 @@
+amazon-ecs-init (1.53.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.53.0
+
+ -- Angel Velazquez <angelcar@amazon.com>  Wed, 09 Jun 2021 22:30:00 +0000
+
 amazon-ecs-init (1.52.2-2) stable; urgency=medium
 
   * Cache Agent version 1.52.2
