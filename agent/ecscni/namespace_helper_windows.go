@@ -43,7 +43,7 @@ const (
 	// ecsBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
 	ecsBridgeEndpointNameFormat = "%s-ep-%s"
 	// taskPrimaryEndpointNameFormat is the name format of the primary endpoint in the task namespace.
-	taskPrimaryEndpointNameFormat = "%s-br-%s-ep-%s"
+	taskPrimaryEndpointNameFormat = "%sbr%s-ep-%s"
 	// blockIMDSFirewallRuleNameFormat is the format of firewall rule name for blocking IMDS from task namespace.
 	blockIMDSFirewallRuleNameFormat = "Disable IMDS for %s"
 	// ecsBridgeRouteAddCmdFormat is the format of command for adding route entry through ECS Bridge.
