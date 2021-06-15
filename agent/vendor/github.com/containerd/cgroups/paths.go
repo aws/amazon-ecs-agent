@@ -1,13 +1,31 @@
+/*
+   Copyright The containerd Authors.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package cgroups
 
 import (
 	"fmt"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 )
 
 type Path func(subsystem Name) (string, error)
 
-func RootPath(subsysem Name) (string, error) {
+func RootPath(subsystem Name) (string, error) {
 	return "/", nil
 }
 
@@ -31,17 +49,21 @@ func NestedPath(suffix string) Path {
 // PidPath will return the correct cgroup paths for an existing process running inside a cgroup
 // This is commonly used for the Load function to restore an existing container
 func PidPath(pid int) Path {
-	paths, err := parseCgroupFile(fmt.Sprintf("/proc/%d/cgroup", pid))
+	p := fmt.Sprintf("/proc/%d/cgroup", pid)
+	paths, err := parseCgroupFile(p)
 	if err != nil {
-		return errorPath(err)
+		return errorPath(errors.Wrapf(err, "parse cgroup file %s", p))
 	}
 	return existingPath(paths, "")
 }
 
+// ErrControllerNotActive is returned when a controller is not supported or enabled
+var ErrControllerNotActive = errors.New("controller is not supported")
+
 func existingPath(paths map[string]string, suffix string) Path {
 	// localize the paths based on the root mount dest for nested cgroups
 	for n, p := range paths {
-		dest, err := getCgroupDestination(string(n))
+		dest, err := getCgroupDestination(n)
 		if err != nil {
 			return errorPath(err)
 		}
@@ -57,8 +79,8 @@ func existingPath(paths map[string]string, suffix string) Path {
 	return func(name Name) (string, error) {
 		root, ok := paths[string(name)]
 		if !ok {
-			if root, ok = paths[fmt.Sprintf("name=%s", name)]; !ok {
-				return "", fmt.Errorf("unable to find %q in controller set", name)
+			if root, ok = paths["name="+string(name)]; !ok {
+				return "", ErrControllerNotActive
 			}
 		}
 		if suffix != "" {

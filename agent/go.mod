@@ -3,54 +3,41 @@ module github.com/aws/amazon-ecs-agent/agent
 go 1.12
 
 require (
-	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
-	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
-	github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
-	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
-	github.com/containernetworking/cni v0.7.1
-	github.com/containernetworking/plugins v0.8.6
+	github.com/containerd/cgroups v1.0.1
+	github.com/containerd/containerd v1.5.2 // indirect
+	github.com/containernetworking/cni v0.8.0
+	github.com/containernetworking/plugins v0.9.1
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
 	github.com/didip/tollbooth v3.0.2+incompatible
-	github.com/docker/distribution v0.0.0-20181002220433-1cb4180b1a5b // indirect
-	github.com/docker/docker v0.0.0-20181024032540-785fe99bdb7c
+	github.com/docker/docker v0.0.0-20210601223442-b0f5bc36fea9
 	github.com/docker/go-connections v0.3.0
-	github.com/docker/go-units v0.3.2
-	github.com/godbus/dbus v4.1.0+incompatible // indirect
-	github.com/gogo/protobuf v1.1.1 // indirect
-	github.com/golang/mock v1.1.1
+	github.com/docker/go-units v0.4.0
+	github.com/golang/mock v1.4.1
 	github.com/google/go-cmp v0.5.6 // indirect
-	github.com/gorilla/context v1.1.1 // indirect
-	github.com/gorilla/mux v1.6.2
-	github.com/gorilla/websocket v1.2.0
+	github.com/gorilla/mux v1.7.2
+	github.com/gorilla/websocket v1.4.2
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
-	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0
+	github.com/moby/sys/mount v0.2.0 // indirect
+	github.com/moby/term v0.0.0-20210610120745-9d4ed1856297 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v0.0.0-20150603214016-ca53cad383ca
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v0.9.0
-	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39 // indirect
-	github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d // indirect
-	github.com/sirupsen/logrus v1.1.1 // indirect
-	github.com/stretchr/testify v1.5.1
-	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
+	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_model v0.2.0
+	github.com/stretchr/testify v1.6.1
+	github.com/vishvananda/netlink v1.1.0
 	go.etcd.io/bbolt v1.3.6
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+	golang.org/x/sys v0.0.0-20210324051608-47abb6519492
 	golang.org/x/text v0.3.6 // indirect
-	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
-	golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
+	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
 	google.golang.org/grpc v1.38.0 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 )
 
 replace (
