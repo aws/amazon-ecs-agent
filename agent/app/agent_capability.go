@@ -95,9 +95,6 @@ var (
 		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
 		capabilityEnvFilesS3,
 	}
-	capabilityExecRequiredCerts = []string{
-		"tls-ca-bundle.pem",
-	}
 	// use empty struct as value type to simulate set
 	capabilityExecInvalidSsmVersions = map[string]struct{}{}
 
@@ -120,6 +117,10 @@ var (
 	externalSpecificCapabilities = []string{
 		attributePrefix + capabilityExternal,
 	}
+
+	capabilityExecRootDir = filepath.Join(capabilityDepsRootDir, capabilityExec)
+	binDir                = filepath.Join(capabilityExecRootDir, capabilityExecBinRelativePath)
+	configDir             = filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
 )
 
 // capabilities returns the supported capabilities of this agent / docker-client pair.
@@ -376,17 +377,6 @@ func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]
 	// for an instance to be exec-enabled, it needs resources needed by SSM (binaries, configuration files and certs)
 	// the following bind mounts are defined in ecs-init and added to the ecs-agent container
 
-	capabilityExecRootDir := filepath.Join(capabilityDepsRootDir, capabilityExec)
-	binDir := filepath.Join(capabilityExecRootDir, capabilityExecBinRelativePath)
-	configDir := filepath.Join(capabilityExecRootDir, capabilityExecConfigRelativePath)
-	certsDir := filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
-
-	// top-level folders, /bin, /config, /certs
-	dependencies := map[string][]string{
-		binDir:    []string{},
-		configDir: []string{},
-		certsDir:  capabilityExecRequiredCerts,
-	}
 	if exists, err := dependenciesExist(dependencies); err != nil || !exists {
 		return capabilities, err
 	}

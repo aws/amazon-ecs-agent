@@ -33,6 +33,7 @@ const (
 
 var (
 	capabilityExecRequiredBinaries = []string{}
+	dependencies                   = map[string][]string{}
 )
 
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {

@@ -73,6 +73,7 @@ const (
 
 var (
 	envProgramFiles       = utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
+	AmazonProgramFiles    = filepath.Join(envProgramFiles, "Amazon")
 	AmazonECSProgramFiles = filepath.Join(envProgramFiles, "Amazon", "ECS")
 )
 
