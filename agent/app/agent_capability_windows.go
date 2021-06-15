@@ -27,11 +27,26 @@ import (
 )
 
 var (
-	capabilityDepsRootDir          = filepath.Join(config.AmazonECSProgramFiles, "managed-agents")
+	capabilityDepsRootDir  = filepath.Join(config.AmazonECSProgramFiles, "managed-agents")
+	ssmPluginDir           = filepath.Join(config.AmazonProgramFiles, "SSM", "Plugins")
+	sessionManagerShellDir = filepath.Join(ssmPluginDir, "SessionManagerShell")
+	awsCloudWatchDir       = filepath.Join(ssmPluginDir, "awsCloudWatch")
+	awsDomainJoin          = filepath.Join(ssmPluginDir, "awsDomainJoin")
+
 	capabilityExecRequiredBinaries = []string{
 		"amazon-ssm-agent.exe",
 		"ssm-agent-worker.exe",
 		"ssm-session-worker.exe",
+	}
+
+	// top-level folders, /bin, /config, /plugins
+	dependencies = map[string][]string{
+		binDir:                 []string{},
+		configDir:              []string{},
+		ssmPluginDir:           []string{},
+		sessionManagerShellDir: []string{},
+		awsCloudWatchDir:       []string{},
+		awsDomainJoin:          []string{},
 	}
 )
 
