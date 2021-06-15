@@ -16,6 +16,7 @@
 package app
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -39,10 +40,21 @@ const (
 )
 
 var (
+	certsDir                    = filepath.Join(capabilityExecRootDir, capabilityExecCertsRelativePath)
+	capabilityExecRequiredCerts = []string{
+		"tls-ca-bundle.pem",
+	}
 	capabilityExecRequiredBinaries = []string{
 		"amazon-ssm-agent",
 		"ssm-agent-worker",
 		"ssm-session-worker",
+	}
+
+	// top-level folders, /bin, /config, /certs
+	dependencies = map[string][]string{
+		binDir:    []string{},
+		configDir: []string{},
+		certsDir:  capabilityExecRequiredCerts,
 	}
 )
 
