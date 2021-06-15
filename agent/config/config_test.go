@@ -285,6 +285,7 @@ func TestDefaultCheckpointWithoutECSDataDir(t *testing.T) {
 	conf, err := environmentConfig()
 	assert.NoError(t, err)
 	assert.False(t, conf.Checkpoint.Enabled())
+	assert.Equal(t, NotSet, conf.Checkpoint.Value)
 }
 
 func TestDefaultCheckpointWithECSDataDir(t *testing.T) {
