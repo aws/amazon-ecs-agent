@@ -26,6 +26,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
+	"github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 // Client is an interface specifying the subset of
@@ -33,7 +34,7 @@ import (
 type Client interface {
 	ClientVersion() string
 	ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig,
-		networkingConfig *network.NetworkingConfig, containerName string) (container.ContainerCreateCreatedBody, error)
+		networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.ContainerCreateCreatedBody, error)
 	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
 	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
 	ContainerTop(ctx context.Context, containerID string, arguments []string) (container.ContainerTopOKBody, error)

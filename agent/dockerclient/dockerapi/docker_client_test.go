@@ -394,7 +394,7 @@ func TestCreateContainerTimeout(t *testing.T) {
 	wait.Add(1)
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
 	mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), &dockercontainer.Config{}, hostConfig,
-		&network.NetworkingConfig{}, "containerName").Do(func(v, w, x, y, z interface{}) {
+		&network.NetworkingConfig{}, gomock.Any(), "containerName").Do(func(u, v, w, x, y, z interface{}) {
 		wait.Wait()
 	}).MaxTimes(1).Return(dockercontainer.ContainerCreateCreatedBody{}, errors.New("test error"))
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -412,10 +412,10 @@ func TestCreateContainer(t *testing.T) {
 	name := "containerName"
 	hostConfig := &dockercontainer.HostConfig{Resources: dockercontainer.Resources{Memory: 100}}
 	gomock.InOrder(
-		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any(), hostConfig, gomock.Any(), name).
-			Do(func(v, w, x, y, z interface{}) {
-				assert.True(t, reflect.DeepEqual(x, hostConfig),
-					"Mismatch in create container HostConfig, %v != %v", y, hostConfig)
+		mockDockerSDK.EXPECT().ContainerCreate(gomock.Any(), gomock.Any(), hostConfig, gomock.Any(), gomock.Any(), name).
+			Do(func(u, v, w, x, y, z interface{}) {
+				assert.True(t, reflect.DeepEqual(w, hostConfig),
+					"Mismatch in create container HostConfig, %v != %v", w, hostConfig)
 				assert.Equal(t, z, name,
 					"Mismatch in create container options, %s != %s", z, name)
 			}).Return(dockercontainer.ContainerCreateCreatedBody{ID: "id"}, nil),

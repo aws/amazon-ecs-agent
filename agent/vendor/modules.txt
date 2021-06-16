@@ -1,65 +1,67 @@
-# github.com/Microsoft/go-winio v0.4.11 => github.com/Microsoft/go-winio v0.4.7
+# github.com/Microsoft/go-winio v0.4.17 => github.com/Microsoft/go-winio v0.4.7
 github.com/Microsoft/go-winio
+# github.com/Microsoft/hcsshim v0.8.16
+github.com/Microsoft/hcsshim/osversion
 # github.com/aws/aws-sdk-go v1.36.0
-github.com/aws/aws-sdk-go/aws/credentials
 github.com/aws/aws-sdk-go/aws
-github.com/aws/aws-sdk-go/aws/awsutil
-github.com/aws/aws-sdk-go/private/protocol
-github.com/aws/aws-sdk-go/aws/client
-github.com/aws/aws-sdk-go/aws/request
-github.com/aws/aws-sdk-go/aws/session
-github.com/aws/aws-sdk-go/aws/awserr
 github.com/aws/aws-sdk-go/aws/arn
-github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
-github.com/aws/aws-sdk-go/service/secretsmanager
-github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface
-github.com/aws/aws-sdk-go/aws/defaults
-github.com/aws/aws-sdk-go/aws/ec2metadata
-github.com/aws/aws-sdk-go/service/ec2
+github.com/aws/aws-sdk-go/aws/awserr
+github.com/aws/aws-sdk-go/aws/awsutil
+github.com/aws/aws-sdk-go/aws/client
 github.com/aws/aws-sdk-go/aws/client/metadata
-github.com/aws/aws-sdk-go/aws/signer/v4
-github.com/aws/aws-sdk-go/private/protocol/jsonrpc
-github.com/aws/aws-sdk-go/service/fsx
-github.com/aws/aws-sdk-go/private/model/api
-github.com/aws/aws-sdk-go/private/util
-github.com/aws/aws-sdk-go/service/s3
-github.com/aws/aws-sdk-go/service/s3/s3manager
-github.com/aws/aws-sdk-go/service/ssm
-github.com/aws/aws-sdk-go/aws/endpoints
-github.com/aws/aws-sdk-go/internal/context
-github.com/aws/aws-sdk-go/internal/ini
-github.com/aws/aws-sdk-go/internal/shareddefaults
-github.com/aws/aws-sdk-go/internal/sync/singleflight
-github.com/aws/aws-sdk-go/internal/sdkio
-github.com/aws/aws-sdk-go/internal/sdkmath
-github.com/aws/aws-sdk-go/internal/sdkrand
 github.com/aws/aws-sdk-go/aws/corehandlers
+github.com/aws/aws-sdk-go/aws/credentials
+github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
+github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
 github.com/aws/aws-sdk-go/aws/credentials/processcreds
 github.com/aws/aws-sdk-go/aws/credentials/stscreds
 github.com/aws/aws-sdk-go/aws/csm
-github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
-github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
-github.com/aws/aws-sdk-go/internal/sdkuri
-github.com/aws/aws-sdk-go/private/protocol/ec2query
-github.com/aws/aws-sdk-go/internal/strings
-github.com/aws/aws-sdk-go/private/protocol/rest
-github.com/aws/aws-sdk-go/service/cloudwatchlogs
-github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
+github.com/aws/aws-sdk-go/aws/defaults
+github.com/aws/aws-sdk-go/aws/ec2metadata
+github.com/aws/aws-sdk-go/aws/endpoints
+github.com/aws/aws-sdk-go/aws/request
+github.com/aws/aws-sdk-go/aws/session
+github.com/aws/aws-sdk-go/aws/signer/v4
+github.com/aws/aws-sdk-go/internal/context
+github.com/aws/aws-sdk-go/internal/ini
 github.com/aws/aws-sdk-go/internal/s3shared
 github.com/aws/aws-sdk-go/internal/s3shared/arn
 github.com/aws/aws-sdk-go/internal/s3shared/s3err
+github.com/aws/aws-sdk-go/internal/sdkio
+github.com/aws/aws-sdk-go/internal/sdkmath
+github.com/aws/aws-sdk-go/internal/sdkrand
+github.com/aws/aws-sdk-go/internal/sdkuri
+github.com/aws/aws-sdk-go/internal/shareddefaults
+github.com/aws/aws-sdk-go/internal/strings
+github.com/aws/aws-sdk-go/internal/sync/singleflight
 github.com/aws/aws-sdk-go/private/checksum
+github.com/aws/aws-sdk-go/private/model/api
+github.com/aws/aws-sdk-go/private/protocol
+github.com/aws/aws-sdk-go/private/protocol/ec2query
 github.com/aws/aws-sdk-go/private/protocol/eventstream
 github.com/aws/aws-sdk-go/private/protocol/eventstream/eventstreamapi
+github.com/aws/aws-sdk-go/private/protocol/json/jsonutil
+github.com/aws/aws-sdk-go/private/protocol/jsonrpc
+github.com/aws/aws-sdk-go/private/protocol/query
+github.com/aws/aws-sdk-go/private/protocol/query/queryutil
+github.com/aws/aws-sdk-go/private/protocol/rest
 github.com/aws/aws-sdk-go/private/protocol/restxml
+github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
+github.com/aws/aws-sdk-go/private/util
+github.com/aws/aws-sdk-go/service/cloudwatchlogs
+github.com/aws/aws-sdk-go/service/ec2
+github.com/aws/aws-sdk-go/service/fsx
+github.com/aws/aws-sdk-go/service/s3
 github.com/aws/aws-sdk-go/service/s3/s3iface
+github.com/aws/aws-sdk-go/service/s3/s3manager
+github.com/aws/aws-sdk-go/service/secretsmanager
+github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface
+github.com/aws/aws-sdk-go/service/ssm
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
-github.com/aws/aws-sdk-go/private/protocol/query/queryutil
-github.com/aws/aws-sdk-go/private/protocol/query
 # github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit
-# github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
+# github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a
 github.com/beorn7/perks/quantile
 # github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 github.com/cihub/seelog
@@ -67,20 +69,22 @@ github.com/cihub/seelog/archive
 github.com/cihub/seelog/archive/gzip
 github.com/cihub/seelog/archive/tar
 github.com/cihub/seelog/archive/zip
-# github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
+# github.com/containerd/cgroups v1.0.1 => github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
 github.com/containerd/cgroups
-# github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8
-github.com/containerd/continuity/pathdriver
-# github.com/containernetworking/cni v0.7.1
+# github.com/containerd/containerd v1.5.2
+github.com/containerd/containerd/errdefs
+github.com/containerd/containerd/log
+github.com/containerd/containerd/platforms
+# github.com/containernetworking/cni v0.8.0 => github.com/containernetworking/cni v0.7.1
 github.com/containernetworking/cni/libcni
-github.com/containernetworking/cni/pkg/types
-github.com/containernetworking/cni/pkg/types/current
 github.com/containernetworking/cni/pkg/invoke
-github.com/containernetworking/cni/pkg/version
+github.com/containernetworking/cni/pkg/types
 github.com/containernetworking/cni/pkg/types/020
-# github.com/containernetworking/plugins v0.8.6 => github.com/containernetworking/plugins v0.8.6
+github.com/containernetworking/cni/pkg/types/current
+github.com/containernetworking/cni/pkg/version
+# github.com/containernetworking/plugins v0.9.1 => github.com/containernetworking/plugins v0.8.6
 github.com/containernetworking/plugins/pkg/ns
-# github.com/coreos/go-systemd v0.0.0-20180511133405-39ca1b05acc7 => github.com/coreos/go-systemd v0.0.0-20170731111925-d21964639418
+# github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e => github.com/coreos/go-systemd v0.0.0-20170731111925-d21964639418
 github.com/coreos/go-systemd/dbus
 # github.com/davecgh/go-spew v1.1.1 => github.com/davecgh/go-spew v1.1.0
 github.com/davecgh/go-spew/spew
@@ -91,121 +95,172 @@ github.com/didip/tollbooth
 github.com/didip/tollbooth/errors
 github.com/didip/tollbooth/libstring
 github.com/didip/tollbooth/limiter
-# github.com/docker/distribution v0.0.0-20181002220433-1cb4180b1a5b
-github.com/docker/distribution/reference
+# github.com/docker/distribution v2.7.1+incompatible
 github.com/docker/distribution/digestset
-# github.com/docker/docker v0.0.0-20181024032540-785fe99bdb7c
+github.com/docker/distribution/reference
+github.com/docker/distribution/registry/api/errcode
+# github.com/docker/docker v0.0.0-20210601223442-b0f5bc36fea9 => github.com/docker/docker v0.0.0-20210601223442-b0f5bc36fea9
+github.com/docker/docker/api
 github.com/docker/docker/api/types
+github.com/docker/docker/api/types/blkiodev
 github.com/docker/docker/api/types/container
-github.com/docker/docker/pkg/system
 github.com/docker/docker/api/types/events
 github.com/docker/docker/api/types/filters
+github.com/docker/docker/api/types/image
+github.com/docker/docker/api/types/mount
 github.com/docker/docker/api/types/network
+github.com/docker/docker/api/types/registry
+github.com/docker/docker/api/types/strslice
+github.com/docker/docker/api/types/swarm
+github.com/docker/docker/api/types/swarm/runtime
+github.com/docker/docker/api/types/time
+github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
 github.com/docker/docker/client
-github.com/docker/docker/pkg/plugins
-github.com/docker/docker/api/types/mount
-github.com/docker/docker/api/types/registry
-github.com/docker/docker/api/types/swarm
-github.com/docker/docker/api/types/blkiodev
-github.com/docker/docker/api/types/strslice
-github.com/docker/docker/pkg/mount
-github.com/docker/docker/api/types/versions
 github.com/docker/docker/errdefs
-github.com/docker/docker/api
-github.com/docker/docker/api/types/image
-github.com/docker/docker/api/types/time
 github.com/docker/docker/pkg/ioutils
-github.com/docker/docker/pkg/plugins/transport
-github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/pkg/longpath
+github.com/docker/docker/pkg/plugins
+github.com/docker/docker/pkg/plugins/transport
+github.com/docker/docker/pkg/system
 # github.com/docker/go-connections v0.3.0
 github.com/docker/go-connections/nat
 github.com/docker/go-connections/sockets
 github.com/docker/go-connections/tlsconfig
-# github.com/docker/go-units v0.3.2
+# github.com/docker/go-units v0.4.0 => github.com/docker/go-units v0.3.2
 github.com/docker/go-units
-# github.com/godbus/dbus v4.1.0+incompatible => github.com/godbus/dbus v4.1.0+incompatible
+# github.com/godbus/dbus v0.0.0-20180201030542-885f9cc04c9c => github.com/godbus/dbus v4.1.0+incompatible
 github.com/godbus/dbus
-# github.com/gogo/protobuf v1.1.1
+# github.com/gogo/protobuf v1.3.2
 github.com/gogo/protobuf/proto
-# github.com/golang/mock v1.1.1 => github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
-github.com/golang/mock/mockgen/model
+# github.com/golang/mock v1.4.1 => github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.4.2 => github.com/golang/protobuf v1.2.0
+github.com/golang/mock/mockgen/model
+# github.com/golang/protobuf v1.4.3 => github.com/golang/protobuf v1.4.1
 github.com/golang/protobuf/proto
-# github.com/gorilla/context v1.1.1
-github.com/gorilla/context
-# github.com/gorilla/mux v1.6.2
+github.com/golang/protobuf/ptypes
+github.com/golang/protobuf/ptypes/any
+github.com/golang/protobuf/ptypes/duration
+github.com/golang/protobuf/ptypes/timestamp
+# github.com/gorilla/mux v1.7.2
 github.com/gorilla/mux
-# github.com/gorilla/websocket v1.2.0
+# github.com/gorilla/websocket v1.4.2
 github.com/gorilla/websocket
 # github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 github.com/hectane/go-acl/api
 # github.com/jmespath/go-jmespath v0.4.0 => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 github.com/jmespath/go-jmespath
-# github.com/konsorten/go-windows-terminal-sequences v1.0.1 => github.com/konsorten/go-windows-terminal-sequences v1.0.1
-github.com/konsorten/go-windows-terminal-sequences
-# github.com/matttproud/golang_protobuf_extensions v1.0.1
+# github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/opencontainers/go-digest v1.0.0-rc1
+# github.com/moby/sys/mount v0.2.0
+github.com/moby/sys/mount
+# github.com/moby/sys/mountinfo v0.4.1
+github.com/moby/sys/mountinfo
+# github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.1
-github.com/opencontainers/image-spec/specs-go/v1
 github.com/opencontainers/image-spec/specs-go
-# github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0
+github.com/opencontainers/image-spec/specs-go/v1
+# github.com/opencontainers/runtime-spec v1.0.3-0.20200929063507-e6143ca7d51d => github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0
 github.com/opencontainers/runtime-spec/specs-go
 # github.com/patrickmn/go-cache v2.1.0+incompatible
 github.com/patrickmn/go-cache
 # github.com/pborman/uuid v0.0.0-20150603214016-ca53cad383ca
 github.com/pborman/uuid
-# github.com/pkg/errors v0.9.1 => github.com/pkg/errors v0.8.1-0.20170505043639-c605e284fe17
+# github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/prometheus/client_golang v0.9.0
+# github.com/prometheus/client_golang v1.7.1 => github.com/prometheus/client_golang v0.9.0
 github.com/prometheus/client_golang/prometheus
-github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
-# github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4 => github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
+github.com/prometheus/client_golang/prometheus/promhttp
+# github.com/prometheus/client_model v0.2.0 => github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
+# github.com/prometheus/common v0.10.0 => github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
-# github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d
+github.com/prometheus/common/model
+# github.com/prometheus/procfs v0.6.0 => github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d
 github.com/prometheus/procfs
+github.com/prometheus/procfs/internal/util
 github.com/prometheus/procfs/nfs
 github.com/prometheus/procfs/xfs
-github.com/prometheus/procfs/internal/util
-# github.com/sirupsen/logrus v1.1.1 => github.com/sirupsen/logrus v1.1.1
+# github.com/sirupsen/logrus v1.7.0
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.5.1 => github.com/stretchr/testify v1.2.2
+# github.com/stretchr/testify v1.6.1 => github.com/stretchr/testify v1.5.1
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf => github.com/vishvananda/netlink v0.0.0-20170220200719-fe3b5664d23a
+# github.com/vishvananda/netlink v1.1.0 => github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20180720170159-13995c7128cc => github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936
 github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
-# golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
-golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b => golang.org/x/net v0.0.0-20171107184841-a337091b0525
+# golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 => golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
+golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d => golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc
-golang.org/x/sys/windows/svc
+# golang.org/x/sys v0.0.0-20210324051608-47abb6519492 => golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
+golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
-golang.org/x/sys/unix
-# golang.org/x/time v0.0.0-20170927054726-6dc17368e09b
+# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 golang.org/x/time/rate
-# golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135 => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
-golang.org/x/tools/imports
+# golang.org/x/tools v0.0.0-20210106214847-113979e3529a => golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 golang.org/x/tools/go/ast/astutil
+golang.org/x/tools/go/gcexportdata
+golang.org/x/tools/go/internal/gcimporter
+golang.org/x/tools/go/internal/packagesdriver
+golang.org/x/tools/go/packages
+golang.org/x/tools/imports
+golang.org/x/tools/internal/fastwalk
+golang.org/x/tools/internal/gopathwalk
+golang.org/x/tools/internal/imports
+golang.org/x/tools/internal/module
+golang.org/x/tools/internal/semver
+# google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
+google.golang.org/genproto/googleapis/rpc/status
+# google.golang.org/grpc v1.38.0
+google.golang.org/grpc/codes
+google.golang.org/grpc/internal/status
+google.golang.org/grpc/status
+# google.golang.org/protobuf v1.25.0
+google.golang.org/protobuf/encoding/prototext
+google.golang.org/protobuf/encoding/protowire
+google.golang.org/protobuf/internal/descfmt
+google.golang.org/protobuf/internal/descopts
+google.golang.org/protobuf/internal/detrand
+google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/messageset
+google.golang.org/protobuf/internal/encoding/tag
+google.golang.org/protobuf/internal/encoding/text
+google.golang.org/protobuf/internal/errors
+google.golang.org/protobuf/internal/fieldsort
+google.golang.org/protobuf/internal/filedesc
+google.golang.org/protobuf/internal/filetype
+google.golang.org/protobuf/internal/flags
+google.golang.org/protobuf/internal/genid
+google.golang.org/protobuf/internal/impl
+google.golang.org/protobuf/internal/mapsort
+google.golang.org/protobuf/internal/pragma
+google.golang.org/protobuf/internal/set
+google.golang.org/protobuf/internal/strs
+google.golang.org/protobuf/internal/version
+google.golang.org/protobuf/proto
+google.golang.org/protobuf/reflect/protoreflect
+google.golang.org/protobuf/reflect/protoregistry
+google.golang.org/protobuf/runtime/protoiface
+google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/known/anypb
+google.golang.org/protobuf/types/known/durationpb
+google.golang.org/protobuf/types/known/timestamppb
+# gopkg.in/yaml.v2 v2.4.0
+gopkg.in/yaml.v2
