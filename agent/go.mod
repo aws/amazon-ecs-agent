@@ -51,7 +51,7 @@ replace (
 	github.com/containernetworking/plugins => github.com/containernetworking/plugins v0.8.6
 	github.com/coreos/go-systemd => github.com/coreos/go-systemd v0.0.0-20170731111925-d21964639418
 	github.com/davecgh/go-spew => github.com/davecgh/go-spew v1.1.0
-	github.com/docker/docker => github.com/docker/docker v0.0.0-20210601223442-b0f5bc36fea9
+	//	github.com/docker/docker => github.com/docker/docker v0.0.0-20210601223442-b0f5bc36fea9
 	github.com/docker/go-units => github.com/docker/go-units v0.3.2
 	github.com/godbus/dbus => github.com/godbus/dbus v4.1.0+incompatible
 	github.com/golang/mock => github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
