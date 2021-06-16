@@ -27,9 +27,6 @@ import (
 )
 
 const (
-	hostExecDepsDir = "/var/lib/ecs/deps/execute-command"
-	HostBinDir      = hostExecDepsDir + "/bin"
-
 	ExecuteCommandAgentName    = ecs.ManagedAgentNameExecuteCommandAgent
 	defaultStartRetryTimeout   = time.Minute * 10
 	defaultRetryMinDelay       = time.Second * 1
