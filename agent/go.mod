@@ -5,9 +5,11 @@ go 1.12
 require (
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v1.0.1
 	github.com/containerd/containerd v1.5.2 // indirect
+	//	github.com/containerd/containerd v1.5.2 // indirect
 	github.com/containernetworking/cni v0.8.0
 	github.com/containernetworking/plugins v0.9.1
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
@@ -28,6 +30,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v0.0.0-20150603214016-ca53cad383ca
 	github.com/pkg/errors v0.9.1
+	//github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/stretchr/testify v1.6.1
@@ -36,6 +39,7 @@ require (
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20210324051608-47abb6519492
 	golang.org/x/text v0.3.6 // indirect
+	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6 // indirect
 	golang.org/x/tools v0.0.0-20210106214847-113979e3529a
 	google.golang.org/grpc v1.38.0 // indirect
 )
@@ -62,6 +66,7 @@ replace (
 	github.com/jmespath/go-jmespath => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/konsorten/go-windows-terminal-sequences => github.com/konsorten/go-windows-terminal-sequences v1.0.1
 	github.com/opencontainers/runtime-spec => github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0
+	github.com/pkg/errors v0.8.1 => github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.0
 	github.com/prometheus/client_model => github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
 	github.com/prometheus/common => github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39

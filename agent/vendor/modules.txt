@@ -61,7 +61,7 @@ github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit
-# github.com/beorn7/perks v0.0.0-20160804104726-4c0e84591b9a
+# github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 github.com/cihub/seelog
@@ -212,7 +212,7 @@ golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
 golang.org/x/sys/windows/svc
 golang.org/x/sys/windows/svc/eventlog
-# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+# golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20210106214847-113979e3529a => golang.org/x/tools v0.0.0-20190524140312-2c0ae7006135
 golang.org/x/tools/go/ast/astutil
