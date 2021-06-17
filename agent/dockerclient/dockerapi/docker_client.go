@@ -570,7 +570,7 @@ func (dg *dockerGoClient) createContainer(ctx context.Context,
 		return DockerContainerMetadata{Error: CannotGetDockerClientError{version: dg.version, err: err}}
 	}
 
-	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, name)
+	dockerContainer, err := client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, name)
 	if err != nil {
 		return DockerContainerMetadata{Error: CannotCreateContainerError{err}}
 	}
