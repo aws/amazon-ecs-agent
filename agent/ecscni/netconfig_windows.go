@@ -25,12 +25,10 @@ import (
 
 // NewVPCENIPluginConfigForTaskNSSetup is used to create the configuration of vpc-eni plugin for task namespace setup.
 func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.NetworkConfig, error) {
+	// Use the DNS server addresses of the instance ENI it would belong in the same VPC as
+	// the task ENI and therefore, have same DNS configuration.
 	dns := types.DNS{
-		Nameservers: eni.DomainNameServers,
-	}
-
-	if len(eni.DomainNameSearchList) == 0 && cfg.InstanceENIDNSServerList != nil {
-		dns.Nameservers = cfg.InstanceENIDNSServerList
+		Nameservers: cfg.InstanceENIDNSServerList,
 	}
 
 	eniConf := VPCENIPluginConfig{
