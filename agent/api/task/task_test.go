@@ -830,6 +830,25 @@ func TestInitializeContainersV4MetadataEndpoint(t *testing.T) {
 		fmt.Sprintf(apicontainer.MetadataURIFormatV4, "new-uuid"))
 }
 
+func TestInitializeContainersGQLMetadataEndpoint(t *testing.T) {
+	task := Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name:        "c1",
+				Environment: make(map[string]string),
+			},
+		},
+	}
+	container := task.Containers[0]
+
+	task.initializeContainersGQLMetadataEndpoint(utils.NewStaticUUIDProvider("new-uuid"))
+
+	// Test if the v3 endpoint id is set and the endpoint is injected to env
+	assert.Equal(t, container.GetV3EndpointID(), "new-uuid")
+	assert.Equal(t, container.Environment[apicontainer.MetadataURIEnvVarNameGQL],
+		fmt.Sprintf(apicontainer.MetadataURIFormatGQL, "new-uuid"))
+}
+
 func TestPostUnmarshalTaskWithLocalVolumes(t *testing.T) {
 	// Constants used here are defined in task_unix_test.go and task_windows_test.go
 	taskFromACS := ecsacs.Task{

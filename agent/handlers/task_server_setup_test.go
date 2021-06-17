@@ -18,6 +18,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -25,6 +26,11 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/api"
+	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/gql"
+	"github.com/graphql-go/graphql"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
@@ -83,6 +89,7 @@ const (
 	v2BaseMetadataWithTagsPath = "/v2/metadataWithTags"
 	v3BasePath                 = "/v3/"
 	v4BasePath                 = "/v4/"
+	gqlBasePath                = "/graphql/"
 	v3EndpointID               = "v3eid"
 	availabilityzone           = "us-west-2b"
 	containerInstanceArn       = "containerInstanceArn-test"
@@ -505,6 +512,9 @@ var (
 		},
 		Containers: []v4.ContainerResponse{expectedV4BridgeContainerResponse},
 	}
+
+	expectedSuccessfulGQLResponse = "{\"data\":{\"Container\":\"" + containerID + "\"}}"
+	expectedFailedGQLResponse     = "\"GraphQL metadata handler: unable to create GraphQL schema: 🤬\""
 )
 
 func init() {
@@ -1675,6 +1685,58 @@ func TestV4ContainerAssociation(t *testing.T) {
 	assert.Equal(t, expectedAssociationResponse, string(res))
 }
 
+func TestGQLMetadata(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		gqlCreateSchemaError error
+		statusCode           int
+		expectedResponse     string
+	}{
+		{
+			name:                 "Create schema Error",
+			gqlCreateSchemaError: errors.New("🤬"),
+			statusCode:           http.StatusInternalServerError,
+			expectedResponse:     expectedFailedGQLResponse,
+		},
+		{
+			name:                 "Create schema happy case 😍",
+			gqlCreateSchemaError: nil,
+			statusCode:           http.StatusOK,
+			expectedResponse:     expectedSuccessfulGQLResponse,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			state := mock_dockerstate.NewMockTaskEngineState(ctrl)
+			auditLog := mock_audit.NewMockAuditLogger(ctrl)
+			statsEngine := mock_stats.NewMockEngine(ctrl)
+			ecsClient := mock_api.NewMockECSClient(ctrl)
+			if tc.gqlCreateSchemaError != nil {
+				gqlCreateSchema = func(state dockerstate.TaskEngineState, ecsClient api.ECSClient, statsEngine stats.Engine, cluster string, availabilityZone string, containerInstanceArn string) (graphql.Schema, error) {
+					return graphql.Schema{}, tc.gqlCreateSchemaError
+				}
+			} else {
+				gqlCreateSchema = gql.CreateSchema
+				state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true)
+			}
+
+			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
+				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "us-west-2b", containerInstanceArn)
+			recorder := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", gqlBasePath+v3EndpointID+"?query="+url.QueryEscape("{Container}"), nil)
+			server.Handler.ServeHTTP(recorder, req)
+			res, err := ioutil.ReadAll(recorder.Body)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.statusCode, recorder.Code)
+			assert.Equal(t, tc.expectedResponse, string(res))
+		})
+	}
+}
+
 func TestTaskHTTPEndpoint301Redirect(t *testing.T) {
 	testPathsMap := map[string]string{
 		"http://127.0.0.1/v3///task/":           "http://127.0.0.1/v3/task/",
@@ -1720,6 +1782,9 @@ func TestTaskHTTPEndpointErrorCode404(t *testing.T) {
 		"/v4/v3-endpoint-id/task/",
 		"/v4/v3-endpoint-id/task/stats/",
 		"/v4/v3-endpoint-id/task/stats/wrong-path",
+		"/graphql",
+		"/graphql/v3-endpoint-id/?query=" + url.QueryEscape("{__schema{types{name}}}"),
+		"/graphql?v3-endpoint-id?query=" + url.QueryEscape("{__schema{types{name}}}"),
 	}
 
 	ctrl := gomock.NewController(t)
