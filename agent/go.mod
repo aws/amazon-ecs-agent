@@ -4,19 +4,19 @@ go 1.12
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
+	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.6
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
 	github.com/didip/tollbooth v3.0.2+incompatible
 	github.com/docker/distribution v0.0.0-20181002220433-1cb4180b1a5b // indirect
-	github.com/docker/docker v0.0.0-20181024032540-785fe99bdb7c
+	github.com/docker/docker v0.0.0-20200531234253-77e06fda0c94
 	github.com/docker/go-connections v0.3.0
 	github.com/docker/go-units v0.3.2
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
@@ -29,6 +29,7 @@ require (
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runtime-spec v0.0.0-20170627113742-d349388c43b0
@@ -44,7 +45,6 @@ require (
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	go.etcd.io/bbolt v1.3.6
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20170927054726-6dc17368e09b // indirect
@@ -64,10 +64,10 @@ replace (
 	github.com/davecgh/go-spew => github.com/davecgh/go-spew v1.1.0
 	github.com/godbus/dbus => github.com/godbus/dbus v4.1.0+incompatible
 	github.com/golang/mock => github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
-	github.com/golang/protobuf => github.com/golang/protobuf v1.2.0
+	github.com/golang/protobuf => github.com/golang/protobuf v1.4.1
 	github.com/jmespath/go-jmespath => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 	github.com/konsorten/go-windows-terminal-sequences => github.com/konsorten/go-windows-terminal-sequences v1.0.1
-	github.com/pkg/errors => github.com/pkg/errors v0.8.1-0.20170505043639-c605e284fe17
+	github.com/pkg/errors v0.8.1 => github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model => github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
 	github.com/sirupsen/logrus => github.com/sirupsen/logrus v1.1.1
 	github.com/stretchr/testify => github.com/stretchr/testify v1.2.2
