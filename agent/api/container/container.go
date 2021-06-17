@@ -61,8 +61,16 @@ const (
 	// v4 metadata endpoint
 	MetadataURIEnvVarNameV4 = "ECS_CONTAINER_METADATA_URI_V4"
 
+	// MetadataURIEnvVarNameGQL defines the name of the environment
+	// variable in containers' config, which can be used by the containers to access the
+	// GQL metadata endpoint
+	MetadataURIEnvVarNameGQL = "ECS_CONTAINER_METADATA_URI_GQL"
+
 	// MetadataURIFormat defines the URI format for v4 metadata endpoint
 	MetadataURIFormatV4 = "http://169.254.170.2/v4/%s"
+
+	// MetadataURIFormat defines the URI format for v4 metadata endpoint
+	MetadataURIFormatGQL = "http://169.254.170.2/graphql/%s"
 
 	// SecretProviderSSM is to show secret provider being SSM
 	SecretProviderSSM = "ssm"
@@ -932,6 +940,20 @@ func (c *Container) InjectV4MetadataEndpoint() {
 
 	c.Environment[MetadataURIEnvVarNameV4] =
 		fmt.Sprintf(MetadataURIFormatV4, c.V3EndpointID)
+}
+
+// InjectGQLMetadataEndpoint injects the GQL metadata endpoint as an environment variable for a container
+func (c *Container) InjectGQLMetadataEndpoint() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	// don't assume that the environment variable map has been initialized by others
+	if c.Environment == nil {
+		c.Environment = make(map[string]string)
+	}
+
+	c.Environment[MetadataURIEnvVarNameGQL] =
+		fmt.Sprintf(MetadataURIFormatGQL, c.V3EndpointID)
 }
 
 // ShouldCreateWithSSMSecret returns true if this container needs to get secret

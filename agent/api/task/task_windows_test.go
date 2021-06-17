@@ -134,6 +134,7 @@ func removeV3andV4EndpointConfig(container *apicontainer.Container) {
 	if container.Environment != nil {
 		delete(container.Environment, apicontainer.MetadataURIEnvironmentVariableName)
 		delete(container.Environment, apicontainer.MetadataURIEnvVarNameV4)
+		delete(container.Environment, apicontainer.MetadataURIEnvVarNameGQL)
 	}
 	if len(container.Environment) == 0 {
 		container.Environment = nil

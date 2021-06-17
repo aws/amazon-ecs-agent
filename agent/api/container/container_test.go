@@ -280,6 +280,17 @@ func TestInjectV4MetadataEndpoint(t *testing.T) {
 		fmt.Sprintf(MetadataURIFormatV4, "EndpointID"))
 }
 
+func TestInjectGQLMetadataEndpoint(t *testing.T) {
+	container := Container{
+		V3EndpointID: "EndpointID",
+	}
+	container.InjectGQLMetadataEndpoint()
+
+	assert.NotNil(t, container.Environment)
+	assert.Equal(t, container.Environment[MetadataURIEnvVarNameGQL],
+		fmt.Sprintf(MetadataURIFormatGQL, "EndpointID"))
+}
+
 func TestShouldCreateWithSSMSecret(t *testing.T) {
 	cases := []struct {
 		in  Container
