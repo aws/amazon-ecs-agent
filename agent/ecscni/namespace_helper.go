@@ -21,25 +21,19 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
-// execCmdExecutorFnType is the method signature for execCmdExecutorFn.
-type execCmdExecutorFnType func(commands []string, separator string) error
-
 // NamespaceHelper defines the methods for performing additional actions to setup/clean the task namespace.
 // Task namespace in awsvpc network mode is configured using pause container which is the first container
 // launched for the task. These commands are executed inside that container.
 type NamespaceHelper interface {
 	ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error
-	ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error
-	ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, config *Config) error
 }
 
 // helper is the client for executing methods of NamespaceHelper interface.
 type helper struct {
-	dockerClient    dockerapi.DockerClient
-	execCmdExecutor execCmdExecutorFnType
+	dockerClient dockerapi.DockerClient
 }
 
 // NewNamespaceHelper returns a new instance of NamespaceHelper interface.
 func NewNamespaceHelper(client dockerapi.DockerClient) NamespaceHelper {
-	return &helper{dockerClient: client, execCmdExecutor: execCmdExecutorFn}
+	return &helper{dockerClient: client}
 }

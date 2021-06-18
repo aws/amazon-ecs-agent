@@ -16,11 +16,9 @@
 package ecscni
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
-	"os/exec"
 	"strings"
 
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -41,24 +39,16 @@ const (
 	// imdsEndpointIPAddress is the IP address of the endpoint for accessing IMDS.
 	imdsEndpointIPAddress = "169.254.169.254/32"
 	// ecsBridgeEndpointNameFormat is the name format of the ecs-bridge endpoint in the task namespace.
-	ecsBridgeEndpointNameFormat = "%s-ep-%s"
+	ecsBridgeEndpointNameFormat = "vEthernet (%s-ep-%s)"
 	// taskPrimaryEndpointNameFormat is the name format of the primary endpoint in the task namespace.
-	taskPrimaryEndpointNameFormat = "%sbr%s-ep-%s"
-	// blockIMDSFirewallRuleNameFormat is the format of firewall rule name for blocking IMDS from task namespace.
-	blockIMDSFirewallRuleNameFormat = "Disable IMDS for %s"
-	// ecsBridgeRouteAddCmdFormat is the format of command for adding route entry through ECS Bridge.
-	ecsBridgeRouteAddCmdFormat = `netsh interface ipv4 add route prefix=%s interface="vEthernet (%s)"`
-	// ecsBridgeRouteDeleteCmdFormat is the format of command for deleting route entry of ECS bridge endpoint.
-	ecsBridgeRouteDeleteCmdFormat = `netsh interface ipv4 delete route prefix=%s interface="vEthernet (%s)"`
-	// checkExistingFirewallRuleCmdFormat is the format of the command to check if the firewall rule exists.
-	checkExistingFirewallRuleCmdFormat = `netsh advfirewall firewall show rule name="%s" >nul`
-	// addFirewallRuleCmdFormat is the format of command for creating firewall rule on Windows.
-	addFirewallRuleCmdFormat = `netsh advfirewall firewall add rule name="%s" dir=out localip=%s remoteip=%s action=block`
-	// deleteFirewallRuleCmdFormat is the format of the command to delete a firewall rule on Windows.
-	deleteFirewallRuleCmdFormat = `netsh advfirewall firewall delete rule name="%s" dir=out`
+	taskPrimaryEndpointNameFormat = "vEthernet (%sbr%s-ep-%s)"
+	// loopbackInterfaceName is the name of the loopback interface.
+	loopbackInterfaceName = "Loopback"
+	// windowsRouteAddCmdFormat is the format of command for adding route entry on Windows.
+	windowsRouteAddCmdFormat = `netsh interface ipv4 add route prefix=%s interface="%s"`
+	// windowsRouteDeleteCmdFormat is the format of command for deleting route entry on Windowsx.
+	windowsRouteDeleteCmdFormat = `netsh interface ipv4 delete route prefix=%s interface="%s"`
 )
-
-var execCmdExecutorFn execCmdExecutorFnType = execCmdExecutor
 
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
 // The commands currently executed are-
@@ -66,6 +56,7 @@ var execCmdExecutorFn execCmdExecutorFnType = execCmdExecutor
 // netsh interface ipv4 delete route prefix=<ecs-bridge-subnet-cidr> interface="vEthernet (nat-ep-<container_id>)
 // netsh interface ipv4 add route prefix=169.254.170.2/32 interface="vEthernet (nat-ep-<container_id>)
 // netsh interface ipv4 add route prefix=169.254.169.254/32 interface="vEthernet (task-br-<mac>-ep-<container_id>)
+// netsh interface ipv4 add route prefix=169.254.169.254/32 interface="Loopback"
 // netsh interface ipv4 add route prefix=<local-route> interface="vEthernet (nat-ep-<container_id>)
 func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error {
 	// Obtain the ecs-bridge endpoint's subnet IP address from the CNI plugin execution result.
@@ -76,19 +67,25 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 	ecsBridgeEndpointName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, config.ContainerID)
 
 	// Prepare the commands to be executed inside task namespace to setup the ECS Bridge.
-	defaultRouteDeletionCmd := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, ecsBridgeEndpointName)
-	defaultSubnetRouteDeletionCmd := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, ecsBridgeSubnetIPAddress.String(),
+	defaultRouteDeletionCmd := fmt.Sprintf(windowsRouteDeleteCmdFormat, windowsDefaultRoute, ecsBridgeEndpointName)
+	defaultSubnetRouteDeletionCmd := fmt.Sprintf(windowsRouteDeleteCmdFormat, ecsBridgeSubnetIPAddress.String(),
 		ecsBridgeEndpointName)
-	credentialsAddressRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, ecsBridgeEndpointName)
+	credentialsAddressRouteAdditionCmd := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, ecsBridgeEndpointName)
 	commands := []string{defaultRouteDeletionCmd, defaultSubnetRouteDeletionCmd, credentialsAddressRouteAdditionCmd}
 
-	if !config.BlockInstanceMetadata {
+	// For blocking instance metadata, create a black hole route inside the task namespace.
+	// This route will redirect all the packets sent to IMDS endpoint through its loopback interface.
+	// If IMDS is required, then create an explicit route through the primary interface of the task.
+	if config.BlockInstanceMetadata {
+		blockIMDSRouteCommand := fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, loopbackInterfaceName)
+		commands = append(commands, blockIMDSRouteCommand)
+	} else {
 		// This naming convention is drawn from the way CNI plugin names the endpoints.
 		// https://github.com/aws/amazon-vpc-cni-plugins/blob/master/plugins/vpc-eni/network/network_windows.go
 		taskPrimaryEndpointId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
 		taskPrimaryEndpointName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix,
 			taskPrimaryEndpointId, config.ContainerID)
-		imdsRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskPrimaryEndpointName)
+		imdsRouteAdditionCmd := fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, taskPrimaryEndpointName)
 		commands = append(commands, imdsRouteAdditionCmd)
 	}
 
@@ -98,7 +95,7 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 			IP:   route.IP,
 			Mask: route.Mask,
 		}
-		additionalRouteAdditionCmd := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, ipRoute.String(), ecsBridgeEndpointName)
+		additionalRouteAdditionCmd := fmt.Sprintf(windowsRouteAddCmdFormat, ipRoute.String(), ecsBridgeEndpointName)
 		commands = append(commands, additionalRouteAdditionCmd)
 	}
 
@@ -107,56 +104,6 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 	if err != nil {
 		return errors.Wrapf(err, "failed to execute commands inside task namespace")
 	}
-	return nil
-}
-
-// ConfigureFirewallForTaskNSSetup executes the commands, if required, to setup firewall rules for disabling IMDS access from task.
-// The commands executed are-
-// netsh advfirewall firewall add rule name="Disable IMDS for <ENI IP>" dir=out localip=<ENI IP> remoteip=169.254.170.2/32 action=block
-func (nsHelper *helper) ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error {
-	if config.BlockInstanceMetadata {
-		if taskENI == nil {
-			return errors.New("failed to configure firewall due to invalid task eni")
-		}
-
-		firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-
-		checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-		blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(addFirewallRuleCmdFormat, firewallRuleName,
-			taskENI.GetPrimaryIPv4Address(), imdsEndpointIPAddress)
-
-		// Invoke the generated command on the host to add the firewall rule.
-		// Separator is "||" as either the firewall rule should exist or a new one should be created.
-		err := nsHelper.invokeCommandsOnHost([]string{checkExistingFirewallRule, blockIMDSFirewallRuleCreationCmd}, " || ")
-		if err != nil {
-			return errors.Wrapf(err, "failed to create firewall rule to disable imds")
-		}
-	}
-
-	return nil
-}
-
-// ConfigureFirewallForTaskNSCleanup executes the commands, if required, to cleanup the firewall rules created during setup.
-// The commands executed are-
-// netsh advfirewall firewall delete rule name="Disable IMDS for <ENI IP>" dir=out
-func (nsHelper *helper) ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, config *Config) error {
-	if config.BlockInstanceMetadata {
-		if taskENI == nil {
-			return errors.New("failed to configure firewall due to invalid task eni")
-		}
-
-		firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-
-		// Delete the firewall rule created for blocking IMDS access by the task.
-		checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-		blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(deleteFirewallRuleCmdFormat, firewallRuleName)
-
-		// The separator would be "&&" to ensure if the firewall rule exists then delete it.
-		// An error at this point means that the firewall rule was not present and was therefore not deleted.
-		// Hence, skip returning the error as it is redundant.
-		nsHelper.invokeCommandsOnHost([]string{checkExistingFirewallRule, blockIMDSFirewallRuleDeletionCmd}, " && ")
-	}
-
 	return nil
 }
 
@@ -198,31 +145,6 @@ func (nsHelper *helper) invokeCommandsInsideContainer(ctx context.Context, conta
 	// If the commands fail then return error.
 	if !inspect.Running && inspect.ExitCode != 0 {
 		return errors.Errorf("commands failed inside container %s namespace: %d", containerID, inspect.ExitCode)
-	}
-
-	return nil
-}
-
-// invokeCommandsOnHost invokes given commands on the host instance using the executeFn.
-func (nsHelper *helper) invokeCommandsOnHost(commands []string, separator string) error {
-	return nsHelper.execCmdExecutor(commands, separator)
-}
-
-// execCmdExecutor invokes given commands on the host instance.
-func execCmdExecutor(commands []string, separator string) error {
-	seelog.Debugf("[ECSCNI] Executing commands on host: %v", commands)
-
-	// Concatenate all the commands into a single command.
-	execCommands := strings.Join(commands, separator)
-
-	cmd := exec.Command("cmd", "/C", execCommands)
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	err := cmd.Run()
-	if err != nil {
-		seelog.Errorf("[ECSCNI] Failed to execute command on host: %v: %s", err, stdout.String())
-		return err
 	}
 
 	return nil
