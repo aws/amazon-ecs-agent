@@ -22,22 +22,8 @@ import (
 	"github.com/containernetworking/cni/pkg/types/current"
 )
 
-var execCmdExecutorFn execCmdExecutorFnType = nil
-
 // ConfigureTaskNamespaceRouting executes the commands required for setting up appropriate routing inside task namespace.
 // This is applicable only for Windows.
 func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskENI *apieni.ENI, config *Config, result *current.Result) error {
-	return nil
-}
-
-// ConfigureFirewallForTaskNSSetup executes the commands, if required, to setup firewall rules for disabling IMDS access from task.
-// This is applicable only for Windows.
-func (nsHelper *helper) ConfigureFirewallForTaskNSSetup(taskENI *apieni.ENI, config *Config) error {
-	return nil
-}
-
-// ConfigureFirewallForTaskNSCleanup executes the commands, if required, to cleanup the firewall rules created during setup.
-// This is applicable only for Windows.
-func (nsHelper *helper) ConfigureFirewallForTaskNSCleanup(taskENI *apieni.ENI, config *Config) error {
 	return nil
 }

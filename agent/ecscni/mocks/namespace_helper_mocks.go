@@ -51,34 +51,6 @@ func (m *MockNamespaceHelper) EXPECT() *MockNamespaceHelperMockRecorder {
 	return m.recorder
 }
 
-// ConfigureFirewallForTaskNSCleanup mocks base method
-func (m *MockNamespaceHelper) ConfigureFirewallForTaskNSCleanup(arg0 *eni.ENI, arg1 *ecscni.Config) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigureFirewallForTaskNSCleanup", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ConfigureFirewallForTaskNSCleanup indicates an expected call of ConfigureFirewallForTaskNSCleanup
-func (mr *MockNamespaceHelperMockRecorder) ConfigureFirewallForTaskNSCleanup(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureFirewallForTaskNSCleanup", reflect.TypeOf((*MockNamespaceHelper)(nil).ConfigureFirewallForTaskNSCleanup), arg0, arg1)
-}
-
-// ConfigureFirewallForTaskNSSetup mocks base method
-func (m *MockNamespaceHelper) ConfigureFirewallForTaskNSSetup(arg0 *eni.ENI, arg1 *ecscni.Config) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigureFirewallForTaskNSSetup", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ConfigureFirewallForTaskNSSetup indicates an expected call of ConfigureFirewallForTaskNSSetup
-func (mr *MockNamespaceHelperMockRecorder) ConfigureFirewallForTaskNSSetup(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureFirewallForTaskNSSetup", reflect.TypeOf((*MockNamespaceHelper)(nil).ConfigureFirewallForTaskNSSetup), arg0, arg1)
-}
-
 // ConfigureTaskNamespaceRouting mocks base method
 func (m *MockNamespaceHelper) ConfigureTaskNamespaceRouting(arg0 context.Context, arg1 *eni.ENI, arg2 *ecscni.Config, arg3 *current.Result) error {
 	m.ctrl.T.Helper()
