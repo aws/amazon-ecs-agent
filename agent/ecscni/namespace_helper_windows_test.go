@@ -60,19 +60,19 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 	taskENI := getTaskENI()
 
 	cniConig.AdditionalLocalRoutes = append(cniConig.AdditionalLocalRoutes, cnitypes.IPNet{
-		net.ParseIP("10.0.0.0"),
-		net.CIDRMask(24, 32),
+		IP:   net.ParseIP("10.0.0.0"),
+		Mask: net.CIDRMask(24, 32),
 	})
 
 	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
 	taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
 	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix, taskEpId, containerID)
 
-	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
-	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
-	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
-	cmd4 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
-	cmd5 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
+	cmd1 := fmt.Sprintf(windowsRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
+	cmd2 := fmt.Sprintf(windowsRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
+	cmd3 := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
+	cmd4 := fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
+	cmd5 := fmt.Sprintf(windowsRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
 	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4, cmd5}, " && ")
 
 	gomock.InOrder(
@@ -97,48 +97,5 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 
 	nsHelper := NewNamespaceHelper(dockerClient)
 	err := nsHelper.ConfigureTaskNamespaceRouting(ctx, taskENI, cniConig, getECSBridgeResult())
-	assert.NoError(t, err)
-}
-
-func TestConfigureFirewallForTaskNSSetup(t *testing.T) {
-	taskENI := getTaskENI()
-	cniConfig := getCNIConfig()
-	cniConfig.BlockInstanceMetadata = true
-
-	firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-	checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-	blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(addFirewallRuleCmdFormat, firewallRuleName,
-		taskENI.GetPrimaryIPv4Address(), imdsEndpointIPAddress)
-
-	nsHelper := &helper{}
-	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
-		assert.Equal(t, checkExistingFirewallRule, commands[0])
-		assert.Equal(t, blockIMDSFirewallRuleCreationCmd, commands[1])
-		assert.Equal(t, " || ", separator)
-		return nil
-	}
-
-	err := nsHelper.ConfigureFirewallForTaskNSSetup(taskENI, cniConfig)
-	assert.NoError(t, err)
-}
-
-func TestConfigureFirewallForTaskNSCleanup(t *testing.T) {
-	taskENI := getTaskENI()
-	cniConfig := getCNIConfig()
-	cniConfig.BlockInstanceMetadata = true
-
-	firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-	checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-	blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(deleteFirewallRuleCmdFormat, firewallRuleName)
-
-	nsHelper := &helper{}
-	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
-		assert.Equal(t, checkExistingFirewallRule, commands[0])
-		assert.Equal(t, blockIMDSFirewallRuleDeletionCmd, commands[1])
-		assert.Equal(t, " && ", separator)
-		return nil
-	}
-
-	err := nsHelper.ConfigureFirewallForTaskNSCleanup(taskENI, cniConfig)
 	assert.NoError(t, err)
 }
