@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 	"testing"
 
 	dockercontainer "github.com/docker/docker/api/types/container"
@@ -306,39 +305,6 @@ func TestGetExecAgentConfigFileName(t *testing.T) {
 		fileName, err := GetExecAgentConfigFileName(2)
 		assert.Equal(t, tc.expectedConfigFileName, fileName, "incorrect config file name")
 		assert.Equal(t, tc.expectedError, err)
-	}
-}
-
-func TestGetSessionWorkersLimit(t *testing.T) {
-	var tests = []struct {
-		sessionLimit  int
-		expectedLimit int
-	}{
-		{
-			sessionLimit:  -2,
-			expectedLimit: 2,
-		},
-		{
-			sessionLimit:  0,
-			expectedLimit: 2,
-		},
-		{
-			sessionLimit:  1,
-			expectedLimit: 1,
-		},
-		{
-			sessionLimit:  2,
-			expectedLimit: 2,
-		},
-	}
-	for _, tc := range tests {
-		ma := apicontainer.ManagedAgent{
-			Properties: map[string]string{
-				"sessionLimit": strconv.Itoa(tc.sessionLimit),
-			},
-		}
-		limit := getSessionWorkersLimit(ma)
-		assert.Equal(t, tc.expectedLimit, limit)
 	}
 }
 
