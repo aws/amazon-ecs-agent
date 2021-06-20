@@ -30,9 +30,9 @@ const (
 	validDNSServer          = "10.0.0.2"
 	ipv4                    = "10.0.0.120"
 	ipv4CIDR                = "10.0.0.120/24"
-	vpcCIDR                 = "10.0.0.0/16"
 	mac                     = "02:7b:64:49:b1:40"
 	cniMinSupportedVersion  = "1.0.0"
+	invalidMACAddress       = "12:34;56-78"
 )
 
 func getTaskENI() *apieni.ENI {
@@ -79,6 +79,17 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddresses)
 	assert.EqualValues(t, linkName, netConfig.ENIName)
 	assert.False(t, netConfig.UseExistingNetwork)
+}
+
+func TestNewVPCENIPluginConfigForTaskNSSetupFailure(t *testing.T) {
+	cniConfig := getCNIConfig()
+	taskENI := getTaskENI()
+	taskENI.MacAddress = invalidMACAddress
+
+	config, err := NewVPCENIPluginConfigForTaskNSSetup(taskENI, cniConfig)
+
+	assert.Nil(t, config)
+	assert.Error(t, err)
 }
 
 // TestNewVPCENIPluginConfigForECSBridgeSetup tests the generated configuration for ecs-bridge setup.

@@ -16,11 +16,21 @@
 package ecscni
 
 import (
-	"github.com/containernetworking/cni/pkg/types"
+	"regexp"
 
 	"github.com/aws/amazon-ecs-agent/agent/api/eni"
+
+	"github.com/cihub/seelog"
 	"github.com/containernetworking/cni/libcni"
+	"github.com/containernetworking/cni/pkg/types"
 	"github.com/pkg/errors"
+)
+
+const (
+	// maxInputLength is the maximum length of IP Address or MAC Address as input to CNI plugin.
+	maxInputLength = 18
+	// allowedRegexPattern is the regex pattern for allowing valid characters in IP and MAC address.
+	allowedRegexPattern = `^$|^[A-Za-z0-9./: ]+$`
 )
 
 // NewVPCENIPluginConfigForTaskNSSetup is used to create the configuration of vpc-eni plugin for task namespace setup.
@@ -29,6 +39,14 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 	// the task ENI and therefore, have same DNS configuration.
 	dns := types.DNS{
 		Nameservers: cfg.InstanceENIDNSServerList,
+	}
+
+	// Validate MAC Address, ENI IP Address and ENI Gateway address used for CNI plugin configuration.
+	// Other params are generated at runtime and are considered safe.
+	if !isValid(eni.MacAddress) || !isValid(eni.GetPrimaryIPv4AddressWithPrefixLength()) ||
+		!isValid(eni.GetSubnetGatewayIPv4Address()) {
+		return nil, errors.New("failed to create vpc-eni plugin configuration for setting up " +
+			"task network namespace due to failed data validation")
 	}
 
 	eniConf := VPCENIPluginConfig{
@@ -64,4 +82,20 @@ func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig,
 
 	networkConfig.Network.Name = ECSBridgeNetworkName
 	return networkConfig, nil
+}
+
+// isValid validates if the data length is within the acceptable limits and has valid characters.
+func isValid(data string) bool {
+	allowedPattern, err := regexp.Compile(allowedRegexPattern)
+	if err != nil {
+		seelog.Errorf("Unable to compile regex pattern: %v", err)
+		return false
+	}
+
+	if len(data) > maxInputLength || !allowedPattern.MatchString(data) {
+		seelog.Errorf("Validation failed for data: %s", data)
+		return false
+	}
+
+	return true
 }
