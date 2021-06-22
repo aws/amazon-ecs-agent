@@ -51,94 +51,76 @@ func getECSBridgeResult() *current.Result {
 }
 
 func TestConfigureTaskNamespaceRouting(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
-	cniConig := getCNIConfig()
-	taskENI := getTaskENI()
-
-	cniConig.AdditionalLocalRoutes = append(cniConig.AdditionalLocalRoutes, cnitypes.IPNet{
-		net.ParseIP("10.0.0.0"),
-		net.CIDRMask(24, 32),
-	})
-
-	bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
-	taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
-	taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix, taskEpId, containerID)
-
-	cmd1 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
-	cmd2 := fmt.Sprintf(ecsBridgeRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
-	cmd3 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
-	cmd4 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
-	cmd5 := fmt.Sprintf(ecsBridgeRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
-	finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4, cmd5}, " && ")
-
-	gomock.InOrder(
-		dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(_ context.Context, container string, execConfig types.ExecConfig, _ time.Duration) {
-				assert.Equal(t, container, containerID)
-				assert.Len(t, execConfig.Cmd, 3)
-				assert.Equal(t, execConfig.Cmd[2], finalCmd)
-				assert.Equal(t, execConfig.User, containerAdminUser)
-			}).Return(&types.IDResponse{ID: containerExecID}, nil),
-		dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
-			func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {
-				assert.Equal(t, execID, containerExecID)
-				assert.False(t, execStartCheck.Detach)
-			}).Return(nil),
-		dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-			&types.ContainerExecInspect{
-				ExitCode: 0,
-				Running:  false,
-			}, nil),
-	)
-
-	nsHelper := NewNamespaceHelper(dockerClient)
-	err := nsHelper.ConfigureTaskNamespaceRouting(ctx, taskENI, cniConig, getECSBridgeResult())
-	assert.NoError(t, err)
-}
-
-func TestConfigureFirewallForTaskNSSetup(t *testing.T) {
-	taskENI := getTaskENI()
-	cniConfig := getCNIConfig()
-	cniConfig.BlockInstanceMetadata = true
-
-	firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-	checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-	blockIMDSFirewallRuleCreationCmd := fmt.Sprintf(addFirewallRuleCmdFormat, firewallRuleName,
-		taskENI.GetPrimaryIPv4Address(), imdsEndpointIPAddress)
-
-	nsHelper := &helper{}
-	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
-		assert.Equal(t, checkExistingFirewallRule, commands[0])
-		assert.Equal(t, blockIMDSFirewallRuleCreationCmd, commands[1])
-		assert.Equal(t, " || ", separator)
-		return nil
+	var tests = []struct {
+		name      string
+		blockIMDS bool
+	}{
+		{
+			name:      "DisabledIMDS",
+			blockIMDS: true,
+		},
+		{
+			name:      "EnabledIMDS",
+			blockIMDS: false,
+		},
 	}
 
-	err := nsHelper.ConfigureFirewallForTaskNSSetup(taskENI, cniConfig)
-	assert.NoError(t, err)
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
 
-func TestConfigureFirewallForTaskNSCleanup(t *testing.T) {
-	taskENI := getTaskENI()
-	cniConfig := getCNIConfig()
-	cniConfig.BlockInstanceMetadata = true
+			dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
+			taskENI := getTaskENI()
+			cniConfig := getCNIConfig()
+			cniConfig.BlockInstanceMetadata = tt.blockIMDS
 
-	firewallRuleName := fmt.Sprintf(blockIMDSFirewallRuleNameFormat, taskENI.GetPrimaryIPv4Address())
-	checkExistingFirewallRule := fmt.Sprintf(checkExistingFirewallRuleCmdFormat, firewallRuleName)
-	blockIMDSFirewallRuleDeletionCmd := fmt.Sprintf(deleteFirewallRuleCmdFormat, firewallRuleName)
+			cniConfig.AdditionalLocalRoutes = append(cniConfig.AdditionalLocalRoutes, cnitypes.IPNet{
+				IP:   net.ParseIP("10.0.0.0"),
+				Mask: net.CIDRMask(24, 32),
+			})
 
-	nsHelper := &helper{}
-	nsHelper.execCmdExecutor = func(commands []string, separator string) error {
-		assert.Equal(t, checkExistingFirewallRule, commands[0])
-		assert.Equal(t, blockIMDSFirewallRuleDeletionCmd, commands[1])
-		assert.Equal(t, " && ", separator)
-		return nil
+			bridgeEpName := fmt.Sprintf(ecsBridgeEndpointNameFormat, ECSBridgeNetworkName, containerID)
+			taskEpId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
+			taskEPName := fmt.Sprintf(taskPrimaryEndpointNameFormat, TaskHNSNetworkNamePrefix, taskEpId, containerID)
+
+			cmd1 := fmt.Sprintf(windowsRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
+			cmd2 := fmt.Sprintf(windowsRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
+			cmd3 := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
+
+			var cmd4 string
+			if cniConfig.BlockInstanceMetadata {
+				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, loopbackInterfaceName)
+			} else {
+				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
+			}
+			cmd5 := fmt.Sprintf(windowsRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
+			finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4, cmd5}, " && ")
+
+			gomock.InOrder(
+				dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+					func(_ context.Context, container string, execConfig types.ExecConfig, _ time.Duration) {
+						assert.Equal(t, container, containerID)
+						assert.Len(t, execConfig.Cmd, 3)
+						assert.Equal(t, execConfig.Cmd[2], finalCmd)
+						assert.Equal(t, execConfig.User, containerAdminUser)
+					}).Return(&types.IDResponse{ID: containerExecID}, nil),
+				dockerClient.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+					func(_ context.Context, execID string, execStartCheck types.ExecStartCheck, _ time.Duration) {
+						assert.Equal(t, execID, containerExecID)
+						assert.False(t, execStartCheck.Detach)
+					}).Return(nil),
+				dockerClient.EXPECT().InspectContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&types.ContainerExecInspect{
+						ExitCode: 0,
+						Running:  false,
+					}, nil),
+			)
+
+			nsHelper := NewNamespaceHelper(dockerClient)
+			err := nsHelper.ConfigureTaskNamespaceRouting(ctx, taskENI, cniConfig, getECSBridgeResult())
+			assert.NoError(t, err)
+		})
 	}
-
-	err := nsHelper.ConfigureFirewallForTaskNSCleanup(taskENI, cniConfig)
-	assert.NoError(t, err)
 }

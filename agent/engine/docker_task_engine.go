@@ -1443,18 +1443,6 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
-	// Invoke additional commands, if required, to configure the firewall for disabling IMDS access from task.
-	err = engine.namespaceHelper.ConfigureFirewallForTaskNSSetup(task.GetPrimaryENI(), cniConfig)
-	if err != nil {
-		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
-			task.Arn, err)
-		return dockerapi.DockerContainerMetadata{
-			DockerID: cniConfig.ContainerID,
-			Error: ContainerNetworkingError{errors.Wrapf(err,
-				"container resource provisioning: failed to setup network namespace")},
-		}
-	}
-
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1505,12 +1493,6 @@ func (engine *DockerTaskEngine) cleanupPauseContainerNetwork(task *apitask.Task,
 	}
 
 	err = engine.cniClient.CleanupNS(engine.ctx, cniConfig, cniCleanupTimeout)
-	if err != nil {
-		return err
-	}
-
-	// Invoke additional command, if required, to cleanup the firewall rule created during ns setup.
-	err = engine.namespaceHelper.ConfigureFirewallForTaskNSCleanup(task.GetPrimaryENI(), cniConfig)
 	if err != nil {
 		return err
 	}
