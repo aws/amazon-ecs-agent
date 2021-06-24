@@ -42,6 +42,7 @@ Invoke-Expression "${PSScriptRoot}\..\misc\image-cleanup-test-images\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\stats-windows\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\container-health-windows\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
+Invoke-Expression "${PSScriptRoot}\..\misc\exec-command-agent-test\build.ps1"
 
 # Run the tests
 $cwd = (pwd).Path
