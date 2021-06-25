@@ -180,7 +180,7 @@ func addRequiredBindMounts(taskId, cn, latestBinVersionDir, uuid string, session
 		ContainerLogDir))
 
 	// add ssm plugin bind mount (needed for execcmd windows)
-	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(
+	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
 		SSMPluginDir,
 		SSMPluginDir))
 

@@ -22,9 +22,17 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+
+	"github.com/cihub/seelog"
+
+	"github.com/docker/docker/api/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -53,11 +61,14 @@ import (
 )
 
 const (
-	dockerEndpoint              = "npipe:////./pipe/docker_engine"
-	testVolumeImage             = "amazon/amazon-ecs-volumes-test:make"
-	testRegistryImage           = "amazon/amazon-ecs-netkitten:make"
-	testBaseImage               = "amazon-ecs-ftest-windows-base:make"
-	dockerVolumeDirectoryFormat = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
+	dockerEndpoint               = "npipe:////./pipe/docker_engine"
+	testVolumeImage              = "amazon/amazon-ecs-volumes-test:make"
+	testRegistryImage            = "amazon/amazon-ecs-netkitten:make"
+	testExecCommandAgentImage    = "amazon/amazon-ecs-exec-command-agent-windows-test:make"
+	testBaseImage                = "amazon-ecs-ftest-windows-base:make"
+	dockerVolumeDirectoryFormat  = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
+	testExecCommandAgentKillBin  = "c:\\kill.exe"
+	testExecCommandAgentSleepBin = "c:\\sleep.exe"
 )
 
 var endpoint = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), dockerEndpoint)
@@ -505,4 +516,370 @@ func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecO
 	}
 
 	return errors.New("unable to obtain credentialspec")
+}
+
+// This setup for execcmd is same as Linux, just implemented different
+// TestExecCommandAgent validates ExecCommandAgent start and monitor processes. The algorithm to test is as follows:
+// 1. Pre-setup: the build file in ../../misc/exec-command-agent-windows-test will create a special docker sleeper image
+// based on a base windows image. This image simulates a ecs windows image and contains pre-baked /sleep and /kill binaries.
+// /sleep is the main process used to launch the test container; /kill is an application that kills a process running in
+// the container given a PID.
+// The build file will also create a fake amazon-ssm-agent which is a go program that only sleeps for a certain time specified.
+//
+// 2. Setup: Create a new docker task engine with a modified path pointing to our fake amazon-ssm-agent binary
+// 3. Create and start our test task using our test image
+// 4. Wait for the task to start and verify that the expected ExecCommandAgent bind mounts are present in the containers
+// 5. Verify that our fake amazon-ssm-agent was started inside the container using docker top, and retrieve its PID
+// 6. Kill the fake amazon-ssm-agent using the PID retrieved in previous step
+// 7. Verify that the engine restarted our fake amazon-ssm-agent by doing docker top one more time (a new PID should popup)
+func TestExecCommandAgent(t *testing.T) {
+	// the execcmd feature is not supported for Win2016
+	if windows2016, _ := config.IsWindows2016(); windows2016 {
+		return
+	}
+	const (
+		testTaskId        = "exec-command-agent-test-task"
+		testContainerName = "exec-command-agent-test-container"
+		sleepFor          = time.Minute * 2
+	)
+
+	client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+	require.NoError(t, err, "Creating go docker client failed")
+
+	testExecCmdHostBinDir := "C:\\Program Files\\Amazon\\ECS\\managed-agents\\execute-command\\bin"
+
+	taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
+	stateChangeEvents := taskEngine.StateChangeEvents()
+	defer done()
+
+	testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, sleepFor)
+	execAgentLogPath := filepath.Join("C:\\ProgramData\\Amazon\\ECS\\exec", testTaskId)
+	err = os.MkdirAll(execAgentLogPath, 0644)
+	require.NoError(t, err, "error creating execAgent log file")
+	_, err = os.Stat(execAgentLogPath)
+	require.NoError(t, err, "execAgent log dir doesn't exist")
+	err = os.MkdirAll(execcmd.ECSAgentExecConfigDir, 0644)
+	require.NoError(t, err, "error creating execAgent config dir")
+
+	go taskEngine.AddTask(testTask)
+
+	verifyContainerRunningStateChange(t, taskEngine)
+	verifyTaskRunningStateChange(t, taskEngine)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+	cid := containerMap[testTask.Containers[0].Name].DockerID
+
+	// session limit is 2
+	testconfigDirName, _ := execcmd.GetExecAgentConfigDir(2)
+
+	// todo: change to file contents passed in
+	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"\\1.0.0.0", testconfigDirName)
+	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
+	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
+	killMockExecCommandAgent(t, client, cid, pidA)
+	seelog.Infof("kill signal sent to ExecCommandAgent (pidA=%s)", pidA)
+	verifyMockExecCommandAgentIsStopped(t, client, cid, pidA)
+	seelog.Infof("Verified mock ExecCommandAgent was killed (pidA=%s)", pidA)
+	pidB := verifyMockExecCommandAgentIsRunning(t, client, cid)
+	seelog.Infof("Verified mock ExecCommandAgent was restarted (pidB=%s)", pidB)
+	require.NotEqual(t, pidA, pidB, "ExecCommandAgent PID did not change after restart")
+
+	taskUpdate := createTestExecCommandAgentTask(testTaskId, testContainerName, sleepFor)
+	taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+	go taskEngine.AddTask(taskUpdate)
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second*20)
+	go func() {
+		verifyTaskIsStopped(stateChangeEvents, testTask)
+		cancel()
+	}()
+
+	<-ctx.Done()
+	require.NotEqual(t, context.DeadlineExceeded, ctx.Err(), "Timed out waiting for task (%s) to stop", testTaskId)
+	assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
+	// TODO: [ecs-exec] We should be able to wait for cleanup instead of calling deleteTask directly
+	taskEngine.(*DockerTaskEngine).deleteTask(testTask)
+	_, err = os.Stat(execAgentLogPath)
+	assert.True(t, os.IsNotExist(err), "execAgent log cleanup failed")
+	os.RemoveAll(execcmd.ECSAgentExecConfigDir)
+}
+
+// TestManagedAgentEvent validates the emitted container events for a started and a stopped managed agent.
+func TestManagedAgentEvent(t *testing.T) {
+	// the execcmd feature is not supported for Win2016
+	if windows2016, _ := config.IsWindows2016(); windows2016 {
+		return
+	}
+	testcases := []struct {
+		Name                 string
+		ExpectedStatus       apicontainerstatus.ManagedAgentStatus
+		ManagedAgentLifetime time.Duration
+		ShouldBeRunning      bool
+	}{
+		{
+			Name:                 "Confirmed emit RUNNING event",
+			ExpectedStatus:       apicontainerstatus.ManagedAgentRunning,
+			ManagedAgentLifetime: 1,
+			ShouldBeRunning:      true,
+		},
+		{
+			Name:                 "Confirmed emit STOPPED event",
+			ExpectedStatus:       apicontainerstatus.ManagedAgentStopped,
+			ManagedAgentLifetime: 0,
+			ShouldBeRunning:      false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+
+			const (
+				testTaskId        = "exec-command-agent-test-task"
+				testContainerName = "exec-command-agent-test-container"
+			)
+
+			client, err := sdkClient.NewClientWithOpts(sdkClient.WithHost(endpoint), sdkClient.WithVersion(sdkclientfactory.GetDefaultVersion().String()))
+			require.NoError(t, err, "Creating go docker client failed")
+
+			testExecCmdHostBinDir := "C:\\Program Files\\Amazon\\ECS\\managed-agents\\execute-command\\bin"
+
+			taskEngine, done, _ := setupEngineForExecCommandAgent(t, testExecCmdHostBinDir)
+			defer done()
+
+			testTask := createTestExecCommandAgentTask(testTaskId, testContainerName, time.Minute*tc.ManagedAgentLifetime)
+			execAgentLogPath := filepath.Join("C:\\ProgramData\\Amazon\\ECS\\exec", testTaskId)
+			err = os.MkdirAll(execAgentLogPath, 0644)
+			require.NoError(t, err, "error creating execAgent log file")
+			_, err = os.Stat(execAgentLogPath)
+			require.NoError(t, err, "execAgent log dir doesn't exist")
+			err = os.MkdirAll(execcmd.ECSAgentExecConfigDir, 0644)
+			require.NoError(t, err, "error creating execAgent config dir")
+
+			go taskEngine.AddTask(testTask)
+
+			verifyContainerRunningStateChange(t, taskEngine)
+			verifyTaskRunningStateChange(t, taskEngine)
+
+			if tc.ShouldBeRunning {
+				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+				cid := containerMap[testTask.Containers[0].Name].DockerID
+				verifyMockExecCommandAgentIsRunning(t, client, cid)
+			}
+			waitDone := make(chan struct{})
+
+			go verifyExecAgentStateChange(t, taskEngine, tc.ExpectedStatus, waitDone)
+
+			timeout := false
+			select {
+			case <-waitDone:
+			case <-time.After(20 * time.Second):
+				timeout = true
+			}
+			assert.False(t, timeout)
+
+			if tc.ShouldBeRunning {
+				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
+				cid := containerMap[testTask.Containers[0].Name].DockerID
+				// Kill the existing container now
+				err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
+				assert.NoError(t, err, "Could not kill container")
+			}
+
+			taskEngine.(*DockerTaskEngine).deleteTask(testTask)
+			_, err = os.Stat(execAgentLogPath)
+			assert.True(t, os.IsNotExist(err), "execAgent log cleanup failed")
+			os.RemoveAll(execcmd.ECSAgentExecConfigDir)
+		})
+	}
+}
+
+func createTestExecCommandAgentTask(taskId, containerName string, sleepFor time.Duration) *apitask.Task {
+	testTask := createTestTask("arn:aws:ecs:us-west-2:1234567890:task/" + taskId)
+	testTask.PIDMode = ecs.PidModeHost
+	testTask.Containers[0].Name = containerName
+	testTask.Containers[0].Image = testExecCommandAgentImage
+	testTask.Containers[0].Command = []string{testExecCommandAgentSleepBin, "-time=" + sleepFor.String()}
+	enableExecCommandAgentForContainer(testTask.Containers[0], apicontainer.ManagedAgentState{})
+	return testTask
+}
+
+// setupEngineForExecCommandAgent creates a new TaskEngine with a custom execcmd.Manager that will attempt to read the
+// host binaries from the directory passed as parameter (as opposed to the default directory).
+// Additionally, it overrides the engine's monitorExecAgentsInterval to one second.
+func setupEngineForExecCommandAgent(t *testing.T, hostBinDir string) (TaskEngine, func(), credentials.Manager) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	skipIntegTestIfApplicable(t)
+
+	cfg := defaultTestConfigIntegTest()
+	sdkClientFactory := sdkclientfactory.NewFactory(ctx, dockerEndpoint)
+	dockerClient, err := dockerapi.NewDockerGoClient(sdkClientFactory, cfg, context.Background())
+	if err != nil {
+		t.Fatalf("Error creating Docker client: %v", err)
+	}
+	credentialsManager := credentials.NewManager()
+	state := dockerstate.NewTaskEngineState()
+	imageManager := NewImageManager(cfg, dockerClient, state)
+	imageManager.SetDataClient(data.NewNoopClient())
+	metadataManager := containermetadata.NewManager(dockerClient, cfg)
+	execCmdMgr := execcmd.NewManagerWithBinDir(hostBinDir)
+
+	taskEngine := NewDockerTaskEngine(cfg, dockerClient, credentialsManager,
+		eventstream.NewEventStream("ENGINEINTEGTEST", context.Background()), imageManager, state, metadataManager,
+		nil, execCmdMgr)
+	taskEngine.monitorExecAgentsInterval = time.Second
+	taskEngine.MustInit(context.TODO())
+	return taskEngine, func() {
+		taskEngine.Shutdown()
+	}, credentialsManager
+}
+
+var (
+	containerDepsDir = execcmd.ContainerDepsFolder
+)
+
+func verifyExecCmdAgentExpectedMounts(t *testing.T,
+	ctx context.Context,
+	client *sdkClient.Client,
+	testTaskId, containerId, containerName, testExecCmdHostVersionedBinDir, testconfigDirName string) {
+	inspectState, _ := client.ContainerInspect(ctx, containerId)
+
+	// The dockerclient only gives back lowercase paths in Windows
+	expectedMounts := []struct {
+		source    string
+		destRegex string
+		readOnly  bool
+	}{
+		{
+			source:    strings.ToLower(testExecCmdHostVersionedBinDir),
+			destRegex: strings.ToLower(containerDepsDir),
+			readOnly:  true,
+		},
+		{
+			source:    strings.ToLower(filepath.Join(execcmd.HostExecConfigDir, testconfigDirName)),
+			destRegex: strings.ToLower(filepath.Join(containerDepsDir, "configuration")),
+			readOnly:  true,
+		},
+		{
+			source:    strings.ToLower(filepath.Join(execcmd.HostLogDir, testTaskId, containerName)),
+			destRegex: strings.ToLower(execcmd.ContainerLogDir),
+			readOnly:  false,
+		},
+		{
+			source:    strings.ToLower(execcmd.SSMPluginDir),
+			destRegex: strings.ToLower(execcmd.SSMPluginDir),
+			readOnly:  true,
+		},
+	}
+
+	for _, em := range expectedMounts {
+		var found *types.MountPoint
+		for _, m := range inspectState.Mounts {
+			if m.Source == em.source {
+				found = &m
+				break
+			}
+		}
+		require.NotNil(t, found, "Expected mount point not found (%s)", em.source)
+		require.Equal(t, em.destRegex, found.Destination, "Destination for mount point (%s) is invalid expected: %s, actual: %s", em.source, em.destRegex, found.Destination)
+		if em.readOnly {
+			require.False(t, found.RW, found.Mode, "Destination for mount point (%s) should be read only", em.source)
+		} else {
+			require.True(t, found.RW, "Destination for mount point (%s) should be writable", em.source)
+		}
+		require.Equal(t, "bind", string(found.Type), "Destination for mount point (%s) is not of type bind", em.source)
+	}
+
+	require.Equal(t, len(expectedMounts), len(inspectState.Mounts), "Wrong number of bind mounts detected in container (%s)", containerName)
+}
+
+func verifyMockExecCommandAgentIsRunning(t *testing.T, client *sdkClient.Client, containerId string) string {
+	return verifyMockExecCommandAgentStatus(t, client, containerId, "", true)
+}
+
+func verifyMockExecCommandAgentIsStopped(t *testing.T, client *sdkClient.Client, containerId, pid string) {
+	verifyMockExecCommandAgentStatus(t, client, containerId, pid, false)
+}
+
+func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, containerId, expectedPid string, checkIsRunning bool) string {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+	res := make(chan string, 1)
+	execCmdAgentProcessRegex := execcmd.SSMAgentBinName
+	go func() {
+		for {
+			top, err := client.ContainerTop(ctx, containerId, nil)
+			if err != nil {
+				continue
+			}
+			cmdPos := -1
+			pidPos := -1
+			for i, t := range top.Titles {
+				if strings.ToUpper(t) == "NAME" {
+					cmdPos = i
+				}
+				if strings.ToUpper(t) == "PID" {
+					pidPos = i
+				}
+
+			}
+			require.NotEqual(t, -1, cmdPos, "NAME title not found in the container top response")
+			require.NotEqual(t, -1, pidPos, "PID title not found in the container top response")
+			for _, proc := range top.Processes {
+				matched, _ := regexp.MatchString(execCmdAgentProcessRegex, proc[cmdPos])
+				if matched {
+					res <- proc[pidPos]
+					return
+				}
+			}
+			seelog.Infof("Processes running in container: %s", top.Processes)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second * 4):
+			}
+		}
+	}()
+
+	var (
+		isRunning bool
+		pid       string
+	)
+	select {
+	case <-ctx.Done():
+	case r := <-res:
+		if r != "" {
+			pid = r
+			isRunning = true
+			if expectedPid != "" && pid != expectedPid {
+				isRunning = false
+			}
+		}
+
+	}
+	require.Equal(t, checkIsRunning, isRunning, "SSM agent was not found in container's process list")
+	return pid
+}
+
+func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId, pid string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	containerAdminUser := "NT AUTHORITY\\SYSTEM"
+	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
+		User:   containerAdminUser,
+		Detach: true,
+		Cmd:    []string{"cmd", "/C", "taskkill /F /IM amazon-ssm-agent.exe"},
+	})
+	require.NoError(t, err)
+
+	err = client.ContainerExecStart(ctx, create.ID, types.ExecStartCheck{
+		Detach: true,
+	})
+	require.NoError(t, err)
+
+	// windows docker exec takes longer than Linux
+	time.Sleep(4 * time.Second)
 }
