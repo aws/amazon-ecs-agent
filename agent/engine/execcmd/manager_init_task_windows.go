@@ -35,7 +35,7 @@ var (
 	// ecsAgentDepsBinDir is the directory where ECS Agent will read versions of SSM agent
 	ecsAgentDepsBinDir = ecsAgentExecDepsDir + "\\bin"
 
-	containerDepsFolder = "C:\\Program Files\\Amazon\\SSM"
+	ContainerDepsFolder = config.AmazonProgramFiles + "\\SSM"
 
 	SSMAgentBinName       = "amazon-ssm-agent.exe"
 	SSMAgentWorkerBinName = "ssm-agent-worker.exe"
@@ -44,7 +44,7 @@ var (
 	HostLogDir      = config.AmazonECSProgramData + "\\exec"
 	ContainerLogDir = config.AmazonProgramData + "\\SSM"
 
-	SSMPluginDir = "C:\\Program Files\\Amazon\\SSM\\Plugins"
+	SSMPluginDir = config.AmazonProgramFiles + "\\SSM\\Plugins"
 	// since ecs agent windows is not running in a container, the agent and host log dirs are the same
 	ECSAgentExecLogDir = config.AmazonECSProgramData + "\\exec"
 
@@ -167,12 +167,12 @@ func addRequiredBindMounts(taskId, cn, latestBinVersionDir, uuid string, session
 	// Add ssm binary mount
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
 		latestBinVersionDir,
-		containerDepsFolder))
+		ContainerDepsFolder))
 
 	// Add ssm configuration dir mount
 	hostConfig.Binds = append(hostConfig.Binds, getReadOnlyBindMountMapping(
 		filepath.Join(ECSAgentExecConfigDir, configDirHash),
-		filepath.Join(containerDepsFolder, "configuration")))
+		filepath.Join(ContainerDepsFolder, "configuration")))
 
 	// Add ssm log bind mount
 	hostConfig.Binds = append(hostConfig.Binds, getBindMountMapping(
