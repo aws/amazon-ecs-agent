@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/logger"
+	"github.com/aws/amazon-ecs-agent/agent/logger/field"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ttime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -1388,10 +1390,15 @@ func (task *Task) updateTaskKnownStatus() (newStatus apitaskstatus.TaskStatus) {
 	// statuses and compute the min of this
 	earliestKnownTaskStatus := task.getEarliestKnownTaskStatusForContainers()
 	if task.GetKnownStatus() < earliestKnownTaskStatus {
-		seelog.Infof("api/task: Updating task's known status to: %s, task: %s",
-			earliestKnownTaskStatus.String(), task.String())
 		task.SetKnownStatus(earliestKnownTaskStatus)
-		return task.GetKnownStatus()
+		logger.Info("Container change also resulted in task change", logger.Fields{
+			field.TaskARN:       task.Arn,
+			field.Container:     earliestKnownStatusContainer.Name,
+			field.RuntimeID:     earliestKnownStatusContainer.RuntimeID,
+			field.DesiredStatus: task.GetDesiredStatus().String(),
+			field.KnownStatus:   earliestKnownTaskStatus.String(),
+		})
+		return earliestKnownTaskStatus
 	}
 	return apitaskstatus.TaskStatusNone
 }
@@ -1968,6 +1975,9 @@ func (task *Task) updateTaskDesiredStatusUnsafe() {
 	// A task's desired status is stopped if any essential container is stopped
 	// Otherwise, the task's desired status is unchanged (typically running, but no need to change)
 	for _, cont := range task.Containers {
+		if task.DesiredStatusUnsafe == apitaskstatus.TaskStopped {
+			break
+		}
 		if cont.Essential && (cont.KnownTerminal() || cont.DesiredTerminal()) {
 			seelog.Infof("api/task: Updating task desired status to stopped because of container: [%s]; task: [%s]",
 				cont.Name, task.stringUnsafe())
