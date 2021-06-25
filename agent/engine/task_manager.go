@@ -223,7 +223,7 @@ func (mtask *managedTask) overseeTask() {
 		if !mtask.GetKnownStatus().Terminal() {
 			// If we aren't terminal and we aren't steady state, we should be
 			// able to move some containers along.
-			logger.Info("Task not steady state or terminal; progressing it", logger.Fields{
+			logger.Debug("Task not steady state or terminal; progressing it", logger.Fields{
 				field.TaskARN: mtask.Arn,
 			})
 
@@ -328,7 +328,7 @@ func (mtask *managedTask) waitSteady() {
 	}
 
 	if timedOut {
-		logger.Info("Checking to verify it's still at steady state", logger.Fields{
+		logger.Debug("Checking to verify it's still at steady state", logger.Fields{
 			field.TaskARN: mtask.Arn,
 		})
 		go mtask.engine.checkTaskState(mtask.Task)
@@ -363,7 +363,7 @@ func (mtask *managedTask) cleanupCredentials() {
 // channel. When the Done channel is signalled by the context, waitEvent will
 // return true.
 func (mtask *managedTask) waitEvent(stopWaiting <-chan struct{}) bool {
-	logger.Info("Waiting for task event", logger.Fields{
+	logger.Debug("Waiting for task event", logger.Fields{
 		field.TaskARN: mtask.Arn,
 	})
 	select {
@@ -434,12 +434,15 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 	container := containerChange.container
 	runtimeID := container.GetRuntimeID()
 	event := containerChange.event
-	logger.Info("Handling container change event", logger.Fields{
-		field.TaskARN:   mtask.Arn,
-		field.Container: container.Name,
-		field.RuntimeID: runtimeID,
-		field.Status:    event.Status.String(),
-	})
+	containerKnownStatus := container.GetKnownStatus()
+	if event.Status != containerKnownStatus {
+		logger.Info("Handling container change event", logger.Fields{
+			field.TaskARN:   mtask.Arn,
+			field.Container: container.Name,
+			field.RuntimeID: runtimeID,
+			field.Status:    event.Status.String(),
+		})
+	}
 	found := mtask.isContainerFound(container)
 	if !found {
 		logger.Critical("State error; invoked with another task's container!", logger.Fields{
@@ -453,10 +456,9 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	// If this is a backwards transition stopped->running, the first time set it
 	// to be known running so it will be stopped. Subsequently ignore these backward transitions
-	containerKnownStatus := container.GetKnownStatus()
 	mtask.handleStoppedToRunningContainerTransition(event.Status, container)
 	if event.Status <= containerKnownStatus {
-		logger.Info("Container change is redundant", logger.Fields{
+		logger.Debug("Container change is redundant", logger.Fields{
 			field.TaskARN:     mtask.Arn,
 			field.Container:   container.Name,
 			field.RuntimeID:   runtimeID,
@@ -511,12 +513,6 @@ func (mtask *managedTask) handleContainerChange(containerChange dockerContainerC
 
 	mtask.emitContainerEvent(mtask.Task, container, "")
 	if mtask.UpdateStatus() {
-		logger.Info("Container change also resulted in task change", logger.Fields{
-			field.TaskARN:       mtask.Arn,
-			field.Container:     container.Name,
-			field.RuntimeID:     runtimeID,
-			field.DesiredStatus: mtask.GetDesiredStatus().String(),
-		})
 		// If knownStatus changed, let it be known
 		var taskStateChangeReason string
 		if mtask.GetKnownStatus().Terminal() {
@@ -623,7 +619,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 		})
 		return
 	}
-	logger.Info("Sending task change event", logger.Fields{
+	logger.Debug("Sending task change event", logger.Fields{
 		field.TaskARN:    task.Arn,
 		field.Status:     event.Status.String(),
 		field.SentStatus: task.GetSentStatus().String(),
@@ -639,7 +635,7 @@ func (mtask *managedTask) emitTaskEvent(task *apitask.Task, reason string) {
 		})
 	case mtask.stateChangeEvents <- event:
 	}
-	logger.Info("Sent task change event", logger.Fields{
+	logger.Debug("Sent task change event", logger.Fields{
 		field.TaskARN: mtask.Arn,
 		field.Event:   event.String(),
 	})
@@ -692,7 +688,7 @@ func (mtask *managedTask) emitContainerEvent(task *apitask.Task, cont *apicontai
 }
 
 func (mtask *managedTask) doEmitContainerEvent(event api.ContainerStateChange) {
-	logger.Info("Sending container change event", getContainerEventLogFields(event), logger.Fields{
+	logger.Debug("Sending container change event", getContainerEventLogFields(event), logger.Fields{
 		field.TaskARN: mtask.Arn,
 	})
 	select {
@@ -702,7 +698,7 @@ func (mtask *managedTask) doEmitContainerEvent(event api.ContainerStateChange) {
 		})
 	case mtask.stateChangeEvents <- event:
 	}
-	logger.Info("Sent container change event", getContainerEventLogFields(event), logger.Fields{
+	logger.Debug("Sent container change event", getContainerEventLogFields(event), logger.Fields{
 		field.TaskARN: mtask.Arn,
 	})
 }
