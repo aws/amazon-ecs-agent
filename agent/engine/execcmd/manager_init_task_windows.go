@@ -117,13 +117,13 @@ func createNewConfigDir(agentConfig, configDirPath string) error {
 
 	// make individual config files
 	agentConfigFilePath := filepath.Join(configDirPath, containerConfigFileName)
-	err = createNewExecAgentConfigFile(agentConfigFilePath, agentConfig)
+	err = createNewExecAgentConfigFile(agentConfig, agentConfigFilePath)
 	if err != nil {
 		return err
 	}
 
 	logConfigFilePath := filepath.Join(configDirPath, ExecAgentLogConfigFileName)
-	err = createNewExecAgentConfigFile(logConfigFilePath, execAgentLogConfigTemplate)
+	err = createNewExecAgentConfigFile(execAgentLogConfigTemplate, logConfigFilePath)
 	if err != nil {
 		return err
 	}
