@@ -12,7 +12,7 @@ require (
 	github.com/containerd/containerd v1.3.2 // indirect
 	github.com/containerd/continuity v0.0.0-20181023183536-c220ac4f01b8 // indirect
 	github.com/containernetworking/cni v0.7.1
-	github.com/containernetworking/plugins v0.8.6
+	github.com/containernetworking/plugins v0.9.1
 	github.com/deniswernert/udev v0.0.0-20140626150257-82fe5be8ca5f
 	github.com/didip/tollbooth v3.0.2+incompatible
 	github.com/docker/distribution v0.0.0-20181002220433-1cb4180b1a5b // indirect
