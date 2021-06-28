@@ -206,3 +206,7 @@ func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ec
 func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return true, nil
+}
