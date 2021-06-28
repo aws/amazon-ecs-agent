@@ -227,3 +227,7 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 		Value: aws.String(version),
 	}, nil
 }
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return true, nil
+}

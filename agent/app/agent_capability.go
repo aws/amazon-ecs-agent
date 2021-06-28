@@ -98,8 +98,9 @@ var (
 	// use empty struct as value type to simulate set
 	capabilityExecInvalidSsmVersions = map[string]struct{}{}
 
-	pathExists        = defaultPathExists
-	getSubDirectories = defaultGetSubDirectories
+	pathExists              = defaultPathExists
+	getSubDirectories       = defaultGetSubDirectories
+	isPlatformExecSupported = defaultIsPlatformExecSupported
 
 	// List of capabilities that are not supported on external capacity.
 	externalUnsupportedCapabilities = []string{
@@ -374,6 +375,12 @@ func (agent *ecsAgent) appendTaskENICapabilities(capabilities []*ecs.Attribute) 
 }
 
 func (agent *ecsAgent) appendExecCapabilities(capabilities []*ecs.Attribute) ([]*ecs.Attribute, error) {
+
+	// Only Windows 2019 and above are supported, all Linux supported
+	if platformSupported, err := isPlatformExecSupported(); err != nil || !platformSupported {
+		return capabilities, err
+	}
+
 	// for an instance to be exec-enabled, it needs resources needed by SSM (binaries, configuration files and certs)
 	// the following bind mounts are defined in ecs-init and added to the ecs-agent container
 

@@ -136,3 +136,7 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
 	return nil, errors.New("unsupported platform")
 }
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return false, nil
+}

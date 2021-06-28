@@ -136,3 +136,12 @@ func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error
 		Value: aws.String(version),
 	}, nil
 }
+
+var isWindows2016 = config.IsWindows2016
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	if windows2016, err := isWindows2016(); err != nil || windows2016 {
+		return false, err
+	}
+	return true, nil
+}
