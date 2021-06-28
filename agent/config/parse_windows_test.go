@@ -47,11 +47,15 @@ func TestParseBooleanEnvVar(t *testing.T) {
 }
 
 func TestParseFSxWindowsFileServerCapability(t *testing.T) {
-	isWindows2016 = func() (bool, error) {
+	oIsWindows2016 := IsWindows2016
+	IsWindows2016 = func() (bool, error) {
 		return false, nil
 	}
 	os.Setenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED", "False")
-	defer os.Unsetenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED")
+	defer func() {
+		os.Unsetenv("ECS_FSX_WINDOWS_FILE_SERVER_SUPPORTED")
+		IsWindows2016 = oIsWindows2016
+	}()
 
 	assert.False(t, parseFSxWindowsFileServerCapability())
 }
