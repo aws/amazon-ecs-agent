@@ -10,6 +10,9 @@
 # on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
-
+Write-Host "Inside netkitten build"
 Invoke-Expression "go build -o ${PSScriptRoot}\netkitten.exe ${PSScriptRoot}\netkitten.go"
+Write-Host "Passed invoke experession go build netkitten"
 docker build -t "amazon/amazon-ecs-netkitten:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}
+
+Write-Host "Created netkitten amazon ecs docker image"

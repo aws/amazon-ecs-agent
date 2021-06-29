@@ -43,6 +43,9 @@ Invoke-Expression "${PSScriptRoot}\..\misc\stats-windows\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\container-health-windows\build.ps1"
 Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
 
+# Remove any existing containers (Running or otherwise)
+docker rm $(docker ps -q -a)
+
 # Run the tests
 $cwd = (pwd).Path
 try {

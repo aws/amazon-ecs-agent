@@ -94,6 +94,8 @@ func isDomainJoined() (bool, error) {
 // isWindows2016 is used to check if container instance is versioned Windows 2016
 // Reference: https://godoc.org/golang.org/x/sys/windows/registry
 var isWindows2016 = func() (bool, error) {
+	return false, nil
+	
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
 	if err != nil {
 		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
