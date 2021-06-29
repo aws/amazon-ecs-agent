@@ -24,7 +24,9 @@ Restart=on-failure
 RestartPreventExitStatus=5
 RestartSec=10
 EnvironmentFile=-/etc/ecs/ecs.config
-ExecStart=/usr/local/bin/amazon-ecs-agent
+ExecStartPre=/usr/libexec/ipSetup.sh
+ExecStart=/usr/libexec/amazon-ecs-agent
+ExecStopPost=/usr/libexec/ipCleanup.sh
 
 [Install]
 WantedBy=multi-user.target
