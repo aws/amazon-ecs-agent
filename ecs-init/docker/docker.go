@@ -32,9 +32,11 @@ import (
 
 const (
 	// logDir specifies the location of Agent log files in the container
-	logDir = "/log"
+	logDir = directoryPrefix + "/var/log/ecs"
+	//logDir = "/log"
 	// dataDir specifies the location of Agent state file in the container
-	dataDir = "/data"
+	dataDir = directoryPrefix + "/var/lib/ecs/data"
+	//dataDir = "/data"
 	// readOnly specifies the read-only suffix for mounting host volumes
 	// when creating the Agent container
 	readOnly = ":ro"
@@ -43,7 +45,7 @@ const (
 	// The ECS Agent needs access to host's /proc directory when configuring
 	// the network namespace of containers for tasks that are configured
 	// with an ENI
-	hostProcDir = "/host/proc"
+	hostProcDir = "/proc"
 	// defaultDockerEndpoint is set to /var/run instead of /var/run/docker.sock
 	// in case /var/run/docker.sock is deleted and recreated outside the container
 	defaultDockerEndpoint   = "/var/run"
@@ -79,7 +81,7 @@ const (
 	// http://man7.org/linux/man-pages/man2/setns.2.html
 	CapSysAdmin = "SYS_ADMIN"
 	// DefaultCgroupMountpoint is the default mount point for the cgroup subsystem
-	DefaultCgroupMountpoint = "/sys/fs/cgroup"
+	DefaultCgroupMountpoint = "/cgroup"
 	// pluginSocketFilesDir specifies the location of UNIX domain socket files of
 	// Docker plugins
 	pluginSocketFilesDir = "/run/docker/plugins"
@@ -94,7 +96,8 @@ const (
 	iptablesExecutableHostDir = "/sbin"
 	// iptablesExecutableHostDir specifies the location of the iptable
 	// executable inside container.
-	iptablesExecutableContainerDir = "/host/sbin"
+	iptablesExecutableContainerDir = "/sbin"
+	//iptablesExecutableContainerDir = "/host/sbin"
 	// iptablesAltDir specifies the location of iptables alternatives
 	iptablesAltDir = "/etc/alternatives"
 	// legacyDir holds the location of legacy iptables
