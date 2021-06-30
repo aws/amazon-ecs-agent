@@ -67,7 +67,6 @@ const (
 	testExecCommandAgentImage    = "amazon/amazon-ecs-exec-command-agent-windows-test:make"
 	testBaseImage                = "amazon-ecs-ftest-windows-base:make"
 	dockerVolumeDirectoryFormat  = "c:\\ProgramData\\docker\\volumes\\%s\\_data"
-	testExecCommandAgentKillBin  = "c:\\kill.exe"
 	testExecCommandAgentSleepBin = "c:\\sleep.exe"
 )
 
@@ -521,16 +520,16 @@ func verifyContainerCredentialSpec(client *sdkClient.Client, id, credentialspecO
 // This setup for execcmd is same as Linux, just implemented different
 // TestExecCommandAgent validates ExecCommandAgent start and monitor processes. The algorithm to test is as follows:
 // 1. Pre-setup: the build file in ../../misc/exec-command-agent-windows-test will create a special docker sleeper image
-// based on a base windows image. This image simulates a ecs windows image and contains pre-baked /sleep and /kill binaries.
-// /sleep is the main process used to launch the test container; /kill is an application that kills a process running in
-// the container given a PID.
+// based on a base windows 2019 image. This image simulates a ecs windows image and contains a pre-baked C:\sleep.exe binary.
+// /sleep is the main process used to launch the test container; Then use the windows "taskkill /f /im amazon-ssm-agent.exe" to
+// kill the running agent process in the container
 // The build file will also create a fake amazon-ssm-agent which is a go program that only sleeps for a certain time specified.
 //
 // 2. Setup: Create a new docker task engine with a modified path pointing to our fake amazon-ssm-agent binary
 // 3. Create and start our test task using our test image
 // 4. Wait for the task to start and verify that the expected ExecCommandAgent bind mounts are present in the containers
 // 5. Verify that our fake amazon-ssm-agent was started inside the container using docker top, and retrieve its PID
-// 6. Kill the fake amazon-ssm-agent using the PID retrieved in previous step
+// 6. Kill the fake amazon-ssm-agent using the command in step 1
 // 7. Verify that the engine restarted our fake amazon-ssm-agent by doing docker top one more time (a new PID should popup)
 func TestExecCommandAgent(t *testing.T) {
 	// the execcmd feature is not supported for Win2016
@@ -579,7 +578,7 @@ func TestExecCommandAgent(t *testing.T) {
 	verifyExecCmdAgentExpectedMounts(t, ctx, client, testTaskId, cid, testContainerName, testExecCmdHostBinDir+"\\1.0.0.0", testconfigDirName)
 	pidA := verifyMockExecCommandAgentIsRunning(t, client, cid)
 	seelog.Infof("Verified mock ExecCommandAgent is running (pidA=%s)", pidA)
-	killMockExecCommandAgent(t, client, cid, pidA)
+	killMockExecCommandAgent(t, client, cid)
 	seelog.Infof("kill signal sent to ExecCommandAgent (pidA=%s)", pidA)
 	verifyMockExecCommandAgentIsStopped(t, client, cid, pidA)
 	seelog.Infof("Verified mock ExecCommandAgent was killed (pidA=%s)", pidA)
@@ -864,12 +863,13 @@ func verifyMockExecCommandAgentStatus(t *testing.T, client *sdkClient.Client, co
 	return pid
 }
 
-func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId, pid string) {
+func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerId string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	containerAdminUser := "NT AUTHORITY\\SYSTEM"
+	// this is the same user used to start the execcmd agent (ssm agent)
+	containerNTUser := "NT AUTHORITY\\SYSTEM"
 	create, err := client.ContainerExecCreate(ctx, containerId, types.ExecConfig{
-		User:   containerAdminUser,
+		User:   containerNTUser,
 		Detach: true,
 		Cmd:    []string{"cmd", "/C", "taskkill /F /IM amazon-ssm-agent.exe"},
 	})
@@ -880,6 +880,6 @@ func killMockExecCommandAgent(t *testing.T, client *sdkClient.Client, containerI
 	})
 	require.NoError(t, err)
 
-	// windows docker exec takes longer than Linux
+	// Windows docker exec takes longer than Linux
 	time.Sleep(4 * time.Second)
 }
