@@ -100,7 +100,11 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 	}
 
 	// Invoke the generated commands inside the task namespace.
-	err := nsHelper.invokeCommandsInsideContainer(ctx, config.ContainerID, commands, " && ")
+	// On Windows 2004 and 20H2, there are a few stdout messages which leads to the failure of the tasks.
+	// By using &, we ensure that the commands are executed irrespectively. In case of error, the
+	// other commands can be executed (all commands are independent of each other) and the error would be
+	// reported to agent. Since the agent will kill the task, execution of other commands is immaterial.
+	err := nsHelper.invokeCommandsInsideContainer(ctx, config.ContainerID, commands, " & ")
 	if err != nil {
 		return errors.Wrapf(err, "failed to execute commands inside task namespace")
 	}
