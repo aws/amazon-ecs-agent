@@ -679,11 +679,20 @@ func TestManagedAgentEvent(t *testing.T) {
 			assert.False(t, timeout)
 
 			if tc.ShouldBeRunning {
-				containerMap, _ := taskEngine.(*DockerTaskEngine).state.ContainerMapByArn(testTask.Arn)
-				cid := containerMap[testTask.Containers[0].Name].DockerID
-				// Kill the existing container now
-				err = client.ContainerKill(context.TODO(), cid, "SIGKILL")
-				assert.NoError(t, err, "Could not kill container")
+				stateChangeEvents := taskEngine.StateChangeEvents()
+				taskUpdate := createTestExecCommandAgentTask(testTaskId, testContainerName, time.Minute*tc.ManagedAgentLifetime)
+				taskUpdate.SetDesiredStatus(apitaskstatus.TaskStopped)
+				go taskEngine.AddTask(taskUpdate)
+
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+				go func() {
+					verifyTaskIsStopped(stateChangeEvents, testTask)
+					cancel()
+				}()
+
+				<-ctx.Done()
+				require.NotEqual(t, context.DeadlineExceeded, ctx.Err(), "Timed out waiting for task (%s) to stop", testTaskId)
+				assert.NotNil(t, testTask.Containers[0].GetKnownExitCode(), "No exit code found")
 			}
 
 			taskEngine.(*DockerTaskEngine).deleteTask(testTask)
