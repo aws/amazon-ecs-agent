@@ -18,7 +18,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -26,6 +25,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
@@ -105,6 +106,19 @@ const (
 	privateDNSName             = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIpv4Address   = "172.31.32.1/20"
 )
+
+type gqlContainer struct {
+	*v4.ContainerResponse
+}
+
+type gqlData struct {
+	Container *gqlContainer `json:"Container,omitempty"`
+}
+
+type gqlResponse struct {
+	Data   *gqlData `json:"data"`
+	Errors string   `json:"errors,omitempty"`
+}
 
 var (
 	now         = time.Now()
@@ -513,8 +527,49 @@ var (
 		Containers: []v4.ContainerResponse{expectedV4BridgeContainerResponse},
 	}
 
-	expectedSuccessfulGQLResponse = "{\"data\":{\"Container\":\"" + containerID + "\"}}"
-	expectedFailedGQLResponse     = "\"GraphQL metadata handler: unable to create GraphQL schema: 🤬\""
+	containerQueryGQL = "{Container{DockerId,Name,DockerName,KnownStatus,DesiredStatus,Image,ImageID,Labels,Type,Limits,ContainerARN}}"
+	taskQueryGQL      = "{Task{Cluster,TaskARN,Family,Revision,DesiredStatus,KnownStatus,PullStartedAt,PullStoppedAt,AvailabilityZone,LaunchType}}"
+
+	expectedSuccessfulGQLResponse = gqlResponse{
+		Data: &gqlData{
+			Container: &gqlContainer{
+				&v4.ContainerResponse{
+					ContainerResponse: &v2.ContainerResponse{
+						ID:            containerID,
+						Name:          containerName,
+						DockerName:    containerName,
+						Image:         imageName,
+						ImageID:       imageID,
+						DesiredStatus: statusRunning,
+						KnownStatus:   statusRunning,
+						ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+						Limits: v2.LimitsResponse{
+							CPU:    aws.Float64(cpu),
+							Memory: aws.Int64(memory),
+						},
+						Type:   containerType,
+						Labels: labels,
+					},
+				},
+			},
+		},
+	}
+
+	expectedFailedCreateSchemaResponse = gqlResponse{
+		Errors: "\"GraphQL metadata handler: unable to create GraphQL schema: Create schema fail 🤬\"",
+	}
+	expectedFailedGetContainerIDResponse = gqlResponse{
+		Errors: "\"GraphQL metadata handler: unable to get container ID from request: unable to get docker ID from v3 endpoint ID: " + v3EndpointID + "\"",
+	}
+	expectedFailedGetContainerResponse = gqlResponse{
+		Errors: "\"GraphQL metadata handler: unable to find container: " + containerID + "\"",
+	}
+	expectedFailedGetTaskARNResponse = gqlResponse{
+		Errors: "\"GraphQL metadata handler: unable to get task arn from request: unable to get task Arn from v3 endpoint ID: " + v3EndpointID + "\"",
+	}
+	expectedFailedGetTaskResponse = gqlResponse{
+		Errors: "\"GraphQL metadata handler: unable to find task: " + taskARN + "\"",
+	}
 )
 
 func init() {
@@ -1687,22 +1742,81 @@ func TestV4ContainerAssociation(t *testing.T) {
 
 func TestGQLMetadata(t *testing.T) {
 	testCases := []struct {
-		name                 string
-		gqlCreateSchemaError error
-		statusCode           int
-		expectedResponse     string
+		name             string
+		schemaSetupError error
+		containerIDError bool
+		containerError   bool
+		taskARNError     bool
+		taskError        bool
+		statusCode       int
+		expectedResponse gqlResponse
+		query            string
 	}{
 		{
-			name:                 "Create schema Error",
-			gqlCreateSchemaError: errors.New("🤬"),
-			statusCode:           http.StatusInternalServerError,
-			expectedResponse:     expectedFailedGQLResponse,
+			name:             "Create schema error",
+			schemaSetupError: errors.New("Create schema fail 🤬"),
+			containerIDError: false,
+			containerError:   false,
+			taskARNError:     false,
+			taskError:        false,
+			statusCode:       http.StatusInternalServerError,
+			expectedResponse: expectedFailedCreateSchemaResponse,
+			query:            containerQueryGQL,
 		},
 		{
-			name:                 "Create schema happy case 😍",
-			gqlCreateSchemaError: nil,
-			statusCode:           http.StatusOK,
-			expectedResponse:     expectedSuccessfulGQLResponse,
+			name:             "Get containerID error",
+			schemaSetupError: nil,
+			containerIDError: true,
+			containerError:   false,
+			taskARNError:     false,
+			taskError:        false,
+			statusCode:       http.StatusInternalServerError,
+			expectedResponse: expectedFailedGetContainerIDResponse,
+			query:            containerQueryGQL,
+		},
+		{
+			name:             "Get container error",
+			schemaSetupError: nil,
+			containerIDError: false,
+			containerError:   true,
+			taskARNError:     false,
+			taskError:        false,
+			statusCode:       http.StatusInternalServerError,
+			expectedResponse: expectedFailedGetContainerResponse,
+			query:            containerQueryGQL,
+		},
+		{
+			name:             "Get taskARN error",
+			schemaSetupError: nil,
+			containerIDError: false,
+			containerError:   false,
+			taskARNError:     true,
+			taskError:        false,
+			statusCode:       http.StatusInternalServerError,
+			expectedResponse: expectedFailedGetTaskARNResponse,
+			query:            containerQueryGQL,
+		},
+		{
+			name:             "Get task error",
+			schemaSetupError: nil,
+			containerIDError: false,
+			containerError:   false,
+			taskARNError:     false,
+			taskError:        true,
+			statusCode:       http.StatusInternalServerError,
+			expectedResponse: expectedFailedGetTaskResponse,
+			query:            containerQueryGQL,
+		},
+		{
+			name:             "Create schema happy case 😍",
+			schemaSetupError: nil,
+			containerIDError: false,
+			containerError:   false,
+			taskARNError:     false,
+			taskError:        false,
+			statusCode:       http.StatusOK,
+			expectedResponse: expectedSuccessfulGQLResponse,
+			query:            containerQueryGQL,
 		},
 	}
 
@@ -1715,24 +1829,55 @@ func TestGQLMetadata(t *testing.T) {
 			auditLog := mock_audit.NewMockAuditLogger(ctrl)
 			statsEngine := mock_stats.NewMockEngine(ctrl)
 			ecsClient := mock_api.NewMockECSClient(ctrl)
-			if tc.gqlCreateSchemaError != nil {
+			if tc.schemaSetupError != nil {
 				gqlCreateSchema = func(state dockerstate.TaskEngineState, ecsClient api.ECSClient, statsEngine stats.Engine, cluster string, availabilityZone string, containerInstanceArn string) (graphql.Schema, error) {
-					return graphql.Schema{}, tc.gqlCreateSchemaError
+					return graphql.Schema{}, tc.schemaSetupError
 				}
+			} else if tc.containerIDError {
+				state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return("", false)
+			} else if tc.containerError {
+				gomock.InOrder(
+					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+					state.EXPECT().ContainerByID(containerID).Return(nil, false),
+				)
+			} else if tc.taskARNError {
+				gomock.InOrder(
+					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return("", false),
+				)
+			} else if tc.taskError {
+				gomock.InOrder(
+					state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true),
+					state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true),
+					state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true),
+					state.EXPECT().TaskByArn(taskARN).Return(nil, false),
+				)
 			} else {
 				gqlCreateSchema = gql.CreateSchema
 				state.EXPECT().DockerIDByV3EndpointID(v3EndpointID).Return(containerID, true)
+				state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true)
+				state.EXPECT().TaskARNByV3EndpointID(v3EndpointID).Return(taskARN, true)
+				state.EXPECT().TaskByArn(taskARN).Return(task, true)
 			}
 
 			server := taskServerSetup(credentials.NewManager(), auditLog, state, ecsClient, clusterName, statsEngine,
 				config.DefaultTaskMetadataSteadyStateRate, config.DefaultTaskMetadataBurstRate, "us-west-2b", containerInstanceArn)
 			recorder := httptest.NewRecorder()
-			req, _ := http.NewRequest("GET", gqlBasePath+v3EndpointID+"?query="+url.QueryEscape("{Container}"), nil)
+			req, _ := http.NewRequest("GET", gqlBasePath+v3EndpointID+"?query="+url.QueryEscape(tc.query), nil)
 			server.Handler.ServeHTTP(recorder, req)
 			res, err := ioutil.ReadAll(recorder.Body)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.statusCode, recorder.Code)
-			assert.Equal(t, tc.expectedResponse, string(res))
+			if tc.schemaSetupError != nil || tc.containerIDError || tc.containerError ||
+				tc.taskARNError || tc.taskError {
+				assert.Equal(t, tc.expectedResponse.Errors, string(res))
+				return
+			}
+			var response gqlResponse
+			err = json.Unmarshal(res, &response)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedResponse, response)
 		})
 	}
 }
