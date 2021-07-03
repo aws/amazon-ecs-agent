@@ -16,5 +16,6 @@ package gql
 type ContextKey int
 
 const (
-	DockerID ContextKey = iota
+	Container ContextKey = iota
+	Task      ContextKey = iota
 )

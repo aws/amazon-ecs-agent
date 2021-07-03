@@ -15,7 +15,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -160,7 +159,7 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	muxRouter.HandleFunc(v4.ContainerAssociationPath, v4.ContainerAssociationHandler(state))
 }
 
-//GraphQL Handler Setup
+// GraphQL Handler Setup
 func gqlHandlerSetup(muxrouter *mux.Router,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
@@ -185,12 +184,9 @@ func gqlHandlerSetup(muxrouter *mux.Router,
 func serveGraphQLSchemaError(schemaCreationError error) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if schemaCreationError != nil {
-			responseJSON, err := json.Marshal(
-				fmt.Sprintf("GraphQL metadata handler: unable to create GraphQL schema: %s", schemaCreationError.Error()))
-			if e := handlersutils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
-			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, handlersutils.RequestTypeContainerMetadata)
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError,
+				[]byte(fmt.Sprintf(`"GraphQL metadata handler: unable to create GraphQL schema: %s"`, schemaCreationError.Error())),
+				handlersutils.RequestTypeContainerMetadata)
 			return
 		}
 	}
@@ -201,15 +197,38 @@ func serveGraphQL(handler *gqlhandler.Handler,
 	return func(w http.ResponseWriter, r *http.Request) {
 		containerID, err := v3.GetContainerIDByRequest(r, state)
 		if err != nil {
-			responseJSON, err := json.Marshal(
-				fmt.Sprintf("GraphQL metadata handler: unable to get container ID from request: %s", err.Error()))
-			if e := handlersutils.WriteResponseIfMarshalError(w, err); e != nil {
-				return
-			}
-			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, handlersutils.RequestTypeContainerMetadata)
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError,
+				[]byte(fmt.Sprintf(`"GraphQL metadata handler: unable to get container ID from request: %s"`, err.Error())),
+				handlersutils.RequestTypeContainerMetadata)
 			return
 		}
-		ctx := context.WithValue(r.Context(), gql.DockerID, containerID)
+
+		dockerContainer, ok := state.ContainerByID(containerID)
+		if !ok {
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError,
+				[]byte(fmt.Sprintf(`"GraphQL metadata handler: unable to find container: %v"`, containerID)),
+				handlersutils.RequestTypeContainerMetadata)
+			return
+		}
+
+		taskArn, err := v3.GetTaskARNByRequest(r, state)
+		if err != nil {
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError,
+				[]byte(fmt.Sprintf(`"GraphQL metadata handler: unable to get task arn from request: %s"`, err.Error())),
+				handlersutils.RequestTypeTaskMetadata)
+			return
+		}
+
+		task, ok := state.TaskByArn(taskArn)
+		if !ok {
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError,
+				[]byte(fmt.Sprintf(`"GraphQL metadata handler: unable to find task: %v"`, taskArn)),
+				handlersutils.RequestTypeTaskMetadata)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), gql.Container, dockerContainer)
+		ctx = context.WithValue(ctx, gql.Task, task)
 		handler.ContextHandler(ctx, w, r)
 	}
 }
