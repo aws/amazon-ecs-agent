@@ -27,7 +27,9 @@ import (
 // recommended client version as well as a set of alternative supported
 // docker clients.
 type Factory interface {
-	// GetDefaultClient returns a versioned client for the default version
+	// GetDefaultClient first checks the minimum API version supported by both Agent and Docker daemon.
+	// If that version is higher than the default version used by Agent, use it instead of the default.
+	// Return a versioned client for the selected version
 	GetDefaultClient() (sdkclient.Client, error)
 
 	// GetClient returns a client with the specified version or an error
@@ -74,6 +76,26 @@ func NewFactory(ctx context.Context, endpoint string) Factory {
 }
 
 func (f *factory) GetDefaultClient() (sdkclient.Client, error) {
+	supportedAPIVersions := f.FindSupportedAPIVersions()
+	minimumSupportedAPIVersion, err := getMinimumAPIVersion(supportedAPIVersions) // Docker API versions supported by both Agent and docker daemon
+	if err != nil {
+		log.Warnf("failed to resolve minimum supported API version, will attempt to use default API version %s", GetDefaultVersion())
+		return f.GetClient(GetDefaultVersion())
+	}
+	log.Infof("Minimum supported API version is %s", minimumSupportedAPIVersion)
+
+	minimumGreaterThanDefault, err := dockerclient.DockerAPIVersion(minimumSupportedAPIVersion).Matches(">" + string(GetDefaultVersion()))
+	if err != nil {
+		log.Warnf("failed to compare minimum supported API version to default API version, will attempt to use default API version %s",
+			GetDefaultVersion())
+		return f.GetClient(GetDefaultVersion())
+	}
+	if minimumGreaterThanDefault {
+		log.Infof("Minimum supported API version by daemon (%s) is higher than default API version used by Agent (%s), "+
+			"using minimum daemon API version", minimumSupportedAPIVersion, GetDefaultVersion())
+		return f.GetClient(minimumSupportedAPIVersion)
+	}
+	log.Infof("Using default docker API version: %s", GetDefaultVersion())
 	return f.GetClient(GetDefaultVersion())
 }
 
@@ -87,6 +109,25 @@ func (f *factory) FindSupportedAPIVersions() []dockerclient.DockerVersion {
 		supportedVersions = append(supportedVersions, testVersion)
 	}
 	return supportedVersions
+}
+
+// getMinimumAPIVersion returns the minimum docker API version in the provided version list.
+func getMinimumAPIVersion(supportedVersions []dockerclient.DockerVersion) (dockerclient.DockerVersion, error) {
+	if len(supportedVersions) == 0 {
+		return "", errors.New("could not get minimum API version from supported version list: list is nil or empty")
+	}
+	minSupportedVersion := supportedVersions[0]
+	for _, supportedVersion := range supportedVersions {
+		matchResult, err := dockerclient.DockerAPIVersion(minSupportedVersion).Matches(">" + string(supportedVersion))
+		if err != nil {
+			log.Warnf("failed to compare current minSupportedVersion %s to %s", minSupportedVersion, supportedVersion)
+			continue
+		}
+		if matchResult {
+			minSupportedVersion = supportedVersion
+		}
+	}
+	return minSupportedVersion, nil
 }
 
 func (f *factory) FindKnownAPIVersions() []dockerclient.DockerVersion {

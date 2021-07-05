@@ -17,6 +17,7 @@ package sdkclientfactory
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient"
@@ -29,7 +30,7 @@ import (
 
 const expectedEndpoint = "expectedEndpoint"
 
-func TestGetDefaultClientSuccess(t *testing.T) {
+func TestGetDefaultClientSuccess_AgentDefault(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -51,6 +52,84 @@ func TestGetDefaultClientSuccess(t *testing.T) {
 	actualClient, err := factory.GetDefaultClient()
 	assert.Nil(t, err)
 	assert.Equal(t, expectedClient, actualClient)
+}
+
+func TestGetDefaultClientSuccess_DaemonHasHigherMinimumVersionThanAgentDefault(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	newVersionedClient = func(endpoint, version string) (sdkclient.Client, error) {
+		mockClient := mock_sdkclient.NewMockClient(ctrl)
+		if version <= string(GetDefaultVersion()) {
+			return nil, errors.New("some error")
+		}
+		mockClient = mock_sdkclient.NewMockClient(ctrl)
+		mockClient.EXPECT().ServerVersion(gomock.Any()).Return(docker.Version{}, nil).AnyTimes()
+		mockClient.EXPECT().Ping(gomock.Any()).AnyTimes()
+		mockClient.EXPECT().ClientVersion().Return(version).AnyTimes()
+
+		return mockClient, nil
+	}
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	factory := NewFactory(ctx, expectedEndpoint)
+	actualClient, err := factory.GetDefaultClient()
+	assert.Nil(t, err)
+	actualClientVersion := actualClient.ClientVersion()
+
+	// verify that the test API client has version higher than default
+	matchResult, err := dockerclient.DockerAPIVersion(actualClientVersion).Matches(">" + string(GetDefaultVersion()))
+	assert.Nil(t, err)
+	assert.True(t, matchResult)
+
+	// verify that the test API client has lowest version among all versions supported by both daemon and Agent
+	for _, supportedVersion := range factory.FindSupportedAPIVersions() {
+		matchResult, err := dockerclient.DockerAPIVersion(actualClientVersion).Matches("<=" + string(supportedVersion))
+		assert.Nil(t, err)
+		assert.True(t, matchResult)
+	}
+}
+
+func TestGetMinimumSuppportedAPIVersions(t *testing.T) {
+	tests := []struct {
+		testName           string
+		supportedVersions  []dockerclient.DockerVersion
+		shouldErr          bool
+		expectedMinVersion string
+	}{
+		{
+			testName:           "Supported version list empty",
+			supportedVersions:  []dockerclient.DockerVersion{},
+			shouldErr:          true,
+			expectedMinVersion: "",
+		},
+		{
+			testName:           "Happy case",
+			supportedVersions:  []dockerclient.DockerVersion{dockerclient.Version_1_41, dockerclient.Version_1_39, dockerclient.Version_1_40},
+			shouldErr:          false,
+			expectedMinVersion: string(dockerclient.Version_1_39),
+		},
+		{
+			testName:           "Supported version list has malformed version",
+			supportedVersions:  []dockerclient.DockerVersion{dockerclient.Version_1_41, dockerclient.Version_1_39, dockerclient.Version_1_40, "abcd"},
+			shouldErr:          false,
+			expectedMinVersion: string(dockerclient.Version_1_39),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			actual, err := getMinimumAPIVersion(test.supportedVersions)
+			if test.shouldErr {
+				assert.NotNil(t, err)
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, test.expectedMinVersion, string(actual))
+			}
+		})
+	}
+
 }
 
 func TestFindSupportedAPIVersions(t *testing.T) {

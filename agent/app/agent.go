@@ -759,8 +759,10 @@ func (agent *ecsAgent) startACSSession(
 }
 
 // validateRequiredVersion validates docker version.
-// Minimum docker version supported is 1.9.0, maps to api version 1.21
-// see https://docs.docker.com/develop/sdk/#api-version-matrix
+// Minimum docker version supported by Agent is 1.9.0, which supports maximum API version 1.21 (see
+// https://docs.docker.com/engine/api/#api-version-matrix)
+// Therefore, if we are able to find a supported API version >= 1.21, that implies the docker version is at least 1.9.0,
+// hence meeting Agent requirement.
 func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
 	supportedVersions := agent.dockerClient.SupportedVersions()
 	if len(supportedVersions) == 0 {
@@ -769,8 +771,13 @@ func (agent *ecsAgent) verifyRequiredDockerVersion() (int, bool) {
 	}
 
 	// if api version 1.21 is supported, it means docker version is at least 1.9.0
-	for _, version := range supportedVersions {
-		if version == dockerclient.Version_1_21 {
+	for _, supportedVersion := range supportedVersions {
+		versionHigherThanAgentMinimum, err := dockerclient.DockerAPIVersion(supportedVersion).
+			Matches(">=" + string(dockerclient.Version_1_21))
+		if err != nil {
+			continue
+		}
+		if versionHigherThanAgentMinimum {
 			return -1, true
 		}
 	}

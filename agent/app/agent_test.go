@@ -97,61 +97,57 @@ func setup(t *testing.T) (*gomock.Controller,
 		mock_execcmdagent.NewMockManager(ctrl)
 }
 
-func TestDoStartMinimumSupportedDockerVersionTerminal(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
-	defer ctrl.Finish()
-
-	oldAPIVersions := []dockerclient.DockerVersion{
-		dockerclient.Version_1_18,
-		dockerclient.Version_1_19,
-		dockerclient.Version_1_20}
-	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return(oldAPIVersions),
-	)
-
-	cfg := getTestConfig()
-	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:                   ctx,
-		cfg:                   &cfg,
-		dockerClient:          dockerClient,
-		stateManagerFactory:   stateManagerFactory,
-		saveableOptionFactory: saveableOptionFactory,
-	}
-	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client, execCmdMgr)
-	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
-}
-
-func TestDoStartMinimumSupportedDockerVersionError(t *testing.T) {
-	ctrl, credentialsManager, state, imageManager, client,
-		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
-	defer ctrl.Finish()
-
-	gomock.InOrder(
-		dockerClient.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{}),
-	)
-
-	cfg := getTestConfig()
-	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
-	ctx, cancel := context.WithCancel(context.TODO())
-	// Cancel the context to cancel async routines
-	defer cancel()
-	agent := &ecsAgent{
-		ctx:                   ctx,
-		cfg:                   &cfg,
-		dockerClient:          dockerClient,
-		stateManagerFactory:   stateManagerFactory,
-		saveableOptionFactory: saveableOptionFactory,
+func TestVerifyRequiredDockerVersion(t *testing.T) {
+	tests := []struct {
+		testName          string
+		exitCode          int
+		supportedVersions []dockerclient.DockerVersion
+	}{
+		{
+			testName: "Maximum supported Docker API version too low",
+			exitCode: exitcodes.ExitTerminal,
+			supportedVersions: []dockerclient.DockerVersion{
+				dockerclient.Version_1_18,
+				dockerclient.Version_1_19,
+				dockerclient.Version_1_20},
+		},
+		{
+			testName:          "Supported Docker API version list empty",
+			exitCode:          exitcodes.ExitError,
+			supportedVersions: []dockerclient.DockerVersion{},
+		},
+		{
+			testName: "Minimum supported Docker API version higher than required",
+			exitCode: -1,
+			supportedVersions: []dockerclient.DockerVersion{
+				dockerclient.Version_1_22},
+		},
 	}
 
-	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
-		credentialsManager, state, imageManager, client, execCmdMgr)
-	assert.Equal(t, exitcodes.ExitError, exitCode)
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			ctrl, _, _, _, _, dockerClient, stateManagerFactory, saveableOptionFactory, _ := setup(t)
+			defer ctrl.Finish()
+			gomock.InOrder(
+				dockerClient.EXPECT().SupportedVersions().Return(test.supportedVersions),
+			)
+
+			cfg := getTestConfig()
+			cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			ctx, cancel := context.WithCancel(context.TODO())
+			// Cancel the context to cancel async routines
+			defer cancel()
+			agent := &ecsAgent{
+				ctx:                   ctx,
+				cfg:                   &cfg,
+				dockerClient:          dockerClient,
+				stateManagerFactory:   stateManagerFactory,
+				saveableOptionFactory: saveableOptionFactory,
+			}
+			exitCode, _ := agent.verifyRequiredDockerVersion()
+			assert.Equal(t, test.exitCode, exitCode)
+		})
+	}
 }
 
 func TestDoStartNewTaskEngineError(t *testing.T) {
