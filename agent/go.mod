@@ -6,7 +6,6 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/aws/aws-sdk-go v1.36.0
 	github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
-	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 // indirect
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/containerd/cgroups v0.0.0-20170627184340-c3fc2b77b568
 	github.com/containerd/containerd v1.3.2 // indirect
@@ -20,7 +19,6 @@ require (
 	github.com/docker/go-connections v0.3.0
 	github.com/docker/go-units v0.3.2
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
-	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/mock v1.1.1
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -28,7 +26,6 @@ require (
 	github.com/gorilla/websocket v1.2.0
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -36,11 +33,8 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pborman/uuid v0.0.0-20150603214016-ca53cad383ca
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v0.9.0
+	github.com/prometheus/client_golang v0.9.4
 	github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4
-	github.com/prometheus/common v0.0.0-20181020173914-7e9e6cabbd39 // indirect
-	github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d // indirect
-	github.com/sirupsen/logrus v1.1.1 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/vishvananda/netlink v0.0.0-20181108222139-023a6dafdcdf
 	go.etcd.io/bbolt v1.3.6
