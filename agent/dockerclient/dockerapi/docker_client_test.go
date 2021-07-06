@@ -995,6 +995,74 @@ func TestContainerEventsError(t *testing.T) {
 	}
 }
 
+func TestSetExitCodeFromEvent(t *testing.T) {
+	var (
+		exitCodeInt    = 42
+		exitCodeStr    = "42"
+		altExitCodeInt = 1
+	)
+
+	defaultEvent := &events.Message{
+		Status: dockerContainerDieEvent,
+		Actor: events.Actor{
+			Attributes: map[string]string{
+				dockerContainerEventExitCodeAttribute: exitCodeStr,
+			},
+		},
+	}
+
+	testCases := []struct {
+		name             string
+		event            *events.Message
+		metadata         DockerContainerMetadata
+		expectedExitCode *int
+	}{
+		{
+			name:             "exit code set from event",
+			event:            defaultEvent,
+			metadata:         DockerContainerMetadata{},
+			expectedExitCode: &exitCodeInt,
+		},
+		{
+			name:  "exit code not set from event when metadata already has it",
+			event: defaultEvent,
+			metadata: DockerContainerMetadata{
+				ExitCode: &altExitCodeInt,
+			},
+			expectedExitCode: &altExitCodeInt,
+		},
+		{
+			name: "exit code not set from event when event does not has it",
+			event: &events.Message{
+				Status: dockerContainerDieEvent,
+				Actor:  events.Actor{},
+			},
+			metadata:         DockerContainerMetadata{},
+			expectedExitCode: nil,
+		},
+		{
+			name: "exit code not set from event when event has invalid exit code",
+			event: &events.Message{
+				Status: dockerContainerDieEvent,
+				Actor: events.Actor{
+					Attributes: map[string]string{
+						dockerContainerEventExitCodeAttribute: "invalid",
+					},
+				},
+			},
+			metadata:         DockerContainerMetadata{},
+			expectedExitCode: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			setExitCodeFromEvent(tc.event, &tc.metadata)
+			assert.Equal(t, tc.expectedExitCode, tc.metadata.ExitCode)
+		})
+	}
+}
+
 func TestDockerVersion(t *testing.T) {
 	mockDockerSDK, client, _, _, _, done := dockerClientSetup(t)
 	defer done()
