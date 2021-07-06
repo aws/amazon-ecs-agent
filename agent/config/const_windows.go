@@ -15,23 +15,5 @@
 
 package config
 
-import "golang.org/x/sys/windows/registry"
-
+// OSType is the type of operating system where agent is running
 const OSType = "windows"
-const (
-	// envSkipDomainJoinCheck is an environment setting that can be used to skip
-	// domain join check validation. This is useful for integration and
-	// functional-tests but should not be set for any non-test use-case.
-	envSkipDomainJoinCheck  = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
-	releaseId2004SAC        = "2004"
-	releaseId1909SAC        = "1909"
-	windowsServer2019       = "Windows Server 2019"
-	windowsServer2016       = "Windows Server 2016"
-	windowsServerDataCenter = "Windows Server Datacenter"
-	installationTypeCore    = "Server Core"
-	installationTypeFull    = "Server"
-	unsupportedWindowsOS    = "windows"
-	osTypeFormat            = "WINDOWS_SERVER_%s_%s"
-	ecsWinRegistryRootKey   = registry.LOCAL_MACHINE
-	ecsWinRegistryRootPath  = `SOFTWARE\Microsoft\Windows NT\CurrentVersion`
-)

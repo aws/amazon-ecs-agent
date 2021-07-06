@@ -100,7 +100,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			// if we got a duplicate timestamp, set cpu percentage to the same value as the previous stat
 			seelog.Errorf("Received a docker stat object with duplicate timestamp")
 			stat.CPUUsagePerc = lastStat.CPUUsagePerc
-			if stat.NetworkStats != nil {
+			if stat.NetworkStats != nil && lastStat.NetworkStats != nil {
 				stat.NetworkStats.RxBytesPerSecond = lastStat.NetworkStats.RxBytesPerSecond
 				stat.NetworkStats.TxBytesPerSecond = lastStat.NetworkStats.TxBytesPerSecond
 			}
@@ -109,7 +109,7 @@ func (queue *Queue) add(rawStat *ContainerStats) {
 			stat.CPUUsagePerc = 100 * cpuUsageSinceLastStat / timeSinceLastStat
 
 			//calculate per second Network metrics
-			if stat.NetworkStats != nil {
+			if stat.NetworkStats != nil && lastStat.NetworkStats != nil {
 				rxBytesSinceLastStat := float32(stat.NetworkStats.RxBytes - lastStat.NetworkStats.RxBytes)
 				txBytesSinceLastStat := float32(stat.NetworkStats.TxBytes - lastStat.NetworkStats.TxBytes)
 				stat.NetworkStats.RxBytesPerSecond = NanoSecToSec * (rxBytesSinceLastStat / timeSinceLastStat)

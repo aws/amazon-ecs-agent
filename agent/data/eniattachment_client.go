@@ -19,8 +19,8 @@ import (
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 )
 
 func (c *client) SaveENIAttachment(eni *apieni.ENIAttachment) error {

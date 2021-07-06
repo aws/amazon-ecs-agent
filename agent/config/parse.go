@@ -34,12 +34,6 @@ func parseCheckpoint(dataDir string) BooleanDefaultFalse {
 		if checkPoint.Value == NotSet {
 			checkPoint.Value = ExplicitlyEnabled
 		}
-	} else {
-		// if the directory is not set, default to checkpointing off for
-		// backwards compatibility
-		if checkPoint.Value == NotSet {
-			checkPoint.Value = ExplicitlyDisabled
-		}
 	}
 	return checkPoint
 }

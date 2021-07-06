@@ -16,7 +16,6 @@
 package app
 
 import (
-	"fmt"
 	"os"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
@@ -26,7 +25,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
-	"github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/gpu"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
@@ -35,7 +33,6 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	cgroup "github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control"
 	"github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/cihub/seelog"
 	"github.com/pkg/errors"
 )
@@ -88,7 +85,7 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 		return err, true
 	}
 
-	if err := agent.startUdevWatcher(state, taskEngine.StateChangeEvents()); err != nil {
+	if err := agent.startENIWatcher(state, taskEngine.StateChangeEvents()); err != nil {
 		// If udev watcher was not initialized in this run because of the udev socket
 		// file not being available etc, the Agent might be able to retry and succeed
 		// on the next run. Hence, returning a false here for terminal bool
@@ -96,42 +93,6 @@ func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngin
 	}
 
 	return nil, false
-}
-
-// setVPCSubnet sets the vpc and subnet ids for the agent by querying the
-// instance metadata service
-func (agent *ecsAgent) setVPCSubnet() (error, bool) {
-	mac, err := agent.ec2MetadataClient.PrimaryENIMAC()
-	if err != nil {
-		return fmt.Errorf("unable to get mac address of instance's primary ENI from instance metadata: %v", err), false
-	}
-
-	vpcID, err := agent.ec2MetadataClient.VPCID(mac)
-	if err != nil {
-		if isInstanceLaunchedInVPC(err) {
-			return fmt.Errorf("unable to get vpc id from instance metadata: %v", err), true
-		}
-		return instanceNotLaunchedInVPCError, false
-	}
-
-	subnetID, err := agent.ec2MetadataClient.SubnetID(mac)
-	if err != nil {
-		return fmt.Errorf("unable to get subnet id from instance metadata: %v", err), false
-	}
-	agent.vpc = vpcID
-	agent.subnet = subnetID
-	agent.mac = mac
-	return nil, false
-}
-
-// isInstanceLaunchedInVPC returns false when the awserr returned is an EC2MetadataError
-// when querying the vpc id from instance metadata
-func isInstanceLaunchedInVPC(err error) bool {
-	if aerr, ok := err.(awserr.Error); ok &&
-		aerr.Code() == "EC2MetadataError" {
-		return false
-	}
-	return true
 }
 
 // verifyCNIPluginsCapabilities returns an error if there's an error querying
@@ -167,35 +128,23 @@ func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
 	return nil
 }
 
-// startUdevWatcher starts the udev monitor and the watcher for receiving
+// startENIWatcher starts the udev monitor and the watcher for receiving
 // notifications from the monitor
-func (agent *ecsAgent) startUdevWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
+func (agent *ecsAgent) startENIWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
 	seelog.Debug("Setting up ENI Watcher")
-	if agent.udevMonitor == nil {
-		monitor, err := udevwrapper.New()
+	if agent.eniWatcher == nil {
+		eniWatcher, err := watcher.New(agent.ctx, agent.mac, state, stateChangeEvents)
 		if err != nil {
-			return errors.Wrapf(err, "unable to create udev monitor")
+			return errors.Wrapf(err, "unable to create ENI watcher")
 		}
-		agent.udevMonitor = monitor
+		agent.eniWatcher = eniWatcher
 
-		// Create Watcher
-		eniWatcher := watcher.New(agent.ctx, agent.mac, agent.udevMonitor, state, stateChangeEvents)
-		if err := eniWatcher.Init(); err != nil {
+		if err := agent.eniWatcher.Init(); err != nil {
 			return errors.Wrapf(err, "unable to initialize eni watcher")
 		}
-		go eniWatcher.Start()
+		go agent.eniWatcher.Start()
 	}
 	return nil
-}
-
-func contains(capabilities []string, capability string) bool {
-	for _, cap := range capabilities {
-		if cap == capability {
-			return true
-		}
-	}
-
-	return false
 }
 
 // initializeResourceFields exists mainly for testing doStart() to use mock Control

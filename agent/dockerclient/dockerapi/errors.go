@@ -50,6 +50,12 @@ func (err *DockerTimeoutError) Error() string {
 // ErrorName returns the name of the error
 func (err *DockerTimeoutError) ErrorName() string { return DockerTimeoutErrorName }
 
+// IsRetriableError returns a boolean indicating whether the call that
+// generated the error can be retried.
+func (err DockerTimeoutError) IsRetriableError() bool {
+	return true
+}
+
 // OutOfMemoryError is a type for errors caused by running out of memory
 type OutOfMemoryError struct{}
 

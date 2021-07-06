@@ -11,7 +11,8 @@ echo -n "$version" > VERSION
 export ECS_UNKNOWN_VERSION=true
 
 cd ./agent/version/
-go run gen/version-gen.go
+# Turn off go module for version-gen.go - see scripts/build.
+GO111MODULE=off go run gen/version-gen.go
 cd "${ROOT}"
 
 git add agent/version/version.go VERSION

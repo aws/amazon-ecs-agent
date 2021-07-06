@@ -73,8 +73,8 @@ func TestHandleEventError(t *testing.T) {
 			CurrentContainerKnownStatus:     apicontainerstatus.ContainerRunning,
 			Error:                           &dockerapi.DockerTimeoutError{},
 			ExpectedContainerKnownStatusSet: true,
-			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerRunning,
-			ExpectedOK:                      false,
+			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerStopped,
+			ExpectedOK:                      true,
 		},
 		{
 			Name:                        "Retriable error with stop",
@@ -84,8 +84,8 @@ func TestHandleEventError(t *testing.T) {
 				FromError: errors.New(""),
 			},
 			ExpectedContainerKnownStatusSet: true,
-			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerRunning,
-			ExpectedOK:                      false,
+			ExpectedContainerKnownStatus:    apicontainerstatus.ContainerStopped,
+			ExpectedOK:                      true,
 		},
 		{
 			Name:                        "Unretriable error with Stop",
@@ -187,6 +187,15 @@ func TestHandleEventError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			client := mock_dockerapi.NewMockDockerClient(ctrl)
+
+			if tc.EventStatus == apicontainerstatus.ContainerStopped {
+				client.EXPECT().SystemPing(gomock.Any(), gomock.Any()).Return(dockerapi.PingResponse{}).
+					Times(1)
+			}
+
 			container := &apicontainer.Container{
 				KnownStatusUnsafe: tc.CurrentContainerKnownStatus,
 			}
@@ -203,8 +212,9 @@ func TestHandleEventError(t *testing.T) {
 				Task: &apitask.Task{
 					Arn: "task1",
 				},
-				engine: &DockerTaskEngine{},
-				cfg:    &config.Config{ImagePullBehavior: tc.ImagePullBehavior},
+				engine:       &DockerTaskEngine{},
+				cfg:          &config.Config{ImagePullBehavior: tc.ImagePullBehavior},
+				dockerClient: client,
 			}
 			ok := mtask.handleEventError(containerChange, tc.CurrentContainerKnownStatus)
 			assert.Equal(t, tc.ExpectedOK, ok, "to proceed")

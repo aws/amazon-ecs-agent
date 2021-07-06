@@ -117,3 +117,7 @@ func (cfg *Config) platformString() string {
 	}
 	return ""
 }
+
+func getConfigFileName() (string, error) {
+	return utils.DefaultIfBlank(os.Getenv("ECS_AGENT_CONFIG_FILE_PATH"), defaultConfigFileName), nil
+}

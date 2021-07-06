@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	bolt "github.com/etcd-io/bbolt"
 	"github.com/stretchr/testify/require"
+	bolt "go.etcd.io/bbolt"
 )
 
 func newTestClient(t *testing.T) (Client, func()) {
