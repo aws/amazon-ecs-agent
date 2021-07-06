@@ -861,7 +861,7 @@ func TestTaskTransitionWhenStopContainerReturnsUnretriableError(t *testing.T) {
 			// event.
 			client.EXPECT().StopContainer(gomock.Any(), containerID, gomock.Any()).Return(dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotStopContainerError{dockerapi.NoSuchContainerError{}},
-			}).MaxTimes(1),
+			}).MinTimes(1),
 			client.EXPECT().SystemPing(gomock.Any(), gomock.Any()).
 				Return(dockerapi.PingResponse{}).
 				Times(1),
@@ -947,6 +947,7 @@ func TestGetTaskByArn(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().Return(time.Now()).AnyTimes()
+	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	eventStream := make(chan dockerapi.DockerContainerChangeEvent)
 	client.EXPECT().ContainerEvents(gomock.Any()).Return(eventStream, nil)
 	imageManager.EXPECT().AddAllImageStates(gomock.Any()).AnyTimes()
@@ -2351,6 +2352,7 @@ func TestSynchronizeENIAttachment(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockTime.EXPECT().Now().AnyTimes()
+	mockTime.EXPECT().After(gomock.Any()).AnyTimes()
 	client.EXPECT().Version(gomock.Any(), gomock.Any()).MaxTimes(1)
 	client.EXPECT().ContainerEvents(gomock.Any()).MaxTimes(1)
 
