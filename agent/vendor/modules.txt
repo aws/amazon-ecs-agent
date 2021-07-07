@@ -149,6 +149,20 @@ github.com/gorilla/context
 github.com/gorilla/mux
 # github.com/gorilla/websocket v1.2.0
 github.com/gorilla/websocket
+# github.com/graphql-go/graphql v0.7.9
+github.com/graphql-go/graphql
+github.com/graphql-go/graphql/gqlerrors
+github.com/graphql-go/graphql/language/ast
+github.com/graphql-go/graphql/language/kinds
+github.com/graphql-go/graphql/language/lexer
+github.com/graphql-go/graphql/language/location
+github.com/graphql-go/graphql/language/parser
+github.com/graphql-go/graphql/language/printer
+github.com/graphql-go/graphql/language/source
+github.com/graphql-go/graphql/language/typeInfo
+github.com/graphql-go/graphql/language/visitor
+# github.com/graphql-go/handler v0.2.3
+github.com/graphql-go/handler
 # github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 github.com/hectane/go-acl/api
 # github.com/jmespath/go-jmespath v0.4.0 => github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af

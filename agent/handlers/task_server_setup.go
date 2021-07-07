@@ -15,6 +15,8 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/gql"
 	handlersutils "github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
@@ -34,6 +37,7 @@ import (
 	"github.com/cihub/seelog"
 	"github.com/didip/tollbooth"
 	"github.com/gorilla/mux"
+	gqlhandler "github.com/graphql-go/handler"
 )
 
 const (
@@ -45,6 +49,8 @@ const (
 	// The value is set to 5 seconds as per AWS SDK defaults.
 	writeTimeout = 5 * time.Second
 )
+
+var gqlCreateSchema = gql.CreateSchema
 
 func taskServerSetup(credentialsManager credentials.Manager,
 	auditLogger audit.AuditLogger,
@@ -70,6 +76,8 @@ func taskServerSetup(credentialsManager credentials.Manager,
 	v3HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
 
 	v4HandlersSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
+
+	gqlHandlerSetup(muxRouter, state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
 
 	limiter := tollbooth.NewLimiter(int64(steadyStateRate), nil)
 	limiter.SetOnLimitReached(handlersutils.LimitReachedHandler(auditLogger))
@@ -134,7 +142,7 @@ func v3HandlersSetup(muxRouter *mux.Router,
 	muxRouter.HandleFunc(v3.ContainerAssociationPath, v3.ContainerAssociationHandler(state))
 }
 
-// v4HandlerSetup adda all handlers in v4 package to the mux router
+// v4HandlerSetup adds all handlers in v4 package to the mux router
 func v4HandlersSetup(muxRouter *mux.Router,
 	state dockerstate.TaskEngineState,
 	ecsClient api.ECSClient,
@@ -150,6 +158,60 @@ func v4HandlersSetup(muxRouter *mux.Router,
 	muxRouter.HandleFunc(v4.ContainerAssociationsPath, v4.ContainerAssociationsHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPathWithSlash, v4.ContainerAssociationHandler(state))
 	muxRouter.HandleFunc(v4.ContainerAssociationPath, v4.ContainerAssociationHandler(state))
+}
+
+//GraphQL Handler Setup
+func gqlHandlerSetup(muxrouter *mux.Router,
+	state dockerstate.TaskEngineState,
+	ecsClient api.ECSClient,
+	statsEngine stats.Engine,
+	cluster string,
+	availabilityZone string,
+	containerInstanceArn string) {
+	schema, err := gqlCreateSchema(state, ecsClient, statsEngine, cluster, availabilityZone, containerInstanceArn)
+	if err != nil {
+		seelog.Errorf("GraphQL schema could not be created: %v", err)
+		muxrouter.HandleFunc(gql.ContainerMetadataPath, serveGraphQLSchemaError(err))
+		return
+	}
+	h := gqlhandler.New(&gqlhandler.Config{
+		Schema: &schema,
+		Pretty: false,
+	})
+
+	muxrouter.HandleFunc(gql.ContainerMetadataPath, serveGraphQL(h, state))
+}
+
+func serveGraphQLSchemaError(schemaCreationError error) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if schemaCreationError != nil {
+			responseJSON, err := json.Marshal(
+				fmt.Sprintf("GraphQL metadata handler: unable to create GraphQL schema: %s", schemaCreationError.Error()))
+			if e := handlersutils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, handlersutils.RequestTypeContainerMetadata)
+			return
+		}
+	}
+}
+
+func serveGraphQL(handler *gqlhandler.Handler,
+	state dockerstate.TaskEngineState) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		containerID, err := v3.GetContainerIDByRequest(r, state)
+		if err != nil {
+			responseJSON, err := json.Marshal(
+				fmt.Sprintf("GraphQL metadata handler: unable to get container ID from request: %s", err.Error()))
+			if e := handlersutils.WriteResponseIfMarshalError(w, err); e != nil {
+				return
+			}
+			handlersutils.WriteJSONToResponse(w, http.StatusInternalServerError, responseJSON, handlersutils.RequestTypeContainerMetadata)
+			return
+		}
+		ctx := context.WithValue(r.Context(), gql.DockerID, containerID)
+		handler.ContextHandler(ctx, w, r)
+	}
 }
 
 // ServeTaskHTTPEndpoint serves task/container metadata, task/container stats, and IAM Role Credentials
