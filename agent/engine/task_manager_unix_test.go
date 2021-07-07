@@ -430,7 +430,7 @@ func TestCleanupExecEnabledTask(t *testing.T) {
 	}
 	tID, _ := mTask.Task.GetID()
 	removeAll = func(path string) error {
-		assert.Equal(t, fmt.Sprintf("/log/exec/%s", tID), path)
+		assert.Equal(t, fmt.Sprintf("/var/log/ecs/exec/%s", tID), path)
 		return nil
 	}
 	defer func() {
