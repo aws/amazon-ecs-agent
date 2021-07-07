@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	// ECSAgentExecLogDir here is used used while cleaning up exec logs when task exits.
+	// HostLogDir here is used used while cleaning up exec logs when task exits.
 	// When this path is empty, nothing is cleaned up for unsupported platforms.
-	ECSAgentExecLogDir = ""
+	HostLogDir = ""
 )
 
 // Note: exec cmd agent is a linux-only feature, thus implemented here as a no-op.

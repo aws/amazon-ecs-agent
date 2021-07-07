@@ -51,9 +51,8 @@ const (
 	SSMAgentWorkerBinName = "ssm-agent-worker"
 	SessionWorkerBinName  = "ssm-session-worker"
 
-	HostLogDir         = "/var/log/ecs/exec"
-	ContainerLogDir    = "/var/log/amazon/ssm"
-	ECSAgentExecLogDir = "/log/exec"
+	HostLogDir      = "/var/log/ecs/exec"
+	ContainerLogDir = "/var/log/amazon/ssm"
 
 	HostCertFile            = "/var/lib/ecs/deps/execute-command/certs/tls-ca-bundle.pem"
 	ContainerCertFileSuffix = "certs/amazon-ssm-agent.crt"
