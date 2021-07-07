@@ -53,7 +53,7 @@ const (
 
 	HostLogDir         = "/var/log/ecs/exec"
 	ContainerLogDir    = "/var/log/amazon/ssm"
-	ECSAgentExecLogDir = "/log/exec"
+	ECSAgentExecLogDir = "/var/log/ecs/exec"
 
 	HostCertFile            = "/var/lib/ecs/deps/execute-command/certs/tls-ca-bundle.pem"
 	ContainerCertFileSuffix = "certs/amazon-ssm-agent.crt"
