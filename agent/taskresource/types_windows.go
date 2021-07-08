@@ -19,6 +19,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 )
 
@@ -28,4 +29,5 @@ type ResourceFields struct {
 	Ctx             context.Context
 	DockerClient    dockerapi.DockerClient
 	S3ClientCreator s3factory.S3ClientCreator
+	NetworkUtils    networkutils.NetworkUtils
 }

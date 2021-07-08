@@ -30,24 +30,6 @@ import (
 	"github.com/cihub/seelog"
 )
 
-const (
-	// macAddressBackoffMin specifies the minimum duration for the backoff
-	// when looking for an ENI's mac address on the host
-	macAddressBackoffMin = 2 * time.Millisecond
-
-	// macAddressBackoffMax specifies the maximum duration for the backoff
-	// when looking for an ENI's mac address on the host
-	macAddressBackoffMax = 200 * time.Millisecond
-
-	// macAddressBackoffJitter specifies the jitter multiple percentage when
-	// looking for an ENI's mac address on the host
-	macAddressBackoffJitter = 0.2
-
-	// macAddressBackoffMultiple specifies the backoff duration multiplier
-	// when looking for an ENI's mac address on the host
-	macAddressBackoffMultiple = 1.5
-)
-
 // macAddressRetriever is used to retrieve the mac address of a device. It collects
 // all the information necessary to start this operation and stores the result in
 // the 'macAddress' attribute

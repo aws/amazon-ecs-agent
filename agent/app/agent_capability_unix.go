@@ -185,3 +185,24 @@ func (agent *ecsAgent) appendIPv6Capability(capabilities []*ecs.Attribute) []*ec
 func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
+
+// getTaskENIPluginVersionAttribute returns the version information of the ECS
+// CNI plugins. It just executes the ENI plugin as the assumption is that these
+// plugins are packaged with the ECS Agent, which means all of the other plugins
+// should also emit the same version information. Also, the version information
+// doesn't contribute to placement decisions and just serves as additional
+// debugging information
+func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
+	version, err := agent.cniClient.Version(ecscni.ECSENIPluginName)
+	if err != nil {
+		seelog.Warnf(
+			"Unable to determine the version of the plugin '%s': %v",
+			ecscni.ECSENIPluginName, err)
+		return nil, err
+	}
+
+	return &ecs.Attribute{
+		Name:  aws.String(attributePrefix + cniPluginVersionSuffix),
+		Value: aws.String(version),
+	}, nil
+}

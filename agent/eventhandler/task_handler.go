@@ -261,13 +261,13 @@ func (handler *TaskHandler) taskStateChangesToSend() []api.TaskStateChange {
 
 // batchContainerEventUnsafe collects container state change events for a given task arn
 func (handler *TaskHandler) batchContainerEventUnsafe(event api.ContainerStateChange) {
-	seelog.Infof("TaskHandler: batching container event: %s", event.String())
+	seelog.Debugf("TaskHandler: batching container event: %s", event.String())
 	handler.tasksToContainerStates[event.TaskArn] = append(handler.tasksToContainerStates[event.TaskArn], event)
 }
 
 // batchManagedAgentEventUnsafe collects managed agent state change events for a given task arn
 func (handler *TaskHandler) batchManagedAgentEventUnsafe(event api.ManagedAgentStateChange) {
-	seelog.Infof("TaskHandler: batching managed agent event: %s", event.String())
+	seelog.Debugf("TaskHandler: batching managed agent event: %s", event.String())
 	handler.tasksToManagedAgentStates[event.TaskArn] = append(handler.tasksToManagedAgentStates[event.TaskArn], event)
 }
 
@@ -366,7 +366,7 @@ func (taskEvents *taskSendableEvents) sendChange(change *sendableEvent,
 	defer taskEvents.lock.Unlock()
 
 	// Add event to the queue
-	seelog.Infof("TaskHandler: Adding event: %s", change.toString())
+	seelog.Debugf("TaskHandler: Adding event: %s", change.toString())
 	taskEvents.events.PushBack(change)
 
 	if !taskEvents.sending {

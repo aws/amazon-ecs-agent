@@ -72,8 +72,6 @@ const (
 	labelTaskDefinitionFamily          = labelPrefix + "task-definition-family"
 	labelTaskDefinitionVersion         = labelPrefix + "task-definition-version"
 	labelCluster                       = labelPrefix + "cluster"
-	cniSetupTimeout                    = 1 * time.Minute
-	cniCleanupTimeout                  = 30 * time.Second
 	minGetIPBridgeTimeout              = time.Second
 	maxGetIPBridgeTimeout              = 10 * time.Second
 	getIPBridgeRetryJitterMultiplier   = 0.2
@@ -181,6 +179,7 @@ type DockerTaskEngine struct {
 	monitorExecAgentsInterval time.Duration
 	stopContainerBackoffMin   time.Duration
 	stopContainerBackoffMax   time.Duration
+	namespaceHelper           ecscni.NamespaceHelper
 }
 
 // NewDockerTaskEngine returns a created, but uninitialized, DockerTaskEngine.
@@ -221,6 +220,7 @@ func NewDockerTaskEngine(cfg *config.Config,
 		monitorExecAgentsInterval:         defaultMonitorExecAgentsInterval,
 		stopContainerBackoffMin:           defaultStopContainerBackoffMin,
 		stopContainerBackoffMax:           defaultStopContainerBackoffMax,
+		namespaceHelper:                   ecscni.NewNamespaceHelper(client),
 	}
 
 	dockerTaskEngine.initializeContainerStatusToTransitionFunction()
@@ -809,6 +809,9 @@ func (engine *DockerTaskEngine) AddTask(task *apitask.Task) {
 		// This will update the container desired status
 		task.UpdateDesiredStatus()
 
+		// This will update any dependencies for awsvpc network mode before the task is started.
+		engine.updateTaskENIDependencies(task)
+
 		engine.state.AddTask(task)
 		if dependencygraph.ValidDependencies(task, engine.cfg) {
 			engine.startTask(task)
@@ -1382,6 +1385,20 @@ func (engine *DockerTaskEngine) startContainer(task *apitask.Task, container *ap
 			}
 		}
 	}
+
+	// On Windows, we need to invoke CNI plugins for all containers
+	// invokePluginsForContainer will return nil for other platforms
+	if dockerContainerMD.Error == nil && task.IsNetworkModeAWSVPC() && !container.IsInternal() {
+		err := engine.invokePluginsForContainer(task, container)
+		if err != nil {
+			return dockerapi.DockerContainerMetadata{
+				Error: ContainerNetworkingError{
+					fromError: errors.Wrapf(err, "startContainer: cni plugin invocation failed"),
+				},
+			}
+		}
+	}
+
 	return dockerContainerMD
 }
 
@@ -1422,11 +1439,25 @@ func (engine *DockerTaskEngine) provisionContainerResources(task *apitask.Task, 
 		}
 	}
 
+	// This is the IP of the task assigned on the bridge for IAM Task roles
 	taskIP := result.IPs[0].Address.IP.String()
 	seelog.Infof("Task engine [%s]: associated with ip address '%s'", task.Arn, taskIP)
 	engine.state.AddTaskIPAddress(taskIP, task.Arn)
 	task.SetLocalIPAddress(taskIP)
 	engine.saveTaskData(task)
+
+	// Invoke additional commands required to configure the task namespace routing.
+	err = engine.namespaceHelper.ConfigureTaskNamespaceRouting(engine.ctx, task.GetPrimaryENI(), cniConfig, result)
+	if err != nil {
+		seelog.Errorf("Task engine [%s]: unable to configure pause container namespace: %v",
+			task.Arn, err)
+		return dockerapi.DockerContainerMetadata{
+			DockerID: cniConfig.ContainerID,
+			Error: ContainerNetworkingError{errors.Wrapf(err,
+				"container resource provisioning: failed to setup network namespace")},
+		}
+	}
+
 	return dockerapi.DockerContainerMetadata{
 		DockerID: cniConfig.ContainerID,
 	}
@@ -1492,8 +1523,9 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 	containerInspectOutput *types.ContainerJSON,
 	includeIPAMConfig bool) (*ecscni.Config, error) {
 	cniConfig := &ecscni.Config{
-		BlockInstanceMetadata:  engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
-		MinSupportedCNIVersion: config.DefaultMinSupportedCNIVersion,
+		BlockInstanceMetadata:    engine.cfg.AWSVPCBlockInstanceMetdata.Enabled(),
+		MinSupportedCNIVersion:   config.DefaultMinSupportedCNIVersion,
+		InstanceENIDNSServerList: engine.cfg.InstanceENIDNSServerList,
 	}
 	if engine.cfg.OverrideAWSVPCLocalIPv4Address != nil &&
 		len(engine.cfg.OverrideAWSVPCLocalIPv4Address.IP) != 0 &&
@@ -1506,6 +1538,17 @@ func (engine *DockerTaskEngine) buildCNIConfigFromTaskContainer(
 
 	cniConfig.ContainerPID = strconv.Itoa(containerInspectOutput.State.Pid)
 	cniConfig.ContainerID = containerInspectOutput.ID
+	cniConfig.ContainerNetNS = ""
+
+	// For pause containers, NetNS would be none
+	// For other containers, NetNS would be of format container:<pause_container_ID>
+	if containerInspectOutput.HostConfig.NetworkMode.IsNone() {
+		cniConfig.ContainerNetNS = containerInspectOutput.HostConfig.NetworkMode.NetworkName()
+	} else if containerInspectOutput.HostConfig.NetworkMode.IsContainer() {
+		cniConfig.ContainerNetNS = fmt.Sprintf("container:%s", containerInspectOutput.HostConfig.NetworkMode.ConnectedContainer())
+	} else {
+		return nil, errors.New("engine: failed to build cni configuration from the task due to invalid container network namespace")
+	}
 
 	cniConfig, err := task.BuildCNIConfig(includeIPAMConfig, cniConfig)
 	if err != nil {

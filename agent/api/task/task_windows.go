@@ -16,13 +16,15 @@
 package task
 
 import (
-	"errors"
 	"runtime"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
+	"github.com/containernetworking/cni/libcni"
 
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
@@ -33,6 +35,7 @@ import (
 	taskresourcevolume "github.com/aws/amazon-ecs-agent/agent/taskresource/volume"
 	"github.com/cihub/seelog"
 	dockercontainer "github.com/docker/docker/api/types/container"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -245,4 +248,50 @@ func (task *Task) addFSxWindowsFileServerResource(
 	task.updateContainerVolumeDependency(vol.Name)
 
 	return nil
+}
+
+// BuildCNIConfig builds a list of CNI network configurations for the task.
+func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
+	if !task.IsNetworkModeAWSVPC() {
+		return nil, errors.New("task config: task network mode is not awsvpc")
+	}
+
+	var netconf *libcni.NetworkConfig
+	var err error
+
+	// Build a CNI network configuration for each ENI.
+	for _, eni := range task.ENIs {
+		switch eni.InterfaceAssociationProtocol {
+		// If the association protocol is set to "default" or unset (to preserve backwards
+		// compatibility), consider it a "standard" ENI attachment.
+		case "", apieni.DefaultInterfaceAssociationProtocol:
+			cniConfig.ID = eni.MacAddress
+			netconf, err = ecscni.NewVPCENIPluginConfigForTaskNSSetup(eni, cniConfig)
+		default:
+			err = errors.Errorf("task config: unknown interface association type: %s",
+				eni.InterfaceAssociationProtocol)
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		// IfName is expected by the plugin but is not used.
+		cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+			IfName:           eni.ID,
+			CNINetworkConfig: netconf,
+		})
+	}
+
+	// Create the vpc-eni plugin configuration to setup ecs-bridge endpoint in the task namespace.
+	netconf, err = ecscni.NewVPCENIPluginConfigForECSBridgeSetup(cniConfig)
+	if err != nil {
+		return nil, err
+	}
+	cniConfig.NetworkConfigs = append(cniConfig.NetworkConfigs, &ecscni.NetworkConfig{
+		IfName:           ecscni.ECSBridgeNetworkName,
+		CNINetworkConfig: netconf,
+	})
+
+	return cniConfig, nil
 }

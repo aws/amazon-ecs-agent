@@ -1025,7 +1025,8 @@ func TestDockerExecAPI(t *testing.T) {
 		require.NotNil(t, execContainerOut)
 
 		//Start the above Exec process on the host
-		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, dockerclient.ContainerExecStartTimeout)
+		err1 := taskEngine.(*DockerTaskEngine).client.StartContainerExec(ctx, execContainerOut.ID, types.ExecStartCheck{Detach: true, Tty: false},
+			dockerclient.ContainerExecStartTimeout)
 		require.NoError(t, err1)
 
 		//Inspect the above Exec process on the host to check if the exit code is 0 which indicates successful run of the command

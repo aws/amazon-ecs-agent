@@ -36,6 +36,7 @@ import (
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	mock_pause "github.com/aws/amazon-ecs-agent/agent/eni/pause/mocks"
 	mock_udev "github.com/aws/amazon-ecs-agent/agent/eni/udevwrapper/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	mock_gpu "github.com/aws/amazon-ecs-agent/agent/gpu/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
@@ -75,6 +76,9 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 	mockUdevMonitor := mock_udev.NewMockUdev(ctrl)
 	mockMetadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+
+	eniWatcher := &watcher.ENIWatcher{}
+	eniWatcher.InjectFields(mockUdevMonitor)
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -155,7 +159,7 @@ func TestDoStartTaskENIHappyPath(t *testing.T) {
 		dataClient:         data.NewNoopClient(),
 		dockerClient:       dockerClient,
 		pauseLoader:        mockPauseLoader,
-		udevMonitor:        mockUdevMonitor,
+		eniWatcher:         eniWatcher,
 		cniClient:          cniClient,
 		ec2MetadataClient:  mockMetadata,
 		terminationHandler: func(state dockerstate.TaskEngineState, dataClient data.Client, taskEngine engine.TaskEngine, cancel context.CancelFunc) {

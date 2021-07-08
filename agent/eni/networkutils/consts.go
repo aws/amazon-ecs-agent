@@ -13,8 +13,26 @@
 
 package networkutils
 
+import "time"
+
 const (
 	pciDevicePrefix     = "pci"
 	vifDevicePrefix     = "vif"
 	virtualDevicePrefix = "virtual"
+
+	// macAddressBackoffMin specifies the minimum duration for the backoff
+	// when looking for an ENI's mac address on the host
+	macAddressBackoffMin = 2 * time.Millisecond
+
+	// macAddressBackoffMax specifies the maximum duration for the backoff
+	// when looking for an ENI's mac address on the host
+	macAddressBackoffMax = 200 * time.Millisecond
+
+	// macAddressBackoffJitter specifies the jitter multiple percentage when
+	// looking for an ENI's mac address on the host
+	macAddressBackoffJitter = 0.2
+
+	// macAddressBackoffMultiple specifies the backoff duration multiplier
+	// when looking for an ENI's mac address on the host
+	macAddressBackoffMultiple = 1.5
 )

@@ -63,6 +63,8 @@ const (
 	// adminSid is the security ID for the admin group on Windows
 	// Reference: https://docs.microsoft.com/en-us/troubleshoot/windows-server/identity/security-identifiers-in-windows
 	adminSid = "S-1-5-32-544"
+	// default directory name of CNI Plugins
+	defaultCNIPluginDirName = "cni"
 )
 
 // DefaultConfig returns the default configuration for Windows
@@ -70,6 +72,10 @@ func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
 	ecsRoot := filepath.Join(programData, "Amazon", "ECS")
 	dataDir := filepath.Join(ecsRoot, "data")
+
+	programFiles := utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
+	ecsBinaryDir := filepath.Join(programFiles, "Amazon", "ECS")
+
 	platformVariables := PlatformVariables{
 		CPUUnbounded:    BooleanDefaultFalse{Value: ExplicitlyDisabled},
 		MemoryUnbounded: BooleanDefaultFalse{Value: ExplicitlyDisabled},
@@ -121,6 +127,9 @@ func DefaultConfig() Config {
 		PollingMetricsWaitDuration:          DefaultPollingMetricsWaitDuration,
 		GMSACapable:                         true,
 		FSxWindowsFileServerCapable:         true,
+		PauseContainerImageName:             DefaultPauseContainerImageName,
+		PauseContainerTag:                   DefaultPauseContainerTag,
+		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),
 	}
 }
 

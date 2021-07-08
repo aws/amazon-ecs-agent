@@ -517,7 +517,7 @@ func TestStartContainerExecTimeout(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.StartContainerExec(ctx, "id", xContainerShortTimeout)
+	err := client.StartContainerExec(ctx, "id", types.ExecStartCheck{Detach: true, Tty: false}, xContainerShortTimeout)
 	assert.NotNil(t, err, "Expected error for start container exec")
 	assert.Equal(t, "DockerTimeoutError", err.(apierrors.NamedError).ErrorName(), "Wrong error type")
 	wait.Done()
@@ -538,7 +538,7 @@ func TestStartContainerExec(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
-	err := client.StartContainerExec(ctx, "id", dockerclient.ContainerExecStartTimeout)
+	err := client.StartContainerExec(ctx, "id", types.ExecStartCheck{Detach: true, Tty: false}, dockerclient.ContainerExecStartTimeout)
 	assert.NoError(t, err)
 }
 

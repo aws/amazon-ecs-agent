@@ -17,25 +17,29 @@ package app
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"sync"
 	"time"
-
-	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 
 	asmfactory "github.com/aws/amazon-ecs-agent/agent/asm/factory"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
+	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
+	"github.com/aws/amazon-ecs-agent/agent/eni/networkutils"
+	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
+	fsxfactory "github.com/aws/amazon-ecs-agent/agent/fsx/factory"
 	s3factory "github.com/aws/amazon-ecs-agent/agent/s3/factory"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers"
 	"github.com/aws/amazon-ecs-agent/agent/sighandlers/exitcodes"
 	ssmfactory "github.com/aws/amazon-ecs-agent/agent/ssm/factory"
+	"github.com/aws/amazon-ecs-agent/agent/statechange"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 
 	"github.com/cihub/seelog"
+	"github.com/pkg/errors"
 	"golang.org/x/sys/windows/svc"
 )
 
@@ -44,8 +48,48 @@ const (
 	EcsSvcName = "AmazonECS"
 )
 
+// awsVPCCNIPlugins is a list of CNI plugins required by the ECS Agent to configure the ENI for a task
+var awsVPCCNIPlugins = []string{
+	ecscni.ECSVPCENIPluginExecutable,
+}
+
+// initializeTaskENIDependencies initializes all the dependencies required to support awsvpc mode.
+// In case of error, the returned bool is used to identify if the error is terminal.
 func (agent *ecsAgent) initializeTaskENIDependencies(state dockerstate.TaskEngineState, taskEngine engine.TaskEngine) (error, bool) {
-	return errors.New("unsupported platform"), true
+
+	// Set VPC and Subnet IDs for the instance
+	if err, ok := agent.setVPCSubnet(); err != nil {
+		return err, ok
+	}
+
+	// Validate that the CNI plugins exist in the expected path
+	// We also validate that it has required flags in the capability string to support AWSVPC mode
+	if err := agent.verifyCNIPluginsCapabilities(); err != nil {
+		// An error here is terminal as it means that the plugins do not support the task networking capability
+		return err, true
+	}
+
+	// We start the ENI Watcher which is required for awsvpc mode.
+	if err := agent.startENIWatcher(state, taskEngine.StateChangeEvents()); err != nil {
+		// If the ENI Watcher cannot be started then it is possible to start it on the next run.
+		// Therefore, this is not a terminal error. Thus returning error and false
+		return err, false
+	}
+
+	// The instance ENI and the task ENI on ECS EC2 Windows will belong to the same VPC, and therefore,
+	// have the same DNS server list. Hence, we store the DNS server list of the instance ENI during
+	// agent startup and use the same during config creation for setting up task ENI.
+	// Another intrinsic benefit of this approach is that any DNS servers added for Active Directory
+	// will be added to the task ENI, allowing tasks in awsvpc network mode to support gMSA.
+	dnsServerList, err := agent.resourceFields.NetworkUtils.GetDNSServerAddressList(agent.mac)
+	if err != nil {
+		// An error at this point is terminal as the tasks launched with awsvpc network mode
+		// require the DNS entries.
+		return fmt.Errorf("unable to get dns server addresses of instance eni: %v", err), true
+	}
+	agent.cfg.InstanceENIDNSServerList = dnsServerList
+
+	return nil, false
 }
 
 // startWindowsService runs the ECS agent as a Windows Service
@@ -267,6 +311,7 @@ func (agent *ecsAgent) initializeResourceFields(credentialsManager credentials.M
 		Ctx:             agent.ctx,
 		DockerClient:    agent.dockerClient,
 		S3ClientCreator: s3factory.NewS3ClientCreator(),
+		NetworkUtils:    networkutils.New(),
 	}
 }
 
@@ -283,5 +328,41 @@ func (agent *ecsAgent) getPlatformDevices() []*ecs.PlatformDevice {
 }
 
 func (agent *ecsAgent) loadPauseContainer() error {
+	// The pause image would be cached in th ECS-Optimized Windows AMI's and will be available. We will throw an error if the image is not loaded.
+	// If the agent is run on non-supported instances then pause image has to be loaded manually by the client.
+	_, err := agent.pauseLoader.IsLoaded(agent.dockerClient)
+
+	return err
+}
+
+// This method starts the eni watcher
+func (agent *ecsAgent) startENIWatcher(state dockerstate.TaskEngineState, stateChangeEvents chan<- statechange.Event) error {
+	seelog.Debug("Starting ENI Watcher")
+	eniWatcher, err := watcher.New(agent.ctx, agent.mac, state, stateChangeEvents)
+	if err != nil {
+		return errors.Wrapf(err, "unable to start eni watcher")
+	}
+	if err := eniWatcher.Init(); err != nil {
+		return errors.Wrapf(err, "unable to start eni watcher")
+	}
+	go eniWatcher.Start()
+	return nil
+}
+
+// This function verifies that the plugins are available at the given path
+// When each plugin is executed with --capabilities then it returns a string representing its capabilities
+// Using this we will verify that CNI Plugin can support AWSVPC mode
+func (agent *ecsAgent) verifyCNIPluginsCapabilities() error {
+	for _, plugin := range awsVPCCNIPlugins {
+		capabilities, err := agent.cniClient.Capabilities(plugin)
+		if err != nil {
+			return err
+		}
+
+		if !contains(capabilities, ecscni.CapabilityAWSVPCNetworkingMode) {
+			return errors.Errorf("plugin '%s' doesn't support the capability: %s",
+				plugin, ecscni.CapabilityAWSVPCNetworkingMode)
+		}
+	}
 	return nil
 }

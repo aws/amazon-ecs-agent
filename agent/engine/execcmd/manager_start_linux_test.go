@@ -186,7 +186,7 @@ func TestStartAgent(t *testing.T) {
 			}
 
 			if test.expectStartContainerExec {
-				client.EXPECT().StartContainerExec(gomock.Any(), testDockerExecId, dockerclient.ContainerExecStartTimeout).
+				client.EXPECT().StartContainerExec(gomock.Any(), testDockerExecId, gomock.Any(), dockerclient.ContainerExecStartTimeout).
 					Return(test.startContainerExecErr).
 					Times(times)
 			}
@@ -268,7 +268,7 @@ func TestIdempotentStartAgent(t *testing.T) {
 		Return(&types.IDResponse{ID: testDockerExecId}, nil).
 		Times(1)
 
-	client.EXPECT().StartContainerExec(gomock.Any(), testDockerExecId, dockerclient.ContainerExecStartTimeout).
+	client.EXPECT().StartContainerExec(gomock.Any(), testDockerExecId, gomock.Any(), dockerclient.ContainerExecStartTimeout).
 		Return(nil).
 		Times(1)
 
@@ -427,7 +427,7 @@ func TestRestartAgentIfStopped(t *testing.T) {
 					Return(&types.IDResponse{ID: testNewDockerExecID}, nil).
 					Times(1)
 
-				client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any()).
+				client.EXPECT().StartContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil).
 					Times(1)
 

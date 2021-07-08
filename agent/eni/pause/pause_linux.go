@@ -17,7 +17,6 @@ package pause
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -41,19 +40,7 @@ func (*loader) LoadImage(ctx context.Context, cfg *config.Config, dockerClient d
 }
 
 func (*loader) IsLoaded(dockerClient dockerapi.DockerClient) (bool, error) {
-	image, err := getPauseContainerImage(
-		config.DefaultPauseContainerImageName, config.DefaultPauseContainerTag, dockerClient)
-
-	if err != nil {
-		return false, errors.Wrapf(err,
-			"pause container inspect: failed to inspect image: %s", config.DefaultPauseContainerImageName)
-	}
-
-	if image == nil || image.ID == "" {
-		return false, nil
-	}
-
-	return true, nil
+	return isImageLoaded(dockerClient)
 }
 
 var open = os.Open
@@ -75,17 +62,4 @@ func loadFromFile(ctx context.Context, path string, dockerClient dockerapi.Docke
 
 	return nil
 
-}
-
-func getPauseContainerImage(name string, tag string, dockerClient dockerapi.DockerClient) (*types.ImageInspect, error) {
-	imageName := fmt.Sprintf("%s:%s", name, tag)
-	log.Debugf("Inspecting pause container image: %s", imageName)
-
-	image, err := dockerClient.InspectImage(imageName)
-	if err != nil {
-		return nil, errors.Wrapf(err,
-			"pause container load: failed to inspect image: %s", imageName)
-	}
-
-	return image, nil
 }
