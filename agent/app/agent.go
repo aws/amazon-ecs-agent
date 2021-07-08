@@ -776,6 +776,7 @@ func (agent *ecsAgent) startACSSession(
 		credentialsManager,
 		taskHandler,
 		agent.latestSeqNumberTaskManifest,
+		doctor,
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()

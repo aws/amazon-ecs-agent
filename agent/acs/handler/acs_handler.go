@@ -141,7 +141,8 @@ type sessionState interface {
 }
 
 // NewSession creates a new Session object
-func NewSession(ctx context.Context,
+func NewSession(
+	ctx context.Context,
 	config *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	containerInstanceARN string,
@@ -154,7 +155,8 @@ func NewSession(ctx context.Context,
 	credentialsManager rolecredentials.Manager,
 	taskHandler *eventhandler.TaskHandler,
 	latestSeqNumTaskManifest *int64,
-	doctor *doctor.Doctor) Session {
+	doctor *doctor.Doctor,
+) Session {
 	resources := newSessionResources(credentialsProvider)
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
