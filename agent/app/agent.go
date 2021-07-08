@@ -352,6 +352,16 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		agent.saveMetadata(data.EC2InstanceIDKey, currentEC2InstanceID)
 	}
 
+	// now that we know the container instance ARN, we can build out the doctor
+	// and pass it on to ACS and TACS
+	seelog.Info("Setting up the doctor healthchecks.")
+	doctor, doctorCreateErr := agent.newDoctorWithHealthchecks(agent.cfg.Cluster, agent.containerInstanceARN)
+	if doctorCreateErr != nil {
+		seelog.Warnf("Error starting doctor, healthchecks won't be running: %v", err)
+	} else {
+		seelog.Info("Doctor healthchecks set up properly.")
+	}
+
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetDataClient(agent.dataClient)
 	imageManager.SetDataClient(agent.dataClient)
@@ -368,7 +378,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
-		deregisterInstanceEventStream, client, state, taskHandler)
+		deregisterInstanceEventStream, client, state, taskHandler, doctor)
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
@@ -749,7 +759,8 @@ func (agent *ecsAgent) startACSSession(
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
 	state dockerstate.TaskEngineState,
-	taskHandler *eventhandler.TaskHandler) int {
+	taskHandler *eventhandler.TaskHandler,
+	doctor *doctor.Doctor) int {
 
 	acsSession := acshandler.NewSession(
 		agent.ctx,
