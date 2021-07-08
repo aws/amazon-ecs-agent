@@ -17,7 +17,6 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
-	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
 	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/wsclient"
 	"github.com/aws/aws-sdk-go/aws"
@@ -35,13 +34,7 @@ type heartbeatHandler struct {
 }
 
 // newHeartbeatHandler returns an instance of the heartbeatHandler struct
-func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, dockerClient dockerapi.DockerClient, cluster string, containerInstanceArn string) heartbeatHandler {
-	// set up baseline healthchecks in new doctor.
-	var healthchecks []doctor.Healthcheck
-	dockerHealthcheck := doctor.NewDockerRuntimeHealthcheck(dockerClient)
-	healthchecks = append(healthchecks, dockerHealthcheck)
-	heartbeatDoctor, _ := doctor.NewDoctor(healthchecks, cluster, containerInstanceArn)
-
+func newHeartbeatHandler(ctx context.Context, acsClient wsclient.ClientServer, heartbeatDoctor *doctor.Doctor) heartbeatHandler {
 	// Create a cancelable context from the parent context
 	derivedContext, cancel := context.WithCancel(ctx)
 	return heartbeatHandler{
