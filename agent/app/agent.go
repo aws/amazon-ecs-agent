@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
@@ -438,6 +439,21 @@ func (agent *ecsAgent) initMetricsEngine() {
 	// We init the global MetricsEngine before we publish metrics
 	metrics.MustInit(agent.cfg)
 	metrics.PublishMetrics()
+}
+
+// newDoctorWithHealthchecks creates a new doctor and also configures
+// the healthchecks that the doctor should be running
+func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN string) (*doctor.Doctor, error) {
+	// configure the required healthchecks
+	runtimeHealthCheck := doctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
+
+	// put the healthechecks in a list
+	healthcheckList := []doctor.Healthcheck{
+		runtimeHealthCheck,
+	}
+
+	// set up the doctor and return it
+	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)
 }
 
 // setClusterInConfig sets the cluster name in the config object based on
