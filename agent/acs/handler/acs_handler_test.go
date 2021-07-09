@@ -39,6 +39,7 @@ import (
 	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -828,6 +829,9 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 	taskEngine.EXPECT().AddTask(gomock.Any()).AnyTimes()
 	dockerClient.EXPECT().SystemPing(gomock.Any(), gomock.Any()).AnyTimes()
 
+	emptyHealthchecksList := []doctor.Healthcheck{}
+	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "test-cluster", "this:is:an:instance:arn")
+
 	ended := make(chan bool, 1)
 	go func() {
 
@@ -846,6 +850,7 @@ func TestHandlerDoesntLeakGoroutines(t *testing.T) {
 			resources:                newSessionResources(testCreds),
 			credentialsManager:       rolecredentials.NewManager(),
 			latestSeqNumTaskManifest: aws.Int64(12),
+			doctor:                   emptyDoctor,
 		}
 		acsSession.Start()
 		ended <- true
@@ -915,6 +920,9 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 
+	emptyHealthchecksList := []doctor.Healthcheck{}
+	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "test-cluster", "this:is:a:container:arn")
+
 	latestSeqNumberTaskManifest := int64(10)
 	ended := make(chan bool, 1)
 	go func() {
@@ -929,7 +937,9 @@ func TestStartSessionHandlesRefreshCredentialsMessages(t *testing.T) {
 			data.NewNoopClient(),
 			taskEngine,
 			credentialsManager,
-			taskHandler, &latestSeqNumberTaskManifest,
+			taskHandler,
+			&latestSeqNumberTaskManifest,
+			emptyDoctor,
 		)
 		acsSession.Start()
 		// StartSession should never return unless the context is canceled
