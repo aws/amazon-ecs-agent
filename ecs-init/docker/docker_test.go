@@ -232,8 +232,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	for _, envVar := range cfg.Env {
 		envVariables[envVar] = struct{}{}
 	}
-	expectKey("ECS_DATADIR=/data", envVariables, t)
-	expectKey("ECS_LOGFILE=/log/"+config.AgentLogFile, envVariables, t)
+	expectKey("ECS_DATADIR=/var/lib/ecs/data", envVariables, t)
+	expectKey("ECS_LOGFILE=/var/log/ecs/"+config.AgentLogFile, envVariables, t)
 	expectKey("ECS_AGENT_CONFIG_FILE_PATH="+config.AgentJSONConfigFile(), envVariables, t)
 	expectKey("ECS_UPDATE_DOWNLOAD_DIR="+config.CacheDirectory(), envVariables, t)
 	expectKey("ECS_UPDATES_ENABLED=true", envVariables, t)
@@ -267,8 +267,8 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	}
 	defaultDockerSocket, _ := config.DockerUnixSocket()
 	expectKey(defaultDockerSocket+":"+defaultDockerSocket, binds, t)
-	expectKey(config.LogDirectory()+":/log", binds, t)
-	expectKey(config.AgentDataDirectory()+":/data", binds, t)
+	expectKey(config.LogDirectory()+":/var/log/ecs", binds, t)
+	expectKey(config.AgentDataDirectory()+":/var/lib/ecs/data", binds, t)
 	expectKey(config.AgentConfigDirectory()+":"+config.AgentConfigDirectory(), binds, t)
 	expectKey(config.CacheDirectory()+":"+config.CacheDirectory(), binds, t)
 	expectKey(config.ProcFS+":"+hostProcDir+":ro", binds, t)
@@ -279,7 +279,7 @@ func validateCommonCreateContainerOptions(opts godocker.CreateContainerOptions, 
 	expectKey(iptablesExecutableHostDir+":"+iptablesExecutableContainerDir+":ro", binds, t)
 	expectKey(iptablesAltDir+":"+iptablesAltDir+":ro", binds, t)
 	expectKey(iptablesLegacyDir+":"+iptablesLegacyDir+":ro", binds, t)
-	expectKey(config.LogDirectory()+"/exec:/log/exec", binds, t)
+	expectKey(config.LogDirectory()+"/exec:/var/log/ecs/exec", binds, t)
 	for _, pluginDir := range pluginDirs {
 		expectKey(pluginDir+":"+pluginDir+readOnly, binds, t)
 	}

@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-init/ecs-init/backoff"
-	"github.com/aws/amazon-ecs-init/ecs-init/config"
+        "github.com/aws/amazon-ecs-init/ecs-init/config"
 	"github.com/aws/amazon-ecs-init/ecs-init/gpu"
 
 	log "github.com/cihub/seelog"
@@ -32,11 +32,9 @@ import (
 
 const (
 	// logDir specifies the location of Agent log files in the container
-	logDir = directoryPrefix + "/var/log/ecs"
-	//logDir = "/log"
+	logDir = "/var/log/ecs"
 	// dataDir specifies the location of Agent state file in the container
-	dataDir = directoryPrefix + "/var/lib/ecs/data"
-	//dataDir = "/data"
+	dataDir = "/var/lib/ecs/data"
 	// readOnly specifies the read-only suffix for mounting host volumes
 	// when creating the Agent container
 	readOnly = ":ro"
@@ -97,7 +95,6 @@ const (
 	// iptablesExecutableHostDir specifies the location of the iptable
 	// executable inside container.
 	iptablesExecutableContainerDir = "/sbin"
-	//iptablesExecutableContainerDir = "/host/sbin"
 	// iptablesAltDir specifies the location of iptables alternatives
 	iptablesAltDir = "/etc/alternatives"
 	// legacyDir holds the location of legacy iptables
