@@ -88,15 +88,16 @@ func TestConfigureTaskNamespaceRouting(t *testing.T) {
 			cmd1 := fmt.Sprintf(windowsRouteDeleteCmdFormat, windowsDefaultRoute, bridgeEpName)
 			cmd2 := fmt.Sprintf(windowsRouteDeleteCmdFormat, "10.0.0.0/24", bridgeEpName)
 			cmd3 := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, bridgeEpName)
+			commands := []string{cmd1, cmd2, cmd3}
 
 			var cmd4 string
-			if cniConfig.BlockInstanceMetadata {
-				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, loopbackInterfaceName)
-			} else {
+			if !cniConfig.BlockInstanceMetadata {
 				cmd4 = fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, taskEPName)
+				commands = append(commands, cmd4)
 			}
 			cmd5 := fmt.Sprintf(windowsRouteAddCmdFormat, "10.0.0.0/24", bridgeEpName)
-			finalCmd := strings.Join([]string{cmd1, cmd2, cmd3, cmd4, cmd5}, " & ")
+			commands = append(commands, cmd5)
+			finalCmd := strings.Join(commands, " & ")
 
 			gomock.InOrder(
 				dockerClient.EXPECT().CreateContainerExec(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
