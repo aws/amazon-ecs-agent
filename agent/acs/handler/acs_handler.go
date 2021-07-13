@@ -30,6 +30,7 @@ import (
 	rolecredentials "github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/eventhandler"
@@ -96,6 +97,7 @@ type session struct {
 	backoff                         retry.Backoff
 	resources                       sessionResources
 	latestSeqNumTaskManifest        *int64
+	doctor                          *doctor.Doctor
 	_heartbeatTimeout               time.Duration
 	_heartbeatJitter                time.Duration
 	_inactiveInstanceReconnectDelay time.Duration
@@ -139,7 +141,8 @@ type sessionState interface {
 }
 
 // NewSession creates a new Session object
-func NewSession(ctx context.Context,
+func NewSession(
+	ctx context.Context,
 	config *config.Config,
 	deregisterInstanceEventStream *eventstream.EventStream,
 	containerInstanceARN string,
@@ -150,7 +153,10 @@ func NewSession(ctx context.Context,
 	dataClient data.Client,
 	taskEngine engine.TaskEngine,
 	credentialsManager rolecredentials.Manager,
-	taskHandler *eventhandler.TaskHandler, latestSeqNumTaskManifest *int64) Session {
+	taskHandler *eventhandler.TaskHandler,
+	latestSeqNumTaskManifest *int64,
+	doctor *doctor.Doctor,
+) Session {
 	resources := newSessionResources(credentialsProvider)
 	backoff := retry.NewExponentialBackoff(connectionBackoffMin, connectionBackoffMax,
 		connectionBackoffJitter, connectionBackoffMultiplier)
@@ -173,6 +179,7 @@ func NewSession(ctx context.Context,
 		backoff:                         backoff,
 		resources:                       resources,
 		latestSeqNumTaskManifest:        latestSeqNumTaskManifest,
+		doctor:                          doctor,
 		_heartbeatTimeout:               heartbeatTimeout,
 		_heartbeatJitter:                heartbeatJitter,
 		_inactiveInstanceReconnectDelay: inactiveInstanceReconnectDelay,
@@ -339,7 +346,7 @@ func (acsSession *session) startACSSession(client wsclient.ClientServer) error {
 
 	client.AddRequestHandler(payloadHandler.handlerFunc())
 
-	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.dockerClient, acsSession.agentConfig.Cluster, acsSession.containerInstanceARN)
+	heartbeatHandler := newHeartbeatHandler(acsSession.ctx, client, acsSession.doctor)
 	defer heartbeatHandler.clearAcks()
 	heartbeatHandler.start()
 	defer heartbeatHandler.stop()

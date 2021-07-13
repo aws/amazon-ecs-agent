@@ -21,6 +21,7 @@ import (
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	mock_wsclient "github.com/aws/amazon-ecs-agent/agent/wsclient/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -96,7 +97,10 @@ func validateHeartbeatAck(t *testing.T, heartbeatReceived *ecsacs.HeartbeatMessa
 	dockerClient := mock_dockerapi.NewMockDockerClient(ctrl)
 	dockerClient.EXPECT().SystemPing(gomock.Any(), gomock.Any()).AnyTimes()
 
-	handler := newHeartbeatHandler(ctx, mockWsClient, dockerClient, "testCluster", "testARN")
+	emptyHealthchecksList := []doctor.Healthcheck{}
+	emptyDoctor, _ := doctor.NewDoctor(emptyHealthchecksList, "testCluster", "this:is:an:instance:arn")
+
+	handler := newHeartbeatHandler(ctx, mockWsClient, emptyDoctor)
 
 	go handler.sendHeartbeatAck()
 
