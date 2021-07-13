@@ -354,12 +354,11 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// now that we know the container instance ARN, we can build out the doctor
 	// and pass it on to ACS and TACS
-	seelog.Info("Setting up the doctor healthchecks.")
 	doctor, doctorCreateErr := agent.newDoctorWithHealthchecks(agent.cfg.Cluster, agent.containerInstanceARN)
 	if doctorCreateErr != nil {
 		seelog.Warnf("Error starting doctor, healthchecks won't be running: %v", err)
 	} else {
-		seelog.Info("Doctor healthchecks set up properly.")
+		seelog.Debug("Doctor healthchecks set up properly.")
 	}
 
 	// Begin listening to the docker daemon and saving changes
