@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/eni/watcher"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
@@ -358,6 +359,15 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		agent.saveMetadata(data.EC2InstanceIDKey, currentEC2InstanceID)
 	}
 
+	// now that we know the container instance ARN, we can build out the doctor
+	// and pass it on to ACS and TACS
+	doctor, doctorCreateErr := agent.newDoctorWithHealthchecks(agent.cfg.Cluster, agent.containerInstanceARN)
+	if doctorCreateErr != nil {
+		seelog.Warnf("Error starting doctor, healthchecks won't be running: %v", err)
+	} else {
+		seelog.Debug("Doctor healthchecks set up properly.")
+	}
+
 	// Begin listening to the docker daemon and saving changes
 	taskEngine.SetDataClient(agent.dataClient)
 	imageManager.SetDataClient(agent.dataClient)
@@ -374,7 +384,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
-		deregisterInstanceEventStream, client, state, taskHandler)
+		deregisterInstanceEventStream, client, state, taskHandler, doctor)
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
@@ -445,6 +455,21 @@ func (agent *ecsAgent) initMetricsEngine() {
 	// We init the global MetricsEngine before we publish metrics
 	metrics.MustInit(agent.cfg)
 	metrics.PublishMetrics()
+}
+
+// newDoctorWithHealthchecks creates a new doctor and also configures
+// the healthchecks that the doctor should be running
+func (agent *ecsAgent) newDoctorWithHealthchecks(cluster, containerInstanceARN string) (*doctor.Doctor, error) {
+	// configure the required healthchecks
+	runtimeHealthCheck := doctor.NewDockerRuntimeHealthcheck(agent.dockerClient)
+
+	// put the healthechecks in a list
+	healthcheckList := []doctor.Healthcheck{
+		runtimeHealthCheck,
+	}
+
+	// set up the doctor and return it
+	return doctor.NewDoctor(healthcheckList, cluster, containerInstanceARN)
 }
 
 // setClusterInConfig sets the cluster name in the config object based on
@@ -748,7 +773,8 @@ func (agent *ecsAgent) startACSSession(
 	deregisterInstanceEventStream *eventstream.EventStream,
 	client api.ECSClient,
 	state dockerstate.TaskEngineState,
-	taskHandler *eventhandler.TaskHandler) int {
+	taskHandler *eventhandler.TaskHandler,
+	doctor *doctor.Doctor) int {
 
 	acsSession := acshandler.NewSession(
 		agent.ctx,
@@ -764,6 +790,7 @@ func (agent *ecsAgent) startACSSession(
 		credentialsManager,
 		taskHandler,
 		agent.latestSeqNumberTaskManifest,
+		doctor,
 	)
 	seelog.Info("Beginning Polling for updates")
 	err := acsSession.Start()
