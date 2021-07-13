@@ -181,6 +181,11 @@ func TestSupportedCapabilitiesWindows(t *testing.T) {
 		attributePrefix + capabilitySecretEnvASM,
 		attributePrefix + capabilitySecretLogDriverASM,
 		attributePrefix + capabilityContainerOrdering,
+		attributePrefix + capabilityFirelensFluentd,
+		attributePrefix + capabilityFirelensFluentbit,
+		capabilityPrefix + capabilityFirelensLoggingDriver,
+		attributePrefix + capabilityFirelensConfigFile,
+		attributePrefix + capabilityFirelensConfigS3,
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix}
