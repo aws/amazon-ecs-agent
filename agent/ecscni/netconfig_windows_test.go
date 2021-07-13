@@ -79,6 +79,7 @@ func TestNewVPCENIPluginConfigForTaskNSSetup(t *testing.T) {
 	assert.EqualValues(t, []string{validVPCGatewayIPv4Addr}, netConfig.GatewayIPAddresses)
 	assert.EqualValues(t, linkName, netConfig.ENIName)
 	assert.False(t, netConfig.UseExistingNetwork)
+	assert.EqualValues(t, cniConfig.BlockInstanceMetadata, netConfig.BlockIMDS)
 }
 
 func TestNewVPCENIPluginConfigForTaskNSSetupFailure(t *testing.T) {
@@ -105,4 +106,5 @@ func TestNewVPCENIPluginConfigForECSBridgeSetup(t *testing.T) {
 	assert.EqualValues(t, cniMinSupportedVersion, config.Network.CNIVersion)
 	assert.EqualValues(t, ECSBridgeNetworkName, config.Network.Name)
 	assert.True(t, netConfig.UseExistingNetwork)
+	assert.EqualValues(t, cniConfig.BlockInstanceMetadata, netConfig.BlockIMDS)
 }
