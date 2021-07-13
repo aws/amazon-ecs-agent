@@ -42,8 +42,6 @@ const (
 	ecsBridgeEndpointNameFormat = "vEthernet (%s-ep-%s)"
 	// taskPrimaryEndpointNameFormat is the name format of the primary endpoint in the task namespace.
 	taskPrimaryEndpointNameFormat = "vEthernet (%sbr%s-ep-%s)"
-	// loopbackInterfaceName is the name of the loopback interface.
-	loopbackInterfaceName = "Loopback"
 	// windowsRouteAddCmdFormat is the format of command for adding route entry on Windows.
 	windowsRouteAddCmdFormat = `netsh interface ipv4 add route prefix=%s interface="%s"`
 	// windowsRouteDeleteCmdFormat is the format of command for deleting route entry on Windowsx.
@@ -73,13 +71,8 @@ func (nsHelper *helper) ConfigureTaskNamespaceRouting(ctx context.Context, taskE
 	credentialsAddressRouteAdditionCmd := fmt.Sprintf(windowsRouteAddCmdFormat, credentialsEndpointRoute, ecsBridgeEndpointName)
 	commands := []string{defaultRouteDeletionCmd, defaultSubnetRouteDeletionCmd, credentialsAddressRouteAdditionCmd}
 
-	// For blocking instance metadata, create a black hole route inside the task namespace.
-	// This route will redirect all the packets sent to IMDS endpoint through its loopback interface.
 	// If IMDS is required, then create an explicit route through the primary interface of the task.
-	if config.BlockInstanceMetadata {
-		blockIMDSRouteCommand := fmt.Sprintf(windowsRouteAddCmdFormat, imdsEndpointIPAddress, loopbackInterfaceName)
-		commands = append(commands, blockIMDSRouteCommand)
-	} else {
+	if !config.BlockInstanceMetadata {
 		// This naming convention is drawn from the way CNI plugin names the endpoints.
 		// https://github.com/aws/amazon-vpc-cni-plugins/blob/master/plugins/vpc-eni/network/network_windows.go
 		taskPrimaryEndpointId := strings.Replace(strings.ToLower(taskENI.MacAddress), ":", "", -1)
