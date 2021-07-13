@@ -57,6 +57,7 @@ func NewVPCENIPluginConfigForTaskNSSetup(eni *eni.ENI, cfg *Config) (*libcni.Net
 		ENIIPAddresses:     []string{eni.GetPrimaryIPv4AddressWithPrefixLength()},
 		GatewayIPAddresses: []string{eni.GetSubnetGatewayIPv4Address()},
 		UseExistingNetwork: false,
+		BlockIMDS:          cfg.BlockInstanceMetadata,
 	}
 
 	networkConfig, err := newNetworkConfig(eniConf, ECSVPCENIPluginExecutable, cfg.MinSupportedCNIVersion)
@@ -73,6 +74,7 @@ func NewVPCENIPluginConfigForECSBridgeSetup(cfg *Config) (*libcni.NetworkConfig,
 	bridgeConf := VPCENIPluginConfig{
 		Type:               ECSVPCENIPluginName,
 		UseExistingNetwork: true,
+		BlockIMDS:          cfg.BlockInstanceMetadata,
 	}
 
 	networkConfig, err := newNetworkConfig(bridgeConf, ECSVPCENIPluginExecutable, cfg.MinSupportedCNIVersion)
