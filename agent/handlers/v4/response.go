@@ -152,7 +152,7 @@ func toV4NetworkResponse(
 			if !ok {
 				return nil, errors.New("v4 task response: unable to find task")
 			}
-			props, err := newNetworkInterfaceProperties(task)
+			props, err := NewNetworkInterfaceProperties(task)
 			if err != nil {
 				return nil, err
 			}
@@ -164,9 +164,9 @@ func toV4NetworkResponse(
 	return resp, nil
 }
 
-// newNetworkInterfaceProperties creates the NetworkInterfaceProperties object for a given
+// NewNetworkInterfaceProperties creates the NetworkInterfaceProperties object for a given
 // task.
-func newNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperties, error) {
+func NewNetworkInterfaceProperties(task *apitask.Task) (NetworkInterfaceProperties, error) {
 	eni := task.GetPrimaryENI()
 
 	var attachmentIndexPtr *int

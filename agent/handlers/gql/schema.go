@@ -16,14 +16,17 @@ package gql
 import (
 	"time"
 
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
-
+	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/graphql-go/graphql"
@@ -73,7 +76,7 @@ func CreateSchema(
 			},
 			"KnownStatus": &graphql.Field{
 				Type:    graphql.String,
-				Resolve: contaienrKnownStatusResolver,
+				Resolve: containerKnownStatusResolver,
 			},
 			"Limits": &graphql.Field{
 				Type:    JSON,
@@ -110,6 +113,14 @@ func CreateSchema(
 			"ContainerARN": &graphql.Field{
 				Type:    graphql.String,
 				Resolve: containerARNResolver,
+			},
+			"Stats": &graphql.Field{
+				Type:    JSON,
+				Resolve: containerStatsResolver(state, statsEngine),
+			},
+			"Networks": &graphql.Field{
+				Type:    graphql.NewList(JSON),
+				Resolve: containerNetworksResolver(state),
 			},
 		},
 	})
@@ -171,6 +182,14 @@ func CreateSchema(
 				Type:    graphql.NewList(containerType),
 				Resolve: taskContainersResolver(state),
 			},
+			"TaskTags": &graphql.Field{
+				Type:    JSON,
+				Resolve: taskTagsResolver(ecsClient),
+			},
+			"ContainerInstanceTags": &graphql.Field{
+				Type:    JSON,
+				Resolve: containerInstanceTagsResolver(containerInstanceArn, ecsClient),
+			},
 		},
 	})
 
@@ -201,7 +220,7 @@ func containerResolver(p graphql.ResolveParams) (interface{}, error) {
 }
 
 func containerNameResolver(p graphql.ResolveParams) (interface{}, error) {
-	dockerContainer, ok := p.Context.Value(Container).(*apicontainer.DockerContainer)
+	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
 	if !ok {
 		return "", nil
 	}
@@ -238,7 +257,7 @@ func containerDesiredStatusResolver(p graphql.ResolveParams) (interface{}, error
 	return nil, nil
 }
 
-func contaienrKnownStatusResolver(p graphql.ResolveParams) (interface{}, error) {
+func containerKnownStatusResolver(p graphql.ResolveParams) (interface{}, error) {
 	if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
 		return dockerContainer.Container.GetKnownStatus().String(), nil
 	}
@@ -265,23 +284,30 @@ func exitCodeResolver(p graphql.ResolveParams) (interface{}, error) {
 	return nil, nil
 }
 
+func timeResolverHelper(t time.Time) (interface{}, error) {
+	if t.IsZero() {
+		return nil, nil
+	}
+	return t.UTC().Format(time.RFC3339Nano), nil
+}
+
 func containerCreatedAtResolver(p graphql.ResolveParams) (interface{}, error) {
 	if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
-		return dockerContainer.Container.GetCreatedAt().UTC().Format(time.RFC3339Nano), nil
+		return timeResolverHelper(dockerContainer.Container.GetCreatedAt())
 	}
 	return nil, nil
 }
 
 func containerStartedAtResolver(p graphql.ResolveParams) (interface{}, error) {
 	if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
-		return dockerContainer.Container.GetStartedAt().UTC().Format(time.RFC3339Nano), nil
+		return timeResolverHelper(dockerContainer.Container.GetStartedAt())
 	}
 	return nil, nil
 }
 
 func containerFinishedAtResolver(p graphql.ResolveParams) (interface{}, error) {
 	if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
-		return dockerContainer.Container.GetFinishedAt().UTC().Format(time.RFC3339Nano), nil
+		return timeResolverHelper(dockerContainer.Container.GetFinishedAt())
 	}
 	return nil, nil
 }
@@ -312,6 +338,70 @@ func containerARNResolver(p graphql.ResolveParams) (interface{}, error) {
 		return dockerContainer.Container.ContainerArn, nil
 	}
 	return nil, nil
+}
+
+func containerStatsResolver(state dockerstate.TaskEngineState, statsEngine stats.Engine) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
+		if !ok {
+			return nil, nil
+		}
+		task, ok := state.TaskByID(dockerContainer.DockerID)
+		if !ok {
+			return nil, errors.Errorf("Unable to find task for container '%s'", dockerContainer.DockerID)
+		}
+
+		dockerStats, network_rate_stats, err := statsEngine.ContainerDockerStats(task.Arn, dockerContainer.DockerID)
+		if err != nil {
+			return nil, err
+		}
+
+		return v4.StatsResponse{
+			StatsJSON:          dockerStats,
+			Network_rate_stats: network_rate_stats,
+		}, nil
+	}
+}
+
+func containerNetworksResolver(state dockerstate.TaskEngineState) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
+			// Pulled containers do not have a network
+			// TODO: Find a cleaner way to have pulled containers return nil
+			if dockerContainer.Container.KnownStatusUnsafe == apicontainerstatus.ContainerPulled {
+				return nil, nil
+			}
+			task, ok := state.TaskByID(dockerContainer.DockerID)
+			if !ok {
+				return nil, errors.Errorf("Unable to find task for container '%s'", dockerContainer.DockerID)
+			}
+			eni := task.GetPrimaryENI()
+			var resp []v4.Network
+			if eni != nil { // NetworkMode is AWSVPC
+				props, err := v4.NewNetworkInterfaceProperties(task)
+				if err != nil {
+					return nil, err
+				}
+				resp = []v4.Network{
+					{
+						Network: containermetadata.Network{
+							NetworkMode:   utils.NetworkModeAWSVPC,
+							IPv4Addresses: eni.GetIPV4Addresses(),
+							IPv6Addresses: eni.GetIPV6Addresses(),
+						},
+						NetworkInterfaceProperties: props,
+					},
+				}
+				return resp, nil
+			}
+			resp, err := v4.GetContainerNetworkMetadata(dockerContainer.DockerID, state)
+			if err != nil {
+				return nil, err
+			}
+			return resp, nil
+		}
+		return nil, nil
+	}
 }
 
 // Task Field Resolvers
@@ -397,9 +487,44 @@ func taskContainersResolver(state dockerstate.TaskEngineState) func(p graphql.Re
 			for _, dockerContainer := range containerNameToDockerContainer {
 				resp = append(resp, dockerContainer)
 			}
+			pulledContainers, _ := state.PulledContainerMapByArn(task.Arn)
+			for _, dockerContainer := range pulledContainers {
+				resp = append(resp, dockerContainer)
+			}
 			return resp, nil
 		}
 		return nil, nil
+	}
+}
+
+func taskTagsResolver(ecsClient api.ECSClient) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		if task, ok := p.Source.(*apitask.Task); ok {
+			taskTags, err := ecsClient.GetResourceTags(task.Arn)
+			if err != nil {
+				return nil, errors.Errorf("Task Metadata error: unable to get TaskTags for '%s': %s", task.Arn, err.Error())
+			}
+			tagMap := make(map[string]string)
+			for _, tag := range taskTags {
+				tagMap[*tag.Key] = *tag.Value
+			}
+			return tagMap, nil
+		}
+		return nil, nil
+	}
+}
+
+func containerInstanceTagsResolver(containerInstancArn string, ecsClient api.ECSClient) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		containerTags, err := ecsClient.GetResourceTags(containerInstancArn)
+		if err != nil {
+			return nil, errors.Errorf("Task Metadata error: unable to get ContainerInstanceTags for '%s': %s", containerInstancArn, err.Error())
+		}
+		tagMap := make(map[string]string)
+		for _, tag := range containerTags {
+			tagMap[*tag.Key] = *tag.Value
+		}
+		return tagMap, nil
 	}
 }
 
