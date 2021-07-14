@@ -445,8 +445,8 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 
 	ssmClient := cs.ssmClientCreator.NewSSMClient(cs.region, iamCredentials)
 
-	ssmParam := filepath.Base(parsedARN.Resource)
-	ssmParams := []string{ssmParam}
+	ssmParam := strings.SplitAfterN(parsedARN.Resource, "parameter", 2) 
+	ssmParams := []string{ssmParam[1]}
 
 	ssmParamMap, err := ssm.GetParametersFromSSM(ssmParams, ssmClient)
 	if err != nil {
@@ -460,7 +460,8 @@ func (cs *CredentialSpecResource) handleSSMCredentialspecFile(originalCredential
 	if length < 2 {
 		return errors.New("Failed to retrieve taskId from taskArn.")
 	}
-	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v_%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParam)
+	ssmParamSanitizedFileName := strings.Replace(ssmParam[1], "/", "_")
+	localCredSpecFilePath := fmt.Sprintf("%s\\ssm_%v%s", cs.credentialSpecResourceLocation, taskArnSplit[length-1], ssmParamSanitizedFileName)
 	err = cs.writeSSMFile(ssmParamData, localCredSpecFilePath)
 	if err != nil {
 		cs.setTerminalReason(err.Error())

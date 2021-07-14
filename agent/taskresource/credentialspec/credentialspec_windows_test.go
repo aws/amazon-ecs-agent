@@ -209,9 +209,9 @@ func TestHandleSSMCredentialspecFile(t *testing.T) {
 		CredentialsID: "test-cred-id",
 	}
 
-	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/test"
-	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/test"
-	expectedFileCredentialSpec := "credentialspec=file://ssm_12345-678901234-56789_test"
+	credentialSpecSSMARN := "arn:aws:ssm:us-west-2:123456789012:parameter/subpath/test"
+	ssmCredentialSpec := "credentialspec:arn:aws:ssm:us-west-2:123456789012:parameter/subpath/test"
+	expectedFileCredentialSpec := "credentialspec=file://ssm_12345-678901234-56789_subpath_test"
 
 	requiredCredSpec := []string{ssmCredentialSpec}
 
