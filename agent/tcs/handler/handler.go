@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/engine"
 	"github.com/aws/amazon-ecs-agent/agent/eventstream"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
@@ -102,7 +103,7 @@ func startTelemetrySession(params *TelemetrySessionParams, statsEngine stats.Eng
 	url := formatURL(tcsEndpoint, params.Cfg.Cluster, params.ContainerInstanceArn, params.TaskEngine)
 	return startSession(params.Ctx, url, params.Cfg, params.CredentialProvider, statsEngine,
 		defaultHeartbeatTimeout, defaultHeartbeatJitter, config.DefaultContainerMetricsPublishInterval,
-		params.DeregisterInstanceEventStream)
+		params.DeregisterInstanceEventStream, params.Doctor)
 }
 
 func startSession(
@@ -113,7 +114,9 @@ func startSession(
 	statsEngine stats.Engine,
 	heartbeatTimeout, heartbeatJitter,
 	publishMetricsInterval time.Duration,
-	deregisterInstanceEventStream *eventstream.EventStream) error {
+	deregisterInstanceEventStream *eventstream.EventStream,
+	doctor *doctor.Doctor,
+) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
 		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled())
 	defer client.Close()
