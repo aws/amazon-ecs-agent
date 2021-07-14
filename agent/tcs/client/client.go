@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
 	"github.com/aws/amazon-ecs-agent/agent/utils"
@@ -41,13 +42,15 @@ const (
 
 // clientServer implements wsclient.ClientServer interface for metrics backend.
 type clientServer struct {
-	statsEngine            stats.Engine
-	publishTicker          *time.Ticker
-	publishHealthTicker    *time.Ticker
-	ctx                    context.Context
-	cancel                 context.CancelFunc
-	disableResourceMetrics bool
-	publishMetricsInterval time.Duration
+	statsEngine              stats.Engine
+	doctor                   *doctor.Doctor
+	publishTicker            *time.Ticker
+	publishHealthTicker      *time.Ticker
+	pullInstanceStatusTicker *time.Ticker
+	ctx                      context.Context
+	cancel                   context.CancelFunc
+	disableResourceMetrics   bool
+	publishMetricsInterval   time.Duration
 	wsclient.ClientServerImpl
 }
 
@@ -60,12 +63,16 @@ func New(url string,
 	statsEngine stats.Engine,
 	publishMetricsInterval time.Duration,
 	rwTimeout time.Duration,
-	disableResourceMetrics bool) wsclient.ClientServer {
+	disableResourceMetrics bool,
+	doctor *doctor.Doctor,
+) wsclient.ClientServer {
 	cs := &clientServer{
-		statsEngine:            statsEngine,
-		publishTicker:          nil,
-		publishHealthTicker:    nil,
-		publishMetricsInterval: publishMetricsInterval,
+		statsEngine:              statsEngine,
+		doctor:                   doctor,
+		publishTicker:            nil,
+		publishHealthTicker:      nil,
+		pullInstanceStatusTicker: nil,
+		publishMetricsInterval:   publishMetricsInterval,
 	}
 	cs.URL = url
 	cs.AgentConfig = cfg
@@ -97,6 +104,7 @@ func (cs *clientServer) Serve() error {
 	// Start the timer function to publish metrics to the backend.
 	cs.publishTicker = time.NewTicker(cs.publishMetricsInterval)
 	cs.publishHealthTicker = time.NewTicker(cs.publishMetricsInterval)
+	cs.pullInstanceStatusTicker = time.NewTicker(cs.publishMetricsInterval)
 
 	if !cs.disableResourceMetrics {
 		go cs.publishMetrics()
