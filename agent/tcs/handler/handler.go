@@ -118,7 +118,7 @@ func startSession(
 	doctor *doctor.Doctor,
 ) error {
 	client := tcsclient.New(url, cfg, credentialProvider, statsEngine,
-		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled())
+		publishMetricsInterval, wsRWTimeout, cfg.DisableMetrics.Enabled(), doctor)
 	defer client.Close()
 
 	err := deregisterInstanceEventStream.Subscribe(deregisterContainerInstanceHandler, client.Disconnect)
