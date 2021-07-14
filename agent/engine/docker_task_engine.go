@@ -643,7 +643,7 @@ func (engine *DockerTaskEngine) deleteTask(task *apitask.Task) {
 		if tID, err := task.GetID(); err != nil {
 			seelog.Warnf("Task Engine[%s]: error getting task ID for ExecAgent logs cleanup: %v", task.Arn, err)
 		} else {
-			if err := removeAll(filepath.Join(execcmd.ECSAgentExecLogDir, tID)); err != nil {
+			if err := removeAll(filepath.Join(execcmd.HostLogDir, tID)); err != nil {
 				seelog.Warnf("Task Engine[%s]: unable to remove ExecAgent host logs for task: %v", task.Arn, err)
 			}
 		}
