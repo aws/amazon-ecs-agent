@@ -98,6 +98,17 @@ type ErrorResponse struct {
 // are passed to Docker as two CPU shares
 const minimumCPUUnit = 2
 
+func GetTaskLimits(taskCPU float64, taskMemory int64) *LimitsResponse {
+	taskLimits := &LimitsResponse{}
+	if taskCPU != 0 {
+		taskLimits.CPU = &taskCPU
+	}
+	if taskMemory != 0 {
+		taskLimits.Memory = &taskMemory
+	}
+	return taskLimits
+}
+
 // NewTaskResponse creates a new response object for the task
 func NewTaskResponse(
 	taskARN string,
@@ -130,13 +141,7 @@ func NewTaskResponse(
 	taskCPU := task.CPU
 	taskMemory := task.Memory
 	if taskCPU != 0 || taskMemory != 0 {
-		taskLimits := &LimitsResponse{}
-		if taskCPU != 0 {
-			taskLimits.CPU = &taskCPU
-		}
-		if taskMemory != 0 {
-			taskLimits.Memory = &taskMemory
-		}
+		taskLimits := GetTaskLimits(taskCPU, taskMemory)
 		resp.Limits = taskLimits
 	}
 
@@ -214,6 +219,15 @@ func NewContainerResponseFromState(
 	return &resp, nil
 }
 
+// GetContainerCPULimit retrieves a container CPU limit and defaults to a minimumCPUUnit value
+func GetContainerCPULimit(container *apicontainer.Container) *float64 {
+	if container.CPU < minimumCPUUnit {
+		return func(val float64) *float64 { return &val }(minimumCPUUnit)
+	} else {
+		return aws.Float64(float64(container.CPU))
+	}
+}
+
 // NewContainerResponse creates a new container response
 // TODO: remove includeV4Metadata from NewContainerResponse
 func NewContainerResponse(
@@ -222,6 +236,7 @@ func NewContainerResponse(
 	includeV4Metadata bool,
 ) ContainerResponse {
 	container := dockerContainer.Container
+	containerCPU := GetContainerCPULimit(container)
 	resp := ContainerResponse{
 		ID:            dockerContainer.DockerID,
 		Name:          container.Name,
@@ -231,17 +246,12 @@ func NewContainerResponse(
 		DesiredStatus: container.GetDesiredStatus().String(),
 		KnownStatus:   container.GetKnownStatus().String(),
 		Limits: LimitsResponse{
-			CPU:    aws.Float64(float64(container.CPU)),
+			CPU:    containerCPU,
 			Memory: aws.Int64(int64(container.Memory)),
 		},
 		Type:     container.Type.String(),
 		ExitCode: container.GetKnownExitCode(),
 		Labels:   container.GetLabels(),
-	}
-
-	if container.CPU < minimumCPUUnit {
-		defaultCPU := func(val float64) *float64 { return &val }(minimumCPUUnit)
-		resp.Limits.CPU = defaultCPU
 	}
 
 	// V4 metadata endpoint calls this function for consistency across versions,
