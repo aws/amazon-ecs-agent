@@ -89,6 +89,7 @@ const (
 	dataLogDriverPath           = "/data/firelens/"
 	logDriverAsyncConnect       = "fluentd-async-connect"
 	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
+	logDriverBufferLimit        = "fluentd-buffer-limit"
 	dataLogDriverSocketPath     = "/socket/fluent.sock"
 	socketPathPrefix            = "unix://"
 
@@ -1279,12 +1280,16 @@ func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container,
 	tag := fmt.Sprintf(fluentTagDockerFormat, container.Name, taskID)
 	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig := hostConfig.LogConfig
+	bufferLimit, bufferLimitExists := logConfig.Config[apitask.FirelensLogDriverBufferLimitOption]
 	logConfig.Type = logDriverTypeFluentd
 	logConfig.Config = make(map[string]string)
 	logConfig.Config[logDriverTag] = tag
 	logConfig.Config[logDriverFluentdAddress] = fluentd
 	logConfig.Config[logDriverAsyncConnect] = strconv.FormatBool(true)
 	logConfig.Config[logDriverSubSecondPrecision] = strconv.FormatBool(true)
+	if bufferLimitExists {
+		logConfig.Config[logDriverBufferLimit] = bufferLimit
+	}
 	seelog.Debugf("Applying firelens log config for container %s: %v", container.Name, logConfig)
 	return logConfig
 }

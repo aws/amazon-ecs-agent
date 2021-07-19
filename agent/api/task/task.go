@@ -117,6 +117,8 @@ const (
 	firelensSocketBindFormat = "%s/data/firelens/%s/socket/:/var/run/"
 	// firelensDriverName is the log driver name for containers that want to use the firelens container to send logs.
 	firelensDriverName = "awsfirelens"
+	// FirelensLogDriverBufferLimitOption is the option for customers who want to specify the buffer limit size in FireLens.
+	FirelensLogDriverBufferLimitOption = "log-driver-buffer-limit"
 
 	// firelensConfigVarFmt specifies the format for firelens config variable name. The first placeholder
 	// is option name. The second placeholder is the index of the container in the task's container list, appended
@@ -1069,6 +1071,9 @@ func (task *Task) collectFirelensLogOptions(containerToLogOptions map[string]map
 				containerToLogOptions[container.Name] = make(map[string]string)
 			}
 			for k, v := range hostConfig.LogConfig.Config {
+				if k == FirelensLogDriverBufferLimitOption {
+					continue
+				}
 				containerToLogOptions[container.Name][k] = v
 			}
 		}
