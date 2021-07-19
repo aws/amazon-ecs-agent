@@ -118,6 +118,7 @@ func TestCapabilities(t *testing.T) {
 		capabilityPrefix + "logging-driver.journald",
 		capabilityPrefix + "selinux",
 		capabilityPrefix + "apparmor",
+		capabilityPrefix + capabilityFirelensLoggingDriver,
 		attributePrefix + "docker-plugin.local",
 		attributePrefix + taskENIAttributeSuffix,
 		attributePrefix + capabilityPrivateRegistryAuthASM,
@@ -131,6 +132,10 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
+		attributePrefix + capabilityFirelensFluentd,
+		attributePrefix + capabilityFirelensFluentbit,
+		attributePrefix + capabilityFirelensConfigFile,
+		attributePrefix + capabilityFirelensConfigS3,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -1106,4 +1111,69 @@ func TestAppendAndRemoveAttributes(t *testing.T) {
 	assert.Contains(t, attrs, &ecs.Attribute{
 		Name: aws.String("cap-2"),
 	})
+}
+
+func TestFirelensConfigCapabilities(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	client := mock_dockerapi.NewMockDockerClient(ctrl)
+	cniClient := mock_ecscni.NewMockCNIClient(ctrl)
+	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
+	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
+	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	conf := &config.Config{
+		AvailableLoggingDrivers: []dockerclient.LoggingDriver{
+			dockerclient.JSONFileDriver,
+			dockerclient.SyslogDriver,
+			dockerclient.JournaldDriver,
+			dockerclient.GelfDriver,
+			dockerclient.FluentdDriver,
+		},
+		PrivilegedDisabled:         config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+		SELinuxCapable:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AppArmorCapable:            config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskENIEnabled:             config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		AWSVPCBlockInstanceMetdata: config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled},
+		TaskCleanupWaitDuration:    config.DefaultConfig().TaskCleanupWaitDuration,
+	}
+
+	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(false, nil).AnyTimes()
+	// Scan() and ListPluginsWithFilters() are tested with
+	// AnyTimes() because they are not called in windows.
+	gomock.InOrder(
+		client.EXPECT().SupportedVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+		}),
+		client.EXPECT().KnownVersions().Return([]dockerclient.DockerVersion{
+			dockerclient.Version_1_17,
+			dockerclient.Version_1_18,
+			dockerclient.Version_1_19,
+		}),
+		// CNI plugins are platform dependent.
+		// Therefore, for any version query for any plugin return an appropriate version
+		cniClient.EXPECT().Version(gomock.Any()).Return("v1", nil),
+		mockMobyPlugins.EXPECT().Scan().AnyTimes().Return([]string{}, nil),
+		client.EXPECT().ListPluginsWithFilters(gomock.Any(), gomock.Any(), gomock.Any(),
+			gomock.Any()).AnyTimes().Return([]string{}, nil),
+	)
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:                ctx,
+		cfg:                conf,
+		dockerClient:       client,
+		cniClient:          cniClient,
+		pauseLoader:        mockPauseLoader,
+		credentialProvider: aws_credentials.NewCredentials(mockCredentialsProvider),
+		mobyPlugins:        mockMobyPlugins,
+	}
+	capabilities, err := agent.capabilities()
+	assert.NoError(t, err)
+
+	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigFile)})
+	assert.Contains(t, capabilities, &ecs.Attribute{Name: aws.String(attributePrefix + capabilityFirelensConfigS3)})
 }
