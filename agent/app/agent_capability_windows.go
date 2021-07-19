@@ -48,6 +48,9 @@ func (agent *ecsAgent) appendTaskEIACapabilities(capabilities []*ecs.Attribute) 
 	return capabilities
 }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
 func (agent *ecsAgent) appendFirelensFluentdCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentd)
 }
@@ -56,10 +59,16 @@ func (agent *ecsAgent) appendFirelensFluentbitCapabilities(capabilities []*ecs.A
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 }
 
+>>>>>>> 4f8de991 (Implemented firelens capability advertising and unit tests for windows)
+=======
+>>>>>>> d60ba5d7 (moved capability changes and unit tests to agent_capability.go and agent_capability_test.go so that they are OS independent)
 func (agent *ecsAgent) appendEFSCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
 func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 }
@@ -69,6 +78,9 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attr
 	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigS3)
 }
 
+>>>>>>> 4f8de991 (Implemented firelens capability advertising and unit tests for windows)
+=======
+>>>>>>> d60ba5d7 (moved capability changes and unit tests to agent_capability.go and agent_capability_test.go so that they are OS independent)
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.GMSACapable {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)
