@@ -239,19 +239,19 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities = agent.appendTaskEIACapabilities(capabilities)
 
 	// support aws router capabilities for fluentd
-	capabilities = agent.appendFirelensFluentdCapabilities(capabilities)
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentd)
 
 	// support aws router capabilities for fluentbit
-	capabilities = agent.appendFirelensFluentbitCapabilities(capabilities)
+	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensFluentbit)
 
 	// support aws router capabilities for log driver router
-	capabilities = agent.appendFirelensLoggingDriverCapabilities(capabilities)
+	capabilities = appendNameOnlyAttribute(capabilities, capabilityPrefix+capabilityFirelensLoggingDriver)
 
 	// support efs on ecs capabilities
 	capabilities = agent.appendEFSCapabilities(capabilities)
 
 	// support external firelens config
-	capabilities = agent.appendFirelensConfigCapabilities(capabilities)
+	capabilities = appendNameOnlyAttribute(appendNameOnlyAttribute(capabilities, attributePrefix+capabilityFirelensConfigFile), attributePrefix+capabilityFirelensConfigS3)
 
 	// support GMSA capabilities
 	capabilities = agent.appendGMSACapabilities(capabilities)
