@@ -1148,8 +1148,9 @@ func getFirelensTask(t *testing.T) *Task {
 		LogConfig: dockercontainer.LogConfig{
 			Type: firelensDriverName,
 			Config: map[string]string{
-				"key1": "value1",
-				"key2": "value2",
+				"key1":                    "value1",
+				"key2":                    "value2",
+				"log-driver-buffer-limit": "10000",
 			},
 		},
 	}
