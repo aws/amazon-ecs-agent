@@ -24,9 +24,9 @@ type LicenseProvider interface {
 type licenseProvider struct{}
 
 const (
-	licenseFile    = "LICENSE"
-	noticeFile     = "NOTICE"
-	thirdPartyFile = "THIRD-PARTY"
+	licenseFile    = "/usr/share/licenses/ecs-agent/LICENSE"
+	noticeFile     = "/usr/share/licenses/ecs-agent/NOTICE"
+	thirdPartyFile = "/usr/share/licenses/ecs-agent/THIRD-PARTY"
 )
 
 var readFile = ioutil.ReadFile

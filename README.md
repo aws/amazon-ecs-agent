@@ -228,8 +228,11 @@ for production on Linux, but it can be useful for development or easier integrat
 The following commands run the agent outside of Docker:
 
 ```
-make gobuild
-./out/amazon-ecs-agent
+sudo yum install rpm-build
+make generic-rpm
+sudo yum localinstall amazon-ecs-agent-1.53-1.x86_64.rpm
+sudo vi /etc/ecs/ecs.config #add environment variables (ECS_CLUSTER and ECS_DATADIR required)
+sudo systemctl start ecs
 ```
 
 ### Make Targets (on Linux)
@@ -245,6 +248,8 @@ The following targets are available. Each may be run with `make <target>`.
 | `test-in-docker`       | Runs all tests inside a Docker container |
 | `run-integ-tests`      | Runs all integration tests in the `engine` and `stats` packages |
 | `clean`                | Removes build artifacts. *Note: this does not remove Docker images* |
+| `generic-rpm`          | Builds installable rpm package for a containerless agent |
+
 
 ### Standalone (on Windows)
 
