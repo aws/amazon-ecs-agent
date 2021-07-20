@@ -384,9 +384,15 @@ func (cs *clientServer) publishInstanceStatus() {
 	for {
 		select {
 		case <-cs.pullInstanceStatusTicker.C:
-			err := cs.publishInstanceStatusOnce()
-			if err != nil {
-				seelog.Warnf("Unable to publish instance status: %v", err)
+			if !cs.doctor.HasStatusBeenReported() {
+				err := cs.publishInstanceStatusOnce()
+				if err != nil {
+					seelog.Warnf("Unable to publish instance status: %v", err)
+				} else {
+					cs.doctor.SetStatusReported(true)
+				}
+			} else {
+				seelog.Debug("Skipping publishing container instance status message that was already sent")
 			}
 		case <-cs.ctx.Done():
 			return
@@ -403,13 +409,11 @@ func (cs *clientServer) publishInstanceStatusOnce() error {
 	if err != nil {
 		return err
 	}
-	// Make the publish metrics request to the backend.
-	// err = cs.MakeRequest(request)
-	// if err != nil {
-	// 	return err
-	// }
-	seelog.Info("Sending instance status request!!!")
-	seelog.Debug(request)
+	// Make the publish instance status request to the backend.
+	err = cs.MakeRequest(request)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

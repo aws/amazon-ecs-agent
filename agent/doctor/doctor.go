@@ -30,6 +30,7 @@ type Doctor struct {
 	lock                 sync.RWMutex
 	cluster              string
 	containerInstanceArn string
+	statusReported       bool
 }
 
 func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn string) (*Doctor, error) {
@@ -37,6 +38,7 @@ func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn 
 		healthchecks:         []Healthcheck{},
 		cluster:              cluster,
 		containerInstanceArn: containerInstanceArn,
+		statusReported:       false,
 	}
 	for _, hc := range healthchecks {
 		newDoctor.AddHealthcheck(hc)
@@ -57,17 +59,39 @@ func (doc *Doctor) GetCluster() string {
 // provided to the doctor while being initialized
 func (doc *Doctor) GetContainerInstanceArn() string {
 	doc.lock.Lock()
-	doc.lock.Unlock()
+	defer doc.lock.Unlock()
 
 	return doc.containerInstanceArn
 }
 
+// SetStatusReported tells the doctor that we have already reported the
+// current status of the healthchecks to the backend
+func (doc *Doctor) SetStatusReported(statusReported bool) {
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
+
+	doc.statusReported = statusReported
+}
+
+// HasStatusBeenReported returns whether we have already sent the current
+// state of the healthchecks to the backend or not
+func (doc *Doctor) HasStatusBeenReported() bool {
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
+
+	return doc.statusReported
+}
+
+// AddHealthcheck adds a healthcheck to the list of healthchecks that the
+// doctor will run every time doctor.RunHealthchecks() is called
 func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
 	doc.healthchecks = append(doc.healthchecks, healthcheck)
 }
 
+// RunHealthchecks runs every healthcheck that the doctor knows about and
+// returns a cumulative result; true if they all pass, false otherwise
 func (doc *Doctor) RunHealthchecks() bool {
 	doc.lock.RLock()
 	defer doc.lock.RUnlock()
@@ -78,6 +102,8 @@ func (doc *Doctor) RunHealthchecks() bool {
 		seelog.Debugf("instance healthcheck result: %v", res)
 		allChecksResult = append(allChecksResult, res)
 	}
+
+	doc.statusReported = false
 	return doc.allRight(allChecksResult)
 }
 
