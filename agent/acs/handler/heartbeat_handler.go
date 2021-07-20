@@ -80,11 +80,6 @@ func (heartbeatHandler *heartbeatHandler) handleSingleHeartbeatMessage(message *
 	// healthcheck results will be sent on to TACS, but for now just to debug logs.
 	go func() {
 		heartbeatHandler.doctor.RunHealthchecks()
-		requestMessage, err := heartbeatHandler.doctor.GetPublishInstanceStatusRequest()
-		if err != nil {
-			seelog.Errorf("Unable to get PublishInstanceStatusRequest message: %v", err)
-		}
-		seelog.Debugf("message to send: %v", requestMessage)
 	}()
 
 	// Agent will send simple ack to the heartbeatAckMessageBuffer
