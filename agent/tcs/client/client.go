@@ -30,6 +30,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/cihub/seelog"
+	"github.com/pborman/uuid"
 )
 
 const (
@@ -111,6 +112,8 @@ func (cs *clientServer) Serve() error {
 	}
 	go cs.publishHealthMetrics()
 
+	go cs.publishInstanceStatus()
+
 	return cs.ConsumeMessages()
 }
 
@@ -121,6 +124,9 @@ func (cs *clientServer) Close() error {
 	}
 	if cs.publishHealthTicker != nil {
 		cs.publishHealthTicker.Stop()
+	}
+	if cs.pullInstanceStatusTicker != nil {
+		cs.pullInstanceStatusTicker.Stop()
 	}
 
 	cs.cancel()
@@ -352,4 +358,96 @@ func copyTaskHealthMetrics(from []*ecstcs.TaskHealth) []*ecstcs.TaskHealth {
 	to := make([]*ecstcs.TaskHealth, len(from))
 	copy(to, from)
 	return to
+}
+
+// publishInstanceStatus queries the doctor.Doctor instance contained within cs,
+// converts the healthcheck results to an InstanceStatusRequest and then sends it
+// to the backend
+func (cs *clientServer) publishInstanceStatus() {
+	// Note to disambiguate between health metrics and instance statuses
+	//
+	// Instance status checks are performed by the Doctor class in the doctor module
+	// but the code calls them Healthchecks. They are named such because they denote
+	// that the container runtime (Docker) is healthy and communicating with the
+	// ECS Agent. Container instance statuses, which this function handles,
+	// pertain to the status of this container instance.
+	//
+	// Health metrics are specific to the tasks that are running on this particula
+	// container instance.Health metrics, which the publishHealthMetrics function
+	// handles, pertain to the health of the tasks that are running on this
+	// container instance.
+	if cs.pullInstanceStatusTicker == nil {
+		seelog.Debug("Skipping publishing container instance statuses. Publish ticker is uninitialized")
+		return
+	}
+
+	for {
+		select {
+		case <-cs.pullInstanceStatusTicker.C:
+			err := cs.publishInstanceStatusOnce()
+			if err != nil {
+				seelog.Warnf("Unable to publish instance status: %v", err)
+			}
+		case <-cs.ctx.Done():
+			return
+		}
+	}
+}
+
+// publishInstanceStatusOnce gets called on a ticker to pull instance status
+// from the doctor instance contained within cs and sned that information to
+// the backend
+func (cs *clientServer) publishInstanceStatusOnce() error {
+	// Get the list of health request to send to backend.
+	request, err := cs.getPublishInstanceStatusRequest()
+	if err != nil {
+		return err
+	}
+	// Make the publish metrics request to the backend.
+	// err = cs.MakeRequest(request)
+	// if err != nil {
+	// 	return err
+	// }
+	seelog.Info("Sending instance status request!!!")
+	seelog.Debug(request)
+
+	return nil
+}
+
+// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
+// a sendable PublishInstanceStatusRequest
+func (cs *clientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
+	metadata := &ecstcs.InstanceStatusMetadata{
+		Cluster:           aws.String(cs.doctor.GetCluster()),
+		ContainerInstance: aws.String(cs.doctor.GetContainerInstanceArn()),
+		RequestId:         aws.String(uuid.NewRandom().String()),
+	}
+	instanceStatuses := cs.getInstanceStatuses()
+
+	if instanceStatuses != nil {
+		return &ecstcs.PublishInstanceStatusRequest{
+			Metadata:  metadata,
+			Statuses:  instanceStatuses,
+			Timestamp: aws.Time(time.Now()),
+		}, nil
+	} else {
+		return nil, doctor.EmptyHealthcheckError
+	}
+}
+
+// getInstanceStatuses returns a list of instance statuses converted from what
+// the doctor knows about the registered healthchecks
+func (cs *clientServer) getInstanceStatuses() []*ecstcs.InstanceStatus {
+	var instanceStatuses []*ecstcs.InstanceStatus
+
+	for _, healthcheck := range *cs.doctor.GetHealthchecks() {
+		instanceStatus := &ecstcs.InstanceStatus{
+			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
+			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
+			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
+			Type:             aws.String(healthcheck.GetHealthcheckType()),
+		}
+		instanceStatuses = append(instanceStatuses, instanceStatus)
+	}
+	return instanceStatuses
 }

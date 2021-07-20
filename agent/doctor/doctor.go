@@ -15,14 +15,9 @@ package doctor
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cihub/seelog"
-	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
-
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 var (
@@ -49,6 +44,24 @@ func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn 
 	return newDoctor, nil
 }
 
+// GetCluster returns the cluster that was provided to the doctor while
+// being initialized
+func (doc *Doctor) GetCluster() string {
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
+
+	return doc.cluster
+}
+
+// GetContainerInstanceArn returns the container instance arn that was
+// provided to the doctor while being initialized
+func (doc *Doctor) GetContainerInstanceArn() string {
+	doc.lock.Lock()
+	doc.lock.Unlock()
+
+	return doc.containerInstanceArn
+}
+
 func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
@@ -68,39 +81,15 @@ func (doc *Doctor) RunHealthchecks() bool {
 	return doc.allRight(allChecksResult)
 }
 
-// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
-// a sendable PublishInstanceStatusRequest
-func (doc *Doctor) GetPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
-	metadata := &ecstcs.InstanceStatusMetadata{
-		Cluster:           aws.String(doc.cluster),
-		ContainerInstance: aws.String(doc.containerInstanceArn),
-		RequestId:         aws.String(uuid.NewRandom().String()),
-	}
-	instanceStatuses := doc.getInstanceStatuses()
+// GetHealthchecks returns a copy of list of healthchecks that the
+// doctor is holding internally.
+func (doc *Doctor) GetHealthchecks() *[]Healthcheck {
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
 
-	if instanceStatuses != nil {
-		return &ecstcs.PublishInstanceStatusRequest{
-			Metadata:  metadata,
-			Statuses:  instanceStatuses,
-			Timestamp: aws.Time(time.Now()),
-		}, nil
-	} else {
-		return nil, EmptyHealthcheckError
-	}
-}
-
-func (doc *Doctor) getInstanceStatuses() []*ecstcs.InstanceStatus {
-	var instanceStatuses []*ecstcs.InstanceStatus
-	for _, healthcheck := range doc.healthchecks {
-		instanceStatus := &ecstcs.InstanceStatus{
-			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
-			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
-			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
-			Type:             aws.String(healthcheck.GetHealthcheckType()),
-		}
-		instanceStatuses = append(instanceStatuses, instanceStatus)
-	}
-	return instanceStatuses
+	healthcheckCopy := make([]Healthcheck, len(doc.healthchecks))
+	copy(healthcheckCopy, doc.healthchecks)
+	return &healthcheckCopy
 }
 
 func (doc *Doctor) allRight(checksResult []HealthcheckStatus) bool {
