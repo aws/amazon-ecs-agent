@@ -49,8 +49,8 @@ func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn 
 // GetCluster returns the cluster that was provided to the doctor while
 // being initialized
 func (doc *Doctor) GetCluster() string {
-	doc.lock.Lock()
-	defer doc.lock.Unlock()
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
 
 	return doc.cluster
 }
@@ -58,8 +58,8 @@ func (doc *Doctor) GetCluster() string {
 // GetContainerInstanceArn returns the container instance arn that was
 // provided to the doctor while being initialized
 func (doc *Doctor) GetContainerInstanceArn() string {
-	doc.lock.Lock()
-	defer doc.lock.Unlock()
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
 
 	return doc.containerInstanceArn
 }
@@ -76,8 +76,8 @@ func (doc *Doctor) SetStatusReported(statusReported bool) {
 // HasStatusBeenReported returns whether we have already sent the current
 // state of the healthchecks to the backend or not
 func (doc *Doctor) HasStatusBeenReported() bool {
-	doc.lock.Lock()
-	defer doc.lock.Unlock()
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
 
 	return doc.statusReported
 }
@@ -93,8 +93,8 @@ func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 // RunHealthchecks runs every healthcheck that the doctor knows about and
 // returns a cumulative result; true if they all pass, false otherwise
 func (doc *Doctor) RunHealthchecks() bool {
-	doc.lock.RLock()
-	defer doc.lock.RUnlock()
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
 	allChecksResult := []HealthcheckStatus{}
 
 	for _, healthcheck := range doc.healthchecks {
@@ -110,8 +110,8 @@ func (doc *Doctor) RunHealthchecks() bool {
 // GetHealthchecks returns a copy of list of healthchecks that the
 // doctor is holding internally.
 func (doc *Doctor) GetHealthchecks() *[]Healthcheck {
-	doc.lock.Lock()
-	defer doc.lock.Unlock()
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
 
 	healthcheckCopy := make([]Healthcheck, len(doc.healthchecks))
 	copy(healthcheckCopy, doc.healthchecks)
