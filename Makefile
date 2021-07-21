@@ -299,7 +299,7 @@ GOPATH=$(shell go env GOPATH)
 	go get github.com/golang/mock/mockgen
 	cd "${GOPATH}/src/github.com/golang/mock/mockgen" && git checkout 1.3.1 && go get ./... && go install ./... && cd -
 	go get golang.org/x/tools/cmd/goimports
-	go get github.com/fzipp/gocyclo/cmd/gocyclo
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	go get honnef.co/go/tools/cmd/staticcheck
 	touch .get-deps-stamp
 
