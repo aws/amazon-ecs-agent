@@ -53,7 +53,7 @@ fi
 
 cd "${ROOT}"
 if [[ "${static}" == "true" ]]; then
-	CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+	CGO_ENABLED=1 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
 else
 	go build -o $build_exe ./agent/
 fi

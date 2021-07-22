@@ -42,6 +42,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup/control/mock_control"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
+	mock_nvidia "github.com/aws/amazon-ecs-agent/agent/gpuInit"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -554,6 +555,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockMobyPlugins := mock_mobypkgwrapper.NewMockPlugins(ctrl)
 	ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+	mockContainerLessGPU := mock_nvidia.NewMockGPUManager(ctrl)
 
 	devices := []*ecs.PlatformDevice{
 		{
@@ -591,6 +593,9 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		mockGPUManager.EXPECT().GetDriverVersion().Return("396.44"),
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
+		mockContainerLessGPU.EXPECT().GetDriverVersion().Return("", nil),
+		mockContainerLessGPU.EXPECT().GetGPUDeviceIDs().Return([]string{}, nil),
+		mockContainerLessGPU.EXPECT().DetectGPUDevices().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetDataClient(gomock.Any()),
@@ -657,6 +662,7 @@ func TestDoStartGPUManagerInitError(t *testing.T) {
 	mockCredentialsProvider := app_mocks.NewMockProvider(ctrl)
 	mockGPUManager := mock_gpu.NewMockGPUManager(ctrl)
 	mockPauseLoader := mock_pause.NewMockLoader(ctrl)
+
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
 
@@ -705,7 +711,6 @@ func TestDoStartTaskENIPauseError(t *testing.T) {
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
-
 	// These calls are expected to happen, but cannot be ordered as they are
 	// invoked via go routines, which will lead to occasional test failures
 	mockCredentialsProvider.EXPECT().IsExpired().Return(false).AnyTimes()
