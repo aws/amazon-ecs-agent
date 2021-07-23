@@ -1,4 +1,7 @@
 # Changelog
+## 1.54.1
+* Enhancement - Get container's exit code from docker event in case we receive a container die event, but fail to inspect the container. Previously the container's exit code was left as null in this case. [#2940](https://github.com/aws/amazon-ecs-agent/pull/2940)
+
 ## 1.54.0
 * Feature - ECS EC2 task networking for Windows tasks [#2915](https://github.com/aws/amazon-ecs-agent/pull/2915)
 * Bug - Upgrading the amazon-vpc-cni plugins submodule to address a bug on Windows Server 2004 and Windows Server 20H2 platforms [#2930](https://github.com/aws/amazon-ecs-agent/pull/2930)
