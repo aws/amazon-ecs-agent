@@ -1,3 +1,9 @@
+amazon-ecs-init (1.54.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.54.1
+
+ -- Utsa Bhattacharjya <utsa@amazon.com>  Mon, 26 Jul 2021 16:35:00 +0000
+
 amazon-ecs-init (1.54.0-1) stable; urgency=medium
 
   * Cache Agent version 1.54.0
