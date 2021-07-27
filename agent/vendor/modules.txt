@@ -185,7 +185,7 @@ github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 # github.com/sirupsen/logrus v1.2.0 => github.com/sirupsen/logrus v1.1.1
 github.com/sirupsen/logrus
-# github.com/stretchr/testify v1.5.1 => github.com/stretchr/testify v1.2.2
+# github.com/stretchr/testify v1.7.0 => github.com/stretchr/testify v1.2.2
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
