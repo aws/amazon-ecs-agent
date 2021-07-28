@@ -141,6 +141,7 @@ func startSession(
 	client.AddRequestHandler(heartbeatHandler(timer))
 	client.AddRequestHandler(ackPublishMetricHandler(timer))
 	client.AddRequestHandler(ackPublishHealthMetricHandler(timer))
+	client.AddRequestHandler(ackPublishInstanceStatusHandler(timer))
 	client.SetAnyRequestHandler(anyMessageHandler(client))
 	serveC := make(chan error)
 	go func() {
@@ -181,6 +182,15 @@ func ackPublishMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishMetric) {
 func ackPublishHealthMetricHandler(timer *time.Timer) func(*ecstcs.AckPublishHealth) {
 	return func(*ecstcs.AckPublishHealth) {
 		seelog.Debug("Received ACKPublishHealth from tcs")
+		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
+	}
+}
+
+// ackPublishInstanceStatusHandler consumes the ack message from backend. The backend sends
+// the ack each time it processes a health message
+func ackPublishInstanceStatusHandler(timer *time.Timer) func(*ecstcs.AckPublishInstanceStatus) {
+	return func(*ecstcs.AckPublishInstanceStatus) {
+		seelog.Debug("Received AckPublishInstanceStatus from tcs")
 		timer.Reset(retry.AddJitter(defaultHeartbeatTimeout, defaultHeartbeatJitter))
 	}
 }

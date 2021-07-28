@@ -372,8 +372,8 @@ func (cs *clientServer) publishInstanceStatus() {
 	// ECS Agent. Container instance statuses, which this function handles,
 	// pertain to the status of this container instance.
 	//
-	// Health metrics are specific to the tasks that are running on this particula
-	// container instance.Health metrics, which the publishHealthMetrics function
+	// Health metrics are specific to the tasks that are running on this particular
+	// container instance. Health metrics, which the publishHealthMetrics function
 	// handles, pertain to the health of the tasks that are running on this
 	// container instance.
 	if cs.pullInstanceStatusTicker == nil {
@@ -409,6 +409,7 @@ func (cs *clientServer) publishInstanceStatusOnce() error {
 	if err != nil {
 		return err
 	}
+
 	// Make the publish instance status request to the backend.
 	err = cs.MakeRequest(request)
 	if err != nil {
