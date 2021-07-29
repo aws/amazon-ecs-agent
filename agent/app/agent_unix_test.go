@@ -584,6 +584,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 	mockPauseLoader.EXPECT().IsLoaded(gomock.Any()).Return(true, nil).AnyTimes()
 
 	gomock.InOrder(
+		mockContainerLessGPU.EXPECT().Setup().Return(nil),
 		mockGPUManager.EXPECT().Initialize().Return(nil),
 		mockCredentialsProvider.EXPECT().Retrieve().Return(credentials.Value{}, nil),
 		dockerClient.EXPECT().SupportedVersions().Return(nil),
@@ -593,9 +594,6 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 			gomock.Any()).Return([]string{}, nil),
 		mockGPUManager.EXPECT().GetDriverVersion().Return("396.44"),
 		mockGPUManager.EXPECT().GetDevices().Return(devices),
-		mockContainerLessGPU.EXPECT().GetDriverVersion().Return("", nil),
-		mockContainerLessGPU.EXPECT().GetGPUDeviceIDs().Return([]string{}, nil),
-		mockContainerLessGPU.EXPECT().DetectGPUDevices().Return(nil),
 		client.EXPECT().RegisterContainerInstance(gomock.Any(), gomock.Any(), gomock.Any(),
 			gomock.Any(), devices, gomock.Any()).Return("arn", "", nil),
 		imageManager.EXPECT().SetDataClient(gomock.Any()),
@@ -635,6 +633,7 @@ func TestDoStartGPUManagerHappyPath(t *testing.T) {
 		resourceFields: &taskresource.ResourceFields{
 			NvidiaGPUManager: mockGPUManager,
 		},
+		nvidiaGPUManager: mockContainerLessGPU,
 	}
 
 	var agentW sync.WaitGroup
