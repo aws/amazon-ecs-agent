@@ -630,3 +630,32 @@ func TestGetPublishInstanceStatusRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestAckPublishInstanceStatusHandlerCalled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+
+	// Messages should be read from the connection at least once
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Return(1,
+		[]byte(`{"type":"AckPublishInstanceStatus","message":{}}`), nil).MinTimes(1)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	handledPayload := make(chan *ecstcs.AckPublishInstanceStatus)
+
+	reqHandler := func(payload *ecstcs.AckPublishInstanceStatus) {
+		handledPayload <- payload
+	}
+	cs.AddRequestHandler(reqHandler)
+
+	go cs.Serve()
+	defer cs.Close()
+
+	t.Log("Waiting for handler to return payload.")
+	<-handledPayload
+}
