@@ -145,6 +145,12 @@ type Config struct {
 	// until cleanup of task resources is started.
 	TaskCleanupWaitDuration time.Duration
 
+	// TaskCleanupWaitDurationJitter specifies a jitter for task cleanup wait duration.
+	// When specified to a non-zero duration (default is zero), the task cleanup wait duration for each task
+	// will be a random duration between [TaskCleanupWaitDuration, TaskCleanupWaitDuration +
+	// TaskCleanupWaitDurationJitter].
+	TaskCleanupWaitDurationJitter time.Duration
+
 	// TaskIAMRoleEnabled specifies if the Agent is capable of launching
 	// tasks with IAM Roles.
 	TaskIAMRoleEnabled BooleanDefaultFalse

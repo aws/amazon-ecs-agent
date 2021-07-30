@@ -114,6 +114,13 @@ func TestGetRegionWithNoIID(t *testing.T) {
 }
 
 func TestEnvironmentConfig(t *testing.T) {
+	const (
+		testTaskCleanupWaitDurationStr       = "90s"
+		testTaskCleanupWaitDurationJitterStr = "1m"
+		testTaskCleanupWaitDuration          = 90 * time.Second
+		testTaskCleanupWaitDurationJitter    = time.Minute
+	)
+
 	defer setTestRegion()()
 	defer setTestEnv("ECS_CLUSTER", "myCluster")()
 	defer setTestEnv("ECS_RESERVED_PORTS_UDP", "[42,99]")()
@@ -126,7 +133,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_SELINUX_CAPABLE", "true")()
 	defer setTestEnv("ECS_APPARMOR_CAPABLE", "true")()
 	defer setTestEnv("ECS_DISABLE_PRIVILEGED", "true")()
-	defer setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", "90s")()
+	defer setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION", testTaskCleanupWaitDurationStr)()
+	defer setTestEnv("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION_JITTER", testTaskCleanupWaitDurationJitterStr)()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE", "true")()
 	defer setTestEnv("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP", "true")()
 	defer setTestEnv("ECS_ENABLE_TASK_IAM_ROLE_NETWORK_HOST", "true")()
@@ -187,7 +195,8 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, ImagePullAlwaysBehavior, conf.ImagePullBehavior)
 	assert.Equal(t, "testing", conf.InstanceAttributes["my_attribute"])
 	assert.Equal(t, "testing", conf.ContainerInstanceTags["my_tag"])
-	assert.Equal(t, (90 * time.Second), conf.TaskCleanupWaitDuration)
+	assert.Equal(t, testTaskCleanupWaitDuration, conf.TaskCleanupWaitDuration)
+	assert.Equal(t, testTaskCleanupWaitDurationJitter, conf.TaskCleanupWaitDurationJitter)
 	serializedAdditionalLocalRoutesJSON, err := json.Marshal(conf.AWSVPCAdditionalLocalRoutes)
 	assert.NoError(t, err, "should marshal additional local routes")
 	assert.Equal(t, additionalLocalRoutesJSON, string(serializedAdditionalLocalRoutesJSON))

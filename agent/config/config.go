@@ -542,6 +542,7 @@ func environmentConfig() (Config, error) {
 		SELinuxCapable:                      parseBooleanDefaultFalseConfig("ECS_SELINUX_CAPABLE"),
 		AppArmorCapable:                     parseBooleanDefaultFalseConfig("ECS_APPARMOR_CAPABLE"),
 		TaskCleanupWaitDuration:             parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION"),
+		TaskCleanupWaitDurationJitter:       parseEnvVariableDuration("ECS_ENGINE_TASK_CLEANUP_WAIT_DURATION_JITTER"),
 		TaskENIEnabled:                      parseBooleanDefaultFalseConfig("ECS_ENABLE_TASK_ENI"),
 		TaskIAMRoleEnabled:                  parseBooleanDefaultFalseConfig("ECS_ENABLE_TASK_IAM_ROLE"),
 		DeleteNonECSImagesEnabled:           parseBooleanDefaultFalseConfig("ECS_ENABLE_UNTRACKED_IMAGE_CLEANUP"),

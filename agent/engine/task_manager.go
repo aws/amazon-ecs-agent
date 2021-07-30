@@ -250,7 +250,7 @@ func (mtask *managedTask) overseeTask() {
 	}
 	// TODO: make this idempotent on agent restart
 	go mtask.releaseIPInIPAM()
-	mtask.cleanupTask(mtask.cfg.TaskCleanupWaitDuration)
+	mtask.cleanupTask(retry.AddJitter(mtask.cfg.TaskCleanupWaitDuration, mtask.cfg.TaskCleanupWaitDurationJitter))
 }
 
 // shouldExit checks if the task manager should exit, as the agent is exiting.
