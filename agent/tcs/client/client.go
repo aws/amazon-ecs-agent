@@ -428,16 +428,15 @@ func (cs *clientServer) getPublishInstanceStatusRequest() (*ecstcs.PublishInstan
 		RequestId:         aws.String(uuid.NewRandom().String()),
 	}
 	instanceStatuses := cs.getInstanceStatuses()
-
-	if instanceStatuses != nil {
-		return &ecstcs.PublishInstanceStatusRequest{
-			Metadata:  metadata,
-			Statuses:  instanceStatuses,
-			Timestamp: aws.Time(time.Now()),
-		}, nil
-	} else {
+	if instanceStatuses == nil {
 		return nil, doctor.EmptyHealthcheckError
 	}
+
+	return &ecstcs.PublishInstanceStatusRequest{
+		Metadata:  metadata,
+		Statuses:  instanceStatuses,
+		Timestamp: aws.Time(time.Now()),
+	}, nil
 }
 
 // getInstanceStatuses returns a list of instance statuses converted from what
