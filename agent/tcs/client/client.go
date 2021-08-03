@@ -388,8 +388,6 @@ func (cs *clientServer) publishInstanceStatus() {
 				err := cs.publishInstanceStatusOnce()
 				if err != nil {
 					seelog.Warnf("Unable to publish instance status: %v", err)
-				} else {
-					cs.doctor.SetStatusReported(true)
 				}
 			} else {
 				seelog.Debug("Skipping publishing container instance status message that was already sent")
@@ -415,6 +413,8 @@ func (cs *clientServer) publishInstanceStatusOnce() error {
 	if err != nil {
 		return err
 	}
+
+	cs.doctor.SetStatusReported(true)
 
 	return nil
 }
