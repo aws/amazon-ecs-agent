@@ -6,26 +6,26 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
-	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
-	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
-	"github.com/aws/amazon-ecs-agent/agent/stats"
-	"github.com/pkg/errors"
-
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
+	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
+	"github.com/aws/amazon-ecs-agent/agent/ecs_client/model/ecs"
 	mock_dockerstate "github.com/aws/amazon-ecs-agent/agent/engine/dockerstate/mocks"
+	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
+	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/graphql-go/graphql"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,6 +37,8 @@ const (
 	version                  = "1"
 	containerID              = "cid"
 	containerName            = "sleepy"
+	containerPort            = 80
+	containerPortProtocol    = "tcp"
 	pulledContainerName      = "pulled"
 	imageName                = "busybox"
 	imageID                  = "bUsYbOx"
@@ -58,6 +60,8 @@ const (
 	containerInstanceArn     = "containerInstance-test"
 	privateDNSName           = "ip-172-31-47-69.us-west-2.compute.internal"
 	subnetGatewayIPV4Address = "192.168.0.1/24"
+	fakeContainerId          = "fakeId"
+	fakeContainerName        = "fakeName"
 )
 
 type gqlTask struct {
@@ -87,6 +91,59 @@ var (
 	attachmentIndexVar = attachmentIndex
 	dockerStats        = &types.StatsJSON{}
 	containerFields    = v4.ContainerResponse{
+		ContainerResponse: &v2.ContainerResponse{
+			ID:            containerID,
+			Name:          containerName,
+			DockerName:    containerName,
+			Image:         imageName,
+			ImageID:       imageID,
+			DesiredStatus: statusRunning,
+			KnownStatus:   statusRunning,
+			ContainerARN:  "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
+			Limits: v2.LimitsResponse{
+				CPU:    aws.Float64(cpu),
+				Memory: aws.Int64(memory),
+			},
+			CreatedAt:  &now,
+			StartedAt:  &now,
+			FinishedAt: &now,
+			ExitCode:   &exitCode,
+			Type:       containerType,
+			LogDriver:  "",
+			LogOptions: map[string]string{},
+			Labels:     labels,
+			Ports: []v1.PortResponse{
+				{
+					ContainerPort: containerPort,
+					Protocol:      containerPortProtocol,
+					HostPort:      containerPort,
+				},
+			},
+			Volumes: []v1.VolumeResponse{
+				{
+					DockerName:  volName,
+					Source:      volSource,
+					Destination: volDestination,
+				},
+			},
+		},
+		Networks: []v4.Network{{
+			Network: containermetadata.Network{
+				NetworkMode:   utils.NetworkModeAWSVPC,
+				IPv4Addresses: []string{eniIPv4Address},
+				IPv6Addresses: []string{eniIPv6Address},
+			},
+			NetworkInterfaceProperties: v4.NetworkInterfaceProperties{
+				AttachmentIndex:          &attachmentIndexVar,
+				IPV4SubnetCIDRBlock:      ipv4SubnetCIDRBlock,
+				IPv6SubnetCIDRBlock:      ipv6SubnetCIDRBlock,
+				MACAddress:               macAddress,
+				PrivateDNSName:           privateDNSName,
+				SubnetGatewayIPV4Address: subnetGatewayIPV4Address,
+			}},
+		},
+	}
+	containerNoPortFields = v4.ContainerResponse{
 		ContainerResponse: &v2.ContainerResponse{
 			ID:            containerID,
 			Name:          containerName,
@@ -195,7 +252,33 @@ var (
 						AvailabilityZone:   availabilityZone,
 						LaunchType:         "EC2",
 					},
-					Containers: []v4.ContainerResponse{containerFields, pulledContainerFields},
+					Containers: []v4.ContainerResponse{containerFields},
+				},
+			},
+		},
+	}
+	expectedPulledTaskResponse = gqlResponse{
+		Data: &gqlData{
+			Task: &gqlTask{
+				&v4.TaskResponse{
+					TaskResponse: &v2.TaskResponse{
+						Cluster:       clusterName,
+						TaskARN:       taskARN,
+						Family:        family,
+						Revision:      version,
+						DesiredStatus: statusRunning,
+						KnownStatus:   statusRunning,
+						Limits: &v2.LimitsResponse{
+							CPU:    aws.Float64(cpu),
+							Memory: aws.Int64(memory),
+						},
+						PullStartedAt:      aws.Time(now.UTC()),
+						PullStoppedAt:      aws.Time(now.UTC()),
+						ExecutionStoppedAt: aws.Time(now.UTC()),
+						AvailabilityZone:   availabilityZone,
+						LaunchType:         "EC2",
+					},
+					Containers: []v4.ContainerResponse{containerNoPortFields, pulledContainerFields},
 				},
 			},
 		},
@@ -204,10 +287,14 @@ var (
 		Errors: []string{"Unable to get container name mapping for task " + taskARN},
 	}
 	expectedFailedContainerCTXResponse = gqlResponse{
-		Errors: []string{"Could not cast to container"},
+		Data: &gqlData{
+			Container: nil,
+		},
 	}
 	expectedFailedTaskCTXResponse = gqlResponse{
-		Errors: []string{"Could not cast to task"},
+		Data: &gqlData{
+			Task: nil,
+		},
 	}
 	expectedFailedTaskByIDResponse = gqlResponse{
 		Errors: []string{"Unable to find task for container '" + containerID + "'"},
@@ -222,11 +309,454 @@ var (
 	expectedFailedPulledContainerResponse = gqlResponse{
 		Errors: []string{"Unable to get container name mapping for task" + taskARN},
 	}
-	containerQueryGQL         = "{Container{DockerId,Name,DockerName,KnownStatus,DesiredStatus,CreatedAt,StartedAt,FinishedAt,ExitCode,Image,ImageID,Labels,Type,LogDriver,LogOptions,Limits,ContainerARN,Networks}}"
-	taskQueryGQL              = "{Task{Cluster,TaskARN,Family,Revision,DesiredStatus,KnownStatus,Limits,PullStartedAt,PullStoppedAt,ExecutionStoppedAt,AvailabilityZone,LaunchType,Containers{DockerId,Name,DockerName,KnownStatus,DesiredStatus,CreatedAt,StartedAt,FinishedAt,ExitCode,Image,ImageID,Labels,Type,LogDriver,LogOptions,Limits,ContainerARN,Networks}}}"
-	containerStatsQueryGQL    = "{Container{Stats}}"
-	containerNetworksQueryGQL = "{Container{Networks}}"
-	tagsQueryGQL              = "{Task{ContainerInstanceTags,TaskTags}}"
+	expectedFailedContainerByIdResponse1 = gqlResponse{
+		Errors: []string{"Unable to find container: fakeId"},
+	}
+	expectedFailedContainerByIdResponse2 = gqlResponse{
+		Errors: []string{"Container query only allows for at most one argument"},
+	}
+	expectedFailedContainerByIdResponse3 = gqlResponse{
+		Errors: []string{"Unable to find container: fakeName"},
+	}
+	containerQueryGQL = `
+{
+	Container{
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	containerByIdQueryGQL = `
+{
+	Container(DockerId:"` + containerID + `"){
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	taskContainersByIdQueryGQL = `
+{
+	Task{
+		Cluster,
+		TaskARN,
+		Family,
+		Revision,
+		DesiredStatus,
+		KnownStatus,
+		Limits,
+		PullStartedAt,
+		PullStoppedAt,
+		ExecutionStoppedAt,
+		AvailabilityZone,
+		LaunchType,
+		Containers(DockerId:"` + containerID + `"){
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
+	containerByNameQueryGQL = `
+{
+	Container(Name:"` + containerName + `"){
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	taskContainersByNameQueryGQL = `
+{
+	Task{
+		Cluster,
+		TaskARN,
+		Family,
+		Revision,
+		DesiredStatus,
+		KnownStatus,
+		Limits,
+		PullStartedAt,
+		PullStoppedAt,
+		ExecutionStoppedAt,
+		AvailabilityZone,
+		LaunchType,
+		Containers(Name:"` + containerName + `"){
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
+	taskQueryGQL = `
+{
+	Task{
+		Cluster,
+		TaskARN,
+		Family,
+		Revision,
+		DesiredStatus,
+		KnownStatus,
+		Limits,
+		PullStartedAt,
+		PullStoppedAt,
+		ExecutionStoppedAt,
+		AvailabilityZone,
+		LaunchType,
+		Containers{
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
+	pulledContainerQueryGQL = `
+{
+	Task{
+		Cluster,
+		TaskARN,
+		Family,
+		Revision,
+		DesiredStatus,
+		KnownStatus,
+		Limits,
+		PullStartedAt,
+		PullStoppedAt,
+		ExecutionStoppedAt,
+		AvailabilityZone,
+		LaunchType,
+		Containers{
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks
+		}
+	}
+}
+`
+	containerStatsQueryGQL = `
+{
+	Container{
+		Stats
+	}
+}
+`
+	containerNetworksQueryGQL = `
+{
+	Container{
+		Networks
+	}
+}
+`
+	containerPortsQueryGQL = `
+{
+	Container{
+		Ports
+	}
+}
+`
+	tagsQueryGQL = `
+{
+	Task{
+		ContainerInstanceTags,
+		TaskTags
+	}
+}
+`
+	badContainerByIdQueryGQL = `
+{
+	Container(DockerId:"` + fakeContainerId + `"){
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	badContainerArgsQueryGQL = `
+{
+	Container(DockerId:"` + containerID + `",Name:"` + containerName + `"){
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	badContainerByNameQueryGQL = `
+{
+	Container(Name:"` + fakeContainerName + `"){
+		DockerId,
+		Name,
+		DockerName,
+		KnownStatus,
+		DesiredStatus,
+		CreatedAt,
+		StartedAt,
+		FinishedAt,
+		ExitCode,
+		Image,
+		ImageID,
+		Labels,
+		Type,
+		LogDriver,
+		LogOptions,
+		Limits,
+		ContainerARN,
+		Networks,
+		Ports,
+		Volumes,
+		Health
+	}
+}
+`
+	badTaskContainersByIdQueryGQL = `
+{
+	Task{
+		Containers(DockerId:"` + fakeContainerId + `"){
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
+	badTaskContainersArgsQueryGQL = `
+{
+	Task{
+		Containers(DockerId:"` + containerID + `",Name:"` + containerName + `"){
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
+	badTaskContainersByNameQueryGQL = `
+{
+	Task{
+		Containers(Name:"` + fakeContainerName + `"){
+			DockerId,
+			Name,
+			DockerName,
+			KnownStatus,
+			DesiredStatus,
+			CreatedAt,
+			StartedAt,
+			FinishedAt,
+			ExitCode,
+			Image,
+			ImageID,
+			Labels,
+			Type,
+			LogDriver,
+			LogOptions,
+			Limits,
+			ContainerARN,
+			Networks,
+			Ports,
+			Volumes,
+			Health
+		}
+	}
+}
+`
 )
 
 func tagsQueryHelper(ecsClient *mock_api.MockECSClient) {
@@ -301,7 +831,7 @@ func TestCreateSchema(t *testing.T) {
 		Memory:              memory,
 		Type:                apicontainer.ContainerNormal,
 		ContainerArn:        "arn:aws:ecs:ap-northnorth-1:NNN:container/NNNNNNNN-aaaa-4444-bbbb-00000000000",
-		Ports: []apicontainer.PortBinding{
+		KnownPortBindingsUnsafe: []apicontainer.PortBinding{
 			{
 				ContainerPort: 80,
 				Protocol:      apicontainer.TransportProtocolTCP,
@@ -313,6 +843,9 @@ func TestCreateSchema(t *testing.T) {
 				Source:      volSource,
 				Destination: volDestination,
 			},
+		},
+		Health: apicontainer.HealthStatus{
+			Status: apicontainerstatus.ContainerHealthUnknown,
 		},
 	}
 
@@ -345,7 +878,7 @@ func TestCreateSchema(t *testing.T) {
 		Container: pulledContainer,
 	}
 	containerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
-		taskARN: dockerContainer,
+		containerName: dockerContainer,
 	}
 	pulledContainerNameToDockerContainer := map[string]*apicontainer.DockerContainer{
 		taskARN: pulledDockerContainer,
@@ -362,11 +895,37 @@ func TestCreateSchema(t *testing.T) {
 		dockerStatsError     bool
 		tagsError            bool
 		pulledContainerError bool
+		containerByIdError   bool
+		querySyntaxError     bool
 		expectedResponse     gqlResponse
 	}{
 		{
-			name:                 "Conainer Query",
+			name:                 "Container Query",
 			query:                containerQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedContainerResponse,
+		},
+		{
+			name:                 "Container By ID Query",
+			query:                containerByIdQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedContainerResponse,
+		},
+		{
+			name:                 "Container By Name Query",
+			query:                containerByNameQueryGQL,
 			taskContainerError:   false,
 			containerCTXError:    false,
 			taskCTXError:         false,
@@ -389,7 +948,31 @@ func TestCreateSchema(t *testing.T) {
 			expectedResponse:     expectedTaskResponse,
 		},
 		{
-			name:                 "Conainer Stats Query",
+			name:                 "Task Query (ContainersByName)",
+			query:                taskContainersByNameQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedTaskResponse,
+		},
+		{
+			name:                 "Task Query (ContainersByID)",
+			query:                taskContainersByIdQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedTaskResponse,
+		},
+		{
+			name:                 "Container Stats Query",
 			query:                containerStatsQueryGQL,
 			taskContainerError:   false,
 			containerCTXError:    false,
@@ -413,8 +996,44 @@ func TestCreateSchema(t *testing.T) {
 			expectedResponse:     expectedTagsResponse,
 		},
 		{
+			name:                 "Pulled Container Query",
+			query:                pulledContainerQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedPulledTaskResponse,
+		},
+		{
 			name:                 "No Container Task Query",
 			query:                taskQueryGQL,
+			taskContainerError:   true,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedFailedContainerTaskResponse,
+		},
+		{
+			name:                 "No Container Task Query",
+			query:                taskQueryGQL,
+			taskContainerError:   true,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedFailedContainerTaskResponse,
+		},
+		{
+			name:                 "No Container (ContainerByName Query)",
+			query:                containerByNameQueryGQL,
 			taskContainerError:   true,
 			containerCTXError:    false,
 			taskCTXError:         false,
@@ -449,6 +1068,18 @@ func TestCreateSchema(t *testing.T) {
 			expectedResponse:     expectedFailedTaskCTXResponse,
 		},
 		{
+			name:                 "Get Task ctx Error (ContainerByName query)",
+			query:                containerByNameQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         true,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedFailedTaskCTXResponse,
+		},
+		{
 			name:                 "Get Task by ID Error (Stats Query)",
 			query:                containerStatsQueryGQL,
 			taskContainerError:   false,
@@ -463,6 +1094,18 @@ func TestCreateSchema(t *testing.T) {
 		{
 			name:                 "Get Task by ID Error (Network Query)",
 			query:                containerNetworksQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        true,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			expectedResponse:     expectedFailedTaskByIDResponse,
+		},
+		{
+			name:                 "Get Task by ID Error (Port Query)",
+			query:                containerPortsQueryGQL,
 			taskContainerError:   false,
 			containerCTXError:    false,
 			taskCTXError:         false,
@@ -495,6 +1138,86 @@ func TestCreateSchema(t *testing.T) {
 			tagsError:            true,
 			pulledContainerError: false,
 			expectedResponse:     expectedFailedTagsResponse,
+		},
+		{
+			name:                 "Get Container By ID Error",
+			query:                badContainerByIdQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   true,
+			expectedResponse:     expectedFailedContainerByIdResponse1,
+		},
+		{
+			name:                 "Get Task ContainersByID Error",
+			query:                badTaskContainersByIdQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   true,
+			expectedResponse:     expectedFailedContainerByIdResponse1,
+		},
+		{
+			name:                 "Get Container Error (too many arguments)",
+			query:                badContainerArgsQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   false,
+			querySyntaxError:     true,
+			expectedResponse:     expectedFailedContainerByIdResponse2,
+		},
+		{
+			name:                 "Get Containers Error (too many arguments)",
+			query:                badTaskContainersArgsQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   false,
+			querySyntaxError:     true,
+			expectedResponse:     expectedFailedContainerByIdResponse2,
+		},
+		{
+			name:                 "Get Container By Name Error",
+			query:                badContainerByNameQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   true,
+			expectedResponse:     expectedFailedContainerByIdResponse3,
+		},
+		{
+			name:                 "Get Task ContainersByName Error",
+			query:                badTaskContainersByNameQueryGQL,
+			taskContainerError:   false,
+			containerCTXError:    false,
+			taskCTXError:         false,
+			taskByIdError:        false,
+			dockerStatsError:     false,
+			tagsError:            false,
+			pulledContainerError: false,
+			containerByIdError:   true,
+			expectedResponse:     expectedFailedContainerByIdResponse3,
 		},
 	}
 	for _, tc := range testCases {
@@ -532,10 +1255,21 @@ func TestCreateSchema(t *testing.T) {
 				ecsClient.EXPECT().GetResourceTags(taskARN).Return(nil, errors.New("Mock Error")).AnyTimes()
 			} else if tc.name == "Tags Query" {
 				tagsQueryHelper(ecsClient)
-			} else {
+			} else if tc.containerByIdError {
+				state.EXPECT().TaskByID(fakeContainerId).Return(task, true).AnyTimes()
+				state.EXPECT().ContainerByID(fakeContainerId).Return(nil, false).AnyTimes()
+				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true).AnyTimes()
+				state.EXPECT().PulledContainerMapByArn(taskARN).Return(pulledContainerNameToDockerContainer, true).AnyTimes()
+			} else if tc.name == "Pulled Container Query" {
 				statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, &stats.NetworkStatsPerSec{}, nil).AnyTimes()
 				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true).AnyTimes()
 				state.EXPECT().PulledContainerMapByArn(taskARN).Return(pulledContainerNameToDockerContainer, true).AnyTimes()
+				state.EXPECT().TaskByID(containerID).Return(task, true).AnyTimes()
+			} else {
+				statsEngine.EXPECT().ContainerDockerStats(taskARN, containerID).Return(dockerStats, &stats.NetworkStatsPerSec{}, nil).AnyTimes()
+				state.EXPECT().ContainerByID(containerID).Return(dockerContainer, true).AnyTimes()
+				state.EXPECT().ContainerMapByArn(taskARN).Return(containerNameToDockerContainer, true).AnyTimes()
+				state.EXPECT().PulledContainerMapByArn(taskARN).Return(nil, false).AnyTimes()
 				state.EXPECT().TaskByID(containerID).Return(task, true).AnyTimes()
 			}
 			params := graphql.Params{
@@ -544,14 +1278,16 @@ func TestCreateSchema(t *testing.T) {
 				Context:       ctx,
 			}
 			res := graphql.Do(params)
-			if tc.taskContainerError || tc.containerCTXError || tc.taskCTXError || tc.taskByIdError ||
-				tc.dockerStatsError || tc.tagsError || tc.pulledContainerError {
+
+			if tc.taskContainerError || tc.taskByIdError || tc.dockerStatsError || tc.tagsError ||
+				tc.pulledContainerError || tc.containerByIdError || tc.querySyntaxError {
 				assert.Equal(t, len(tc.expectedResponse.Errors), len(res.Errors))
 				for _, error := range res.Errors {
 					assert.Contains(t, tc.expectedResponse.Errors, error.Message)
 				}
 				return
 			}
+
 			// Marshal GraphQL response then unmarshal into the expected response struct
 			// in order to test whether the response fields are correct
 			var response gqlResponse

@@ -16,14 +16,14 @@ package gql
 import (
 	"time"
 
-	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
-
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/containermetadata"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dockerstate"
 	"github.com/aws/amazon-ecs-agent/agent/handlers/utils"
+	v1 "github.com/aws/amazon-ecs-agent/agent/handlers/v1"
 	v2 "github.com/aws/amazon-ecs-agent/agent/handlers/v2"
 	v3 "github.com/aws/amazon-ecs-agent/agent/handlers/v3"
 	v4 "github.com/aws/amazon-ecs-agent/agent/handlers/v4"
@@ -65,6 +65,10 @@ func CreateSchema(
 			"ImageID": &graphql.Field{
 				Type:    graphql.String,
 				Resolve: containerImageIDResolver,
+			},
+			"Ports": &graphql.Field{
+				Type:    graphql.NewList(JSON),
+				Resolve: containerPortsResolver(state),
 			},
 			"Labels": &graphql.Field{
 				Type:    JSON,
@@ -121,6 +125,14 @@ func CreateSchema(
 			"Networks": &graphql.Field{
 				Type:    graphql.NewList(JSON),
 				Resolve: containerNetworksResolver(state),
+			},
+			"Volumes": &graphql.Field{
+				Type:    graphql.NewList(JSON),
+				Resolve: containerVolumesResolver,
+			},
+			"Health": &graphql.Field{
+				Type:    JSON,
+				Resolve: containerHealthResolver,
 			},
 		},
 	})
@@ -179,7 +191,15 @@ func CreateSchema(
 				Type: graphql.String,
 			},
 			"Containers": &graphql.Field{
-				Type:    graphql.NewList(containerType),
+				Type: graphql.NewList(containerType),
+				Args: graphql.FieldConfigArgument{
+					"DockerId": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					"Name": &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+				},
 				Resolve: taskContainersResolver(state),
 			},
 			"TaskTags": &graphql.Field{
@@ -196,8 +216,16 @@ func CreateSchema(
 	// Create GraphQL Schema
 	fields := graphql.Fields{
 		"Container": &graphql.Field{
-			Type:    containerType,
-			Resolve: containerResolver,
+			Type: containerType,
+			Args: graphql.FieldConfigArgument{
+				"DockerId": &graphql.ArgumentConfig{
+					Type: graphql.String,
+				},
+				"Name": &graphql.ArgumentConfig{
+					Type: graphql.String,
+				},
+			},
+			Resolve: containerResolver(state),
 		},
 		"Task": &graphql.Field{
 			Type:    taskType,
@@ -210,19 +238,65 @@ func CreateSchema(
 	return graphql.NewSchema(schemaConfig)
 }
 
-func containerResolver(p graphql.ResolveParams) (interface{}, error) {
-	dockerContainer, ok := p.Context.Value(Container).(*apicontainer.DockerContainer)
-	if !ok {
-		return nil, errors.Errorf("Could not cast to container")
+func containerByIdHelper(state dockerstate.TaskEngineState, task *apitask.Task, containerId string) (*apicontainer.DockerContainer, error) {
+	if testTask, found := state.TaskByID(containerId); found && testTask == task {
+		container, ok := state.ContainerByID(containerId)
+		if !ok {
+			return nil, errors.Errorf("Unable to find container: %v", containerId)
+		}
+		return container, nil
 	}
+	return nil, errors.Errorf("Unable to find container: %v", containerId)
+}
 
-	return dockerContainer, nil
+// Container Field Resolvers
+func containerResolver(state dockerstate.TaskEngineState) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		if p.Args["DockerId"] != nil && p.Args["Name"] != nil {
+			return nil, errors.New("Container query only allows for at most one argument")
+		} else if p.Args["DockerId"] != nil {
+			containerId, ok := p.Args["DockerId"].(string)
+			if !ok {
+				return nil, errors.New(`"DockerId" must be a string`)
+			}
+			task, ok := p.Context.Value(Task).(*apitask.Task)
+			if !ok {
+				return nil, nil
+			}
+			return containerByIdHelper(state, task, containerId)
+		} else if p.Args["Name"] != nil {
+			containerName, ok := p.Args["Name"].(string)
+			if !ok {
+				return nil, errors.New(`"Name" must be a string`)
+			}
+			task, ok := p.Context.Value(Task).(*apitask.Task)
+			if !ok {
+				return nil, nil
+			}
+			containerNameToDockerContainer, ok := state.ContainerMapByArn(task.Arn)
+			if !ok {
+				return nil, errors.Errorf("Unable to get container name mapping for task %v",
+					task.Arn)
+			}
+			container, ok := containerNameToDockerContainer[containerName]
+			if !ok {
+				return nil, errors.Errorf("Unable to find container: %v", containerName)
+			}
+			return container, nil
+		}
+		dockerContainer, ok := p.Context.Value(Container).(*apicontainer.DockerContainer)
+		if !ok {
+			return nil, nil
+		}
+
+		return dockerContainer, nil
+	}
 }
 
 func containerNameResolver(p graphql.ResolveParams) (interface{}, error) {
 	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
 	if !ok {
-		return "", nil
+		return nil, nil
 	}
 	return dockerContainer.Container.Name, nil
 }
@@ -230,7 +304,7 @@ func containerNameResolver(p graphql.ResolveParams) (interface{}, error) {
 func containerImageResolver(p graphql.ResolveParams) (interface{}, error) {
 	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
 	if !ok {
-		return "", nil
+		return nil, nil
 	}
 	return dockerContainer.Container.Image, nil
 }
@@ -238,9 +312,23 @@ func containerImageResolver(p graphql.ResolveParams) (interface{}, error) {
 func containerImageIDResolver(p graphql.ResolveParams) (interface{}, error) {
 	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
 	if !ok {
-		return "", nil
+		return nil, nil
 	}
 	return dockerContainer.Container.ImageID, nil
+}
+
+func containerPortsResolver(state dockerstate.TaskEngineState) func(p graphql.ResolveParams) (interface{}, error) {
+	return func(p graphql.ResolveParams) (interface{}, error) {
+		dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
+		if !ok {
+			return nil, nil
+		}
+		task, ok := state.TaskByID(dockerContainer.DockerID)
+		if !ok {
+			return nil, errors.Errorf("Unable to find task for container '%s'", dockerContainer.DockerID)
+		}
+		return v2.GetPortResponse(dockerContainer.Container, task.GetPrimaryENI()), nil
+	}
 }
 
 func containerLabelsResolver(p graphql.ResolveParams) (interface{}, error) {
@@ -276,7 +364,6 @@ func containerLimitsResolver(p graphql.ResolveParams) (interface{}, error) {
 	return nil, nil
 }
 
-// Container Field Resolvers
 func exitCodeResolver(p graphql.ResolveParams) (interface{}, error) {
 	if dockerContainer, ok := p.Source.(*apicontainer.DockerContainer); ok {
 		return dockerContainer.Container.GetKnownExitCode(), nil
@@ -404,11 +491,43 @@ func containerNetworksResolver(state dockerstate.TaskEngineState) func(p graphql
 	}
 }
 
+func containerVolumesResolver(p graphql.ResolveParams) (interface{}, error) {
+	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
+	if !ok {
+		return nil, nil
+	}
+	return v1.NewVolumesResponse(dockerContainer), nil
+}
+
+func containerHealthResolver(p graphql.ResolveParams) (interface{}, error) {
+	dockerContainer, ok := p.Source.(*apicontainer.DockerContainer)
+	if !ok {
+		return nil, nil
+	}
+	if dockerContainer.Container.HealthStatusShouldBeReported() {
+		health := dockerContainer.Container.GetHealthStatus()
+		healthResponse := struct {
+			Status   string     `json:"status,omitempty"`
+			Since    *time.Time `json:"statusSince,omitempty"`
+			ExitCode int        `json:"exitCode,omitempty"`
+			Output   string     `json:"output,omitempty"`
+		}{
+			Status:   health.Status.String(),
+			Since:    health.Since,
+			ExitCode: health.ExitCode,
+			Output:   health.Output,
+		}
+
+		return healthResponse, nil
+	}
+	return nil, nil
+}
+
 // Task Field Resolvers
 func taskResolver(p graphql.ResolveParams) (interface{}, error) {
 	task, ok := p.Context.Value(Task).(*apitask.Task)
 	if !ok {
-		return nil, errors.New("Could not cast to task")
+		return nil, nil
 	}
 
 	return task, nil
@@ -478,20 +597,49 @@ func taskExecutionStoppedResolver(p graphql.ResolveParams) (interface{}, error) 
 func taskContainersResolver(state dockerstate.TaskEngineState) func(p graphql.ResolveParams) (interface{}, error) {
 	return func(p graphql.ResolveParams) (interface{}, error) {
 		if task, ok := p.Source.(*apitask.Task); ok {
+			if p.Args["DockerId"] != nil && p.Args["Name"] != nil {
+				return nil, errors.New("Container query only allows for at most one argument")
+			}
 			containerNameToDockerContainer, ok := state.ContainerMapByArn(task.Arn)
 			if !ok {
-				return "", errors.Errorf("Unable to get container name mapping for task %v",
+				return nil, errors.Errorf("Unable to get container name mapping for task %v",
 					task.Arn)
 			}
-			resp := []*apicontainer.DockerContainer{}
-			for _, dockerContainer := range containerNameToDockerContainer {
-				resp = append(resp, dockerContainer)
-			}
 			pulledContainers, _ := state.PulledContainerMapByArn(task.Arn)
-			for _, dockerContainer := range pulledContainers {
+			resp := []*apicontainer.DockerContainer{}
+
+			if p.Args["Name"] != nil {
+				containerName, ok := p.Args["Name"].(string)
+				if !ok {
+					return nil, errors.New(`"Name" must be a string`)
+				}
+				dockerContainer, ok := containerNameToDockerContainer[containerName]
+				if !ok {
+					return nil, errors.Errorf("Unable to find container: %v", containerName)
+				}
 				resp = append(resp, dockerContainer)
+				return resp, nil
+			} else if p.Args["DockerId"] != nil {
+				containerId, ok := p.Args["DockerId"].(string)
+				if !ok {
+					return nil, errors.New(`"DockerId" must be a string`)
+				}
+				container, err := containerByIdHelper(state, task, containerId)
+				if err != nil {
+					return nil, err
+				}
+				resp = append(resp, container)
+				return resp, nil
+			} else {
+				for _, dockerContainer := range containerNameToDockerContainer {
+					resp = append(resp, dockerContainer)
+				}
+
+				for _, dockerContainer := range pulledContainers {
+					resp = append(resp, dockerContainer)
+				}
+				return resp, nil
 			}
-			return resp, nil
 		}
 		return nil, nil
 	}
