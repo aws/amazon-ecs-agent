@@ -18,6 +18,8 @@ package task
 import (
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -97,4 +99,11 @@ func (task *Task) initializeFSxWindowsFileServerResource(cfg *config.Config, cre
 // On unsupported platforms, we will not support this functionality
 func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Config) (*ecscni.Config, error) {
 	return nil, errors.New("unsupported platform")
+}
+
+// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
+// container's host config.
+func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+	config *config.Config) *apierrors.HostConfigError {
+	return nil
 }

@@ -20,13 +20,16 @@ import (
 	"path/filepath"
 	"time"
 
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
+	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/cgroup"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 	resourcetype "github.com/aws/amazon-ecs-agent/agent/taskresource/types"
 	"github.com/cihub/seelog"
@@ -44,6 +47,21 @@ const (
 
 	minimumCPUPercent = 0
 	bytesPerMegabyte  = 1024 * 1024
+
+	// firelensConfigBindFormatFluentd and firelensConfigBindFormatFluentbit specify the format of the firelens
+	// config file bind mount for fluentd and fluentbit firelens container respectively.
+	// First placeholder is host data dir, second placeholder is taskID.
+	firelensConfigBindFormatFluentd   = "%s/data/firelens/%s/config/fluent.conf:/fluentd/etc/fluent.conf"
+	firelensConfigBindFormatFluentbit = "%s/data/firelens/%s/config/fluent.conf:/fluent-bit/etc/fluent-bit.conf"
+
+	// firelensS3ConfigBindFormat specifies the format of the bind mount for the firelens config file downloaded from S3.
+	// First placeholder is host data dir, second placeholder is taskID, third placeholder is the s3 config path inside
+	// the firelens container.
+	firelensS3ConfigBindFormat = "%s/data/firelens/%s/config/external.conf:%s"
+
+	// firelensSocketBindFormat specifies the format for firelens container's socket directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID.
+	firelensSocketBindFormat = "%s/data/firelens/%s/socket/:/var/run/"
 )
 
 // PlatformFields consists of fields specific to Linux for a task
@@ -320,4 +338,36 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 	cniConfig.ContainerNetNS = fmt.Sprintf(ecscni.NetnsFormat, cniConfig.ContainerPID)
 
 	return cniConfig, nil
+}
+
+// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
+// container's host config.
+func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+	config *config.Config) *apierrors.HostConfigError {
+	taskID, err := task.GetID()
+	if err != nil {
+		return &apierrors.HostConfigError{Msg: err.Error()}
+	}
+
+	var configBind, s3ConfigBind, socketBind string
+	switch firelensConfig.Type {
+	case firelens.FirelensConfigTypeFluentd:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentd)
+	case firelens.FirelensConfigTypeFluentbit:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
+	default:
+		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
+			firelensConfig.Type)}
+	}
+	socketBind = fmt.Sprintf(firelensSocketBindFormat, config.DataDirOnHost, taskID)
+
+	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
+
+	// Add the s3 config bind mount if firelens container is using a config file from S3.
+	if firelensConfig.Options != nil && firelensConfig.Options[firelens.ExternalConfigTypeOption] == firelens.ExternalConfigTypeS3 {
+		hostConfig.Binds = append(hostConfig.Binds, s3ConfigBind)
+	}
+	return nil
 }

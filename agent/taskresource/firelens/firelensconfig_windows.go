@@ -1,4 +1,5 @@
-// +build linux
+// +build windows
+
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -22,24 +23,12 @@ import (
 )
 
 const (
-	// socketInputNameFluentd is the name of the socket input plugin for fluentd.
-	socketInputNameFluentd = "unix"
-
 	// inputNameForward is the name of the tcp socket input plugin for fluentd and fluentbit.
 	inputNameForward = "forward"
 
-	// socketInputPathOptionFluentd is the key for specifying socket path for fluentd.
-	socketInputPathOptionFluentd = "path"
-
-	// socketInputPathOptionFluentbit is the key for specifying socket path for fluentbit.
-	socketInputPathOptionFluentbit = "unix_path"
-
-	// socketPath is the path for socket file.
-	socketPath = "/var/run/fluent.sock"
-
 	// S3ConfigPathFluentd and S3ConfigPathFluentbit are the paths where we bind mount the config downloaded from S3 to.
-	S3ConfigPathFluentd   = "/fluentd/etc/external.conf"
-	S3ConfigPathFluentbit = "/fluent-bit/etc/external.conf"
+	S3ConfigPathFluentd   = `c:\fluentd\etc\external.conf`
+	S3ConfigPathFluentbit = `c:\fluent-bit\etc\external.conf`
 
 	// fluentTagOutputFormat is the format for the log tag captured by the output section. First placeholder is
 	// container name. Second placeholder is the wildcard that matches all contents.
@@ -56,29 +45,14 @@ const (
 	// inputBindOptionFluentd is the key for specifying host for fluentd for tcp.
 	inputBindOptionFluentd = "bind"
 
-	// inputBridgeBindValue is the value for specifying host for Bridge mode.
-	inputBridgeBindValue = "0.0.0.0"
-
-	// inputAWSVPCBindValue is the value for specifying host for AWSVPC mode.
-	inputAWSVPCBindValue = "127.0.0.1"
+	// inputAWSVPCBindValue is the value for specifying host on Windows this always binds to 0.0.0.0
+	inputBindValue = "0.0.0.0"
 
 	// inputPortOptionFluentd is the key for specifying port for fluentd for tcp.
 	inputPortOptionFluentd = "port"
 
 	// inputPortValue is the value for specifying port for fluentd for tcp.
 	inputPortValue = "24224"
-
-	// healthcheckInputNameFluentbit in the input plugin used to receive health check message for fluentbit.
-	healthcheckInputNameFluentbit = "tcp"
-	// healthcheckInputBindValue is the source where health check message comes from.
-	healthcheckInputBindValue = "127.0.0.1"
-	// healthcheckInputPortValue is the port for healthcheck.
-	healthcheckInputPortValue = "8877"
-	// healthcheckTag is the tag for health check message.
-	healthcheckTag = "firelens-healthcheck"
-	// healthcheckOutputName is the output plugin that health check message goes to. It's a black hole so that the health
-	// check messages don't go into logs.
-	healthcheckOutputName = "null"
 
 	// inputListenOptionFluentbit is the key for the log option that specifies host for fluentbit.
 	inputListenOptionFluentbit = "Listen"
@@ -98,49 +72,26 @@ const (
 func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, error) {
 	config := generator.New()
 
-	// Specify log stream input, which is a unix socket that will be used for communication between the Firelens
+	// Specify log stream input of tcp socket kind that can be used for communication between the Firelens
 	// container and other containers.
-	var inputName, inputPathOption, matchAnyWildcard string
+	var inputMap map[string]string
+	var inputName, matchAnyWildcard string
 	if firelens.firelensConfigType == FirelensConfigTypeFluentd {
-		inputName = socketInputNameFluentd
-		inputPathOption = socketInputPathOptionFluentd
+		inputMap = map[string]string{
+			inputPortOptionFluentd: inputPortValue,
+			inputBindOptionFluentd: inputBindValue,
+		}
+		inputName = inputNameForward
 		matchAnyWildcard = matchAnyWildcardFluentd
 	} else {
 		inputName = inputNameForward
-		inputPathOption = socketInputPathOptionFluentbit
 		matchAnyWildcard = matchAnyWildcardFluentbit
-	}
-	config.AddInput(inputName, "", map[string]string{
-		inputPathOption: socketPath,
-	})
-	// Specify log stream input of tcp socket kind that can be used for communication between the Firelens
-	// container and other containers if the network is bridge or awsvpc mode. Also add health check sections to support
-	// doing container health check on firlens container for these two modes.
-	if firelens.networkMode == bridgeNetworkMode || firelens.networkMode == awsvpcNetworkMode {
-		var inputMap map[string]string
-		var inputBindValue string
-		if firelens.networkMode == bridgeNetworkMode {
-			inputBindValue = inputBridgeBindValue
-		} else if firelens.networkMode == awsvpcNetworkMode {
-			inputBindValue = inputAWSVPCBindValue
+		inputMap = map[string]string{
+			inputPortOptionFluentbit:   inputPortValue,
+			inputListenOptionFluentbit: inputBindValue,
 		}
-		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
-			inputMap = map[string]string{
-				inputPortOptionFluentd: inputPortValue,
-				inputBindOptionFluentd: inputBindValue,
-			}
-			inputName = inputNameForward
-		} else {
-			inputName = inputNameForward
-			inputMap = map[string]string{
-				inputPortOptionFluentbit:   inputPortValue,
-				inputListenOptionFluentbit: inputBindValue,
-			}
-		}
-		config.AddInput(inputName, "", inputMap)
-
-		firelens.addHealthcheckSections(config)
 	}
+	config.AddInput(inputName, "", inputMap)
 
 	if firelens.ecsMetadataEnabled {
 		// Add ecs metadata fields to the log stream.
@@ -178,23 +129,4 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	seelog.Infof("Included external firelens config file at: %s", firelens.externalConfigValue)
 
 	return config, nil
-}
-
-// addHealthcheckSections adds a health check input section and a health check output section to the config.
-func (firelens *FirelensResource) addHealthcheckSections(config generator.FluentConfig) {
-	// Health check supported is only added for fluentbit.
-	if firelens.firelensConfigType != FirelensConfigTypeFluentbit {
-		return
-	}
-
-	// Add healthcheck input section.
-	inputName := healthcheckInputNameFluentbit
-	inputOptions := map[string]string{
-		inputPortOptionFluentbit:   healthcheckInputPortValue,
-		inputListenOptionFluentbit: healthcheckInputBindValue,
-	}
-	config.AddInput(inputName, healthcheckTag, inputOptions)
-
-	// Add healthcheck output section.
-	config.AddOutput(healthcheckOutputName, healthcheckTag, nil)
 }
