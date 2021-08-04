@@ -15,14 +15,9 @@ package doctor
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cihub/seelog"
-	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
-
-	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
-	"github.com/aws/aws-sdk-go/aws"
 )
 
 var (
@@ -35,6 +30,7 @@ type Doctor struct {
 	lock                 sync.RWMutex
 	cluster              string
 	containerInstanceArn string
+	statusReported       bool
 }
 
 func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn string) (*Doctor, error) {
@@ -42,6 +38,7 @@ func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn 
 		healthchecks:         []Healthcheck{},
 		cluster:              cluster,
 		containerInstanceArn: containerInstanceArn,
+		statusReported:       false,
 	}
 	for _, hc := range healthchecks {
 		newDoctor.AddHealthcheck(hc)
@@ -49,15 +46,55 @@ func NewDoctor(healthchecks []Healthcheck, cluster string, containerInstanceArn 
 	return newDoctor, nil
 }
 
+// GetCluster returns the cluster that was provided to the doctor while
+// being initialized
+func (doc *Doctor) GetCluster() string {
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
+
+	return doc.cluster
+}
+
+// GetContainerInstanceArn returns the container instance arn that was
+// provided to the doctor while being initialized
+func (doc *Doctor) GetContainerInstanceArn() string {
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
+
+	return doc.containerInstanceArn
+}
+
+// SetStatusReported tells the doctor that we have already reported the
+// current status of the healthchecks to the backend
+func (doc *Doctor) SetStatusReported(statusReported bool) {
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
+
+	doc.statusReported = statusReported
+}
+
+// HasStatusBeenReported returns whether we have already sent the current
+// state of the healthchecks to the backend or not
+func (doc *Doctor) HasStatusBeenReported() bool {
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
+
+	return doc.statusReported
+}
+
+// AddHealthcheck adds a healthcheck to the list of healthchecks that the
+// doctor will run every time doctor.RunHealthchecks() is called
 func (doc *Doctor) AddHealthcheck(healthcheck Healthcheck) {
 	doc.lock.Lock()
 	defer doc.lock.Unlock()
 	doc.healthchecks = append(doc.healthchecks, healthcheck)
 }
 
+// RunHealthchecks runs every healthcheck that the doctor knows about and
+// returns a cumulative result; true if they all pass, false otherwise
 func (doc *Doctor) RunHealthchecks() bool {
-	doc.lock.RLock()
-	defer doc.lock.RUnlock()
+	doc.lock.Lock()
+	defer doc.lock.Unlock()
 	allChecksResult := []HealthcheckStatus{}
 
 	for _, healthcheck := range doc.healthchecks {
@@ -65,42 +102,20 @@ func (doc *Doctor) RunHealthchecks() bool {
 		seelog.Debugf("instance healthcheck result: %v", res)
 		allChecksResult = append(allChecksResult, res)
 	}
+
+	doc.statusReported = false
 	return doc.allRight(allChecksResult)
 }
 
-// GetPublishInstanceStatusRequest will get all healthcheck statuses and generate
-// a sendable PublishInstanceStatusRequest
-func (doc *Doctor) GetPublishInstanceStatusRequest() (*ecstcs.PublishInstanceStatusRequest, error) {
-	metadata := &ecstcs.InstanceStatusMetadata{
-		Cluster:           aws.String(doc.cluster),
-		ContainerInstance: aws.String(doc.containerInstanceArn),
-		RequestId:         aws.String(uuid.NewRandom().String()),
-	}
-	instanceStatuses := doc.getInstanceStatuses()
+// GetHealthchecks returns a copy of list of healthchecks that the
+// doctor is holding internally.
+func (doc *Doctor) GetHealthchecks() *[]Healthcheck {
+	doc.lock.RLock()
+	defer doc.lock.RUnlock()
 
-	if instanceStatuses != nil {
-		return &ecstcs.PublishInstanceStatusRequest{
-			Metadata:  metadata,
-			Statuses:  instanceStatuses,
-			Timestamp: aws.Time(time.Now()),
-		}, nil
-	} else {
-		return nil, EmptyHealthcheckError
-	}
-}
-
-func (doc *Doctor) getInstanceStatuses() []*ecstcs.InstanceStatus {
-	var instanceStatuses []*ecstcs.InstanceStatus
-	for _, healthcheck := range doc.healthchecks {
-		instanceStatus := &ecstcs.InstanceStatus{
-			LastStatusChange: aws.Time(healthcheck.GetStatusChangeTime()),
-			LastUpdated:      aws.Time(healthcheck.GetLastHealthcheckTime()),
-			Status:           aws.String(healthcheck.GetHealthcheckStatus().String()),
-			Type:             aws.String(healthcheck.GetHealthcheckType()),
-		}
-		instanceStatuses = append(instanceStatuses, instanceStatus)
-	}
-	return instanceStatuses
+	healthcheckCopy := make([]Healthcheck, len(doc.healthchecks))
+	copy(healthcheckCopy, doc.healthchecks)
+	return &healthcheckCopy
 }
 
 func (doc *Doctor) allRight(checksResult []HealthcheckStatus) bool {
