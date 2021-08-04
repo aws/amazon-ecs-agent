@@ -228,6 +228,24 @@ func GetContainerCPULimit(container *apicontainer.Container) *float64 {
 	}
 }
 
+func GetPortResponse(container *apicontainer.Container, eni *apieni.ENI) []v1.PortResponse {
+	var resp []v1.PortResponse
+	for _, binding := range container.GetKnownPortBindings() {
+		port := v1.PortResponse{
+			ContainerPort: binding.ContainerPort,
+			Protocol:      binding.Protocol.String(),
+		}
+		if eni == nil {
+			port.HostPort = binding.HostPort
+		} else {
+			port.HostPort = port.ContainerPort
+		}
+
+		resp = append(resp, port)
+	}
+	return resp
+}
+
 // NewContainerResponse creates a new container response
 // TODO: remove includeV4Metadata from NewContainerResponse
 func NewContainerResponse(
@@ -281,19 +299,7 @@ func NewContainerResponse(
 		resp.FinishedAt = &finishedAt
 	}
 
-	for _, binding := range container.GetKnownPortBindings() {
-		port := v1.PortResponse{
-			ContainerPort: binding.ContainerPort,
-			Protocol:      binding.Protocol.String(),
-		}
-		if eni == nil {
-			port.HostPort = binding.HostPort
-		} else {
-			port.HostPort = port.ContainerPort
-		}
-
-		resp.Ports = append(resp.Ports, port)
-	}
+	resp.Ports = GetPortResponse(container, eni)
 
 	if eni != nil {
 		resp.Networks = []containermetadata.Network{
