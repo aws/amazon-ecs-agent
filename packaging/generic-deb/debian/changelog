@@ -1,3 +1,9 @@
+amazon-ecs-init (1.55.0-1) stable; urgency=medium
+
+  * Cache Agent version 1.55.0
+
+ -- Heming Han <hanhm@amazon.com>  Thu, 05 Aug 2021 18:30:00 +0000
+
 amazon-ecs-init (1.54.1-1) stable; urgency=medium
 
   * Cache Agent version 1.54.1
