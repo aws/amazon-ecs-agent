@@ -147,7 +147,7 @@ deb: .deb-done
 get-deps:
 	go get golang.org/x/tools/cover
 	go get golang.org/x/tools/cmd/cover
-	go get github.com/fzipp/gocyclo/cmd/gocyclo
+	GO111MODULE=on go get github.com/fzipp/gocyclo/cmd/gocyclo@v0.3.1
 	go get golang.org/x/tools/cmd/goimports
 	go get github.com/golang/mock/mockgen
 	go get honnef.co/go/tools/cmd/staticcheck
