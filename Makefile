@@ -297,6 +297,19 @@ GOPATH=$(shell go env GOPATH)
 
 get-deps: .get-deps-stamp
 
+.generic-rpm-done: pause-container-release
+	cp packaging/generic-rpm/ecs-agent.spec ecs-agent.spec
+	cp packaging/generic-rpm/ecs.service ecs.service
+	cp packaging/generic-rpm/amazon-ecs-volume-plugin.service amazon-ecs-volume-plugin.service
+	cp packaging/generic-rpm/amazon-ecs-volume-plugin.socket amazon-ecs-volume-plugin.socket
+	tar -czf ./sources.tgz agent scripts
+	test -e SOURCES || ln -s . SOURCES
+	rpmbuild --undefine=_disable_source_fetch --define "%_topdir $(PWD)" -bb ecs-agent.spec
+	find RPMS/ -type f -exec cp {} . \;
+	touch .rpm-done
+
+generic-rpm: .generic-rpm-done
+
 clean:
 	# ensure docker is running and we can talk to it, abort if not:
 	docker ps > /dev/null
@@ -317,4 +330,22 @@ clean:
 	-rm -rf $(PWD)/bin
 	-rm -rf cover.out
 	-rm -rf coverprofile.out
-
+	-rm -f ecs-agent.spec
+	-rm -f ecs.service
+	-rm -f amazon-ecs-volume-plugin.service
+	-rm -f amazon-ecs-volume-plugin.socket
+	-rm -f ./sources.tgz
+	-rm -f ./amazon-ecs-agent
+	-rm -f ./amazon-ecs-agent-*.rpm
+	-rm -f ./ecs-agent-*.tar
+	-rm -f ./ecs-agent-*.src.rpm
+	-rm -rf ./ecs-agent-*
+	-rm -rf ./BUILDROOT BUILD RPMS SRPMS SOURCES SPECS
+	-rm -rf ./x86_64
+	-rm -f ./amazon-ecs-agent_${VERSION}*
+	-rm -f .srpm-done .rpm-done .generic-rpm-done
+	-rm -f .deb-done
+	-rm -f amazon-ecs-cni-plugins.tar.gz
+	-rm -f amazon-vpc-cni-plugins.tar.gz
+	-rm -rf ../amazon-ecs-cni-plugins
+	-rm -rf ../amazon-vpc-cni-plugins

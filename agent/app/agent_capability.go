@@ -235,7 +235,8 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	capabilities = agent.appendPIDAndIPCNamespaceSharingCapabilities(capabilities)
 
 	// ecs agent version 1.26.0 supports aws-appmesh cni plugin
-	capabilities = agent.appendAppMeshCapabilities(capabilities)
+	//TODO: get appmesh working with the CNI plugins and reenable
+	//capabilities = agent.appendAppMeshCapabilities(capabilities)
 
 	// support elastic inference in agent
 	capabilities = agent.appendTaskEIACapabilities(capabilities)

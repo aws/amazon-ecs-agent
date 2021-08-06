@@ -34,7 +34,6 @@ import (
 	mock_ioutilwrapper "github.com/aws/amazon-ecs-agent/agent/utils/ioutilwrapper/mocks"
 	"github.com/golang/mock/gomock"
 
-	"github.com/aws/aws-sdk-go/aws"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
@@ -102,6 +101,7 @@ func TestAddNetworkResourceProvisioningDependencyWithENI(t *testing.T) {
 		"pause container should use configured image")
 }
 
+/*
 func TestAddNetworkResourceProvisioningDependencyWithAppMesh(t *testing.T) {
 	pauseConfig := dockercontainer.Config{
 		User: "1337:35",
@@ -190,6 +190,7 @@ func TestAddNetworkResourceProvisioningDependencyWithAppMeshDefaultImage(t *test
 	assert.Equal(t, cfg.PauseContainerImageName+":"+cfg.PauseContainerTag, pauseContainer.Image,
 		"pause container should use configured image")
 }
+*/
 
 func TestAddNetworkResourceProvisioningDependencyWithAppMeshError(t *testing.T) {
 	testTask := &Task{

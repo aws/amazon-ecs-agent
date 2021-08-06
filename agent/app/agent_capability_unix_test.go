@@ -607,7 +607,7 @@ func TestAppMeshCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityFullTaskSync,
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + capabiltyPIDAndIPCNamespaceSharing,
-		attributePrefix + appMeshAttributeSuffix,
+		//attributePrefix + appMeshAttributeSuffix,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
@@ -772,7 +772,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilitySecretLogDriverASM,
 		attributePrefix + capabilityContainerOrdering,
 		attributePrefix + capabiltyPIDAndIPCNamespaceSharing,
-		attributePrefix + appMeshAttributeSuffix,
+		//attributePrefix + appMeshAttributeSuffix,
 		attributePrefix + taskEIAAttributeSuffix,
 		attributePrefix + capabilityFirelensFluentd,
 		attributePrefix + capabilityFirelensFluentbit,

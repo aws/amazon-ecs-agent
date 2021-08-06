@@ -118,13 +118,13 @@ const (
 	minimumNumImagesToDeletePerCycle = 1
 
 	// defaultCNIPluginsPath is the default path where cni binaries are located
-	defaultCNIPluginsPath = "/amazon-ecs-cni-plugins"
+	defaultCNIPluginsPath = "/usr/libexec"
 
 	// DefaultMinSupportedCNIVersion denotes the minimum version of cni spec required
 	DefaultMinSupportedCNIVersion = "0.3.0"
 
 	// pauseContainerTarball is the path to the pause container tarball
-	pauseContainerTarballPath = "/images/amazon-ecs-pause.tar"
+	pauseContainerTarballPath = "/var/lib/amazon-ecs-pause.tar"
 
 	// DefaultTaskMetadataSteadyStateRate is set as 40. This is arrived from our benchmarking
 	// results where task endpoint can handle 4000 rps effectively. Here, 100 containers
@@ -182,11 +182,11 @@ const (
 var (
 	// DefaultPauseContainerImageName is the name of the pause container image. The linker's
 	// load flags are used to populate this value from the Makefile
-	DefaultPauseContainerImageName = ""
+	DefaultPauseContainerImageName = "amazon/amazon-ecs-pause"
 
 	// DefaultPauseContainerTag is the tag for the pause container image. The linker's load
 	// flags are used to populate this value from the Makefile
-	DefaultPauseContainerTag = ""
+	DefaultPauseContainerTag = "0.1.0"
 )
 
 // Merge merges two config files, preferring the ones on the left. Any nil or

@@ -38,7 +38,7 @@ const (
 	ecsSubnet = "169.254.172.0/22"
 
 	// NetnsFormat is used to construct the path to cotainer network namespace
-	NetnsFormat = "/host/proc/%s/ns/net"
+	NetnsFormat = "/proc/%s/ns/net"
 	// ECSIPAMPluginName is the binary of the ipam plugin
 	ECSIPAMPluginName = "ecs-ipam"
 	// ECSBridgePluginName is the binary of the bridge plugin
