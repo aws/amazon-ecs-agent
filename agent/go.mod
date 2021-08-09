@@ -17,7 +17,7 @@ require (
 	github.com/docker/distribution v0.0.0-20181002220433-1cb4180b1a5b // indirect
 	github.com/docker/docker v0.0.0-20200531234253-77e06fda0c94
 	github.com/docker/go-connections v0.3.0
-	github.com/docker/go-units v0.3.2
+	github.com/docker/go-units v0.4.0
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/mock v1.1.1
 	github.com/google/go-cmp v0.5.6 // indirect
