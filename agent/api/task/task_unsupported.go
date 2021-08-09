@@ -19,7 +19,6 @@ import (
 	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
@@ -32,6 +31,11 @@ import (
 
 const (
 	minimumCPUPercent = 0
+
+	firelensConfigBindFormatFluentd   = ""
+	firelensConfigBindFormatFluentbit = ""
+
+	firelensS3ConfigBindFormat = ""
 )
 
 // PlatformFields consists of fields specific to Linux for a task
@@ -101,9 +105,8 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 	return nil, errors.New("unsupported platform")
 }
 
-// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
-// container's host config.
-func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
-	config *config.Config) *apierrors.HostConfigError {
-	return nil
+// AddFirelensSocketBindMount adds socket directory bind mount to the firelens container's host config.
+// sockets
+func (task *Task) AddFirelensSocketAndS3BindMount(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+	config *config.Config, taskID string, s3ConfigBind string) {
 }

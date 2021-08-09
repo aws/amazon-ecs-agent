@@ -542,6 +542,9 @@ func (dg *dockerGoClient) CreateContainer(ctx context.Context,
 	timeout time.Duration) DockerContainerMetadata {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	// Uncomment the following line to run tasks with FireLens on Windows
+	// until Control Plane changes are made
+	// config.User = "ContainerAdministrator"
 	defer metrics.MetricsEngineGlobal.RecordDockerMetric("CREATE_CONTAINER")()
 	// Buffered channel so in the case of timeout it takes one write, never gets
 	// read, and can still be GC'd

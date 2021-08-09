@@ -16,6 +16,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/api/appmesh"
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
+	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
@@ -37,6 +39,8 @@ import (
 	mock_ssm_factory "github.com/aws/amazon-ecs-agent/agent/ssm/factory/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource"
 	"github.com/aws/amazon-ecs-agent/agent/taskresource/credentialspec"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/firelens"
+	"github.com/aws/amazon-ecs-agent/agent/taskresource/ssmsecret"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/docker/docker/api/types"
@@ -47,7 +51,9 @@ import (
 )
 
 const (
-	containerNetNS = "container:abcd"
+	testTaskDefFamily  = "testFamily"
+	testTaskDefVersion = "1"
+	containerNetNS     = "container:abcd"
 )
 
 func TestDeleteTask(t *testing.T) {
@@ -614,4 +620,302 @@ func TestPauseContainerHappyPath(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	wg.Wait()
+}
+
+func TestCreateFirelensContainer(t *testing.T) {
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type: logDriverTypeFirelens,
+			Config: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	getTask := func(firelensConfigType string) *apitask.Task {
+		task := &apitask.Task{
+			Arn:     testTaskARN,
+			Family:  testTaskDefFamily,
+			Version: testTaskDefVersion,
+			Containers: []*apicontainer.Container{
+				{
+					Name: "firelens",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: firelensConfigType,
+						Options: map[string]string{
+							"enable-ecs-log-metadata": "true",
+							"config-file-type":        "s3",
+							"config-file-value":       "arn:aws:s3:::bucket/key",
+						},
+					},
+				},
+				{
+					Name: "logsender",
+					Secrets: []apicontainer.Secret{
+						{
+							Name:      "secret-name",
+							ValueFrom: "secret-value-from",
+							Provider:  apicontainer.SecretProviderSSM,
+							Target:    apicontainer.SecretTargetLogDriver,
+							Region:    "us-west-2",
+						},
+					},
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func(s string) *string {
+							return &s
+						}(string(rawHostConfig)),
+					},
+				},
+			},
+		}
+
+		task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+		ssmRes := &ssmsecret.SSMSecretResource{}
+		ssmRes.SetCachedSecretValue("secret-value-from_us-west-2", "secret-val")
+		task.AddResource(ssmsecret.ResourceName, ssmRes)
+		return task
+	}
+
+	testCases := []struct {
+		name                        string
+		task                        *apitask.Task
+		expectedGeneratedConfigBind string
+		expectedS3ConfigBind        string
+		expectedLogOptionEnv        string
+	}{
+		{
+			name:                        "test create fluentd firelens container",
+			task:                        getTask(firelens.FirelensConfigTypeFluentd),
+			expectedGeneratedConfigBind: defaultConfig.DataDirOnHost + `\firelens\task-id\config\:C:\data\fluentd\etc\`,
+			expectedS3ConfigBind:        defaultConfig.DataDirOnHost + `\firelens\task-id\config\:C:\data\fluentd\etc\`,
+			expectedLogOptionEnv:        "secret-name_1=secret-val",
+		},
+		{
+			name:                        "test create fluentbit firelens container",
+			task:                        getTask(firelens.FirelensConfigTypeFluentbit),
+			expectedGeneratedConfigBind: defaultConfig.DataDirOnHost + `\firelens\task-id\config\:C:\data\fluent-bit\etc\`,
+			expectedS3ConfigBind:        defaultConfig.DataDirOnHost + `\firelens\task-id\config\:C:\data\fluent-bit\etc\`,
+			expectedLogOptionEnv:        "secret-name_1=secret-val",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, mockTime, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			mockTime.EXPECT().Now().AnyTimes()
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Contains(t, hostConfig.Binds, tc.expectedGeneratedConfigBind)
+					assert.Contains(t, hostConfig.Binds, tc.expectedS3ConfigBind)
+					assert.Contains(t, config.Env, tc.expectedLogOptionEnv)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+	}
+}
+
+// TestCreateContainerAddFirelensLogDriverConfig tests that in createContainer, when the
+// container is using firelens log driver, its logConfig is properly set.
+func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
+	taskName := "logSenderTask"
+	taskARN := "arn:aws:ecs:region:account-id:task/task-id"
+	taskID := "task-id"
+	taskFamily := "logSenderTaskFamily"
+	taskVersion := "1"
+	logDriverTypeFirelens := "awsfirelens"
+	networkModeBridge := "bridge"
+	networkModeAWSVPC := "awsvpc"
+	bridgeIPAddr := "bridgeIP"
+	envVarBridgeMode := "FLUENT_HOST=bridgeIP"
+	envVarPort := "FLUENT_PORT=24224"
+	defaultPort := "24224"
+	//envVarAWSVPCMode := "FLUENT_HOST=127.0.0.1"
+	eniIPv4Address := "10.0.0.2"
+	getTask := func(logDriverType string, networkMode string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverType,
+				Config: map[string]string{
+					"key1":                    "value1",
+					"key2":                    "value2",
+					"log-driver-buffer-limit": "10000",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+					NetworkModeUnsafe: networkMode,
+				},
+				{
+					Name: "test-container",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: "fluentd",
+					},
+					NetworkModeUnsafe: networkMode,
+					NetworkSettingsUnsafe: &types.NetworkSettings{
+						DefaultNetworkSettings: types.DefaultNetworkSettings{
+							IPAddress: bridgeIPAddr,
+						},
+					},
+				},
+			},
+		}
+	}
+	getTaskWithENI := func(logDriverType string, networkMode string) *apitask.Task {
+		rawHostConfigInput := dockercontainer.HostConfig{
+			LogConfig: dockercontainer.LogConfig{
+				Type: logDriverType,
+				Config: map[string]string{
+					"key1": "value1",
+					"key2": "value2",
+				},
+			},
+		}
+		rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+		require.NoError(t, err)
+		return &apitask.Task{
+			Arn:     taskARN,
+			Version: taskVersion,
+			Family:  taskFamily,
+			ENIs: []*apieni.ENI{
+				{
+					IPV4Addresses: []*apieni.ENIIPV4Address{
+						{
+							Primary: true,
+							Address: eniIPv4Address,
+						},
+					},
+				},
+			},
+			Containers: []*apicontainer.Container{
+				{
+					Name: taskName,
+					DockerConfig: apicontainer.DockerConfig{
+						HostConfig: func() *string {
+							s := string(rawHostConfig)
+							return &s
+						}(),
+					},
+					NetworkModeUnsafe: networkMode,
+				},
+				{
+					Name: "test-container",
+					FirelensConfig: &apicontainer.FirelensConfig{
+						Type: "fluentd",
+					},
+					NetworkModeUnsafe: networkMode,
+					NetworkSettingsUnsafe: &types.NetworkSettings{
+						DefaultNetworkSettings: types.DefaultNetworkSettings{
+							IPAddress: bridgeIPAddr,
+						},
+					},
+				},
+			},
+		}
+	}
+	testCases := []struct {
+		name                           string
+		task                           *apitask.Task
+		expectedLogConfigType          string
+		expectedLogConfigTag           string
+		expectedLogConfigFluentAddress string
+		expectedFluentdAsyncConnect    string
+		expectedSubSecondPrecision     string
+		expectedBufferLimit            string
+		expectedIPAddress              string
+		expectedPort                   string
+	}{
+		{
+			name:                           "test container that uses firelens log driver with default mode",
+			task:                           getTask(logDriverTypeFirelens, ""),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
+			expectedBufferLimit:            "10000",
+			expectedLogConfigFluentAddress: fmt.Sprintf(hostPortFormat, bridgeIPAddr, defaultPort),
+			expectedIPAddress:              envVarBridgeMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens log driver with bridge mode",
+			task:                           getTask(logDriverTypeFirelens, networkModeBridge),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
+			expectedBufferLimit:            "10000",
+			expectedLogConfigFluentAddress: fmt.Sprintf(hostPortFormat, bridgeIPAddr, defaultPort),
+			expectedIPAddress:              envVarBridgeMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens log driver with awsvpc mode",
+			task:                           getTaskWithENI(logDriverTypeFirelens, networkModeAWSVPC),
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
+			expectedBufferLimit:            "",
+			expectedLogConfigFluentAddress: fmt.Sprintf(hostPortFormat, eniIPv4Address, defaultPort),
+			expectedIPAddress:              "FLUENT_HOST=" + eniIPv4Address,
+			expectedPort:                   envVarPort,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+			ctrl, client, _, taskEngine, _, _, _ := mocks(t, ctx, &defaultConfig)
+			defer ctrl.Finish()
+
+			client.EXPECT().APIVersion().Return(defaultDockerClientAPIVersion, nil).AnyTimes()
+			client.EXPECT().CreateContainer(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Do(
+				func(ctx context.Context,
+					config *dockercontainer.Config,
+					hostConfig *dockercontainer.HostConfig,
+					name string,
+					timeout time.Duration) {
+					assert.Equal(t, tc.expectedLogConfigType, hostConfig.LogConfig.Type)
+					assert.Equal(t, tc.expectedLogConfigTag, hostConfig.LogConfig.Config["tag"])
+					assert.Equal(t, tc.expectedLogConfigFluentAddress, hostConfig.LogConfig.Config["fluentd-address"])
+					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
+					assert.Equal(t, tc.expectedSubSecondPrecision, hostConfig.LogConfig.Config["fluentd-sub-second-precision"])
+					assert.Equal(t, tc.expectedBufferLimit, hostConfig.LogConfig.Config["fluentd-buffer-limit"])
+					assert.Contains(t, config.Env, tc.expectedIPAddress)
+					assert.Contains(t, config.Env, tc.expectedPort)
+				})
+			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
+			assert.NoError(t, ret.Error)
+		})
+
+	}
 }

@@ -20,6 +20,8 @@ import (
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
+	"github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi"
+	dockercontainer "github.com/docker/docker/api/types/container"
 )
 
 const (
@@ -37,4 +39,8 @@ func (engine *DockerTaskEngine) updateTaskENIDependencies(task *apitask.Task) {
 // On non-windows platform, we will not invoke CNI plugins for non-pause containers
 func (engine *DockerTaskEngine) invokePluginsForContainer(task *apitask.Task, container *apicontainer.Container) error {
 	return nil
+}
+func (engine *DockerTaskEngine) setupFireLensEnvironment(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig) dockerapi.DockerContainerMetadata {
+	container.GetFirelensConfig()
+	return dockerapi.DockerContainerMetadata{}
 }

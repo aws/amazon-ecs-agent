@@ -16,21 +16,40 @@ package firelens
 
 import (
 	"os"
-	"path/filepath"
 
-	"github.com/pkg/errors"
+	"github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
+	"github.com/cihub/seelog"
 )
 
-var mkdirAll = os.MkdirAll
+// Sockets not supported on Windows
+func (firelens *FirelensResource) createSocketDirectories() error {
+	return nil
+}
 
-// createDirectories creates one directory for Windows:
-//  - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
-//    will be mounted to the firelens container at an expected path.
-func (firelens *FirelensResource) createDirectories() error {
-	configDir := filepath.Join(firelens.resourceDir, "config")
-	err := mkdirAll(configDir, os.ModePerm)
+var rename = os.Rename
+
+// writeConfigFile writes a config file at a given path.
+func (firelens *FirelensResource) writeConfigFile(writeFunc func(file oswrapper.File) error, filePath string) error {
+
+	temp, err := firelens.ioutil.TempFile(firelens.resourceDir, tempFile)
 	if err != nil {
-		return errors.Wrap(err, "unable to create config directory")
+		return err
+	}
+
+	err = writeFunc(temp)
+	if err != nil {
+		return err
+	}
+
+	err = temp.Close()
+	if err != nil {
+		seelog.Errorf("Error while closing the handle to file %s: %v", temp.Name(), err)
+		return err
+	}
+
+	err = rename(temp.Name(), filePath)
+	if err != nil {
+		return err
 	}
 
 	return nil

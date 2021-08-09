@@ -40,10 +40,6 @@ import (
 const (
 	// ResourceName is the name of the firelens resource.
 	ResourceName = "firelens"
-	// tempFile is the name of the temp file generated during generating config file.
-	tempFile = "temp_config_file"
-	// configFilePerm is the permission for the firelens config file.
-	configFilePerm = 0644
 	// ecsMetadataEnableOption is the option that specifies whether to enable appending ecs metadata to log stream.
 	ecsLogMetadataEnableOption = "enable-ecs-log-metadata"
 	// ExternalConfigTypeOption is the option that specifies the type of an external config file to be included as
@@ -57,6 +53,10 @@ const (
 	// ExternalConfigTypeOption is s3, the value for this option should be an s3 arn; when ExternalConfigTypeOption is
 	// file, the value for this option should be a path to the config file inside the firelens container.
 	externalConfigValueOption = "config-file-value"
+	// tempFile is the name of the temp file generated during generating config file.
+	tempFile = "temp_config_file"
+	// configFilePerm is the permission for the firelens config file.
+	configFilePerm = 0644
 
 	s3DownloadTimeout = 30 * time.Second
 )
@@ -426,6 +426,31 @@ func (firelens *FirelensResource) Create() error {
 	return nil
 }
 
+var mkdirAll = os.MkdirAll
+
+// createDirectories creates two directories:
+//  - $(DATA_DIR)/firelens/$(TASK_ID)/config: used to store firelens config file. The config file under this directory
+//    will be mounted to the firelens container at an expected path.
+//  - $(DATA_DIR)/firelens/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
+//    the firelens container and it will generate a socket file under this directory. Containers that use firelens to
+//    send logs will then use this socket to send logs to the firelens container.
+// Note: socket path has a limit of at most 108 characters on Linux. If using default data dir, the
+// resulting socket path will be 79 characters (/var/lib/ecs/data/firelens/<task-id>/socket/fluent.sock) which is fine.
+// However if ECS_HOST_DATA_DIR is specified to be a longer path, we will exceed the limit and fail. I don't really
+// see a way to avoid this failure since ECS_HOST_DATA_DIR can be arbitrary long..
+func (firelens *FirelensResource) createDirectories() error {
+	configDir := filepath.Join(firelens.resourceDir, "config")
+	err := mkdirAll(configDir, os.ModePerm)
+	if err != nil {
+		return errors.Wrap(err, "unable to create config directory")
+	}
+	err = firelens.createSocketDirectories()
+	if err != nil {
+		return errors.Wrap(err, "unable to create socket directory")
+	}
+	return nil
+}
+
 // generateConfigFile generates a firelens config file at $(RESOURCE_DIR)/config/fluent.conf.
 // This contains configs needed by the firelens container.
 func (firelens *FirelensResource) generateConfigFile() error {
@@ -478,40 +503,6 @@ func (firelens *FirelensResource) downloadConfigFromS3() error {
 	}
 
 	seelog.Debugf("Downloaded firelens config file from s3 and saved to: %s", confFilePath)
-	return nil
-}
-
-var rename = os.Rename
-
-// writeConfigFile writes a config file at a given path.
-func (firelens *FirelensResource) writeConfigFile(writeFunc func(file oswrapper.File) error, filePath string) error {
-	temp, err := firelens.ioutil.TempFile(firelens.resourceDir, tempFile)
-	if err != nil {
-		return err
-	}
-	defer temp.Close()
-
-	err = writeFunc(temp)
-	if err != nil {
-		return err
-	}
-
-	err = temp.Chmod(os.FileMode(configFilePerm))
-	if err != nil {
-		return err
-	}
-
-	// Persist the config file to disk.
-	err = temp.Sync()
-	if err != nil {
-		return err
-	}
-
-	err = rename(temp.Name(), filePath)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 

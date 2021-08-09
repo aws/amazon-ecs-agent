@@ -23,7 +23,6 @@ import (
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apicontainerstatus "github.com/aws/amazon-ecs-agent/agent/api/container/status"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
-	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	"github.com/aws/amazon-ecs-agent/agent/ecscni"
@@ -340,34 +339,16 @@ func (task *Task) BuildCNIConfig(includeIPAMConfig bool, cniConfig *ecscni.Confi
 	return cniConfig, nil
 }
 
-// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
-// container's host config.
-func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
-	config *config.Config) *apierrors.HostConfigError {
-	taskID, err := task.GetID()
-	if err != nil {
-		return &apierrors.HostConfigError{Msg: err.Error()}
-	}
+// AddFirelensSocketBindMount adds socket directory bind mount to the firelens container's host config.
+func (task *Task) AddFirelensSocketAndS3BindMount(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+	config *config.Config, taskID string, s3ConfigBind string) {
 
-	var configBind, s3ConfigBind, socketBind string
-	switch firelensConfig.Type {
-	case firelens.FirelensConfigTypeFluentd:
-		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
-		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentd)
-	case firelens.FirelensConfigTypeFluentbit:
-		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
-		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
-	default:
-		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
-			firelensConfig.Type)}
-	}
-	socketBind = fmt.Sprintf(firelensSocketBindFormat, config.DataDirOnHost, taskID)
-
-	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
+	socketBind := fmt.Sprintf(firelensSocketBindFormat, config.DataDirOnHost, taskID)
+	hostConfig.Binds = append(hostConfig.Binds, socketBind)
 
 	// Add the s3 config bind mount if firelens container is using a config file from S3.
 	if firelensConfig.Options != nil && firelensConfig.Options[firelens.ExternalConfigTypeOption] == firelens.ExternalConfigTypeS3 {
 		hostConfig.Binds = append(hostConfig.Binds, s3ConfigBind)
 	}
-	return nil
+
 }

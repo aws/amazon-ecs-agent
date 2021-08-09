@@ -132,46 +132,7 @@ var (
     region us-west-2
 </match>
 `
-	expectedFluentdDefaultModeConfig = `
-<source>
-    @type unix
-    path /var/run/fluent.sock
-</source>
 
-<filter container-firelens**>
-    @type  grep
-    <regexp>
-        key log
-        pattern *failure*
-    </regexp>
-</filter>
-
-<filter container-firelens**>
-    @type  grep
-    <exclude>
-        key log
-        pattern *success*
-    </exclude>
-</filter>
-
-<filter **>
-    @type record_transformer
-    <record>
-        ec2_instance_id i-123456789a
-        ecs_cluster mycluster
-        ecs_task_arn arn:aws:ecs:us-east-2:01234567891011:task/mycluster/3de392df-6bfa-470b-97ed-aa6f482cd7a
-        ecs_task_definition taskdefinition:1
-    </record>
-</filter>
-
-@include /tmp/dummy.conf
-
-<match container-firelens**>
-    @type kinesis_firehose
-    deliver_stream_name my-stream
-    region us-west-2
-</match>
-`
 	expectedFluentbitConfig = `
 [INPUT]
     Name forward
@@ -351,7 +312,7 @@ func TestGenerateFluentdDefaultModeConfig(t *testing.T) {
 	configBytes := new(bytes.Buffer)
 	err = config.WriteFluentdConfig(configBytes)
 	assert.NoError(t, err)
-	assert.Equal(t, expectedFluentdDefaultModeConfig, configBytes.String())
+	assert.Equal(t, expectedFluentdBridgeModeConfig, configBytes.String())
 }
 
 func TestGenerateFluentbitConfig(t *testing.T) {

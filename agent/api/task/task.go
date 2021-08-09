@@ -411,21 +411,6 @@ func (task *Task) initSecretResources(credentialsManager credentials.Manager,
 	}
 }
 
-func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
-	credentialsManager credentials.Manager) error {
-	firelensContainer := task.GetFirelensContainer()
-	if firelensContainer != nil {
-		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
-			return apierrors.NewResourceInitError(task.Arn, err)
-		}
-		if err := task.addFirelensContainerDependency(); err != nil {
-			return errors.New("unable to add firelens container dependency")
-		}
-	}
-
-	return nil
-}
-
 func (task *Task) addGPUResource(cfg *config.Config) error {
 	if cfg.GPUSupportEnabled {
 		for _, association := range task.Associations {
@@ -1100,6 +1085,50 @@ func (task *Task) collectFirelensLogEnvOptions(containerToLogOptions map[string]
 			}
 		}
 	}
+	return nil
+}
+
+func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
+	credentialsManager credentials.Manager) error {
+	firelensContainer := task.GetFirelensContainer()
+	if firelensContainer != nil {
+		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
+			return apierrors.NewResourceInitError(task.Arn, err)
+		}
+		if err := task.addFirelensContainerDependency(); err != nil {
+			return errors.New("unable to add firelens container dependency")
+		}
+	}
+
+	return nil
+}
+
+// AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
+// container's host config.
+func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
+	config *config.Config) *apierrors.HostConfigError {
+	taskID, err := task.GetID()
+	if err != nil {
+		return &apierrors.HostConfigError{Msg: err.Error()}
+	}
+
+	var configBind, s3ConfigBind string
+	switch firelensConfig.Type {
+	case firelens.FirelensConfigTypeFluentd:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentd, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentd)
+	case firelens.FirelensConfigTypeFluentbit:
+		configBind = fmt.Sprintf(firelensConfigBindFormatFluentbit, config.DataDirOnHost, taskID)
+		s3ConfigBind = fmt.Sprintf(firelensS3ConfigBindFormat, config.DataDirOnHost, taskID, firelens.S3ConfigPathFluentbit)
+	default:
+		return &apierrors.HostConfigError{Msg: fmt.Sprintf("encounter invalid firelens configuration type %s",
+			firelensConfig.Type)}
+	}
+
+	hostConfig.Binds = append(hostConfig.Binds, configBind)
+
+	task.AddFirelensSocketAndS3BindMount(firelensConfig, hostConfig, config, taskID, s3ConfigBind)
+
 	return nil
 }
 

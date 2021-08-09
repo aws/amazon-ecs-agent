@@ -1,4 +1,4 @@
-// +build windows
+// +build !linux,!windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
@@ -15,25 +15,17 @@
 
 package firelens
 
-import (
-	generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
-)
+import generator "github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit"
 
 const (
-	// S3ConfigPathFluentd and S3ConfigPathFluentbit are the paths where we bind mount the config downloaded from S3 to.
-	S3ConfigPathFluentd   = `C:\data\fluentd\etc\`
-	S3ConfigPathFluentbit = `C:\data\fluent-bit\etc\`
-
-	// inputBindValue is the value for specifying host on Windows this always binds to 0.0.0.0
-	inputBridgeBindValue = "0.0.0.0"
-
-	// inputAWSVPCBindValue is the value for specifying host for AWSVPC mode.
-	inputAWSVPCBindValue = "0.0.0.0"
+	S3ConfigPathFluentd   = ""
+	S3ConfigPathFluentbit = ""
+	inputBridgeBindValue  = ""
+	inputAWSVPCBindValue  = ""
 )
 
 // Specify log stream input, which is a unix socket that will be used for communication between the Firelens
 // container and other containers.
-// not supported on Windows
 func (firelens *FirelensResource) addSocketInput(config generator.FluentConfig) {
 
 }
@@ -44,9 +36,5 @@ func (firelens *FirelensResource) addHealthcheckSections(config generator.Fluent
 }
 
 func (firelens *FirelensResource) getS3ConfPath() string {
-	if firelens.firelensConfigType == FirelensConfigTypeFluentd {
-		return S3ConfigPathFluentd + "external.conf"
-	} else {
-		return S3ConfigPathFluentbit + "external.conf"
-	}
+	return ""
 }

@@ -40,47 +40,6 @@ var (
 		"exclude-pattern":     "*success*",
 	}
 
-	expectedFluentdBridgeModeConfig = `
-<source>
-    @type forward
-    bind 0.0.0.0
-    port 24224
-</source>
-
-<filter container-firelens**>
-    @type  grep
-    <regexp>
-        key log
-        pattern *failure*
-    </regexp>
-</filter>
-
-<filter container-firelens**>
-    @type  grep
-    <exclude>
-        key log
-        pattern *success*
-    </exclude>
-</filter>
-
-<filter **>
-    @type record_transformer
-    <record>
-        ec2_instance_id i-123456789a
-        ecs_cluster mycluster
-        ecs_task_arn arn:aws:ecs:us-east-2:01234567891011:task/mycluster/3de392df-6bfa-470b-97ed-aa6f482cd7a
-        ecs_task_definition taskdefinition:1
-    </record>
-</filter>
-
-@include /tmp/dummy.conf
-
-<match container-firelens**>
-    @type kinesis_firehose
-    deliver_stream_name my-stream
-    region us-west-2
-</match>
-`
 	expectedFluentdAWSVPCConfig = `
 <source>
     @type forward
@@ -187,7 +146,7 @@ var (
     Record ecs_task_arn arn:aws:ecs:us-east-2:01234567891011:task/mycluster/3de392df-6bfa-470b-97ed-aa6f482cd7a
     Record ecs_task_definition taskdefinition:1
 
-@INCLUDE c:\fluent-bit\etc\external.conf
+@INCLUDE C:\data\fluent-bit\etc\external.conf
 
 [OUTPUT]
     Name kinesis_firehose
@@ -251,28 +210,9 @@ var (
     Record ecs_task_arn arn:aws:ecs:us-east-2:01234567891011:task/mycluster/3de392df-6bfa-470b-97ed-aa6f482cd7a
     Record ecs_task_definition taskdefinition:1
 
-@INCLUDE c:\fluent-bit\etc\external.conf
+@INCLUDE C:\data\fluent-bit\etc\external.conf
 `
 )
-
-func TestGenerateFluentdBridgeModeConfig(t *testing.T) {
-	containerToLogOptions := map[string]map[string]string{
-		"container": testFluentdOptions,
-	}
-
-	firelensResource, err := NewFirelensResource(testCluster, testTaskARN, testTaskDefinition, testEC2InstanceID,
-		testDataDir, FirelensConfigTypeFluentd, testRegion, bridgeNetworkMode, testFirelensOptionsFile, containerToLogOptions,
-		nil, testExecutionCredentialsID)
-	require.NoError(t, err)
-
-	config, err := firelensResource.generateConfig()
-	assert.NoError(t, err)
-
-	configBytes := new(bytes.Buffer)
-	err = config.WriteFluentdConfig(configBytes)
-	assert.NoError(t, err)
-	assert.Equal(t, expectedFluentdBridgeModeConfig, configBytes.String())
-}
 
 func TestGenerateFluentdAWSVPCModeConfig(t *testing.T) {
 	containerToLogOptions := map[string]map[string]string{
