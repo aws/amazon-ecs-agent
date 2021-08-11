@@ -37,7 +37,7 @@ func TestMarshalUnmarshalJSON(t *testing.T) {
 		taskDefinition:         testTaskDefinition,
 		ec2InstanceID:          testEC2InstanceID,
 		resourceDir:            testResourceDir,
-		firelensConfigType:     FirelensConfigTypeFluentd,
+		firelensConfig:         testFirelensV1Config(),
 		region:                 testRegion,
 		ecsMetadataEnabled:     true,
 		containerToLogOptions:  testContainerToLogOptions,

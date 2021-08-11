@@ -30,6 +30,12 @@ const (
 	// FirelensConfigTypeFluentbit is the type of a fluentbit firelens container.
 	FirelensConfigTypeFluentbit = "fluentbit"
 
+	// FirelensConfigTypeAWSFluentbitCollector is the type of a fluentbit firelens v2 container.
+	FirelensConfigTypeAWSFluentbitCollector = "fluentbit"
+
+	// FirelensConfigTypeAWSOtelCollector is the type of a AWS Distro for OpenTelemetry(ADOT) firelens v2 container.
+	FirelensConfigTypeAWSOtelCollector = "opentelemetry"
+
 	// socketInputNameFluentd is the name of the socket input plugin for fluentd.
 	socketInputNameFluentd = "unix"
 
@@ -121,7 +127,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	// Specify log stream input, which is a unix socket that will be used for communication between the Firelens
 	// container and other containers.
 	var inputName, inputPathOption, matchAnyWildcard string
-	if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+	if firelens.firelensConfig.Type == FirelensConfigTypeFluentd {
 		inputName = socketInputNameFluentd
 		inputPathOption = socketInputPathOptionFluentd
 		matchAnyWildcard = matchAnyWildcardFluentd
@@ -144,7 +150,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		} else if firelens.networkMode == awsvpcNetworkMode {
 			inputBindValue = inputAWSVPCBindValue
 		}
-		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+		if firelens.firelensConfig.Type == FirelensConfigTypeFluentd {
 			inputMap = map[string]string{
 				inputPortOptionFluentd: inputPortValue,
 				inputBindOptionFluentd: inputBindValue,
@@ -176,7 +182,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 	// may have its own output section with options, constructed from container's log options.
 	for containerName, logOptions := range firelens.containerToLogOptions {
 		tag := fmt.Sprintf(fluentTagOutputFormat, containerName, matchAnyWildcard) // Each output section is distinguished by a tag specific to a container.
-		newConfig, err := addOutputSection(tag, firelens.firelensConfigType, logOptions, config)
+		newConfig, err := addOutputSection(tag, firelens.firelensConfig.Type, logOptions, config)
 		if err != nil {
 			return nil, fmt.Errorf("unable to apply log options of container %s to firelens config: %v", containerName, err)
 		}
@@ -188,7 +194,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 		config.AddExternalConfig(firelens.externalConfigValue, generator.AfterFilters)
 	} else if firelens.externalConfigType == ExternalConfigTypeS3 {
 		var s3ConfPath string
-		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+		if firelens.firelensConfig.Type == FirelensConfigTypeFluentd {
 			s3ConfPath = S3ConfigPathFluentd
 		} else {
 			s3ConfPath = S3ConfigPathFluentbit
@@ -203,7 +209,7 @@ func (firelens *FirelensResource) generateConfig() (generator.FluentConfig, erro
 // addHealthcheckSections adds a health check input section and a health check output section to the config.
 func (firelens *FirelensResource) addHealthcheckSections(config generator.FluentConfig) {
 	// Health check supported is only added for fluentbit.
-	if firelens.firelensConfigType != FirelensConfigTypeFluentbit {
+	if firelens.firelensConfig.Type != FirelensConfigTypeFluentbit {
 		return
 	}
 
