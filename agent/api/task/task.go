@@ -115,6 +115,16 @@ const (
 	// firelensSocketBindFormat specifies the format for firelens container's socket directory bind mount.
 	// First placeholder is host data dir, second placeholder is taskID.
 	firelensSocketBindFormat = "%s/data/firelens/%s/socket/:/var/run/"
+
+	// firelensV2SocketBindFormat specifies the format for managed observability collector's socket directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID.
+	firelensV2SocketBindFormat = "%s/data/telemetry/%s/socket/:/var/run/"
+
+	// firelensV2StatusMessageBindFormat specifies the format for managed observability collector's status message directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID, third placeholder is for collector container name and
+	// fourth placeholder is the directory where collector writes status message to a file
+	firelensV2StatusMessageBindFormat = "%s/data/telemetry/%s/status-message/%s/:%s"
+
 	// firelensDriverName is the log driver name for containers that want to use the firelens container to send logs.
 	firelensDriverName = "awsfirelens"
 	// FirelensLogDriverBufferLimitOption is the option for customers who want to specify the buffer limit size in FireLens.
@@ -427,16 +437,15 @@ func (task *Task) initSecretResources(credentialsManager credentials.Manager,
 
 func (task *Task) applyFirelensSetup(cfg *config.Config, resourceFields *taskresource.ResourceFields,
 	credentialsManager credentials.Manager) error {
-	firelensContainer := task.GetFirelensContainer()
-	if firelensContainer != nil {
-		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainer, credentialsManager); err != nil {
+	firelensContainers := task.GetFirelensContainers()
+	if len(firelensContainers) > 0 {
+		if err := task.initializeFirelensResource(cfg, resourceFields, firelensContainers, credentialsManager); err != nil {
 			return apierrors.NewResourceInitError(task.Arn, err)
 		}
 		if err := task.addFirelensContainerDependency(); err != nil {
 			return errors.New("unable to add firelens container dependency")
 		}
 	}
-
 	return nil
 }
 
@@ -940,32 +949,36 @@ func (task *Task) getAllASMSecretRequirements() map[string]apicontainer.Secret {
 }
 
 // GetFirelensContainer returns the firelens container in the task, if there is one.
-func (task *Task) GetFirelensContainer() *apicontainer.Container {
+func (task *Task) GetFirelensContainers() []*apicontainer.Container {
+	var firelensContainers []*apicontainer.Container
 	for _, container := range task.Containers {
 		if container.GetFirelensConfig() != nil { // This is a firelens container.
-			return container
+			firelensContainers = append(firelensContainers, container)
 		}
 	}
-	return nil
+	return firelensContainers
 }
 
 // initializeFirelensResource initializes the firelens task resource and adds it as a dependency of the
 // firelens container.
 func (task *Task) initializeFirelensResource(config *config.Config, resourceFields *taskresource.ResourceFields,
-	firelensContainer *apicontainer.Container, credentialsManager credentials.Manager) error {
-	if firelensContainer.GetFirelensConfig() == nil {
-		return errors.New("firelens container config doesn't exist")
+	firelensContainers []*apicontainer.Container, credentialsManager credentials.Manager) error {
+	if len(firelensContainers) == 0 {
+		return errors.New("unable to initialize firelens resource because there's no firelens container")
 	}
-
 	containerToLogOptions := make(map[string]map[string]string)
-	// Collect plain text log options.
-	if err := task.collectFirelensLogOptions(containerToLogOptions); err != nil {
-		return errors.Wrap(err, "unable to initialize firelens resource")
-	}
+	firelensVersion := firelensContainers[0].FirelensConfig.Version
 
-	// Collect secret log options.
-	if err := task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainer.FirelensConfig.Type); err != nil {
-		return errors.Wrap(err, "unable to initialize firelens resource")
+	// collect the log options for all the containers that use the firelens v1 container as the log driver.
+	if firelensVersion != "v2" {
+		if err := task.collectFirelensLogOptions(containerToLogOptions); err != nil {
+			return errors.Wrap(err, "unable to initialize firelens resource")
+		}
+
+		// Collect secret log options.
+		if err := task.collectFirelensLogEnvOptions(containerToLogOptions, firelensContainers[0].FirelensConfig.Type); err != nil {
+			return errors.Wrap(err, "unable to initialize firelens resource")
+		}
 	}
 
 	for _, container := range task.Containers {
@@ -985,7 +998,7 @@ func (task *Task) initializeFirelensResource(config *config.Config, resourceFiel
 				networkMode = container.GetNetworkModeFromHostConfig()
 			}
 			firelensResource, err := firelens.NewFirelensResource(config.Cluster, task.Arn, task.Family+":"+task.Version,
-				ec2InstanceID, config.DataDir, firelensConfig.Type, config.AWSRegion, networkMode, firelensConfig.Options, containerToLogOptions,
+				ec2InstanceID, config.DataDir, config.AWSRegion, networkMode, firelensConfig, containerToLogOptions,
 				credentialsManager, task.ExecutionCredentialsID)
 			if err != nil {
 				return errors.Wrap(err, "unable to initialize firelens resource")
@@ -1120,12 +1133,26 @@ func (task *Task) collectFirelensLogEnvOptions(containerToLogOptions map[string]
 // AddFirelensContainerBindMounts adds config file bind mount and socket directory bind mount to the firelens
 // container's host config.
 func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.FirelensConfig, hostConfig *dockercontainer.HostConfig,
-	config *config.Config) *apierrors.HostConfigError {
+	config *config.Config, containerName string) *apierrors.HostConfigError {
 	taskID, err := task.GetID()
 	if err != nil {
 		return &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
+	// Add bind mounts for firelens v2 container's host config
+	if firelensConfig.Version == "v2" {
+		if firelensConfig.CollectStdoutLogs {
+			socketBind := fmt.Sprintf(firelensV2SocketBindFormat, config.DataDirOnHost, taskID)
+			hostConfig.Binds = append(hostConfig.Binds, socketBind)
+		}
+		statusMsgBind := fmt.Sprintf(firelensV2StatusMessageBindFormat, config.DataDirOnHost, taskID, containerName,
+			firelensConfig.StatusMessageReportingPath)
+		hostConfig.Binds = append(hostConfig.Binds, statusMsgBind)
+
+		return nil
+	}
+
+	// Add bind mounts for firelens v1 container's host config
 	var configBind, s3ConfigBind, socketBind string
 	switch firelensConfig.Type {
 	case firelens.FirelensConfigTypeFluentd:
@@ -1142,7 +1169,7 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.Fi
 
 	hostConfig.Binds = append(hostConfig.Binds, configBind, socketBind)
 
-	// Add the s3 config bind mount if firelens container is using a config file from S3.
+	// Add the s3 config bind mount if firelens v1 container is using a config file from S3.
 	if firelensConfig.Options != nil && firelensConfig.Options[firelens.ExternalConfigTypeOption] == firelens.ExternalConfigTypeS3 {
 		hostConfig.Binds = append(hostConfig.Binds, s3ConfigBind)
 	}

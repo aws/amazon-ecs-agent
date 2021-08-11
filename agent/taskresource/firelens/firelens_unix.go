@@ -60,6 +60,18 @@ const (
 	externalConfigValueOption = "config-file-value"
 
 	s3DownloadTimeout = 30 * time.Second
+
+	// firelensV1ResourceDirFormat specifies the format for firelens container's socket directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID.
+	firelensV1ResourceDirFormat = "%s/firelens/%s"
+
+	//firelensV2ResourceDirFormat specifies the format for firelens v2 container's socket directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID.
+	firelensV2ResourceDirFormat = "%s/telemetry/%s"
+)
+
+const (
+	firelensV2DirPermission = os.FileMode(0600)
 )
 
 // FirelensResource models fluentd/fluentbit firelens container related resources as a task resource.
@@ -70,7 +82,7 @@ type FirelensResource struct {
 	taskDefinition         string
 	ec2InstanceID          string
 	resourceDir            string
-	firelensConfigType     string
+	firelensConfig         *apicontainer.FirelensConfig
 	region                 string
 	ecsMetadataEnabled     bool
 	containerToLogOptions  map[string]map[string]string
@@ -94,33 +106,38 @@ type FirelensResource struct {
 }
 
 // NewFirelensResource returns a new FirelensResource.
-func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, firelensConfigType, region, networkMode string,
-	firelensOptions map[string]string, containerToLogOptions map[string]map[string]string, credentialsManager credentials.Manager,
-	executionCredentialsID string) (*FirelensResource, error) {
-	firelensResource := &FirelensResource{
-		cluster:                cluster,
-		taskARN:                taskARN,
-		taskDefinition:         taskDefinition,
-		ec2InstanceID:          ec2InstanceID,
-		firelensConfigType:     firelensConfigType,
-		region:                 region,
-		networkMode:            networkMode,
-		containerToLogOptions:  containerToLogOptions,
-		ioutil:                 ioutilwrapper.NewIOUtil(),
-		s3ClientCreator:        factory.NewS3ClientCreator(),
-		executionCredentialsID: executionCredentialsID,
-		credentialsManager:     credentialsManager,
-	}
+func NewFirelensResource(cluster, taskARN, taskDefinition, ec2InstanceID, dataDir, region, networkMode string,
+	firelensConfig *apicontainer.FirelensConfig, containerToLogOptions map[string]map[string]string,
+	credentialsManager credentials.Manager, executionCredentialsID string) (*FirelensResource, error) {
 
 	fields := strings.Split(taskARN, "/")
 	taskID := fields[len(fields)-1]
-	firelensResource.resourceDir = filepath.Join(filepath.Join(dataDir, "firelens"), taskID)
 
-	err := firelensResource.parseOptions(firelensOptions)
-	if err != nil {
-		return nil, errors.Wrap(err, "error parsing firelens options")
+	firelensResource := &FirelensResource{}
+	if firelensConfig.Version != "v2" {
+		firelensResource = &FirelensResource{
+			cluster:                cluster,
+			taskARN:                taskARN,
+			taskDefinition:         taskDefinition,
+			ec2InstanceID:          ec2InstanceID,
+			region:                 region,
+			networkMode:            networkMode,
+			containerToLogOptions:  containerToLogOptions,
+			ioutil:                 ioutilwrapper.NewIOUtil(),
+			s3ClientCreator:        factory.NewS3ClientCreator(),
+			executionCredentialsID: executionCredentialsID,
+			credentialsManager:     credentialsManager,
+		}
+
+		err := firelensResource.parseOptions(firelensConfig.Options)
+		if err != nil {
+			return nil, errors.Wrap(err, "error parsing firelens options")
+		}
+		firelensResource.resourceDir = fmt.Sprintf(firelensV1ResourceDirFormat, dataDir, taskID)
+	} else {
+		firelensResource.resourceDir = fmt.Sprintf(firelensV2ResourceDirFormat, dataDir, taskID)
 	}
-
+	firelensResource.firelensConfig = firelensConfig
 	firelensResource.initStatusToTransition()
 	return firelensResource, nil
 }
@@ -213,9 +230,11 @@ func (firelens *FirelensResource) Initialize(resourceFields *taskresource.Resour
 
 	// Initialize the fields that won't be populated by unmarshalling from state file.
 	firelens.initStatusToTransition()
-	firelens.ioutil = ioutilwrapper.NewIOUtil()
-	firelens.s3ClientCreator = factory.NewS3ClientCreator()
-	firelens.credentialsManager = resourceFields.CredentialsManager
+	if firelens.firelensConfig.Version != "v2" {
+		firelens.ioutil = ioutilwrapper.NewIOUtil()
+		firelens.s3ClientCreator = factory.NewS3ClientCreator()
+		firelens.credentialsManager = resourceFields.CredentialsManager
+	}
 }
 
 // GetNetworkMode returns the network mode of the task.
@@ -394,9 +413,11 @@ func (firelens *FirelensResource) GetCreatedAt() time.Time {
 // a config file under the config directory.
 func (firelens *FirelensResource) Create() error {
 	// Fail fast if firelens configuration type is invalid.
-	if firelens.firelensConfigType != FirelensConfigTypeFluentd &&
-		firelens.firelensConfigType != FirelensConfigTypeFluentbit {
-		err := errors.New(fmt.Sprintf("invalid firelens configuration type: %s", firelens.firelensConfigType))
+	if firelens.firelensConfig.Type != FirelensConfigTypeFluentd &&
+		firelens.firelensConfig.Type != FirelensConfigTypeFluentbit &&
+		firelens.firelensConfig.Type != FirelensConfigTypeAWSFluentbitCollector &&
+		firelens.firelensConfig.Type != FirelensConfigTypeAWSOtelCollector {
+		err := errors.New(fmt.Sprintf("invalid firelens configuration type: %s", firelens.firelensConfig.Type))
 		firelens.setTerminalReason(err.Error())
 		return err
 	}
@@ -408,6 +429,7 @@ func (firelens *FirelensResource) Create() error {
 		return err
 	}
 
+	// external config option is only available for firelens v1
 	if firelens.externalConfigType == ExternalConfigTypeS3 {
 		err = firelens.downloadConfigFromS3()
 		if err != nil {
@@ -417,11 +439,13 @@ func (firelens *FirelensResource) Create() error {
 		}
 	}
 
-	err = firelens.generateConfigFile()
-	if err != nil {
-		err = errors.Wrap(err, "unable to generate firelens config file")
-		firelens.setTerminalReason(err.Error())
-		return err
+	if firelens.firelensConfig.Version != "v2" {
+		err = firelens.generateConfigFile()
+		if err != nil {
+			err = errors.Wrap(err, "unable to generate firelens config file")
+			firelens.setTerminalReason(err.Error())
+			return err
+		}
 	}
 
 	return nil
@@ -435,21 +459,43 @@ var mkdirAll = os.MkdirAll
 //  - $(DATA_DIR)/firelens/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
 //    the firelens container and it will generate a socket file under this directory. Containers that use firelens to
 //    send logs will then use this socket to send logs to the firelens container.
+//  - $(DATA_DIR)/telemetry/$(TASK_ID)/socket: used to store the unix socket. This directory will be mounted to
+//    the managed observability collector (firelens v2) and it will generate a socket file under this directory. Containers that use firelens v2 to
+//    route logs will then use this socket to send logs to the firelens container.
+//  - $(DATA_DIR)/telemetry/$(TASK_ID)/statusMessage: used to store firelens v2 status message file. The file under this directory
+//    will be mounted to the managed observability collector (firelens v2) at an expected path.
 // Note: socket path has a limit of at most 108 characters on Linux. If using default data dir, the
 // resulting socket path will be 79 characters (/var/lib/ecs/data/firelens/<task-id>/socket/fluent.sock) which is fine.
 // However if ECS_HOST_DATA_DIR is specified to be a longer path, we will exceed the limit and fail. I don't really
 // see a way to avoid this failure since ECS_HOST_DATA_DIR can be arbitrary long..
 func (firelens *FirelensResource) createDirectories() error {
-	configDir := filepath.Join(firelens.resourceDir, "config")
-	err := mkdirAll(configDir, os.ModePerm)
-	if err != nil {
-		return errors.Wrap(err, "unable to create config directory")
+	if firelens.firelensConfig.Version != "v2" {
+		configDir := filepath.Join(firelens.resourceDir, "config")
+		err := mkdirAll(configDir, os.ModePerm)
+		if err != nil {
+			return errors.Wrap(err, "unable to create config directory")
+		}
+	} else {
+		statusMsgDir := filepath.Join(firelens.resourceDir, "statusMessage")
+		err := mkdirAll(statusMsgDir, firelensV2DirPermission)
+		if err != nil {
+			return errors.Wrap(err, "unable to create statusMessage directory")
+		}
 	}
 
-	socketDir := filepath.Join(firelens.resourceDir, "socket")
-	err = mkdirAll(socketDir, os.ModePerm)
-	if err != nil {
-		return errors.Wrap(err, "unable to create socket directory")
+	// create socket directory only if it is a firelens v1 container or if CollectStdoutLogs is set
+	// for firelens v2 container
+	if firelens.firelensConfig.Version != "v2" || firelens.firelensConfig.CollectStdoutLogs {
+		socketDir := filepath.Join(firelens.resourceDir, "socket")
+		fileMode := firelensV2DirPermission
+		// TODO: Evaluate if changing file permission bits to 0600 for Firelens v1 is backwards compatible
+		if firelens.firelensConfig.Version != "v2" {
+			fileMode = os.ModePerm
+		}
+		err := mkdirAll(socketDir, fileMode)
+		if err != nil {
+			return errors.Wrap(err, "unable to create socket directory")
+		}
 	}
 	return nil
 }
@@ -464,7 +510,7 @@ func (firelens *FirelensResource) generateConfigFile() error {
 
 	confFilePath := filepath.Join(firelens.resourceDir, "config", "fluent.conf")
 	err = firelens.writeConfigFile(func(file oswrapper.File) error {
-		if firelens.firelensConfigType == FirelensConfigTypeFluentd {
+		if firelens.firelensConfig.Type == FirelensConfigTypeFluentd {
 			return config.WriteFluentdConfig(file)
 		} else {
 			return config.WriteFluentBitConfig(file)

@@ -645,7 +645,7 @@ func TestPostUnmarshalWithFirelensContainerError(t *testing.T) {
 	assert.Error(t, task.PostUnmarshalTask(cfg, nil, resourceFields, nil, nil))
 }
 
-func TestGetFirelensContainer(t *testing.T) {
+func TestGetFirelensContainers(t *testing.T) {
 	firelensContainer := &apicontainer.Container{
 		Name: "c",
 		FirelensConfig: &apicontainer.FirelensConfig{
@@ -654,18 +654,19 @@ func TestGetFirelensContainer(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name              string
-		task              *Task
-		firelensContainer *apicontainer.Container
+		name                   string
+		task                   *Task
+		numOfFirelensContainer int
 	}{
 		{
 			name: "task has firelens container",
 			task: &Task{
 				Containers: []*apicontainer.Container{
 					firelensContainer,
+					firelensContainer,
 				},
 			},
-			firelensContainer: firelensContainer,
+			numOfFirelensContainer: 2,
 		},
 		{
 			name: "task doesn't have firelens container",
@@ -676,13 +677,13 @@ func TestGetFirelensContainer(t *testing.T) {
 					},
 				},
 			},
-			firelensContainer: nil,
+			numOfFirelensContainer: 0,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.firelensContainer, tc.task.GetFirelensContainer())
+			assert.Equal(t, tc.numOfFirelensContainer, len(tc.task.GetFirelensContainers()))
 		})
 	}
 }
@@ -789,7 +790,7 @@ func TestInitializeFirelensResource(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1], nil)
+			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.GetFirelensContainers(), nil)
 			if tc.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -883,7 +884,7 @@ func TestInitializeFirelensResourceWithExternalConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.Containers[1], nil)
+			err := tc.task.initializeFirelensResource(cfg, resourceFields, tc.task.GetFirelensContainers(), nil)
 			if tc.shouldFail {
 				assert.Error(t, err)
 			} else {
@@ -1032,6 +1033,38 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 			},
 		},
 		{
+			name: "test add bind mounts for firelens v2 config",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Version = "v2"
+				task.Containers[1].FirelensConfig.StatusMessageReportingPath = "/path/to/statusMessageFile"
+				return task
+			}(),
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/telemetry/task-id/status-message/firelenscontainer/:/path/to/statusMessageFile",
+			},
+		},
+		{
+			name: "test add bind mounts for firelens v2 with CollectStdoutLogs config set",
+			task: func() *Task {
+				task := getFirelensTask(t)
+				task.Containers[1].FirelensConfig.Version = "v2"
+				task.Containers[1].FirelensConfig.CollectStdoutLogs = true
+				task.Containers[1].FirelensConfig.StatusMessageReportingPath = "/path/to/statusMessageFile"
+				return task
+			}(),
+			hostCfg:    &dockercontainer.HostConfig{},
+			cfg:        cfg,
+			shouldFail: false,
+			expectedBindMounts: []string{
+				"testDataDirOnHost/data/telemetry/task-id/socket/:/var/run/",
+				"testDataDirOnHost/data/telemetry/task-id/status-message/firelenscontainer/:/path/to/statusMessageFile",
+			},
+		},
+		{
 			name: "test add bind mounts invalid firelens configuration type",
 			task: func() *Task {
 				task := getFirelensTask(t)
@@ -1046,7 +1079,7 @@ func TestAddFirelensContainerBindMounts(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.task.AddFirelensContainerBindMounts(tc.task.Containers[1].FirelensConfig, tc.hostCfg, tc.cfg)
+			err := tc.task.AddFirelensContainerBindMounts(tc.task.Containers[1].FirelensConfig, tc.hostCfg, tc.cfg, tc.task.Containers[1].Name)
 			if tc.shouldFail {
 				// assert.Error doesn't work with *apierrors.HostConfigError.
 				assert.NotNil(t, err)

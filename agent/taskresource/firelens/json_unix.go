@@ -20,6 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/aws/amazon-ecs-agent/agent/api/container"
 	resourcestatus "github.com/aws/amazon-ecs-agent/agent/taskresource/status"
 )
 
@@ -29,7 +30,7 @@ type firelensResourceJSON struct {
 	TaskDefinition         string
 	EC2InstanceID          string
 	ResourceDir            string
-	FirelensConfigType     string
+	FirelensConfig         *container.FirelensConfig
 	Region                 string
 	ECSMetadataEnabled     bool
 	ContainersToLogOptions map[string]map[string]string
@@ -60,7 +61,7 @@ func (firelens *FirelensResource) MarshalJSON() ([]byte, error) {
 		TaskDefinition:         firelens.taskDefinition,
 		EC2InstanceID:          firelens.ec2InstanceID,
 		ResourceDir:            firelens.resourceDir,
-		FirelensConfigType:     firelens.firelensConfigType,
+		FirelensConfig:         firelens.firelensConfig,
 		Region:                 firelens.region,
 		ECSMetadataEnabled:     firelens.ecsMetadataEnabled,
 		ContainersToLogOptions: firelens.containerToLogOptions,
@@ -107,7 +108,7 @@ func (firelens *FirelensResource) UnmarshalJSON(b []byte) error {
 	firelens.taskDefinition = temp.TaskDefinition
 	firelens.ec2InstanceID = temp.EC2InstanceID
 	firelens.resourceDir = temp.ResourceDir
-	firelens.firelensConfigType = temp.FirelensConfigType
+	firelens.firelensConfig = temp.FirelensConfig
 	firelens.region = temp.Region
 	firelens.ecsMetadataEnabled = temp.ECSMetadataEnabled
 	firelens.containerToLogOptions = temp.ContainersToLogOptions
