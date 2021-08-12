@@ -19,7 +19,7 @@
 package mock_ioutilwrapper
 
 import (
-	os "os"
+	fs "io/fs"
 	reflect "reflect"
 
 	oswrapper "github.com/aws/amazon-ecs-agent/agent/utils/oswrapper"
@@ -65,7 +65,7 @@ func (mr *MockIOUtilMockRecorder) TempFile(arg0, arg1 interface{}) *gomock.Call 
 }
 
 // WriteFile mocks base method
-func (m *MockIOUtil) WriteFile(arg0 string, arg1 []byte, arg2 os.FileMode) error {
+func (m *MockIOUtil) WriteFile(arg0 string, arg1 []byte, arg2 fs.FileMode) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
