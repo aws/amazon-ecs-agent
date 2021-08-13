@@ -67,6 +67,6 @@ replace (
 	github.com/vishvananda/netns => github.com/vishvananda/netns v0.0.0-20171111001504-be1fbeda1936
 	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
 	golang.org/x/net => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc
+	golang.org/x/sys => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 	golang.org/x/tools => golang.org/x/tools v0.0.0-20171114152239-bd4635fd2559
 )

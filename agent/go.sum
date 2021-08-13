@@ -149,8 +149,8 @@ golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAG
 golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181108010431-42b317875d0f/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
 golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
-golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc h1:pt5pMsz4A/sZRT17MOvX/nidmCt7n6ILLJBkNh5QqC8=
-golang.org/x/sys v0.0.0-20171114162044-bf42f188b9bc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69 h1:Wdn4Yb8d5VrsO3jWgaeSZss09x1VLVBMePDh4VW/xSQ=
+golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/time v0.0.0-20170927054726-6dc17368e09b h1:3X+R0qq1+64izd8es+EttB6qcY+JDlVmAhpRXl7gpzU=
