@@ -458,7 +458,7 @@ func (task *Task) addGPUResource(cfg *config.Config) error {
 				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
-		task.populateGPUEnvironmentVariables()
+		//task.populateGPUEnvironmentVariables()
 		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
 	return nil
@@ -1535,7 +1535,7 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 			return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
 		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
-		hostCfg.Runtime = task.NvidiaRuntime
+		//hostCfg.Runtime = task.NvidiaRuntime
 	}
 
 	if cfg.InferentiaSupportEnabled && container.RequireNeuronRuntime() {
@@ -1554,11 +1554,16 @@ func (task *Task) getDockerResources(container *apicontainer.Container) dockerco
 			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
 		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
+	deviceRequest := dockercontainer.DeviceRequest{
+		Capabilities: [][]string{[]string{"gpu"}},
+		DeviceIDs:    container.GPUIDs,
+	}
 	// Set CPUShares
 	cpuShare := task.dockerCPUShares(container.CPU)
 	resources := dockercontainer.Resources{
-		Memory:    dockerMem,
-		CPUShares: cpuShare,
+		Memory:         dockerMem,
+		CPUShares:      cpuShare,
+		DeviceRequests: []dockercontainer.DeviceRequest{deviceRequest},
 	}
 	return resources
 }
