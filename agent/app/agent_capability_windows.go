@@ -68,6 +68,14 @@ func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attr
 	return capabilities
 }
 
+func (agent *ecsAgent) appendTelemetryFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
+
+func (agent *ecsAgent) appendTelemetryOpentelemetryCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendGMSACapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	if agent.cfg.GMSACapable {
 		return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityGMSA)

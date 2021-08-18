@@ -72,6 +72,8 @@ const (
 	capabilityExecConfigRelativePath            = "config"
 	capabilityExecCertsRelativePath             = "certs"
 	capabilityExternal                          = "external"
+	capabilityTelemetryFluentbit                = "telemetry.fluentbit"
+	capabilityTelemetryOpentelemetry            = "telemetry.opentelemetry"
 )
 
 var (
@@ -177,6 +179,8 @@ var (
 //    ecs.capability.fsxWindowsFileServer
 //    ecs.capability.execute-command
 //    ecs.capability.external
+//    ecs.capability.telemetry.fluentbit
+//    ecs.capability.telemetry.opentelemetry
 func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 	var capabilities []*ecs.Attribute
 
@@ -252,6 +256,12 @@ func (agent *ecsAgent) capabilities() ([]*ecs.Attribute, error) {
 
 	// support external firelens config
 	capabilities = agent.appendFirelensConfigCapabilities(capabilities)
+
+	// support telemetry capabilities for fluentbit
+	capabilities = agent.appendTelemetryFluentbitCapabilities(capabilities)
+
+	// support telemetry capabilities for opentelemetry
+	capabilities = agent.appendTelemetryOpentelemetryCapabilities(capabilities)
 
 	// support GMSA capabilities
 	capabilities = agent.appendGMSACapabilities(capabilities)
