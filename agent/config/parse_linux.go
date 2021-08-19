@@ -22,3 +22,8 @@ func parseGMSACapability() bool {
 func parseFSxWindowsFileServerCapability() bool {
 	return false
 }
+
+// GetOperatingSystemFamily() returns "linux" as operating system family for linux based ecs instances
+func GetOperatingSystemFamily() string {
+	return OSType
+}

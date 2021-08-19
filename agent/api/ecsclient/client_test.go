@@ -380,6 +380,7 @@ func TestRegisterContainerInstance(t *testing.T) {
 			fakeCapabilities := []string{"capability1", "capability2"}
 			expectedAttributes := map[string]string{
 				"ecs.os-type":               config.OSType,
+				"ecs.os-family":             config.GetOperatingSystemFamily(),
 				"my_custom_attribute":       "Custom_Value1",
 				"my_other_custom_attribute": "Custom_Value2",
 				"ecs.availability-zone":     "us-west-2b",
@@ -418,10 +419,10 @@ func TestRegisterContainerInstance(t *testing.T) {
 			if !tc.cfg.External.Enabled() {
 				// 2 capability attributes: capability1, capability2
 				// and 4 other attributes: ecs.os-type, ecs.outpost-arn, my_custom_attribute, my_other_custom_attribute.
-				expectedNumOfAttributes = 6
+				expectedNumOfAttributes = 7
 			} else {
 				// One more attribute for external case: ecs.cpu-architecture
-				expectedNumOfAttributes = 7
+				expectedNumOfAttributes = 8
 			}
 
 			gomock.InOrder(
@@ -481,6 +482,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 	fakeCapabilities := []string{"capability1", "capability2"}
 	expectedAttributes := map[string]string{
 		"ecs.os-type":           config.OSType,
+		"ecs.os-family":         config.GetOperatingSystemFamily(),
 		"ecs.availability-zone": "us-west-2b",
 		"ecs.outpost-arn":       "test:arn:outpost",
 	}
@@ -503,7 +505,7 @@ func TestReRegisterContainerInstance(t *testing.T) {
 			assert.True(t, ok, `Could not find resource "PORTS_UDP"`)
 			assert.Equal(t, "STRINGSET", *resource.Type, `Wrong type for resource "PORTS_UDP"`)
 			// "ecs.os-type", ecs.outpost-arn and the 2 that we specified as additionalAttributes
-			assert.Equal(t, 4, len(req.Attributes), "Wrong number of Attributes")
+			assert.Equal(t, 5, len(req.Attributes), "Wrong number of Attributes")
 			reqAttributes := func() map[string]string {
 				rv := make(map[string]string, len(req.Attributes))
 				for i := range req.Attributes {
@@ -557,6 +559,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
+		mockSDK.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "Invalid request.", errors.New("Invalid request."))),
 	)
 	_, _, err := client.RegisterContainerInstance("", nil, nil,
 		"", nil, "")
@@ -571,6 +574,7 @@ func TestRegisterContainerInstanceWithEmptyTags(t *testing.T) {
 
 	expectedAttributes := map[string]string{
 		"ecs.os-type":               config.OSType,
+		"ecs.os-family":             config.GetOperatingSystemFamily(),
 		"my_custom_attribute":       "Custom_Value1",
 		"my_other_custom_attribute": "Custom_Value2",
 	}
@@ -637,7 +641,8 @@ func TestRegisterBlankCluster(t *testing.T) {
 	client.(*APIECSClient).SetSDK(mc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type": config.OSType,
+		"ecs.os-type":   config.OSType,
+		"ecs.os-family": config.GetOperatingSystemFamily(),
 	}
 	defaultCluster := config.DefaultClusterName
 	gomock.InOrder(
@@ -693,7 +698,8 @@ func TestRegisterBlankClusterNotCreatingClusterWhenErrorNotClusterNotFound(t *te
 	client.(*APIECSClient).SetSDK(mc)
 
 	expectedAttributes := map[string]string{
-		"ecs.os-type": config.OSType,
+		"ecs.os-type":   config.OSType,
+		"ecs.os-family": config.GetOperatingSystemFamily(),
 	}
 
 	gomock.InOrder(

@@ -46,6 +46,7 @@ const (
 	azAttrName              = "ecs.availability-zone"
 	cpuArchAttrName         = "ecs.cpu-architecture"
 	osTypeAttrName          = "ecs.os-type"
+	osFamilyAttrName        = "ecs.os-family"
 )
 
 // APIECSClient implements ECSClient
@@ -327,10 +328,16 @@ func validateRegisteredAttributes(expectedAttributes, actualAttributes []*ecs.At
 }
 
 func (client *APIECSClient) getAdditionalAttributes() []*ecs.Attribute {
+	osFamily := config.GetOperatingSystemFamily()
+	seelog.Infof("Attribute OSFamily:%v", osFamily)
 	attrs := []*ecs.Attribute{
 		{
 			Name:  aws.String(osTypeAttrName),
 			Value: aws.String(config.OSType),
+		},
+		{
+			Name:  aws.String(osFamilyAttrName),
+			Value: aws.String(osFamily),
 		},
 	}
 	// Send cpu arch attribute directly when running on external capacity. When running on EC2, this is not needed

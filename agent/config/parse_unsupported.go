@@ -22,3 +22,8 @@ func parseGMSACapability() bool {
 func parseFSxWindowsFileServerCapability() bool {
 	return false
 }
+
+// GetOperatingSystemFamily() returns "unsupported" as operating system family for non windows and non linux based ecs instances
+func GetOperatingSystemFamily() string {
+	return OSType
+}

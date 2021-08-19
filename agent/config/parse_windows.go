@@ -16,6 +16,9 @@
 package config
 
 import (
+	"fmt"
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
+	"github.com/pkg/errors"
 	"os"
 	"strings"
 	"syscall"
@@ -27,12 +30,96 @@ import (
 	"github.com/cihub/seelog"
 )
 
-const (
-	// envSkipDomainJoinCheck is an environment setting that can be used to skip
-	// domain join check validation. This is useful for integration and
-	// functional-tests but should not be set for any non-test use-case.
-	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
-)
+var winRegistry dependencies.WindowsRegistry
+
+func init() {
+	winRegistry = dependencies.StdRegistry{}
+}
+
+func setWinRegistry(mockRegistry dependencies.WindowsRegistry) {
+	winRegistry = mockRegistry
+}
+
+func getInstallationType(installationType string) (string, error) {
+	switch installationType {
+	case installationTypeFull:
+		return "FULL", nil
+	case installationTypeCore:
+		return "CORE", nil
+	default:
+		return "", errors.Errorf("unsupported Installation type:%s", installationType)
+	}
+}
+
+func getReleaseIdForSACReleases(productName string) (string, error) {
+	if strings.HasPrefix(productName, windowsServer2019) {
+		return "2019", nil
+	} else if strings.HasPrefix(productName, windowsServer2016) {
+		return "2016", nil
+	}
+	err := seelog.Errorf("unsupported productName:%s for Windows SAC Release", productName)
+	return "", err
+}
+
+func getReleaseIdForLTSCReleases(releaseId string) (string, error) {
+	switch releaseId {
+	case releaseId2004SAC:
+		return releaseId2004SAC, nil
+	case releaseId1909SAC:
+		return releaseId1909SAC, nil
+	default:
+		return "", errors.Errorf("unsupported ReleaseId:%s for Windows LTSC Release", releaseId)
+	}
+}
+
+// GetOperatingSystemFamily() reads the NT current version from windows registry and constructs operating system family string
+// In case of any exception this method just returns "windows" as operating system type.
+func GetOperatingSystemFamily() string {
+	key, err := winRegistry.OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, registry.QUERY_VALUE)
+	if err != nil {
+		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
+		return unsupportedWindowsOS
+	}
+	defer key.Close()
+
+	productName, _, err := key.GetStringValue("ProductName")
+	if err != nil {
+		seelog.Errorf("Unable to read registry key, ProductName: %v", err)
+		return unsupportedWindowsOS
+	}
+	installationType, _, err := key.GetStringValue("InstallationType")
+	if err != nil {
+		seelog.Errorf("Unable to read registry key, InstallationType: %v", err)
+		return unsupportedWindowsOS
+	}
+	iType, err := getInstallationType(installationType)
+	if err != nil {
+		seelog.Errorf("Invalid Installation type found: %v", err)
+		return unsupportedWindowsOS
+	}
+
+	releaseId := ""
+	if strings.HasPrefix(productName, windowsServerDataCenter) {
+		releaseIdFromRegistry, _, err := key.GetStringValue("ReleaseId")
+		if err != nil {
+			seelog.Errorf("Unable to read registry key, ReleaseId: %v", err)
+			return unsupportedWindowsOS
+		}
+
+		releaseId, err = getReleaseIdForLTSCReleases(releaseIdFromRegistry)
+		if err != nil {
+			seelog.Errorf("Failed to construct releaseId for Windows LTSC, Error: %v", err)
+			return unsupportedWindowsOS
+		}
+	} else {
+		releaseId, err = getReleaseIdForSACReleases(productName)
+		if err != nil {
+			seelog.Errorf("Failed to construct releaseId for Windows SAC, Error: %v", err)
+			return unsupportedWindowsOS
+		}
+	}
+	return fmt.Sprintf(osTypeFormat, releaseId, iType)
+}
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
 func parseGMSACapability() bool {
@@ -94,7 +181,7 @@ func isDomainJoined() (bool, error) {
 // isWindows2016 is used to check if container instance is versioned Windows 2016
 // Reference: https://godoc.org/golang.org/x/sys/windows/registry
 var isWindows2016 = func() (bool, error) {
-	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
+	key, err := winRegistry.OpenKey(ecsWinRegistryRootKey, ecsWinRegistryRootPath, registry.QUERY_VALUE)
 	if err != nil {
 		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
 		return false, err
