@@ -28,4 +28,4 @@ const Version = "1.55.1"
 const GitDirty = true
 
 // GitShortHash is the short hash of this agent build
-const GitShortHash = "44497127"
+const GitShortHash = "da651207"

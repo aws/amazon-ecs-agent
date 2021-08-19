@@ -1,4 +1,4 @@
-FROM debian:stable-20201012
+FROM debian:stable-20210816
 
 RUN apt-get update &&  \
     apt-get install -y ca-certificates && \
