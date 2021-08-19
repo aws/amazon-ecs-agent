@@ -559,7 +559,7 @@ func TestRegisterContainerInstanceWithNegativeResource(t *testing.T) {
 	gomock.InOrder(
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentResource).Return("instanceIdentityDocument", nil),
 		mockEC2Metadata.EXPECT().GetDynamicData(ec2.InstanceIdentityDocumentSignatureResource).Return("signature", nil),
-		mockSDK.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "Cluster not found", errors.New("Invalid request."))),
+		//mockSDK.EXPECT().RegisterContainerInstance(gomock.Any()).Return(nil, awserr.New("ClientException", "Cluster not found", errors.New("Invalid request."))),
 	)
 	_, _, err := client.RegisterContainerInstance("", nil, nil,
 		"", nil, "")
