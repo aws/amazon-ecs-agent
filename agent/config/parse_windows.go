@@ -17,12 +17,14 @@ package config
 
 import (
 	"fmt"
-	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
-	"github.com/pkg/errors"
+
 	"os"
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/aws/amazon-ecs-agent/agent/statemanager/dependencies"
+	"github.com/pkg/errors"
 
 	"golang.org/x/sys/windows/registry"
 
