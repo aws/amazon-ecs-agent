@@ -211,6 +211,144 @@ func (c *FSx) CancelDataRepositoryTaskWithContext(ctx aws.Context, input *Cancel
 	return out, req.Send()
 }
 
+const opCopyBackup = "CopyBackup"
+
+// CopyBackupRequest generates a "aws/request.Request" representing the
+// client's request for the CopyBackup operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See CopyBackup for more information on using the CopyBackup
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//
+//    // Example sending a request using the CopyBackupRequest method.
+//    req, resp := client.CopyBackupRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/fsx-2018-03-01/CopyBackup
+func (c *FSx) CopyBackupRequest(input *CopyBackupInput) (req *request.Request, output *CopyBackupOutput) {
+	op := &request.Operation{
+		Name:       opCopyBackup,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &CopyBackupInput{}
+	}
+
+	output = &CopyBackupOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// CopyBackup API operation for Amazon FSx.
+//
+// Copies an existing backup within the same AWS account to another Region (cross-Region
+// copy) or within the same Region (in-Region copy). You can have up to five
+// backup copy requests in progress to a single destination Region per account.
+//
+// You can use cross-Region backup copies for cross-region disaster recovery.
+// You periodically take backups and copy them to another Region so that in
+// the event of a disaster in the primary Region, you can restore from backup
+// and recover availability quickly in the other Region. You can make cross-Region
+// copies only within your AWS partition.
+//
+// You can also use backup copies to clone your file data set to another Region
+// or within the same Region.
+//
+// You can use the SourceRegion parameter to specify the AWS Region from which
+// the backup will be copied. For example, if you make the call from the us-west-1
+// Region and want to copy a backup from the us-east-2 Region, you specify us-east-2
+// in the SourceRegion parameter to make a cross-Region copy. If you don't specify
+// a Region, the backup copy is created in the same Region where the request
+// is sent from (in-Region copy).
+//
+// For more information on creating backup copies, see Copying backups (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/using-backups.html#copy-backups)
+// in the Amazon FSx for Windows User Guide and Copying backups (https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-backups-fsx.html#copy-backups)
+// in the Amazon FSx for Lustre User Guide.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for Amazon FSx's
+// API operation CopyBackup for usage and error information.
+//
+// Returned Error Types:
+//   * BadRequest
+//   A generic error indicating a failure with a client request.
+//
+//   * BackupNotFound
+//   No Amazon FSx backups were found based upon the supplied parameters.
+//
+//   * ServiceLimitExceeded
+//   An error indicating that a particular service limit was exceeded. You can
+//   increase some service limits by contacting AWS Support.
+//
+//   * UnsupportedOperation
+//   The requested operation is not supported for this resource or API.
+//
+//   * IncompatibleParameterError
+//   The error returned when a second request is received with the same client
+//   request token but different parameters settings. A client request token should
+//   always uniquely identify a single request.
+//
+//   * InternalServerError
+//   A generic error indicating a server-side failure.
+//
+//   * InvalidSourceKmsKey
+//   The AWS Key Management Service (AWS KMS) key of the source backup is invalid.
+//
+//   * InvalidDestinationKmsKey
+//   The AWS Key Management Service (AWS KMS) key of the destination backup is
+//   invalid.
+//
+//   * InvalidRegion
+//   The Region provided for Source Region is invalid or is in a different AWS
+//   partition.
+//
+//   * SourceBackupUnavailable
+//   The request was rejected because the lifecycle status of the source backup
+//   is not AVAILABLE.
+//
+//   * IncompatibleRegionForMultiAZ
+//   Amazon FSx doesn't support Multi-AZ Windows File Server copy backup in the
+//   destination Region, so the copied backup can't be restored.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/fsx-2018-03-01/CopyBackup
+func (c *FSx) CopyBackup(input *CopyBackupInput) (*CopyBackupOutput, error) {
+	req, out := c.CopyBackupRequest(input)
+	return out, req.Send()
+}
+
+// CopyBackupWithContext is the same as CopyBackup with the addition of
+// the ability to pass a context and additional request options.
+//
+// See CopyBackup for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *FSx) CopyBackupWithContext(ctx aws.Context, input *CopyBackupInput, opts ...request.Option) (*CopyBackupOutput, error) {
+	req, out := c.CopyBackupRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opCreateBackup = "CreateBackup"
 
 // CreateBackupRequest generates a "aws/request.Request" representing the
@@ -824,6 +962,9 @@ func (c *FSx) DeleteBackupRequest(input *DeleteBackupInput) (req *request.Reques
 //
 //   * InternalServerError
 //   A generic error indicating a server-side failure.
+//
+//   * BackupBeingCopied
+//   You can't delete a backup while it's being copied.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/fsx-2018-03-01/DeleteBackup
 func (c *FSx) DeleteBackup(input *DeleteBackupInput) (*DeleteBackupOutput, error) {
@@ -2040,6 +2181,8 @@ func (c *FSx) UpdateFileSystemRequest(input *UpdateFileSystemInput) (req *reques
 // For Amazon FSx for Windows File Server file systems, you can update the following
 // properties:
 //
+//    * AuditLogConfiguration
+//
 //    * AutomaticBackupRetentionDays
 //
 //    * DailyAutomaticBackupStartTime
@@ -2059,6 +2202,8 @@ func (c *FSx) UpdateFileSystemRequest(input *UpdateFileSystemInput) (req *reques
 //    * AutomaticBackupRetentionDays
 //
 //    * DailyAutomaticBackupStartTime
+//
+//    * DataCompressionType
 //
 //    * StorageCapacity
 //
@@ -2129,6 +2274,13 @@ type ActiveDirectoryBackupAttributes struct {
 
 	// The fully qualified domain name of the self-managed AD directory.
 	DomainName *string `min:"1" type:"string"`
+
+	// The Amazon Resource Name (ARN) for a given resource. ARNs uniquely identify
+	// AWS resources. We require an ARN when you need to specify a resource unambiguously
+	// across all of AWS. For more information, see Amazon Resource Names (ARNs)
+	// and AWS Service Namespaces (https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
+	// in the AWS General Reference.
+	ResourceARN *string `min:"8" type:"string"`
 }
 
 // String returns the string representation
@@ -2150,6 +2302,12 @@ func (s *ActiveDirectoryBackupAttributes) SetActiveDirectoryId(v string) *Active
 // SetDomainName sets the DomainName field's value.
 func (s *ActiveDirectoryBackupAttributes) SetDomainName(v string) *ActiveDirectoryBackupAttributes {
 	s.DomainName = &v
+	return s
+}
+
+// SetResourceARN sets the ResourceARN field's value.
+func (s *ActiveDirectoryBackupAttributes) SetResourceARN(v string) *ActiveDirectoryBackupAttributes {
+	s.ResourceARN = &v
 	return s
 }
 
@@ -2384,7 +2542,8 @@ type Alias struct {
 	//    * Formatted as a fully-qualified domain name (FQDN), hostname.domain,
 	//    for example, accounting.example.com.
 	//
-	//    * Can contain alphanumeric characters and the hyphen (-).
+	//    * Can contain alphanumeric characters, the underscore (_), and the hyphen
+	//    (-).
 	//
 	//    * Cannot start or end with a hyphen.
 	//
@@ -2533,11 +2692,7 @@ func (s *AssociateFileSystemAliasesOutput) SetAliases(v []*Alias) *AssociateFile
 	return s
 }
 
-// A backup of an Amazon FSx file system. For more information see:
-//
-//    * Working with backups for Windows file systems (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/using-backups.html)
-//
-//    * Working with backups for Lustre file systems (https://docs.aws.amazon.com/fsx/latest/LustreGuide/using-backups-fsx.html)
+// A backup of an Amazon FSx file system.
 type Backup struct {
 	_ struct{} `type:"structure"`
 
@@ -2580,6 +2735,8 @@ type Backup struct {
 	//    * TRANSFERRING - For user-initiated backups on Lustre file systems only;
 	//    Amazon FSx is transferring the backup to S3.
 	//
+	//    * COPYING - Amazon FSx is copying the backup.
+	//
 	//    * DELETED - Amazon FSx deleted the backup and it is no longer available.
 	//
 	//    * FAILED - Amazon FSx could not complete the backup.
@@ -2587,11 +2744,22 @@ type Backup struct {
 	// Lifecycle is a required field
 	Lifecycle *string `type:"string" required:"true" enum:"BackupLifecycle"`
 
+	// An AWS account ID. This ID is a 12-digit number that you use to construct
+	// Amazon Resource Names (ARNs) for resources.
+	OwnerId *string `min:"12" type:"string"`
+
 	// The current percent of progress of an asynchronous task.
 	ProgressPercent *int64 `type:"integer"`
 
 	// The Amazon Resource Name (ARN) for the backup resource.
 	ResourceARN *string `min:"8" type:"string"`
+
+	// The ID of the source backup. Specifies the backup you are copying.
+	SourceBackupId *string `min:"12" type:"string"`
+
+	// The source Region of the backup. Specifies the Region from where this backup
+	// is copied.
+	SourceBackupRegion *string `min:"1" type:"string"`
 
 	// Tags associated with a particular file system.
 	Tags []*Tag `min:"1" type:"list"`
@@ -2654,6 +2822,12 @@ func (s *Backup) SetLifecycle(v string) *Backup {
 	return s
 }
 
+// SetOwnerId sets the OwnerId field's value.
+func (s *Backup) SetOwnerId(v string) *Backup {
+	s.OwnerId = &v
+	return s
+}
+
 // SetProgressPercent sets the ProgressPercent field's value.
 func (s *Backup) SetProgressPercent(v int64) *Backup {
 	s.ProgressPercent = &v
@@ -2663,6 +2837,18 @@ func (s *Backup) SetProgressPercent(v int64) *Backup {
 // SetResourceARN sets the ResourceARN field's value.
 func (s *Backup) SetResourceARN(v string) *Backup {
 	s.ResourceARN = &v
+	return s
+}
+
+// SetSourceBackupId sets the SourceBackupId field's value.
+func (s *Backup) SetSourceBackupId(v string) *Backup {
+	s.SourceBackupId = &v
+	return s
+}
+
+// SetSourceBackupRegion sets the SourceBackupRegion field's value.
+func (s *Backup) SetSourceBackupRegion(v string) *Backup {
+	s.SourceBackupRegion = &v
 	return s
 }
 
@@ -2676,6 +2862,66 @@ func (s *Backup) SetTags(v []*Tag) *Backup {
 func (s *Backup) SetType(v string) *Backup {
 	s.Type = &v
 	return s
+}
+
+// You can't delete a backup while it's being copied.
+type BackupBeingCopied struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// The ID of the source backup. Specifies the backup you are copying.
+	BackupId *string `min:"12" type:"string"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s BackupBeingCopied) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s BackupBeingCopied) GoString() string {
+	return s.String()
+}
+
+func newErrorBackupBeingCopied(v protocol.ResponseMetadata) error {
+	return &BackupBeingCopied{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *BackupBeingCopied) Code() string {
+	return "BackupBeingCopied"
+}
+
+// Message returns the exception's message.
+func (s *BackupBeingCopied) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *BackupBeingCopied) OrigErr() error {
+	return nil
+}
+
+func (s *BackupBeingCopied) Error() string {
+	return fmt.Sprintf("%s: %s\n%s", s.Code(), s.Message(), s.String())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *BackupBeingCopied) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *BackupBeingCopied) RequestID() string {
+	return s.RespMetadata.RequestID
 }
 
 // If backup creation fails, this structure contains the details of that failure.
@@ -3111,6 +3357,157 @@ func (s *CompletionReport) SetScope(v string) *CompletionReport {
 	return s
 }
 
+type CopyBackupInput struct {
+	_ struct{} `type:"structure"`
+
+	// (Optional) An idempotency token for resource creation, in a string of up
+	// to 64 ASCII characters. This token is automatically filled on your behalf
+	// when you use the AWS Command Line Interface (AWS CLI) or an AWS SDK.
+	ClientRequestToken *string `min:"1" type:"string" idempotencyToken:"true"`
+
+	// A boolean flag indicating whether tags from the source backup should be copied
+	// to the backup copy. This value defaults to false.
+	//
+	// If you set CopyTags to true and the source backup has existing tags, you
+	// can use the Tags parameter to create new tags, provided that the sum of the
+	// source backup tags and the new tags doesn't exceed 50. Both sets of tags
+	// are merged. If there are tag conflicts (for example, two tags with the same
+	// key but different values), the tags created with the Tags parameter take
+	// precedence.
+	CopyTags *bool `type:"boolean"`
+
+	// The ID of the AWS Key Management Service (AWS KMS) key used to encrypt the
+	// file system's data for Amazon FSx for Windows File Server file systems and
+	// Amazon FSx for Lustre PERSISTENT_1 file systems at rest. In either case,
+	// if not specified, the Amazon FSx managed key is used. The Amazon FSx for
+	// Lustre SCRATCH_1 and SCRATCH_2 file systems are always encrypted at rest
+	// using Amazon FSx managed keys. For more information, see Encrypt (https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html)
+	// in the AWS Key Management Service API Reference.
+	KmsKeyId *string `min:"1" type:"string"`
+
+	// The ID of the source backup. Specifies the ID of the backup that is being
+	// copied.
+	//
+	// SourceBackupId is a required field
+	SourceBackupId *string `min:"12" type:"string" required:"true"`
+
+	// The source AWS Region of the backup. Specifies the AWS Region from which
+	// the backup is being copied. The source and destination Regions must be in
+	// the same AWS partition. If you don't specify a Region, it defaults to the
+	// Region where the request is sent from (in-Region copy).
+	SourceRegion *string `min:"1" type:"string"`
+
+	// A list of Tag values, with a maximum of 50 elements.
+	Tags []*Tag `min:"1" type:"list"`
+}
+
+// String returns the string representation
+func (s CopyBackupInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CopyBackupInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *CopyBackupInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "CopyBackupInput"}
+	if s.ClientRequestToken != nil && len(*s.ClientRequestToken) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("ClientRequestToken", 1))
+	}
+	if s.KmsKeyId != nil && len(*s.KmsKeyId) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("KmsKeyId", 1))
+	}
+	if s.SourceBackupId == nil {
+		invalidParams.Add(request.NewErrParamRequired("SourceBackupId"))
+	}
+	if s.SourceBackupId != nil && len(*s.SourceBackupId) < 12 {
+		invalidParams.Add(request.NewErrParamMinLen("SourceBackupId", 12))
+	}
+	if s.SourceRegion != nil && len(*s.SourceRegion) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SourceRegion", 1))
+	}
+	if s.Tags != nil && len(s.Tags) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Tags", 1))
+	}
+	if s.Tags != nil {
+		for i, v := range s.Tags {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "Tags", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetClientRequestToken sets the ClientRequestToken field's value.
+func (s *CopyBackupInput) SetClientRequestToken(v string) *CopyBackupInput {
+	s.ClientRequestToken = &v
+	return s
+}
+
+// SetCopyTags sets the CopyTags field's value.
+func (s *CopyBackupInput) SetCopyTags(v bool) *CopyBackupInput {
+	s.CopyTags = &v
+	return s
+}
+
+// SetKmsKeyId sets the KmsKeyId field's value.
+func (s *CopyBackupInput) SetKmsKeyId(v string) *CopyBackupInput {
+	s.KmsKeyId = &v
+	return s
+}
+
+// SetSourceBackupId sets the SourceBackupId field's value.
+func (s *CopyBackupInput) SetSourceBackupId(v string) *CopyBackupInput {
+	s.SourceBackupId = &v
+	return s
+}
+
+// SetSourceRegion sets the SourceRegion field's value.
+func (s *CopyBackupInput) SetSourceRegion(v string) *CopyBackupInput {
+	s.SourceRegion = &v
+	return s
+}
+
+// SetTags sets the Tags field's value.
+func (s *CopyBackupInput) SetTags(v []*Tag) *CopyBackupInput {
+	s.Tags = v
+	return s
+}
+
+type CopyBackupOutput struct {
+	_ struct{} `type:"structure"`
+
+	// A backup of an Amazon FSx file system.
+	Backup *Backup `type:"structure"`
+}
+
+// String returns the string representation
+func (s CopyBackupOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s CopyBackupOutput) GoString() string {
+	return s.String()
+}
+
+// SetBackup sets the Backup field's value.
+func (s *CopyBackupOutput) SetBackup(v *Backup) *CopyBackupOutput {
+	s.Backup = v
+	return s
+}
+
 // The request object for the CreateBackup operation.
 type CreateBackupInput struct {
 	_ struct{} `type:"structure"`
@@ -3371,8 +3768,7 @@ func (s *CreateDataRepositoryTaskOutput) SetDataRepositoryTask(v *DataRepository
 type CreateFileSystemFromBackupInput struct {
 	_ struct{} `type:"structure"`
 
-	// The ID of the backup. Specifies the backup to use if you're creating a file
-	// system from an existing backup.
+	// The ID of the source backup. Specifies the backup you are copying.
 	//
 	// BackupId is a required field
 	BackupId *string `min:"12" type:"string" required:"true"`
@@ -3381,6 +3777,15 @@ type CreateFileSystemFromBackupInput struct {
 	// creation. This string is automatically filled on your behalf when you use
 	// the AWS Command Line Interface (AWS CLI) or an AWS SDK.
 	ClientRequestToken *string `min:"1" type:"string" idempotencyToken:"true"`
+
+	// The ID of the AWS Key Management Service (AWS KMS) key used to encrypt the
+	// file system's data for Amazon FSx for Windows File Server file systems and
+	// Amazon FSx for Lustre PERSISTENT_1 file systems at rest. In either case,
+	// if not specified, the Amazon FSx managed key is used. The Amazon FSx for
+	// Lustre SCRATCH_1 and SCRATCH_2 file systems are always encrypted at rest
+	// using Amazon FSx managed keys. For more information, see Encrypt (https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html)
+	// in the AWS Key Management Service API Reference.
+	KmsKeyId *string `min:"1" type:"string"`
 
 	// The Lustre configuration for the file system being created.
 	LustreConfiguration *CreateFileSystemLustreConfiguration `type:"structure"`
@@ -3452,6 +3857,9 @@ func (s *CreateFileSystemFromBackupInput) Validate() error {
 	if s.ClientRequestToken != nil && len(*s.ClientRequestToken) < 1 {
 		invalidParams.Add(request.NewErrParamMinLen("ClientRequestToken", 1))
 	}
+	if s.KmsKeyId != nil && len(*s.KmsKeyId) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("KmsKeyId", 1))
+	}
 	if s.SubnetIds == nil {
 		invalidParams.Add(request.NewErrParamRequired("SubnetIds"))
 	}
@@ -3494,6 +3902,12 @@ func (s *CreateFileSystemFromBackupInput) SetBackupId(v string) *CreateFileSyste
 // SetClientRequestToken sets the ClientRequestToken field's value.
 func (s *CreateFileSystemFromBackupInput) SetClientRequestToken(v string) *CreateFileSystemFromBackupInput {
 	s.ClientRequestToken = &v
+	return s
+}
+
+// SetKmsKeyId sets the KmsKeyId field's value.
+func (s *CreateFileSystemFromBackupInput) SetKmsKeyId(v string) *CreateFileSystemFromBackupInput {
+	s.KmsKeyId = &v
 	return s
 }
 
@@ -3630,7 +4044,8 @@ type CreateFileSystemInput struct {
 	// from. For Windows MULTI_AZ_1 file system deployment types, provide exactly
 	// two subnet IDs, one for the preferred file server and one for the standby
 	// file server. You specify one of these subnets as the preferred subnet using
-	// the WindowsConfiguration > PreferredSubnetID property.
+	// the WindowsConfiguration > PreferredSubnetID property. For more information,
+	// see Availability and durability: Single-AZ and Multi-AZ file systems (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/high-availability-multiAZ.html).
 	//
 	// For Windows SINGLE_AZ_1 and SINGLE_AZ_2 file system deployment types and
 	// Lustre file systems, provide exactly one subnet ID. The file server is launched
@@ -3814,6 +4229,17 @@ type CreateFileSystemLustreConfiguration struct {
 	// 05:00 specifies 5 AM daily.
 	DailyAutomaticBackupStartTime *string `min:"5" type:"string"`
 
+	// Sets the data compression configuration for the file system. DataCompressionType
+	// can have the following values:
+	//
+	//    * NONE - (Default) Data compression is turned off when the file system
+	//    is created.
+	//
+	//    * LZ4 - Data compression is turned on with the LZ4 algorithm.
+	//
+	// For more information, see Lustre data compression (https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html).
+	DataCompressionType *string `type:"string" enum:"DataCompressionType"`
+
 	// Choose SCRATCH_1 and SCRATCH_2 deployment types when you need temporary storage
 	// and shorter-term processing of data. The SCRATCH_2 deployment type provides
 	// in-transit encryption of data and higher burst throughput capacity than SCRATCH_1.
@@ -3953,6 +4379,12 @@ func (s *CreateFileSystemLustreConfiguration) SetDailyAutomaticBackupStartTime(v
 	return s
 }
 
+// SetDataCompressionType sets the DataCompressionType field's value.
+func (s *CreateFileSystemLustreConfiguration) SetDataCompressionType(v string) *CreateFileSystemLustreConfiguration {
+	s.DataCompressionType = &v
+	return s
+}
+
 // SetDeploymentType sets the DeploymentType field's value.
 func (s *CreateFileSystemLustreConfiguration) SetDeploymentType(v string) *CreateFileSystemLustreConfiguration {
 	s.DeploymentType = &v
@@ -4047,7 +4479,8 @@ type CreateFileSystemWindowsConfiguration struct {
 	//    * Formatted as a fully-qualified domain name (FQDN), hostname.domain,
 	//    for example, accounting.example.com.
 	//
-	//    * Can contain alphanumeric characters and the hyphen (-).
+	//    * Can contain alphanumeric characters, the underscore (_), and the hyphen
+	//    (-).
 	//
 	//    * Cannot start or end with a hyphen.
 	//
@@ -4057,6 +4490,11 @@ type CreateFileSystemWindowsConfiguration struct {
 	// letters (a-z), regardless of how you specify them: as uppercase letters,
 	// lowercase letters, or the corresponding letters in escape codes.
 	Aliases []*string `type:"list"`
+
+	// The configuration that Amazon FSx for Windows File Server uses to audit and
+	// log user accesses of files, folders, and file shares on the Amazon FSx for
+	// Windows File Server file system.
+	AuditLogConfiguration *WindowsAuditLogCreateConfiguration `type:"structure"`
 
 	// The number of days to retain automatic backups. The default is to retain
 	// backups for 7 days. Setting this value to 0 disables the creation of automatic
@@ -4103,7 +4541,8 @@ type CreateFileSystemWindowsConfiguration struct {
 
 	// The configuration that Amazon FSx uses to join the Windows File Server instance
 	// to your self-managed (including on-premises) Microsoft Active Directory (AD)
-	// directory.
+	// directory. For more information, see Using Amazon FSx with your self-managed
+	// Microsoft Active Directory (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/self-managed-AD.html).
 	SelfManagedActiveDirectoryConfiguration *SelfManagedActiveDirectoryConfiguration `type:"structure"`
 
 	// The throughput of an Amazon FSx file system, measured in megabytes per second,
@@ -4149,6 +4588,11 @@ func (s *CreateFileSystemWindowsConfiguration) Validate() error {
 	if s.WeeklyMaintenanceStartTime != nil && len(*s.WeeklyMaintenanceStartTime) < 7 {
 		invalidParams.Add(request.NewErrParamMinLen("WeeklyMaintenanceStartTime", 7))
 	}
+	if s.AuditLogConfiguration != nil {
+		if err := s.AuditLogConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("AuditLogConfiguration", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.SelfManagedActiveDirectoryConfiguration != nil {
 		if err := s.SelfManagedActiveDirectoryConfiguration.Validate(); err != nil {
 			invalidParams.AddNested("SelfManagedActiveDirectoryConfiguration", err.(request.ErrInvalidParams))
@@ -4170,6 +4614,12 @@ func (s *CreateFileSystemWindowsConfiguration) SetActiveDirectoryId(v string) *C
 // SetAliases sets the Aliases field's value.
 func (s *CreateFileSystemWindowsConfiguration) SetAliases(v []*string) *CreateFileSystemWindowsConfiguration {
 	s.Aliases = v
+	return s
+}
+
+// SetAuditLogConfiguration sets the AuditLogConfiguration field's value.
+func (s *CreateFileSystemWindowsConfiguration) SetAuditLogConfiguration(v *WindowsAuditLogCreateConfiguration) *CreateFileSystemWindowsConfiguration {
+	s.AuditLogConfiguration = v
 	return s
 }
 
@@ -5341,7 +5791,7 @@ func (s *DescribeBackupsInput) SetNextToken(v string) *DescribeBackupsInput {
 type DescribeBackupsOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Any array of backups.
+	// An array of backups.
 	Backups []*Backup `type:"list"`
 
 	// This is present if there are more backups than returned in the response (String).
@@ -6201,6 +6651,64 @@ func (s *IncompatibleParameterError) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
+// Amazon FSx doesn't support Multi-AZ Windows File Server copy backup in the
+// destination Region, so the copied backup can't be restored.
+type IncompatibleRegionForMultiAZ struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s IncompatibleRegionForMultiAZ) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s IncompatibleRegionForMultiAZ) GoString() string {
+	return s.String()
+}
+
+func newErrorIncompatibleRegionForMultiAZ(v protocol.ResponseMetadata) error {
+	return &IncompatibleRegionForMultiAZ{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *IncompatibleRegionForMultiAZ) Code() string {
+	return "IncompatibleRegionForMultiAZ"
+}
+
+// Message returns the exception's message.
+func (s *IncompatibleRegionForMultiAZ) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *IncompatibleRegionForMultiAZ) OrigErr() error {
+	return nil
+}
+
+func (s *IncompatibleRegionForMultiAZ) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *IncompatibleRegionForMultiAZ) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *IncompatibleRegionForMultiAZ) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 // A generic error indicating a server-side failure.
 type InternalServerError struct {
 	_            struct{}                  `type:"structure"`
@@ -6255,6 +6763,64 @@ func (s *InternalServerError) StatusCode() int {
 
 // RequestID returns the service's response RequestID for request.
 func (s *InternalServerError) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// The AWS Key Management Service (AWS KMS) key of the destination backup is
+// invalid.
+type InvalidDestinationKmsKey struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s InvalidDestinationKmsKey) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InvalidDestinationKmsKey) GoString() string {
+	return s.String()
+}
+
+func newErrorInvalidDestinationKmsKey(v protocol.ResponseMetadata) error {
+	return &InvalidDestinationKmsKey{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidDestinationKmsKey) Code() string {
+	return "InvalidDestinationKmsKey"
+}
+
+// Message returns the exception's message.
+func (s *InvalidDestinationKmsKey) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidDestinationKmsKey) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidDestinationKmsKey) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidDestinationKmsKey) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidDestinationKmsKey) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
@@ -6504,6 +7070,121 @@ func (s *InvalidPerUnitStorageThroughput) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
+// The Region provided for Source Region is invalid or is in a different AWS
+// partition.
+type InvalidRegion struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s InvalidRegion) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InvalidRegion) GoString() string {
+	return s.String()
+}
+
+func newErrorInvalidRegion(v protocol.ResponseMetadata) error {
+	return &InvalidRegion{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidRegion) Code() string {
+	return "InvalidRegion"
+}
+
+// Message returns the exception's message.
+func (s *InvalidRegion) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidRegion) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidRegion) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidRegion) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidRegion) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// The AWS Key Management Service (AWS KMS) key of the source backup is invalid.
+type InvalidSourceKmsKey struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s InvalidSourceKmsKey) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s InvalidSourceKmsKey) GoString() string {
+	return s.String()
+}
+
+func newErrorInvalidSourceKmsKey(v protocol.ResponseMetadata) error {
+	return &InvalidSourceKmsKey{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *InvalidSourceKmsKey) Code() string {
+	return "InvalidSourceKmsKey"
+}
+
+// Message returns the exception's message.
+func (s *InvalidSourceKmsKey) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *InvalidSourceKmsKey) OrigErr() error {
+	return nil
+}
+
+func (s *InvalidSourceKmsKey) Error() string {
+	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *InvalidSourceKmsKey) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *InvalidSourceKmsKey) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
 // The request object for ListTagsForResource operation.
 type ListTagsForResourceInput struct {
 	_ struct{} `type:"structure"`
@@ -6632,6 +7313,16 @@ type LustreFileSystemConfiguration struct {
 	// 05:00 specifies 5 AM daily.
 	DailyAutomaticBackupStartTime *string `min:"5" type:"string"`
 
+	// The data compression configuration for the file system. DataCompressionType
+	// can have the following values:
+	//
+	//    * NONE - Data compression is turned off for the file system.
+	//
+	//    * LZ4 - Data compression is turned on with the LZ4 algorithm.
+	//
+	// For more information, see Lustre data compression (https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html).
+	DataCompressionType *string `type:"string" enum:"DataCompressionType"`
+
 	// The data repository configuration object for Lustre file systems returned
 	// in the response of the CreateFileSystem operation.
 	DataRepositoryConfiguration *DataRepositoryConfiguration `type:"structure"`
@@ -6705,6 +7396,12 @@ func (s *LustreFileSystemConfiguration) SetCopyTagsToBackups(v bool) *LustreFile
 // SetDailyAutomaticBackupStartTime sets the DailyAutomaticBackupStartTime field's value.
 func (s *LustreFileSystemConfiguration) SetDailyAutomaticBackupStartTime(v string) *LustreFileSystemConfiguration {
 	s.DailyAutomaticBackupStartTime = &v
+	return s
+}
+
+// SetDataCompressionType sets the DataCompressionType field's value.
+func (s *LustreFileSystemConfiguration) SetDataCompressionType(v string) *LustreFileSystemConfiguration {
+	s.DataCompressionType = &v
 	return s
 }
 
@@ -7056,21 +7753,13 @@ func (s *SelfManagedActiveDirectoryAttributes) SetUserName(v string) *SelfManage
 
 // The configuration that Amazon FSx uses to join the Windows File Server instance
 // to your self-managed (including on-premises) Microsoft Active Directory (AD)
-// directory.
+// directory. For more information, see Using Amazon FSx with your self-managed
+// Microsoft Active Directory (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/self-managed-AD.html).
 type SelfManagedActiveDirectoryConfiguration struct {
 	_ struct{} `type:"structure"`
 
 	// A list of up to two IP addresses of DNS servers or domain controllers in
-	// the self-managed AD directory. The IP addresses need to be either in the
-	// same VPC CIDR range as the one in which your Amazon FSx file system is being
-	// created, or in the private IP version 4 (IPv4) address ranges, as specified
-	// in RFC 1918 (http://www.faqs.org/rfcs/rfc1918.html):
-	//
-	//    * 10.0.0.0 - 10.255.255.255 (10/8 prefix)
-	//
-	//    * 172.16.0.0 - 172.31.255.255 (172.16/12 prefix)
-	//
-	//    * 192.168.0.0 - 192.168.255.255 (192.168/16 prefix)
+	// the self-managed AD directory.
 	//
 	// DnsIps is a required field
 	DnsIps []*string `min:"1" type:"list" required:"true"`
@@ -7330,6 +8019,67 @@ func (s *ServiceLimitExceeded) StatusCode() int {
 
 // RequestID returns the service's response RequestID for request.
 func (s *ServiceLimitExceeded) RequestID() string {
+	return s.RespMetadata.RequestID
+}
+
+// The request was rejected because the lifecycle status of the source backup
+// is not AVAILABLE.
+type SourceBackupUnavailable struct {
+	_            struct{}                  `type:"structure"`
+	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
+
+	// The ID of the source backup. Specifies the backup you are copying.
+	BackupId *string `min:"12" type:"string"`
+
+	// A detailed error message.
+	Message_ *string `locationName:"Message" min:"1" type:"string"`
+}
+
+// String returns the string representation
+func (s SourceBackupUnavailable) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s SourceBackupUnavailable) GoString() string {
+	return s.String()
+}
+
+func newErrorSourceBackupUnavailable(v protocol.ResponseMetadata) error {
+	return &SourceBackupUnavailable{
+		RespMetadata: v,
+	}
+}
+
+// Code returns the exception type name.
+func (s *SourceBackupUnavailable) Code() string {
+	return "SourceBackupUnavailable"
+}
+
+// Message returns the exception's message.
+func (s *SourceBackupUnavailable) Message() string {
+	if s.Message_ != nil {
+		return *s.Message_
+	}
+	return ""
+}
+
+// OrigErr always returns nil, satisfies awserr.Error interface.
+func (s *SourceBackupUnavailable) OrigErr() error {
+	return nil
+}
+
+func (s *SourceBackupUnavailable) Error() string {
+	return fmt.Sprintf("%s: %s\n%s", s.Code(), s.Message(), s.String())
+}
+
+// Status code returns the HTTP status code for the request's response error.
+func (s *SourceBackupUnavailable) StatusCode() int {
+	return s.RespMetadata.StatusCode
+}
+
+// RequestID returns the service's response RequestID for request.
+func (s *SourceBackupUnavailable) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
@@ -7770,6 +8520,19 @@ type UpdateFileSystemLustreConfiguration struct {
 	// 05:00 specifies 5 AM daily.
 	DailyAutomaticBackupStartTime *string `min:"5" type:"string"`
 
+	// Sets the data compression configuration for the file system. DataCompressionType
+	// can have the following values:
+	//
+	//    * NONE - Data compression is turned off for the file system.
+	//
+	//    * LZ4 - Data compression is turned on with the LZ4 algorithm.
+	//
+	// If you don't use DataCompressionType, the file system retains its current
+	// data compression configuration.
+	//
+	// For more information, see Lustre data compression (https://docs.aws.amazon.com/fsx/latest/LustreGuide/data-compression.html).
+	DataCompressionType *string `type:"string" enum:"DataCompressionType"`
+
 	// (Optional) The preferred start time to perform weekly maintenance, formatted
 	// d:HH:MM in the UTC time zone. d is the weekday number, from 1 through 7,
 	// beginning with Monday and ending with Sunday.
@@ -7820,6 +8583,12 @@ func (s *UpdateFileSystemLustreConfiguration) SetDailyAutomaticBackupStartTime(v
 	return s
 }
 
+// SetDataCompressionType sets the DataCompressionType field's value.
+func (s *UpdateFileSystemLustreConfiguration) SetDataCompressionType(v string) *UpdateFileSystemLustreConfiguration {
+	s.DataCompressionType = &v
+	return s
+}
+
 // SetWeeklyMaintenanceStartTime sets the WeeklyMaintenanceStartTime field's value.
 func (s *UpdateFileSystemLustreConfiguration) SetWeeklyMaintenanceStartTime(v string) *UpdateFileSystemLustreConfiguration {
 	s.WeeklyMaintenanceStartTime = &v
@@ -7855,6 +8624,11 @@ func (s *UpdateFileSystemOutput) SetFileSystem(v *FileSystem) *UpdateFileSystemO
 // values provided in the request.
 type UpdateFileSystemWindowsConfiguration struct {
 	_ struct{} `type:"structure"`
+
+	// The configuration that Amazon FSx for Windows File Server uses to audit and
+	// log user accesses of files, folders, and file shares on the Amazon FSx for
+	// Windows File Server file system..
+	AuditLogConfiguration *WindowsAuditLogCreateConfiguration `type:"structure"`
 
 	// The number of days to retain automatic daily backups. Setting this to zero
 	// (0) disables automatic daily backups. You can retain automatic daily backups
@@ -7907,6 +8681,11 @@ func (s *UpdateFileSystemWindowsConfiguration) Validate() error {
 	if s.WeeklyMaintenanceStartTime != nil && len(*s.WeeklyMaintenanceStartTime) < 7 {
 		invalidParams.Add(request.NewErrParamMinLen("WeeklyMaintenanceStartTime", 7))
 	}
+	if s.AuditLogConfiguration != nil {
+		if err := s.AuditLogConfiguration.Validate(); err != nil {
+			invalidParams.AddNested("AuditLogConfiguration", err.(request.ErrInvalidParams))
+		}
+	}
 	if s.SelfManagedActiveDirectoryConfiguration != nil {
 		if err := s.SelfManagedActiveDirectoryConfiguration.Validate(); err != nil {
 			invalidParams.AddNested("SelfManagedActiveDirectoryConfiguration", err.(request.ErrInvalidParams))
@@ -7917,6 +8696,12 @@ func (s *UpdateFileSystemWindowsConfiguration) Validate() error {
 		return invalidParams
 	}
 	return nil
+}
+
+// SetAuditLogConfiguration sets the AuditLogConfiguration field's value.
+func (s *UpdateFileSystemWindowsConfiguration) SetAuditLogConfiguration(v *WindowsAuditLogCreateConfiguration) *UpdateFileSystemWindowsConfiguration {
+	s.AuditLogConfiguration = v
+	return s
 }
 
 // SetAutomaticBackupRetentionDays sets the AutomaticBackupRetentionDays field's value.
@@ -7949,12 +8734,197 @@ func (s *UpdateFileSystemWindowsConfiguration) SetWeeklyMaintenanceStartTime(v s
 	return s
 }
 
+// The configuration that Amazon FSx for Windows File Server uses to audit and
+// log user accesses of files, folders, and file shares on the Amazon FSx for
+// Windows File Server file system. For more information, see File access auditing
+// (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/file-access-auditing.html).
+type WindowsAuditLogConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) for the destination of the audit logs. The
+	// destination can be any Amazon CloudWatch Logs log group ARN or Amazon Kinesis
+	// Data Firehose delivery stream ARN.
+	//
+	// The name of the Amazon CloudWatch Logs log group must begin with the /aws/fsx
+	// prefix. The name of the Amazon Kinesis Data Firehouse delivery stream must
+	// begin with the aws-fsx prefix.
+	//
+	// The destination ARN (either CloudWatch Logs log group or Kinesis Data Firehose
+	// delivery stream) must be in the same AWS partition, AWS region, and AWS account
+	// as your Amazon FSx file system.
+	AuditLogDestination *string `min:"8" type:"string"`
+
+	// Sets which attempt type is logged by Amazon FSx for file and folder accesses.
+	//
+	//    * SUCCESS_ONLY - only successful attempts to access files or folders are
+	//    logged.
+	//
+	//    * FAILURE_ONLY - only failed attempts to access files or folders are logged.
+	//
+	//    * SUCCESS_AND_FAILURE - both successful attempts and failed attempts to
+	//    access files or folders are logged.
+	//
+	//    * DISABLED - access auditing of files and folders is turned off.
+	//
+	// FileAccessAuditLogLevel is a required field
+	FileAccessAuditLogLevel *string `type:"string" required:"true" enum:"WindowsAccessAuditLogLevel"`
+
+	// Sets which attempt type is logged by Amazon FSx for file share accesses.
+	//
+	//    * SUCCESS_ONLY - only successful attempts to access file shares are logged.
+	//
+	//    * FAILURE_ONLY - only failed attempts to access file shares are logged.
+	//
+	//    * SUCCESS_AND_FAILURE - both successful attempts and failed attempts to
+	//    access file shares are logged.
+	//
+	//    * DISABLED - access auditing of file shares is turned off.
+	//
+	// FileShareAccessAuditLogLevel is a required field
+	FileShareAccessAuditLogLevel *string `type:"string" required:"true" enum:"WindowsAccessAuditLogLevel"`
+}
+
+// String returns the string representation
+func (s WindowsAuditLogConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s WindowsAuditLogConfiguration) GoString() string {
+	return s.String()
+}
+
+// SetAuditLogDestination sets the AuditLogDestination field's value.
+func (s *WindowsAuditLogConfiguration) SetAuditLogDestination(v string) *WindowsAuditLogConfiguration {
+	s.AuditLogDestination = &v
+	return s
+}
+
+// SetFileAccessAuditLogLevel sets the FileAccessAuditLogLevel field's value.
+func (s *WindowsAuditLogConfiguration) SetFileAccessAuditLogLevel(v string) *WindowsAuditLogConfiguration {
+	s.FileAccessAuditLogLevel = &v
+	return s
+}
+
+// SetFileShareAccessAuditLogLevel sets the FileShareAccessAuditLogLevel field's value.
+func (s *WindowsAuditLogConfiguration) SetFileShareAccessAuditLogLevel(v string) *WindowsAuditLogConfiguration {
+	s.FileShareAccessAuditLogLevel = &v
+	return s
+}
+
+// The Windows file access auditing configuration used when creating or updating
+// an Amazon FSx for Windows File Server file system.
+type WindowsAuditLogCreateConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) that specifies the destination of the audit
+	// logs.
+	//
+	// The destination can be any Amazon CloudWatch Logs log group ARN or Amazon
+	// Kinesis Data Firehose delivery stream ARN, with the following requirements:
+	//
+	//    * The destination ARN that you provide (either CloudWatch Logs log group
+	//    or Kinesis Data Firehose delivery stream) must be in the same AWS partition,
+	//    AWS region, and AWS account as your Amazon FSx file system.
+	//
+	//    * The name of the Amazon CloudWatch Logs log group must begin with the
+	//    /aws/fsx prefix. The name of the Amazon Kinesis Data Firehouse delivery
+	//    stream must begin with the aws-fsx prefix.
+	//
+	//    * If you do not provide a destination in AuditLogDestination, Amazon FSx
+	//    will create and use a log stream in the CloudWatch Logs /aws/fsx/windows
+	//    log group.
+	//
+	//    * If AuditLogDestination is provided and the resource does not exist,
+	//    the request will fail with a BadRequest error.
+	//
+	//    * If FileAccessAuditLogLevel and FileShareAccessAuditLogLevel are both
+	//    set to DISABLED, you cannot specify a destination in AuditLogDestination.
+	AuditLogDestination *string `min:"8" type:"string"`
+
+	// Sets which attempt type is logged by Amazon FSx for file and folder accesses.
+	//
+	//    * SUCCESS_ONLY - only successful attempts to access files or folders are
+	//    logged.
+	//
+	//    * FAILURE_ONLY - only failed attempts to access files or folders are logged.
+	//
+	//    * SUCCESS_AND_FAILURE - both successful attempts and failed attempts to
+	//    access files or folders are logged.
+	//
+	//    * DISABLED - access auditing of files and folders is turned off.
+	//
+	// FileAccessAuditLogLevel is a required field
+	FileAccessAuditLogLevel *string `type:"string" required:"true" enum:"WindowsAccessAuditLogLevel"`
+
+	// Sets which attempt type is logged by Amazon FSx for file share accesses.
+	//
+	//    * SUCCESS_ONLY - only successful attempts to access file shares are logged.
+	//
+	//    * FAILURE_ONLY - only failed attempts to access file shares are logged.
+	//
+	//    * SUCCESS_AND_FAILURE - both successful attempts and failed attempts to
+	//    access file shares are logged.
+	//
+	//    * DISABLED - access auditing of file shares is turned off.
+	//
+	// FileShareAccessAuditLogLevel is a required field
+	FileShareAccessAuditLogLevel *string `type:"string" required:"true" enum:"WindowsAccessAuditLogLevel"`
+}
+
+// String returns the string representation
+func (s WindowsAuditLogCreateConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation
+func (s WindowsAuditLogCreateConfiguration) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *WindowsAuditLogCreateConfiguration) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "WindowsAuditLogCreateConfiguration"}
+	if s.AuditLogDestination != nil && len(*s.AuditLogDestination) < 8 {
+		invalidParams.Add(request.NewErrParamMinLen("AuditLogDestination", 8))
+	}
+	if s.FileAccessAuditLogLevel == nil {
+		invalidParams.Add(request.NewErrParamRequired("FileAccessAuditLogLevel"))
+	}
+	if s.FileShareAccessAuditLogLevel == nil {
+		invalidParams.Add(request.NewErrParamRequired("FileShareAccessAuditLogLevel"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAuditLogDestination sets the AuditLogDestination field's value.
+func (s *WindowsAuditLogCreateConfiguration) SetAuditLogDestination(v string) *WindowsAuditLogCreateConfiguration {
+	s.AuditLogDestination = &v
+	return s
+}
+
+// SetFileAccessAuditLogLevel sets the FileAccessAuditLogLevel field's value.
+func (s *WindowsAuditLogCreateConfiguration) SetFileAccessAuditLogLevel(v string) *WindowsAuditLogCreateConfiguration {
+	s.FileAccessAuditLogLevel = &v
+	return s
+}
+
+// SetFileShareAccessAuditLogLevel sets the FileShareAccessAuditLogLevel field's value.
+func (s *WindowsAuditLogCreateConfiguration) SetFileShareAccessAuditLogLevel(v string) *WindowsAuditLogCreateConfiguration {
+	s.FileShareAccessAuditLogLevel = &v
+	return s
+}
+
 // The configuration for this Microsoft Windows file system.
 type WindowsFileSystemConfiguration struct {
 	_ struct{} `type:"structure"`
 
-	// The ID for an existing Microsoft Active Directory instance that the file
-	// system should join when it's created.
+	// The ID for an existing AWS Managed Microsoft Active Directory instance that
+	// the file system is joined to.
 	ActiveDirectoryId *string `min:"12" type:"string"`
 
 	// An array of one or more DNS aliases that are currently associated with the
@@ -7967,6 +8937,11 @@ type WindowsFileSystemConfiguration struct {
 	// alias name in the request payload. For more information, see DNS aliases
 	// (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/managing-dns-aliases.html).
 	Aliases []*Alias `type:"list"`
+
+	// The configuration that Amazon FSx for Windows File Server uses to audit and
+	// log user accesses of files, folders, and file shares on the Amazon FSx for
+	// Windows File Server file system.
+	AuditLogConfiguration *WindowsAuditLogConfiguration `type:"structure"`
 
 	// The number of days to retain automatic backups. Setting this to 0 disables
 	// automatic backups. You can retain automatic backups for a maximum of 90 days.
@@ -8021,8 +8996,8 @@ type WindowsFileSystemConfiguration struct {
 	// in the event of a failover to the secondary file server.
 	//
 	// For SINGLE_AZ_1 and SINGLE_AZ_2 deployment types, this value is the same
-	// as that for SubnetIDs. For more information, see Availability and Durability:
-	// Single-AZ and Multi-AZ File Systems (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/high-availability-multiAZ.html#single-multi-az-resources)
+	// as that for SubnetIDs. For more information, see Availability and durability:
+	// Single-AZ and Multi-AZ file systems (https://docs.aws.amazon.com/fsx/latest/WindowsGuide/high-availability-multiAZ.html#single-multi-az-resources).
 	PreferredSubnetId *string `min:"15" type:"string"`
 
 	// For MULTI_AZ_1 deployment types, use this endpoint when performing administrative
@@ -8039,7 +9014,7 @@ type WindowsFileSystemConfiguration struct {
 	// to which the Windows File Server instance is joined.
 	SelfManagedActiveDirectoryConfiguration *SelfManagedActiveDirectoryAttributes `type:"structure"`
 
-	// The throughput of an Amazon FSx file system, measured in megabytes per second.
+	// The throughput of the Amazon FSx file system, measured in megabytes per second.
 	ThroughputCapacity *int64 `min:"8" type:"integer"`
 
 	// The preferred start time to perform weekly maintenance, formatted d:HH:MM
@@ -8067,6 +9042,12 @@ func (s *WindowsFileSystemConfiguration) SetActiveDirectoryId(v string) *Windows
 // SetAliases sets the Aliases field's value.
 func (s *WindowsFileSystemConfiguration) SetAliases(v []*Alias) *WindowsFileSystemConfiguration {
 	s.Aliases = v
+	return s
+}
+
+// SetAuditLogConfiguration sets the AuditLogConfiguration field's value.
+func (s *WindowsFileSystemConfiguration) SetAuditLogConfiguration(v *WindowsAuditLogConfiguration) *WindowsFileSystemConfiguration {
+	s.AuditLogConfiguration = v
 	return s
 }
 
@@ -8274,6 +9255,8 @@ func AutoImportPolicyType_Values() []string {
 //    * TRANSFERRING - For user-initiated backups on Lustre file systems only;
 //    Amazon FSx is backing up the file system.
 //
+//    * COPYING - Amazon FSx is copying the backup.
+//
 //    * DELETED - Amazon FSx deleted the backup and it is no longer available.
 //
 //    * FAILED - Amazon FSx could not complete the backup.
@@ -8295,6 +9278,9 @@ const (
 
 	// BackupLifecyclePending is a BackupLifecycle enum value
 	BackupLifecyclePending = "PENDING"
+
+	// BackupLifecycleCopying is a BackupLifecycle enum value
+	BackupLifecycleCopying = "COPYING"
 )
 
 // BackupLifecycle_Values returns all elements of the BackupLifecycle enum
@@ -8306,6 +9292,7 @@ func BackupLifecycle_Values() []string {
 		BackupLifecycleDeleted,
 		BackupLifecycleFailed,
 		BackupLifecyclePending,
+		BackupLifecycleCopying,
 	}
 }
 
@@ -8327,6 +9314,22 @@ func BackupType_Values() []string {
 		BackupTypeAutomatic,
 		BackupTypeUserInitiated,
 		BackupTypeAwsBackup,
+	}
+}
+
+const (
+	// DataCompressionTypeNone is a DataCompressionType enum value
+	DataCompressionTypeNone = "NONE"
+
+	// DataCompressionTypeLz4 is a DataCompressionType enum value
+	DataCompressionTypeLz4 = "LZ4"
+)
+
+// DataCompressionType_Values returns all elements of the DataCompressionType enum
+func DataCompressionType_Values() []string {
+	return []string{
+		DataCompressionTypeNone,
+		DataCompressionTypeLz4,
 	}
 }
 
@@ -8582,6 +9585,12 @@ const (
 
 	// ServiceLimitTotalUserInitiatedBackups is a ServiceLimit enum value
 	ServiceLimitTotalUserInitiatedBackups = "TOTAL_USER_INITIATED_BACKUPS"
+
+	// ServiceLimitTotalUserTags is a ServiceLimit enum value
+	ServiceLimitTotalUserTags = "TOTAL_USER_TAGS"
+
+	// ServiceLimitTotalInProgressCopyBackups is a ServiceLimit enum value
+	ServiceLimitTotalInProgressCopyBackups = "TOTAL_IN_PROGRESS_COPY_BACKUPS"
 )
 
 // ServiceLimit_Values returns all elements of the ServiceLimit enum
@@ -8591,6 +9600,8 @@ func ServiceLimit_Values() []string {
 		ServiceLimitTotalThroughputCapacity,
 		ServiceLimitTotalStorage,
 		ServiceLimitTotalUserInitiatedBackups,
+		ServiceLimitTotalUserTags,
+		ServiceLimitTotalInProgressCopyBackups,
 	}
 }
 
@@ -8636,6 +9647,30 @@ func StorageType_Values() []string {
 	return []string{
 		StorageTypeSsd,
 		StorageTypeHdd,
+	}
+}
+
+const (
+	// WindowsAccessAuditLogLevelDisabled is a WindowsAccessAuditLogLevel enum value
+	WindowsAccessAuditLogLevelDisabled = "DISABLED"
+
+	// WindowsAccessAuditLogLevelSuccessOnly is a WindowsAccessAuditLogLevel enum value
+	WindowsAccessAuditLogLevelSuccessOnly = "SUCCESS_ONLY"
+
+	// WindowsAccessAuditLogLevelFailureOnly is a WindowsAccessAuditLogLevel enum value
+	WindowsAccessAuditLogLevelFailureOnly = "FAILURE_ONLY"
+
+	// WindowsAccessAuditLogLevelSuccessAndFailure is a WindowsAccessAuditLogLevel enum value
+	WindowsAccessAuditLogLevelSuccessAndFailure = "SUCCESS_AND_FAILURE"
+)
+
+// WindowsAccessAuditLogLevel_Values returns all elements of the WindowsAccessAuditLogLevel enum
+func WindowsAccessAuditLogLevel_Values() []string {
+	return []string{
+		WindowsAccessAuditLogLevelDisabled,
+		WindowsAccessAuditLogLevelSuccessOnly,
+		WindowsAccessAuditLogLevelFailureOnly,
+		WindowsAccessAuditLogLevelSuccessAndFailure,
 	}
 }
 
