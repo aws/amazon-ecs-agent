@@ -1,3 +1,9 @@
+amazon-ecs-init (1.55.1-1) stable; urgency=medium
+
+  * Cache Agent version 1.55.1
+
+ -- Meghna Srivastav <mssrivas@amazon.com>  Thu, 19 Aug 2021 19:03:32 +0000
+
 amazon-ecs-init (1.55.0-1) stable; urgency=medium
 
   * Cache Agent version 1.55.0
