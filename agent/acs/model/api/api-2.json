@@ -232,7 +232,9 @@
         "startTimeout":{"shape":"Integer"},
         "stopTimeout":{"shape":"Integer"},
         "firelensConfiguration":{"shape":"FirelensConfiguration"},
-        "containerArn":{"shape":"String"}
+        "containerArn":{"shape":"String"},
+        "roleCredentials":{"shape":"IAMRoleCredentials"},
+        "executionRoleCredentials":{"shape":"IAMRoleCredentials"}
       }
     },
     "ContainerCondition":{
@@ -459,8 +461,13 @@
         "taskArn":{"shape":"String"},
         "roleCredentials":{"shape":"IAMRoleCredentials"},
         "roleType":{"shape":"RoleType"},
-        "messageId":{"shape":"String"}
+        "messageId":{"shape":"String"},
+        "containerCredentialsList":{"shape":"StringList"}
       }
+    },
+    "ContainerCredentialsList": {
+      "type":"list",
+      "member":{"shape":"String"}
     },
     "IPv4AddressAssignment":{
       "type":"structure",

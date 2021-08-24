@@ -19,5 +19,8 @@ package credentials
 type Manager interface {
 	SetTaskCredentials(*TaskIAMRoleCredentials) error
 	GetTaskCredentials(string) (TaskIAMRoleCredentials, bool)
+	SetContainerCredentials(*ContainerIAMRoleCredentials) error
+	GetContainerCredentials(string) (ContainerIAMRoleCredentials, bool)
 	RemoveCredentials(string)
+	RemoveContainerCredentials(string)
 }

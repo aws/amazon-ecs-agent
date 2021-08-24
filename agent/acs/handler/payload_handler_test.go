@@ -672,6 +672,120 @@ func TestAddPayloadTaskAddsExecutionRoles(t *testing.T) {
 	assert.Equal(t, payloadMessageId, *executionCredentialsAckRequested.MessageId)
 }
 
+// TestAddPayloadTaskAddsContainerRoles tests the payload handler will add
+// container specific role credentials to the credentials manager and the field in
+// task and container are appropriately set
+func TestAddPayloadTaskAddsContainerRoles(t *testing.T) {
+	tester := setup(t)
+	defer tester.ctrl.Finish()
+
+	var addedTask *apitask.Task
+	tester.mockTaskEngine.EXPECT().AddTask(gomock.Any()).Do(func(task *apitask.Task) {
+		addedTask = task
+	})
+
+	var ackRequested *ecsacs.AckRequest
+	var containerCredentialsAckRequested *ecsacs.IAMRoleCredentialsAckRequest
+	var containerExecutionCredentialsAckRequested *ecsacs.IAMRoleCredentialsAckRequest
+	gomock.InOrder(
+		tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
+			containerCredentialsAckRequested = ackRequest
+		}),
+		tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
+			containerExecutionCredentialsAckRequested = ackRequest
+		}),
+		tester.mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.AckRequest) {
+			ackRequested = ackRequest
+			tester.cancel()
+		}),
+	)
+	refreshCredsHandler := newRefreshCredentialsHandler(tester.ctx, clusterName, containerInstanceArn, tester.mockWsClient, tester.credentialsManager, tester.mockTaskEngine)
+	defer refreshCredsHandler.clearAcks()
+	refreshCredsHandler.start()
+
+	tester.payloadHandler.refreshHandler = refreshCredsHandler
+	go tester.payloadHandler.start()
+	taskArn := "t1"
+	containerCredentialsExpiration := "container-expiration"
+	containerCredentialsRoleArn := "container-r1"
+	containerCredentialsAccessKey := "container-akid"
+	containerCredentialsSecretKey := "container-skid"
+	containerCredentialsSessionToken := "container-token"
+	containerCredentialsID := "container-credsid"
+	containerExecutionCredentialsExpiration := "container-execution-expiration"
+	containerExecutionCredentialsRoleArn := "container-execution-r1"
+	containerExecutionCredentialsAccessKey := "container-execution-akid"
+	containerExecutionCredentialsSecretKey := "container-execution-skid"
+	containerExecutionCredentialsSessionToken := "container-execution-token"
+	containerExecutionCredentialsID := "container-execution-credsid"
+
+	tester.payloadHandler.messageBuffer <- &ecsacs.PayloadMessage{
+		Tasks: []*ecsacs.Task{
+			{
+				Arn: aws.String(taskArn),
+				Containers: []*ecsacs.Container{
+					{
+						ContainerArn: aws.String(containerInstanceArn),
+						RoleCredentials: &ecsacs.IAMRoleCredentials{
+							AccessKeyId:     aws.String(containerCredentialsAccessKey),
+							Expiration:      aws.String(containerCredentialsExpiration),
+							RoleArn:         aws.String(containerCredentialsRoleArn),
+							SecretAccessKey: aws.String(containerCredentialsSecretKey),
+							SessionToken:    aws.String(containerCredentialsSessionToken),
+							CredentialsId:   aws.String(containerCredentialsID),
+						},
+						ExecutionRoleCredentials: &ecsacs.IAMRoleCredentials{
+							AccessKeyId:     aws.String(containerExecutionCredentialsAccessKey),
+							Expiration:      aws.String(containerExecutionCredentialsExpiration),
+							RoleArn:         aws.String(containerExecutionCredentialsRoleArn),
+							SecretAccessKey: aws.String(containerExecutionCredentialsSecretKey),
+							SessionToken:    aws.String(containerExecutionCredentialsSessionToken),
+							CredentialsId:   aws.String(containerExecutionCredentialsID),
+						},
+					},
+				},
+			},
+		},
+		MessageId: aws.String(payloadMessageId),
+	}
+
+	// Wait till we get an ack
+	select {
+	case <-tester.ctx.Done():
+	}
+	// Verify if payloadMessageId read from the ack buffer is correct
+	assert.Equal(t, aws.StringValue(ackRequested.MessageId), payloadMessageId, "received message not expected")
+	roleUpdatedContainer, err := addedTask.GetContainerByArn(containerInstanceArn)
+	assert.Nil(t, err)
+	assert.Equal(t, "container-credsid", roleUpdatedContainer.GetCredentialsID(), "container IAM role credentials id mismatch")
+	assert.Equal(t, "container-execution-credsid", roleUpdatedContainer.GetExecutionCredentialsID(), "container execution role credentials id mismatch")
+
+	// Verify the credentials in the payload message was stored in the credentials manager
+	iamRoleCredentials, ok := tester.credentialsManager.GetContainerCredentials("container-credsid")
+	assert.True(t, ok, "container role credentials not found in credentials manager")
+	assert.Equal(t, containerCredentialsRoleArn, iamRoleCredentials.IAMRoleCredentials.RoleArn)
+	assert.Equal(t, containerInstanceArn, iamRoleCredentials.ARN)
+	assert.Equal(t, containerCredentialsExpiration, iamRoleCredentials.IAMRoleCredentials.Expiration)
+	assert.Equal(t, containerCredentialsAccessKey, iamRoleCredentials.IAMRoleCredentials.AccessKeyID)
+	assert.Equal(t, containerCredentialsSecretKey, iamRoleCredentials.IAMRoleCredentials.SecretAccessKey)
+	assert.Equal(t, containerCredentialsSessionToken, iamRoleCredentials.IAMRoleCredentials.SessionToken)
+	assert.Equal(t, containerCredentialsID, iamRoleCredentials.IAMRoleCredentials.CredentialsID)
+	assert.Equal(t, containerCredentialsID, *containerCredentialsAckRequested.CredentialsId)
+	assert.Equal(t, payloadMessageId, *containerCredentialsAckRequested.MessageId)
+
+	iamRoleExecutionCredentials, ok := tester.credentialsManager.GetContainerCredentials("container-execution-credsid")
+	assert.True(t, ok, "container execution role credentials not found in credentials manager")
+	assert.Equal(t, containerExecutionCredentialsRoleArn, iamRoleExecutionCredentials.IAMRoleCredentials.RoleArn)
+	assert.Equal(t, containerInstanceArn, iamRoleExecutionCredentials.ARN)
+	assert.Equal(t, containerExecutionCredentialsExpiration, iamRoleExecutionCredentials.IAMRoleCredentials.Expiration)
+	assert.Equal(t, containerExecutionCredentialsAccessKey, iamRoleExecutionCredentials.IAMRoleCredentials.AccessKeyID)
+	assert.Equal(t, containerExecutionCredentialsSecretKey, iamRoleExecutionCredentials.IAMRoleCredentials.SecretAccessKey)
+	assert.Equal(t, containerExecutionCredentialsSessionToken, iamRoleExecutionCredentials.IAMRoleCredentials.SessionToken)
+	assert.Equal(t, containerExecutionCredentialsID, iamRoleExecutionCredentials.IAMRoleCredentials.CredentialsID)
+	assert.Equal(t, containerExecutionCredentialsID, *containerExecutionCredentialsAckRequested.CredentialsId)
+	assert.Equal(t, payloadMessageId, *containerExecutionCredentialsAckRequested.MessageId)
+}
+
 // validateTaskAndCredentials compares a task and a credentials ack object
 // against expected values. It returns an error if either of the the
 // comparisons fail

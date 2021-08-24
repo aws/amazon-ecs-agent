@@ -38,6 +38,7 @@ import (
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
 	"github.com/aws/amazon-ecs-agent/agent/config"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
+	mock_credentials "github.com/aws/amazon-ecs-agent/agent/credentials/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/data"
 	mock_dockerapi "github.com/aws/amazon-ecs-agent/agent/dockerclient/dockerapi/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/engine/dependencygraph"
@@ -1278,6 +1279,32 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
+func TestCleanupCredentials(t *testing.T) {
+	cfg := getTestConfig()
+	ctrl := gomock.NewController(t)
+	mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine := &DockerTaskEngine{
+		cfg:                &cfg,
+		credentialsManager: mockCredentialsManager,
+	}
+	mTask := &managedTask{
+		Task:               testdata.LoadTask("sleep5"),
+		credentialsManager: mockCredentialsManager,
+		cfg:                taskEngine.cfg,
+	}
+
+	mTask.Task.Containers[0].SetCredentialsID("containerCredentialsId")
+	mTask.Task.SetCredentialsID("credentialsId")
+
+	// Expectations to verify the execution credentials get removed
+	mockCredentialsManager.EXPECT().RemoveContainerCredentials("containerCredentialsId")
+	mockCredentialsManager.EXPECT().RemoveCredentials("credentialsId")
+
+	mTask.cleanupCredentials()
+}
+
 func TestTaskWaitForExecutionCredentials(t *testing.T) {
 	tcs := []struct {
 		errs   []error
@@ -1333,6 +1360,75 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 			assert.Equal(t, tc.result, task.isWaitingForACSExecutionCredentials(tc.errs), tc.msg)
 		})
 	}
+}
+
+func TestCleanupTaskWithContainerExecutionCredentials(t *testing.T) {
+	cfg := getTestConfig()
+	ctrl := gomock.NewController(t)
+	mockTime := mock_ttime.NewMockTime(ctrl)
+	mockState := mock_dockerstate.NewMockTaskEngineState(ctrl)
+	mockClient := mock_dockerapi.NewMockDockerClient(ctrl)
+	mockImageManager := mock_engine.NewMockImageManager(ctrl)
+	mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
+	mockResource := mock_taskresource.NewMockTaskResource(ctrl)
+	defer ctrl.Finish()
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	taskEngine := &DockerTaskEngine{
+		ctx:                ctx,
+		cfg:                &cfg,
+		dataClient:         data.NewNoopClient(),
+		state:              mockState,
+		client:             mockClient,
+		imageManager:       mockImageManager,
+		credentialsManager: mockCredentialsManager,
+	}
+	mTask := &managedTask{
+		ctx:                      ctx,
+		cancel:                   cancel,
+		Task:                     testdata.LoadTask("sleep5"),
+		credentialsManager:       mockCredentialsManager,
+		_time:                    mockTime,
+		engine:                   taskEngine,
+		acsMessages:              make(chan acsTransition),
+		dockerMessages:           make(chan dockerContainerChange),
+		resourceStateChangeEvent: make(chan resourceStateChange),
+		cfg:                      taskEngine.cfg,
+	}
+
+	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
+	mTask.AddResource("mockResource", mockResource)
+	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
+	mTask.SetSentStatus(apitaskstatus.TaskStopped)
+	mTask.Task.Containers[0].SetExecutionCredentialsID("containerExecutionCredentialsId")
+	container := mTask.Containers[0]
+	dockerContainer := &apicontainer.DockerContainer{
+		DockerName: "dockerContainer",
+	}
+
+	// Expectations for triggering cleanup
+	now := mTask.GetKnownStatusTime()
+	taskStoppedDuration := 1 * time.Minute
+	mockTime.EXPECT().Now().Return(now).AnyTimes()
+	cleanupTimeTrigger := make(chan time.Time)
+	mockTime.EXPECT().After(gomock.Any()).Return(cleanupTimeTrigger)
+	go func() {
+		cleanupTimeTrigger <- now
+	}()
+
+	// Expectations to verify the execution credentials get removed
+	mockCredentialsManager.EXPECT().RemoveContainerCredentials("containerExecutionCredentialsId")
+
+	// Expectations to verify that the task gets removed
+	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)
+	mockClient.EXPECT().RemoveContainer(gomock.Any(), dockerContainer.DockerName, gomock.Any()).Return(nil)
+	mockImageManager.EXPECT().RemoveContainerReferenceFromImageState(container).Return(nil)
+	mockState.EXPECT().RemoveTask(mTask.Task)
+	mockResource.EXPECT().Cleanup()
+	mockResource.EXPECT().GetName()
+	mTask.cleanupTask(taskStoppedDuration)
 }
 
 func TestCleanupTaskWithInvalidInterval(t *testing.T) {
