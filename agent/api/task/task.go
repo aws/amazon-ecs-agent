@@ -458,7 +458,11 @@ func (task *Task) addGPUResource(cfg *config.Config) error {
 				container.GPUIDs = append(container.GPUIDs, association.Name)
 			}
 		}
-		//task.populateGPUEnvironmentVariables()
+		// For external instances, GPU IDs are handled by resources struct
+		// For internal instances, GPU IDs are handled by env var
+		if !cfg.External.Enabled() {
+			task.populateGPUEnvironmentVariables()
+		}
 		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
 	return nil
@@ -1466,7 +1470,7 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 		return nil, &apierrors.HostConfigError{Msg: err.Error()}
 	}
 
-	resources := task.getDockerResources(container)
+	resources := task.getDockerResources(container, cfg)
 
 	// Populate hostConfig
 	hostConfig := &dockercontainer.HostConfig{
@@ -1535,7 +1539,9 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 			return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
 		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
-		//hostCfg.Runtime = task.NvidiaRuntime
+		if !cfg.External.Enabled() {
+			hostCfg.Runtime = task.NvidiaRuntime
+		}
 	}
 
 	if cfg.InferentiaSupportEnabled && container.RequireNeuronRuntime() {
@@ -1546,7 +1552,7 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 }
 
 // Requires an *apicontainer.Container and returns the Resources for the HostConfig struct
-func (task *Task) getDockerResources(container *apicontainer.Container) dockercontainer.Resources {
+func (task *Task) getDockerResources(container *apicontainer.Container, cfg *config.Config) dockercontainer.Resources {
 	// Convert MB to B and set Memory
 	dockerMem := int64(container.Memory * 1024 * 1024)
 	if dockerMem != 0 && dockerMem < apicontainer.DockerContainerMinimumMemoryInBytes {
@@ -1554,9 +1560,12 @@ func (task *Task) getDockerResources(container *apicontainer.Container) dockerco
 			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
 		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
-	deviceRequest := dockercontainer.DeviceRequest{
-		Capabilities: [][]string{[]string{"gpu"}},
-		DeviceIDs:    container.GPUIDs,
+	deviceRequest := dockercontainer.DeviceRequest{}
+	if cfg.External.Enabled() && cfg.GPUSupportEnabled {
+		deviceRequest = dockercontainer.DeviceRequest{
+			Capabilities: [][]string{[]string{"gpu"}},
+			DeviceIDs:    container.GPUIDs,
+		}
 	}
 	// Set CPUShares
 	cpuShare := task.dockerCPUShares(container.CPU)
