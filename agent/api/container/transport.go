@@ -56,7 +56,7 @@ func (tp *TransportProtocol) String() string {
 	case TransportProtocolTCP:
 		return tcp
 	default:
-		seelog.Critical("Unknown TransportProtocol type!")
+		seelog.Criticalf("Unknown TransportProtocol type: %s", *tp)
 		return tcp
 	}
 }
