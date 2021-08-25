@@ -186,6 +186,14 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 	return capabilities
 }
 
+func (agent *ecsAgent) appendTelemetryFluentbitCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTelemetryFluentbit)
+}
+
+func (agent *ecsAgent) appendTelemetryOpentelemetryCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return appendNameOnlyAttribute(capabilities, attributePrefix+capabilityTelemetryOpentelemetry)
+}
+
 // getTaskENIPluginVersionAttribute returns the version information of the ECS
 // CNI plugins. It just executes the ENI plugin as the assumption is that these
 // plugins are packaged with the ECS Agent, which means all of the other plugins

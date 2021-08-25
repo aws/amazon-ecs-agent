@@ -780,6 +780,8 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityEFSAuth,
 		capabilityPrefix + capabilityFirelensLoggingDriver,
 		attributePrefix + capabilityEnvFilesS3,
+		attributePrefix + capabilityTelemetryFluentbit,
+		attributePrefix + capabilityTelemetryOpentelemetry,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
