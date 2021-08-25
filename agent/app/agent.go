@@ -70,6 +70,7 @@ const (
 	clusterMismatchErrorFormat                 = "Data mismatch; saved cluster '%v' does not match configured cluster '%v'. Perhaps you want to delete the configured checkpoint file?"
 	instanceIDMismatchErrorFormat              = "Data mismatch; saved InstanceID '%s' does not match current InstanceID '%s'. Overwriting old datafile"
 	instanceTypeMismatchErrorFormat            = "The current instance type does not match the registered instance type. Please revert the instance type change, or alternatively launch a new instance: %v"
+	customAttributeErrorMessage                = " Please make sure custom attributes are valid as per public AWS documentation: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-placement-constraints.html#attributes"
 
 	vpcIDAttributeName    = "ecs.vpc-id"
 	subnetIDAttributeName = "ecs.subnet-id"
@@ -586,7 +587,11 @@ func (agent *ecsAgent) registerContainerInstance(
 			return err
 		}
 		if _, ok := err.(apierrors.AttributeError); ok {
-			seelog.Critical("Instance registration attempt with an invalid attribute")
+			attributeErrorMsg := ""
+			if len(agent.cfg.InstanceAttributes) > 0 {
+				attributeErrorMsg = customAttributeErrorMessage
+			}
+			seelog.Critical("Instance registration attempt with invalid attribute(s)." + attributeErrorMsg)
 			return err
 		}
 		return transientError{err}
@@ -617,7 +622,11 @@ func (agent *ecsAgent) reregisterContainerInstance(client api.ECSClient, capabil
 		return err
 	}
 	if _, ok := err.(apierrors.AttributeError); ok {
-		seelog.Critical("Instance re-registration attempt with an invalid attribute")
+		attributeErrorMsg := ""
+		if len(agent.cfg.InstanceAttributes) > 0 {
+			attributeErrorMsg = customAttributeErrorMessage
+		}
+		seelog.Critical("Instance re-registration attempt with invalid attribute(s)." + attributeErrorMsg)
 		return err
 	}
 	return transientError{err}
