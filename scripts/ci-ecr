@@ -7,5 +7,5 @@ golang:$GO_VERSION
 golang:$GO_VERSION_WINDOWS
 gcc:7.3.0
 busybox:1.32.0
-debian:stable-20201012
+debian:stable-20210816
 fluent/fluentd:v1.11.5-1.0"
