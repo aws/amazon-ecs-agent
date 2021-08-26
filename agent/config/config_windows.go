@@ -34,6 +34,10 @@ const (
 
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = `log\audit.log`
+
+	// defaultRuntimeStatsLogFile stores the path where the golang runtime stats are periodically logged
+	defaultRuntimeStatsLogFile = `log\agent-runtime-stats.log`
+
 	// When using IAM roles for tasks on Windows, the credential proxy consumes port 80
 	httpPort = 80
 	// Remote Desktop / Terminal Services
@@ -130,6 +134,8 @@ func DefaultConfig() Config {
 		PauseContainerImageName:             DefaultPauseContainerImageName,
 		PauseContainerTag:                   DefaultPauseContainerTag,
 		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),
+		RuntimeStatsLogFile:                 filepath.Join(ecsRoot, defaultRuntimeStatsLogFile),
+		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 	}
 }
 

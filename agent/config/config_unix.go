@@ -28,6 +28,10 @@ const (
 	AgentCredentialsAddress = "" // this is left blank right now for net=bridge
 	// defaultAuditLogFile specifies the default audit log filename
 	defaultCredentialsAuditLogFile = "/log/audit.log"
+
+	// defaultRuntimeStatsLogFile stores the path where the golang runtime stats are periodically logged
+	defaultRuntimeStatsLogFile = `/log/agent-runtime-stats.log`
+
 	// DefaultTaskCgroupPrefix is default cgroup prefix for ECS tasks
 	DefaultTaskCgroupPrefix = "/ecs"
 
@@ -91,6 +95,8 @@ func DefaultConfig() Config {
 		CgroupCPUPeriod:                     defaultCgroupCPUPeriod,
 		GMSACapable:                         false,
 		FSxWindowsFileServerCapable:         false,
+		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
+		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
 	}
 }
 

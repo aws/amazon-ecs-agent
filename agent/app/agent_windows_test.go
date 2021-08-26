@@ -47,8 +47,9 @@ func (m *mockAgent) start() int {
 func (m *mockAgent) setTerminationHandler(handler sighandlers.TerminationHandler) {
 	m.terminationHandler = handler
 }
-func (m *mockAgent) printECSAttributes() int  { return 0 }
-func (m *mockAgent) startWindowsService() int { return 0 }
+func (m *mockAgent) printECSAttributes() int   { return 0 }
+func (m *mockAgent) startWindowsService() int  { return 0 }
+func (m *mockAgent) getConfig() *config.Config { return &config.Config{} }
 
 func TestHandler_RunAgent_StartExitImmediately(t *testing.T) {
 	// register some mocks, but nothing should get called on any of them
