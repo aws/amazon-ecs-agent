@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
@@ -41,6 +42,8 @@ const (
 	testClusterArn           = "test_cluster_arn"
 	eniIPV4Address           = "10.0.0.2"
 )
+
+var runtimeStatsConfigForTest = config.BooleanDefaultFalse{}
 
 func TestMetadataHandler(t *testing.T) {
 	metadataHandler := v1.AgentMetadataHandler(utils.Strptr(testContainerInstanceArn), &config.Config{Cluster: testClusterArn})
@@ -239,6 +242,70 @@ func TestBackendMismatchMapping(t *testing.T) {
 	}
 }
 
+func setupMockPprofHandlers() func() {
+	runtimeStatsConfigForTestBkp := runtimeStatsConfigForTest
+	pprofIndexHandlerBkp := pprofIndexHandler
+	pprofCmdlineHandlerBkp := pprofCmdlineHandler
+	pprofProfileHandlerBkp := pprofProfileHandler
+	pprofSymbolHandlerBkp := pprofSymbolHandler
+	pprofTraceHandlerBkp := pprofTraceHandler
+
+	mockPprofTestHandler := func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(r.URL.Path))
+	}
+	pprofIndexHandler = mockPprofTestHandler
+	pprofCmdlineHandler = mockPprofTestHandler
+	pprofProfileHandler = mockPprofTestHandler
+	pprofSymbolHandler = mockPprofTestHandler
+	pprofTraceHandler = mockPprofTestHandler
+
+	return func() {
+		runtimeStatsConfigForTest = runtimeStatsConfigForTestBkp
+		pprofIndexHandler = pprofIndexHandlerBkp
+		pprofCmdlineHandler = pprofCmdlineHandlerBkp
+		pprofProfileHandler = pprofProfileHandlerBkp
+		pprofSymbolHandler = pprofSymbolHandlerBkp
+		pprofTraceHandler = pprofTraceHandlerBkp
+	}
+}
+
+func TestPProfHandlerSetup(t *testing.T) {
+	pprofPaths := []string{
+		"/debug/pprof/",
+		"/debug/pprof/cmdline",
+		"/debug/pprof/profile",
+		"/debug/pprof/symbol",
+		"/debug/pprof/trace",
+	}
+
+	testCases := []struct {
+		runtimeStatsEnabled config.Conditional
+		paths               []string
+	}{
+		{runtimeStatsEnabled: config.ExplicitlyDisabled, paths: pprofPaths},
+		{runtimeStatsEnabled: config.ExplicitlyEnabled, paths: pprofPaths},
+	}
+
+	for _, tc := range testCases {
+		runtimeStatsConfigForTest = config.BooleanDefaultFalse{Value: tc.runtimeStatsEnabled}
+		for _, p := range tc.paths {
+			t.Run(p+"-"+strconv.FormatBool(runtimeStatsConfigForTest.Enabled()), func(t *testing.T) {
+				defer setupMockPprofHandlers()()
+
+				recorder := performMockRequest(t, p)
+				if runtimeStatsConfigForTest.Enabled() {
+					assert.Equal(t, http.StatusOK, recorder.Code)
+					assert.Equal(t, p, recorder.Body.String())
+				} else {
+					assert.Equal(t, http.StatusOK, recorder.Code)
+					assert.Equal(t, `{"AvailableCommands":["/v1/metadata","/v1/tasks","/license"]}`, recorder.Body.String())
+
+				}
+			})
+		}
+	}
+}
+
 func taskDiffHelper(t *testing.T, expected []*apitask.Task, actual v1.TasksResponse) {
 	if len(expected) != len(actual.Tasks) {
 		t.Errorf("Expected %v tasks, had %v tasks", len(expected), len(actual.Tasks))
@@ -409,8 +476,14 @@ func performMockRequest(t *testing.T, path string) *httptest.ResponseRecorder {
 	state := dockerstate.NewTaskEngineState()
 	stateSetupHelper(state, testTasks)
 
-	mockStateResolver.EXPECT().State().Return(state)
-	requestHandler := introspectionServerSetup(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{Cluster: testClusterArn})
+	if !strings.HasPrefix(path, pprofBasePath) {
+		mockStateResolver.EXPECT().State().Return(state)
+	}
+
+	requestHandler := introspectionServerSetup(utils.Strptr(testContainerInstanceArn), mockStateResolver, &config.Config{
+		Cluster:            testClusterArn,
+		EnableRuntimeStats: runtimeStatsConfigForTest,
+	})
 
 	recorder := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", path, nil)

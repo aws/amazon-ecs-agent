@@ -342,4 +342,11 @@ type Config struct {
 	// InstanceENIDNSServerList stores the list of DNS servers for the primary instance ENI.
 	// Currently, this field is only populated for Windows and is used during task networking setup.
 	InstanceENIDNSServerList []string
+
+	// RuntimeStatsLogFile stores the path where the golang runtime stats are periodically logged
+	RuntimeStatsLogFile string
+
+	// EnableRuntimeStats specifies if pprof should be enabled through the agent introspection port. By default, this configuration
+	// is set to false and can be overridden by means of the ECS_ENABLE_RUNTIME_STATS environment variable.
+	EnableRuntimeStats BooleanDefaultFalse
 }

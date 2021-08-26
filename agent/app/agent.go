@@ -101,6 +101,8 @@ type agent interface {
 	start() int
 	// setTerminationHandler sets the termination handler
 	setTerminationHandler(sighandlers.TerminationHandler)
+	// getConfig gets the agent configuration
+	getConfig() *config.Config
 }
 
 // ecsAgent wraps all the entities needed to start the ECS Agent execution.
@@ -214,6 +216,10 @@ func newAgent(blackholeEC2Metadata bool, acceptInsecureCert *bool) (agent, error
 		mobyPlugins:                 mobypkgwrapper.NewPlugins(),
 		latestSeqNumberTaskManifest: &initialSeqNumber,
 	}, nil
+}
+
+func (agent *ecsAgent) getConfig() *config.Config {
+	return agent.cfg
 }
 
 // printECSAttributes prints the Agent's ECS Attributes based on its

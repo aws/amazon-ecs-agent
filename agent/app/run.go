@@ -73,6 +73,10 @@ func Run(arguments []string) int {
 		return exitcodes.ExitError
 	}
 
+	if agent.getConfig().EnableRuntimeStats.Enabled() {
+		defer logger.StartRuntimeStatsLogger(agent.getConfig())()
+	}
+
 	switch {
 	case *parsedArgs.ECSAttributes:
 		// Print agent's ecs attributes based on its environment and exit
