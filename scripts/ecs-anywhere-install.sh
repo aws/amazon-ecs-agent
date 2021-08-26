@@ -15,7 +15,7 @@ check-option-value() {
 }
 
 usage() {
-    echo "$(basename "$0") [--help] --region REGION --activation-code CODE --activation-id ID [--cluster CLUSTER] [--docker-install-source all|docker|distro|none] [--ecs-version VERSION] [--ecs-endpoint ENDPOINT] [--skip-registration] [--no-start]
+    echo "$(basename "$0") [--help] --region REGION --activation-code CODE --activation-id ID [--cluster CLUSTER] [--enable-gpu] [--docker-install-source all|docker|distro|none] [--ecs-version VERSION] [--ecs-endpoint ENDPOINT] [--skip-registration] [--no-start]
 
   --help
         (optional) display this help message.
@@ -27,6 +27,8 @@ usage() {
         (required) activation code from the create activation command. Not required if --skip-registration is specified.
   --cluster string
         (optional) pass the cluster name that ECS agent will connect too. By default its value is 'default'.
+  --enable-gpu
+        (optional) if this flag is provided, GPU support for ECS will be enabled.
   --docker-install-source
         (optional) Source of docker installation. Possible values are 'all, docker, distro, none'. Defaults to 'all'.
   --ecs-version string
@@ -107,6 +109,10 @@ while :; do
         ;;
     --skip-registration)
         SKIP_REGISTRATION=true
+        shift 1
+        ;;
+    --enable-gpu)
+        GPU_ENABLED=true
         shift 1
         ;;
     --no-start)
@@ -517,6 +523,13 @@ install-ecs-agent() {
     echo "ECS_EXTERNAL=true" >>/var/lib/ecs/ecs.config
     if [ -n "$ECS_ENDPOINT" ]; then
         echo "ECS_BACKEND_HOST=$ECS_ENDPOINT" >>/var/lib/ecs/ecs.config
+    fi
+    if [ -n "$GPU_ENABLED" ]; then
+        if ! nvidia-smi &>/dev/null; then
+            echo "Failed to detect GPU with nvidia-smi command. Make sure that GPUs are attached and the latest NVIDIA driver is installed and running."
+            fail
+        fi
+        echo "ECS_ENABLE_GPU_SUPPORT=true" >>/var/lib/ecs/ecs.config
     fi
     systemctl enable ecs
     if ! $NO_START; then
