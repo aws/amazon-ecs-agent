@@ -1560,21 +1560,27 @@ func (task *Task) getDockerResources(container *apicontainer.Container, cfg *con
 			task.Arn, container.Name, apicontainer.DockerContainerMinimumMemoryInBytes)
 		dockerMem = apicontainer.DockerContainerMinimumMemoryInBytes
 	}
-	deviceRequest := dockercontainer.DeviceRequest{}
+	resources := dockercontainer.Resources{}
+	// Set CPUShares
+	cpuShare := task.dockerCPUShares(container.CPU)
 	if cfg.External.Enabled() && cfg.GPUSupportEnabled {
-		deviceRequest = dockercontainer.DeviceRequest{
+		deviceRequest := dockercontainer.DeviceRequest{
 			Capabilities: [][]string{[]string{"gpu"}},
 			DeviceIDs:    container.GPUIDs,
 		}
+		resources = dockercontainer.Resources{
+			Memory:         dockerMem,
+			CPUShares:      cpuShare,
+			DeviceRequests: []dockercontainer.DeviceRequest{deviceRequest},
+		}
+		return resources
+	} else {
+		resources = dockercontainer.Resources{
+			Memory:    dockerMem,
+			CPUShares: cpuShare,
+		}
+		return resources
 	}
-	// Set CPUShares
-	cpuShare := task.dockerCPUShares(container.CPU)
-	resources := dockercontainer.Resources{
-		Memory:         dockerMem,
-		CPUShares:      cpuShare,
-		DeviceRequests: []dockercontainer.DeviceRequest{deviceRequest},
-	}
-	return resources
 }
 
 // shouldOverrideNetworkMode returns true if the network mode of the container needs
