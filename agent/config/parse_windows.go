@@ -17,11 +17,10 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"unsafe"
-
-	"golang.org/x/sys/windows/registry"
 
 	"github.com/aws/amazon-ecs-agent/agent/utils"
 	"github.com/cihub/seelog"
@@ -91,25 +90,18 @@ func isDomainJoined() (bool, error) {
 	return status == syscall.NetSetupDomainName, nil
 }
 
-// isWindows2016 is used to check if container instance is versioned Windows 2016
-// Reference: https://godoc.org/golang.org/x/sys/windows/registry
+// Making it visible for unit testing
+var execCommand = exec.Command
+
 var isWindows2016 = func() (bool, error) {
-	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion`, registry.QUERY_VALUE)
+	cmd := "systeminfo | findstr /B /C:\"OS Name\""
+	out, err := execCommand("powershell", "-Command", cmd).CombinedOutput()
 	if err != nil {
-		seelog.Errorf("Unable to open Windows registry key to determine Windows version: %v", err)
-		return false, err
-	}
-	defer key.Close()
-
-	version, _, err := key.GetStringValue("ProductName")
-	if err != nil {
-		seelog.Errorf("Unable to read current version from Windows registry: %v", err)
 		return false, err
 	}
 
-	if strings.HasPrefix(version, "Windows Server 2016") {
-		return true, nil
-	}
+	str := string(out)
+	isWS2016 := strings.Contains(str, "Microsoft Windows Server 2016 Datacenter")
 
-	return false, nil
+	return isWS2016, nil
 }
