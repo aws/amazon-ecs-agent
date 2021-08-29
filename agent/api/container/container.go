@@ -142,6 +142,14 @@ type Container struct {
 	Name string
 	// RuntimeID is the docker id of the container
 	RuntimeID string
+	// CredentialsID is used to set the CredentialsID field for the
+	// IAMRoleCredentials object associated with the container. This id can be
+	// used to look up the credentials for container in the credentials manager
+	CredentialsID string
+	// ExecutionCredentialsID is used to set the ExecutionCredentialsID field for the
+	// IAMRoleCredentials object associated with the container. This id can be
+	// used to look up the credentials for container in the credentials manager
+	ExecutionCredentialsID string
 	// TaskARNUnsafe is the task ARN of the task that the container belongs to. Access should be
 	// protected by lock i.e. via GetTaskARN and SetTaskARN.
 	TaskARNUnsafe string `json:"taskARN"`
@@ -1196,6 +1204,38 @@ func (c *Container) RequireNeuronRuntime() bool {
 
 	_, ok := c.Environment[neuronVisibleDevicesEnvVar]
 	return ok
+}
+
+// SetCredentialsID sets the credentials ID for the container
+func (c *Container) SetCredentialsID(id string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.CredentialsID = id
+}
+
+// GetCredentialsID gets the credentials ID for the container
+func (c *Container) GetCredentialsID() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.CredentialsID
+}
+
+// SetExecutionCredentialsID sets the execution credentials ID for the container
+func (c *Container) SetExecutionCredentialsID(id string) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	c.ExecutionCredentialsID = id
+}
+
+// GetExecutionCredentialsID gets the execution credentials ID for the container
+func (c *Container) GetExecutionCredentialsID() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	return c.ExecutionCredentialsID
 }
 
 // SetTaskARN sets the task arn of the container.

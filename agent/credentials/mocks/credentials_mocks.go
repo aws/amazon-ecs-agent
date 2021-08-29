@@ -48,6 +48,21 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 	return m.recorder
 }
 
+// GetContainerCredentials mocks base method
+func (m *MockManager) GetContainerCredentials(arg0 string) (credentials.ContainerIAMRoleCredentials, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetContainerCredentials", arg0)
+	ret0, _ := ret[0].(credentials.ContainerIAMRoleCredentials)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// GetContainerCredentials indicates an expected call of GetContainerCredentials
+func (mr *MockManagerMockRecorder) GetContainerCredentials(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerCredentials", reflect.TypeOf((*MockManager)(nil).GetContainerCredentials), arg0)
+}
+
 // GetTaskCredentials mocks base method
 func (m *MockManager) GetTaskCredentials(arg0 string) (credentials.TaskIAMRoleCredentials, bool) {
 	m.ctrl.T.Helper()
@@ -63,6 +78,18 @@ func (mr *MockManagerMockRecorder) GetTaskCredentials(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTaskCredentials", reflect.TypeOf((*MockManager)(nil).GetTaskCredentials), arg0)
 }
 
+// RemoveContainerCredentials mocks base method
+func (m *MockManager) RemoveContainerCredentials(arg0 string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "RemoveContainerCredentials", arg0)
+}
+
+// RemoveContainerCredentials indicates an expected call of RemoveContainerCredentials
+func (mr *MockManagerMockRecorder) RemoveContainerCredentials(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveContainerCredentials", reflect.TypeOf((*MockManager)(nil).RemoveContainerCredentials), arg0)
+}
+
 // RemoveCredentials mocks base method
 func (m *MockManager) RemoveCredentials(arg0 string) {
 	m.ctrl.T.Helper()
@@ -73,6 +100,20 @@ func (m *MockManager) RemoveCredentials(arg0 string) {
 func (mr *MockManagerMockRecorder) RemoveCredentials(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCredentials", reflect.TypeOf((*MockManager)(nil).RemoveCredentials), arg0)
+}
+
+// SetContainerCredentials mocks base method
+func (m *MockManager) SetContainerCredentials(arg0 *credentials.ContainerIAMRoleCredentials) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetContainerCredentials", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetContainerCredentials indicates an expected call of SetContainerCredentials
+func (mr *MockManagerMockRecorder) SetContainerCredentials(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerCredentials", reflect.TypeOf((*MockManager)(nil).SetContainerCredentials), arg0)
 }
 
 // SetTaskCredentials mocks base method

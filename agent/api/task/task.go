@@ -750,7 +750,14 @@ func (task *Task) initializeCredentialsEndpoint(credentialsManager credentials.M
 		if container.Environment == nil {
 			container.Environment = make(map[string]string)
 		}
-		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = credentialsEndpointRelativeURI
+		containerCredentialsEndpointRelativeURI := credentialsEndpointRelativeURI
+		// only override containerCredentialsEndpointRelativeURI if it is defined specifically in credential manager
+		containerCredentialsId := container.GetCredentialsID()
+		containerCredentials, ok := credentialsManager.GetContainerCredentials(containerCredentialsId)
+		if ok {
+			containerCredentialsEndpointRelativeURI = containerCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+		}
+		container.Environment[awsSDKCredentialsRelativeURIPathEnvironmentVariableName] = containerCredentialsEndpointRelativeURI
 	}
 
 	task.SetCredentialsRelativeURI(credentialsEndpointRelativeURI)
@@ -781,6 +788,16 @@ func (task *Task) initializeContainersV4MetadataEndpoint(uuidProvider utils.UUID
 
 		container.InjectV4MetadataEndpoint()
 	}
+}
+
+// GetContainerByArn returns the container for given ContainerArn
+func (task *Task) GetContainerByArn(arn string) (*apicontainer.Container, error) {
+	for _, container := range task.Containers {
+		if container.ContainerArn == arn {
+			return container, nil
+		}
+	}
+	return nil, fmt.Errorf("unable to find container with arn %v", arn)
 }
 
 // requiresASMDockerAuthData returns true if atleast one container in the task

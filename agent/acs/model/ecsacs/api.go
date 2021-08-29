@@ -377,6 +377,8 @@ type Container struct {
 
 	Essential *bool `locationName:"essential" type:"boolean"`
 
+	ExecutionRoleCredentials *IAMRoleCredentials `locationName:"executionRoleCredentials" type:"structure"`
+
 	FirelensConfiguration *FirelensConfiguration `locationName:"firelensConfiguration" type:"structure"`
 
 	HealthCheckType *string `locationName:"healthCheckType" type:"string" enum:"HealthCheckType"`
@@ -400,6 +402,8 @@ type Container struct {
 	PortMappings []*PortMapping `locationName:"portMappings" type:"list"`
 
 	RegistryAuthentication *RegistryAuthenticationData `locationName:"registryAuthentication" type:"structure"`
+
+	RoleCredentials *IAMRoleCredentials `locationName:"roleCredentials" type:"structure"`
 
 	Secrets []*Secret `locationName:"secrets" type:"list"`
 
@@ -852,6 +856,8 @@ func (s IAMRoleCredentialsAckRequest) GoString() string {
 
 type IAMRoleCredentialsMessage struct {
 	_ struct{} `type:"structure"`
+
+	ContainerCredentialsList []*string `locationName:"containerCredentialsList" type:"list"`
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
@@ -1391,6 +1397,8 @@ func (s ProxyConfiguration) GoString() string {
 
 type RefreshTaskIAMRoleCredentialsInput struct {
 	_ struct{} `type:"structure"`
+
+	ContainerCredentialsList []*string `locationName:"containerCredentialsList" type:"list"`
 
 	MessageId *string `locationName:"messageId" type:"string"`
 
