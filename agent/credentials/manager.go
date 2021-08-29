@@ -46,6 +46,12 @@ const (
 	// ExecutionRoleType specifies the credentials used for non task application
 	// uses
 	ExecutionRoleType = "TaskExecution"
+
+	// ContainerRoleType specifies the container specific credentials
+	ContainerRoleType = "ContainerApplication"
+
+	// ContainerExecutionRoleType specifies the container specific execution credentials
+	ContainerExecutionRoleType = "ContainerExecution"
 )
 
 // IAMRoleCredentials is used to save credentials sent by ACS
@@ -71,6 +77,21 @@ type TaskIAMRoleCredentials struct {
 	lock               sync.RWMutex
 }
 
+// ContainerIAMRoleCredentials wraps the container instance arn and the credentials object for the same
+type ContainerIAMRoleCredentials struct {
+	ARN                string
+	IAMRoleCredentials IAMRoleCredentials
+	lock               sync.RWMutex
+}
+
+// GetIAMRoleCredentials returns the IAM role credentials in the task IAM role struct
+func (role *ContainerIAMRoleCredentials) GetIAMRoleCredentials() IAMRoleCredentials {
+	role.lock.RLock()
+	defer role.lock.RUnlock()
+
+	return role.IAMRoleCredentials
+}
+
 // GetIAMRoleCredentials returns the IAM role credentials in the task IAM role struct
 func (role *TaskIAMRoleCredentials) GetIAMRoleCredentials() IAMRoleCredentials {
 	role.lock.RLock()
@@ -91,7 +112,10 @@ func (roleCredentials *IAMRoleCredentials) GenerateCredentialsEndpointRelativeUR
 type credentialsManager struct {
 	// idToTaskCredentials maps credentials id to its corresponding TaskIAMRoleCredentials object
 	idToTaskCredentials map[string]TaskIAMRoleCredentials
-	taskCredentialsLock sync.RWMutex
+	// idToContainerCredentials maps credentials id to its corresponding ContainerIAMRoleCredentials object
+	idToContainerCredentials map[string]ContainerIAMRoleCredentials
+	taskCredentialsLock      sync.RWMutex
+	containerCredentialsLock sync.RWMutex
 }
 
 // IAMRoleCredentialsFromACS translates ecsacs.IAMRoleCredentials object to
@@ -111,8 +135,48 @@ func IAMRoleCredentialsFromACS(roleCredentials *ecsacs.IAMRoleCredentials, roleT
 // NewManager creates a new credentials manager object
 func NewManager() Manager {
 	return &credentialsManager{
-		idToTaskCredentials: make(map[string]TaskIAMRoleCredentials),
+		idToTaskCredentials:      make(map[string]TaskIAMRoleCredentials),
+		idToContainerCredentials: make(map[string]ContainerIAMRoleCredentials),
 	}
+}
+
+func (manager *credentialsManager) SetContainerCredentials(containerCredentials *ContainerIAMRoleCredentials) error {
+	manager.containerCredentialsLock.Lock()
+	defer manager.containerCredentialsLock.Unlock()
+
+	credentials := containerCredentials.IAMRoleCredentials
+	// Validate that credentials id is not empty
+	if credentials.CredentialsID == "" {
+		return fmt.Errorf("CredentialsId is empty")
+	}
+
+	// Validate that task arn is not empty
+	if containerCredentials.ARN == "" {
+		return fmt.Errorf("container instance ARN is empty")
+	}
+
+	manager.idToContainerCredentials[credentials.CredentialsID] = ContainerIAMRoleCredentials{
+		ARN:                containerCredentials.ARN,
+		IAMRoleCredentials: containerCredentials.GetIAMRoleCredentials(),
+	}
+
+	return nil
+}
+
+// GetContainerCredentials retrieves credentials for a given credentials id
+func (manager *credentialsManager) GetContainerCredentials(id string) (ContainerIAMRoleCredentials, bool) {
+	manager.containerCredentialsLock.RLock()
+	defer manager.containerCredentialsLock.RUnlock()
+
+	containerCredentials, ok := manager.idToContainerCredentials[id]
+
+	if !ok {
+		return ContainerIAMRoleCredentials{}, ok
+	}
+	return ContainerIAMRoleCredentials{
+		ARN:                containerCredentials.ARN,
+		IAMRoleCredentials: containerCredentials.GetIAMRoleCredentials(),
+	}, ok
 }
 
 // SetTaskCredentials adds or updates credentials in the credentials manager
@@ -161,4 +225,12 @@ func (manager *credentialsManager) RemoveCredentials(id string) {
 	defer manager.taskCredentialsLock.Unlock()
 
 	delete(manager.idToTaskCredentials, id)
+}
+
+// RemoveContainerCredentials removes container specific credentials from the credentials manager
+func (manager *credentialsManager) RemoveContainerCredentials(id string) {
+	manager.containerCredentialsLock.Lock()
+	defer manager.containerCredentialsLock.Unlock()
+
+	delete(manager.idToContainerCredentials, id)
 }

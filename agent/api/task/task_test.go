@@ -57,6 +57,50 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetContainerByArn(t *testing.T) {
+	testTask := &Task{
+		Containers: []*apicontainer.Container{
+			{
+				Name:         "c1",
+				ContainerArn: "arn1",
+			},
+			{
+				Name:         "c2",
+				ContainerArn: "arn2",
+			},
+		},
+	}
+
+	tt := []struct {
+		name                  string
+		arn                   string
+		expectedError         error
+		expectedContainerName string
+	}{
+		{
+			name:                  "happy path",
+			arn:                   "arn2",
+			expectedError:         nil,
+			expectedContainerName: "c2",
+		},
+		{
+			name:                  "wrong arn",
+			arn:                   "arnnotexist",
+			expectedError:         fmt.Errorf("unable to find container with arn arnnotexist"),
+			expectedContainerName: "",
+		},
+	}
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			container, err := testTask.GetContainerByArn(test.arn)
+			assert.Equal(t, test.expectedError, err, "Error mismatch")
+			if test.expectedError == nil {
+				assert.Equal(t, test.expectedContainerName, container.Name, "Container name mismatch")
+			}
+		})
+	}
+}
+
 func TestDockerConfigPortBinding(t *testing.T) {
 	testTask := &Task{
 		Containers: []*apicontainer.Container{
@@ -497,6 +541,7 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 	credentialsManager := mock_credentials.NewMockManager(ctrl)
 
 	credentialsIDInTask := "credsid"
+	containerSpecificCredentialsID := "ccredsid"
 	task := Task{
 		Containers: []*apicontainer.Container{
 			{
@@ -504,8 +549,9 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 				Environment: make(map[string]string),
 			},
 			{
-				Name:        "c2",
-				Environment: make(map[string]string),
+				Name:          "c2",
+				Environment:   make(map[string]string),
+				CredentialsID: containerSpecificCredentialsID,
 			}},
 		credentialsID: credentialsIDInTask,
 	}
@@ -513,17 +559,28 @@ func TestGetCredentialsEndpointWhenCredentialsAreSet(t *testing.T) {
 	taskCredentials := credentials.TaskIAMRoleCredentials{
 		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 	}
+	containerCredentials := credentials.ContainerIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "ccredsid"},
+	}
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
+	credentialsManager.EXPECT().GetContainerCredentials("").Return(credentials.ContainerIAMRoleCredentials{}, false)
+	credentialsManager.EXPECT().GetContainerCredentials(containerSpecificCredentialsID).Return(containerCredentials, true)
 	task.initializeCredentialsEndpoint(credentialsManager)
 
 	// Test if all containers in the task have the environment variable for
-	// credentials endpoint set correctly.
-	for _, container := range task.Containers {
+	// credentials endpoint set correctly and make sure task creds and
+	// container specific creds are different
+	uris := [2]string{"", ""}
+	for iter, container := range task.Containers {
 		env := container.Environment
-		_, exists := env[awsSDKCredentialsRelativeURIPathEnvironmentVariableName]
+		uri, exists := env[awsSDKCredentialsRelativeURIPathEnvironmentVariableName]
+		uris[iter] = uri
 		if !exists {
 			t.Errorf("'%s' environment variable not set for container '%s', env: %v", awsSDKCredentialsRelativeURIPathEnvironmentVariableName, container.Name, env)
 		}
+	}
+	if uris[0] == uris[1] {
+		t.Errorf("container specific credential uri %s is the same as task credential uri %s", uris[1], uris[0])
 	}
 }
 
@@ -795,6 +852,7 @@ func TestPostUnmarshalTaskWithEFSVolumesThatUseECSVolumePlugin(t *testing.T) {
 	}
 	expectedEndpoint := "/v2/credentials/" + credentialsIDInTask
 	credentialsManager.EXPECT().GetTaskCredentials(credentialsIDInTask).Return(taskCredentials, true)
+	credentialsManager.EXPECT().GetContainerCredentials("").Return(credentials.ContainerIAMRoleCredentials{}, false)
 
 	taskFromACS := getACSEFSTask()
 	taskFromACS.RoleCredentials = testCreds

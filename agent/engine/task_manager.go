@@ -357,6 +357,12 @@ func (mtask *managedTask) cleanupCredentials() {
 	if taskCredentialsID != "" {
 		mtask.credentialsManager.RemoveCredentials(taskCredentialsID)
 	}
+	for _, container := range mtask.Task.Containers {
+		containerCredentialsId := container.GetCredentialsID()
+		if containerCredentialsId != "" {
+			mtask.credentialsManager.RemoveContainerCredentials(containerCredentialsId)
+		}
+	}
 }
 
 // waitEvent waits for any event to occur. If an event occurs, the appropriate
@@ -1458,6 +1464,13 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	logger.Info("Cleaning up task's containers and data", logger.Fields{
 		field.TaskARN: mtask.Arn,
 	})
+
+	for _, container := range mtask.Task.Containers {
+		containerExecutionCredentialsId := container.GetExecutionCredentialsID()
+		if containerExecutionCredentialsId != "" {
+			mtask.credentialsManager.RemoveContainerCredentials(containerExecutionCredentialsId)
+		}
+	}
 
 	// For the duration of this, simply discard any task events; this ensures the
 	// speedy processing of other events for other tasks

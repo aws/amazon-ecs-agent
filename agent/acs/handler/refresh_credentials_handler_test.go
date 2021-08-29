@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	"github.com/aws/amazon-ecs-agent/agent/credentials"
 	mock_engine "github.com/aws/amazon-ecs-agent/agent/engine/mocks"
@@ -30,23 +31,32 @@ import (
 )
 
 const (
-	messageId         = "message1"
-	taskArn           = "task1"
-	cluster           = "default"
-	containerInstance = "instance"
-	expiration        = "soon"
-	roleArn           = "taskrole1"
-	accessKey         = "akid"
-	secretKey         = "secret"
-	sessionToken      = "token"
-	credentialsId     = "credsid"
-	roleType          = "TaskExecution"
+	messageId                  = "message1"
+	taskArn                    = "task1"
+	cluster                    = "default"
+	containerInstance          = "instance"
+	expiration                 = "soon"
+	roleArn                    = "taskrole1"
+	accessKey                  = "akid"
+	secretKey                  = "secret"
+	sessionToken               = "token"
+	credentialsId              = "credsid"
+	containerCredsId           = "ccredsid"
+	roleType                   = "TaskExecution"
+	containerRoleType          = "ContainerApplication"
+	containerExecutionRoleType = "ContainerExecution"
 )
 
 var expectedAck = &ecsacs.IAMRoleCredentialsAckRequest{
 	Expiration:    aws.String(expiration),
 	MessageId:     aws.String(messageId),
 	CredentialsId: aws.String(credentialsId),
+}
+
+var expectedContainerAck = &ecsacs.IAMRoleCredentialsAckRequest{
+	Expiration:    aws.String(expiration),
+	MessageId:     aws.String(messageId),
+	CredentialsId: aws.String(containerCredsId),
 }
 
 var expectedCredentials = credentials.TaskIAMRoleCredentials{
@@ -62,6 +72,32 @@ var expectedCredentials = credentials.TaskIAMRoleCredentials{
 	},
 }
 
+var expectedContainerCredentials = credentials.ContainerIAMRoleCredentials{
+	ARN: containerInstance,
+	IAMRoleCredentials: credentials.IAMRoleCredentials{
+		RoleArn:         roleArn,
+		AccessKeyID:     accessKey,
+		SecretAccessKey: secretKey,
+		SessionToken:    sessionToken,
+		Expiration:      expiration,
+		CredentialsID:   containerCredsId,
+		RoleType:        containerRoleType,
+	},
+}
+
+var expectedContainerExecutionCredentials = credentials.ContainerIAMRoleCredentials{
+	ARN: containerInstance,
+	IAMRoleCredentials: credentials.IAMRoleCredentials{
+		RoleArn:         roleArn,
+		AccessKeyID:     accessKey,
+		SecretAccessKey: secretKey,
+		SessionToken:    sessionToken,
+		Expiration:      expiration,
+		CredentialsID:   containerCredsId,
+		RoleType:        containerExecutionRoleType,
+	},
+}
+
 var message = &ecsacs.IAMRoleCredentialsMessage{
 	MessageId: aws.String(messageId),
 	TaskArn:   aws.String(taskArn),
@@ -73,6 +109,36 @@ var message = &ecsacs.IAMRoleCredentialsMessage{
 		SecretAccessKey: aws.String(secretKey),
 		SessionToken:    aws.String(sessionToken),
 		CredentialsId:   aws.String(credentialsId),
+	},
+}
+
+var refreshContainerCredentialsMessage = &ecsacs.IAMRoleCredentialsMessage{
+	MessageId:                aws.String(messageId),
+	TaskArn:                  aws.String(taskArn),
+	RoleType:                 aws.String(containerRoleType),
+	ContainerCredentialsList: []*string{aws.String(containerInstance)},
+	RoleCredentials: &ecsacs.IAMRoleCredentials{
+		RoleArn:         aws.String(roleArn),
+		Expiration:      aws.String(expiration),
+		AccessKeyId:     aws.String(accessKey),
+		SecretAccessKey: aws.String(secretKey),
+		SessionToken:    aws.String(sessionToken),
+		CredentialsId:   aws.String(containerCredsId),
+	},
+}
+
+var refreshContainerExecutionCredentialsMessage = &ecsacs.IAMRoleCredentialsMessage{
+	MessageId:                aws.String(messageId),
+	TaskArn:                  aws.String(taskArn),
+	RoleType:                 aws.String(containerExecutionRoleType),
+	ContainerCredentialsList: []*string{aws.String(containerInstance)},
+	RoleCredentials: &ecsacs.IAMRoleCredentials{
+		RoleArn:         aws.String(roleArn),
+		Expiration:      aws.String(expiration),
+		AccessKeyId:     aws.String(accessKey),
+		SecretAccessKey: aws.String(secretKey),
+		SessionToken:    aws.String(sessionToken),
+		CredentialsId:   aws.String(containerCredsId),
 	},
 }
 
@@ -227,6 +293,78 @@ func TestCredentialsMessageNotAckedWhenTaskNotFound(t *testing.T) {
 		t.Error("Expected error updating credentials when the message contains unexpected task arn")
 	}
 	cancel()
+}
+
+// TestHandleRefreshMessageAckedWhenContainerCredentialsUpdated tests that a credential message
+// is acked when the container credentials are updated successfully
+func TestHandleRefreshMessageAckedForContainer(t *testing.T) {
+	testCases := []struct {
+		Name                      string
+		expectedTestAck           *ecsacs.IAMRoleCredentialsAckRequest
+		expectedTestCredentials   credentials.ContainerIAMRoleCredentials
+		refreshCredentialsMessage *ecsacs.IAMRoleCredentialsMessage
+	}{
+		{
+			Name:                      "container role",
+			expectedTestAck:           expectedContainerAck,
+			expectedTestCredentials:   expectedContainerCredentials,
+			refreshCredentialsMessage: refreshContainerCredentialsMessage,
+		},
+		{
+			Name:                      "container execution role",
+			expectedTestAck:           expectedContainerAck,
+			expectedTestCredentials:   expectedContainerExecutionCredentials,
+			refreshCredentialsMessage: refreshContainerExecutionCredentialsMessage,
+		},
+	}
+	for _, tc := range testCases {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		credentialsManager := credentials.NewManager()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		var ackRequested *ecsacs.IAMRoleCredentialsAckRequest
+
+		mockWsClient := mock_wsclient.NewMockClientServer(ctrl)
+		mockWsClient.EXPECT().MakeRequest(gomock.Any()).Do(func(ackRequest *ecsacs.IAMRoleCredentialsAckRequest) {
+			ackRequested = ackRequest
+			cancel()
+		}).Times(1)
+
+		taskEngine := mock_engine.NewMockTaskEngine(ctrl)
+		// Return a task from the engine for GetTaskByArn
+		taskEngine.EXPECT().GetTaskByArn(taskArn).Return(&apitask.Task{
+			Containers: []*apicontainer.Container{&apicontainer.Container{
+				Name:         containerInstance,
+				ContainerArn: containerInstance,
+			}},
+		}, true)
+
+		handler := newRefreshCredentialsHandler(ctx, clusterName, containerInstanceArn, mockWsClient, credentialsManager, taskEngine)
+		go handler.sendAcks()
+
+		err := handler.handleSingleMessage(tc.refreshCredentialsMessage)
+		if err != nil {
+			t.Errorf("Error updating credentials: %v", err)
+		}
+
+		// Wait till we get an ack from the ackBuffer
+		select {
+		case <-ctx.Done():
+		}
+
+		if !reflect.DeepEqual(ackRequested, tc.expectedTestAck) {
+			t.Errorf("Message between expected and requested ack. Expected: %v, Requested: %v", expectedContainerAck, ackRequested)
+		}
+
+		creds, exist := credentialsManager.GetContainerCredentials(containerCredsId)
+		if !exist {
+			t.Errorf("Expected credentials to exist for the task")
+		}
+		if !reflect.DeepEqual(creds, tc.expectedTestCredentials) {
+			t.Errorf("Mismatch between expected credentials and credentials for container. Expected: %v, got: %v", expectedContainerCredentials, creds)
+		}
+	}
 }
 
 // TestHandleRefreshMessageAckedWhenCredentialsUpdated tests that a credential message

@@ -132,6 +132,25 @@ func (refreshHandler *refreshCredentialsHandler) handleSingleMessage(message *ec
 	roleType := aws.StringValue(message.RoleType)
 	if !validRoleType(roleType) {
 		seelog.Errorf("Unknown RoleType for task in credentials message, roleType: %s arn: %s, messageId: %s", roleType, taskArn, messageId)
+	} else if roleType == credentials.ContainerRoleType || roleType == credentials.ContainerExecutionRoleType {
+		for _, container := range task.Containers {
+			if contains(message.ContainerCredentialsList, container.Name) {
+				err = refreshHandler.credentialsManager.SetContainerCredentials(
+					&credentials.ContainerIAMRoleCredentials{
+						ARN:                container.ContainerArn,
+						IAMRoleCredentials: credentials.IAMRoleCredentialsFromACS(message.RoleCredentials, roleType),
+					})
+				if err != nil {
+					seelog.Errorf("Unable to update credentials for container, err: %v messageId: %s", err, messageId)
+					return fmt.Errorf("unable to update credentials %v", err)
+				}
+				if roleType == credentials.ContainerRoleType {
+					container.SetCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+				} else {
+					container.SetExecutionCredentialsID(aws.StringValue(message.RoleCredentials.CredentialsId))
+				}
+			}
+		}
 	} else {
 		err = refreshHandler.credentialsManager.SetTaskCredentials(
 			&(credentials.TaskIAMRoleCredentials{
@@ -209,7 +228,21 @@ func validRoleType(roleType string) bool {
 		return true
 	case credentials.ExecutionRoleType:
 		return true
+	case credentials.ContainerRoleType:
+		return true
+	case credentials.ContainerExecutionRoleType:
+		return true
 	default:
 		return false
 	}
+}
+
+// contains check if an item is in an array
+func contains(arr []*string, str string) bool {
+	for _, a := range arr {
+		if *a == str {
+			return true
+		}
+	}
+	return false
 }

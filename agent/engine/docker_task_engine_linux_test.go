@@ -310,6 +310,7 @@ func TestTaskCPULimitHappyPath(t *testing.T) {
 				IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsid"},
 			}
 			credentialsManager.EXPECT().GetTaskCredentials(credentialsID).Return(roleCredentials, true).AnyTimes()
+			credentialsManager.EXPECT().GetContainerCredentials("").Return(credentials.ContainerIAMRoleCredentials{}, false).AnyTimes()
 			credentialsManager.EXPECT().RemoveCredentials(credentialsID)
 
 			sleepTask := testdata.LoadTask("sleep5")

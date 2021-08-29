@@ -1279,6 +1279,32 @@ func TestCleanupTaskENIs(t *testing.T) {
 	mTask.cleanupTask(taskStoppedDuration)
 }
 
+func TestCleanupCredentials(t *testing.T) {
+	cfg := getTestConfig()
+	ctrl := gomock.NewController(t)
+	mockCredentialsManager := mock_credentials.NewMockManager(ctrl)
+	defer ctrl.Finish()
+
+	taskEngine := &DockerTaskEngine{
+		cfg:                &cfg,
+		credentialsManager: mockCredentialsManager,
+	}
+	mTask := &managedTask{
+		Task:               testdata.LoadTask("sleep5"),
+		credentialsManager: mockCredentialsManager,
+		cfg:                taskEngine.cfg,
+	}
+
+	mTask.Task.Containers[0].SetCredentialsID("containerCredentialsId")
+	mTask.Task.SetCredentialsID("credentialsId")
+
+	// Expectations to verify the execution credentials get removed
+	mockCredentialsManager.EXPECT().RemoveContainerCredentials("containerCredentialsId")
+	mockCredentialsManager.EXPECT().RemoveCredentials("credentialsId")
+
+	mTask.cleanupCredentials()
+}
+
 func TestTaskWaitForExecutionCredentials(t *testing.T) {
 	tcs := []struct {
 		errs   []error
@@ -1336,7 +1362,7 @@ func TestTaskWaitForExecutionCredentials(t *testing.T) {
 	}
 }
 
-func TestCleanupTaskWithExecutionCredentials(t *testing.T) {
+func TestCleanupTaskWithContainerExecutionCredentials(t *testing.T) {
 	cfg := getTestConfig()
 	ctrl := gomock.NewController(t)
 	mockTime := mock_ttime.NewMockTime(ctrl)
@@ -1373,10 +1399,10 @@ func TestCleanupTaskWithExecutionCredentials(t *testing.T) {
 	}
 
 	mTask.Task.ResourcesMapUnsafe = make(map[string][]taskresource.TaskResource)
-	mTask.Task.SetExecutionRoleCredentialsID("executionRoleCredentialsId")
 	mTask.AddResource("mockResource", mockResource)
 	mTask.SetKnownStatus(apitaskstatus.TaskStopped)
 	mTask.SetSentStatus(apitaskstatus.TaskStopped)
+	mTask.Task.Containers[0].SetExecutionCredentialsID("containerExecutionCredentialsId")
 	container := mTask.Containers[0]
 	dockerContainer := &apicontainer.DockerContainer{
 		DockerName: "dockerContainer",
@@ -1393,7 +1419,7 @@ func TestCleanupTaskWithExecutionCredentials(t *testing.T) {
 	}()
 
 	// Expectations to verify the execution credentials get removed
-	mockCredentialsManager.EXPECT().RemoveCredentials("executionRoleCredentialsId")
+	mockCredentialsManager.EXPECT().RemoveContainerCredentials("containerExecutionCredentialsId")
 
 	// Expectations to verify that the task gets removed
 	mockState.EXPECT().ContainerMapByArn(mTask.Arn).Return(map[string]*apicontainer.DockerContainer{container.Name: dockerContainer}, true)

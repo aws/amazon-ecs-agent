@@ -19,6 +19,7 @@ import (
 	"github.com/aws/amazon-ecs-agent/agent/acs/model/ecsacs"
 	"github.com/aws/amazon-ecs-agent/agent/api"
 	apiappmesh "github.com/aws/amazon-ecs-agent/agent/api/appmesh"
+	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
 	apitask "github.com/aws/amazon-ecs-agent/agent/api/task"
 	apitaskstatus "github.com/aws/amazon-ecs-agent/agent/api/task/status"
@@ -216,6 +217,13 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
 
+		err = payloadHandler.updateContainerCredentials(payload, apiTask, task)
+		if err != nil {
+			payloadHandler.handleUnrecognizedTask(task, err, payload)
+			allTasksOK = false
+			continue
+		}
+
 		// Add ENI information to the task struct.
 		for _, acsENI := range task.ElasticNetworkInterfaces {
 			eni, err := apieni.ENIFromACS(acsENI)
@@ -274,6 +282,43 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 	return credentialsAcks, allTasksOK
 }
 
+// updateContainerCredentials add container specific credentials from ACS payload to credentials manager and set credentials id for containers
+func (payloadHandler *payloadRequestHandler) updateContainerCredentials(payload *ecsacs.PayloadMessage, apiTask *apitask.Task, task *ecsacs.Task) error {
+	var err error
+	for _, container := range task.Containers {
+		var apiContainer *apicontainer.Container
+		apiContainer, err = apiTask.GetContainerByArn(aws.StringValue(container.ContainerArn))
+		if err != nil {
+			return err
+		}
+		if container.RoleCredentials != nil {
+			containerIAMRoleCredentials := credentials.IAMRoleCredentialsFromACS(container.RoleCredentials, credentials.ContainerRoleType)
+			err = payloadHandler.credentialsManager.SetContainerCredentials(
+				&credentials.ContainerIAMRoleCredentials{
+					ARN:                aws.StringValue(container.ContainerArn),
+					IAMRoleCredentials: containerIAMRoleCredentials,
+				})
+			if err != nil {
+				return err
+			}
+			apiContainer.SetCredentialsID(containerIAMRoleCredentials.CredentialsID)
+		}
+		if container.ExecutionRoleCredentials != nil {
+			containerExecutionRoleCredentials := credentials.IAMRoleCredentialsFromACS(container.ExecutionRoleCredentials, credentials.ContainerExecutionRoleType)
+			err = payloadHandler.credentialsManager.SetContainerCredentials(
+				&credentials.ContainerIAMRoleCredentials{
+					ARN:                aws.StringValue(container.ContainerArn),
+					IAMRoleCredentials: containerExecutionRoleCredentials,
+				})
+			if err != nil {
+				return err
+			}
+			apiContainer.SetExecutionCredentialsID(containerExecutionRoleCredentials.CredentialsID)
+		}
+	}
+	return err
+}
+
 // addTasks adds the tasks to the task engine based on the skipAddTask condition
 // This is used to add non-stopped tasks before adding stopped tasks
 func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMessage, tasks []*apitask.Task, skipAddTask skipAddTaskComparatorFunc) ([]*ecsacs.IAMRoleCredentialsAckRequest, bool) {
@@ -295,8 +340,10 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 			}
 		}
 
-		ackCredentials := func(id string, description string) {
-			ack, err := payloadHandler.ackCredentials(payload.MessageId, id)
+		ackCredentials := func(id string, description string, taskCreds bool) {
+			var ack *ecsacs.IAMRoleCredentialsAckRequest
+			var err error
+			ack, err = payloadHandler.ackCredentials(payload.MessageId, id, taskCreds)
 			if err != nil {
 				allTasksOK = false
 				seelog.Errorf("Failed to acknowledge %s credentials for task: %s, err: %v", description, task.String(), err)
@@ -309,26 +356,51 @@ func (payloadHandler *payloadRequestHandler) addTasks(payload *ecsacs.PayloadMes
 		// task is associated with an IAM role or the execution role
 		taskCredentialsID := task.GetCredentialsID()
 		if taskCredentialsID != "" {
-			ackCredentials(taskCredentialsID, "task iam role")
+			ackCredentials(taskCredentialsID, "task iam role", true)
 		}
 
 		taskExecutionCredentialsID := task.GetExecutionCredentialsID()
 		if taskExecutionCredentialsID != "" {
-			ackCredentials(taskExecutionCredentialsID, "task execution role")
+			ackCredentials(taskExecutionCredentialsID, "task execution role", true)
+		}
+
+		for _, container := range task.Containers {
+			containerCredentialsId := container.GetCredentialsID()
+			if containerCredentialsId != "" {
+				ackCredentials(containerCredentialsId, fmt.Sprintf("container iam role for container Arn: %v", container.ContainerArn), false)
+			}
+			containerExecutionCredentialsId := container.GetExecutionCredentialsID()
+			if containerExecutionCredentialsId != "" {
+				ackCredentials(containerExecutionCredentialsId, fmt.Sprintf("container execution role for container Arn: %v", container.ContainerArn), false)
+			}
 		}
 	}
 	return credentialsAcks, allTasksOK
 }
 
-func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, credentialsID string) (*ecsacs.IAMRoleCredentialsAckRequest, error) {
-	creds, ok := payloadHandler.credentialsManager.GetTaskCredentials(credentialsID)
+func (payloadHandler *payloadRequestHandler) ackCredentials(messageID *string, credentialsID string, taskCreds bool) (*ecsacs.IAMRoleCredentialsAckRequest, error) {
+	var ok bool
+	var expiration string
+	var credsId string
+	if taskCreds {
+		var creds credentials.TaskIAMRoleCredentials
+		creds, ok = payloadHandler.credentialsManager.GetTaskCredentials(credentialsID)
+		expiration = creds.IAMRoleCredentials.Expiration
+		credsId = creds.IAMRoleCredentials.CredentialsID
+	} else {
+		var creds credentials.ContainerIAMRoleCredentials
+		creds, ok = payloadHandler.credentialsManager.GetContainerCredentials(credentialsID)
+		expiration = creds.IAMRoleCredentials.Expiration
+		credsId = creds.IAMRoleCredentials.CredentialsID
+	}
+
 	if !ok {
 		return nil, fmt.Errorf("credentials could not be retrieved")
 	} else {
 		return &ecsacs.IAMRoleCredentialsAckRequest{
 			MessageId:     messageID,
-			Expiration:    aws.String(creds.IAMRoleCredentials.Expiration),
-			CredentialsId: aws.String(creds.IAMRoleCredentials.CredentialsID),
+			Expiration:    aws.String(expiration),
+			CredentialsId: aws.String(credsId),
 		}, nil
 	}
 }

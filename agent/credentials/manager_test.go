@@ -127,6 +127,82 @@ func TestSetAndGetTaskCredentialsHappyPath(t *testing.T) {
 	assert.Equal(t, updatedCredentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
 }
 
+// TestGetContainerCredentialsUnknownId tests if GetContainerCredentials returns a false value
+// when credentials for a given id are not be found in the engine
+func TestGetContainerCredentialsUnknownId(t *testing.T) {
+	manager := NewManager()
+	_, ok := manager.GetContainerCredentials("id")
+	if ok {
+		t.Error("GetContainerCredentials should return false for non existing id")
+	}
+}
+
+// TestSetContainerCredentialsEmptyTaskCredentials tests if credentials manager returns an
+// error when invalid credentials are used to set credentials
+func TestSetContainerCredentialsEmptyTaskCredentials(t *testing.T) {
+	manager := NewManager()
+	err := manager.SetContainerCredentials(&ContainerIAMRoleCredentials{})
+	assert.Error(t, err, "Expected error adding empty container credentials")
+}
+
+// TestSetContainerCredentialsNoCredentialsId tests if credentials manager returns an
+// error when credentials object with no credentials id is used to set credentials
+func TestSetContainerCredentialsNoCredentialsId(t *testing.T) {
+	manager := NewManager()
+	err := manager.SetContainerCredentials(&ContainerIAMRoleCredentials{ARN: "t1", IAMRoleCredentials: IAMRoleCredentials{}})
+	assert.Error(t, err, "Expected error adding credentials payload without credential ID")
+}
+
+// TestSetContainerCredentialsNoContainerArn tests if credentials manager returns an
+// error when credentials object with no container arn used to set credentials
+func TestSetContainerCredentialsNoContainerArn(t *testing.T) {
+	manager := NewManager()
+	err := manager.SetContainerCredentials(&ContainerIAMRoleCredentials{IAMRoleCredentials: IAMRoleCredentials{CredentialsID: "id"}})
+	assert.Error(t, err, "Expected error adding credentials payload without container ARN")
+}
+
+// TestSetAndGetContainerCredentialsHappyPath tests the happy path workflow for setting
+// and getting credentials
+func TestSetAndGetContainerCredentialsHappyPath(t *testing.T) {
+	manager := NewManager()
+	credentials := ContainerIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyID:     "akid1",
+			SecretAccessKey: "skid1",
+			SessionToken:    "stkn",
+			Expiration:      "ts",
+			CredentialsID:   "cid1",
+		},
+	}
+
+	err := manager.SetContainerCredentials(&credentials)
+	assert.NoError(t, err, "Error adding credentials")
+
+	credentialsFromManager, ok := manager.GetContainerCredentials("cid1")
+	assert.True(t, ok, "GetContainerCredentials returned false for existing credentials")
+	assert.Equal(t, credentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
+
+	updatedCredentials := ContainerIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyID:     "akid2",
+			SecretAccessKey: "skid2",
+			SessionToken:    "stkn2",
+			Expiration:      "ts2",
+			CredentialsID:   "cid1",
+		},
+	}
+	err = manager.SetContainerCredentials(&updatedCredentials)
+	assert.NoError(t, err, "Error updating credentials")
+	credentialsFromManager, ok = manager.GetContainerCredentials("cid1")
+
+	assert.True(t, ok, "GetContainerCredentials returned false for existing credentials")
+	assert.Equal(t, updatedCredentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
+}
+
 // TestGenerateCredentialsEndpointRelativeURI tests if the relative credentials endpoint
 // URI is generated correctly
 func TestGenerateCredentialsEndpointRelativeURI(t *testing.T) {
@@ -167,6 +243,35 @@ func TestRemoveExistingCredentials(t *testing.T) {
 
 	manager.RemoveCredentials("cid1")
 	_, ok = manager.GetTaskCredentials("cid1")
+	if ok {
+		t.Error("Expected GetTaskCredentials to return false for removed credentials")
+	}
+}
+
+// TestRemoveExistingContainerCredentials tests that GetContainerCredentials returns false when
+// credentials are removed from the credentials manager
+func TestRemoveExistingContainerCredentials(t *testing.T) {
+	manager := NewManager()
+	credentials := ContainerIAMRoleCredentials{
+		ARN: "t1",
+		IAMRoleCredentials: IAMRoleCredentials{
+			RoleArn:         "r1",
+			AccessKeyID:     "akid1",
+			SecretAccessKey: "skid1",
+			SessionToken:    "stkn",
+			Expiration:      "ts",
+			CredentialsID:   "cid1",
+		},
+	}
+	err := manager.SetContainerCredentials(&credentials)
+	assert.NoError(t, err, "Error adding credentials")
+
+	credentialsFromManager, ok := manager.GetContainerCredentials("cid1")
+	assert.True(t, ok, "GetContainerCredentials returned false for existing credentials")
+	assert.Equal(t, credentials, credentialsFromManager, "Mismatch between added and retrieved credentials")
+
+	manager.RemoveContainerCredentials("cid1")
+	_, ok = manager.GetContainerCredentials("cid1")
 	if ok {
 		t.Error("Expected GetTaskCredentials to return false for removed credentials")
 	}
