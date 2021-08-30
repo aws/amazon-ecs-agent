@@ -7,17 +7,25 @@ jobs:
     name: Windows unit tests
     runs-on: windows-latest
     steps:
-    - uses: actions/setup-go@v2
-      with:
-        go-version: 1.12
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
-        path: src/github.com/aws/amazon-ecs-agent
-    - name: run tests
-      working-directory:
-      run: |
-        $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
-        cd "$Env:GITHUB_WORKSPACE"
-        cd "src/github.com/aws/amazon-ecs-agent"
-        go test -race -tags unit -timeout 40s ./agent/...
+      - uses: actions/checkout@v2
+        with:
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: get GO_VERSION
+        run:  |
+          cd "$Env:GITHUB_WORKSPACE"
+          cd "src/github.com/aws/amazon-ecs-agent"
+          echo "GO_VERSION_WINDOWS=$(type GO_VERSION_WINDOWS)" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf-8 -Append
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION_WINDOWS }}
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          path: src/github.com/aws/amazon-ecs-agent
+      - name: run tests
+        working-directory:
+        run: |
+          $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
+          cd "$Env:GITHUB_WORKSPACE"
+          cd "src/github.com/aws/amazon-ecs-agent"
+          go test -race -tags unit -timeout 40s ./agent/...
