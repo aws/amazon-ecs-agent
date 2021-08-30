@@ -705,9 +705,15 @@ func (s FSxWindowsFileServerVolumeConfiguration) GoString() string {
 type FirelensConfiguration struct {
 	_ struct{} `type:"structure"`
 
+	CollectStdoutLogs *bool `locationName:"collectStdoutLogs" type:"boolean"`
+
 	Options map[string]*string `locationName:"options" type:"map"`
 
+	StatusMessageReportingPath *string `locationName:"statusMessageReportingPath" type:"string"`
+
 	Type *string `locationName:"type" type:"string" enum:"FirelensConfigurationType"`
+
+	Version *string `locationName:"version" type:"string"`
 }
 
 // String returns the string representation

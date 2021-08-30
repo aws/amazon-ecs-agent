@@ -524,7 +524,10 @@
       "type":"structure",
       "members":{
         "type":{"shape":"FirelensConfigurationType"},
-        "options":{"shape":"FirelensConfigurationOptionsMap"}
+        "options":{"shape":"FirelensConfigurationOptionsMap"},
+        "version": {"shape":"String"},
+        "collectStdoutLogs":{"shape":"Boolean"},
+        "statusMessageReportingPath":{"shape":"String"}
       }
     },
     "FirelensConfigurationType":{
