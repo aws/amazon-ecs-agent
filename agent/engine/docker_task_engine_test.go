@@ -2656,7 +2656,8 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	taskFamily := "logSenderTaskFamily"
 	taskVersion := "1"
 	logDriverTypeFirelens := "awsfirelens"
-	dataLogDriverPath := "/data/firelens/"
+	dataLogDriverPathFirelensV1 := "/data/firelens/"
+	dataLogDriverPathFirelensV2 := "/data/telemetry/"
 	dataLogDriverSocketPath := "/socket/fluent.sock"
 	socketPathPrefix := "unix://"
 	networkModeBridge := "bridge"
@@ -2666,7 +2667,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	envVarPort := "FLUENT_PORT=24224"
 	envVarAWSVPCMode := "FLUENT_HOST=127.0.0.1"
 	eniIPv4Address := "10.0.0.2"
-	getTask := func(logDriverType string, networkMode string) *apitask.Task {
+	getTask := func(logDriverType, networkMode, firelensVersion string) *apitask.Task {
 		rawHostConfigInput := dockercontainer.HostConfig{
 			LogConfig: dockercontainer.LogConfig{
 				Type: logDriverType,
@@ -2697,7 +2698,8 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 				{
 					Name: "test-container",
 					FirelensConfig: &apicontainer.FirelensConfig{
-						Type: "fluentd",
+						Type:    "fluentd",
+						Version: firelensVersion,
 					},
 					NetworkModeUnsafe: networkMode,
 					NetworkSettingsUnsafe: &types.NetworkSettings{
@@ -2763,6 +2765,7 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	testCases := []struct {
 		name                           string
 		task                           *apitask.Task
+		firelensVersion                string
 		expectedLogConfigType          string
 		expectedLogConfigTag           string
 		expectedLogConfigFluentAddress string
@@ -2774,25 +2777,25 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 	}{
 		{
 			name:                           "test container that uses firelens log driver with default mode",
-			task:                           getTask(logDriverTypeFirelens, ""),
+			task:                           getTask(logDriverTypeFirelens, "", ""),
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
-			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPathFirelensV1, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarBridgeMode,
 			expectedPort:                   envVarPort,
 		},
 		{
 			name:                           "test container that uses firelens log driver with bridge mode",
-			task:                           getTask(logDriverTypeFirelens, networkModeBridge),
+			task:                           getTask(logDriverTypeFirelens, networkModeBridge, ""),
 			expectedLogConfigType:          logDriverTypeFluentd,
 			expectedLogConfigTag:           taskName + "-firelens-" + taskID,
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "10000",
-			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPathFirelensV1, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarBridgeMode,
 			expectedPort:                   envVarPort,
 		},
@@ -2804,8 +2807,21 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
 			expectedSubSecondPrecision:     strconv.FormatBool(true),
 			expectedBufferLimit:            "",
-			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath),
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPathFirelensV1, taskID, dataLogDriverSocketPath),
 			expectedIPAddress:              envVarAWSVPCMode,
+			expectedPort:                   envVarPort,
+		},
+		{
+			name:                           "test container that uses firelens v2 log driver with default mode",
+			task:                           getTask(logDriverTypeFirelens, "", "v2"),
+			firelensVersion:                "v2",
+			expectedLogConfigType:          logDriverTypeFluentd,
+			expectedLogConfigTag:           taskID + "." + taskName,
+			expectedFluentdAsyncConnect:    strconv.FormatBool(true),
+			expectedSubSecondPrecision:     strconv.FormatBool(true),
+			expectedBufferLimit:            "10000",
+			expectedLogConfigFluentAddress: socketPathPrefix + filepath.Join(defaultConfig.DataDirOnHost, dataLogDriverPathFirelensV2, taskID, dataLogDriverSocketPath),
+			expectedIPAddress:              envVarBridgeMode,
 			expectedPort:                   envVarPort,
 		},
 	}
@@ -2830,8 +2846,10 @@ func TestCreateContainerAddFirelensLogDriverConfig(t *testing.T) {
 					assert.Equal(t, tc.expectedFluentdAsyncConnect, hostConfig.LogConfig.Config["fluentd-async-connect"])
 					assert.Equal(t, tc.expectedSubSecondPrecision, hostConfig.LogConfig.Config["fluentd-sub-second-precision"])
 					assert.Equal(t, tc.expectedBufferLimit, hostConfig.LogConfig.Config["fluentd-buffer-limit"])
-					assert.Contains(t, config.Env, tc.expectedIPAddress)
-					assert.Contains(t, config.Env, tc.expectedPort)
+					if tc.firelensVersion != "v2" {
+						assert.Contains(t, config.Env, tc.expectedIPAddress)
+						assert.Contains(t, config.Env, tc.expectedPort)
+					}
 				})
 			ret := taskEngine.(*DockerTaskEngine).createContainer(tc.task, tc.task.Containers[0])
 			assert.NoError(t, ret.Error)

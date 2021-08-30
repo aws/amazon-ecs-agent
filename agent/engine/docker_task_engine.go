@@ -86,15 +86,19 @@ const (
 	logDriverTypeFluentd        = "fluentd"
 	logDriverTag                = "tag"
 	logDriverFluentdAddress     = "fluentd-address"
-	dataLogDriverPath           = "/data/firelens/"
+	dataLogDriverPathFirelensV1 = "/data/firelens/"
+	dataLogDriverPathFirelensV2 = "/data/telemetry/"
 	logDriverAsyncConnect       = "fluentd-async-connect"
 	logDriverSubSecondPrecision = "fluentd-sub-second-precision"
 	logDriverBufferLimit        = "fluentd-buffer-limit"
 	dataLogDriverSocketPath     = "/socket/fluent.sock"
 	socketPathPrefix            = "unix://"
 
-	// fluentTagDockerFormat is the format for the log tag, which is "containerName-firelens-taskID"
-	fluentTagDockerFormat = "%s-firelens-%s"
+	// fluentTagDockerFormat is the format for the firelens v1 log tag, which is "containerName-firelens-taskID"
+	fluentTagDockerFirelensV1Format = "%s-firelens-%s"
+
+	// fluentTagDockerFormat is the format for the firelens v2 log tag, which is "taskID.containerName"
+	fluentTagDockerFirelensV2Format = "%s.%s"
 
 	// Environment variables are needed for firelens
 	fluentNetworkHost      = "FLUENT_HOST"
@@ -1083,7 +1087,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 
 	firelensConfig := container.GetFirelensConfig()
 	if firelensConfig != nil {
-		err := task.AddFirelensContainerBindMounts(firelensConfig, hostConfig, engine.cfg)
+		err := task.AddFirelensContainerBindMounts(firelensConfig, hostConfig, engine.cfg, container.Name)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
@@ -1108,23 +1112,29 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	// Update the environment variables FLUENT_HOST and FLUENT_PORT depending on the supported network modes - bridge
 	// and awsvpc. For reference - https://docs.docker.com/config/containers/logging/fluentd/.
 	if hostConfig.LogConfig.Type == logDriverTypeFirelens {
-		hostConfig.LogConfig = getFirelensLogConfig(task, container, hostConfig, engine.cfg)
-		if task.IsNetworkModeAWSVPC() {
-			container.MergeEnvironmentVariables(map[string]string{
-				fluentNetworkHost: FluentAWSVPCHostValue,
-				fluentNetworkPort: FluentNetworkPortValue,
-			})
-		} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
-			ipAddress, ok := getContainerHostIP(task.GetFirelensContainer().GetNetworkSettings())
-			if !ok {
-				err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
-				return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
+		firelensContainers := task.GetFirelensContainers()
+		firelensVersion := firelensContainers[0].FirelensConfig.Version
+		hostConfig.LogConfig = getFirelensLogConfig(task, container, firelensVersion, hostConfig, engine.cfg)
+
+		if firelensVersion != "v2" {
+			if task.IsNetworkModeAWSVPC() {
+				container.MergeEnvironmentVariables(map[string]string{
+					fluentNetworkHost: FluentAWSVPCHostValue,
+					fluentNetworkPort: FluentNetworkPortValue,
+				})
+			} else if container.GetNetworkModeFromHostConfig() == "" || container.GetNetworkModeFromHostConfig() == apitask.BridgeNetworkMode {
+				ipAddress, ok := getContainerHostIP(firelensContainers[0].GetNetworkSettings())
+				if !ok {
+					err := apierrors.DockerClientConfigError{Msg: "unable to get BridgeIP for task in bridge  mode"}
+					return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(&err)}
+				}
+				container.MergeEnvironmentVariables(map[string]string{
+					fluentNetworkHost: ipAddress,
+					fluentNetworkPort: FluentNetworkPortValue,
+				})
 			}
-			container.MergeEnvironmentVariables(map[string]string{
-				fluentNetworkHost: ipAddress,
-				fluentNetworkPort: FluentNetworkPortValue,
-			})
 		}
+		// TODO: for firelens v2, configure COLLECTOR_HOST after the design is finalized for control plane
 	}
 
 	//Apply the log driver secret into container's LogConfig and Env secrets to container.Environment
@@ -1274,10 +1284,19 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	return metadata
 }
 
-func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
+func getFirelensLogConfig(task *apitask.Task, container *apicontainer.Container, firelensVersion string,
+	hostConfig *dockercontainer.HostConfig, cfg *config.Config) dockercontainer.LogConfig {
 	fields := strings.Split(task.Arn, "/")
 	taskID := fields[len(fields)-1]
-	tag := fmt.Sprintf(fluentTagDockerFormat, container.Name, taskID)
+	var tag, dataLogDriverPath string
+	switch firelensVersion {
+	case "v2":
+		tag = fmt.Sprintf(fluentTagDockerFirelensV2Format, taskID, container.Name)
+		dataLogDriverPath = dataLogDriverPathFirelensV2
+	default:
+		tag = fmt.Sprintf(fluentTagDockerFirelensV1Format, container.Name, taskID)
+		dataLogDriverPath = dataLogDriverPathFirelensV1
+	}
 	fluentd := socketPathPrefix + filepath.Join(cfg.DataDirOnHost, dataLogDriverPath, taskID, dataLogDriverSocketPath)
 	logConfig := hostConfig.LogConfig
 	bufferLimit, bufferLimitExists := logConfig.Config[apitask.FirelensLogDriverBufferLimitOption]

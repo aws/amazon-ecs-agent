@@ -351,8 +351,11 @@ type MountPoint struct {
 
 // FirelensConfig describes the type and options of a Firelens container.
 type FirelensConfig struct {
-	Type    string            `json:"type"`
-	Options map[string]string `json:"options"`
+	Type                       string            `json:"type"`
+	Version                    string            `json:"version"`
+	CollectStdoutLogs          bool              `json:"collectStdoutLogs,omitempty"`
+	StatusMessageReportingPath string            `json:"statusMessageReportingPath,omitempty"`
+	Options                    map[string]string `json:"options"`
 }
 
 // VolumeFrom is a volume which references another container as its source.
