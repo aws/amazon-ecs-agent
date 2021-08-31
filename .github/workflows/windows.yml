@@ -27,5 +27,6 @@ jobs:
         run: |
           $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
           cd "$Env:GITHUB_WORKSPACE"
-          cd "src/github.com/aws/amazon-ecs-agent"
-          go test -race -tags unit -timeout 40s ./agent/...
+          cd "src/github.com/aws/amazon-ecs-agent/agent"
+          $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
+          go test -v -tags unit -timeout=40s $packages
