@@ -17,7 +17,9 @@ package stats
 
 import (
 	"context"
+	"os"
 	"testing"
+	"time"
 
 	apicontainer "github.com/aws/amazon-ecs-agent/agent/api/container"
 	apieni "github.com/aws/amazon-ecs-agent/agent/api/eni"
@@ -28,6 +30,10 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+)
+
+const (
+	taskARN = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 )
 
 func TestLinuxTaskNetworkStatsSet(t *testing.T) {
@@ -122,5 +128,80 @@ func TestNetworkModeStatsAWSVPCMode(t *testing.T) {
 		} else {
 			assert.Nil(t, containerMetric.NetworkStatsSet, "network stats should be empty for pause")
 		}
+	}
+}
+
+func TestGetContainerStatusMessage(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	testContainer := &apicontainer.DockerContainer{
+		DockerID: "123",
+		Container: &apicontainer.Container{
+			Name: "firelens_v2_container",
+			FirelensConfig: &apicontainer.FirelensConfig{
+				Version: "v2",
+			},
+		},
+	}
+
+	engine := NewDockerStatsEngine(&cfg, nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.config.DataDirOnHost = os.TempDir()
+	engine.dockerIdToStatusMessageSince = map[string]time.Time{}
+
+	testCases := []struct {
+		name          string
+		statusMessage string
+		isNil         bool
+		modifyFile    bool
+		fileNotExists bool
+	}{
+		{
+			name:          "getContainerStatusMessage returns new message",
+			statusMessage: "new status message",
+			isNil:         false,
+			modifyFile:    true,
+		},
+		{
+			name:          "getContainerStatusMessage returns updated message",
+			statusMessage: "updated status message",
+			isNil:         false,
+			modifyFile:    true,
+		},
+		{
+			name:          "getContainerStatusMessage returns empty string for no update",
+			statusMessage: "",
+			isNil:         true,
+		},
+		{
+			name:          "getContainerStatusMessage returns empty string when status message file does not exist",
+			statusMessage: "",
+			isNil:         false,
+			fileNotExists: true,
+		},
+	}
+
+	tempDir := "/tmp/data/telemetry/abc/status-message/firelens_v2_container"
+	os.MkdirAll(tempDir, os.ModePerm)
+	tempfile, _ := os.Create(tempDir + "/status-message")
+	defer os.Remove(tempfile.Name())
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.modifyFile && !tc.fileNotExists {
+				tempfile.Truncate(0)
+				tempfile.Seek(0, 0)
+				time.Sleep(1 * time.Second)
+				tempfile.Write([]byte(tc.statusMessage))
+			} else if tc.fileNotExists {
+				os.Remove(tempfile.Name())
+			}
+			message, isNil := engine.getContainerStatusMessage(testContainer, taskARN)
+			assert.Equal(t, tc.statusMessage, string(message))
+			assert.Equal(t, tc.isNil, isNil)
+		})
 	}
 }

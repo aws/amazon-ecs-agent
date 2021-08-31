@@ -131,6 +131,7 @@
       "type":"structure",
       "members":{
         "containerName":{"shape":"String"},
+        "statusMessage": {"shape":"String"},
         "healthStatus":{"shape":"HealthStatus"},
         "statusSince":{"shape":"Timestamp"}
       }

@@ -18,6 +18,8 @@ package stats
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -45,6 +47,12 @@ const (
 	queueResetThreshold    = 2 * dockerclient.StatsInactivityTimeout
 	hostNetworkMode        = "host"
 	noneNetworkMode        = "none"
+
+	// firelensV2StatusMessageFilePath specifies the format for managed observability collector's status message directory bind mount.
+	// First placeholder is host data dir, second placeholder is taskID, third placeholder is for collector container name and
+	// fourth placeholder is the directory where collector writes status message to a file
+	firelensV2StatusMessageFilePathFormat = "%s/data/telemetry/%s/status-message/%s/%s"
+	firelensV2StatusMessageFileName       = "status-message"
 )
 
 var (
@@ -90,6 +98,8 @@ type DockerStatsEngine struct {
 	// tasksToDefinitions maps task arns to task definition name and family metadata objects.
 	tasksToDefinitions map[string]*taskDefinition
 	taskToTaskStats    map[string]*StatsTask
+	// dockerIdToStatusMessageSince maps docker ID to timestamp of status message sent to TACS
+	dockerIdToStatusMessageSince map[string]time.Time
 }
 
 // ResolveTask resolves the api task object, given container id.
@@ -551,6 +561,12 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 			HealthStatus:  aws.String(healthInfo.Status.BackendStatus()),
 			StatusSince:   aws.Time(healthInfo.Since.UTC()),
 		}
+
+		statusMessage, isNil := engine.getContainerStatusMessage(dockerContainer, taskARN)
+		if !isNil {
+			containerHealth.StatusMessage = aws.String(statusMessage)
+		}
+
 		containerHealths = append(containerHealths, containerHealth)
 	}
 
@@ -792,4 +808,58 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 	}
 
 	return containerStats, containerNetworkRateStats, nil
+}
+
+// getContainerStatusMessage reads container's status message file, updates dockerIdToStatusMessageSince mapping
+// and returns the file contents when
+//  1. status message file for a firelens v2 container is being read for the first time.
+//  2. contents of status message file has been modified since last published to TACS.
+//  3. unable retrieve modified time for status message file.
+// getContainerStatusMessage returns empty string for statusMessage when
+//  1. status message file does not exist for firelens v2 container.
+//  2. error while reading the status message file.
+// getContainerStatusMessage returns true to indicate statusMessage is Nil to TACS when
+//  1. when a container is not a firelens v2 container.
+//  2. error while retrieving StatusMessageReportingPath.
+//  3. error reading existing status message file.
+//  4. contents of status message file has not been modified since last published to TACS.
+func (engine *DockerStatsEngine) getContainerStatusMessage(dockerContainer *apicontainer.DockerContainer, taskARN string) (string, bool) {
+	firelensConfig := dockerContainer.Container.GetFirelensConfig()
+	if firelensConfig == nil || (firelensConfig != nil && firelensConfig.Version != "v2") {
+		return "", true
+	}
+
+	StatusMessageFilepath, err := getStatusMessageReportingPath(engine.config.DataDirOnHost, taskARN, dockerContainer.Container.Name)
+	if err != nil {
+		seelog.Errorf("stats failed to get status message reporting path: %v", err)
+		return "", true
+	}
+	statusMessage, err := ioutil.ReadFile(StatusMessageFilepath)
+	if err != nil {
+		if err != os.ErrNotExist {
+			seelog.Errorf("Unable to read container status message from the file path %s: %v", StatusMessageFilepath, err)
+			return "", false
+		}
+		return "", true
+	}
+
+	dockerID := dockerContainer.DockerID
+	if statusMessageFileInfo, err := os.Stat(StatusMessageFilepath); err != nil {
+		seelog.Errorf("Unable to get status message file info for container %s: %v", dockerContainer.Container.Name, err)
+	} else {
+		statusMessageFileLastModified := statusMessageFileInfo.ModTime()
+		// add the last modified time to dockerIdToStatusMessageSince mapping if dockerID is not already present
+		statusMessageSince, ok := engine.dockerIdToStatusMessageSince[dockerID]
+		if !ok {
+			engine.dockerIdToStatusMessageSince[dockerID] = statusMessageFileLastModified
+		} else {
+			switch {
+			case statusMessageFileLastModified.After(statusMessageSince):
+				engine.dockerIdToStatusMessageSince[dockerID] = statusMessageFileLastModified
+			default:
+				return "", true
+			}
+		}
+	}
+	return string(statusMessage), false
 }

@@ -43,3 +43,8 @@ func validateDockerStats(dockerStats *types.StatsJSON) error {
 	}
 	return nil
 }
+
+// firelens v2 is currently not supported for windows
+func getStatusMessageReportingPath(dataDirOnHost, taskARN, containerName string) (string, error) {
+	return "", nil
+}
