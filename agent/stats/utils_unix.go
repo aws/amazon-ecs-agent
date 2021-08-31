@@ -19,6 +19,8 @@ import (
 
 	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
+
+	"github.com/aws/amazon-ecs-agent/agent/utils"
 )
 
 // dockerStatsToContainerStats returns a new object of the ContainerStats object from docker stats.
@@ -65,4 +67,13 @@ func getStorageStats(dockerStats *types.StatsJSON) (uint64, uint64) {
 		}
 	}
 	return storageReadBytes, storageWriteBytes
+}
+
+func getStatusMessageReportingPath(dataDirOnHost, taskARN, containerName string) (string, error) {
+	taskID, err := utils.GetTaskID(taskARN)
+	if err != nil {
+		return "", err
+	}
+	statusMessageFilePath := fmt.Sprintf(firelensV2StatusMessageFilePathFormat, dataDirOnHost, taskID, containerName, firelensV2StatusMessageFileName)
+	return statusMessageFilePath, nil
 }

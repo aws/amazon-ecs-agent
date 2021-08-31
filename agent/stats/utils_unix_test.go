@@ -57,3 +57,11 @@ func TestDockerStatsToContainerStatsEmptyCpuUsageGeneratesError(t *testing.T) {
 	err := validateDockerStats(dockerStat)
 	assert.Error(t, err, "expected error converting container stats with empty PercpuUsage")
 }
+
+func TestGetStatusMessageReportingPath(t *testing.T) {
+	var testDataDirOnHost, testContainerName, testTaskARN = "/testDir", "testContainer", "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
+	expectedStatusMessageFilePath := "/testDir/data/telemetry/abc/status-message/testContainer/status-message"
+	statusMessageFilePath, err := getStatusMessageReportingPath(testDataDirOnHost, testTaskARN, testContainerName)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedStatusMessageFilePath, statusMessageFilePath, "unexpected value for statusMessageFilePath", statusMessageFilePath)
+}

@@ -1166,10 +1166,13 @@ func (task *Task) AddFirelensContainerBindMounts(firelensConfig *apicontainer.Fi
 			socketBind := fmt.Sprintf(firelensV2SocketBindFormat, config.DataDirOnHost, taskID)
 			hostConfig.Binds = append(hostConfig.Binds, socketBind)
 		}
-		statusMsgBind := fmt.Sprintf(firelensV2StatusMessageBindFormat, config.DataDirOnHost, taskID, containerName,
-			firelensConfig.StatusMessageReportingPath)
-		hostConfig.Binds = append(hostConfig.Binds, statusMsgBind)
-
+		if firelensConfig.StatusMessageReportingPath != "" {
+			statusMsgBind := fmt.Sprintf(firelensV2StatusMessageBindFormat, config.DataDirOnHost, taskID, containerName,
+				firelensConfig.StatusMessageReportingPath)
+			hostConfig.Binds = append(hostConfig.Binds, statusMsgBind)
+		} else {
+			return &apierrors.HostConfigError{Msg: "status message reporting path is empty in firelens v2 configuration"}
+		}
 		return nil
 	}
 
