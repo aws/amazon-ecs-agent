@@ -568,7 +568,8 @@ func TestGetDockerResources(t *testing.T) {
 			},
 		},
 	}
-	resources := testTask.getDockerResources(testTask.Containers[0])
+	cfg := &config.Config{}
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
 	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
 	assert.Equal(t, int64(268435456), resources.Memory, "Wrong amount of memory")
 }
@@ -586,7 +587,8 @@ func TestGetDockerResourcesCPUTooLow(t *testing.T) {
 			},
 		},
 	}
-	resources := testTask.getDockerResources(testTask.Containers[0])
+	cfg := &config.Config{}
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
 	assert.Equal(t, int64(268435456), resources.Memory, "Wrong amount of memory")
 
 	// Minimum requirement of 2 CPU Shares
@@ -608,7 +610,8 @@ func TestGetDockerResourcesMemoryTooLow(t *testing.T) {
 			},
 		},
 	}
-	resources := testTask.getDockerResources(testTask.Containers[0])
+	cfg := &config.Config{}
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
 	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
 	assert.Equal(t, int64(apicontainer.DockerContainerMinimumMemoryInBytes), resources.Memory,
 		"Wrong amount of memory")
@@ -626,9 +629,55 @@ func TestGetDockerResourcesUnspecifiedMemory(t *testing.T) {
 			},
 		},
 	}
-	resources := testTask.getDockerResources(testTask.Containers[0])
+	cfg := &config.Config{}
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
 	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
 	assert.Equal(t, int64(0), resources.Memory, "Wrong amount of memory")
+}
+
+func TestGetDockerResourcesExternalGPUInstance(t *testing.T) {
+	container := &apicontainer.Container{
+		Name:   "c1",
+		CPU:    uint(10),
+		Memory: uint(256),
+		GPUIDs: []string{"gpu1"},
+	}
+	testTask := &Task{
+		Arn:        "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:     "myFamily",
+		Version:    "1",
+		Containers: []*apicontainer.Container{container},
+	}
+	cfg := &config.Config{
+		GPUSupportEnabled: true,
+	}
+	cfg.External.Value = config.ExplicitlyEnabled
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
+	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
+	assert.Equal(t, int64(268435456), resources.Memory, "Wrong amount of memory")
+	assert.Equal(t, resources.DeviceRequests[0].DeviceIDs, container.GPUIDs, "Wrong GPU IDs assigned")
+}
+
+func TestGetDockerResourcesInternalGPUInstance(t *testing.T) {
+	container := &apicontainer.Container{
+		Name:   "c1",
+		CPU:    uint(10),
+		Memory: uint(256),
+		GPUIDs: []string{"gpu1"},
+	}
+	testTask := &Task{
+		Arn:        "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:     "myFamily",
+		Version:    "1",
+		Containers: []*apicontainer.Container{container},
+	}
+	cfg := &config.Config{
+		GPUSupportEnabled: true,
+	}
+	resources := testTask.getDockerResources(testTask.Containers[0], cfg)
+	assert.Equal(t, int64(10), resources.CPUShares, "Wrong number of CPUShares")
+	assert.Equal(t, int64(268435456), resources.Memory, "Wrong amount of memory")
+	assert.Equal(t, int64(len(resources.DeviceRequests)), int64(0), "GPU IDs to be handled by env var for internal instance")
 }
 
 func TestPostUnmarshalTaskWithDockerVolumes(t *testing.T) {
