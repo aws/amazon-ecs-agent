@@ -1538,8 +1538,8 @@ func (task *Task) overrideContainerRuntime(container *apicontainer.Container, ho
 		if task.NvidiaRuntime == "" {
 			return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
 		}
-		seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 		if !cfg.External.Enabled() {
+			seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 			hostCfg.Runtime = task.NvidiaRuntime
 		}
 	}
