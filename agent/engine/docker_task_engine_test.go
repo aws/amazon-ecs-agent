@@ -104,6 +104,7 @@ const (
 	networkModeAWSVPC           = "awsvpc"
 	testTaskARN                 = "arn:aws:ecs:region:account-id:task/task-id"
 	containerNetworkMode        = "none"
+	executionCredentialsId      = "executionCredentialsId"
 )
 
 var (
@@ -1441,6 +1442,105 @@ func TestUpdateContainerReference(t *testing.T) {
 	imageManager.EXPECT().GetImageStateFromImageName(imageName).Return(imageState, true)
 	taskEngine.updateContainerReference(true, container, task.Arn)
 	assert.True(t, imageState.PullSucceeded, "PullSucceeded set to false")
+}
+
+// TestPullAndUpdateContainerReferenceUseProperCredentials checks whether a container is using proper credentials when
+// pulling ECR image
+func TestPullAndUpdateContainerReferenceUseProperCredentials(t *testing.T) {
+	testcases := []struct {
+		Name                                     string
+		Container                                *apicontainer.Container
+		ExpectGetTaskExecutionRoleCallTimes      int
+		ExpectGetContainerExecutionRoleCallTimes int
+	}{
+		{
+			Name: "PullWithContainerCredentials",
+			Container: &apicontainer.Container{
+				Type:                   apicontainer.ContainerNormal,
+				Image:                  "image",
+				Essential:              true,
+				ExecutionCredentialsID: executionCredentialsId,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			},
+			ExpectGetTaskExecutionRoleCallTimes:      0,
+			ExpectGetContainerExecutionRoleCallTimes: 1,
+		},
+		{
+			Name: "PullWithTaskCredentials",
+			Container: &apicontainer.Container{
+				Type:      apicontainer.ContainerNormal,
+				Image:     "image",
+				Essential: true,
+				RegistryAuthentication: &apicontainer.RegistryAuthenticationData{
+					Type: apicontainer.AuthTypeECR,
+					ECRAuthData: &apicontainer.ECRAuthData{
+						UseExecutionRole: true,
+					},
+				},
+			},
+			ExpectGetTaskExecutionRoleCallTimes:      1,
+			ExpectGetContainerExecutionRoleCallTimes: 0,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.TODO())
+			defer cancel()
+
+			cfg := &config.Config{
+				DependentContainersPullUpfront: config.BooleanDefaultFalse{Value: config.ExplicitlyDisabled},
+				ImagePullBehavior:              config.ImagePullDefaultBehavior,
+			}
+
+			ctrl, client, _, privateTaskEngine, credentialsManager, imageManager, _ := mocks(t, ctx, cfg)
+			defer ctrl.Finish()
+
+			taskEngine, _ := privateTaskEngine.(*DockerTaskEngine)
+			taskEngine._time = nil
+			taskArn := "taskArn"
+			containerArn := "containerArn"
+			imageState := &image.ImageState{
+				Image: &image.Image{ImageID: "id"},
+			}
+			task := &apitask.Task{
+				Arn:                    taskArn,
+				ExecutionCredentialsID: executionCredentialsId,
+				Containers:             []*apicontainer.Container{tc.Container},
+			}
+
+			iamRoleCredentials := credentials.IAMRoleCredentials{
+				CredentialsID:   "credentialsId",
+				RoleArn:         "RoleArn",
+				AccessKeyID:     "AccessKeyId",
+				SecretAccessKey: "SecretAccessKey",
+				SessionToken:    "Token",
+				Expiration:      "Expiration",
+				RoleType:        "roleType",
+			}
+			client.EXPECT().PullImage(gomock.Any(), "image", gomock.Any(), gomock.Any()).
+				Return(dockerapi.DockerContainerMetadata{Error: nil})
+			credentialsManager.EXPECT().GetTaskCredentials(executionCredentialsId).Times(tc.ExpectGetTaskExecutionRoleCallTimes).Return(credentials.TaskIAMRoleCredentials{
+				ARN:                taskArn,
+				IAMRoleCredentials: iamRoleCredentials,
+			}, true)
+			credentialsManager.EXPECT().GetContainerCredentials(executionCredentialsId).Times(tc.ExpectGetContainerExecutionRoleCallTimes).Return(credentials.ContainerIAMRoleCredentials{
+				ARN:                containerArn,
+				IAMRoleCredentials: iamRoleCredentials,
+			}, true)
+			imageManager.EXPECT().RecordContainerReference(tc.Container)
+			imageManager.EXPECT().GetImageStateFromImageName("image").Return(imageState, false)
+			metadata := taskEngine.pullAndUpdateContainerReference(task, tc.Container)
+			pulledContainersMap, _ := taskEngine.State().PulledContainerMapByArn(taskArn)
+			require.Len(t, pulledContainersMap, 1)
+			assert.Equal(t, dockerapi.DockerContainerMetadata{Error: nil},
+				metadata, "expected metadata with error")
+		})
+	}
 }
 
 // TestPullAndUpdateContainerReference checks whether a container is added to task engine state when
