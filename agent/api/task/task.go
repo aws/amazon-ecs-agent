@@ -462,8 +462,8 @@ func (task *Task) addGPUResource(cfg *config.Config) error {
 		// For internal instances, GPU IDs are handled by env var
 		if !cfg.External.Enabled() {
 			task.populateGPUEnvironmentVariables()
+			task.NvidiaRuntime = cfg.NvidiaRuntime
 		}
-		task.NvidiaRuntime = cfg.NvidiaRuntime
 	}
 	return nil
 }
@@ -1535,10 +1535,10 @@ func (task *Task) dockerHostConfig(container *apicontainer.Container, dockerCont
 func (task *Task) overrideContainerRuntime(container *apicontainer.Container, hostCfg *dockercontainer.HostConfig,
 	cfg *config.Config) *apierrors.HostConfigError {
 	if task.isGPUEnabled() && task.shouldRequireNvidiaRuntime(container) {
-		if task.NvidiaRuntime == "" {
-			return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
-		}
 		if !cfg.External.Enabled() {
+			if task.NvidiaRuntime == "" {
+				return &apierrors.HostConfigError{Msg: "Runtime is not set for GPU containers"}
+			}
 			seelog.Debugf("Setting runtime as %s for container %s", task.NvidiaRuntime, container.Name)
 			hostCfg.Runtime = task.NvidiaRuntime
 		}
