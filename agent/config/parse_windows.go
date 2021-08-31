@@ -42,7 +42,7 @@ func parseGMSACapability() bool {
 // parseFSxWindowsFileServerCapability is used to determine if fsxWindowsFileServer support can be enabled
 func parseFSxWindowsFileServerCapability() bool {
 	// fsxwindowsfileserver is not supported on Windows 2016 and non-domain-joined container instances
-	status, err := isWindows2016()
+	status, err := IsWindows2016()
 	if err != nil || status == true {
 		return false
 	}
@@ -93,7 +93,7 @@ func isDomainJoined() (bool, error) {
 // Making it visible for unit testing
 var execCommand = exec.Command
 
-var isWindows2016 = func() (bool, error) {
+var IsWindows2016 = func() (bool, error) {
 	cmd := "systeminfo | findstr /B /C:\"OS Name\""
 	out, err := execCommand("powershell", "-Command", cmd).CombinedOutput()
 	if err != nil {
