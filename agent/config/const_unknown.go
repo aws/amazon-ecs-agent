@@ -1,4 +1,4 @@
-// +build !windows,!linux
+//go:build !windows && !linux
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

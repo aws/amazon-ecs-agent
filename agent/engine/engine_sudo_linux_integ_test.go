@@ -1,4 +1,4 @@
-// +build linux,sudo
+//go:build linux && sudo
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

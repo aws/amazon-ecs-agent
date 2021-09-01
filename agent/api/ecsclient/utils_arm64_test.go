@@ -1,4 +1,4 @@
-// +build arm64,unit
+//go:build arm64 && unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

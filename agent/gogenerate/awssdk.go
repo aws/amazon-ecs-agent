@@ -1,4 +1,4 @@
-// +build codegen
+//go:build codegen
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

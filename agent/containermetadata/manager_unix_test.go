@@ -1,4 +1,4 @@
-// +build unit,!windows
+//go:build unit && !windows
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
