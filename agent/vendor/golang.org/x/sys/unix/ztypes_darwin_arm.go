@@ -2,6 +2,7 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs types_darwin.go
 
+//go:build arm && darwin
 // +build arm,darwin
 
 package unix

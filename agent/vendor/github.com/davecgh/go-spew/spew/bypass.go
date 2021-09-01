@@ -16,6 +16,7 @@
 // when the code is not running on Google App Engine, compiled by GopherJS, and
 // "-tags safe" is not added to the go build command line.  The "disableunsafe"
 // tag is deprecated and thus should not be used.
+//go:build !js && !appengine && !safe && !disableunsafe
 // +build !js,!appengine,!safe,!disableunsafe
 
 package spew

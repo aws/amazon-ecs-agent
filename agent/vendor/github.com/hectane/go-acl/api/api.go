@@ -1,4 +1,5 @@
-//+build windows
+//go:build windows
+// +build windows
 
 // Windows API functions for manipulating ACLs.
 package api
