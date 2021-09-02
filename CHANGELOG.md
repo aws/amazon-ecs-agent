@@ -1,4 +1,9 @@
 # Changelog
+## 1.55.2
+* Enhancement - Add runtime-stats log file to periodically log agent's runtime stats such as used memory and CPU; also add new configuration setting to enable/disable pprof [#3001](https://github.com/aws/amazon-ecs-agent/pull/3001)
+* Enhancement - Improvement of log message displayed when container instance registartion fails due to attribute validation errors [#2999](https://github.com/aws/amazon-ecs-agent/pull/2999)
+* Enhancement - Upgrade to go 1.15.9 for Linux platforms [#3002](https://github.com/aws/amazon-ecs-agent/pull/3002)
+
 ## 1.55.1
 * Enhancement - Third party dependency version updates [#2982](https://github.com/aws/amazon-ecs-agent/pull/2982) [#2983](https://github.com/aws/amazon-ecs-agent/pull/2983)
 
