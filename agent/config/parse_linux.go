@@ -15,10 +15,16 @@
 
 package config
 
+import "errors"
+
 func parseGMSACapability() bool {
 	return false
 }
 
 func parseFSxWindowsFileServerCapability() bool {
 	return false
+}
+
+var IsWindows2016 = func() (bool, error) {
+	return false, errors.New("unsupported platform")
 }
