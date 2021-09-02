@@ -1467,24 +1467,37 @@ func (task *Task) DockerHostConfig(container *apicontainer.Container, dockerCont
 	return task.dockerHostConfig(container, dockerContainerMap, apiVersion, cfg)
 }
 
-// ApplyExecutionRoleLogsAuth will check whether the task has execution role
+// ApplyExecutionRoleLogsAuth will check whether the container/task has execution role
 // credentials, and add the genereated credentials endpoint to the associated HostConfig
-func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostConfig, credentialsManager credentials.Manager) *apierrors.HostConfigError {
-	id := task.GetExecutionCredentialsID()
-	if id == "" {
-		// No execution credentials set for the task. Do not inject the endpoint environment variable.
-		return &apierrors.HostConfigError{Msg: "No execution credentials set for the task"}
+func (task *Task) ApplyExecutionRoleLogsAuth(hostConfig *dockercontainer.HostConfig, credentialsManager credentials.Manager, container *apicontainer.Container) *apierrors.HostConfigError {
+	var credentialsEndpointRelativeURI string
+	containerCredsId := container.GetExecutionCredentialsID()
+	if containerCredsId != "" {
+		executionRoleCredentials, ok := credentialsManager.GetContainerCredentials(containerCredsId)
+		if !ok {
+			// Container has credentials id set, but credentials manager is unaware of
+			// the id. This should never happen as the payload handler sets
+			// credentialsId for the container after adding credentials to the
+			// credentials manager
+			return &apierrors.HostConfigError{Msg: fmt.Sprintf("Unable to get execution role credentials for container %s of taskArn %s", container.Name, task.Arn)}
+		}
+		credentialsEndpointRelativeURI = executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
+	} else {
+		id := task.GetExecutionCredentialsID()
+		if id == "" {
+			// No execution credentials set for the task. Do not inject the endpoint environment variable.
+			return &apierrors.HostConfigError{Msg: fmt.Sprintf("No execution credentials set for the task %s", task.Arn)}
+		}
+		executionRoleCredentials, ok := credentialsManager.GetTaskCredentials(id)
+		if !ok {
+			// Task has credentials id set, but credentials manager is unaware of
+			// the id. This should never happen as the payload handler sets
+			// credentialsId for the task after adding credentials to the
+			// credentials manager
+			return &apierrors.HostConfigError{Msg: fmt.Sprintf("Unable to get execution role credentials for task %s", task.Arn)}
+		}
+		credentialsEndpointRelativeURI = executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 	}
-
-	executionRoleCredentials, ok := credentialsManager.GetTaskCredentials(id)
-	if !ok {
-		// Task has credentials id set, but credentials manager is unaware of
-		// the id. This should never happen as the payload handler sets
-		// credentialsId for the task after adding credentials to the
-		// credentials manager
-		return &apierrors.HostConfigError{Msg: "Unable to get execution role credentials for task"}
-	}
-	credentialsEndpointRelativeURI := executionRoleCredentials.IAMRoleCredentials.GenerateCredentialsEndpointRelativeURI()
 	if hostConfig.LogConfig.Config == nil {
 		hostConfig.LogConfig.Config = map[string]string{}
 	}

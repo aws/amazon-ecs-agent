@@ -1824,7 +1824,60 @@ func TestApplyExecutionRoleLogsAuthSet(t *testing.T) {
 		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
+	assert.Nil(t, err)
+
+	endpoint, ok := cfg.LogConfig.Config["awslogs-credentials-endpoint"]
+	assert.True(t, ok)
+	assert.Equal(t, expectedEndpoint, endpoint)
+}
+
+func TestApplyExecutionRoleLogsAuthSetWithContainerExecutionRole(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIDInTask := "credsid"
+	credentialsIDInContainer := "credsidcontainer"
+	expectedEndpoint := "/v2/credentials/" + credentialsIDInContainer
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+				ExecutionCredentialsID: credentialsIDInContainer,
+			},
+		},
+		ExecutionCredentialsID: credentialsIDInTask,
+	}
+
+	containerCredentials := credentials.ContainerIAMRoleCredentials{
+		IAMRoleCredentials: credentials.IAMRoleCredentials{CredentialsID: "credsidcontainer"},
+	}
+	credentialsManager.EXPECT().GetContainerCredentials(credentialsIDInContainer).Return(containerCredentials, true)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion,
+		&config.Config{})
+	assert.Nil(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
 	assert.Nil(t, err)
 
 	endpoint, ok := cfg.LogConfig.Config["awslogs-credentials-endpoint"]
@@ -1874,7 +1927,7 @@ func TestApplyExecutionRoleLogsAuthNoConfigInHostConfig(t *testing.T) {
 		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
 	assert.Nil(t, err)
 
 	endpoint, ok := cfg.LogConfig.Config["awslogs-credentials-endpoint"]
@@ -1917,7 +1970,51 @@ func TestApplyExecutionRoleLogsAuthFailEmptyCredentialsID(t *testing.T) {
 		&config.Config{})
 	assert.Nil(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
+	assert.Error(t, err)
+}
+
+func TestApplyExecutionRoleLogsAuthFailNoCredentialsForContainer(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	credentialsManager := mock_credentials.NewMockManager(ctrl)
+
+	credentialsIDInTask := "credsid"
+	credentialsIDInContainer := "credsidcontainer"
+
+	rawHostConfigInput := dockercontainer.HostConfig{
+		LogConfig: dockercontainer.LogConfig{
+			Type:   "foo",
+			Config: map[string]string{"foo": "bar"},
+		},
+	}
+
+	rawHostConfig, err := json.Marshal(&rawHostConfigInput)
+	require.NoError(t, err)
+
+	task := &Task{
+		Arn:     "arn:aws:ecs:us-east-1:012345678910:task/c09f0188-7f87-4b0f-bfc3-16296622b6fe",
+		Family:  "testFamily",
+		Version: "1",
+		Containers: []*apicontainer.Container{
+			{
+				Name: "c1",
+				DockerConfig: apicontainer.DockerConfig{
+					HostConfig: strptr(string(rawHostConfig)),
+				},
+				ExecutionCredentialsID: credentialsIDInContainer,
+			},
+		},
+		ExecutionCredentialsID: credentialsIDInTask,
+	}
+
+	credentialsManager.EXPECT().GetContainerCredentials(credentialsIDInContainer).Return(credentials.ContainerIAMRoleCredentials{}, false)
+	task.initializeCredentialsEndpoint(credentialsManager)
+
+	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion, &config.Config{})
+	assert.Error(t, err)
+
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
 	assert.Error(t, err)
 }
 
@@ -1959,7 +2056,7 @@ func TestApplyExecutionRoleLogsAuthFailNoCredentialsForTask(t *testing.T) {
 	cfg, err := task.DockerHostConfig(task.Containers[0], dockerMap(task), defaultDockerClientAPIVersion, &config.Config{})
 	assert.Error(t, err)
 
-	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager)
+	err = task.ApplyExecutionRoleLogsAuth(cfg, credentialsManager, task.Containers[0])
 	assert.Error(t, err)
 }
 
