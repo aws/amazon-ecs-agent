@@ -380,7 +380,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	taskHandler := eventhandler.NewTaskHandler(agent.ctx, agent.dataClient, state, client)
 	attachmentEventHandler := eventhandler.NewAttachmentEventHandler(agent.ctx, agent.dataClient, client)
 	agent.startAsyncRoutines(containerChangeEventStream, credentialsManager, imageManager,
-		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state)
+		taskEngine, deregisterInstanceEventStream, client, taskHandler, attachmentEventHandler, state, doctor)
 
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
@@ -673,7 +673,9 @@ func (agent *ecsAgent) startAsyncRoutines(
 	client api.ECSClient,
 	taskHandler *eventhandler.TaskHandler,
 	attachmentEventHandler *eventhandler.AttachmentEventHandler,
-	state dockerstate.TaskEngineState) {
+	state dockerstate.TaskEngineState,
+	doctor *doctor.Doctor,
+) {
 
 	// Start of the periodic image cleanup process
 	if !agent.cfg.ImageCleanupDisabled.Enabled() {
@@ -712,6 +714,7 @@ func (agent *ecsAgent) startAsyncRoutines(
 		ECSClient:                     client,
 		TaskEngine:                    taskEngine,
 		StatsEngine:                   statsEngine,
+		Doctor:                        doctor,
 	}
 
 	// Start metrics session in a go routine
