@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/aws/amazon-ecs-agent/agent/config"
+	"github.com/aws/amazon-ecs-agent/agent/doctor"
 	"github.com/aws/amazon-ecs-agent/agent/stats"
 	mock_stats "github.com/aws/amazon-ecs-agent/agent/stats/mock"
 	"github.com/aws/amazon-ecs-agent/agent/tcs/model/ecstcs"
@@ -48,7 +49,58 @@ const (
 	rwTimeout                  = time.Second
 )
 
+const (
+	TEST_CLUSTER      = "test-cluster"
+	TEST_INSTANCE_ARN = "test-instance-arn"
+)
+
+type trueHealthcheck struct{}
+
+func (tc *trueHealthcheck) RunCheck() doctor.HealthcheckStatus                   { return doctor.HealthcheckStatusOk }
+func (tc *trueHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
+func (tc *trueHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
+func (tc *trueHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
+	return doctor.HealthcheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
+	return doctor.HealthcheckStatusInitializing
+}
+func (tc *trueHealthcheck) GetHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (tc *trueHealthcheck) GetStatusChangeTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (tc *trueHealthcheck) GetLastHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+
+type falseHealthcheck struct{}
+
+func (fc *falseHealthcheck) RunCheck() doctor.HealthcheckStatus {
+	return doctor.HealthcheckStatusImpaired
+}
+func (fc *falseHealthcheck) SetHealthcheckStatus(status doctor.HealthcheckStatus) {}
+func (fc *falseHealthcheck) GetHealthcheckType() string                           { return doctor.HealthcheckTypeAgent }
+func (fc *falseHealthcheck) GetHealthcheckStatus() doctor.HealthcheckStatus {
+	return doctor.HealthcheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetLastHealthcheckStatus() doctor.HealthcheckStatus {
+	return doctor.HealthcheckStatusInitializing
+}
+func (fc *falseHealthcheck) GetHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (fc *falseHealthcheck) GetStatusChangeTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+func (fc *falseHealthcheck) GetLastHealthcheckTime() time.Time {
+	return time.Date(1974, time.May, 19, 1, 2, 3, 4, time.UTC)
+}
+
 var testCreds = credentials.NewStaticCredentials("test-id", "test-secret", "test-token")
+
+var emptyDoctor, _ = doctor.NewDoctor([]doctor.Healthcheck{}, "test-cluster", "this:is:an:instance:arn")
 
 type mockStatsEngine struct{}
 
@@ -246,7 +298,7 @@ func testCS(conn *mock_wsconn.MockWebsocketConn) wsclient.ClientServer {
 		AcceptInsecureCert: true,
 	}
 	cs := New("https://aws.amazon.com/ecs", cfg, testCreds, &mockStatsEngine{},
-		testPublishMetricsInterval, rwTimeout, false).(*clientServer)
+		testPublishMetricsInterval, rwTimeout, false, emptyDoctor).(*clientServer)
 	cs.SetConnection(conn)
 	return cs
 }
@@ -313,7 +365,7 @@ func TestMetricsDisabled(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
 	cs.SetConnection(conn)
 
 	published := make(chan struct{})
@@ -348,7 +400,7 @@ func TestCreatePublishHealthRequestsEmpty(t *testing.T) {
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
 	cs.SetConnection(conn)
 
 	mockStatsEngine.EXPECT().GetTaskHealthMetrics().Return(nil, nil, stats.EmptyHealthMetricsError)
@@ -368,7 +420,7 @@ func TestCreatePublishHealthRequests(t *testing.T) {
 	mockStatsEngine := mock_stats.NewMockEngine(ctrl)
 	cfg := config.DefaultConfig()
 
-	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true)
+	cs := New("", &cfg, testCreds, mockStatsEngine, testPublishMetricsInterval, rwTimeout, true, emptyDoctor)
 	cs.SetConnection(conn)
 
 	testMetadata := &ecstcs.HealthMetadata{
@@ -443,4 +495,167 @@ func TestSessionClosed(t *testing.T) {
 	cs.Close()
 	_, ok := <-cs.(*clientServer).ctx.Done()
 	assert.False(t, ok, "channel should be closed")
+}
+
+func TestGetInstanceStatuses(t *testing.T) {
+	trueCheck := &trueHealthcheck{}
+	falseCheck := &falseHealthcheck{}
+	trueStatus := &ecstcs.InstanceStatus{
+		LastStatusChange: aws.Time(trueCheck.GetStatusChangeTime()),
+		LastUpdated:      aws.Time(trueCheck.GetLastHealthcheckTime()),
+		Status:           aws.String(trueCheck.GetHealthcheckStatus().String()),
+		Type:             aws.String(trueCheck.GetHealthcheckType()),
+	}
+	falseStatus := &ecstcs.InstanceStatus{
+		LastStatusChange: aws.Time(falseCheck.GetStatusChangeTime()),
+		LastUpdated:      aws.Time(falseCheck.GetLastHealthcheckTime()),
+		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
+		Type:             aws.String(falseCheck.GetHealthcheckType()),
+	}
+
+	testcases := []struct {
+		name           string
+		checks         []doctor.Healthcheck
+		expectedResult []*ecstcs.InstanceStatus
+	}{
+		{
+			name:           "empty checks",
+			checks:         []doctor.Healthcheck{},
+			expectedResult: nil,
+		},
+		{
+			name:           "all true checks",
+			checks:         []doctor.Healthcheck{trueCheck},
+			expectedResult: []*ecstcs.InstanceStatus{trueStatus},
+		},
+		{
+			name:           "all false checks",
+			checks:         []doctor.Healthcheck{falseCheck},
+			expectedResult: []*ecstcs.InstanceStatus{falseStatus},
+		},
+		{
+			name:           "mixed checks",
+			checks:         []doctor.Healthcheck{trueCheck, falseCheck},
+			expectedResult: []*ecstcs.InstanceStatus{trueStatus, falseStatus},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			newDoctor, _ := doctor.NewDoctor(tc.checks, TEST_CLUSTER, TEST_INSTANCE_ARN)
+			cs := clientServer{
+				doctor: newDoctor,
+			}
+			cs.doctor.RunHealthchecks()
+
+			instanceStatuses := cs.getInstanceStatuses()
+			assert.Equal(t, instanceStatuses, tc.expectedResult)
+		})
+	}
+}
+
+func TestGetPublishInstanceStatusRequest(t *testing.T) {
+	trueCheck := &trueHealthcheck{}
+	falseCheck := &falseHealthcheck{}
+	trueStatus := &ecstcs.InstanceStatus{
+		LastStatusChange: aws.Time(trueCheck.GetStatusChangeTime()),
+		LastUpdated:      aws.Time(trueCheck.GetLastHealthcheckTime()),
+		Status:           aws.String(trueCheck.GetHealthcheckStatus().String()),
+		Type:             aws.String(trueCheck.GetHealthcheckType()),
+	}
+	falseStatus := &ecstcs.InstanceStatus{
+		LastStatusChange: aws.Time(falseCheck.GetStatusChangeTime()),
+		LastUpdated:      aws.Time(falseCheck.GetLastHealthcheckTime()),
+		Status:           aws.String(falseCheck.GetHealthcheckStatus().String()),
+		Type:             aws.String(falseCheck.GetHealthcheckType()),
+	}
+
+	testcases := []struct {
+		name             string
+		checks           []doctor.Healthcheck
+		expectedStatuses []*ecstcs.InstanceStatus
+	}{
+		{
+			name:             "empty checks",
+			checks:           []doctor.Healthcheck{},
+			expectedStatuses: nil,
+		},
+		{
+			name:             "all true checks",
+			checks:           []doctor.Healthcheck{trueCheck},
+			expectedStatuses: []*ecstcs.InstanceStatus{trueStatus},
+		},
+		{
+			name:             "all false checks",
+			checks:           []doctor.Healthcheck{falseCheck},
+			expectedStatuses: []*ecstcs.InstanceStatus{falseStatus},
+		},
+		{
+			name:             "mixed checks",
+			checks:           []doctor.Healthcheck{trueCheck, falseCheck},
+			expectedStatuses: []*ecstcs.InstanceStatus{trueStatus, falseStatus},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			newDoctor, _ := doctor.NewDoctor(tc.checks, TEST_CLUSTER, TEST_INSTANCE_ARN)
+			cs := clientServer{
+				doctor: newDoctor,
+			}
+			cs.doctor.RunHealthchecks()
+
+			// note: setting RequestId and Timestamp to nil so I can make the comparison
+			metadata := &ecstcs.InstanceStatusMetadata{
+				Cluster:           aws.String(TEST_CLUSTER),
+				ContainerInstance: aws.String(TEST_INSTANCE_ARN),
+				RequestId:         nil,
+			}
+
+			testResult, err := cs.getPublishInstanceStatusRequest()
+
+			if tc.expectedStatuses != nil {
+				expectedResult := &ecstcs.PublishInstanceStatusRequest{
+					Metadata:  metadata,
+					Statuses:  tc.expectedStatuses,
+					Timestamp: nil,
+				}
+				// note: setting RequestId and Timestamp to nil so I can make the comparison
+				testResult.Timestamp = nil
+				testResult.Metadata.RequestId = nil
+				assert.Equal(t, testResult, expectedResult)
+			} else {
+				assert.Error(t, err, "Test failed")
+			}
+		})
+	}
+}
+
+func TestAckPublishInstanceStatusHandlerCalled(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	conn := mock_wsconn.NewMockWebsocketConn(ctrl)
+	cs := testCS(conn)
+
+	// Messages should be read from the connection at least once
+	conn.EXPECT().SetReadDeadline(gomock.Any()).Return(nil).MinTimes(1)
+	conn.EXPECT().ReadMessage().Return(1,
+		[]byte(`{"type":"AckPublishInstanceStatus","message":{}}`), nil).MinTimes(1)
+	// Invoked when closing the connection
+	conn.EXPECT().SetWriteDeadline(gomock.Any()).Return(nil)
+	conn.EXPECT().Close()
+
+	handledPayload := make(chan *ecstcs.AckPublishInstanceStatus)
+
+	reqHandler := func(payload *ecstcs.AckPublishInstanceStatus) {
+		handledPayload <- payload
+	}
+	cs.AddRequestHandler(reqHandler)
+
+	go cs.Serve()
+	defer cs.Close()
+
+	t.Log("Waiting for handler to return payload.")
+	<-handledPayload
 }

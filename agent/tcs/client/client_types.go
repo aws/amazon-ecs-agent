@@ -46,6 +46,8 @@ func init() {
 		ecstcs.BadRequestException{},
 		ecstcs.ResourceValidationException{},
 		ecstcs.InvalidParameterException{},
+		ecstcs.AckPublishInstanceStatus{},
+		ecstcs.PublishInstanceStatusRequest{},
 	}
 }
 
