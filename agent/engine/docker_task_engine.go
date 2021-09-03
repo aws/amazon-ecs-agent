@@ -950,10 +950,10 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 
 	// Set the credentials for pull from ECR if necessary
 	if container.ShouldPullWithExecutionRole() {
-		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
+		iamCredentials, ok, credentialsType := engine.getPullImageIAMCredentials(task, container)
 		if !ok {
-			seelog.Errorf("Task engine [%s]: unable to acquire ECR credentials for image %s for container %s",
-				task.Arn, container.Image, container.Name)
+			seelog.Errorf("Task engine [%s]: unable to acquire ECR credentials for image %s for container %s with %sExecutionCredentials",
+				task.Arn, container.Image, container.Name, credentialsType)
 			return dockerapi.DockerContainerMetadata{
 				Error: dockerapi.CannotPullECRContainerError{
 					FromError: errors.New("engine ecr credentials: not found"),
@@ -961,7 +961,7 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 			}
 		}
 
-		iamCredentials := executionCredentials.GetIAMRoleCredentials()
+		seelog.Infof("Set RegistryAuthCredentials with %sExecutionCredentials for container [%s] of task [%s]", credentialsType, container.Name, task.Arn)
 		container.SetRegistryAuthCredentials(iamCredentials)
 		// Clean up the ECR pull credentials after pulling
 		defer container.SetRegistryAuthCredentials(credentials.IAMRoleCredentials{})
@@ -1021,6 +1021,16 @@ func (engine *DockerTaskEngine) pullAndUpdateContainerReference(task *apitask.Ta
 
 	engine.updateContainerReference(pullSucceeded, container, task.Arn)
 	return metadata
+}
+
+func (engine *DockerTaskEngine) getPullImageIAMCredentials(task *apitask.Task, container *apicontainer.Container) (credentials.IAMRoleCredentials, bool, string) {
+	if container.GetExecutionCredentialsID() != "" {
+		executionCredentials, ok := engine.credentialsManager.GetContainerCredentials(container.GetExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "container"
+	} else {
+		executionCredentials, ok := engine.credentialsManager.GetTaskCredentials(task.GetExecutionCredentialsID())
+		return executionCredentials.GetIAMRoleCredentials(), ok, "task"
+	}
 }
 
 func (engine *DockerTaskEngine) updateContainerReference(pullSucceeded bool, container *apicontainer.Container, taskArn string) {
