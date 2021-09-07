@@ -31,6 +31,11 @@ const (
 	// domain join check validation. This is useful for integration and
 	// functional-tests but should not be set for any non-test use-case.
 	envSkipDomainJoinCheck = "ZZZ_SKIP_DOMAIN_JOIN_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
+
+	// envSkipWindowsServerVersionCheck is an environment setting that can be used
+	// to skip the windows server version check. This is useful for testing and
+	// should not be set for any non-test use-case.
+	envSkipWindowsServerVersionCheck = "ZZZ_SKIP_WINDOWS_SERVER_VERSION_CHECK_NOT_SUPPORTED_IN_PRODUCTION"
 )
 
 // parseGMSACapability is used to determine if gMSA support can be enabled
@@ -94,6 +99,13 @@ func isDomainJoined() (bool, error) {
 var execCommand = exec.Command
 
 var IsWindows2016 = func() (bool, error) {
+	// Check for environment override before proceeding.
+	envSkipWindowsServerVersionCheck := utils.ParseBool(os.Getenv(envSkipWindowsServerVersionCheck), false)
+	if envSkipWindowsServerVersionCheck {
+		seelog.Debug("Skipping windows server version check based on environment override")
+		return false, nil
+	}
+
 	cmd := "systeminfo | findstr /B /C:\"OS Name\""
 	out, err := execCommand("powershell", "-Command", cmd).CombinedOutput()
 	if err != nil {
