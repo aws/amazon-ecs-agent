@@ -28,5 +28,7 @@ jobs:
           $Env:GOPATH = "$Env:GITHUB_WORKSPACE"
           cd "$Env:GITHUB_WORKSPACE"
           cd "src/github.com/aws/amazon-ecs-agent/agent"
+          gcc --version
+          $env:ZZZ_SKIP_WINDOWS_SERVER_VERSION_CHECK_NOT_SUPPORTED_IN_PRODUCTION = 'true'
           $packages=go list .\... | Where-Object {$_ -NotMatch 'vendor'}
-          go test -race -v -tags unit -timeout=40s $packages
+          go test -v -tags unit -timeout=40s $packages
