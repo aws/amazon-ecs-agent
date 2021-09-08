@@ -24,6 +24,7 @@ import (
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	apierrors "github.com/aws/amazon-ecs-agent/agent/api/errors"
 	mock_api "github.com/aws/amazon-ecs-agent/agent/api/mocks"
@@ -50,7 +51,6 @@ import (
 	mock_statemanager "github.com/aws/amazon-ecs-agent/agent/statemanager/mocks"
 	mock_mobypkgwrapper "github.com/aws/amazon-ecs-agent/agent/utils/mobypkgwrapper/mocks"
 	"github.com/aws/amazon-ecs-agent/agent/version"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	aws_credentials "github.com/aws/aws-sdk-go/aws/credentials"
@@ -66,8 +66,10 @@ const (
 	hostPrivateIPv4Address = "127.0.0.1"
 	hostPublicIPv4Address  = "127.0.0.1"
 	instanceID             = "i-123"
+	warmedState            = "Warmed:Pending"
 )
 
+var notFoundErr = awserr.NewRequestFailure(awserr.Error(awserr.New("NotFound", "", errors.New(""))), 404, "")
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.Version_1_21,
 	dockerclient.Version_1_22,
@@ -286,7 +288,48 @@ func TestDoStartRegisterContainerInstanceErrorNonTerminal(t *testing.T) {
 	assert.Equal(t, exitcodes.ExitError, exitCode)
 }
 
+func TestDoStartWarmPoolsError(t *testing.T) {
+	ctrl, credentialsManager, state, imageManager, client,
+		dockerClient, _, _, execCmdMgr := setup(t)
+	defer ctrl.Finish()
+	mockEC2Metadata := mock_ec2.NewMockEC2MetadataClient(ctrl)
+	gomock.InOrder(
+		dockerClient.EXPECT().SupportedVersions().Return(apiVersions),
+	)
+
+	cfg := getTestConfig()
+	cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	ctx, cancel := context.WithCancel(context.TODO())
+	// Cancel the context to cancel async routines
+	defer cancel()
+	agent := &ecsAgent{
+		ctx:               ctx,
+		cfg:               &cfg,
+		dockerClient:      dockerClient,
+		ec2MetadataClient: mockEC2Metadata,
+	}
+
+	err := errors.New("error")
+	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(3)
+
+	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
+		credentialsManager, state, imageManager, client, execCmdMgr)
+	assert.Equal(t, exitcodes.ExitTerminal, exitCode)
+}
+
 func TestDoStartHappyPath(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, false, false)
+}
+
+func TestDoStartWarmPoolsEnabled(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, false, true)
+}
+
+func TestDoStartWarmPoolsBlackholed(t *testing.T) {
+	testDoStartHappyPathWithConditions(t, true, true)
+}
+
+func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPoolsEnv bool) {
 	ctrl, credentialsManager, _, imageManager, client,
 		dockerClient, stateManagerFactory, saveableOptionFactory, execCmdMgr := setup(t)
 	defer ctrl.Finish()
@@ -299,7 +342,19 @@ func TestDoStartHappyPath(t *testing.T) {
 	ec2MetadataClient.EXPECT().PrivateIPv4Address().Return(hostPrivateIPv4Address, nil)
 	ec2MetadataClient.EXPECT().PublicIPv4Address().Return(hostPublicIPv4Address, nil)
 	ec2MetadataClient.EXPECT().OutpostARN().Return("", nil)
-	ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
+
+	if blackholed {
+		if warmPoolsEnv {
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed")).Times(3)
+		}
+		ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
+	} else {
+		if warmPoolsEnv {
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("error"))
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return(inServiceState, nil)
+		}
+		ec2MetadataClient.EXPECT().InstanceID().Return(instanceID, nil)
+	}
 
 	var discoverEndpointsInvoked sync.WaitGroup
 	discoverEndpointsInvoked.Add(2)
@@ -347,6 +402,9 @@ func TestDoStartHappyPath(t *testing.T) {
 	cfg := getTestConfig()
 	cfg.ContainerMetadataEnabled = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 	cfg.Checkpoint = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	if warmPoolsEnv {
+		cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+	}
 	cfg.Cluster = clusterName
 	ctx, cancel := context.WithCancel(context.TODO())
 
@@ -386,7 +444,9 @@ func TestDoStartHappyPath(t *testing.T) {
 	assertMetadata(t, data.AvailabilityZoneKey, availabilityZone, dataClient)
 	assertMetadata(t, data.ClusterNameKey, clusterName, dataClient)
 	assertMetadata(t, data.ContainerInstanceARNKey, containerInstanceARN, dataClient)
-	assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
+	if !blackholed {
+		assertMetadata(t, data.EC2InstanceIDKey, instanceID, dataClient)
+	}
 }
 
 func assertMetadata(t *testing.T, key, expectedVal string, dataClient data.Client) {
@@ -1472,4 +1532,43 @@ func newTestDataClient(t *testing.T) (data.Client, func()) {
 		require.NoError(t, os.RemoveAll(testDir))
 	}
 	return testClient, cleanup
+}
+
+func TestWaitUntilInstanceInServicePolling(t *testing.T) {
+	testCases := []struct {
+		name         string
+		states       []string
+		err          error
+		returnsState bool
+		maxPolls     int
+	}{
+		{"TestWaitUntilInstanceInServicePollsWarmed", []string{warmedState, inServiceState}, nil, true, asgLifeCyclePollMax},
+		{"TestWaitUntilInstanceInServicePollsMissing", []string{inServiceState}, notFoundErr, true, asgLifeCyclePollMax},
+		{"TestWaitUntilInstanceInServicePollingMaxReached", nil, notFoundErr, false, 1},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			cfg := getTestConfig()
+			cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
+			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
+			agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient, cfg: &cfg}
+
+			if tc.err != nil {
+				ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", tc.err).Times(3)
+			}
+			for _, state := range tc.states {
+				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(state, nil)
+			}
+			var expectedResult error
+			if tc.returnsState {
+				expectedResult = nil
+			} else {
+				expectedResult = tc.err
+			}
+			assert.Equal(t, expectedResult, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls))
+		})
+	}
 }
