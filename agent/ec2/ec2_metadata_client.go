@@ -40,6 +40,7 @@ const (
 	PublicIPv4Resource                        = "public-ipv4"
 	OutpostARN                                = "outpost-arn"
 	PrimaryIPV4VPCCIDRResourceFormat          = "network/interfaces/macs/%s/vpc-ipv4-cidr-block"
+	TargetLifecycleState                      = "autoscaling/target-lifecycle-state"
 )
 
 const (
@@ -82,6 +83,7 @@ type EC2MetadataClient interface {
 	PublicIPv4Address() (string, error)
 	SpotInstanceAction() (string, error)
 	OutpostARN() (string, error)
+	TargetLifecycleState() (string, error)
 }
 
 type ec2MetadataClientImpl struct {
@@ -202,4 +204,8 @@ func (c *ec2MetadataClientImpl) SpotInstanceAction() (string, error) {
 
 func (c *ec2MetadataClientImpl) OutpostARN() (string, error) {
 	return c.client.GetMetadata(OutpostARN)
+}
+
+func (c *ec2MetadataClientImpl) TargetLifecycleState() (string, error) {
+	return c.client.GetMetadata(TargetLifecycleState)
 }

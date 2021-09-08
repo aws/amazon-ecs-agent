@@ -82,6 +82,15 @@ const (
 	instanceIdBackoffJitter   = 0.2
 	instanceIdBackoffMultiple = 1.3
 	instanceIdMaxRetryCount   = 3
+
+	targetLifecycleBackoffMin      = time.Second
+	targetLifecycleBackoffMax      = time.Second * 5
+	targetLifecycleBackoffJitter   = 0.2
+	targetLifecycleBackoffMultiple = 1.3
+	targetLifecycleMaxRetryCount   = 3
+	inServiceState                 = "InService"
+	asgLifeCyclePollWait           = time.Minute
+	asgLifeCyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
 )
 
 var (
@@ -283,6 +292,15 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 		}
 	}
 
+	// If part of ASG, wait until instance is being set up to go in service before registering with cluster
+	if agent.cfg.WarmPoolsSupport.Enabled() {
+		err := agent.waitUntilInstanceInService(asgLifeCyclePollWait, asgLifeCyclePollMax)
+		if err != nil && err.Error() != blackholed {
+			seelog.Criticalf("Could not determine target lifecycle of instance: %v", err)
+			return exitcodes.ExitTerminal
+		}
+	}
+
 	// Create the task engine
 	taskEngine, currentEC2InstanceID, err := agent.newTaskEngine(containerChangeEventStream,
 		credentialsManager, state, imageManager, execCmdMgr)
@@ -375,6 +393,54 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 	// Start the acs session, which should block doStart
 	return agent.startACSSession(credentialsManager, taskEngine,
 		deregisterInstanceEventStream, client, state, taskHandler)
+}
+
+// waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in
+// service. This is to avoid instances going to a warm pool being registered as container instances with the cluster
+func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int) error {
+	var err error
+	var targetState string
+	// Poll while the instance is in a warmed state or while waiting for the data to be populated.
+	// If the data is not populated after a certain number of polls, then stop polling and return the not found error.
+	// The polling maximum does not apply to instances in the warmed states
+	for i := 0; i < pollMaxTimes || targetState != ""; i++ {
+		targetState, err = agent.getTargetLifeCycle()
+		// stop polling if the retrieved state is in service or we get an unexpected error
+		if targetState == inServiceState {
+			break
+		}
+		if err != nil {
+			var statusCode int
+			if reqErr, ok := err.(awserr.RequestFailure); ok {
+				statusCode = reqErr.StatusCode()
+			}
+			if statusCode != 404 {
+				break
+			}
+		}
+		time.Sleep(pollWaitDuration)
+	}
+	return err
+}
+
+// getTargetLifecycle obtains the target lifecycle state for the instance from IMDS. This is populated for instances
+// associated with an ASG
+func (agent *ecsAgent) getTargetLifeCycle() (string, error) {
+	var targetState string
+	var err error
+	backoff := retry.NewExponentialBackoff(targetLifecycleBackoffMin, targetLifecycleBackoffMax, targetLifecycleBackoffJitter, targetLifecycleBackoffMultiple)
+	for i := 0; i < targetLifecycleMaxRetryCount; i++ {
+		targetState, err = agent.ec2MetadataClient.TargetLifecycleState()
+		if err == nil {
+			break
+		}
+		seelog.Debugf("Error when getting intended lifecycle state: %v", err)
+		if i < targetLifecycleMaxRetryCount {
+			time.Sleep(backoff.Duration())
+		}
+	}
+	seelog.Infof("Target lifecycle state of instance: %v", targetState)
+	return targetState, err
 }
 
 // newTaskEngine creates a new docker task engine object. It tries to load the
