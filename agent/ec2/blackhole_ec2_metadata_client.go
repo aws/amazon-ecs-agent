@@ -84,3 +84,7 @@ func (blackholeMetadataClient) SpotInstanceAction() (string, error) {
 func (blackholeMetadataClient) OutpostARN() (string, error) {
 	return "", errors.New("blackholed")
 }
+
+func (blackholeMetadataClient) TargetLifecycleState() (string, error) {
+	return "", errors.New("blackholed")
+}

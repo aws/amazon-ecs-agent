@@ -354,4 +354,8 @@ type Config struct {
 	// is set to true by default, and can be overridden by the ECS_EXCLUDE_IPV6_PORTBINDING environment variable. This is a workaround
 	// for docker's bug as detailed in https://github.com/aws/amazon-ecs-agent/issues/2870.
 	ShouldExcludeIPv6PortBinding BooleanDefaultTrue
+
+	// WarmPoolsSupport specifies whether the agent should poll IMDS to check the target lifecycle state for a starting
+	// instance
+	WarmPoolsSupport BooleanDefaultFalse
 }
