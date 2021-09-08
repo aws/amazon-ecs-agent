@@ -159,6 +159,16 @@ func IsAWSErrorCodeEqual(err error, code string) bool {
 	return ok && awsErr.Code() == code
 }
 
+// GetRequestFailureStatusCode returns the status code from a
+// RequestFailure error, or 0 if the error is not of that type
+func GetRequestFailureStatusCode(err error) int {
+	var statusCode int
+	if reqErr, ok := err.(awserr.RequestFailure); ok {
+		statusCode = reqErr.StatusCode()
+	}
+	return statusCode
+}
+
 // MapToTags converts a map to a slice of tags.
 func MapToTags(tagsMap map[string]string) []*ecs.Tag {
 	tags := make([]*ecs.Tag, 0)
