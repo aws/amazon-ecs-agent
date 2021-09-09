@@ -217,7 +217,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 			apiTask.SetCredentialsID(taskIAMRoleCredentials.CredentialsID)
 		}
 
-		err = payloadHandler.updateContainerCredentials(payload, apiTask, task)
+		err = payloadHandler.updateContainerCredentials(apiTask, task)
 		if err != nil {
 			payloadHandler.handleUnrecognizedTask(task, err, payload)
 			allTasksOK = false
@@ -283,7 +283,7 @@ func (payloadHandler *payloadRequestHandler) addPayloadTasks(payload *ecsacs.Pay
 }
 
 // updateContainerCredentials add container specific credentials from ACS payload to credentials manager and set credentials id for containers
-func (payloadHandler *payloadRequestHandler) updateContainerCredentials(payload *ecsacs.PayloadMessage, apiTask *apitask.Task, task *ecsacs.Task) error {
+func (payloadHandler *payloadRequestHandler) updateContainerCredentials(apiTask *apitask.Task, task *ecsacs.Task) error {
 	var err error
 	for _, container := range task.Containers {
 		var apiContainer *apicontainer.Container

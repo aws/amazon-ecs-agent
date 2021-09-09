@@ -1089,7 +1089,7 @@ func (engine *DockerTaskEngine) createContainer(task *apitask.Task, container *a
 	}
 
 	if container.AWSLogAuthExecutionRole() {
-		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager)
+		err := task.ApplyExecutionRoleLogsAuth(hostConfig, engine.credentialsManager, container)
 		if err != nil {
 			return dockerapi.DockerContainerMetadata{Error: apierrors.NamedError(err)}
 		}
