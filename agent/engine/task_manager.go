@@ -350,7 +350,8 @@ func (mtask *managedTask) steadyState() bool {
 	}
 }
 
-// cleanupCredentials removes credentials for a stopped task
+// cleanupCredentials removes credentials for a stopped task (execution credentials are removed in cleanupTask
+// due to its potential usage in the later phase of the task cleanup such as sending logs)
 func (mtask *managedTask) cleanupCredentials() {
 	taskCredentialsID := mtask.GetCredentialsID()
 	if taskCredentialsID != "" {
@@ -1424,6 +1425,7 @@ func (mtask *managedTask) time() ttime.Time {
 }
 
 func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
+	taskExecutionCredentialsID := mtask.GetExecutionCredentialsID()
 	cleanupTimeDuration := mtask.GetKnownStatusTime().Add(taskStoppedDuration).Sub(ttime.Now())
 	cleanupTime := make(<-chan time.Time)
 	if cleanupTimeDuration < 0 {
@@ -1463,6 +1465,14 @@ func (mtask *managedTask) cleanupTask(taskStoppedDuration time.Duration) {
 	go mtask.discardEvents()
 	mtask.engine.sweepTask(mtask.Task)
 	mtask.engine.deleteTask(mtask.Task)
+
+	// Remove TaskExecutionCredentials from credentialsManager
+	if taskExecutionCredentialsID != "" {
+		logger.Info("Cleaning up task's execution credentials", logger.Fields{
+			field.TaskARN: mtask.Arn,
+		})
+		mtask.credentialsManager.RemoveCredentials(taskExecutionCredentialsID)
+	}
 
 	// The last thing to do here is to cancel the context, which should cancel
 	// all outstanding go routines associated with this managed task.
