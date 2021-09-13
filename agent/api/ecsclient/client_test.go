@@ -84,9 +84,10 @@ func NewMockClient(ctrl *gomock.Controller,
 
 	return NewMockClientWithConfig(ctrl, ec2Metadata, additionalAttributes,
 		&config.Config{
-			Cluster:            configuredCluster,
-			AWSRegion:          "us-east-1",
-			InstanceAttributes: additionalAttributes,
+			Cluster:                      configuredCluster,
+			AWSRegion:                    "us-east-1",
+			InstanceAttributes:           additionalAttributes,
+			ShouldExcludeIPv6PortBinding: config.BooleanDefaultTrue{Value: config.ExplicitlyEnabled},
 		})
 }
 

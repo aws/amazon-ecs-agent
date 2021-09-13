@@ -349,4 +349,9 @@ type Config struct {
 	// EnableRuntimeStats specifies if pprof should be enabled through the agent introspection port. By default, this configuration
 	// is set to false and can be overridden by means of the ECS_ENABLE_RUNTIME_STATS environment variable.
 	EnableRuntimeStats BooleanDefaultFalse
+
+	// ShouldExcludeIPv6PortBinding specifies whether agent should exclude IPv6 port bindings reported from docker. This configuration
+	// is set to true by default, and can be overridden by the ECS_EXCLUDE_IPV6_PORTBINDING environment variable. This is a workaround
+	// for docker's bug as detailed in https://github.com/aws/amazon-ecs-agent/issues/2870.
+	ShouldExcludeIPv6PortBinding BooleanDefaultTrue
 }

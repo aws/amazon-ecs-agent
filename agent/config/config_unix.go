@@ -97,6 +97,7 @@ func DefaultConfig() Config {
 		FSxWindowsFileServerCapable:         false,
 		RuntimeStatsLogFile:                 defaultRuntimeStatsLogFile,
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
+		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
 	}
 }
 

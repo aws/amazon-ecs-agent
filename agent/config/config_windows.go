@@ -136,6 +136,7 @@ func DefaultConfig() Config {
 		CNIPluginsPath:                      filepath.Join(ecsBinaryDir, defaultCNIPluginDirName),
 		RuntimeStatsLogFile:                 filepath.Join(ecsRoot, defaultRuntimeStatsLogFile),
 		EnableRuntimeStats:                  BooleanDefaultFalse{Value: NotSet},
+		ShouldExcludeIPv6PortBinding:        BooleanDefaultTrue{Value: ExplicitlyEnabled},
 	}
 }
 
