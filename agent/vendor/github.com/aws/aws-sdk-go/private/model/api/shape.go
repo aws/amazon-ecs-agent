@@ -1,3 +1,4 @@
+//go:build codegen
 // +build codegen
 
 package api
@@ -97,7 +98,7 @@ type Shape struct {
 
 	OutputEventStreamAPI *EventStreamAPI
 	EventStream          *EventStream
-	EventFor             []*EventStream `json:"-"`
+	EventFor             map[string]*EventStream `json:"-"`
 
 	IsInputEventStream  bool `json:"-"`
 	IsOutputEventStream bool `json:"-"`
