@@ -591,6 +591,7 @@ func environmentConfig() (Config, error) {
 		FSxWindowsFileServerCapable:         parseFSxWindowsFileServerCapability(),
 		External:                            parseBooleanDefaultFalseConfig("ECS_EXTERNAL"),
 		EnableRuntimeStats:                  parseBooleanDefaultFalseConfig("ECS_ENABLE_RUNTIME_STATS"),
+		ShouldExcludeIPv6PortBinding:        parseBooleanDefaultTrueConfig("ECS_EXCLUDE_IPV6_PORTBINDING"),
 	}, err
 }
 
@@ -623,6 +624,7 @@ func (cfg *Config) String() string {
 			"ContainerCreateTimeout: %v, "+
 			"DependentContainersPullUpfront: %v, "+
 			"TaskCPUMemLimit: %v, "+
+			"ShouldExcludeIPv6PortBinding: %v, "+
 			"%s",
 		cfg.Cluster,
 		cfg.AWSRegion,
@@ -640,6 +642,7 @@ func (cfg *Config) String() string {
 		cfg.ContainerCreateTimeout,
 		cfg.DependentContainersPullUpfront,
 		cfg.TaskCPUMemLimit,
+		cfg.ShouldExcludeIPv6PortBinding,
 		cfg.platformString(),
 	)
 }

@@ -157,6 +157,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	defer setTestEnv("ECS_CGROUP_CPU_PERIOD", "")
 	defer setTestEnv("ECS_PULL_DEPENDENT_CONTAINERS_UPFRONT", "true")()
 	defer setTestEnv("ECS_ENABLE_RUNTIME_STATS", "true")()
+	defer setTestEnv("ECS_EXCLUDE_IPV6_PORTBINDING", "true")()
 	additionalLocalRoutesJSON := `["1.2.3.4/22","5.6.7.8/32"]`
 	setTestEnv("ECS_AWSVPC_ADDITIONAL_LOCAL_ROUTES", additionalLocalRoutesJSON)
 	setTestEnv("ECS_ENABLE_CONTAINER_METADATA", "true")
@@ -214,6 +215,7 @@ func TestEnvironmentConfig(t *testing.T) {
 	assert.Equal(t, []string{"efsAuth"}, conf.VolumePluginCapabilities)
 	assert.True(t, conf.DependentContainersPullUpfront.Enabled(), "Wrong value for DependentContainersPullUpfront")
 	assert.True(t, conf.EnableRuntimeStats.Enabled(), "Wrong value for EnableRuntimeStats")
+	assert.True(t, conf.ShouldExcludeIPv6PortBinding.Enabled(), "Wrong value for ShouldExcludeIPv6PortBinding")
 }
 
 func TestTrimWhitespaceWhenCreating(t *testing.T) {

@@ -413,7 +413,7 @@ func (client *APIECSClient) SubmitTaskStateChange(change api.TaskStateChange) er
 
 	containerEvents := make([]*ecs.ContainerStateChange, len(change.Containers))
 	for i, containerEvent := range change.Containers {
-		containerEvents[i] = client.buildContainerStateChangePayload(containerEvent)
+		containerEvents[i] = client.buildContainerStateChangePayload(containerEvent, client.config.ShouldExcludeIPv6PortBinding.Enabled())
 	}
 
 	req.Containers = containerEvents
@@ -454,7 +454,7 @@ func (client *APIECSClient) buildManagedAgentStateChangePayload(change api.Manag
 	}
 }
 
-func (client *APIECSClient) buildContainerStateChangePayload(change api.ContainerStateChange) *ecs.ContainerStateChange {
+func (client *APIECSClient) buildContainerStateChangePayload(change api.ContainerStateChange, shouldExcludeIPv6PortBinding bool) *ecs.ContainerStateChange {
 	statechange := &ecs.ContainerStateChange{
 		ContainerName: aws.String(change.ContainerName),
 	}
@@ -487,19 +487,25 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 		exitCode := int64(aws.IntValue(change.ExitCode))
 		statechange.ExitCode = aws.Int64(exitCode)
 	}
-	networkBindings := make([]*ecs.NetworkBinding, len(change.PortBindings))
-	for i, binding := range change.PortBindings {
+
+	networkBindings := []*ecs.NetworkBinding{}
+	for _, binding := range change.PortBindings {
+		if binding.BindIP == "::" && shouldExcludeIPv6PortBinding {
+			seelog.Debugf("Exclude IPv6 port binding %v for container %s in task %s", binding, change.ContainerName, change.TaskArn)
+			continue
+		}
+
 		hostPort := int64(binding.HostPort)
 		containerPort := int64(binding.ContainerPort)
 		bindIP := binding.BindIP
 		protocol := binding.Protocol.String()
 
-		networkBindings[i] = &ecs.NetworkBinding{
+		networkBindings = append(networkBindings, &ecs.NetworkBinding{
 			BindIP:        aws.String(bindIP),
 			ContainerPort: aws.Int64(containerPort),
 			HostPort:      aws.Int64(hostPort),
 			Protocol:      aws.String(protocol),
-		}
+		})
 	}
 	statechange.NetworkBindings = networkBindings
 
@@ -507,7 +513,7 @@ func (client *APIECSClient) buildContainerStateChangePayload(change api.Containe
 }
 
 func (client *APIECSClient) SubmitContainerStateChange(change api.ContainerStateChange) error {
-	pl := client.buildContainerStateChangePayload(change)
+	pl := client.buildContainerStateChangePayload(change, client.config.ShouldExcludeIPv6PortBinding.Enabled())
 	if pl == nil {
 		return nil
 	}
