@@ -797,11 +797,6 @@ func TestConnectionIsClosedOnIdle(t *testing.T) {
 }
 
 func TestHandlerDoesntLeakGoroutines(t *testing.T) {
-	// Skip this test on "windows" platform as we have observed this to
-	// fail often after upgrading the windows builds to golang v1.17.
-	if runtime.GOOS == "windows" {
-		t.Skip()
-	}
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	taskEngine := mock_engine.NewMockTaskEngine(ctrl)
@@ -1077,20 +1072,19 @@ func startMockAcsServer(t *testing.T, closeWS <-chan bool) (*httptest.Server, ch
 			errChan <- err
 		}
 
-		go func() {
-			_, msg, err := ws.ReadMessage()
-			if err != nil {
-				errChan <- err
-			} else {
-				requestsChan <- string(msg)
-			}
-		}()
 		for {
 			select {
 			case str := <-serverChan:
 				err := ws.WriteMessage(websocket.TextMessage, []byte(str))
 				if err != nil {
 					errChan <- err
+				}
+				// read ack message
+				_, msg, err := ws.ReadMessage()
+				if err != nil {
+					errChan <- err
+				} else {
+					requestsChan <- string(msg)
 				}
 
 			case <-closeWS:
