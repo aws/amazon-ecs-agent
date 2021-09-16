@@ -48,6 +48,8 @@ $cwd = (pwd).Path
 try {
   cd "${PSScriptRoot}"
   $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
+#  cd "${PSScriptRoot}/../agent"
+#  $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ./engine ./stats ./app
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"
