@@ -1,4 +1,10 @@
 # Changelog
+## 1.55.3
+* Enhancement - Upgrade Windows builds to golang version v1.17
+[#3010](https://github.com/aws/amazon-ecs-agent/pull/3010)
+* Enhancement - Introduce a new environment variable ECS_EXCLUDE_IPV6_PORTBINDING. When enabled, this filters the IPv6 port bindings for default network mode tasks in DescribeTasks API call [#3025](https://github.com/aws/amazon-ecs-agent/pull/3025)
+* Bug - Fix a issue that agent does not clean task execution credentials from credential manager when stopping a task [#2993](https://github.com/aws/amazon-ecs-agent/pull/2993) 
+
 ## 1.55.2
 * Enhancement - Add runtime-stats log file to periodically log agent's runtime stats such as used memory and CPU; also add new configuration setting to enable/disable pprof [#3001](https://github.com/aws/amazon-ecs-agent/pull/3001)
 * Enhancement - Improvement of log message displayed when container instance registartion fails due to attribute validation errors [#2999](https://github.com/aws/amazon-ecs-agent/pull/2999)
