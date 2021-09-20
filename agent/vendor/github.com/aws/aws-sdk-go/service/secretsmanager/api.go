@@ -215,22 +215,25 @@ func (c *SecretsManager) CreateSecretRequest(input *CreateSecretInput) (req *req
 //
 //    * If you call an operation to encrypt or decrypt the SecretString or SecretBinary
 //    for a secret in the same account as the calling user and that secret doesn't
-//    specify a AWS KMS encryption key, Secrets Manager uses the account's default
-//    AWS managed customer master key (CMK) with the alias aws/secretsmanager.
-//    If this key doesn't already exist in your account then Secrets Manager
-//    creates it for you automatically. All users and roles in the same AWS
-//    account automatically have access to use the default CMK. Note that if
-//    an Secrets Manager API call results in AWS creating the account's AWS-managed
-//    CMK, it can result in a one-time significant delay in returning the result.
+//    specify a Amazon Web Services KMS encryption key, Secrets Manager uses
+//    the account's default Amazon Web Services managed customer master key
+//    (CMK) with the alias aws/secretsmanager. If this key doesn't already exist
+//    in your account then Secrets Manager creates it for you automatically.
+//    All users and roles in the same Amazon Web Services account automatically
+//    have access to use the default CMK. Note that if an Secrets Manager API
+//    call results in Amazon Web Services creating the account's Amazon Web
+//    Services-managed CMK, it can result in a one-time significant delay in
+//    returning the result.
 //
-//    * If the secret resides in a different AWS account from the credentials
-//    calling an API that requires encryption or decryption of the secret value
-//    then you must create and use a custom AWS KMS CMK because you can't access
-//    the default CMK for the account using credentials from a different AWS
-//    account. Store the ARN of the CMK in the secret when you create the secret
-//    or when you update it by including it in the KMSKeyId. If you call an
-//    API that must encrypt or decrypt SecretString or SecretBinary using credentials
-//    from a different account then the AWS KMS key policy must grant cross-account
+//    * If the secret resides in a different Amazon Web Services account from
+//    the credentials calling an API that requires encryption or decryption
+//    of the secret value then you must create and use a custom Amazon Web Services
+//    KMS CMK because you can't access the default CMK for the account using
+//    credentials from a different Amazon Web Services account. Store the ARN
+//    of the CMK in the secret when you create the secret or when you update
+//    it by including it in the KMSKeyId. If you call an API that must encrypt
+//    or decrypt SecretString or SecretBinary using credentials from a different
+//    account then the Amazon Web Services KMS key policy must grant cross-account
 //    access to that other account's user or role for both the kms:GenerateDataKey
 //    and kms:Decrypt operations.
 //
@@ -240,13 +243,14 @@ func (c *SecretsManager) CreateSecretRequest(input *CreateSecretInput) (req *req
 //
 //    * secretsmanager:CreateSecret
 //
-//    * kms:GenerateDataKey - needed only if you use a customer-managed AWS
-//    KMS key to encrypt the secret. You do not need this permission to use
-//    the account default AWS managed CMK for Secrets Manager.
+//    * kms:GenerateDataKey - needed only if you use a customer-managed Amazon
+//    Web Services KMS key to encrypt the secret. You do not need this permission
+//    to use the account default Amazon Web Services managed CMK for Secrets
+//    Manager.
 //
-//    * kms:Decrypt - needed only if you use a customer-managed AWS KMS key
-//    to encrypt the secret. You do not need this permission to use the account
-//    default AWS managed CMK for Secrets Manager.
+//    * kms:Decrypt - needed only if you use a customer-managed Amazon Web Services
+//    KMS key to encrypt the secret. You do not need this permission to use
+//    the account default Amazon Web Services managed CMK for Secrets Manager.
 //
 //    * secretsmanager:TagResource - needed only if you include the Tags parameter.
 //
@@ -309,7 +313,7 @@ func (c *SecretsManager) CreateSecretRequest(input *CreateSecretInput) (req *req
 //   We can't find the resource that you asked for.
 //
 //   * MalformedPolicyDocumentException
-//   The policy document that you provided isn't valid.
+//   You provided a resource-based policy with syntax errors.
 //
 //   * InternalServiceError
 //   An error occurred on the server side.
@@ -395,7 +399,7 @@ func (c *SecretsManager) DeleteResourcePolicyRequest(input *DeleteResourcePolicy
 //
 //    * To attach a resource policy to a secret, use PutResourcePolicy.
 //
-//    * To retrieve the current resource-based policy that's attached to a secret,
+//    * To retrieve the current resource-based policy attached to a secret,
 //    use GetResourcePolicy.
 //
 //    * To list all of the currently available secrets, use ListSecrets.
@@ -426,6 +430,9 @@ func (c *SecretsManager) DeleteResourcePolicyRequest(input *DeleteResourcePolicy
 //      * You tried to enable rotation on a secret that doesn't already have a
 //      Lambda function ARN configured and you didn't include such an ARN as a
 //      parameter in this call.
+//
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/DeleteResourcePolicy
 func (c *SecretsManager) DeleteResourcePolicy(input *DeleteResourcePolicyInput) (*DeleteResourcePolicyOutput, error) {
@@ -493,7 +500,7 @@ func (c *SecretsManager) DeleteSecretRequest(input *DeleteSecretInput) (req *req
 
 // DeleteSecret API operation for AWS Secrets Manager.
 //
-// Deletes an entire secret and all of its versions. You can optionally include
+// Deletes an entire secret and all of the versions. You can optionally include
 // a recovery window during which you can restore the secret. If you don't specify
 // a recovery window value, the operation defaults to 30 days. Secrets Manager
 // attaches a DeletionDate stamp to the secret that specifies the end of the
@@ -503,15 +510,15 @@ func (c *SecretsManager) DeleteSecretRequest(input *DeleteSecretInput) (req *req
 // At any time before recovery window ends, you can use RestoreSecret to remove
 // the DeletionDate and cancel the deletion of the secret.
 //
-// You cannot access the encrypted secret information in any secret that is
-// scheduled for deletion. If you need to access that information, you must
-// cancel the deletion with RestoreSecret and then retrieve the information.
+// You cannot access the encrypted secret information in any secret scheduled
+// for deletion. If you need to access that information, you must cancel the
+// deletion with RestoreSecret and then retrieve the information.
 //
 //    * There is no explicit operation to delete a version of a secret. Instead,
 //    remove all staging labels from the VersionStage field of a version. That
 //    marks the version as deprecated and allows Secrets Manager to delete it
-//    as needed. Versions that do not have any staging labels do not show up
-//    in ListSecretVersionIds unless you specify IncludeDeprecated.
+//    as needed. Versions without any staging labels do not show up in ListSecretVersionIds
+//    unless you specify IncludeDeprecated.
 //
 //    * The permanent secret deletion at the end of the waiting period is performed
 //    as a background task with low priority. There is no guarantee of a specific
@@ -644,7 +651,7 @@ func (c *SecretsManager) DescribeSecretRequest(input *DescribeSecretInput) (req 
 //    * To retrieve the encrypted secret information in a version of the secret,
 //    use GetSecretValue.
 //
-//    * To list all of the secrets in the AWS account, use ListSecrets.
+//    * To list all of the secrets in the Amazon Web Services account, use ListSecrets.
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -659,6 +666,9 @@ func (c *SecretsManager) DescribeSecretRequest(input *DescribeSecretInput) (req 
 //
 //   * InternalServiceError
 //   An error occurred on the server side.
+//
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/DescribeSecret
 func (c *SecretsManager) DescribeSecret(input *DescribeSecretInput) (*DescribeSecretOutput, error) {
@@ -876,6 +886,9 @@ func (c *SecretsManager) GetResourcePolicyRequest(input *GetResourcePolicyInput)
 //      Lambda function ARN configured and you didn't include such an ARN as a
 //      parameter in this call.
 //
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
+//
 // See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/GetResourcePolicy
 func (c *SecretsManager) GetResourcePolicy(input *GetResourcePolicyInput) (*GetResourcePolicyOutput, error) {
 	req, out := c.GetResourcePolicyRequest(input)
@@ -951,9 +964,10 @@ func (c *SecretsManager) GetSecretValueRequest(input *GetSecretValueInput) (req 
 //
 //    * secretsmanager:GetSecretValue
 //
-//    * kms:Decrypt - required only if you use a customer-managed AWS KMS key
-//    to encrypt the secret. You do not need this permission to use the account's
-//    default AWS managed CMK for Secrets Manager.
+//    * kms:Decrypt - required only if you use a customer-managed Amazon Web
+//    Services KMS key to encrypt the secret. You do not need this permission
+//    to use the account's default Amazon Web Services managed CMK for Secrets
+//    Manager.
 //
 // Related operations
 //
@@ -1106,6 +1120,9 @@ func (c *SecretsManager) ListSecretVersionIdsRequest(input *ListSecretVersionIds
 //   * InternalServiceError
 //   An error occurred on the server side.
 //
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
+//
 // See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/ListSecretVersionIds
 func (c *SecretsManager) ListSecretVersionIds(input *ListSecretVersionIdsInput) (*ListSecretVersionIdsOutput, error) {
 	req, out := c.ListSecretVersionIdsRequest(input)
@@ -1230,10 +1247,11 @@ func (c *SecretsManager) ListSecretsRequest(input *ListSecretsInput) (req *reque
 
 // ListSecrets API operation for AWS Secrets Manager.
 //
-// Lists all of the secrets that are stored by Secrets Manager in the AWS account.
-// To list the versions currently stored for a specific secret, use ListSecretVersionIds.
-// The encrypted fields SecretString and SecretBinary are not included in the
-// output. To get that information, call the GetSecretValue operation.
+// Lists all of the secrets that are stored by Secrets Manager in the Amazon
+// Web Services account. To list the versions currently stored for a specific
+// secret, use ListSecretVersionIds. The encrypted fields SecretString and SecretBinary
+// are not included in the output. To get that information, call the GetSecretValue
+// operation.
 //
 // Always check the NextToken response parameter when calling any of the List*
 // operations. These operations can occasionally return an empty or shorter
@@ -1392,10 +1410,10 @@ func (c *SecretsManager) PutResourcePolicyRequest(input *PutResourcePolicyInput)
 // (ARN) in the policy statement's Resources element. You can also use a combination
 // of both identity-based and resource-based policies. The affected users and
 // roles receive the permissions that are permitted by all of the relevant policies.
-// For more information, see Using Resource-Based Policies for AWS Secrets Manager
-// (http://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_resource-based-policies.html).
-// For the complete description of the AWS policy syntax and grammar, see IAM
-// JSON Policy Reference (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies.html)
+// For more information, see Using Resource-Based Policies for Amazon Web Services
+// Secrets Manager (http://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_resource-based-policies.html).
+// For the complete description of the Amazon Web Services policy syntax and
+// grammar, see IAM JSON Policy Reference (https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies.html)
 // in the IAM User Guide.
 //
 // Minimum permissions
@@ -1408,8 +1426,7 @@ func (c *SecretsManager) PutResourcePolicyRequest(input *PutResourcePolicyInput)
 //
 //    * To retrieve the resource policy attached to a secret, use GetResourcePolicy.
 //
-//    * To delete the resource-based policy that's attached to a secret, use
-//    DeleteResourcePolicy.
+//    * To delete the resource-based policy attached to a secret, use DeleteResourcePolicy.
 //
 //    * To list all of the currently available secrets, use ListSecrets.
 //
@@ -1422,7 +1439,7 @@ func (c *SecretsManager) PutResourcePolicyRequest(input *PutResourcePolicyInput)
 //
 // Returned Error Types:
 //   * MalformedPolicyDocumentException
-//   The policy document that you provided isn't valid.
+//   You provided a resource-based policy with syntax errors.
 //
 //   * ResourceNotFoundException
 //   We can't find the resource that you asked for.
@@ -1447,7 +1464,8 @@ func (c *SecretsManager) PutResourcePolicyRequest(input *PutResourcePolicyInput)
 //      parameter in this call.
 //
 //   * PublicPolicyException
-//   The resource policy did not prevent broad access to the secret.
+//   The BlockPublicPolicy parameter is set to true and the resource policy did
+//   not prevent broad access to the secret.
 //
 // See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/PutResourcePolicy
 func (c *SecretsManager) PutResourcePolicy(input *PutResourcePolicyInput) (*PutResourcePolicyOutput, error) {
@@ -1521,21 +1539,19 @@ func (c *SecretsManager) PutSecretValueRequest(input *PutSecretValueInput) (req 
 // also specify the staging labels that are initially attached to the new version.
 //
 // The Secrets Manager console uses only the SecretString field. To add binary
-// data to a secret with the SecretBinary field you must use the AWS CLI or
-// one of the AWS SDKs.
+// data to a secret with the SecretBinary field you must use the Amazon Web
+// Services CLI or one of the Amazon Web Services SDKs.
 //
 //    * If this operation creates the first version for the secret then Secrets
 //    Manager automatically attaches the staging label AWSCURRENT to the new
 //    version.
 //
-//    * If another version of this secret already exists, then this operation
-//    does not automatically move any staging labels other than those that you
-//    explicitly specify in the VersionStages parameter.
+//    * If you do not specify a value for VersionStages then Secrets Manager
+//    automatically moves the staging label AWSCURRENT to this new version.
 //
 //    * If this operation moves the staging label AWSCURRENT from another version
-//    to this version (because you included it in the StagingLabels parameter)
-//    then Secrets Manager also automatically moves the staging label AWSPREVIOUS
-//    to the version that AWSCURRENT was removed from.
+//    to this version, then Secrets Manager also automatically moves the staging
+//    label AWSPREVIOUS to the version that AWSCURRENT was removed from.
 //
 //    * This operation is idempotent. If a version with a VersionId with the
 //    same value as the ClientRequestToken parameter already exists and you
@@ -1545,22 +1561,25 @@ func (c *SecretsManager) PutSecretValueRequest(input *PutSecretValueInput) (req 
 //
 //    * If you call an operation to encrypt or decrypt the SecretString or SecretBinary
 //    for a secret in the same account as the calling user and that secret doesn't
-//    specify a AWS KMS encryption key, Secrets Manager uses the account's default
-//    AWS managed customer master key (CMK) with the alias aws/secretsmanager.
-//    If this key doesn't already exist in your account then Secrets Manager
-//    creates it for you automatically. All users and roles in the same AWS
-//    account automatically have access to use the default CMK. Note that if
-//    an Secrets Manager API call results in AWS creating the account's AWS-managed
-//    CMK, it can result in a one-time significant delay in returning the result.
+//    specify a Amazon Web Services KMS encryption key, Secrets Manager uses
+//    the account's default Amazon Web Services managed customer master key
+//    (CMK) with the alias aws/secretsmanager. If this key doesn't already exist
+//    in your account then Secrets Manager creates it for you automatically.
+//    All users and roles in the same Amazon Web Services account automatically
+//    have access to use the default CMK. Note that if an Secrets Manager API
+//    call results in Amazon Web Services creating the account's Amazon Web
+//    Services-managed CMK, it can result in a one-time significant delay in
+//    returning the result.
 //
-//    * If the secret resides in a different AWS account from the credentials
-//    calling an API that requires encryption or decryption of the secret value
-//    then you must create and use a custom AWS KMS CMK because you can't access
-//    the default CMK for the account using credentials from a different AWS
-//    account. Store the ARN of the CMK in the secret when you create the secret
-//    or when you update it by including it in the KMSKeyId. If you call an
-//    API that must encrypt or decrypt SecretString or SecretBinary using credentials
-//    from a different account then the AWS KMS key policy must grant cross-account
+//    * If the secret resides in a different Amazon Web Services account from
+//    the credentials calling an API that requires encryption or decryption
+//    of the secret value then you must create and use a custom Amazon Web Services
+//    KMS CMK because you can't access the default CMK for the account using
+//    credentials from a different Amazon Web Services account. Store the ARN
+//    of the CMK in the secret when you create the secret or when you update
+//    it by including it in the KMSKeyId. If you call an API that must encrypt
+//    or decrypt SecretString or SecretBinary using credentials from a different
+//    account then the Amazon Web Services KMS key policy must grant cross-account
 //    access to that other account's user or role for both the kms:GenerateDataKey
 //    and kms:Decrypt operations.
 //
@@ -1570,9 +1589,10 @@ func (c *SecretsManager) PutSecretValueRequest(input *PutSecretValueInput) (req 
 //
 //    * secretsmanager:PutSecretValue
 //
-//    * kms:GenerateDataKey - needed only if you use a customer-managed AWS
-//    KMS key to encrypt the secret. You do not need this permission to use
-//    the account's default AWS managed CMK for Secrets Manager.
+//    * kms:GenerateDataKey - needed only if you use a customer-managed Amazon
+//    Web Services KMS key to encrypt the secret. You do not need this permission
+//    to use the account's default Amazon Web Services managed CMK for Secrets
+//    Manager.
 //
 // Related operations
 //
@@ -1645,6 +1665,203 @@ func (c *SecretsManager) PutSecretValue(input *PutSecretValueInput) (*PutSecretV
 // for more information on using Contexts.
 func (c *SecretsManager) PutSecretValueWithContext(ctx aws.Context, input *PutSecretValueInput, opts ...request.Option) (*PutSecretValueOutput, error) {
 	req, out := c.PutSecretValueRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+const opRemoveRegionsFromReplication = "RemoveRegionsFromReplication"
+
+// RemoveRegionsFromReplicationRequest generates a "aws/request.Request" representing the
+// client's request for the RemoveRegionsFromReplication operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See RemoveRegionsFromReplication for more information on using the RemoveRegionsFromReplication
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//
+//    // Example sending a request using the RemoveRegionsFromReplicationRequest method.
+//    req, resp := client.RemoveRegionsFromReplicationRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/RemoveRegionsFromReplication
+func (c *SecretsManager) RemoveRegionsFromReplicationRequest(input *RemoveRegionsFromReplicationInput) (req *request.Request, output *RemoveRegionsFromReplicationOutput) {
+	op := &request.Operation{
+		Name:       opRemoveRegionsFromReplication,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &RemoveRegionsFromReplicationInput{}
+	}
+
+	output = &RemoveRegionsFromReplicationOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// RemoveRegionsFromReplication API operation for AWS Secrets Manager.
+//
+// Remove regions from replication.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Secrets Manager's
+// API operation RemoveRegionsFromReplication for usage and error information.
+//
+// Returned Error Types:
+//   * ResourceNotFoundException
+//   We can't find the resource that you asked for.
+//
+//   * InvalidRequestException
+//   You provided a parameter value that is not valid for the current state of
+//   the resource.
+//
+//   Possible causes:
+//
+//      * You tried to perform the operation on a secret that's currently marked
+//      deleted.
+//
+//      * You tried to enable rotation on a secret that doesn't already have a
+//      Lambda function ARN configured and you didn't include such an ARN as a
+//      parameter in this call.
+//
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
+//
+//   * InternalServiceError
+//   An error occurred on the server side.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/RemoveRegionsFromReplication
+func (c *SecretsManager) RemoveRegionsFromReplication(input *RemoveRegionsFromReplicationInput) (*RemoveRegionsFromReplicationOutput, error) {
+	req, out := c.RemoveRegionsFromReplicationRequest(input)
+	return out, req.Send()
+}
+
+// RemoveRegionsFromReplicationWithContext is the same as RemoveRegionsFromReplication with the addition of
+// the ability to pass a context and additional request options.
+//
+// See RemoveRegionsFromReplication for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SecretsManager) RemoveRegionsFromReplicationWithContext(ctx aws.Context, input *RemoveRegionsFromReplicationInput, opts ...request.Option) (*RemoveRegionsFromReplicationOutput, error) {
+	req, out := c.RemoveRegionsFromReplicationRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
+const opReplicateSecretToRegions = "ReplicateSecretToRegions"
+
+// ReplicateSecretToRegionsRequest generates a "aws/request.Request" representing the
+// client's request for the ReplicateSecretToRegions operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See ReplicateSecretToRegions for more information on using the ReplicateSecretToRegions
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//
+//    // Example sending a request using the ReplicateSecretToRegionsRequest method.
+//    req, resp := client.ReplicateSecretToRegionsRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/ReplicateSecretToRegions
+func (c *SecretsManager) ReplicateSecretToRegionsRequest(input *ReplicateSecretToRegionsInput) (req *request.Request, output *ReplicateSecretToRegionsOutput) {
+	op := &request.Operation{
+		Name:       opReplicateSecretToRegions,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &ReplicateSecretToRegionsInput{}
+	}
+
+	output = &ReplicateSecretToRegionsOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// ReplicateSecretToRegions API operation for AWS Secrets Manager.
+//
+// Converts an existing secret to a multi-Region secret and begins replication
+// the secret to a list of new regions.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Secrets Manager's
+// API operation ReplicateSecretToRegions for usage and error information.
+//
+// Returned Error Types:
+//   * ResourceNotFoundException
+//   We can't find the resource that you asked for.
+//
+//   * InvalidRequestException
+//   You provided a parameter value that is not valid for the current state of
+//   the resource.
+//
+//   Possible causes:
+//
+//      * You tried to perform the operation on a secret that's currently marked
+//      deleted.
+//
+//      * You tried to enable rotation on a secret that doesn't already have a
+//      Lambda function ARN configured and you didn't include such an ARN as a
+//      parameter in this call.
+//
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
+//
+//   * InternalServiceError
+//   An error occurred on the server side.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/ReplicateSecretToRegions
+func (c *SecretsManager) ReplicateSecretToRegions(input *ReplicateSecretToRegionsInput) (*ReplicateSecretToRegionsOutput, error) {
+	req, out := c.ReplicateSecretToRegionsRequest(input)
+	return out, req.Send()
+}
+
+// ReplicateSecretToRegionsWithContext is the same as ReplicateSecretToRegions with the addition of
+// the ability to pass a context and additional request options.
+//
+// See ReplicateSecretToRegions for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SecretsManager) ReplicateSecretToRegionsWithContext(ctx aws.Context, input *ReplicateSecretToRegionsInput, opts ...request.Option) (*ReplicateSecretToRegionsOutput, error) {
+	req, out := c.ReplicateSecretToRegionsRequest(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
@@ -1810,16 +2027,16 @@ func (c *SecretsManager) RotateSecretRequest(input *RotateSecretInput) (req *req
 // already stored in the secret. After the rotation completes, the protected
 // service and its clients all use the new version of the secret.
 //
-// This required configuration information includes the ARN of an AWS Lambda
-// function and the time between scheduled rotations. The Lambda rotation function
-// creates a new version of the secret and creates or updates the credentials
-// on the protected service to match. After testing the new credentials, the
-// function marks the new secret with the staging label AWSCURRENT so that your
-// clients all immediately begin to use the new version. For more information
-// about rotating secrets and how to configure a Lambda function to rotate the
-// secrets for your protected service, see Rotating Secrets in AWS Secrets Manager
-// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html)
-// in the AWS Secrets Manager User Guide.
+// This required configuration information includes the ARN of an Amazon Web
+// Services Lambda function and optionally, the time between scheduled rotations.
+// The Lambda rotation function creates a new version of the secret and creates
+// or updates the credentials on the protected service to match. After testing
+// the new credentials, the function marks the new secret with the staging label
+// AWSCURRENT so that your clients all immediately begin to use the new version.
+// For more information about rotating secrets and how to configure a Lambda
+// function to rotate the secrets for your protected service, see Rotating Secrets
+// in Amazon Web Services Secrets Manager (https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html)
+// in the Amazon Web Services Secrets Manager User Guide.
 //
 // Secrets Manager schedules the next rotation when the previous one completes.
 // Secrets Manager schedules the date by adding the rotation interval (number
@@ -1911,6 +2128,105 @@ func (c *SecretsManager) RotateSecretWithContext(ctx aws.Context, input *RotateS
 	return out, req.Send()
 }
 
+const opStopReplicationToReplica = "StopReplicationToReplica"
+
+// StopReplicationToReplicaRequest generates a "aws/request.Request" representing the
+// client's request for the StopReplicationToReplica operation. The "output" return
+// value will be populated with the request's response once the request completes
+// successfully.
+//
+// Use "Send" method on the returned Request to send the API call to the service.
+// the "output" return value is not valid until after Send returns without error.
+//
+// See StopReplicationToReplica for more information on using the StopReplicationToReplica
+// API call, and error handling.
+//
+// This method is useful when you want to inject custom logic or configuration
+// into the SDK's request lifecycle. Such as custom headers, or retry logic.
+//
+//
+//    // Example sending a request using the StopReplicationToReplicaRequest method.
+//    req, resp := client.StopReplicationToReplicaRequest(params)
+//
+//    err := req.Send()
+//    if err == nil { // resp is now filled
+//        fmt.Println(resp)
+//    }
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/StopReplicationToReplica
+func (c *SecretsManager) StopReplicationToReplicaRequest(input *StopReplicationToReplicaInput) (req *request.Request, output *StopReplicationToReplicaOutput) {
+	op := &request.Operation{
+		Name:       opStopReplicationToReplica,
+		HTTPMethod: "POST",
+		HTTPPath:   "/",
+	}
+
+	if input == nil {
+		input = &StopReplicationToReplicaInput{}
+	}
+
+	output = &StopReplicationToReplicaOutput{}
+	req = c.newRequest(op, input, output)
+	return
+}
+
+// StopReplicationToReplica API operation for AWS Secrets Manager.
+//
+// Removes the secret from replication and promotes the secret to a regional
+// secret in the replica Region.
+//
+// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
+// with awserr.Error's Code and Message methods to get detailed information about
+// the error.
+//
+// See the AWS API reference guide for AWS Secrets Manager's
+// API operation StopReplicationToReplica for usage and error information.
+//
+// Returned Error Types:
+//   * ResourceNotFoundException
+//   We can't find the resource that you asked for.
+//
+//   * InvalidRequestException
+//   You provided a parameter value that is not valid for the current state of
+//   the resource.
+//
+//   Possible causes:
+//
+//      * You tried to perform the operation on a secret that's currently marked
+//      deleted.
+//
+//      * You tried to enable rotation on a secret that doesn't already have a
+//      Lambda function ARN configured and you didn't include such an ARN as a
+//      parameter in this call.
+//
+//   * InvalidParameterException
+//   You provided an invalid value for a parameter.
+//
+//   * InternalServiceError
+//   An error occurred on the server side.
+//
+// See also, https://docs.aws.amazon.com/goto/WebAPI/secretsmanager-2017-10-17/StopReplicationToReplica
+func (c *SecretsManager) StopReplicationToReplica(input *StopReplicationToReplicaInput) (*StopReplicationToReplicaOutput, error) {
+	req, out := c.StopReplicationToReplicaRequest(input)
+	return out, req.Send()
+}
+
+// StopReplicationToReplicaWithContext is the same as StopReplicationToReplica with the addition of
+// the ability to pass a context and additional request options.
+//
+// See StopReplicationToReplica for details on how to use this API operation.
+//
+// The context must be non-nil and will be used for request cancellation. If
+// the context is nil a panic will occur. In the future the SDK may create
+// sub-contexts for http.Requests. See https://golang.org/pkg/context/
+// for more information on using Contexts.
+func (c *SecretsManager) StopReplicationToReplicaWithContext(ctx aws.Context, input *StopReplicationToReplicaInput, opts ...request.Option) (*StopReplicationToReplicaOutput, error) {
+	req, out := c.StopReplicationToReplicaRequest(input)
+	req.SetContext(ctx)
+	req.ApplyOptions(opts...)
+	return out, req.Send()
+}
+
 const opTagResource = "TagResource"
 
 // TagResourceRequest generates a "aws/request.Request" representing the
@@ -1972,10 +2288,10 @@ func (c *SecretsManager) TagResourceRequest(input *TagResourceInput) (req *reque
 //
 //    * Tag keys and values are case sensitive.
 //
-//    * Do not use the aws: prefix in your tag names or values because AWS reserves
-//    it for AWS use. You can't edit or delete tag names or values with this
-//    prefix. Tags with this prefix do not count against your tags per secret
-//    limit.
+//    * Do not use the aws: prefix in your tag names or values because Amazon
+//    Web Services reserves it for Amazon Web Services use. You can't edit or
+//    delete tag names or values with this prefix. Tags with this prefix do
+//    not count against your tags per secret limit.
 //
 //    * If you use your tagging schema across multiple services and resources,
 //    remember other services might have restrictions on allowed characters.
@@ -2224,8 +2540,8 @@ func (c *SecretsManager) UpdateSecretRequest(input *UpdateSecretInput) (req *req
 //
 // The Secrets Manager console uses only the SecretString parameter and therefore
 // limits you to encrypting and storing only a text string. To encrypt and store
-// binary data as part of the version of a secret, you must use either the AWS
-// CLI or one of the AWS SDKs.
+// binary data as part of the version of a secret, you must use either the Amazon
+// Web Services CLI or one of the Amazon Web Services SDKs.
 //
 //    * If a version with a VersionId with the same value as the ClientRequestToken
 //    parameter already exists, the operation results in an error. You cannot
@@ -2237,22 +2553,25 @@ func (c *SecretsManager) UpdateSecretRequest(input *UpdateSecretInput) (req *req
 //
 //    * If you call an operation to encrypt or decrypt the SecretString or SecretBinary
 //    for a secret in the same account as the calling user and that secret doesn't
-//    specify a AWS KMS encryption key, Secrets Manager uses the account's default
-//    AWS managed customer master key (CMK) with the alias aws/secretsmanager.
-//    If this key doesn't already exist in your account then Secrets Manager
-//    creates it for you automatically. All users and roles in the same AWS
-//    account automatically have access to use the default CMK. Note that if
-//    an Secrets Manager API call results in AWS creating the account's AWS-managed
-//    CMK, it can result in a one-time significant delay in returning the result.
+//    specify a Amazon Web Services KMS encryption key, Secrets Manager uses
+//    the account's default Amazon Web Services managed customer master key
+//    (CMK) with the alias aws/secretsmanager. If this key doesn't already exist
+//    in your account then Secrets Manager creates it for you automatically.
+//    All users and roles in the same Amazon Web Services account automatically
+//    have access to use the default CMK. Note that if an Secrets Manager API
+//    call results in Amazon Web Services creating the account's Amazon Web
+//    Services-managed CMK, it can result in a one-time significant delay in
+//    returning the result.
 //
-//    * If the secret resides in a different AWS account from the credentials
-//    calling an API that requires encryption or decryption of the secret value
-//    then you must create and use a custom AWS KMS CMK because you can't access
-//    the default CMK for the account using credentials from a different AWS
-//    account. Store the ARN of the CMK in the secret when you create the secret
-//    or when you update it by including it in the KMSKeyId. If you call an
-//    API that must encrypt or decrypt SecretString or SecretBinary using credentials
-//    from a different account then the AWS KMS key policy must grant cross-account
+//    * If the secret resides in a different Amazon Web Services account from
+//    the credentials calling an API that requires encryption or decryption
+//    of the secret value then you must create and use a custom Amazon Web Services
+//    KMS CMK because you can't access the default CMK for the account using
+//    credentials from a different Amazon Web Services account. Store the ARN
+//    of the CMK in the secret when you create the secret or when you update
+//    it by including it in the KMSKeyId. If you call an API that must encrypt
+//    or decrypt SecretString or SecretBinary using credentials from a different
+//    account then the Amazon Web Services KMS key policy must grant cross-account
 //    access to that other account's user or role for both the kms:GenerateDataKey
 //    and kms:Decrypt operations.
 //
@@ -2262,13 +2581,13 @@ func (c *SecretsManager) UpdateSecretRequest(input *UpdateSecretInput) (req *req
 //
 //    * secretsmanager:UpdateSecret
 //
-//    * kms:GenerateDataKey - needed only if you use a custom AWS KMS key to
-//    encrypt the secret. You do not need this permission to use the account's
-//    AWS managed CMK for Secrets Manager.
+//    * kms:GenerateDataKey - needed only if you use a custom Amazon Web Services
+//    KMS key to encrypt the secret. You do not need this permission to use
+//    the account's Amazon Web Services managed CMK for Secrets Manager.
 //
-//    * kms:Decrypt - needed only if you use a custom AWS KMS key to encrypt
-//    the secret. You do not need this permission to use the account's AWS managed
-//    CMK for Secrets Manager.
+//    * kms:Decrypt - needed only if you use a custom Amazon Web Services KMS
+//    key to encrypt the secret. You do not need this permission to use the
+//    account's Amazon Web Services managed CMK for Secrets Manager.
 //
 // Related operations
 //
@@ -2321,7 +2640,7 @@ func (c *SecretsManager) UpdateSecretRequest(input *UpdateSecretInput) (req *req
 //   We can't find the resource that you asked for.
 //
 //   * MalformedPolicyDocumentException
-//   The policy document that you provided isn't valid.
+//   You provided a resource-based policy with syntax errors.
 //
 //   * InternalServiceError
 //   An error occurred on the server side.
@@ -2402,7 +2721,7 @@ func (c *SecretsManager) UpdateSecretVersionStageRequest(input *UpdateSecretVers
 // then it is moved--removed from the other version first and then attached
 // to this one. For more information about staging labels, see Staging Labels
 // (https://docs.aws.amazon.com/secretsmanager/latest/userguide/terms-concepts.html#term_staging-label)
-// in the AWS Secrets Manager User Guide.
+// in the Amazon Web Services Secrets Manager User Guide.
 //
 // The staging labels that you specify in the VersionStage parameter are added
 // to the existing list of staging labels--they don't replace it.
@@ -2529,10 +2848,29 @@ func (c *SecretsManager) ValidateResourcePolicyRequest(input *ValidateResourcePo
 
 // ValidateResourcePolicy API operation for AWS Secrets Manager.
 //
-// Validates the JSON text of the resource-based policy document attached to
-// the specified secret. The JSON request string input and response output displays
-// formatted code with white space and line breaks for better readability. Submit
-// your input as a single line JSON string. A resource-based policy is optional.
+// Validates that the resource policy does not grant a wide range of IAM principals
+// access to your secret. The JSON request string input and response output
+// displays formatted code with white space and line breaks for better readability.
+// Submit your input as a single line JSON string. A resource-based policy is
+// optional for secrets.
+//
+// The API performs three checks when validating the secret:
+//
+//    * Sends a call to Zelkova (https://aws.amazon.com/blogs/security/protect-sensitive-data-in-the-cloud-with-automated-reasoning-zelkova/),
+//    an automated reasoning engine, to ensure your Resource Policy does not
+//    allow broad access to your secret.
+//
+//    * Checks for correct syntax in a policy.
+//
+//    * Verifies the policy does not lock out a caller.
+//
+// Minimum Permissions
+//
+// You must have the permissions required to access the following APIs:
+//
+//    * secretsmanager:PutResourcePolicy
+//
+//    * secretsmanager:ValidateResourcePolicy
 //
 // Returns awserr.Error for service API and SDK errors. Use runtime type assertions
 // with awserr.Error's Code and Message methods to get detailed information about
@@ -2543,7 +2881,7 @@ func (c *SecretsManager) ValidateResourcePolicyRequest(input *ValidateResourcePo
 //
 // Returned Error Types:
 //   * MalformedPolicyDocumentException
-//   The policy document that you provided isn't valid.
+//   You provided a resource-based policy with syntax errors.
 //
 //   * ResourceNotFoundException
 //   We can't find the resource that you asked for.
@@ -2616,12 +2954,20 @@ type CancelRotateSecretInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CancelRotateSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CancelRotateSecretInput) GoString() string {
 	return s.String()
 }
@@ -2665,12 +3011,20 @@ type CancelRotateSecretOutput struct {
 	VersionId *string `min:"32" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CancelRotateSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CancelRotateSecretOutput) GoString() string {
 	return s.String()
 }
@@ -2696,16 +3050,21 @@ func (s *CancelRotateSecretOutput) SetVersionId(v string) *CancelRotateSecretOut
 type CreateSecretInput struct {
 	_ struct{} `type:"structure"`
 
+	// (Optional) Add a list of regions to replicate secrets. Secrets Manager replicates
+	// the KMSKeyID objects to the list of regions specified in the parameter.
+	AddReplicaRegions []*ReplicaRegionType `min:"1" type:"list"`
+
 	// (Optional) If you include SecretString or SecretBinary, then an initial version
 	// is created as part of the secret, and this parameter specifies a unique identifier
 	// for the new version.
 	//
-	// If you use the AWS CLI or one of the AWS SDK to call this operation, then
-	// you can leave this parameter empty. The CLI or SDK generates a random UUID
-	// for you and includes it as the value for this parameter in the request. If
-	// you don't use the SDK and instead generate a raw HTTP request to the Secrets
-	// Manager service endpoint, then you must generate a ClientRequestToken yourself
-	// for the new version and include the value in the request.
+	// If you use the Amazon Web Services CLI or one of the Amazon Web Services
+	// SDK to call this operation, then you can leave this parameter empty. The
+	// CLI or SDK generates a random UUID for you and includes it as the value for
+	// this parameter in the request. If you don't use the SDK and instead generate
+	// a raw HTTP request to the Secrets Manager service endpoint, then you must
+	// generate a ClientRequestToken yourself for the new version and include the
+	// value in the request.
 	//
 	// This value helps ensure idempotency. Secrets Manager uses this value to prevent
 	// the accidental creation of duplicate versions if there are failures and retries
@@ -2720,8 +3079,8 @@ type CreateSecretInput struct {
 	//    request is ignored.
 	//
 	//    * If a version with this value already exists and that version's SecretString
-	//    and SecretBinary values are different from those in the request then the
-	//    request fails because you cannot modify an existing version. Instead,
+	//    and SecretBinary values are different from those in the request, then
+	//    the request fails because you cannot modify an existing version. Instead,
 	//    use PutSecretValue to create a new version.
 	//
 	// This value becomes the VersionId of the new version.
@@ -2730,19 +3089,23 @@ type CreateSecretInput struct {
 	// (Optional) Specifies a user-provided description of the secret.
 	Description *string `type:"string"`
 
-	// (Optional) Specifies the ARN, Key ID, or alias of the AWS KMS customer master
-	// key (CMK) to be used to encrypt the SecretString or SecretBinary values in
-	// the versions stored in this secret.
+	// (Optional) If set, the replication overwrites a secret with the same name
+	// in the destination region.
+	ForceOverwriteReplicaSecret *bool `type:"boolean"`
+
+	// (Optional) Specifies the ARN, Key ID, or alias of the Amazon Web Services
+	// KMS customer master key (CMK) to be used to encrypt the SecretString or SecretBinary
+	// values in the versions stored in this secret.
 	//
-	// You can specify any of the supported ways to identify a AWS KMS key ID. If
-	// you need to reference a CMK in a different account, you can use only the
-	// key ARN or the alias ARN.
+	// You can specify any of the supported ways to identify a Amazon Web Services
+	// KMS key ID. If you need to reference a CMK in a different account, you can
+	// use only the key ARN or the alias ARN.
 	//
 	// If you don't specify this value, then Secrets Manager defaults to using the
-	// AWS account's default CMK (the one named aws/secretsmanager). If a AWS KMS
-	// CMK with that name doesn't yet exist, then Secrets Manager creates it for
-	// you automatically the first time it needs to encrypt a version's SecretString
-	// or SecretBinary fields.
+	// Amazon Web Services account's default CMK (the one named aws/secretsmanager).
+	// If a Amazon Web Services KMS CMK with that name doesn't yet exist, then Secrets
+	// Manager creates it for you automatically the first time it needs to encrypt
+	// a version's SecretString or SecretBinary fields.
 	//
 	// You can use the account default CMK to encrypt and decrypt only if you call
 	// this operation using credentials from the same account that owns the secret.
@@ -2772,7 +3135,12 @@ type CreateSecretInput struct {
 	// cannot both be empty.
 	//
 	// This parameter is not available using the Secrets Manager console. It can
-	// be accessed only by using the AWS CLI or one of the AWS SDKs.
+	// be accessed only by using the Amazon Web Services CLI or one of the Amazon
+	// Web Services SDKs.
+	//
+	// SecretBinary is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by CreateSecretInput's
+	// String and GoString methods.
 	//
 	// SecretBinary is automatically base64 encoded/decoded by the SDK.
 	SecretBinary []byte `type:"blob" sensitive:"true"`
@@ -2792,13 +3160,17 @@ type CreateSecretInput struct {
 	// argument and specify key/value pairs. For information on how to format a
 	// JSON parameter for the various command line tool environments, see Using
 	// JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide. For example:
+	// in the CLI User Guide. For example:
 	//
 	// {"username":"bob","password":"abc123xyz456"}
 	//
 	// If your command-line tool or SDK requires quotation marks around the parameter,
 	// you should use single quotes to avoid confusion with the double quotes required
 	// in the JSON text.
+	//
+	// SecretString is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by CreateSecretInput's
+	// String and GoString methods.
 	SecretString *string `type:"string" sensitive:"true"`
 
 	// (Optional) Specifies a list of user-defined tags that are attached to the
@@ -2817,7 +3189,7 @@ type CreateSecretInput struct {
 	// This parameter requires a JSON text string argument. For information on how
 	// to format a JSON parameter for the various command line tool environments,
 	// see Using JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide. For example:
+	// in the CLI User Guide. For example:
 	//
 	// [{"Key":"CostCenter","Value":"12345"},{"Key":"environment","Value":"production"}]
 	//
@@ -2835,10 +3207,10 @@ type CreateSecretInput struct {
 	//
 	//    * Tag keys and values are case sensitive.
 	//
-	//    * Do not use the aws: prefix in your tag names or values because AWS reserves
-	//    it for AWS use. You can't edit or delete tag names or values with this
-	//    prefix. Tags with this prefix do not count against your tags per secret
-	//    limit.
+	//    * Do not use the aws: prefix in your tag names or values because Amazon
+	//    Web Services reserves it for Amazon Web Services use. You can't edit or
+	//    delete tag names or values with this prefix. Tags with this prefix do
+	//    not count against your tags per secret limit.
 	//
 	//    * If you use your tagging schema across multiple services and resources,
 	//    remember other services might have restrictions on allowed characters.
@@ -2847,12 +3219,20 @@ type CreateSecretInput struct {
 	Tags []*Tag `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CreateSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CreateSecretInput) GoString() string {
 	return s.String()
 }
@@ -2860,6 +3240,9 @@ func (s CreateSecretInput) GoString() string {
 // Validate inspects the fields of the type to determine if they are valid.
 func (s *CreateSecretInput) Validate() error {
 	invalidParams := request.ErrInvalidParams{Context: "CreateSecretInput"}
+	if s.AddReplicaRegions != nil && len(s.AddReplicaRegions) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("AddReplicaRegions", 1))
+	}
 	if s.ClientRequestToken != nil && len(*s.ClientRequestToken) < 32 {
 		invalidParams.Add(request.NewErrParamMinLen("ClientRequestToken", 32))
 	}
@@ -2868,6 +3251,16 @@ func (s *CreateSecretInput) Validate() error {
 	}
 	if s.Name != nil && len(*s.Name) < 1 {
 		invalidParams.Add(request.NewErrParamMinLen("Name", 1))
+	}
+	if s.AddReplicaRegions != nil {
+		for i, v := range s.AddReplicaRegions {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "AddReplicaRegions", i), err.(request.ErrInvalidParams))
+			}
+		}
 	}
 	if s.Tags != nil {
 		for i, v := range s.Tags {
@@ -2886,6 +3279,12 @@ func (s *CreateSecretInput) Validate() error {
 	return nil
 }
 
+// SetAddReplicaRegions sets the AddReplicaRegions field's value.
+func (s *CreateSecretInput) SetAddReplicaRegions(v []*ReplicaRegionType) *CreateSecretInput {
+	s.AddReplicaRegions = v
+	return s
+}
+
 // SetClientRequestToken sets the ClientRequestToken field's value.
 func (s *CreateSecretInput) SetClientRequestToken(v string) *CreateSecretInput {
 	s.ClientRequestToken = &v
@@ -2895,6 +3294,12 @@ func (s *CreateSecretInput) SetClientRequestToken(v string) *CreateSecretInput {
 // SetDescription sets the Description field's value.
 func (s *CreateSecretInput) SetDescription(v string) *CreateSecretInput {
 	s.Description = &v
+	return s
+}
+
+// SetForceOverwriteReplicaSecret sets the ForceOverwriteReplicaSecret field's value.
+func (s *CreateSecretInput) SetForceOverwriteReplicaSecret(v bool) *CreateSecretInput {
+	s.ForceOverwriteReplicaSecret = &v
 	return s
 }
 
@@ -2944,17 +3349,28 @@ type CreateSecretOutput struct {
 	// The friendly name of the secret that you just created.
 	Name *string `min:"1" type:"string"`
 
+	// Describes a list of replication status objects as InProgress, Failed or InSync.
+	ReplicationStatus []*ReplicationStatusType `type:"list"`
+
 	// The unique identifier associated with the version of the secret you just
 	// created.
 	VersionId *string `min:"32" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CreateSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s CreateSecretOutput) GoString() string {
 	return s.String()
 }
@@ -2968,6 +3384,12 @@ func (s *CreateSecretOutput) SetARN(v string) *CreateSecretOutput {
 // SetName sets the Name field's value.
 func (s *CreateSecretOutput) SetName(v string) *CreateSecretOutput {
 	s.Name = &v
+	return s
+}
+
+// SetReplicationStatus sets the ReplicationStatus field's value.
+func (s *CreateSecretOutput) SetReplicationStatus(v []*ReplicationStatusType) *CreateSecretOutput {
+	s.ReplicationStatus = v
 	return s
 }
 
@@ -2986,12 +3408,20 @@ type DecryptionFailure struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DecryptionFailure) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DecryptionFailure) GoString() string {
 	return s.String()
 }
@@ -3062,12 +3492,20 @@ type DeleteResourcePolicyInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteResourcePolicyInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteResourcePolicyInput) GoString() string {
 	return s.String()
 }
@@ -3105,12 +3543,20 @@ type DeleteResourcePolicyOutput struct {
 	Name *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteResourcePolicyOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteResourcePolicyOutput) GoString() string {
 	return s.String()
 }
@@ -3140,21 +3586,25 @@ type DeleteSecretInput struct {
 	// that your code includes appropriate back off and retry logic.
 	//
 	// Use this parameter with caution. This parameter causes the operation to skip
-	// the normal waiting period before the permanent deletion that AWS would normally
-	// impose with the RecoveryWindowInDays parameter. If you delete a secret with
-	// the ForceDeleteWithouRecovery parameter, then you have no opportunity to
-	// recover the secret. It is permanently lost.
+	// the normal waiting period before the permanent deletion that Amazon Web Services
+	// would normally impose with the RecoveryWindowInDays parameter. If you delete
+	// a secret with the ForceDeleteWithouRecovery parameter, then you have no opportunity
+	// to recover the secret. You lose the secret permanently.
+	//
+	// If you use this parameter and include a previously deleted or nonexistent
+	// secret, the operation does not return the error ResourceNotFoundException
+	// in order to correctly handle retries.
 	ForceDeleteWithoutRecovery *bool `type:"boolean"`
 
 	// (Optional) Specifies the number of days that Secrets Manager waits before
-	// it can delete the secret. You can't use both this parameter and the ForceDeleteWithoutRecovery
-	// parameter in the same API call.
+	// Secrets Manager can delete the secret. You can't use both this parameter
+	// and the ForceDeleteWithoutRecovery parameter in the same API call.
 	//
-	// This value can range from 7 to 30 days. The default value is 30.
+	// This value can range from 7 to 30 days with a default value of 30.
 	RecoveryWindowInDays *int64 `type:"long"`
 
-	// Specifies the secret that you want to delete. You can specify either the
-	// Amazon Resource Name (ARN) or the friendly name of the secret.
+	// Specifies the secret to delete. You can specify either the Amazon Resource
+	// Name (ARN) or the friendly name of the secret.
 	//
 	// If you specify an ARN, we generally recommend that you specify a complete
 	// ARN. You can specify a partial ARN too—for example, if you don’t include
@@ -3177,12 +3627,20 @@ type DeleteSecretInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteSecretInput) GoString() string {
 	return s.String()
 }
@@ -3232,16 +3690,24 @@ type DeleteSecretOutput struct {
 	// request plus the number of days specified in RecoveryWindowInDays.
 	DeletionDate *time.Time `type:"timestamp"`
 
-	// The friendly name of the secret that is now scheduled for deletion.
+	// The friendly name of the secret currently scheduled for deletion.
 	Name *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DeleteSecretOutput) GoString() string {
 	return s.String()
 }
@@ -3292,12 +3758,20 @@ type DescribeSecretInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DescribeSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DescribeSecretInput) GoString() string {
 	return s.String()
 }
@@ -3330,7 +3804,7 @@ type DescribeSecretOutput struct {
 	// The ARN of the secret.
 	ARN *string `min:"20" type:"string"`
 
-	// The date that the secret was created.
+	// The date you created the secret.
 	CreatedDate *time.Time `type:"timestamp"`
 
 	// This value exists if the secret is scheduled for deletion. Some time after
@@ -3345,11 +3819,11 @@ type DescribeSecretOutput struct {
 	// The user-provided description of the secret.
 	Description *string `type:"string"`
 
-	// The ARN or alias of the AWS KMS customer master key (CMK) that's used to
-	// encrypt the SecretString or SecretBinary fields in each version of the secret.
-	// If you don't provide a key, then Secrets Manager defaults to encrypting the
-	// secret fields with the default AWS KMS CMK (the one named awssecretsmanager)
-	// for this account.
+	// The ARN or alias of the Amazon Web Services KMS customer master key (CMK)
+	// that's used to encrypt the SecretString or SecretBinary fields in each version
+	// of the secret. If you don't provide a key, then Secrets Manager defaults
+	// to encrypting the secret fields with the default Amazon Web Services KMS
+	// CMK (the one named awssecretsmanager) for this account.
 	KmsKeyId *string `type:"string"`
 
 	// The last date that this secret was accessed. This value is truncated to midnight
@@ -3359,8 +3833,10 @@ type DescribeSecretOutput struct {
 	// The last date and time that this secret was modified in any way.
 	LastChangedDate *time.Time `type:"timestamp"`
 
-	// The most recent date and time that the Secrets Manager rotation process was
-	// successfully completed. This value is null if the secret has never rotated.
+	// The last date and time that the rotation process for this secret was invoked.
+	//
+	// The most recent date and time that the Secrets Manager rotation process successfully
+	// completed. If the secret doesn't rotate, Secrets Manager returns a null value.
 	LastRotatedDate *time.Time `type:"timestamp"`
 
 	// The user-provided friendly name of the secret.
@@ -3368,6 +3844,12 @@ type DescribeSecretOutput struct {
 
 	// Returns the name of the service that created this secret.
 	OwningService *string `min:"1" type:"string"`
+
+	// Specifies the primary region for secret replication.
+	PrimaryRegion *string `min:"1" type:"string"`
+
+	// Describes a list of replication status objects as InProgress, Failed or InSync.P
+	ReplicationStatus []*ReplicationStatusType `type:"list"`
 
 	// Specifies whether automatic rotation is enabled for this secret.
 	//
@@ -3380,7 +3862,7 @@ type DescribeSecretOutput struct {
 	// RotateSecret.
 	RotationLambdaARN *string `type:"string"`
 
-	// A structure that contains the rotation configuration for this secret.
+	// A structure with the rotation configuration for this secret.
 	RotationRules *RotationRulesType `type:"structure"`
 
 	// The list of user-defined tags that are associated with the secret. To add
@@ -3396,12 +3878,20 @@ type DescribeSecretOutput struct {
 	VersionIdsToStages map[string][]*string `type:"map"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DescribeSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s DescribeSecretOutput) GoString() string {
 	return s.String()
 }
@@ -3466,6 +3956,18 @@ func (s *DescribeSecretOutput) SetOwningService(v string) *DescribeSecretOutput 
 	return s
 }
 
+// SetPrimaryRegion sets the PrimaryRegion field's value.
+func (s *DescribeSecretOutput) SetPrimaryRegion(v string) *DescribeSecretOutput {
+	s.PrimaryRegion = &v
+	return s
+}
+
+// SetReplicationStatus sets the ReplicationStatus field's value.
+func (s *DescribeSecretOutput) SetReplicationStatus(v []*ReplicationStatusType) *DescribeSecretOutput {
+	s.ReplicationStatus = v
+	return s
+}
+
 // SetRotationEnabled sets the RotationEnabled field's value.
 func (s *DescribeSecretOutput) SetRotationEnabled(v bool) *DescribeSecretOutput {
 	s.RotationEnabled = &v
@@ -3507,12 +4009,20 @@ type EncryptionFailure struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s EncryptionFailure) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s EncryptionFailure) GoString() string {
 	return s.String()
 }
@@ -3555,7 +4065,7 @@ func (s *EncryptionFailure) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
-// Allows you to filter your list of secrets.
+// Allows you to add filters when you use the search function in Secrets Manager.
 type Filter struct {
 	_ struct{} `type:"structure"`
 
@@ -3563,15 +4073,26 @@ type Filter struct {
 	Key *string `type:"string" enum:"FilterNameStringType"`
 
 	// Filters your list of secrets by a specific value.
+	//
+	// You can prefix your search value with an exclamation mark (!) in order to
+	// perform negation filters.
 	Values []*string `min:"1" type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Filter) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Filter) GoString() string {
 	return s.String()
 }
@@ -3649,12 +4170,20 @@ type GetRandomPasswordInput struct {
 	RequireEachIncludedType *bool `type:"boolean"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetRandomPasswordInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetRandomPasswordInput) GoString() string {
 	return s.String()
 }
@@ -3724,15 +4253,27 @@ type GetRandomPasswordOutput struct {
 	_ struct{} `type:"structure"`
 
 	// A string with the generated password.
+	//
+	// RandomPassword is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by GetRandomPasswordOutput's
+	// String and GoString methods.
 	RandomPassword *string `type:"string" sensitive:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetRandomPasswordOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetRandomPasswordOutput) GoString() string {
 	return s.String()
 }
@@ -3771,12 +4312,20 @@ type GetResourcePolicyInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcePolicyInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcePolicyInput) GoString() string {
 	return s.String()
 }
@@ -3818,17 +4367,25 @@ type GetResourcePolicyOutput struct {
 	// that are associated with the user or role that attempts to access this secret.
 	// The combined permissions specify who can access the secret and what actions
 	// they can perform. For more information, see Authentication and Access Control
-	// for AWS Secrets Manager (http://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html)
-	// in the AWS Secrets Manager User Guide.
+	// for Amazon Web Services Secrets Manager (http://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access.html)
+	// in the Amazon Web Services Secrets Manager User Guide.
 	ResourcePolicy *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcePolicyOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetResourcePolicyOutput) GoString() string {
 	return s.String()
 }
@@ -3879,10 +4436,10 @@ type GetSecretValueInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 
 	// Specifies the unique identifier of the version of the secret that you want
-	// to retrieve. If you specify this parameter then don't specify VersionStage.
-	// If you don't specify either a VersionStage or VersionId then the default
-	// is to perform the operation on the version with the VersionStage value of
-	// AWSCURRENT.
+	// to retrieve. If you specify both this parameter and VersionStage, the two
+	// parameters must refer to the same secret version. If you don't specify either
+	// a VersionStage or VersionId then the default is to perform the operation
+	// on the version with the VersionStage value of AWSCURRENT.
 	//
 	// This value is typically a UUID-type (https://wikipedia.org/wiki/Universally_unique_identifier)
 	// value with 32 hexadecimal digits.
@@ -3892,18 +4449,27 @@ type GetSecretValueInput struct {
 	// attached to the version.
 	//
 	// Staging labels are used to keep track of different versions during the rotation
-	// process. If you use this parameter then don't specify VersionId. If you don't
-	// specify either a VersionStage or VersionId, then the default is to perform
-	// the operation on the version with the VersionStage value of AWSCURRENT.
+	// process. If you specify both this parameter and VersionId, the two parameters
+	// must refer to the same secret version . If you don't specify either a VersionStage
+	// or VersionId, then the default is to perform the operation on the version
+	// with the VersionStage value of AWSCURRENT.
 	VersionStage *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetSecretValueInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetSecretValueInput) GoString() string {
 	return s.String()
 }
@@ -3972,6 +4538,10 @@ type GetSecretValueOutput struct {
 	// code your Lambda rotation function to parse and interpret whatever you store
 	// in the SecretString or SecretBinary fields.
 	//
+	// SecretBinary is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by GetSecretValueOutput's
+	// String and GoString methods.
+	//
 	// SecretBinary is automatically base64 encoded/decoded by the SDK.
 	SecretBinary []byte `type:"blob" sensitive:"true"`
 
@@ -3987,6 +4557,10 @@ type GetSecretValueOutput struct {
 	// UpdateSecret, or PutSecretValue API operations instead of the Secrets Manager
 	// console, or by using the Other secret type in the console, then you must
 	// code your Lambda rotation function to parse and interpret those values.
+	//
+	// SecretString is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by GetSecretValueOutput's
+	// String and GoString methods.
 	SecretString *string `type:"string" sensitive:"true"`
 
 	// The unique identifier of this version of the secret.
@@ -3997,12 +4571,20 @@ type GetSecretValueOutput struct {
 	VersionStages []*string `min:"1" type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetSecretValueOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s GetSecretValueOutput) GoString() string {
 	return s.String()
 }
@@ -4057,12 +4639,20 @@ type InternalServiceError struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InternalServiceError) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InternalServiceError) GoString() string {
 	return s.String()
 }
@@ -4113,12 +4703,20 @@ type InvalidNextTokenException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidNextTokenException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidNextTokenException) GoString() string {
 	return s.String()
 }
@@ -4169,12 +4767,20 @@ type InvalidParameterException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidParameterException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidParameterException) GoString() string {
 	return s.String()
 }
@@ -4235,12 +4841,20 @@ type InvalidRequestException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidRequestException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s InvalidRequestException) GoString() string {
 	return s.String()
 }
@@ -4292,12 +4906,20 @@ type LimitExceededException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s LimitExceededException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s LimitExceededException) GoString() string {
 	return s.String()
 }
@@ -4390,12 +5012,20 @@ type ListSecretVersionIdsInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretVersionIdsInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretVersionIdsInput) GoString() string {
 	return s.String()
 }
@@ -4475,12 +5105,20 @@ type ListSecretVersionIdsOutput struct {
 	Versions []*SecretVersionsListEntry `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretVersionIdsOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretVersionIdsOutput) GoString() string {
 	return s.String()
 }
@@ -4536,12 +5174,20 @@ type ListSecretsInput struct {
 	SortOrder *string `type:"string" enum:"SortOrderType"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretsInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretsInput) GoString() string {
 	return s.String()
 }
@@ -4612,12 +5258,20 @@ type ListSecretsOutput struct {
 	SecretList []*SecretListEntry `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretsOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ListSecretsOutput) GoString() string {
 	return s.String()
 }
@@ -4634,7 +5288,7 @@ func (s *ListSecretsOutput) SetSecretList(v []*SecretListEntry) *ListSecretsOutp
 	return s
 }
 
-// The policy document that you provided isn't valid.
+// You provided a resource-based policy with syntax errors.
 type MalformedPolicyDocumentException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
@@ -4642,12 +5296,20 @@ type MalformedPolicyDocumentException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s MalformedPolicyDocumentException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s MalformedPolicyDocumentException) GoString() string {
 	return s.String()
 }
@@ -4698,12 +5360,20 @@ type PreconditionNotMetException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PreconditionNotMetException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PreconditionNotMetException) GoString() string {
 	return s.String()
 }
@@ -4746,7 +5416,8 @@ func (s *PreconditionNotMetException) RequestID() string {
 	return s.RespMetadata.RequestID
 }
 
-// The resource policy did not prevent broad access to the secret.
+// The BlockPublicPolicy parameter is set to true and the resource policy did
+// not prevent broad access to the secret.
 type PublicPolicyException struct {
 	_            struct{}                  `type:"structure"`
 	RespMetadata protocol.ResponseMetadata `json:"-" xml:"-"`
@@ -4754,12 +5425,20 @@ type PublicPolicyException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PublicPolicyException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PublicPolicyException) GoString() string {
 	return s.String()
 }
@@ -4805,22 +5484,22 @@ func (s *PublicPolicyException) RequestID() string {
 type PutResourcePolicyInput struct {
 	_ struct{} `type:"structure"`
 
-	// Makes an optional API call to Zelkova to validate the Resource Policy to
-	// prevent broad access to your secret.
+	// (Optional) If you set the parameter, BlockPublicPolicy to true, then you
+	// block resource-based policies that allow broad access to the secret.
 	BlockPublicPolicy *bool `type:"boolean"`
 
-	// A JSON-formatted string that's constructed according to the grammar and syntax
-	// for an AWS resource-based policy. The policy in the string identifies who
-	// can access or manage this secret and its versions. For information on how
-	// to format a JSON parameter for the various command line tool environments,
+	// A JSON-formatted string constructed according to the grammar and syntax for
+	// an Amazon Web Services resource-based policy. The policy in the string identifies
+	// who can access or manage this secret and its versions. For information on
+	// how to format a JSON parameter for the various command line tool environments,
 	// see Using JSON for Parameters (http://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide.
+	// in the CLI User Guide.
 	//
 	// ResourcePolicy is a required field
 	ResourcePolicy *string `min:"1" type:"string" required:"true"`
 
-	// Specifies the secret that you want to attach the resource-based policy to.
-	// You can specify either the ARN or the friendly name of the secret.
+	// Specifies the secret that you want to attach the resource-based policy. You
+	// can specify either the ARN or the friendly name of the secret.
 	//
 	// If you specify an ARN, we generally recommend that you specify a complete
 	// ARN. You can specify a partial ARN too—for example, if you don’t include
@@ -4843,12 +5522,20 @@ type PutResourcePolicyInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutResourcePolicyInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutResourcePolicyInput) GoString() string {
 	return s.String()
 }
@@ -4899,17 +5586,24 @@ type PutResourcePolicyOutput struct {
 	// The ARN of the secret retrieved by the resource-based policy.
 	ARN *string `min:"20" type:"string"`
 
-	// The friendly name of the secret that the retrieved by the resource-based
-	// policy.
+	// The friendly name of the secret retrieved by the resource-based policy.
 	Name *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutResourcePolicyOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutResourcePolicyOutput) GoString() string {
 	return s.String()
 }
@@ -4931,12 +5625,12 @@ type PutSecretValueInput struct {
 
 	// (Optional) Specifies a unique identifier for the new version of the secret.
 	//
-	// If you use the AWS CLI or one of the AWS SDK to call this operation, then
-	// you can leave this parameter empty. The CLI or SDK generates a random UUID
-	// for you and includes that in the request. If you don't use the SDK and instead
-	// generate a raw HTTP request to the Secrets Manager service endpoint, then
-	// you must generate a ClientRequestToken yourself for new versions and include
-	// that value in the request.
+	// If you use the Amazon Web Services CLI or one of the Amazon Web Services
+	// SDK to call this operation, then you can leave this parameter empty. The
+	// CLI or SDK generates a random UUID for you and includes that in the request.
+	// If you don't use the SDK and instead generate a raw HTTP request to the Secrets
+	// Manager service endpoint, then you must generate a ClientRequestToken yourself
+	// for new versions and include that value in the request.
 	//
 	// This value helps ensure idempotency. Secrets Manager uses this value to prevent
 	// the accidental creation of duplicate versions if there are failures and retries
@@ -4968,6 +5662,10 @@ type PutSecretValueInput struct {
 	//
 	// This parameter is not accessible if the secret using the Secrets Manager
 	// console.
+	//
+	// SecretBinary is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by PutSecretValueInput's
+	// String and GoString methods.
 	//
 	// SecretBinary is automatically base64 encoded/decoded by the SDK.
 	SecretBinary []byte `type:"blob" sensitive:"true"`
@@ -5009,7 +5707,7 @@ type PutSecretValueInput struct {
 	// argument and specify key/value pairs. For information on how to format a
 	// JSON parameter for the various command line tool environments, see Using
 	// JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide.
+	// in the CLI User Guide.
 	//
 	// For example:
 	//
@@ -5018,6 +5716,10 @@ type PutSecretValueInput struct {
 	// If your command-line tool or SDK requires quotation marks around the parameter,
 	// you should use single quotes to avoid confusion with the double quotes required
 	// in the JSON text.
+	//
+	// SecretString is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by PutSecretValueInput's
+	// String and GoString methods.
 	SecretString *string `type:"string" sensitive:"true"`
 
 	// (Optional) Specifies a list of staging labels that are attached to this version
@@ -5034,12 +5736,20 @@ type PutSecretValueInput struct {
 	VersionStages []*string `min:"1" type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutSecretValueInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutSecretValueInput) GoString() string {
 	return s.String()
 }
@@ -5115,12 +5825,20 @@ type PutSecretValueOutput struct {
 	VersionStages []*string `min:"1" type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutSecretValueOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s PutSecretValueOutput) GoString() string {
 	return s.String()
 }
@@ -5149,6 +5867,364 @@ func (s *PutSecretValueOutput) SetVersionStages(v []*string) *PutSecretValueOutp
 	return s
 }
 
+type RemoveRegionsFromReplicationInput struct {
+	_ struct{} `type:"structure"`
+
+	// Remove replication from specific Regions.
+	//
+	// RemoveReplicaRegions is a required field
+	RemoveReplicaRegions []*string `min:"1" type:"list" required:"true"`
+
+	// Remove a secret by SecretId from replica Regions.
+	//
+	// SecretId is a required field
+	SecretId *string `min:"1" type:"string" required:"true"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RemoveRegionsFromReplicationInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RemoveRegionsFromReplicationInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RemoveRegionsFromReplicationInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "RemoveRegionsFromReplicationInput"}
+	if s.RemoveReplicaRegions == nil {
+		invalidParams.Add(request.NewErrParamRequired("RemoveReplicaRegions"))
+	}
+	if s.RemoveReplicaRegions != nil && len(s.RemoveReplicaRegions) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("RemoveReplicaRegions", 1))
+	}
+	if s.SecretId == nil {
+		invalidParams.Add(request.NewErrParamRequired("SecretId"))
+	}
+	if s.SecretId != nil && len(*s.SecretId) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SecretId", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetRemoveReplicaRegions sets the RemoveReplicaRegions field's value.
+func (s *RemoveRegionsFromReplicationInput) SetRemoveReplicaRegions(v []*string) *RemoveRegionsFromReplicationInput {
+	s.RemoveReplicaRegions = v
+	return s
+}
+
+// SetSecretId sets the SecretId field's value.
+func (s *RemoveRegionsFromReplicationInput) SetSecretId(v string) *RemoveRegionsFromReplicationInput {
+	s.SecretId = &v
+	return s
+}
+
+type RemoveRegionsFromReplicationOutput struct {
+	_ struct{} `type:"structure"`
+
+	// The secret ARN removed from replication regions.
+	ARN *string `min:"20" type:"string"`
+
+	// Describes the remaining replication status after you remove regions from
+	// the replication list.
+	ReplicationStatus []*ReplicationStatusType `type:"list"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RemoveRegionsFromReplicationOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s RemoveRegionsFromReplicationOutput) GoString() string {
+	return s.String()
+}
+
+// SetARN sets the ARN field's value.
+func (s *RemoveRegionsFromReplicationOutput) SetARN(v string) *RemoveRegionsFromReplicationOutput {
+	s.ARN = &v
+	return s
+}
+
+// SetReplicationStatus sets the ReplicationStatus field's value.
+func (s *RemoveRegionsFromReplicationOutput) SetReplicationStatus(v []*ReplicationStatusType) *RemoveRegionsFromReplicationOutput {
+	s.ReplicationStatus = v
+	return s
+}
+
+// (Optional) Custom type consisting of a Region (required) and the KmsKeyId
+// which can be an ARN, Key ID, or Alias.
+type ReplicaRegionType struct {
+	_ struct{} `type:"structure"`
+
+	// Can be an ARN, Key ID, or Alias.
+	KmsKeyId *string `type:"string"`
+
+	// Describes a single instance of Region objects.
+	Region *string `min:"1" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicaRegionType) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicaRegionType) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ReplicaRegionType) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ReplicaRegionType"}
+	if s.Region != nil && len(*s.Region) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("Region", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetKmsKeyId sets the KmsKeyId field's value.
+func (s *ReplicaRegionType) SetKmsKeyId(v string) *ReplicaRegionType {
+	s.KmsKeyId = &v
+	return s
+}
+
+// SetRegion sets the Region field's value.
+func (s *ReplicaRegionType) SetRegion(v string) *ReplicaRegionType {
+	s.Region = &v
+	return s
+}
+
+type ReplicateSecretToRegionsInput struct {
+	_ struct{} `type:"structure"`
+
+	// Add Regions to replicate the secret.
+	//
+	// AddReplicaRegions is a required field
+	AddReplicaRegions []*ReplicaRegionType `min:"1" type:"list" required:"true"`
+
+	// (Optional) If set, Secrets Manager replication overwrites a secret with the
+	// same name in the destination region.
+	ForceOverwriteReplicaSecret *bool `type:"boolean"`
+
+	// Use the Secret Id to replicate a secret to regions.
+	//
+	// SecretId is a required field
+	SecretId *string `min:"1" type:"string" required:"true"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicateSecretToRegionsInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicateSecretToRegionsInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *ReplicateSecretToRegionsInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "ReplicateSecretToRegionsInput"}
+	if s.AddReplicaRegions == nil {
+		invalidParams.Add(request.NewErrParamRequired("AddReplicaRegions"))
+	}
+	if s.AddReplicaRegions != nil && len(s.AddReplicaRegions) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("AddReplicaRegions", 1))
+	}
+	if s.SecretId == nil {
+		invalidParams.Add(request.NewErrParamRequired("SecretId"))
+	}
+	if s.SecretId != nil && len(*s.SecretId) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SecretId", 1))
+	}
+	if s.AddReplicaRegions != nil {
+		for i, v := range s.AddReplicaRegions {
+			if v == nil {
+				continue
+			}
+			if err := v.Validate(); err != nil {
+				invalidParams.AddNested(fmt.Sprintf("%s[%v]", "AddReplicaRegions", i), err.(request.ErrInvalidParams))
+			}
+		}
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetAddReplicaRegions sets the AddReplicaRegions field's value.
+func (s *ReplicateSecretToRegionsInput) SetAddReplicaRegions(v []*ReplicaRegionType) *ReplicateSecretToRegionsInput {
+	s.AddReplicaRegions = v
+	return s
+}
+
+// SetForceOverwriteReplicaSecret sets the ForceOverwriteReplicaSecret field's value.
+func (s *ReplicateSecretToRegionsInput) SetForceOverwriteReplicaSecret(v bool) *ReplicateSecretToRegionsInput {
+	s.ForceOverwriteReplicaSecret = &v
+	return s
+}
+
+// SetSecretId sets the SecretId field's value.
+func (s *ReplicateSecretToRegionsInput) SetSecretId(v string) *ReplicateSecretToRegionsInput {
+	s.SecretId = &v
+	return s
+}
+
+type ReplicateSecretToRegionsOutput struct {
+	_ struct{} `type:"structure"`
+
+	// Replicate a secret based on the ReplicaRegionType> consisting of a Region(required)
+	// and a KMSKeyId (optional) which can be the ARN, KeyID, or Alias.
+	ARN *string `min:"20" type:"string"`
+
+	// Describes the secret replication status as PENDING, SUCCESS or FAIL.
+	ReplicationStatus []*ReplicationStatusType `type:"list"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicateSecretToRegionsOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicateSecretToRegionsOutput) GoString() string {
+	return s.String()
+}
+
+// SetARN sets the ARN field's value.
+func (s *ReplicateSecretToRegionsOutput) SetARN(v string) *ReplicateSecretToRegionsOutput {
+	s.ARN = &v
+	return s
+}
+
+// SetReplicationStatus sets the ReplicationStatus field's value.
+func (s *ReplicateSecretToRegionsOutput) SetReplicationStatus(v []*ReplicationStatusType) *ReplicateSecretToRegionsOutput {
+	s.ReplicationStatus = v
+	return s
+}
+
+// A replication object consisting of a RegionReplicationStatus object and includes
+// a Region, KMSKeyId, status, and status message.
+type ReplicationStatusType struct {
+	_ struct{} `type:"structure"`
+
+	// Can be an ARN, Key ID, or Alias.
+	KmsKeyId *string `type:"string"`
+
+	// The date that you last accessed the secret in the Region.
+	LastAccessedDate *time.Time `type:"timestamp"`
+
+	// The Region where replication occurs.
+	Region *string `min:"1" type:"string"`
+
+	// The status can be InProgress, Failed, or InSync.
+	Status *string `type:"string" enum:"StatusType"`
+
+	// Status message such as "Secret with this name already exists in this region".
+	StatusMessage *string `min:"1" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicationStatusType) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s ReplicationStatusType) GoString() string {
+	return s.String()
+}
+
+// SetKmsKeyId sets the KmsKeyId field's value.
+func (s *ReplicationStatusType) SetKmsKeyId(v string) *ReplicationStatusType {
+	s.KmsKeyId = &v
+	return s
+}
+
+// SetLastAccessedDate sets the LastAccessedDate field's value.
+func (s *ReplicationStatusType) SetLastAccessedDate(v time.Time) *ReplicationStatusType {
+	s.LastAccessedDate = &v
+	return s
+}
+
+// SetRegion sets the Region field's value.
+func (s *ReplicationStatusType) SetRegion(v string) *ReplicationStatusType {
+	s.Region = &v
+	return s
+}
+
+// SetStatus sets the Status field's value.
+func (s *ReplicationStatusType) SetStatus(v string) *ReplicationStatusType {
+	s.Status = &v
+	return s
+}
+
+// SetStatusMessage sets the StatusMessage field's value.
+func (s *ReplicationStatusType) SetStatusMessage(v string) *ReplicationStatusType {
+	s.StatusMessage = &v
+	return s
+}
+
 // A resource with the ID you requested already exists.
 type ResourceExistsException struct {
 	_            struct{}                  `type:"structure"`
@@ -5157,12 +6233,20 @@ type ResourceExistsException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceExistsException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceExistsException) GoString() string {
 	return s.String()
 }
@@ -5213,12 +6297,20 @@ type ResourceNotFoundException struct {
 	Message_ *string `locationName:"Message" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceNotFoundException) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ResourceNotFoundException) GoString() string {
 	return s.String()
 }
@@ -5289,12 +6381,20 @@ type RestoreSecretInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RestoreSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RestoreSecretInput) GoString() string {
 	return s.String()
 }
@@ -5331,12 +6431,20 @@ type RestoreSecretOutput struct {
 	Name *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RestoreSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RestoreSecretOutput) GoString() string {
 	return s.String()
 }
@@ -5359,12 +6467,13 @@ type RotateSecretInput struct {
 	// (Optional) Specifies a unique identifier for the new version of the secret
 	// that helps ensure idempotency.
 	//
-	// If you use the AWS CLI or one of the AWS SDK to call this operation, then
-	// you can leave this parameter empty. The CLI or SDK generates a random UUID
-	// for you and includes that in the request for this parameter. If you don't
-	// use the SDK and instead generate a raw HTTP request to the Secrets Manager
-	// service endpoint, then you must generate a ClientRequestToken yourself for
-	// new versions and include that value in the request.
+	// If you use the Amazon Web Services CLI or one of the Amazon Web Services
+	// SDK to call this operation, then you can leave this parameter empty. The
+	// CLI or SDK generates a random UUID for you and includes that in the request
+	// for this parameter. If you don't use the SDK and instead generate a raw HTTP
+	// request to the Secrets Manager service endpoint, then you must generate a
+	// ClientRequestToken yourself for new versions and include that value in the
+	// request.
 	//
 	// You only need to specify your own value if you implement your own retry logic
 	// and want to ensure that a given secret is not created twice. We recommend
@@ -5406,12 +6515,20 @@ type RotateSecretInput struct {
 	SecretId *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotateSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotateSecretInput) GoString() string {
 	return s.String()
 }
@@ -5478,12 +6595,20 @@ type RotateSecretOutput struct {
 	VersionId *string `min:"32" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotateSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotateSecretOutput) GoString() string {
 	return s.String()
 }
@@ -5522,12 +6647,20 @@ type RotationRulesType struct {
 	AutomaticallyAfterDays *int64 `min:"1" type:"long"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotationRulesType) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s RotationRulesType) GoString() string {
 	return s.String()
 }
@@ -5561,7 +6694,7 @@ type SecretListEntry struct {
 	//
 	// For more information about ARNs in Secrets Manager, see Policy Resources
 	// (https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_iam-permissions.html#iam-resources)
-	// in the AWS Secrets Manager User Guide.
+	// in the Amazon Web Services Secrets Manager User Guide.
 	ARN *string `min:"20" type:"string"`
 
 	// The date and time when a secret was created.
@@ -5576,10 +6709,10 @@ type SecretListEntry struct {
 	// The user-provided description of the secret.
 	Description *string `type:"string"`
 
-	// The ARN or alias of the AWS KMS customer master key (CMK) used to encrypt
-	// the SecretString and SecretBinary fields in each version of the secret. If
-	// you don't provide a key, then Secrets Manager defaults to encrypting the
-	// secret fields with the default KMS CMK, the key named awssecretsmanager,
+	// The ARN or alias of the Amazon Web Services KMS customer master key (CMK)
+	// used to encrypt the SecretString and SecretBinary fields in each version
+	// of the secret. If you don't provide a key, then Secrets Manager defaults
+	// to encrypting the secret fields with the default KMS CMK, the key named awssecretsmanager,
 	// for this account.
 	KmsKeyId *string `type:"string"`
 
@@ -5590,7 +6723,8 @@ type SecretListEntry struct {
 	// The last date and time that this secret was modified in any way.
 	LastChangedDate *time.Time `type:"timestamp"`
 
-	// The last date and time that the rotation process for this secret was invoked.
+	// The most recent date and time that the Secrets Manager rotation process was
+	// successfully completed. This value is null if the secret hasn't ever rotated.
 	LastRotatedDate *time.Time `type:"timestamp"`
 
 	// The friendly name of the secret. You can use forward slashes in the name
@@ -5602,12 +6736,15 @@ type SecretListEntry struct {
 	// Returns the name of the service that created the secret.
 	OwningService *string `min:"1" type:"string"`
 
+	// The Region where Secrets Manager originated the secret.
+	PrimaryRegion *string `min:"1" type:"string"`
+
 	// Indicates whether automatic, scheduled rotation is enabled for this secret.
 	RotationEnabled *bool `type:"boolean"`
 
-	// The ARN of an AWS Lambda function invoked by Secrets Manager to rotate and
-	// expire the secret either automatically per the schedule or manually by a
-	// call to RotateSecret.
+	// The ARN of an Amazon Web Services Lambda function invoked by Secrets Manager
+	// to rotate and expire the secret either automatically per the schedule or
+	// manually by a call to RotateSecret.
 	RotationLambdaARN *string `type:"string"`
 
 	// A structure that defines the rotation configuration for the secret.
@@ -5626,12 +6763,20 @@ type SecretListEntry struct {
 	Tags []*Tag `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s SecretListEntry) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s SecretListEntry) GoString() string {
 	return s.String()
 }
@@ -5696,6 +6841,12 @@ func (s *SecretListEntry) SetOwningService(v string) *SecretListEntry {
 	return s
 }
 
+// SetPrimaryRegion sets the PrimaryRegion field's value.
+func (s *SecretListEntry) SetPrimaryRegion(v string) *SecretListEntry {
+	s.PrimaryRegion = &v
+	return s
+}
+
 // SetRotationEnabled sets the RotationEnabled field's value.
 func (s *SecretListEntry) SetRotationEnabled(v bool) *SecretListEntry {
 	s.RotationEnabled = &v
@@ -5733,6 +6884,9 @@ type SecretVersionsListEntry struct {
 	// The date and time this version of the secret was created.
 	CreatedDate *time.Time `type:"timestamp"`
 
+	// The KMS keys used to encrypt the secret version.
+	KmsKeyIds []*string `type:"list"`
+
 	// The date that this version of the secret was last accessed. Note that the
 	// resolution of this field is at the date level and does not include the time.
 	LastAccessedDate *time.Time `type:"timestamp"`
@@ -5745,12 +6899,20 @@ type SecretVersionsListEntry struct {
 	VersionStages []*string `min:"1" type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s SecretVersionsListEntry) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s SecretVersionsListEntry) GoString() string {
 	return s.String()
 }
@@ -5758,6 +6920,12 @@ func (s SecretVersionsListEntry) GoString() string {
 // SetCreatedDate sets the CreatedDate field's value.
 func (s *SecretVersionsListEntry) SetCreatedDate(v time.Time) *SecretVersionsListEntry {
 	s.CreatedDate = &v
+	return s
+}
+
+// SetKmsKeyIds sets the KmsKeyIds field's value.
+func (s *SecretVersionsListEntry) SetKmsKeyIds(v []*string) *SecretVersionsListEntry {
+	s.KmsKeyIds = v
 	return s
 }
 
@@ -5779,6 +6947,86 @@ func (s *SecretVersionsListEntry) SetVersionStages(v []*string) *SecretVersionsL
 	return s
 }
 
+type StopReplicationToReplicaInput struct {
+	_ struct{} `type:"structure"`
+
+	// Response to StopReplicationToReplica of a secret, based on the SecretId.
+	//
+	// SecretId is a required field
+	SecretId *string `min:"1" type:"string" required:"true"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StopReplicationToReplicaInput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StopReplicationToReplicaInput) GoString() string {
+	return s.String()
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *StopReplicationToReplicaInput) Validate() error {
+	invalidParams := request.ErrInvalidParams{Context: "StopReplicationToReplicaInput"}
+	if s.SecretId == nil {
+		invalidParams.Add(request.NewErrParamRequired("SecretId"))
+	}
+	if s.SecretId != nil && len(*s.SecretId) < 1 {
+		invalidParams.Add(request.NewErrParamMinLen("SecretId", 1))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
+// SetSecretId sets the SecretId field's value.
+func (s *StopReplicationToReplicaInput) SetSecretId(v string) *StopReplicationToReplicaInput {
+	s.SecretId = &v
+	return s
+}
+
+type StopReplicationToReplicaOutput struct {
+	_ struct{} `type:"structure"`
+
+	// Response StopReplicationToReplica of a secret, based on the ARN,.
+	ARN *string `min:"20" type:"string"`
+}
+
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StopReplicationToReplicaOutput) String() string {
+	return awsutil.Prettify(s)
+}
+
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
+func (s StopReplicationToReplicaOutput) GoString() string {
+	return s.String()
+}
+
+// SetARN sets the ARN field's value.
+func (s *StopReplicationToReplicaOutput) SetARN(v string) *StopReplicationToReplicaOutput {
+	s.ARN = &v
+	return s
+}
+
 // A structure that contains information about a tag.
 type Tag struct {
 	_ struct{} `type:"structure"`
@@ -5790,12 +7038,20 @@ type Tag struct {
 	Value *string `type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Tag) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s Tag) GoString() string {
 	return s.String()
 }
@@ -5857,19 +7113,27 @@ type TagResourceInput struct {
 	// This parameter to the API requires a JSON text string argument. For information
 	// on how to format a JSON parameter for the various command line tool environments,
 	// see Using JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide. For the AWS CLI, you can also use the syntax:
-	// --Tags Key="Key1",Value="Value1",Key="Key2",Value="Value2"[,…]
+	// in the CLI User Guide. For the CLI, you can also use the syntax: --Tags Key="Key1",Value="Value1"
+	// Key="Key2",Value="Value2"[,…]
 	//
 	// Tags is a required field
 	Tags []*Tag `type:"list" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourceInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourceInput) GoString() string {
 	return s.String()
 }
@@ -5919,12 +7183,20 @@ type TagResourceOutput struct {
 	_ struct{} `type:"structure"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourceOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s TagResourceOutput) GoString() string {
 	return s.String()
 }
@@ -5962,18 +7234,26 @@ type UntagResourceInput struct {
 	// This parameter to the API requires a JSON text string argument. For information
 	// on how to format a JSON parameter for the various command line tool environments,
 	// see Using JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide.
+	// in the CLI User Guide.
 	//
 	// TagKeys is a required field
 	TagKeys []*string `type:"list" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourceInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourceInput) GoString() string {
 	return s.String()
 }
@@ -6013,12 +7293,20 @@ type UntagResourceOutput struct {
 	_ struct{} `type:"structure"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourceOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UntagResourceOutput) GoString() string {
 	return s.String()
 }
@@ -6029,12 +7317,12 @@ type UpdateSecretInput struct {
 	// (Optional) If you want to add a new version to the secret, this parameter
 	// specifies a unique identifier for the new version that helps ensure idempotency.
 	//
-	// If you use the AWS CLI or one of the AWS SDK to call this operation, then
-	// you can leave this parameter empty. The CLI or SDK generates a random UUID
-	// for you and includes that in the request. If you don't use the SDK and instead
-	// generate a raw HTTP request to the Secrets Manager service endpoint, then
-	// you must generate a ClientRequestToken yourself for new versions and include
-	// that value in the request.
+	// If you use the Amazon Web Services CLI or one of the Amazon Web Services
+	// SDK to call this operation, then you can leave this parameter empty. The
+	// CLI or SDK generates a random UUID for you and includes that in the request.
+	// If you don't use the SDK and instead generate a raw HTTP request to the Secrets
+	// Manager service endpoint, then you must generate a ClientRequestToken yourself
+	// for new versions and include that value in the request.
 	//
 	// You typically only need to interact with this value if you implement your
 	// own retry logic and want to ensure that a given secret is not created twice.
@@ -6062,9 +7350,9 @@ type UpdateSecretInput struct {
 	// (Optional) Specifies an updated user-provided description of the secret.
 	Description *string `type:"string"`
 
-	// (Optional) Specifies an updated ARN or alias of the AWS KMS customer master
-	// key (CMK) to be used to encrypt the protected text in new versions of this
-	// secret.
+	// (Optional) Specifies an updated ARN or alias of the Amazon Web Services KMS
+	// customer master key (CMK) to be used to encrypt the protected text in new
+	// versions of this secret.
 	//
 	// You can only use the account's default CMK to encrypt and decrypt if you
 	// call this operation using credentials from the same account that owns the
@@ -6082,6 +7370,10 @@ type UpdateSecretInput struct {
 	// not both. They cannot both be empty.
 	//
 	// This parameter is not accessible using the Secrets Manager console.
+	//
+	// SecretBinary is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by UpdateSecretInput's
+	// String and GoString methods.
 	//
 	// SecretBinary is automatically base64 encoded/decoded by the SDK.
 	SecretBinary []byte `type:"blob" sensitive:"true"`
@@ -6123,7 +7415,7 @@ type UpdateSecretInput struct {
 	// argument and specify key/value pairs. For information on how to format a
 	// JSON parameter for the various command line tool environments, see Using
 	// JSON for Parameters (https://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
-	// in the AWS CLI User Guide. For example:
+	// in the CLI User Guide. For example:
 	//
 	// [{"username":"bob"},{"password":"abc123xyz456"}]
 	//
@@ -6135,15 +7427,27 @@ type UpdateSecretInput struct {
 	// are escaped:
 	//
 	// "[{\"username\":\"bob\"},{\"password\":\"abc123xyz456\"}]"
+	//
+	// SecretString is a sensitive parameter and its value will be
+	// replaced with "sensitive" in string returned by UpdateSecretInput's
+	// String and GoString methods.
 	SecretString *string `type:"string" sensitive:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretInput) GoString() string {
 	return s.String()
 }
@@ -6224,12 +7528,20 @@ type UpdateSecretOutput struct {
 	VersionId *string `min:"32" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretOutput) GoString() string {
 	return s.String()
 }
@@ -6300,12 +7612,20 @@ type UpdateSecretVersionStageInput struct {
 	VersionStage *string `min:"1" type:"string" required:"true"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretVersionStageInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretVersionStageInput) GoString() string {
 	return s.String()
 }
@@ -6372,12 +7692,20 @@ type UpdateSecretVersionStageOutput struct {
 	Name *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretVersionStageOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s UpdateSecretVersionStageOutput) GoString() string {
 	return s.String()
 }
@@ -6397,14 +7725,19 @@ func (s *UpdateSecretVersionStageOutput) SetName(v string) *UpdateSecretVersionS
 type ValidateResourcePolicyInput struct {
 	_ struct{} `type:"structure"`
 
-	// Identifies the Resource Policy attached to the secret.
+	// A JSON-formatted string constructed according to the grammar and syntax for
+	// an Amazon Web Services resource-based policy. The policy in the string identifies
+	// who can access or manage this secret and its versions. For information on
+	// how to format a JSON parameter for the various command line tool environments,
+	// see Using JSON for Parameters (http://docs.aws.amazon.com/cli/latest/userguide/cli-using-param.html#cli-using-param-json)
+	// in the CLI User Guide.publi
 	//
 	// ResourcePolicy is a required field
 	ResourcePolicy *string `min:"1" type:"string" required:"true"`
 
-	// The identifier for the secret that you want to validate a resource policy.
-	// You can specify either the Amazon Resource Name (ARN) or the friendly name
-	// of the secret.
+	// (Optional) The identifier of the secret with the resource-based policy you
+	// want to validate. You can specify either the Amazon Resource Name (ARN) or
+	// the friendly name of the secret.
 	//
 	// If you specify an ARN, we generally recommend that you specify a complete
 	// ARN. You can specify a partial ARN too—for example, if you don’t include
@@ -6425,12 +7758,20 @@ type ValidateResourcePolicyInput struct {
 	SecretId *string `min:"1" type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidateResourcePolicyInput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidateResourcePolicyInput) GoString() string {
 	return s.String()
 }
@@ -6476,12 +7817,20 @@ type ValidateResourcePolicyOutput struct {
 	ValidationErrors []*ValidationErrorsEntry `type:"list"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidateResourcePolicyOutput) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidateResourcePolicyOutput) GoString() string {
 	return s.String()
 }
@@ -6510,12 +7859,20 @@ type ValidationErrorsEntry struct {
 	ErrorMessage *string `type:"string"`
 }
 
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidationErrorsEntry) String() string {
 	return awsutil.Prettify(s)
 }
 
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s ValidationErrorsEntry) GoString() string {
 	return s.String()
 }
@@ -6545,6 +7902,9 @@ const (
 	// FilterNameStringTypeTagValue is a FilterNameStringType enum value
 	FilterNameStringTypeTagValue = "tag-value"
 
+	// FilterNameStringTypePrimaryRegion is a FilterNameStringType enum value
+	FilterNameStringTypePrimaryRegion = "primary-region"
+
 	// FilterNameStringTypeAll is a FilterNameStringType enum value
 	FilterNameStringTypeAll = "all"
 )
@@ -6556,6 +7916,7 @@ func FilterNameStringType_Values() []string {
 		FilterNameStringTypeName,
 		FilterNameStringTypeTagKey,
 		FilterNameStringTypeTagValue,
+		FilterNameStringTypePrimaryRegion,
 		FilterNameStringTypeAll,
 	}
 }
@@ -6573,5 +7934,25 @@ func SortOrderType_Values() []string {
 	return []string{
 		SortOrderTypeAsc,
 		SortOrderTypeDesc,
+	}
+}
+
+const (
+	// StatusTypeInSync is a StatusType enum value
+	StatusTypeInSync = "InSync"
+
+	// StatusTypeFailed is a StatusType enum value
+	StatusTypeFailed = "Failed"
+
+	// StatusTypeInProgress is a StatusType enum value
+	StatusTypeInProgress = "InProgress"
+)
+
+// StatusType_Values returns all elements of the StatusType enum
+func StatusType_Values() []string {
+	return []string{
+		StatusTypeInSync,
+		StatusTypeFailed,
+		StatusTypeInProgress,
 	}
 }

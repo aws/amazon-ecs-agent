@@ -2,7 +2,7 @@
 github.com/Microsoft/go-winio
 # github.com/Microsoft/hcsshim v0.8.6
 github.com/Microsoft/hcsshim/osversion
-# github.com/aws/aws-sdk-go v1.36.0
+# github.com/aws/aws-sdk-go v1.40.45
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/aws/arn
 github.com/aws/aws-sdk-go/aws/awserr
@@ -14,6 +14,7 @@ github.com/aws/aws-sdk-go/aws/credentials
 github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds
 github.com/aws/aws-sdk-go/aws/credentials/endpointcreds
 github.com/aws/aws-sdk-go/aws/credentials/processcreds
+github.com/aws/aws-sdk-go/aws/credentials/ssocreds
 github.com/aws/aws-sdk-go/aws/credentials/stscreds
 github.com/aws/aws-sdk-go/aws/csm
 github.com/aws/aws-sdk-go/aws/defaults
@@ -45,6 +46,7 @@ github.com/aws/aws-sdk-go/private/protocol/jsonrpc
 github.com/aws/aws-sdk-go/private/protocol/query
 github.com/aws/aws-sdk-go/private/protocol/query/queryutil
 github.com/aws/aws-sdk-go/private/protocol/rest
+github.com/aws/aws-sdk-go/private/protocol/restjson
 github.com/aws/aws-sdk-go/private/protocol/restxml
 github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go/private/util
@@ -57,6 +59,8 @@ github.com/aws/aws-sdk-go/service/s3/s3manager
 github.com/aws/aws-sdk-go/service/secretsmanager
 github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface
 github.com/aws/aws-sdk-go/service/ssm
+github.com/aws/aws-sdk-go/service/sso
+github.com/aws/aws-sdk-go/service/sso/ssoiface
 github.com/aws/aws-sdk-go/service/sts
 github.com/aws/aws-sdk-go/service/sts/stsiface
 # github.com/awslabs/go-config-generator-for-fluentd-and-fluentbit v0.0.0-20190829210224-55d4fd2e6f35
@@ -198,7 +202,7 @@ github.com/vishvananda/netns
 go.etcd.io/bbolt
 # golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b => golang.org/x/net v0.0.0-20171107184841-a337091b0525
+# golang.org/x/net v0.0.0-20210614182718-04defd469f4e => golang.org/x/net v0.0.0-20171107184841-a337091b0525
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
