@@ -44,8 +44,10 @@ const (
 	iptablesTableFilter = "filter"
 	iptablesTableNat    = "nat"
 
-	offhostIntrospectionAccessConfigEnv = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
-	agentIntrospectionServerPort        = "51678"
+	offhostIntrospectionAccessConfigEnv   = "ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS"
+	offhostIntrospectonAccessInterfaceEnv = "ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME"
+	agentIntrospectionServerPort          = "51678"
+	defaultOffhostIntrospectionInterface  = "eth0"
 )
 
 // NetfilterRoute implements the engine.credentialsProxyRoute interface by
@@ -187,10 +189,18 @@ func getBlockIntrospectionOffhostAccessInputChainArgs() []string {
 	return []string{
 		"INPUT",
 		"-p", "tcp",
-		"-i", "eth0",
+		"-i", getOffhostIntrospectionInterface(),
 		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
+}
+
+func getOffhostIntrospectionInterface() string {
+	s := os.Getenv(offhostIntrospectonAccessInterfaceEnv)
+	if s != "" {
+		return s
+	}
+	return defaultOffhostIntrospectionInterface
 }
 
 func getOutputChainArgs() []string {

@@ -25,6 +25,7 @@ Additionally, the following environment variable(s) can be used to configure the
 |:----------------|:----------------------------|:------------|:-----------------------|
 | `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to drop non-local packets to localhost if they're not part of an existing forwarded connection or DNAT, and removes the rule upon stop. If `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` is set to true, this rule will not be added/removed. | false |
 | `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` | &lt;true &#124; false&gt; | By default, the ecs-init service adds an iptable rule to block access to ECS Agent's introspection port from off-host (or containers in awsvpc network mode), and removes the rule upon stop. If `ECS_ALLOW_OFFHOST_INTROSPECTION_ACCESS` is set to true, this rule will not be added/removed. | false |
+| `ECS_OFFHOST_INTROSPECTION_INTERFACE_NAME` | `eth0` | Primary network interface name to be used for blocking offhost agent introspection port access. By default, this value is `eth0` | `eth0` |
 
 The above environment variable(s) can be used in the following way
 - On Amazon Linux 1, the flag `ECS_SKIP_LOCALHOST_TRAFFIC_FILTER` can be turned on by adding `env ECS_SKIP_LOCALHOST_TRAFFIC_FILTER=true` to /etc/init/ecs.conf.

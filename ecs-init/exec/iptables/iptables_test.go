@@ -46,6 +46,12 @@ var (
 		"--dport", agentIntrospectionServerPort,
 		"-j", "DROP",
 	}
+	blockIntrospectionOffhostAccessInterfaceInputRouteArgs = []string{
+		"-p", "tcp",
+		"-i", "sn0",
+		"--dport", agentIntrospectionServerPort,
+		"-j", "DROP",
+	}
 	outputRouteArgs = []string{
 		"-p", "tcp",
 		"-d", credentialsProxyIpAddress,
@@ -67,34 +73,54 @@ func TestNewNetfilterRouteFailsWhenExecutableNotFound(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	testCases := []struct {
+		setOffhostInterface bool
+		inputRouteArgs      []string
+	}{
+		{
+			setOffhostInterface: false,
+			inputRouteArgs:      blockIntrospectionOffhostAccessInputRouteArgs,
+		},
+		{
+			setOffhostInterface: true,
+			inputRouteArgs:      blockIntrospectionOffhostAccessInterfaceInputRouteArgs,
+		},
+	}
+	for _, tc := range testCases {
+		if tc.setOffhostInterface {
+			os.Setenv(offhostIntrospectonAccessInterfaceEnv, "sn0")
+			defer os.Unsetenv(offhostIntrospectonAccessInterfaceEnv)
+		}
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
-	mockCmd := NewMockCmd(ctrl)
-	// Mock a successful execution of the iptables command to create the
-	// route
-	mockExec := NewMockExec(ctrl)
-	gomock.InOrder(
-		mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
-		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("filter", "-I", "INPUT", blockIntrospectionOffhostAccessInputRouteArgs)).Return(mockCmd),
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-		mockExec.EXPECT().Command(iptablesExecutable,
-			expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
-		mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
-	)
+		mockCmd := NewMockCmd(ctrl)
+		// Mock a successful execution of the iptables command to create the
+		// route
+		mockExec := NewMockExec(ctrl)
+		gomock.InOrder(
+			mockExec.EXPECT().LookPath(iptablesExecutable).Return("", nil),
+			mockExec.EXPECT().Command(iptablesExecutable,
+				expectedArgs("nat", "-A", "PREROUTING", preroutingRouteArgs)).Return(mockCmd),
+			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+			mockExec.EXPECT().Command(iptablesExecutable,
+				expectedArgs("filter", "-I", "INPUT", localhostTrafficFilterInputRouteArgs)).Return(mockCmd),
+			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+			mockExec.EXPECT().Command(iptablesExecutable,
+				expectedArgs("filter", "-I", "INPUT", tc.inputRouteArgs)).Return(mockCmd),
+			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+			mockExec.EXPECT().Command(iptablesExecutable,
+				expectedArgs("nat", "-A", "OUTPUT", outputRouteArgs)).Return(mockCmd),
+			mockCmd.EXPECT().CombinedOutput().Return([]byte{0}, nil),
+		)
 
-	route, err := NewNetfilterRoute(mockExec)
-	require.NoError(t, err, "Error creating netfilter route object")
+		route, err := NewNetfilterRoute(mockExec)
+		require.NoError(t, err, "Error creating netfilter route object")
 
-	err = route.Create()
-	assert.NoError(t, err, "Error creating route")
+		err = route.Create()
+		assert.NoError(t, err, "Error creating route")
+	}
+
 }
 
 func TestCreateSkipLocalTrafficFilter(t *testing.T) {
