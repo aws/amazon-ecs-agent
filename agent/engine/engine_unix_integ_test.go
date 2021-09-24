@@ -30,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cihub/seelog"
 	"github.com/docker/docker/api/types"
 
 	"github.com/aws/amazon-ecs-agent/agent/api"
@@ -61,6 +62,28 @@ var (
 	endpoint            = utils.DefaultIfBlank(os.Getenv(DockerEndpointEnvVariable), DockerDefaultEndpoint)
 	TestGPUInstanceType = []string{"p2", "p3", "g3", "g4dn", "p4d"}
 )
+
+// Starting from Docker version 20.10.6, a behavioral change was introduced in docker container port bindings,
+// where both IPv4 and IPv6 port bindings will be exposed.
+// To mitigate this issue, Agent introduced an environment variable ECS_EXCLUDE_IPV6_PORTBINDING,
+// which is true by default in the [PR#3025](https://github.com/aws/amazon-ecs-agent/pull/3025).
+// However, the PR does not modify port bindings in the container state change object, it only filters out IPv6 port
+// bindings while building the container state change payload. Thus the invalid IPv6 port bindings still exists
+// in ContainerStateChange, and need to be filtered out in this integration test.
+//
+// The getValidPortBinding function and the ECS_EXCLUDE_IPV6_PORTBINDING environment variable should be removed once
+// the IPv6 issue is resolved by Docker and is fully supported by ECS.
+func getValidPortBinding(portBindings []apicontainer.PortBinding) []apicontainer.PortBinding {
+	validPortBindings := []apicontainer.PortBinding{}
+	for _, binding := range portBindings {
+		if binding.BindIP == "::" {
+			seelog.Debugf("Exclude IPv6 port binding %v", binding)
+			continue
+		}
+		validPortBindings = append(validPortBindings, binding)
+	}
+	return validPortBindings
+}
 
 func createTestHealthCheckTask(arn string) *apitask.Task {
 	testTask := &apitask.Task{
@@ -350,7 +373,7 @@ func TestMultiplePortForwards(t *testing.T) {
 }
 
 // TestDynamicPortForward runs a container serving data on a port chosen by the
-// docker deamon and verifies that the port is reported in the state-change
+// docker daemon and verifies that the port is reported in the state-change.
 func TestDynamicPortForward(t *testing.T) {
 	taskEngine, done, _ := setupWithDefaultConfig(t)
 	defer done()
@@ -370,14 +393,16 @@ func TestDynamicPortForward(t *testing.T) {
 	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
+	// See comments on the getValidPortBinding() function for why ports need to be filtered.
+	validPortBindings := getValidPortBinding(portBindings)
 
 	verifyTaskRunningStateChange(t, taskEngine)
 
-	if len(portBindings) != 1 {
+	if len(validPortBindings) != 1 {
 		t.Error("PortBindings was not set; should have been len 1", portBindings)
 	}
 	var bindingForcontainerPortOne uint16
-	for _, binding := range portBindings {
+	for _, binding := range validPortBindings {
 		if binding.ContainerPort == port {
 			bindingForcontainerPortOne = binding.HostPort
 		}
@@ -423,15 +448,17 @@ func TestMultipleDynamicPortForward(t *testing.T) {
 	require.Equal(t, event.(api.ContainerStateChange).Status, apicontainerstatus.ContainerRunning, "Expected container to be RUNNING")
 
 	portBindings := event.(api.ContainerStateChange).PortBindings
+	// See comments on the getValidPortBinding() function for why ports need to be filtered.
+	validPortBindings := getValidPortBinding(portBindings)
 
 	verifyTaskRunningStateChange(t, taskEngine)
 
-	if len(portBindings) != 2 {
+	if len(validPortBindings) != 2 {
 		t.Error("Could not bind to two ports from one container port", portBindings)
 	}
 	var bindingForcontainerPortOne_1 uint16
 	var bindingForcontainerPortOne_2 uint16
-	for _, binding := range portBindings {
+	for _, binding := range validPortBindings {
 		if binding.ContainerPort == port {
 			if bindingForcontainerPortOne_1 == 0 {
 				bindingForcontainerPortOne_1 = binding.HostPort
