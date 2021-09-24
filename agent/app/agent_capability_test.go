@@ -131,6 +131,7 @@ func TestCapabilities(t *testing.T) {
 		attributePrefix + capabilityEnvFilesS3,
 		attributePrefix + taskENIBlockInstanceMetadataAttributeSuffix,
 		attributePrefix + capabilityExec,
+		attributePrefix + capabilityContainerIAMRole,
 	}
 
 	var expectedCapabilities []*ecs.Attribute
