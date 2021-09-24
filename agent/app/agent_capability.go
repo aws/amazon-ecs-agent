@@ -74,6 +74,7 @@ const (
 	capabilityExternal                          = "external"
 	capabilityTelemetryFluentbit                = "telemetry.fluentbit"
 	capabilityTelemetryOpentelemetry            = "telemetry.opentelemetry"
+	capabilityContainerIAMRole                  = "container-iam-roles"
 )
 
 var (
@@ -97,6 +98,8 @@ var (
 		capabilityFullTaskSync,
 		// ecs agent version 1.39.0 supports bulk loading env vars through environmentFiles in S3
 		capabilityEnvFilesS3,
+		// support container role and container execution role
+		capabilityContainerIAMRole,
 	}
 	capabilityExecRequiredBinaries = []string{
 		"amazon-ssm-agent",
