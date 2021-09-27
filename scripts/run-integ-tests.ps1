@@ -47,6 +47,9 @@ Invoke-Expression "${PSScriptRoot}\..\misc\netkitten\build.ps1"
 $cwd = (pwd).Path
 try {
   $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
+  if (${LastExitCode} -ne 0) {
+    $env:ECS_LOGLEVEL = 'debug'; go test -race -tags integration -timeout=40m -v ../agent/engine ../agent/stats ../agent/app
+  }
   $testsExitCode = $LastExitCode
 } finally {
   cd "$cwd"
