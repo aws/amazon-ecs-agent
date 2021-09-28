@@ -15,7 +15,10 @@
 
 package config
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 func parseGMSACapability() bool {
 	return false
@@ -27,4 +30,9 @@ func parseFSxWindowsFileServerCapability() bool {
 
 var IsWindows2016 = func() (bool, error) {
 	return false, errors.New("unsupported platform")
+}
+
+// GetOSFamily returns "LINUX" as operating system family for linux based ecs instances.
+func GetOSFamily() string {
+	return strings.ToUpper(OSType)
 }
