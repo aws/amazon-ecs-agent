@@ -21,6 +21,15 @@ if ($Platform -like "windows2016") {
 } elseif ($Platform -like "windows2019")  {
   $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
   $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:cc6d6da31014dceab4daee8b5a8da4707233f4ef42eaf071e45cee044ac738f4"
+} elseif ($Platform -like "windows2004")  {
+  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:057f2a4da3777db6de54c41029439227537e5bf805de3d90b0cfd300ffbf3db0"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:057f2a4da3777db6de54c41029439227537e5bf805de3d90b0cfd300ffbf3db0"
+} elseif ($Platform -like "windows20h2")  {
+  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:64ada3cbc39ee8152f45b6e2284e8eb0a9fc14edef5be0f78397f0d1a0879451"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:64ada3cbc39ee8152f45b6e2284e8eb0a9fc14edef5be0f78397f0d1a0879451"
+} elseif ($Platform -like "windows2022")  {
+  $BaseImageName="mcr.microsoft.com/windows/servercore@sha256:8f756a7fd4fe963cc7dd2c3ad1597327535da8e8f55a7d1932780934efa87e04"
+  $BaseImageNameWithDigest="mcr.microsoft.com/windows/servercore@sha256:8f756a7fd4fe963cc7dd2c3ad1597327535da8e8f55a7d1932780934efa87e04"
 } else {
   echo "Invalid platform parameter"
   exit 1
