@@ -1,4 +1,8 @@
 # Changelog
+## 1.55.4
+* Enhancement - GPU updates for ECS Anywhere [#3040](https://github.com/aws/amazon-ecs-agent/pull/3040)
+* Enhancement - Windows OS Family attribute advertisement [#3044](https://github.com/aws/amazon-ecs-agent/pull/3044)
+
 ## 1.55.3
 * Enhancement - Upgrade Windows builds to golang version v1.17
 [#3010](https://github.com/aws/amazon-ecs-agent/pull/3010)
