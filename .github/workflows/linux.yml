@@ -24,6 +24,7 @@ jobs:
       - name: make test
         run: |
           export GOPATH=$GITHUB_WORKSPACE
+          export GO111MODULE=auto
           cd $GITHUB_WORKSPACE/src/github.com/aws/amazon-ecs-agent
           make test-silent
           make analyze-cover-profile
