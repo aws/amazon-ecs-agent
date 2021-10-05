@@ -60,9 +60,9 @@ cd "${ROOT}"
 if [[ "${TARGET_OS}" == "windows" ]]; then
     go build -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
 elif [[ "${static}" == "true" ]]; then
-    CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
+    GO111MODULE=auto CGO_ENABLED=0 go build -installsuffix cgo -a -ldflags "${LDFLAGS} -s" -o $build_exe ./agent/
 else
-    go build -o $build_exe ./agent/
+    GO111MODULE=auto go build -o $build_exe ./agent/
 fi
 
 if [[ -n "${output_directory}" ]]; then
