@@ -1,3 +1,4 @@
+//go:build amd64 && unit
 // +build amd64,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
