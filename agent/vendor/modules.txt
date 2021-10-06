@@ -196,12 +196,13 @@ github.com/vishvananda/netlink/nl
 github.com/vishvananda/netns
 # go.etcd.io/bbolt v1.3.6
 go.etcd.io/bbolt
-# golang.org/x/crypto v0.0.0-20181009213950-7c1a557ab941 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
+# golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2 => golang.org/x/crypto v0.0.0-20171113213409-9f005a07e0d3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/net v0.0.0-20201110031124-69a78807bb2b => golang.org/x/net v0.0.0-20171107184841-a337091b0525
+# golang.org/x/net v0.0.0-20210525063256-abc453219eb5 => golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 golang.org/x/net/context
 golang.org/x/net/html
 golang.org/x/net/html/atom
+golang.org/x/net/internal/socks
 golang.org/x/net/proxy
 # golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d => golang.org/x/sys v0.0.0-20190830141801-acfa387b8d69
 golang.org/x/sys/unix
