@@ -592,6 +592,7 @@ func environmentConfig() (Config, error) {
 		External:                            parseBooleanDefaultFalseConfig("ECS_EXTERNAL"),
 		EnableRuntimeStats:                  parseBooleanDefaultFalseConfig("ECS_ENABLE_RUNTIME_STATS"),
 		ShouldExcludeIPv6PortBinding:        parseBooleanDefaultTrueConfig("ECS_EXCLUDE_IPV6_PORTBINDING"),
+		WarmPoolsSupport:                    parseBooleanDefaultFalseConfig("ECS_WARM_POOLS_CHECK"),
 	}, err
 }
 
