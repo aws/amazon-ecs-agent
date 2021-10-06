@@ -1,3 +1,4 @@
+//go:build linux && (sudo || integration)
 // +build linux
 // +build sudo integration
 
