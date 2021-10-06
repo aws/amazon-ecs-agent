@@ -188,7 +188,7 @@ func (cs *ClientServerImpl) Connect() error {
 		ReadBufferSize:   readBufSize,
 		WriteBufferSize:  writeBufSize,
 		TLSClientConfig:  tlsConfig,
-		Proxy:            http.ProxyFromEnvironment,
+		Proxy:            utils.Proxy,
 		NetDial:          timeoutDialer.Dial,
 		HandshakeTimeout: wsHandshakeTimeout,
 	}
