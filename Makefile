@@ -30,6 +30,8 @@ else
 	GO_VERSION=$(shell cat ./GO_VERSION)
 endif
 
+export GO111MODULE=auto
+
 all: docker
 
 # Dynamic go build; useful in that it does not have -a so it won't recompile
