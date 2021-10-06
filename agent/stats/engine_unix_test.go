@@ -1,4 +1,5 @@
-//+build linux,unit
+//go:build linux && unit
+// +build linux,unit
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
