@@ -1,3 +1,11 @@
+amazon-ecs-init (1.55.4-1) stable; urgency=medium
+
+  * Cache Agent version 1.55.4
+  * GPU updates for ECS Anywhere
+  * Introduce new configuration variable ECS_OFFHOST_INTROSPECTION_NAME to specify the primary network interface name to block offhost agent introspection port access.
+
+ -- Ray Allan <fierlion@amazon.com>  Thu, 30 Sep 2021 12:00:00 +0000
+
 amazon-ecs-init (1.55.3-1) stable; urgency=medium
 
   * Cache Agent version 1.55.3

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.55.4-1
+* Cache Agent version 1.55.4
+* GPU updates for ECS Anywhere
+* Introduce new configuration variable ECS\_OFFHOST\_INTROSPECTION\_NAME to specify the primary network interface name to block offhost agent introspection port access.
+
 ## 1.55.3-1
 * Cache Agent version 1.55.3
 
