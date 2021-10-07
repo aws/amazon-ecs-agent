@@ -779,6 +779,7 @@ func TestCapabilitiesUnix(t *testing.T) {
 		attributePrefix + capabilityEFS,
 		attributePrefix + capabilityEFSAuth,
 		capabilityPrefix + capabilityFirelensLoggingDriver,
+		attributePrefix + capabilityFirelensLoggingDriver + capabilityFireLensLoggingDriverConfigBufferLimitSuffix,
 		attributePrefix + capabilityEnvFilesS3,
 	}
 

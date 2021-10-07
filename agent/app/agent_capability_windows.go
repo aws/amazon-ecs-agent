@@ -64,6 +64,10 @@ func (agent *ecsAgent) appendFirelensLoggingDriverCapabilities(capabilities []*e
 	return capabilities
 }
 
+func (agent *ecsAgent) appendFirelensLoggingDriverConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
+	return capabilities
+}
+
 func (agent *ecsAgent) appendFirelensConfigCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	return capabilities
 }
