@@ -89,8 +89,8 @@ const (
 	targetLifecycleBackoffMultiple = 1.3
 	targetLifecycleMaxRetryCount   = 3
 	inServiceState                 = "InService"
-	asgLifeCyclePollWait           = time.Minute
-	asgLifeCyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
+	asgLifecyclePollWait           = time.Minute
+	asgLifecyclePollMax            = 120 // given each poll cycle waits for about a minute, this gives 2-3 hours before timing out
 )
 
 var (
@@ -294,7 +294,7 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 	// If part of ASG, wait until instance is being set up to go in service before registering with cluster
 	if agent.cfg.WarmPoolsSupport.Enabled() {
-		err := agent.waitUntilInstanceInService(asgLifeCyclePollWait, asgLifeCyclePollMax)
+		err := agent.waitUntilInstanceInService(asgLifecyclePollWait, asgLifecyclePollMax, targetLifecycleMaxRetryCount)
 		if err != nil && err.Error() != blackholed {
 			seelog.Criticalf("Could not determine target lifecycle of instance: %v", err)
 			return exitcodes.ExitTerminal
@@ -397,45 +397,60 @@ func (agent *ecsAgent) doStart(containerChangeEventStream *eventstream.EventStre
 
 // waitUntilInstanceInService Polls IMDS until the target lifecycle state indicates that the instance is going in
 // service. This is to avoid instances going to a warm pool being registered as container instances with the cluster
-func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int) error {
+func (agent *ecsAgent) waitUntilInstanceInService(pollWaitDuration time.Duration, pollMaxTimes int, maxRetries int) error {
 	var err error
 	var targetState string
-	// Poll while the instance is in a warmed state or while waiting for the data to be populated.
-	// If the data is not populated after a certain number of polls, then stop polling and return the not found error.
-	// The polling maximum does not apply to instances in the warmed states
-	for i := 0; i < pollMaxTimes || targetState != ""; i++ {
-		targetState, err = agent.getTargetLifeCycle()
-		// stop polling if the retrieved state is in service or we get an unexpected error
-		if targetState == inServiceState {
-			break
-		}
-		if err != nil {
-			var statusCode int
-			if reqErr, ok := err.(awserr.RequestFailure); ok {
-				statusCode = reqErr.StatusCode()
-			}
-			if statusCode != 404 {
-				break
-			}
-		}
+	// Poll until a target lifecycle state is obtained from IMDS, or an unexpected error occuurs
+	targetState, err = agent.pollUntilTargetLifecyclePresent(pollWaitDuration, pollMaxTimes, maxRetries)
+	if err != nil {
+		return err
+	}
+	// Poll while the instance is in a warmed state until it is going to go into service
+	for targetState != inServiceState {
 		time.Sleep(pollWaitDuration)
+		targetState, err = agent.getTargetLifecycle(maxRetries)
+		if err != nil {
+			// Do not exit if error is due to throttling or temporary server errors
+			// These are likely transient, as at this point IMDS has been successfully queried for state
+			switch utils.GetRequestFailureStatusCode(err) {
+			case 429, 500, 502, 503, 504:
+				seelog.Warnf("Encountered error while waiting for warmed instance to go in service: %v", err)
+			default:
+				return err
+			}
+		}
 	}
 	return err
 }
 
+// pollUntilTargetLifecyclePresent polls until obtains a target state or receives an unexpected error
+func (agent *ecsAgent) pollUntilTargetLifecyclePresent(pollWaitDuration time.Duration, pollMaxTimes int, maxRetries int) (string, error) {
+	var err error
+	var targetState string
+	for i := 0; i < pollMaxTimes; i++ {
+		targetState, err = agent.getTargetLifecycle(maxRetries)
+		if targetState != "" ||
+			(err != nil && utils.GetRequestFailureStatusCode(err) != 404) {
+			break
+		}
+		time.Sleep(pollWaitDuration)
+	}
+	return targetState, err
+}
+
 // getTargetLifecycle obtains the target lifecycle state for the instance from IMDS. This is populated for instances
 // associated with an ASG
-func (agent *ecsAgent) getTargetLifeCycle() (string, error) {
+func (agent *ecsAgent) getTargetLifecycle(maxRetries int) (string, error) {
 	var targetState string
 	var err error
 	backoff := retry.NewExponentialBackoff(targetLifecycleBackoffMin, targetLifecycleBackoffMax, targetLifecycleBackoffJitter, targetLifecycleBackoffMultiple)
-	for i := 0; i < targetLifecycleMaxRetryCount; i++ {
+	for i := 0; i < maxRetries; i++ {
 		targetState, err = agent.ec2MetadataClient.TargetLifecycleState()
 		if err == nil {
 			break
 		}
 		seelog.Debugf("Error when getting intended lifecycle state: %v", err)
-		if i < targetLifecycleMaxRetryCount {
+		if i < maxRetries {
 			time.Sleep(backoff.Duration())
 		}
 	}

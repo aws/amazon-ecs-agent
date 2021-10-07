@@ -162,6 +162,31 @@ func TestIsAWSErrorCodeEqual(t *testing.T) {
 	}
 }
 
+func TestGetRequestFailureStatusCode(t *testing.T) {
+	testcases := []struct {
+		name string
+		err  error
+		res  int
+	}{
+		{
+			name: "TestGetRequestFailureStatusCodeSuccess",
+			err:  awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, ""),
+			res:  400,
+		},
+		{
+			name: "TestGetRequestFailureStatusCodeWrongErrType",
+			err:  errors.New("err"),
+			res:  0,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.res, GetRequestFailureStatusCode(tc.err))
+		})
+	}
+}
+
 func TestMapToTags(t *testing.T) {
 	tagKey1 := "tagKey1"
 	tagKey2 := "tagKey2"
