@@ -11,13 +11,16 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
+go env -w GO111MODULE=off
+go build -tags integration -o ${PSScriptRoot}\sleep.exe ${PSScriptRoot}\sleep\
+
 # create the container image used to run execcmd integ tests
 docker build -t "amazon/amazon-ecs-exec-command-agent-windows-test:make" -f "${PSScriptRoot}/windows.dockerfile" ${PSScriptRoot}
 
 $SIMULATED_ECS_AGENT_DEPS_BIN_DIR="C:\Program Files\Amazon\ECS\managed-agents\execute-command\bin\1.0.0.0"
 Remove-Item -Path $SIMULATED_ECS_AGENT_DEPS_BIN_DIR -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -Path $SIMULATED_ECS_AGENT_DEPS_BIN_DIR -ItemType Directory -Force
-go build -tags integration -installsuffix cgo -a -o $SIMULATED_ECS_AGENT_DEPS_BIN_DIR\amazon-ssm-agent.exe ${PSScriptRoot}\sleep\
+Move-Item -Path ${PSScriptRoot}\sleep.exe -Destination $SIMULATED_ECS_AGENT_DEPS_BIN_DIR\amazon-ssm-agent.exe
 New-Item -Path $SIMULATED_ECS_AGENT_DEPS_BIN_DIR\ssm-agent-worker.exe -ItemType File -Force
 New-Item -Path $SIMULATED_ECS_AGENT_DEPS_BIN_DIR\ssm-session-worker.exe -ItemType File -Force
 
@@ -42,3 +45,6 @@ if(!(Test-Path -path $SIMULATED_SSM_PLUGINS_DIR\awsDomainJoin))
 {
     New-Item -Path $SIMULATED_SSM_PLUGINS_DIR\awsDomainJoin -ItemType directory -Force
 }
+
+# Set the Go Modules to auto once we have built the binaries.
+go env -w GO111MODULE=auto
