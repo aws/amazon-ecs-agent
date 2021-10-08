@@ -1192,6 +1192,17 @@ func (c *Container) GetFirelensConfig() *FirelensConfig {
 	return c.FirelensConfig
 }
 
+// GetFirelensVersion returns the container's firelens version.
+func (c *Container) GetFirelensVersion() string {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	if c.FirelensConfig != nil {
+		return c.FirelensConfig.Version
+	}
+	return ""
+}
+
 // GetEnvironmentFiles returns the container's environment files.
 func (c *Container) GetEnvironmentFiles() []EnvironmentFile {
 	c.lock.RLock()

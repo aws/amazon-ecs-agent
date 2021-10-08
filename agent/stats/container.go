@@ -36,9 +36,10 @@ func newStatsContainer(dockerID string, client dockerapi.DockerClient, resolver 
 	ctx, cancel := context.WithCancel(context.Background())
 	return &StatsContainer{
 		containerMetadata: &ContainerMetadata{
-			DockerID:    dockerID,
-			Name:        dockerContainer.Container.Name,
-			NetworkMode: dockerContainer.Container.GetNetworkMode(),
+			DockerID:        dockerID,
+			Name:            dockerContainer.Container.Name,
+			NetworkMode:     dockerContainer.Container.GetNetworkMode(),
+			FirelensVersion: dockerContainer.Container.GetFirelensVersion(),
 		},
 		ctx:      ctx,
 		cancel:   cancel,

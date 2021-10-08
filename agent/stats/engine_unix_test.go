@@ -135,13 +135,11 @@ func TestGetContainerStatusMessage(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	testContainer := &apicontainer.DockerContainer{
-		DockerID: "123",
-		Container: &apicontainer.Container{
-			Name: "firelens_v2_container",
-			FirelensConfig: &apicontainer.FirelensConfig{
-				Version: "v2",
-			},
+	testContainer := &StatsContainer{
+		containerMetadata: &ContainerMetadata{
+			DockerID:        "123",
+			Name:            "firelens_v2_container",
+			FirelensVersion: "v2",
 		},
 	}
 

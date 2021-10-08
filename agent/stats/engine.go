@@ -152,6 +152,7 @@ func NewDockerStatsEngine(cfg *config.Config, client dockerapi.DockerClient, con
 		tasksToDefinitions:           make(map[string]*taskDefinition),
 		taskToTaskStats:              make(map[string]*StatsTask),
 		containerChangeEventStream:   containerChangeEventStream,
+		dockerIdToStatusMessageSince: make(map[string]time.Time),
 	}
 }
 
@@ -518,6 +519,12 @@ func (engine *DockerStatsEngine) stopTrackingContainerUnsafe(container *StatsCon
 	return false
 }
 
+// isFirelensV2Container returns true if container is a firelens v2 container and status message
+// needs to be published to TACS once after the container stopped or no longer tracked in agent.
+func (engine *DockerStatsEngine) isFirelensV2Container(container *StatsContainer) bool {
+	return container.containerMetadata.FirelensVersion == "v2"
+}
+
 func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.TaskHealth {
 	// Acquire the task definition information
 	taskDefinition, ok := engine.tasksToDefinitions[taskARN]
@@ -536,8 +543,16 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 	var containerHealths []*ecstcs.ContainerHealth
 	for _, container := range containers {
 		// check if the container is stopped/untracked, and remove it from stats
-		//engine if needed
+		// engine if needed
 		if engine.stopTrackingContainerUnsafe(container, taskARN) {
+			if engine.isFirelensV2Container(container) {
+				statusMessage, isNil := engine.getContainerStatusMessage(container, taskARN)
+				if !isNil {
+					containerHealths = append(containerHealths, &ecstcs.ContainerHealth{
+						StatusMessage: aws.String(statusMessage),
+					})
+				}
+			}
 			continue
 		}
 		dockerContainer, err := engine.resolver.ResolveContainer(container.containerMetadata.DockerID)
@@ -562,7 +577,7 @@ func (engine *DockerStatsEngine) getTaskHealthUnsafe(taskARN string) *ecstcs.Tas
 			StatusSince:   aws.Time(healthInfo.Since.UTC()),
 		}
 
-		statusMessage, isNil := engine.getContainerStatusMessage(dockerContainer, taskARN)
+		statusMessage, isNil := engine.getContainerStatusMessage(container, taskARN)
 		if !isNil {
 			containerHealth.StatusMessage = aws.String(statusMessage)
 		}
@@ -823,13 +838,12 @@ func (engine *DockerStatsEngine) ContainerDockerStats(taskARN string, containerI
 //  2. error while retrieving StatusMessageReportingPath.
 //  3. error reading existing status message file.
 //  4. contents of status message file has not been modified since last published to TACS.
-func (engine *DockerStatsEngine) getContainerStatusMessage(dockerContainer *apicontainer.DockerContainer, taskARN string) (string, bool) {
-	firelensConfig := dockerContainer.Container.GetFirelensConfig()
-	if firelensConfig == nil || (firelensConfig != nil && firelensConfig.Version != "v2") {
+func (engine *DockerStatsEngine) getContainerStatusMessage(container *StatsContainer, taskARN string) (string, bool) {
+	if container.containerMetadata.FirelensVersion != "v2" {
 		return "", true
 	}
 
-	StatusMessageFilepath, err := getStatusMessageReportingPath(engine.config.DataDirOnHost, taskARN, dockerContainer.Container.Name)
+	StatusMessageFilepath, err := getStatusMessageReportingPath(engine.config.DataDirOnHost, taskARN, container.containerMetadata.Name)
 	if err != nil {
 		seelog.Errorf("stats failed to get status message reporting path: %v", err)
 		return "", true
@@ -843,9 +857,9 @@ func (engine *DockerStatsEngine) getContainerStatusMessage(dockerContainer *apic
 		return "", true
 	}
 
-	dockerID := dockerContainer.DockerID
+	dockerID := container.containerMetadata.DockerID
 	if statusMessageFileInfo, err := os.Stat(StatusMessageFilepath); err != nil {
-		seelog.Errorf("Unable to get status message file info for container %s: %v", dockerContainer.Container.Name, err)
+		seelog.Errorf("Unable to get status message file info for container %s: %v", container.containerMetadata.Name, err)
 	} else {
 		statusMessageFileLastModified := statusMessageFileInfo.ModTime()
 		// add the last modified time to dockerIdToStatusMessageSince mapping if dockerID is not already present
