@@ -18,6 +18,8 @@ package stats
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -522,5 +524,72 @@ func testNetworkModeStats(t *testing.T, netMode string, enis []*apieni.ENI, empt
 		} else {
 			assert.NotNil(t, containerMetric.NetworkStatsSet, "network stats should be non-empty")
 		}
+	}
+}
+
+func TestGetTaskHealthMetricsFirelensV2StoppedContainer(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	containerID := "containerID"
+	resolver := mock_resolver.NewMockContainerMetadataResolver(mockCtrl)
+	resolver.EXPECT().ResolveContainer(containerID).Return(&apicontainer.DockerContainer{
+		DockerID: containerID,
+		Container: &apicontainer.Container{
+			Name:              "firelens_v2_container",
+			KnownStatusUnsafe: apicontainerstatus.ContainerStopped,
+			HealthCheckType:   "docker",
+			FirelensConfig: &apicontainer.FirelensConfig{
+				Version: "v2",
+			},
+		},
+	}, nil).Times(2)
+
+	engine := NewDockerStatsEngine(&cfg, nil, nil)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	engine.ctx = ctx
+	engine.config.DataDirOnHost = os.TempDir()
+
+	containerToStats := make(map[string]*StatsContainer)
+	var err error
+	containerToStats[containerID], err = newStatsContainer(containerID, nil, resolver, nil)
+	assert.NoError(t, err)
+	engine.tasksToHealthCheckContainers[firelensV2TaskArn] = containerToStats
+	engine.tasksToDefinitions[firelensV2TaskArn] = &taskDefinition{
+		family:  "f1",
+		version: "1",
+	}
+	engine.resolver = resolver
+
+	tempDir := "/tmp/data/telemetry/abc/status-message/firelens_v2_container"
+	os.MkdirAll(tempDir, os.ModePerm)
+	tempFile := tempDir + "/status-message"
+	ioutil.WriteFile(tempFile, []byte("error message"), 0777)
+	defer os.Remove(tempFile)
+
+	testCases := []struct {
+		name          string
+		conatinersLen int
+	}{
+		{
+			name:          "getTaskHealthUnsafe returns status message first time after container stopped",
+			conatinersLen: 1,
+		},
+		{
+			name:          "getTaskHealthUnsafe does not return status message second time after container stopped",
+			conatinersLen: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			taskHealth := engine.getTaskHealthUnsafe(firelensV2TaskArn)
+			if tc.conatinersLen != 0 {
+				assert.Len(t, taskHealth.Containers, tc.conatinersLen)
+			} else {
+				assert.Nil(t, taskHealth)
+			}
+		})
 	}
 }

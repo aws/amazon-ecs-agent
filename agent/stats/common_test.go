@@ -55,6 +55,8 @@ const (
 	taskDefinitionFamily  = "docker-gremlin"
 	taskDefinitionVersion = "1"
 	containerName         = "gremlin-container"
+
+	firelensV2TaskArn = "arn:aws:ecs:us-west-2:1234567890:task/test-cluster/abc"
 )
 
 var (
