@@ -982,7 +982,7 @@ func (c *EC2) WaitUntilSecurityGroupExistsWithContext(ctx aws.Context, input *De
 			{
 				State:    request.RetryWaiterState,
 				Matcher:  request.ErrorWaiterMatch,
-				Expected: "InvalidGroupNotFound",
+				Expected: "InvalidGroup.NotFound",
 			},
 		},
 		Logger: c.Config.Logger,
@@ -1029,6 +1029,11 @@ func (c *EC2) WaitUntilSnapshotCompletedWithContext(ctx aws.Context, input *Desc
 				State:   request.SuccessWaiterState,
 				Matcher: request.PathAllWaiterMatch, Argument: "Snapshots[].State",
 				Expected: "completed",
+			},
+			{
+				State:   request.FailureWaiterState,
+				Matcher: request.PathAnyWaiterMatch, Argument: "Snapshots[].State",
+				Expected: "error",
 			},
 		},
 		Logger: c.Config.Logger,
