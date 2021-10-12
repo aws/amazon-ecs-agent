@@ -1,5 +1,4 @@
 //go:build tools
-// +build tools
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //

@@ -1,5 +1,4 @@
 //go:build sudo || integration
-// +build sudo integration
 
 // Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
 //
