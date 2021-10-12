@@ -1,3 +1,4 @@
+//go:build codegen
 // +build codegen
 
 // Package api represents API abstractions for rendering service generated files.
@@ -23,7 +24,7 @@ type API struct {
 	Operations    map[string]*Operation
 	Shapes        map[string]*Shape
 	Waiters       []Waiter
-	Documentation string
+	Documentation string `json:"-"`
 	Examples      Examples
 	SmokeTests    SmokeTestSuite
 
@@ -1017,6 +1018,24 @@ func (a *API) addHeaderMapDocumentation() {
 			}
 		}
 	}
+}
+
+func (a *API) validateNoDocumentShapes() error {
+	var shapes []string
+	for name, shape := range a.Shapes {
+		if shape.Type != "structure" {
+			continue
+		}
+		if shape.Document {
+			shapes = append(shapes, name)
+		}
+	}
+
+	if len(shapes) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("model contains document shapes: %s", strings.Join(shapes, ", "))
 }
 
 func getDeprecatedMessage(msg string, name string) string {

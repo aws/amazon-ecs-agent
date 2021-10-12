@@ -1,3 +1,4 @@
+//go:build codegen
 // +build codegen
 
 package api
@@ -31,7 +32,7 @@ type XMLInfo struct {
 type ShapeRef struct {
 	API           *API   `json:"-"`
 	Shape         *Shape `json:"-"`
-	Documentation string
+	Documentation string `json:"-"`
 	ShapeName     string `json:"shape"`
 	Location      string
 	LocationName  string
@@ -75,7 +76,7 @@ type ShapeRef struct {
 type Shape struct {
 	API              *API `json:"-"`
 	ShapeName        string
-	Documentation    string
+	Documentation    string               `json:"-"`
 	MemberRefs       map[string]*ShapeRef `json:"members"`
 	MemberRef        ShapeRef             `json:"member"` // List ref
 	KeyRef           ShapeRef             `json:"key"`    // map key ref
@@ -97,7 +98,7 @@ type Shape struct {
 
 	OutputEventStreamAPI *EventStreamAPI
 	EventStream          *EventStream
-	EventFor             []*EventStream `json:"-"`
+	EventFor             map[string]*EventStream `json:"-"`
 
 	IsInputEventStream  bool `json:"-"`
 	IsOutputEventStream bool `json:"-"`
@@ -142,6 +143,9 @@ type Shape struct {
 
 	// Indicates the Shape is used as an operation output
 	UsedAsOutput bool
+
+	// Indicates a structure shape is a document type
+	Document bool `json:"document"`
 }
 
 // CanBeEmpty returns if the shape value can sent request as an empty value.
@@ -531,6 +535,9 @@ func (ref *ShapeRef) GoTags(toplevel bool, isRequired bool) string {
 		if name := ref.Shape.PayloadRefName(); len(name) > 0 {
 			tags = append(tags, ShapeTag{"payload", name})
 		}
+		if !ref.Shape.HasPayloadMembers() && ref.API.Metadata.Protocol == "rest-json" {
+			tags = append(tags, ShapeTag{"nopayload", "true"})
+		}
 	}
 
 	if ref.XMLNamespace.Prefix != "" {
@@ -560,6 +567,18 @@ func (ref *ShapeRef) GoTags(toplevel bool, isRequired bool) string {
 	return fmt.Sprintf("`%s`", tags)
 }
 
+// HasPayloadMembers returns if the shape has any members that will be
+// serialized to the payload of a API message.
+func (s *Shape) HasPayloadMembers() bool {
+	for _, ref := range s.MemberRefs {
+		if ref.Location == "" && ref.Shape.Location == "" {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Docstring returns the godocs formated documentation
 func (ref *ShapeRef) Docstring() string {
 	if ref.Documentation != "" {
@@ -580,11 +599,19 @@ func (ref *ShapeRef) IndentedDocstring() string {
 }
 
 var goCodeStringerTmpl = template.Must(template.New("goCodeStringerTmpl").Parse(`
-// String returns the string representation
+// String returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s {{ $.ShapeName }}) String() string {
 	return awsutil.Prettify(s)
 }
-// GoString returns the string representation
+// GoString returns the string representation.
+//
+// API parameter values that are decorated as "sensitive" in the API will not
+// be included in the string output. The member name will be present, but the
+// value will be replaced with "sensitive".
 func (s {{ $.ShapeName }}) GoString() string {
 	return s.String()
 }
@@ -727,6 +754,7 @@ type {{ $.ShapeName }} struct {
 
 		{{ $isBlob := $.WillRefBeBase64Encoded $name -}}
 		{{ $isRequired := $.IsRequired $name -}}
+		{{ $isSensitive := $elem.Shape.Sensitive -}}
 		{{ $doc := $elem.Docstring -}}
 
 		{{ if $doc -}}
@@ -736,8 +764,16 @@ type {{ $.ShapeName }} struct {
 			// Deprecated: {{ GetDeprecatedMsg $elem.DeprecatedMsg $name }}
 			{{ end -}}
 		{{ end -}}
-		{{ if $isBlob -}}
+		{{ if $isSensitive -}}
 			{{ if $doc -}}
+				//
+			{{ end -}}
+			// {{ $name }} is a sensitive parameter and its value will be
+			// replaced with "sensitive" in string returned by {{ $.ShapeName }}'s
+			// String and GoString methods.
+		{{ end -}}
+		{{ if $isBlob -}}
+			{{ if $isSensitive -}}
 				//
 			{{ end -}}
 			// {{ $name }} is automatically base64 encoded/decoded by the SDK.
