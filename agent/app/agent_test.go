@@ -60,16 +60,19 @@ import (
 )
 
 const (
-	clusterName            = "some-cluster"
-	containerInstanceARN   = "container-instance1"
-	availabilityZone       = "us-west-2b"
-	hostPrivateIPv4Address = "127.0.0.1"
-	hostPublicIPv4Address  = "127.0.0.1"
-	instanceID             = "i-123"
-	warmedState            = "Warmed:Pending"
+	clusterName                      = "some-cluster"
+	containerInstanceARN             = "container-instance1"
+	availabilityZone                 = "us-west-2b"
+	hostPrivateIPv4Address           = "127.0.0.1"
+	hostPublicIPv4Address            = "127.0.0.1"
+	instanceID                       = "i-123"
+	warmedState                      = "Warmed:Running"
+	testTargetLifecycleMaxRetryCount = 1
 )
 
 var notFoundErr = awserr.NewRequestFailure(awserr.Error(awserr.New("NotFound", "", errors.New(""))), 404, "")
+var badReqErr = awserr.NewRequestFailure(awserr.Error(awserr.New("BadRequest", "", errors.New(""))), 400, "")
+var serverErr = awserr.NewRequestFailure(awserr.Error(awserr.New("InternalServerError", "", errors.New(""))), 500, "")
 var apiVersions = []dockerclient.DockerVersion{
 	dockerclient.Version_1_21,
 	dockerclient.Version_1_22,
@@ -310,7 +313,7 @@ func TestDoStartWarmPoolsError(t *testing.T) {
 	}
 
 	err := errors.New("error")
-	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(3)
+	mockEC2Metadata.EXPECT().TargetLifecycleState().Return("", err).Times(targetLifecycleMaxRetryCount)
 
 	exitCode := agent.doStart(eventstream.NewEventStream("events", ctx),
 		credentialsManager, state, imageManager, client, execCmdMgr)
@@ -345,7 +348,7 @@ func testDoStartHappyPathWithConditions(t *testing.T, blackholed bool, warmPools
 
 	if blackholed {
 		if warmPoolsEnv {
-			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed")).Times(3)
+			ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", errors.New("blackholed")).Times(targetLifecycleMaxRetryCount)
 		}
 		ec2MetadataClient.EXPECT().InstanceID().Return("", errors.New("blackholed"))
 	} else {
@@ -1534,17 +1537,30 @@ func newTestDataClient(t *testing.T) (data.Client, func()) {
 	return testClient, cleanup
 }
 
+type targetLifecycleFuncDetail struct {
+	val         string
+	err         error
+	returnTimes int
+}
+
 func TestWaitUntilInstanceInServicePolling(t *testing.T) {
+	warmedResult := targetLifecycleFuncDetail{warmedState, nil, 1}
+	inServiceResult := targetLifecycleFuncDetail{inServiceState, nil, 1}
+	notFoundErrResult := targetLifecycleFuncDetail{"", notFoundErr, testTargetLifecycleMaxRetryCount}
+	unexpectedErrResult := targetLifecycleFuncDetail{"", badReqErr, testTargetLifecycleMaxRetryCount}
+	serverErrResult := targetLifecycleFuncDetail{"", serverErr, testTargetLifecycleMaxRetryCount}
 	testCases := []struct {
-		name         string
-		states       []string
-		err          error
-		returnsState bool
-		maxPolls     int
+		name            string
+		funcTestDetails []targetLifecycleFuncDetail
+		result          error
+		maxPolls        int
 	}{
-		{"TestWaitUntilInstanceInServicePollsWarmed", []string{warmedState, inServiceState}, nil, true, asgLifeCyclePollMax},
-		{"TestWaitUntilInstanceInServicePollsMissing", []string{inServiceState}, notFoundErr, true, asgLifeCyclePollMax},
-		{"TestWaitUntilInstanceInServicePollingMaxReached", nil, notFoundErr, false, 1},
+		{"TestWaitUntilInServicePollWarmed", []targetLifecycleFuncDetail{warmedResult, warmedResult, inServiceResult}, nil, asgLifecyclePollMax},
+		{"TestWaitUntilInServicePollMissing", []targetLifecycleFuncDetail{notFoundErrResult, inServiceResult}, nil, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceErrPollMaxReached", []targetLifecycleFuncDetail{notFoundErrResult}, notFoundErr, 1},
+		{"TestWaitUntilInServiceNoStateUnexpectedErr", []targetLifecycleFuncDetail{unexpectedErrResult}, badReqErr, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceUnexpectedErr", []targetLifecycleFuncDetail{warmedResult, unexpectedErrResult}, badReqErr, asgLifecyclePollMax},
+		{"TestWaitUntilInServiceServerErrContinue", []targetLifecycleFuncDetail{warmedResult, serverErrResult, inServiceResult}, nil, asgLifecyclePollMax},
 	}
 
 	for _, tc := range testCases {
@@ -1555,20 +1571,10 @@ func TestWaitUntilInstanceInServicePolling(t *testing.T) {
 			cfg.WarmPoolsSupport = config.BooleanDefaultFalse{Value: config.ExplicitlyEnabled}
 			ec2MetadataClient := mock_ec2.NewMockEC2MetadataClient(ctrl)
 			agent := &ecsAgent{ec2MetadataClient: ec2MetadataClient, cfg: &cfg}
-
-			if tc.err != nil {
-				ec2MetadataClient.EXPECT().TargetLifecycleState().Return("", tc.err).Times(3)
+			for _, detail := range tc.funcTestDetails {
+				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(detail.val, detail.err).Times(detail.returnTimes)
 			}
-			for _, state := range tc.states {
-				ec2MetadataClient.EXPECT().TargetLifecycleState().Return(state, nil)
-			}
-			var expectedResult error
-			if tc.returnsState {
-				expectedResult = nil
-			} else {
-				expectedResult = tc.err
-			}
-			assert.Equal(t, expectedResult, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls))
+			assert.Equal(t, tc.result, agent.waitUntilInstanceInService(1*time.Millisecond, tc.maxPolls, testTargetLifecycleMaxRetryCount))
 		})
 	}
 }
