@@ -1,4 +1,8 @@
 # Changelog
+## 1.55.5
+* Enhancement - Added support for integration tests on Windows Server 2004, 20H2, and 2022 [#3037](https://github.com/aws/amazon-ecs-agent/pull/3037)
+* Enhancement - Update Agent build golang version to 1.17.2 [#3057](https://github.com/aws/amazon-ecs-agent/pull/3057)
+
 ## 1.55.4
 * Enhancement - GPU updates for ECS Anywhere [#3040](https://github.com/aws/amazon-ecs-agent/pull/3040)
 * Enhancement - Windows OS Family attribute advertisement [#3044](https://github.com/aws/amazon-ecs-agent/pull/3044)
