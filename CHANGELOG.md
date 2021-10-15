@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.55.5-1
+* Cache Agent version 1.55.5
+
 ## 1.55.4-1
 * Cache Agent version 1.55.4
 * GPU updates for ECS Anywhere
