@@ -72,6 +72,17 @@ const (
 	defaultCNIPluginDirName = "cni"
 )
 
+var (
+	envProgramFiles = utils.DefaultIfBlank(os.Getenv("ProgramFiles"), `C:\Program Files`)
+	envProgramData  = utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)
+
+	AmazonProgramFiles = filepath.Join(envProgramFiles, "Amazon")
+	AmazonProgramData  = filepath.Join(envProgramData, "Amazon")
+
+	AmazonECSProgramFiles = filepath.Join(envProgramFiles, "Amazon", "ECS")
+	AmazonECSProgramData  = filepath.Join(AmazonProgramData, "ECS")
+)
+
 // DefaultConfig returns the default configuration for Windows
 func DefaultConfig() Config {
 	programData := utils.DefaultIfBlank(os.Getenv("ProgramData"), `C:\ProgramData`)

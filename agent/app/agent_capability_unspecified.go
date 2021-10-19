@@ -27,6 +27,15 @@ import (
 	"github.com/cihub/seelog"
 )
 
+const (
+	capabilityDepsRootDir = ""
+)
+
+var (
+	capabilityExecRequiredBinaries = []string{}
+	dependencies                   = map[string][]string{}
+)
+
 func (agent *ecsAgent) appendVolumeDriverCapabilities(capabilities []*ecs.Attribute) []*ecs.Attribute {
 	// "local" is default docker driver
 	capabilities = appendNameOnlyAttribute(capabilities, attributePrefix+capabilityDockerPluginInfix+volume.DockerLocalVolumeDriver)
@@ -130,4 +139,8 @@ func (agent *ecsAgent) appendFSxWindowsFileServerCapabilities(capabilities []*ec
 // getTaskENIPluginVersionAttribute for unsupported platform would return an error
 func (agent *ecsAgent) getTaskENIPluginVersionAttribute() (*ecs.Attribute, error) {
 	return nil, errors.New("unsupported platform")
+}
+
+func defaultIsPlatformExecSupported() (bool, error) {
+	return false, nil
 }
